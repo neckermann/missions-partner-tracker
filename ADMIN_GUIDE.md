@@ -335,6 +335,10 @@ Set three env vars (see `backend/.env.example`):
   mounted unless this is set, so a normal deployment with real data has
   no trace of this feature. Leave all three unset for a real deployment.
 
+Optionally, `SEED_MISSIONARY_COUNT`/`SEED_ORGANIZATION_COUNT` control how
+much fake data each reset generates (default 35/12, same as local
+`npm run seed`) — a public demo might want more to look fuller.
+
 Calling `POST /api/demo/reset` with `Authorization: Bearer <DEMO_RESET_TOKEN>`
 (or running `npm run demo:reset` locally/on the server directly) wipes the
 database (`npx prisma migrate reset --force`) and reseeds it

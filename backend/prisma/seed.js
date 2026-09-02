@@ -10,8 +10,10 @@ const { PrismaClient } = require("@prisma/client");
 const { uploadPrivateFileToS3 } = require("../src/utils/s3");
 const prisma = new PrismaClient();
 
-const MISSIONARY_COUNT = 35;
-const ORGANIZATION_COUNT = 12;
+// Overridable via env for deployments that want a different amount of
+// seed data (e.g. a public demo) without forking this file.
+const MISSIONARY_COUNT = Number(process.env.SEED_MISSIONARY_COUNT) || 35;
+const ORGANIZATION_COUNT = Number(process.env.SEED_ORGANIZATION_COUNT) || 12;
 
 // --- tiny random helpers ---
 function pick(arr) {
