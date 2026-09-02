@@ -1,0 +1,191 @@
+/* Print-only visual system for the missionary booklet (AdminBooklet.jsx).
+   Loaded exclusively via paged.js's Previewer, never imported globally —
+   these @page rules are meant to apply only to this generated document,
+   not to printing the rest of the admin app. */
+
+@page {
+  size: letter;
+  margin: 0.6in;
+}
+
+@page {
+  @bottom-right {
+    content: counter(page);
+    font-size: 9pt;
+    color: #888;
+    font-family: Arial, sans-serif;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Georgia, "Times New Roman", serif;
+  color: #222;
+  margin: 0;
+}
+
+.booklet-cover,
+.booklet-index,
+.booklet-page {
+  position: relative;
+  min-height: 9.2in;
+  break-after: page;
+  overflow: hidden;
+  padding: 0.25in;
+}
+
+.booklet-shape {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--accent, #c97a3d);
+  opacity: 0.22;
+}
+.shape-a {
+  width: 150px;
+  height: 150px;
+  top: -50px;
+  right: -50px;
+}
+.shape-b {
+  width: 100px;
+  height: 100px;
+  bottom: 30px;
+  left: -35px;
+}
+
+.booklet-cover-title {
+  font-size: 48pt;
+  font-weight: 700;
+  margin: 3in 0 0.2in;
+  text-align: center;
+}
+.booklet-cover-subtitle {
+  font-size: 16pt;
+  text-align: center;
+  color: #555;
+  margin: 0;
+}
+.booklet-cover-date {
+  text-align: center;
+  font-size: 10pt;
+  color: #999;
+  margin-top: 0.5in;
+  font-family: Arial, sans-serif;
+}
+
+.booklet-index-title {
+  font-size: 24pt;
+  margin: 1in 0 0.3in;
+}
+.booklet-index-list {
+  list-style: none;
+  padding: 0;
+  font-size: 12pt;
+  line-height: 1.8;
+  font-family: Arial, sans-serif;
+}
+
+.booklet-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10pt;
+  color: var(--accent, #999);
+  font-family: Arial, sans-serif;
+  margin: 0.5in 0 0.05in;
+}
+.booklet-name {
+  font-size: 30pt;
+  font-weight: 700;
+  margin: 0 0 0.2in;
+}
+.booklet-photo {
+  width: 1.4in;
+  height: 1.4in;
+  object-fit: cover;
+  border-radius: 50%;
+  float: right;
+  margin: 0.5in 0 0.2in 0.2in;
+}
+.booklet-callout {
+  background: var(--tint, #f6e4d3);
+  border-radius: 12px;
+  padding: 0.2in;
+  margin: 0.15in 0;
+  font-family: Arial, sans-serif;
+  font-size: 11pt;
+}
+.booklet-callout p {
+  margin: 0;
+}
+
+.booklet-block {
+  margin: 0.15in 0;
+  font-family: Arial, sans-serif;
+  font-size: 11pt;
+}
+.booklet-block h3 {
+  font-family: Georgia, serif;
+  font-size: 13pt;
+  color: var(--accent, #333);
+  margin: 0 0 0.05in;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.05in;
+}
+.booklet-block p {
+  margin: 0.05in 0;
+}
+
+.booklet-footer {
+  position: absolute;
+  bottom: 0.15in;
+  left: 0.25in;
+  font-size: 8pt;
+  color: #999;
+  font-family: Arial, sans-serif;
+}
+
+/* A dedicated full page of ruled, spaced lines for handwritten notes and
+   prayer requests, inserted as its own page immediately after an entry's
+   detail page (see buildNotesPageHtml) — the detail page's own layout is
+   untouched. */
+.booklet-notes-page {
+  display: flex;
+  flex-direction: column;
+}
+.booklet-notes-heading {
+  font-family: Georgia, serif;
+  font-size: 22pt;
+  font-weight: 700;
+  color: var(--accent, #333);
+  margin: 0.5in 0 0.1in;
+}
+.booklet-notes-subheading {
+  font-family: Arial, sans-serif;
+  font-size: 12pt;
+  color: #666;
+  margin: 0 0 0.3in;
+}
+.booklet-notes-lines {
+  flex: 1;
+  min-height: 5in;
+  background-image: linear-gradient(to bottom, transparent calc(0.4in - 1px), #ccc calc(0.4in - 1px), #ccc 0.4in);
+  background-size: 100% 0.4in;
+}
+
+/* Intentional filler page inserted to keep detail+notes pairs aligned to a
+   facing spread when printed as a booklet — see the pad() logic in
+   buildBookletHtml. Labeled per standard print convention. */
+.booklet-blank-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.booklet-blank-page p {
+  font-family: Arial, sans-serif;
+  font-size: 9pt;
+  color: #bbb;
+  font-style: italic;
+}

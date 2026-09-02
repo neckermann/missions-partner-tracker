@@ -1,0 +1,108 @@
+name: Deploy backend to Elastic Beanstalk
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/backend-deploy-aws.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Set these as repository variables (Settings -> Secrets and variables ->
+    # Actions -> Variables) rather than editing this file, plus the
+    # AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY secrets below. The fallback
+    # values below are placeholders, not a working default target.
+    env:
+      EB_APP_NAME: ${{ vars.EB_APP_NAME || 'your-eb-application-name' }}
+      EB_ENV_NAME: ${{ vars.EB_ENV_NAME || 'your-eb-environment-name' }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      S3_BUCKET: ${{ vars.EB_DEPLOY_S3_BUCKET || 'your-eb-deploy-bucket' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Written into backend/public (see frontend/vite.config.js), so the
+      # zip step below picks it up automatically as part of backend/ — this
+      # app is one deployable origin, the backend serves this build
+      # directly (see backend/src/server.js).
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Zip backend + built frontend
+        run: |
+          cd backend
+          zip -r ../backend-deploy.zip . -x "node_modules/*" -x "*.git*" -x "*.env" -x "Dockerfile" -x ".dockerignore"
+
+      - name: Generate version label
+        id: version
+        run: echo "label=v-${{ github.sha }}-${{ github.run_attempt }}" >> $GITHUB_OUTPUT
+
+      - name: Upload to S3
+        run: aws s3 cp backend-deploy.zip s3://${{ env.S3_BUCKET }}/${{ steps.version.outputs.label }}.zip
+
+      - name: Create application version
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name ${{ env.EB_APP_NAME }} \
+            --version-label ${{ steps.version.outputs.label }} \
+            --source-bundle S3Bucket=${{ env.S3_BUCKET }},S3Key=${{ steps.version.outputs.label }}.zip
+
+      - name: Deploy new version
+        run: |
+          aws elasticbeanstalk update-environment \
+            --environment-name ${{ env.EB_ENV_NAME }} \
+            --version-label ${{ steps.version.outputs.label }}
+
+      - name: Wait for environment to stabilize
+        run: |
+          # EB's Status flipping to "Ready" means the update itself is done,
+          # but enhanced health reporting polls on its own separate cadence
+          # and can lag a cycle or two behind -- so a Yellow/Red reading
+          # right when Status first becomes Ready is a normal transient
+          # blip, not necessarily a real failure. Give health up to 2
+          # minutes to catch up to Green before treating it as fatal.
+          READY_SINCE=""
+          for i in $(seq 1 40); do
+            STATUS=$(aws elasticbeanstalk describe-environments \
+              --environment-names ${{ env.EB_ENV_NAME }} \
+              --query "Environments[0].Status" --output text)
+            HEALTH=$(aws elasticbeanstalk describe-environments \
+              --environment-names ${{ env.EB_ENV_NAME }} \
+              --query "Environments[0].Health" --output text)
+            echo "Attempt $i: Status=$STATUS Health=$HEALTH"
+
+            if [ "$STATUS" = "Ready" ] && [ "$HEALTH" = "Green" ]; then
+              echo "Environment is healthy."
+              exit 0
+            fi
+
+            if [ "$STATUS" = "Ready" ]; then
+              if [ -z "$READY_SINCE" ]; then
+                READY_SINCE=$i
+                echo "Status is Ready; giving health up to 2 more minutes to settle to Green."
+              elif [ $((i - READY_SINCE)) -ge 6 ]; then
+                echo "Environment has been Ready for 2+ minutes but health is still $HEALTH — check manually."
+                exit 1
+              fi
+            fi
+
+            sleep 20
+          done
+          echo "Timed out waiting for environment to stabilize."
+          exit 1

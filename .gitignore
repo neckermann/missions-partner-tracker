@@ -1,0 +1,15 @@
+node_modules/
+.env
+.env.*.local
+dist/
+# Frontend build output, written directly into backend/ (see
+# frontend/vite.config.js) so the existing backend deploy zip already
+# contains it — see backend/src/server.js's static-file serving.
+backend/public/
+*.log
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

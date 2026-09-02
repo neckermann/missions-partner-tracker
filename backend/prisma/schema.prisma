@@ -1,0 +1,559 @@
+// Prisma schema for the Missions Team Missionary Tracker
+// Run `npx prisma migrate dev --name init` after setting DATABASE_URL in .env
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Missionary {
+  id                 String   @id @default(uuid())
+
+  // --- Visibility controls ---
+  isPublic           Boolean  @default(false) // show on public site at all
+  isRestricted       Boolean  @default(false) // if public + restricted -> masked/generic view only
+
+  // --- Status ---
+  // Archiving is the "soft delete" — hides the record from admin lists by
+  // default, forces isPublic off, and zeros out monthly support (via a new
+  // SupportEntry, not by editing old ones) — while keeping every bit of
+  // history intact. DELETE is only permitted once a record is archived, so
+  // archiving is the deliberate first step toward ever actually removing
+  // someone. This replaced a separate `retired` flag, which turned out to
+  // be redundant with it.
+  archived                Boolean   @default(false)
+  archivedAt              DateTime?
+  contactSafe            Boolean  @default(true)  // ok to be contacted directly
+  preferredContactMethod String?  // e.g. "Email", "Phone Call", "Text/SMS", "WhatsApp", "Mail"
+  // True when this church (see ChurchSettings) is this missionary's sending
+  // church — distinct from the SendingChurch relation below, which records
+  // details about whichever church actually sends them (may or may not be
+  // this one). Displayed as "Sent by {ChurchSettings.churchName}" in the UI.
+  sentByOurChurch        Boolean  @default(false)
+
+  // --- Core identity / field info ---
+  displayName        String
+  fieldDisplayName   String?  // e.g. "Northern Uganda" - safe to show even if restricted
+  fipsCountryCode    String?
+
+  // overview is the long-form narrative; overviewShort is a one/two-line
+  // summary for quick-read contexts (directory cards, list views) — aligned
+  // with the same pair of fields on Organization. focusArea replaces the
+  // old ministryFocus name for the same alignment reason.
+  overview           String?  @db.Text
+  overviewShort      String?
+  focusArea          String?  @db.Text
+  supportingSince    DateTime? @db.Date // year-only values are stored as Jan 1 of that year
+
+  anniversary        DateTime? @db.Date
+  languagesSpoken    String[] @default([])
+
+  // --- Mission trip capacity: what kind of team this missionary can host ---
+  tripTeamSizeMin    Int?
+  tripTeamSizeMax    Int?
+  tripTypesSupported String[] @default([]) // e.g. ["Construction", "Medical/Dental"]
+  tripSeasonNotes    String?  @db.Text      // best time of year, typical duration, etc.
+  tripLogisticsNotes String?  @db.Text      // lodging, requirements, other logistics
+
+  // --- Links — every field a real, individually validated column (no JSON
+  // blob); matches Organization exactly, field for field. ---
+  websiteLink        String?
+  supportLink        String?
+  newsletterSignup   String?
+  facebook           String?
+  twitter            String?
+  instagram          String?
+  linkedin           String?
+
+  emergencyContact   Json?    // { name, phone, email }
+
+  sendingChurch      SendingChurch?
+  sendingOrg         SendingOrg?
+  adults             Adult[]
+  children           Child[]
+  addresses          Address[]
+  missionTrips       MissionTrip[]
+  furloughs          Furlough[]
+  churchVisits       ChurchVisit[]
+  supportEntries     SupportEntry[]
+  // Named needRequests, not supportNeeds, to avoid colliding with the
+  // existing free-text `supportNeeds` field above (ministry-need narrative,
+  // unrelated to these discrete dollar-amount requests).
+  needRequests       SupportNeed[]
+  newsletters        Newsletter[]
+  // Full upload history, not just the current one — see the Photo model.
+  // The "current" photo (what the admin form and public site show) is
+  // whichever has the latest receivedDate, not just the latest upload.
+  photos             Photo[]
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  createdById        String?
+  updatedById        String?
+
+  @@index([isPublic, isRestricted])
+  @@index([archived])
+}
+
+model Adult {
+  id           String     @id @default(uuid())
+  missionaryId String
+  missionary   Missionary @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  name         String
+  phone1       String?
+  phone2       String?
+  email        String?
+  birthday     DateTime?  @db.Date
+}
+
+model Child {
+  id           String     @id @default(uuid())
+  missionaryId String
+  missionary   Missionary @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  name         String
+  birthday     DateTime?  @db.Date
+}
+
+// A missionary can have up to one address per type. "physical" is their
+// actual serving location (may be a full street address or just
+// city/state/country, depending on what's known/safe to record) and is
+// also the source of the public map pin (gpsLat/gpsLng). "mailing" is the
+// existing US-side contact/support-mail address and has no coordinates.
+model Address {
+  id                  String     @id @default(uuid())
+  missionaryId        String
+  missionary          Missionary @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  type                String     // "physical" | "mailing"
+  addressLine1        String?
+  addressLine2        String?
+  city                String?
+  stateProvinceRegion String?
+  postalCode          String?
+  country             String?
+  gpsLat              Float?
+  gpsLng              Float?
+  receiveMail         Boolean?
+  receivePackages     Boolean?
+
+  @@unique([missionaryId, type])
+}
+
+// A past team trip to visit this missionary — history for reference, not a
+// capacity/preference profile (that lives on Missionary.tripTypesSupported etc).
+model MissionTrip {
+  id           String            @id @default(uuid())
+  missionaryId String
+  missionary   Missionary        @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  startDate    DateTime?         @db.Date
+  endDate      DateTime?         @db.Date
+  tripType     String?           // e.g. "Construction", "Medical/Dental" — preset or custom
+  description  String?           @db.Text // what the team did
+  notes        String?           @db.Text
+  participants TripParticipant[]
+}
+
+// Individual person on a MissionTrip. isLeader marks the trip leader(s)
+// rather than keeping a separate, potentially-inconsistent "leader name" field.
+model TripParticipant {
+  id       String      @id @default(uuid())
+  tripId   String
+  trip     MissionTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  name     String
+  role     String?     // e.g. "Medical", "Construction", "Translator"
+  isLeader Boolean     @default(false)
+  phone    String?
+  email    String?
+}
+
+// A period of time a missionary is off the field and in their home
+// country — missionary-only, unlike ChurchVisit below, since organizations
+// don't go on furlough. endDate is nullable for an open-ended/ongoing
+// furlough whose return date isn't settled yet.
+model Furlough {
+  id           String     @id @default(uuid())
+  missionaryId String
+  missionary   Missionary @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  startDate    DateTime   @db.Date
+  endDate      DateTime?  @db.Date
+  notes        String?    @db.Text
+
+  @@index([missionaryId])
+}
+
+// A single visit a missionary or organization made to (this) church —
+// the reverse direction of MissionTrip/OrganizationTrip, which record us
+// visiting them. Shared table for either parent, same approach as
+// SupportEntry/SupportNeed/Newsletter (see the comment on SupportEntry).
+// "Last visit" is just the entry with the latest visitDate, mirroring how
+// "current support" is read off SupportEntry.
+model ChurchVisit {
+  id             String        @id @default(uuid())
+  missionaryId   String?
+  missionary     Missionary?   @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  visitDate      DateTime      @db.Date
+  notes          String?       @db.Text
+  createdAt      DateTime      @default(now())
+
+  @@index([missionaryId])
+  @@index([organizationId])
+}
+
+model SendingChurch {
+  id             String     @id @default(uuid())
+  missionaryId   String     @unique
+  missionary     Missionary @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  name           String?
+  contactName    String?
+  contactEmail   String?
+  websiteLink    String?
+  mailingAddress Json?
+  phone          String?
+}
+
+model SendingOrg {
+  id             String     @id @default(uuid())
+  missionaryId   String     @unique
+  missionary     Missionary @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  name           String?
+  contactName    String?
+  contactEmail   String?
+  websiteLink    String?
+  mailingAddress Json?
+  phone          String?
+}
+
+// A local or national partner organization, tracked as its own standalone
+// entity (distinct from the per-missionary SendingChurch/SendingOrg
+// sub-records above, which are about who sent a specific missionary).
+// Mirrors the shape of Missionary where it makes sense — profile info,
+// contact details, mission-trip hosting capacity/history — minus the
+// person-specific fields (adults/children/emergency contact/languages).
+model Organization {
+  id                 String   @id @default(uuid())
+
+  isPublic           Boolean  @default(false)
+  isRestricted       Boolean  @default(false)
+  // See Missionary.archived for the full rationale — same soft-delete
+  // behavior, mirrored here field-for-field. This replaced a separate
+  // `active` flag, which turned out to be redundant with it (same reasoning
+  // as Missionary.archived replacing `retired`).
+  archived           Boolean   @default(false)
+  archivedAt         DateTime?
+
+  name               String
+  orgType            String   // "Local" | "National"
+  fieldDisplayName   String?  // region/focus area — safe to show even if restricted
+  fipsCountryCode    String?
+
+  overview           String?  @db.Text
+  overviewShort      String?  // one/two-line summary for quick-read contexts — see Missionary.overviewShort
+  focusArea          String?  @db.Text
+  supportingSince    DateTime? @db.Date
+
+  contactName             String?
+  contactPhone            String?
+  contactEmail            String?
+  preferredContactMethod  String?
+
+  tripTeamSizeMin    Int?
+  tripTeamSizeMax    Int?
+  tripTypesSupported String[] @default([])
+  tripSeasonNotes    String?  @db.Text
+  tripLogisticsNotes String?  @db.Text
+
+  // --- Links — every field a real, individually validated column (no JSON
+  // blob); matches Missionary exactly, field for field. ---
+  websiteLink        String?
+  supportLink        String?
+  newsletterSignup   String?
+  facebook           String?
+  twitter            String?
+  instagram          String?
+  linkedin           String?
+
+  addresses          OrganizationAddress[]
+  orgTrips           OrganizationTrip[]
+  churchVisits       ChurchVisit[]
+  supportEntries     SupportEntry[]
+  needRequests       SupportNeed[] // see Missionary.needRequests for the naming note
+  newsletters        Newsletter[]
+  // See Missionary.photos for the "current" resolution rule.
+  photos             Photo[]
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  createdById        String?
+  updatedById        String?
+
+  @@index([isPublic, isRestricted])
+  @@index([archived])
+}
+
+// Mirrors Address, but for an Organization instead of a Missionary — kept
+// as a separate model rather than a shared/polymorphic one, matching this
+// schema's existing convention (see SendingChurch/SendingOrg).
+model OrganizationAddress {
+  id                  String       @id @default(uuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type                String       // "physical" | "mailing"
+  addressLine1        String?
+  addressLine2        String?
+  city                String?
+  stateProvinceRegion String?
+  postalCode          String?
+  country             String?
+  gpsLat              Float?
+  gpsLng              Float?
+  receiveMail         Boolean?
+  receivePackages     Boolean?
+
+  @@unique([organizationId, type])
+}
+
+// Mirrors MissionTrip, but for an Organization instead of a Missionary.
+model OrganizationTrip {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  startDate      DateTime? @db.Date
+  endDate        DateTime? @db.Date
+  tripType       String?
+  description    String?  @db.Text
+  notes          String?  @db.Text
+  participants   OrganizationTripParticipant[]
+}
+
+// Mirrors TripParticipant, but for an OrganizationTrip.
+model OrganizationTripParticipant {
+  id       String   @id @default(uuid())
+  tripId   String
+  trip     OrganizationTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  name     String
+  role     String?
+  isLeader Boolean  @default(false)
+  phone    String?
+  email    String?
+}
+
+// A monthly-support dollar amount effective as of a given date, for either a
+// Missionary or an Organization — exactly one of missionaryId/organizationId
+// is set (enforced via a CHECK constraint in the migration, since Prisma has
+// no native polymorphic relation). Unlike Address/MissionTrip (duplicated
+// per entity type, an existing convention here), this is a new sub-entity
+// added after that duplication was flagged as worth avoiding going forward,
+// so it's a single shared table instead of a SupportEntry/OrgSupportEntry
+// pair. "Current" support is just the most recent row by effectiveDate —
+// the point of this table is the history, not a single overwritten amount.
+// Admin-only data: never surfaced through toPublicMissionary/toPublicOrganization.
+model SupportEntry {
+  id             String        @id @default(uuid())
+  missionaryId   String?
+  missionary     Missionary?   @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  amount         Int           // whole dollars per month
+  effectiveDate  DateTime      @db.Date
+  notes          String?
+  createdAt      DateTime      @default(now())
+
+  @@index([missionaryId])
+  @@index([organizationId])
+}
+
+// A one-time financial need requested by a Missionary or Organization (e.g.
+// "$1,000 to help a family in their congregation") and our response to it —
+// distinct from SupportEntry, which tracks the recurring monthly amount.
+// approvedAmount/approvedDate stay null until a decision is made, and
+// approvedAmount may be less than requestedAmount (a partial gift) — there's
+// no separate status enum; pending/declined/partial/fully-funded are all
+// just read off of whether approvedAmount is set and how it compares to
+// requestedAmount. Same shared-table approach as SupportEntry.
+model SupportNeed {
+  id              String        @id @default(uuid())
+  missionaryId    String?
+  missionary      Missionary?   @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  description     String        @db.Text
+  requestedAmount Int
+  requestDate     DateTime      @db.Date
+
+  approvedAmount  Int?
+  approvedDate    DateTime?     @db.Date
+
+  notes           String?       @db.Text
+  createdAt       DateTime      @default(now())
+
+  @@index([missionaryId])
+  @@index([organizationId])
+}
+
+// A newsletter file (PDF, .eml export, or a screenshot image) received from
+// a Missionary or an Organization — exactly one of missionaryId/
+// organizationId is set, same shared-table approach as SupportEntry/
+// SupportNeed. Files live in the same S3 bucket as missionary headshots/org
+// logos, under a "newsletters/" prefix that the bucket policy deliberately
+// does NOT grant public read on (unlike "missionaries/"/"organizations/"/
+// "settings/", the last being the church logo) —
+// access is always mediated through a short-lived pre-signed URL generated
+// by the backend, admin-only for now. That indirection is what will let a
+// future "show non-restricted partners' newsletters publicly" feature ship
+// without ever having to flip anything to bucket-wide public.
+model Newsletter {
+  id             String        @id @default(uuid())
+  missionaryId   String?
+  missionary     Missionary?   @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  title          String?
+  receivedDate   DateTime      @db.Date
+  fileKey        String        // S3 object key (private — never a public URL)
+  fileName       String        // original uploaded filename, for display/download
+  contentType    String
+  fileSize       Int?          // bytes
+  notes          String?       @db.Text
+
+  createdAt      DateTime      @default(now())
+  createdById    String?
+
+  @@index([missionaryId])
+  @@index([organizationId])
+}
+
+// Every photo ever uploaded for a Missionary or Organization, not just the
+// current one — same shared-table approach as Newsletter. Unlike
+// Newsletter's private fileKey, photos are public-read (same S3 prefixes
+// as before: "missionaries/"/"organizations/"), so this stores the direct
+// URL. The "current" photo (shown in the admin form and, if the partner is
+// public, on the public site) is whichever row has the latest
+// receivedDate for that missionary/organization — not whichever was
+// uploaded most recently, since backfilling an older photo shouldn't
+// demote a more recent one that just hasn't been uploaded yet. Older
+// photos stay queryable for history and can be deleted individually from
+// the partner's detail page.
+model Photo {
+  id             String        @id @default(uuid())
+  missionaryId   String?
+  missionary     Missionary?   @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  url            String        // full public S3 URL
+  receivedDate   DateTime      @db.Date // when this photo was actually taken/received, not upload time
+  contentType    String?
+  fileSize       Int?          // bytes
+
+  createdAt      DateTime      @default(now())
+  createdById    String?
+
+  @@index([missionaryId])
+  @@index([organizationId])
+}
+
+// Single-row table describing the church running this instance — used to
+// white-label the app (name/branding/terminology) and to auto-fill the
+// Sending Church section on a Missionary when this church is the sender.
+// Fixed id so there's never more than one row; GET returns null before
+// it's ever configured, PUT upserts it into existence.
+model ChurchSettings {
+  id                    String   @id @default("singleton")
+
+  churchName            String?
+  address               Json?    // { addressLine1, addressLine2, city, stateProvinceRegion, postalCode, country } — same shape as SendingChurch.mailingAddress, for a direct copy on autofill
+  phone                 String?
+  contactName           String?
+  contactEmail          String?
+  websiteLink           String?
+
+  // What this church calls its partners, e.g. "Go Team Partner(s)".
+  // Nullable — app code falls back to "Missionary"/"Missionaries" so an
+  // unconfigured instance behaves exactly like it always has.
+  partnerTermSingular   String?
+  partnerTermPlural     String?
+  // Off by default: admin nav/list headings keep saying "Missionary
+  // Partners" (they describe the underlying data type an admin is
+  // editing) unless a church opts into using its own term there too.
+  usePartnerTermInAdmin Boolean  @default(false)
+
+  publicTagline         String?  // short subtitle under the public map/directory header
+  aboutText             String?  @db.Text // optional blurb shown on the public directory
+  primaryColor          String?  // hex, overrides the site's --brand-color CSS variable
+  logo                  Json?    // { url } — same shape as Missionary/Organization images
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  updatedById           String?
+}
+
+// Users who can log into the admin backend.
+// authProvider is "local" (username/password) or an SsoProvider's `type`
+// (e.g. "entra", "google", "okta", "oidc") — set from whichever provider
+// the user last authenticated through; see SsoProvider below.
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String?
+  passwordHash String?  // null for SSO-only accounts
+  authProvider String   @default("local")
+  role         String   @default("editor") // "admin" | "editor" | "viewer"
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  lastLoginAt  DateTime?
+
+  // Which configured SsoProvider this user last signed in through, if any.
+  // Nullable and SetNull on delete — losing the link just means the app no
+  // longer knows which provider config to attribute future logins to; the
+  // user row and its history stay intact.
+  ssoProviderId String?
+  ssoProvider   SsoProvider? @relation(fields: [ssoProviderId], references: [id], onDelete: SetNull)
+
+  // TOTP MFA — opt-in per user, self-service enroll/disable from Account
+  // Settings; mfaSecret is only ever set once mfaEnabled flow starts, and
+  // is cleared whenever MFA is turned off (self-service or admin reset).
+  // Encrypted at rest (see backend/src/utils/crypto.js) — TOTP verification
+  // needs the raw secret back, so this can't be a one-way hash like a
+  // password.
+  mfaEnabled       Boolean  @default(false)
+  mfaSecret        String?
+  // Admin-set per-user policy flag: forces enrollment at next login when
+  // true and mfaEnabled is still false. Independent of mfaEnabled so an
+  // admin can mandate MFA for an account without knowing/setting the
+  // secret themselves — the user still does the actual QR scan.
+  mfaSetupRequired Boolean  @default(false)
+}
+
+// One row per configured SSO identity provider (Entra ID, Google, Okta, or
+// any other standards-compliant OIDC provider). Configured entirely from
+// the admin Church Settings UI — no env vars or redeploy needed to add,
+// change, or disable one. `type` is a cosmetic hint for the admin UI/login
+// button only; the actual login flow is one generic OIDC code path
+// (backend/src/routes/sso.js, via `openid-client`) driven by discovery at
+// `${issuerUrl}/.well-known/openid-configuration`, so any OIDC-compliant
+// IdP works even when its type is just "oidc". clientSecret is encrypted
+// at rest (see backend/src/utils/crypto.js) — this is deliberately not
+// split between env vars and DB; see CONTRIBUTING.md.
+model SsoProvider {
+  id            String   @id @default(uuid())
+  type          String   // "entra" | "google" | "okta" | "oidc" -- cosmetic only
+  enabled       Boolean  @default(false)
+  displayName   String   // shown on the login button, e.g. "Sign in with Entra ID"
+  issuerUrl     String   // OIDC issuer; discovery fetched from {issuerUrl}/.well-known/openid-configuration
+  clientId      String
+  clientSecret  String   // encrypted at rest
+  allowedDomain String?  // optional: only allow logins from this email domain
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  updatedById   String?
+
+  users         User[]
+}
