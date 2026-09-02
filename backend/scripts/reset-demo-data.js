@@ -10,8 +10,8 @@ const prisma = require("../src/prismaClient");
 
 const BACKEND_DIR = path.join(__dirname, "..");
 
-function run(cmd, args) {
-  execFileSync(cmd, args, { cwd: BACKEND_DIR, stdio: "inherit", env: process.env, shell: process.platform === "win32" });
+function run(cmd, args, { shell = false } = {}) {
+  execFileSync(cmd, args, { cwd: BACKEND_DIR, stdio: "inherit", env: process.env, shell });
 }
 
 async function resetDemoData() {
@@ -23,8 +23,17 @@ async function resetDemoData() {
 
   // Drops and recreates the schema from migrations — simpler and more
   // robust than hand-maintaining a cascade-aware deleteMany order that
-  // could drift as the schema evolves.
-  run("npx", ["prisma", "migrate", "reset", "--force", "--skip-seed", "--skip-generate"]);
+  // could drift as the schema evolves. `npx` is a .cmd file on Windows,
+  // which Node genuinely cannot launch without a shell (confirmed: it
+  // fails with EINVAL otherwise) — shell is scoped to just this one call,
+  // which takes no variable/sensitive arguments, so there's nothing here
+  // for an unescaped shell to matter for. The two `node` calls below (one
+  // of which takes the admin email/password) run without a shell at
+  // all — node.exe is a real executable, so execFileSync passes their
+  // args through directly with no injection risk.
+  run("npx", ["prisma", "migrate", "reset", "--force", "--skip-seed", "--skip-generate"], {
+    shell: process.platform === "win32",
+  });
   run("node", ["prisma/seed.js"]);
   run("node", ["prisma/createAdmin.js", email, password]);
 
