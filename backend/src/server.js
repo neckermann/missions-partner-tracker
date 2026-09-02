@@ -59,6 +59,12 @@ app.use("/api/newsletters", newsletterRoutes); // protected (admin) — session 
 app.use("/api/settings", settingsRoutes); // protected (admin for write, any role for read)
 app.use("/api/public/settings", publicSettingsRoutes); // open (public site + admin nav branding)
 
+// Only exists at all if DEMO_RESET_TOKEN is configured — absent in every
+// normal deployment. See ADMIN_GUIDE.md § Demo mode.
+if (process.env.DEMO_RESET_TOKEN) {
+  app.use("/api/demo", require("./routes/demo"));
+}
+
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 // --- Frontend ---

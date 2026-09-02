@@ -1,6 +1,6 @@
 {
   "name": "missions-partner-tracker-backend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -12,6 +12,7 @@
     "prisma:studio": "prisma studio",
     "seed": "node prisma/seed.js",
     "migrate:encrypt-secrets": "node scripts/encrypt-legacy-mfa-secrets.js",
+    "demo:reset": "node scripts/reset-demo-data.js",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {

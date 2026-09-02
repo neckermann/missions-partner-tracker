@@ -16,6 +16,15 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.1] - 2026-09-02
+
+### Added
+- **Demo mode**: an opt-in `POST /api/demo/reset` endpoint (only mounted
+  if `DEMO_RESET_TOKEN` is set — otherwise absent, as if it doesn't
+  exist) that wipes the database and reseeds it with fresh fake data plus
+  a published login, for running a public demo instance that resets on a
+  schedule. See [ADMIN_GUIDE.md § Demo mode](ADMIN_GUIDE.md#demo-mode).
+
 ## [1.0.0] - 2026-09-02
 
 Baseline snapshot of the project as of its first tagged release.

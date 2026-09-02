@@ -320,6 +320,46 @@ this public repo as upstream. If that's your setup:
   suite/build before deploying — a clean git merge doesn't guarantee the
   result actually runs.
 
+### Demo mode
+
+Optional, and only relevant if you want to stand up a public demo
+instance — a deployment anyone can visit and actually try the admin
+dashboard on, running fake seeded data that resets on a schedule so
+nothing anyone does there is permanent.
+
+Set three env vars (see `backend/.env.example`):
+- `DEMO_ADMIN_EMAIL` / `DEMO_ADMIN_PASSWORD` — the login you publish for
+  visitors to use.
+- `DEMO_RESET_TOKEN` — a random secret (`openssl rand -base64 32`). This
+  is what makes `POST /api/demo/reset` exist at all — the route isn't
+  mounted unless this is set, so a normal deployment with real data has
+  no trace of this feature. Leave all three unset for a real deployment.
+
+Calling `POST /api/demo/reset` with `Authorization: Bearer <DEMO_RESET_TOKEN>`
+(or running `npm run demo:reset` locally/on the server directly) wipes the
+database (`npx prisma migrate reset --force`) and reseeds it
+(`backend/prisma/seed.js`), recreates the demo login
+(`backend/prisma/createAdmin.js`), and sets Church Settings to a
+demo-branded name/tagline/about-text that tells visitors it's a live
+demo and states the login credentials — reusing the existing
+white-labeling mechanism, no frontend changes needed. See
+`backend/scripts/reset-demo-data.js` for the exact sequence.
+
+To actually reset on a schedule, add a scheduled job **in your fork's own
+repo** (not this one — scheduling is deployment-specific) that calls the
+route periodically, e.g. a GitHub Actions workflow with a `schedule:`
+cron trigger doing:
+```bash
+curl -X POST https://your-demo-domain/api/demo/reset \
+  -H "Authorization: Bearer ${{ secrets.DEMO_RESET_TOKEN }}"
+```
+No additional infrastructure needed beyond what
+[INFRASTRUCTURE.md](INFRASTRUCTURE.md) already sets up — this reuses
+GitHub Actions, which you already have for deploys.
+
+**This wipes the entire database.** Never set `DEMO_RESET_TOKEN` (or run
+`npm run demo:reset`) against a deployment holding real partner data.
+
 ## Upgrading a fork
 
 If you forked this repo, see [UPGRADING.md](UPGRADING.md) for the full
