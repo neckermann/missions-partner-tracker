@@ -1,6 +1,6 @@
 {
   "name": "missions-partner-tracker-backend",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -41,5 +41,8 @@
   },
   "prisma": {
     "seed": "node prisma/seed.js"
+  },
+  "overrides": {
+    "qs": "^6.16.0"
   }
 }

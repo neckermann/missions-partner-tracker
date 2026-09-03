@@ -16,6 +16,24 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.2] - 2026-09-03
+
+### Fixed
+- **Security**: `qs` (transitive, via `express`/`body-parser`) pinned to
+  `^6.16.0` via a package.json `overrides` entry, fixing a moderate
+  denial-of-service advisory
+  ([GHSA-4mjr-xmp4-gh2g](https://github.com/advisories/GHSA-4mjr-xmp4-gh2g)).
+  `express@4.22.2` (the latest 4.x) still resolves `body-parser@1.20.6`,
+  which pulls the vulnerable `qs` version — Express 5 fixes this
+  transitively but is a breaking major upgrade this project isn't taking
+  on for a moderate, low-complexity advisory, so it's overridden directly
+  instead.
+- **Demo mode**: `POST /api/demo/reset` now also clears the S3 bucket
+  (under `missionaries/`, `organizations/`, `newsletters/`, `settings/`)
+  as part of every reset, not just the database — previously each
+  reset's uploads (seeded photos, newsletter files) were left behind in
+  S3 permanently, since wiping the database doesn't touch S3.
+
 ## [1.0.1] - 2026-09-02
 
 ### Added
