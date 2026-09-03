@@ -16,6 +16,18 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.3] - 2026-09-03
+
+### Changed
+- **Express upgraded 4 → 5.** The only breaking change that affected this
+  app was the SPA catch-all route, which now uses `"*splat"` instead of
+  a bare `"*"` (required by `path-to-regexp` v8, an Express 5
+  dependency) — everything else in the app was already compatible.
+  This also removes the need for the `qs` override added in 1.0.2:
+  Express 5's own `qs` dependency range already resolves to a patched
+  version, so the explicit `overrides` entry has been dropped as
+  redundant.
+
 ## [1.0.2] - 2026-09-03
 
 ### Fixed

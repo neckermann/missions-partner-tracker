@@ -77,7 +77,7 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 // JSON instead of falling through to index.html.
 const frontendBuild = path.join(__dirname, "../public");
 app.use(express.static(frontendBuild));
-app.get("*", (req, res) => res.sendFile(path.join(frontendBuild, "index.html")));
+app.get("*splat", (req, res) => res.sendFile(path.join(frontendBuild, "index.html")));
 
 // --- Error handler ---
 // Full details always go to the server log. The client only gets err.message
