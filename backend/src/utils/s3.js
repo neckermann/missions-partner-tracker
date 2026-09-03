@@ -1,4 +1,11 @@
-const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
+const {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
+} = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
 // Region and credentials come from the environment: AWS_REGION is read
@@ -83,10 +90,39 @@ async function deleteFromS3ByKey(key) {
   await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
 }
 
+// DANGEROUS — deletes every object under each given prefix, no confirmation,
+// no per-object check against what's still referenced in the database. Only
+// meant for scripts/reset-demo-data.js, where the database itself was just
+// fully wiped and recreated (so nothing under these prefixes can possibly
+// still be referenced) — never call this from a normal request handler.
+// Prefixes must be passed explicitly rather than defaulting to "everything
+// in the bucket", so a bucket that ever picks up unrelated content doesn't
+// get silently swept too.
+async function deleteAllObjectsUnderPrefixes(prefixes) {
+  for (const prefix of prefixes) {
+    let continuationToken;
+    do {
+      const { Contents, IsTruncated, NextContinuationToken } = await s3.send(
+        new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, ContinuationToken: continuationToken })
+      );
+      if (Contents?.length) {
+        await s3.send(
+          new DeleteObjectsCommand({
+            Bucket: BUCKET,
+            Delete: { Objects: Contents.map((o) => ({ Key: o.Key })) },
+          })
+        );
+      }
+      continuationToken = IsTruncated ? NextContinuationToken : undefined;
+    } while (continuationToken);
+  }
+}
+
 module.exports = {
   uploadImageToS3,
   deleteFromS3IfOwned,
   uploadPrivateFileToS3,
   getPresignedDownloadUrl,
   deleteFromS3ByKey,
+  deleteAllObjectsUnderPrefixes,
 };

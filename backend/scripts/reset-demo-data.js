@@ -7,6 +7,7 @@ require("dotenv").config();
 const path = require("path");
 const { execFileSync } = require("child_process");
 const prisma = require("../src/prismaClient");
+const { deleteAllObjectsUnderPrefixes } = require("../src/utils/s3");
 
 const BACKEND_DIR = path.join(__dirname, "..");
 
@@ -34,6 +35,16 @@ async function resetDemoData() {
   run("npx", ["prisma", "migrate", "reset", "--force", "--skip-seed", "--skip-generate"], {
     shell: process.platform === "win32",
   });
+
+  // Must run before seeding, not after — the database reset above dropped
+  // every table, including ChurchSettings, so nothing in the now-empty
+  // database can possibly still reference a previously-uploaded file (a
+  // prior reset's seeded photos, a demo visitor's newsletter upload, a
+  // custom logo someone set through Church Settings). Running this after
+  // seed.js instead would delete the very newsletters seed.js just
+  // uploaded moments earlier in the same reset.
+  await deleteAllObjectsUnderPrefixes(["missionaries/", "organizations/", "newsletters/", "settings/"]);
+
   run("node", ["prisma/seed.js"]);
   run("node", ["prisma/createAdmin.js", email, password]);
 

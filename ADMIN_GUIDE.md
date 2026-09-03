@@ -341,7 +341,11 @@ much fake data each reset generates (default 35/12, same as local
 
 Calling `POST /api/demo/reset` with `Authorization: Bearer <DEMO_RESET_TOKEN>`
 (or running `npm run demo:reset` locally/on the server directly) wipes the
-database (`npx prisma migrate reset --force`) and reseeds it
+database (`npx prisma migrate reset --force`), clears every object in the
+S3 bucket under the `missionaries/`, `organizations/`, `newsletters/`,
+and `settings/` prefixes (the database reset means nothing can still
+reference an old upload — a prior cycle's seeded photos, a demo visitor's
+newsletter, a custom logo someone set), then reseeds
 (`backend/prisma/seed.js`), recreates the demo login
 (`backend/prisma/createAdmin.js`), and sets Church Settings to a
 demo-branded name/tagline/about-text that tells visitors it's a live
