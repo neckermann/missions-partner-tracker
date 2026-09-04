@@ -26,11 +26,17 @@ Nothing yet.
   private-S3/pre-signed-URL access model as Newsletters. Each document
   gets a category (Survey Response, Signed Policy, Email Communication,
   Office Document, or a free-typed Other label), a received date, and
-  notes, and the consolidated **Admin → Documents** page can filter by
-  category and by missionary/organization. Accepts PDF, Word (.doc/
+  notes. The consolidated **Admin → Documents** page (also linked from
+  the admin home dashboard) can filter by category and by missionary/
+  organization, and every partner's own detail page gets a Documents
+  section alongside its Newsletters one. Accepts PDF, Word (.doc/
   .docx), Excel (.xls/.xlsx), .eml, JPEG, and PNG — every format except
   .eml is verified against its actual file content on upload, not just
   its declared type (see `backend/src/utils/fileSignature.js`).
+  Demo/seed data (`backend/prisma/seed.js`) now includes sample
+  documents across every category, each a genuinely valid, openable
+  file — a real minimal PDF (proper structure, not just the bare magic
+  bytes) or a real `.eml`, not placeholder bytes.
   New `Document` table — run `npx prisma migrate deploy` when upgrading
   (see [UPGRADING.md](UPGRADING.md)).
 
