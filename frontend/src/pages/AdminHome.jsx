@@ -35,6 +35,11 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin) {
     title: "Newsletters",
     description: "Upload and browse newsletters received from missionary and organization partners.",
   },
+  {
+    to: "/admin/documents",
+    title: "Documents",
+    description: "Survey responses, signed policies, and other documents from missionary and organization partners.",
+  },
     {
       to: "/admin/booklet",
       title: "Print Booklet",

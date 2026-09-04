@@ -260,6 +260,69 @@ async function maybeAddNewsletter({ missionaryId, organizationId, name, slug, fi
   });
 }
 
+// Titles per Document category — see backend/src/routes/documents.js's
+// CATEGORIES for what these keys mean. "other" pairs a title with its own
+// free-typed customCategory, same as a real admin would fill in.
+const DOCUMENT_TITLES = {
+  survey_response: ["Annual Field Survey Response", "Mid-Year Check-In Survey", "Partner Satisfaction Survey"],
+  signed_policy: ["Signed Child Protection Policy", "Signed Code of Conduct", "Signed Financial Accountability Agreement"],
+  office_document: ["Ministry Budget Overview", "Field Report", "Travel Itinerary"],
+  email: ["Re: Prayer Request Update", "Follow-up from Field Visit", "Question about Support Timeline"],
+};
+const OTHER_DOCUMENT_TITLES = ["Background Check Results", "Reference Letter", "Passport Copy"];
+const OTHER_DOCUMENT_CATEGORIES = ["Background Check", "Reference", "Travel Document"];
+const DOCUMENT_NOTES = [
+  "On file per policy.",
+  "Kept for records.",
+  "Shared for planning purposes.",
+  "Received during the fall check-in cycle.",
+];
+
+// A minimal-but-real PDF — the actual bytes only need to satisfy
+// routes/documents.js's magic-byte content check ("%PDF-"), never rendered
+// as a real document, so no page content beyond that is needed.
+function buildFakePdf(title) {
+  return Buffer.from(`%PDF-1.4\n% Seed data placeholder for "${title}" — not a real document.\n`, "utf-8");
+}
+
+async function maybeAddDocument({ missionaryId, organizationId, name, slug, field }) {
+  if (!chance(0.35)) return;
+  const category = pick(["survey_response", "signed_policy", "office_document", "email", "other"]);
+  const isOther = category === "other";
+  const title = isOther ? pick(OTHER_DOCUMENT_TITLES) : pick(DOCUMENT_TITLES[category]);
+  const customCategory = isOther ? pick(OTHER_DOCUMENT_CATEGORIES) : null;
+  const ownerId = missionaryId || organizationId;
+
+  let buffer, fileName, contentType;
+  if (category === "email") {
+    buffer = buildFakeEml(name, slug, title, field);
+    fileName = "email.eml";
+    contentType = "message/rfc822";
+  } else {
+    buffer = buildFakePdf(title);
+    fileName = "document.pdf";
+    contentType = "application/pdf";
+  }
+
+  const key = `documents/${ownerId}/${Date.now()}-${fileName}`;
+  await uploadPrivateFileToS3(buffer, key, contentType);
+  await prisma.document.create({
+    data: {
+      missionaryId: missionaryId || undefined,
+      organizationId: organizationId || undefined,
+      category,
+      customCategory,
+      title,
+      receivedDate: dateBetween(1, 0),
+      notes: chance(0.5) ? pick(DOCUMENT_NOTES) : null,
+      fileKey: key,
+      fileName,
+      contentType,
+      fileSize: buffer.length,
+    },
+  });
+}
+
 const ORG_TYPES = ["Local", "National"];
 const ORG_NAME_TEMPLATES = [
   (f) => `${f.city} Bible Institute`,
@@ -556,6 +619,7 @@ async function main() {
     });
 
     await maybeAddNewsletter({ missionaryId: createdMissionary.id, name: displayName, slug: last.toLowerCase(), field: fieldInfo.field });
+    await maybeAddDocument({ missionaryId: createdMissionary.id, name: displayName, slug: last.toLowerCase(), field: fieldInfo.field });
   }
 
   console.log(`Seeding ${ORGANIZATION_COUNT} organizations...`);
@@ -622,6 +686,7 @@ async function main() {
     });
 
     await maybeAddNewsletter({ organizationId: created.id, name, slug: slugify(name), field: fieldInfo.field });
+    await maybeAddDocument({ organizationId: created.id, name, slug: slugify(name), field: fieldInfo.field });
   }
 
   const finalMissionaries = await prisma.missionary.count();
