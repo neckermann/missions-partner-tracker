@@ -28,16 +28,26 @@ const PORT = process.env.PORT || 4000;
 // helmet()'s default CSP is `img-src 'self' data:`, which blocks every
 // missionary/organization photo and church logo — they're all rendered as
 // <img src={photo.url}> pointing at the S3/CloudFront bucket, a different
-// origin than this app. Widening just img-src (not disabling CSP) to also
-// allow that one known origin. Only added if S3 is actually configured —
-// an unconfigured instance has no photos to load anyway.
+// origin than this app — and the public map, which loads its tiles from
+// OpenStreetMap's own subdomained tile servers and its default marker
+// pin/shadow icons from unpkg's CDN (both hardcoded in PublicMap.jsx's
+// TileLayer url and icon imports). Widening just img-src (not disabling
+// CSP) to also allow those known origins. The S3 one is only added if S3
+// is actually configured — an unconfigured instance has no photos to
+// load anyway.
 const s3Origin = process.env.S3_BUCKET_NAME || process.env.S3_PUBLIC_URL_BASE ? publicBaseUrl() : null;
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        "img-src": ["'self'", "data:", ...(s3Origin ? [s3Origin] : [])],
+        "img-src": [
+          "'self'",
+          "data:",
+          "https://*.tile.openstreetmap.org",
+          "https://unpkg.com",
+          ...(s3Origin ? [s3Origin] : []),
+        ],
       },
     },
   })

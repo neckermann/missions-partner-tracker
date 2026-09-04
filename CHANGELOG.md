@@ -16,6 +16,18 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.9] - 2026-09-04
+
+### Fixed
+- **The public map stopped rendering** — a regression from v1.0.4's CSP
+  fix, which widened `img-src` for missionary/organization photos but
+  didn't account for the map's other two external image sources:
+  Leaflet's map tiles (OpenStreetMap's subdomained tile servers) and its
+  default marker pin/shadow icons (unpkg's CDN). Both are now explicitly
+  allowed alongside the S3 origin. Verified with a real headless-browser
+  check against the live demo: all 20 visible map tiles loaded, no
+  console errors, pins and photos render correctly.
+
 ## [1.0.8] - 2026-09-04
 
 ### Added
