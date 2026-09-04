@@ -21,7 +21,18 @@ const router = express.Router();
 // (`${issuerUrl}/.well-known/openid-configuration`) is what actually
 // varies between them.
 const STATE_TTL = "10m";
+const STATE_TTL_MS = 10 * 60 * 1000;
 const CALLBACK_PATH = "/api/auth/sso/callback";
+// Holds the PKCE code_verifier between /login and /callback. Kept out of
+// the `state` JWT deliberately — state round-trips through the browser to
+// the external IdP and back (it's a URL query param on the authorization
+// request), so anything in it is visible in the IdP's own logs, browser
+// history, and any Referer header the IdP's login page happens to send.
+// The verifier is supposed to prove "the same client that started the
+// flow" — putting it somewhere that leaves this server's own
+// browser-to-server channel undercuts that. A cookie, scoped to only this
+// callback path, never leaves that channel.
+const PKCE_COOKIE_NAME = "sso_pkce_verifier";
 
 // This must be absolute (registered with the IdP as the Reply URL /
 // Authorized redirect URI) — everything else in this file redirects the
@@ -47,11 +58,12 @@ router.get("/providers", async (req, res, next) => {
 });
 
 // GET /api/auth/sso/:providerId/login — redirects the browser to the
-// provider's authorization endpoint. State/nonce/PKCE verifier are packed
-// into a short-lived signed JWT used as the `state` parameter itself,
-// rather than kept server-side — there's no server-side session store for
-// this exchange, so self-describing state means the callback needs
-// nothing but what the IdP hands back in the query string.
+// provider's authorization endpoint. State/nonce are packed into a
+// short-lived signed JWT used as the `state` parameter itself, rather than
+// kept server-side — there's no server-side session store for this
+// exchange, so self-describing state means the callback needs nothing but
+// what the IdP hands back in the query string. The PKCE verifier is the
+// one exception — see PKCE_COOKIE_NAME above for why it's a cookie instead.
 router.get("/:providerId/login", async (req, res) => {
   try {
     const provider = await prisma.ssoProvider.findUnique({ where: { id: req.params.providerId } });
@@ -68,11 +80,17 @@ router.get("/:providerId/login", async (req, res) => {
     const codeVerifier = randomPKCECodeVerifier();
     const codeChallenge = await calculatePKCECodeChallenge(codeVerifier);
     const nonce = randomNonce();
-    const state = jwt.sign(
-      { providerId: provider.id, nonce, codeVerifier },
-      process.env.SESSION_SECRET,
-      { expiresIn: STATE_TTL }
-    );
+    const state = jwt.sign({ providerId: provider.id, nonce }, process.env.SESSION_SECRET, {
+      expiresIn: STATE_TTL,
+    });
+
+    res.cookie(PKCE_COOKIE_NAME, codeVerifier, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: STATE_TTL_MS,
+      path: CALLBACK_PATH, // only ever sent back on the callback request
+    });
 
     const authUrl = buildAuthorizationUrl(config, {
       redirect_uri: redirectUri(),
@@ -105,7 +123,14 @@ router.get("/callback", async (req, res) => {
     } catch {
       throw new Error("Invalid or expired SSO state");
     }
-    const { providerId, nonce, codeVerifier } = decoded;
+    const { providerId, nonce } = decoded;
+
+    // Read once, clear immediately — a codeVerifier is single-use, and
+    // clearing it now (rather than only on success) means a retried or
+    // duplicated callback request can't reuse it either.
+    const codeVerifier = req.cookies?.[PKCE_COOKIE_NAME];
+    res.clearCookie(PKCE_COOKIE_NAME, { path: CALLBACK_PATH });
+    if (!codeVerifier) throw new Error("Missing PKCE verifier — cookie expired or was blocked");
 
     const provider = await prisma.ssoProvider.findUnique({ where: { id: providerId } });
     if (!provider || !provider.enabled) throw new Error("SSO provider is no longer available");

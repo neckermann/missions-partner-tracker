@@ -125,4 +125,5 @@ module.exports = {
   getPresignedDownloadUrl,
   deleteFromS3ByKey,
   deleteAllObjectsUnderPrefixes,
+  publicBaseUrl,
 };

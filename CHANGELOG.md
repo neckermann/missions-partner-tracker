@@ -29,6 +29,26 @@ Nothing yet.
   [ADMIN_GUIDE.md § Single sign-on (SSO)](ADMIN_GUIDE.md#single-sign-on-sso)
   for the full guidance on also gating access on the identity provider's
   own side.
+- **Security**: uploaded photo/logo/newsletter files now have their actual
+  content verified against a handful of known magic-byte signatures
+  (JPEG/PNG/WebP/PDF), not just the client-supplied Content-Type header,
+  which was trivially spoofable. See `backend/src/utils/fileSignature.js`.
+- **Security**: the default Content-Security-Policy now explicitly allows
+  `img-src` from this app's own S3/CloudFront asset origin. helmet()'s
+  out-of-the-box default (`img-src 'self' data:`) was silently blocking
+  every missionary/organization photo and church logo, since all of them
+  load from that separate origin.
+- **Security**: `POST /api/demo/reset`'s bearer-token check now uses
+  `crypto.timingSafeEqual` instead of `!==`, removing a timing
+  side-channel on the token that guards a fully destructive action.
+- **Security**: the SSO login flow's PKCE `code_verifier` now travels in a
+  short-lived, path-scoped, httpOnly cookie instead of inside the `state`
+  parameter — `state` round-trips through the browser to the external
+  identity provider and back, so anything in it (URL query string) is
+  visible in the IdP's own logs, browser history, and any Referer header
+  the IdP's login page sends. The verifier is supposed to prove "the same
+  client that started the flow"; keeping it only in this server's own
+  browser-to-server channel restores that guarantee.
 
 ## [1.0.3] - 2026-09-03
 
