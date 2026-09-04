@@ -16,6 +16,24 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.8] - 2026-09-04
+
+### Added
+- **Booklet print templates**: the Print Booklet page now offers a
+  **Look & Feel** picker with three visually distinct templates —
+  Classic (the original design), Modern (clean nonprofit-report style,
+  no decorative shapes, bold rules, a rectangular photo), and
+  Traditional (a bordered page frame, small centered portrait, serif
+  type throughout). All three share the same content-generation code
+  (`frontend/src/pages/AdminBooklet.jsx`) and differ only in CSS,
+  scoped under `.tpl-classic`/`.tpl-modern`/`.tpl-traditional`
+  (`frontend/src/styles/booklet.css`) — switching templates re-renders
+  the preview immediately.
+- **Back cover page**: every generated booklet now ends with a closing
+  page — the church's logo and name (Church Settings) plus its About
+  Text or Public Tagline as a closing message, styled per template.
+  Previously the booklet had no back cover at all.
+
 ## [1.0.7] - 2026-09-04
 
 ### Added

@@ -173,6 +173,25 @@ function buildSectionDivider(title, accent) {
     </section>`;
 }
 
+// Closing page, always last — simpler than the front cover by design (every
+// reference booklet layout this template set drew from treats the back
+// cover as a plain sign-off, never a repeat of the front cover): church
+// logo/name if Church Settings has them, a short closing message, and the
+// generated date. Falls back to a generic thank-you if aboutText/
+// publicTagline are both unset, so an instance with no branding configured
+// still gets a real closing page instead of an empty one.
+function buildBackCoverHtml({ churchName, logo, aboutText, publicTagline, accent }) {
+  const message = aboutText || publicTagline || "Thank you for your prayers and support.";
+  return `
+    <section class="booklet-cover booklet-back-cover" style="--accent:${accent}">
+      <div class="booklet-shape shape-a"></div>
+      <div class="booklet-shape shape-b"></div>
+      ${logo?.url ? `<img class="booklet-back-logo" src="${escapeHtml(logo.url)}" alt="" />` : ""}
+      ${churchName ? `<p class="booklet-back-church">${escapeHtml(churchName)}</p>` : ""}
+      <p class="booklet-back-message">${escapeHtml(message)}</p>
+    </section>`;
+}
+
 function buildMissionaryPageHtml(m, index, fields) {
   const palette = PALETTE[index % PALETTE.length];
   const physical = (m.addresses || []).find((a) => a.type === "physical");
@@ -194,7 +213,25 @@ function buildMissionaryPageHtml(m, index, fields) {
     </section>`;
 }
 
-function buildBookletHtml({ missionaries, organizations = [], includeOrganizations = false, title, subtitle, fields }) {
+const TEMPLATE_OPTIONS = [
+  { value: "classic", label: "Classic", description: "Warm accent-colored circles, a soft tinted callout, a circular photo — the original look." },
+  { value: "modern", label: "Modern", description: "Clean and structured — no decorative shapes, bold rules, a rectangular photo, condensed sans-serif headers." },
+  { value: "traditional", label: "Traditional", description: "Understated and formal — a thin bordered page frame, a small centered portrait, serif type throughout." },
+];
+
+function buildBookletHtml({
+  missionaries,
+  organizations = [],
+  includeOrganizations = false,
+  title,
+  subtitle,
+  fields,
+  template = "classic",
+  churchName,
+  logo,
+  aboutText,
+  publicTagline,
+}) {
   const generatedDate = new Date().toLocaleDateString(undefined, {
     year: "numeric",
     month: "long",
@@ -313,7 +350,9 @@ function buildBookletHtml({ missionaries, organizations = [], includeOrganizatio
     }
   }
 
-  return `<div>${cover}${index}${pages}${orgSection}</div>`;
+  const backCover = buildBackCoverHtml({ churchName, logo, aboutText, publicTagline, accent: PALETTE[0].accent });
+
+  return `<div class="tpl-${template}">${cover}${index}${pages}${orgSection}${backCover}</div>`;
 }
 
 const FIELD_OPTIONS = [
@@ -345,9 +384,18 @@ export default function AdminBooklet() {
   });
   const [title, setTitle] = useState("Missionary Partners");
   const [subtitle, setSubtitle] = useState("Prayer & Support Directory");
+  const [template, setTemplate] = useState("classic");
   const [rendering, setRendering] = useState(false);
   const previewRef = useRef(null);
-  const { partnerTermPlural, usePartnerTermInAdmin, loading: settingsLoading } = useSettings();
+  const {
+    partnerTermPlural,
+    usePartnerTermInAdmin,
+    loading: settingsLoading,
+    churchName,
+    logo,
+    aboutText,
+    publicTagline,
+  } = useSettings();
 
   useEffect(() => {
     fetchAdminMissionaries().then(setMissionaries).catch(console.error);
@@ -383,6 +431,11 @@ export default function AdminBooklet() {
         title,
         subtitle,
         fields,
+        template,
+        churchName,
+        logo,
+        aboutText,
+        publicTagline,
       });
 
       const { Previewer } = await import("pagedjs");
@@ -394,15 +447,18 @@ export default function AdminBooklet() {
   }
 
   // Render an initial preview as soon as data loads; after that the user
-  // drives updates explicitly via the button (re-chunking with paged.js
-  // isn't cheap enough to re-run on every checkbox click). Depends on both
-  // fetches since they resolve independently — without this, a preview
-  // rendered before organizations finish loading would just miss that
-  // section until "Update Preview" is clicked manually.
+  // drives content updates explicitly via the button (re-chunking with
+  // paged.js isn't cheap enough to re-run on every checkbox click) --
+  // template changes are the exception, re-rendering immediately, since
+  // comparing looks is the whole point of having more than one and a
+  // manual button press in between would just get in the way. Depends on
+  // both fetches since they resolve independently — without this, a
+  // preview rendered before organizations finish loading would just miss
+  // that section until "Update Preview" is clicked manually.
   useEffect(() => {
     if (missionaries.length > 0) updatePreview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [missionaries, organizations]);
+  }, [missionaries, organizations, template]);
 
   // Calling window.print() directly on this page means the browser has to
   // print-transform the admin form/controls out of the way via CSS tricks,
@@ -424,6 +480,11 @@ export default function AdminBooklet() {
       title,
       subtitle,
       fields,
+      template,
+      churchName,
+      logo,
+      aboutText,
+      publicTagline,
     });
     // paged.js's polyfill re-fetches each stylesheet's raw CSS text itself
     // (via XHR) to read the @page rules — a root-relative href like
@@ -451,6 +512,37 @@ ${content}
       <div className="admin-shell no-print">
         <h2>Missionary Booklet</h2>
         <div className="admin-form">
+          <div className="admin-section">
+            <h3>Look &amp; Feel</h3>
+            <div className="admin-checkbox-row" style={{ gap: "1rem", flexWrap: "wrap" }}>
+              {TEMPLATE_OPTIONS.map((t) => (
+                <label
+                  key={t.value}
+                  style={{
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    border: template === t.value ? "2px solid #333" : "1px solid #ddd",
+                    borderRadius: "8px",
+                    padding: "0.6rem 0.75rem",
+                    maxWidth: "16rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: "bold" }}>
+                    <input
+                      type="radio"
+                      name="booklet-template"
+                      checked={template === t.value}
+                      onChange={() => setTemplate(t.value)}
+                    />
+                    {t.label}
+                  </span>
+                  <span style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>{t.description}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
           <div className="admin-section">
             <h3>Who's Included</h3>
             <div className="admin-checkbox-row">

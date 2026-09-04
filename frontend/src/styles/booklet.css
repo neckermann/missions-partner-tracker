@@ -1,7 +1,17 @@
 /* Print-only visual system for the missionary booklet (AdminBooklet.jsx).
    Loaded exclusively via paged.js's Previewer, never imported globally —
    these @page rules are meant to apply only to this generated document,
-   not to printing the rest of the admin app. */
+   not to printing the rest of the admin app.
+
+   Three selectable templates share one HTML structure (built once in
+   AdminBooklet.jsx's buildBookletHtml et al.) and differ only in how
+   that structure is styled — scoped under .tpl-classic / .tpl-modern
+   / .tpl-traditional on the single wrapper <div> around the whole document
+   (see buildBookletHtml's return value). Rules that are genuinely
+   identical across all three (page geometry, the notes-page ruled-line
+   pattern, the blank-page centering) stay unscoped below; everything
+   about a template's actual look and feel — shapes, photo treatment,
+   typography, color usage, page framing — is scoped per template. */
 
 @page {
   size: letter;
@@ -22,7 +32,6 @@
 }
 
 body {
-  font-family: Georgia, "Times New Roman", serif;
   color: #222;
   margin: 0;
 }
@@ -37,107 +46,23 @@ body {
   padding: 0.25in;
 }
 
-.booklet-shape {
-  position: absolute;
-  border-radius: 50%;
-  background: var(--accent, #c97a3d);
-  opacity: 0.22;
-}
-.shape-a {
-  width: 150px;
-  height: 150px;
-  top: -50px;
-  right: -50px;
-}
-.shape-b {
-  width: 100px;
-  height: 100px;
-  bottom: 30px;
-  left: -35px;
-}
-
-.booklet-cover-title {
-  font-size: 48pt;
-  font-weight: 700;
-  margin: 3in 0 0.2in;
-  text-align: center;
-}
-.booklet-cover-subtitle {
-  font-size: 16pt;
-  text-align: center;
-  color: #555;
-  margin: 0;
-}
-.booklet-cover-date {
-  text-align: center;
-  font-size: 10pt;
-  color: #999;
-  margin-top: 0.5in;
-  font-family: Arial, sans-serif;
-}
-
-.booklet-index-title {
-  font-size: 24pt;
-  margin: 1in 0 0.3in;
-}
-.booklet-index-list {
-  list-style: none;
-  padding: 0;
-  font-size: 12pt;
-  line-height: 1.8;
-  font-family: Arial, sans-serif;
-}
-
-.booklet-eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 10pt;
-  color: var(--accent, #999);
-  font-family: Arial, sans-serif;
-  margin: 0.5in 0 0.05in;
-}
 .booklet-name {
-  font-size: 30pt;
-  font-weight: 700;
   margin: 0 0 0.2in;
 }
 .booklet-photo {
   width: 1.4in;
   height: 1.4in;
   object-fit: cover;
-  border-radius: 50%;
-  float: right;
-  margin: 0.5in 0 0.2in 0.2in;
-}
-.booklet-callout {
-  background: var(--tint, #f6e4d3);
-  border-radius: 12px;
-  padding: 0.2in;
-  margin: 0.15in 0;
-  font-family: Arial, sans-serif;
-  font-size: 11pt;
 }
 .booklet-callout p {
   margin: 0;
 }
-
 .booklet-block {
   margin: 0.15in 0;
-  font-family: Arial, sans-serif;
-  font-size: 11pt;
-}
-.booklet-block h3 {
-  font-family: Georgia, serif;
-  font-size: 13pt;
-  color: var(--accent, #333);
-  margin: 0 0 0.05in;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 0.05in;
 }
 .booklet-block p {
   margin: 0.05in 0;
 }
-
 .booklet-footer {
   position: absolute;
   bottom: 0.15in;
@@ -146,27 +71,19 @@ body {
   color: #999;
   font-family: Arial, sans-serif;
 }
+.booklet-index-list {
+  list-style: none;
+  padding: 0;
+}
 
 /* A dedicated full page of ruled, spaced lines for handwritten notes and
    prayer requests, inserted as its own page immediately after an entry's
    detail page (see buildNotesPageHtml) — the detail page's own layout is
-   untouched. */
+   untouched. The ruled-line mechanic itself is shared; heading style is
+   templated below. */
 .booklet-notes-page {
   display: flex;
   flex-direction: column;
-}
-.booklet-notes-heading {
-  font-family: Georgia, serif;
-  font-size: 22pt;
-  font-weight: 700;
-  color: var(--accent, #333);
-  margin: 0.5in 0 0.1in;
-}
-.booklet-notes-subheading {
-  font-family: Arial, sans-serif;
-  font-size: 12pt;
-  color: #666;
-  margin: 0 0 0.3in;
 }
 .booklet-notes-lines {
   flex: 1;
@@ -188,4 +105,434 @@ body {
   font-size: 9pt;
   color: #bbb;
   font-style: italic;
+}
+
+/* ==========================================================================
+   Template: Classic (default, unchanged from the original single design)
+   Warm and approachable — organic accent-colored circles, a soft tinted
+   callout box, a circular photo. The original look this feature shipped
+   with, kept as-is so existing users see no change unless they pick a
+   different template.
+   ========================================================================== */
+.tpl-classic {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.tpl-classic .booklet-shape {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--accent, #c97a3d);
+  opacity: 0.22;
+}
+.tpl-classic .shape-a {
+  width: 150px;
+  height: 150px;
+  top: -50px;
+  right: -50px;
+}
+.tpl-classic .shape-b {
+  width: 100px;
+  height: 100px;
+  bottom: 30px;
+  left: -35px;
+}
+
+.tpl-classic .booklet-cover-title {
+  font-size: 48pt;
+  font-weight: 700;
+  margin: 3in 0 0.2in;
+  text-align: center;
+}
+.tpl-classic .booklet-cover-subtitle {
+  font-size: 16pt;
+  text-align: center;
+  color: #555;
+  margin: 0;
+}
+.tpl-classic .booklet-cover-date {
+  text-align: center;
+  font-size: 10pt;
+  color: #999;
+  margin-top: 0.5in;
+  font-family: Arial, sans-serif;
+}
+
+.tpl-classic .booklet-index-title {
+  font-size: 24pt;
+  margin: 1in 0 0.3in;
+}
+.tpl-classic .booklet-index-list {
+  font-size: 12pt;
+  line-height: 1.8;
+  font-family: Arial, sans-serif;
+}
+
+.tpl-classic .booklet-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10pt;
+  color: var(--accent, #999);
+  font-family: Arial, sans-serif;
+  margin: 0.5in 0 0.05in;
+}
+.tpl-classic .booklet-name {
+  font-size: 30pt;
+  font-weight: 700;
+}
+.tpl-classic .booklet-photo {
+  border-radius: 50%;
+  float: right;
+  margin: 0.5in 0 0.2in 0.2in;
+}
+.tpl-classic .booklet-callout {
+  background: var(--tint, #f6e4d3);
+  border-radius: 12px;
+  padding: 0.2in;
+  margin: 0.15in 0;
+  font-family: Arial, sans-serif;
+  font-size: 11pt;
+}
+.tpl-classic .booklet-block {
+  font-family: Arial, sans-serif;
+  font-size: 11pt;
+}
+.tpl-classic .booklet-block h3 {
+  font-family: Georgia, serif;
+  font-size: 13pt;
+  color: var(--accent, #333);
+  margin: 0 0 0.05in;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.05in;
+}
+
+.tpl-classic .booklet-notes-heading {
+  font-family: Georgia, serif;
+  font-size: 22pt;
+  font-weight: 700;
+  color: var(--accent, #333);
+  margin: 0.5in 0 0.1in;
+}
+.tpl-classic .booklet-notes-subheading {
+  font-family: Arial, sans-serif;
+  font-size: 12pt;
+  color: #666;
+  margin: 0 0 0.3in;
+}
+
+/* Closing page, always last — deliberately simpler than the front cover
+   (see buildBackCoverHtml), never a repeat of it. */
+.tpl-classic .booklet-back-cover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.tpl-classic .booklet-back-logo {
+  max-width: 1.5in;
+  max-height: 1.5in;
+  object-fit: contain;
+  margin-bottom: 0.3in;
+}
+.tpl-classic .booklet-back-church {
+  font-size: 16pt;
+  font-weight: 700;
+  margin: 0 0 0.15in;
+}
+.tpl-classic .booklet-back-message {
+  font-family: Arial, sans-serif;
+  font-size: 11pt;
+  color: #555;
+  max-width: 4in;
+  margin: 0;
+}
+
+/* ==========================================================================
+   Template: Modern
+   Inspired by clean nonprofit annual-report layouts — no decorative
+   shapes, a bold horizontal rule instead of a tinted callout box, a
+   large rectangular (not circular) photo, condensed sans-serif
+   headlines, small-caps section labels, and generous whitespace.
+   ========================================================================== */
+.tpl-modern {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+.tpl-modern .booklet-shape {
+  display: none;
+}
+
+.tpl-modern .booklet-cover {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-top: 10px solid var(--accent, #4c7a79);
+}
+.tpl-modern .booklet-cover-title {
+  font-size: 44pt;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.15in;
+  text-align: left;
+}
+.tpl-modern .booklet-cover-subtitle {
+  font-size: 13pt;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent, #4c7a79);
+  margin: 0;
+  text-align: left;
+}
+.tpl-modern .booklet-cover-date {
+  text-align: left;
+  font-size: 9pt;
+  color: #999;
+  margin-top: 1in;
+}
+
+.tpl-modern .booklet-index-title {
+  font-size: 20pt;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0.4in 0 0.3in;
+  padding-bottom: 0.15in;
+  border-bottom: 3px solid var(--accent, #4c7a79);
+}
+.tpl-modern .booklet-index-list {
+  font-size: 11pt;
+  line-height: 2;
+}
+.tpl-modern .booklet-index-list li {
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.05in;
+}
+
+.tpl-modern .booklet-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 9pt;
+  font-weight: 700;
+  color: var(--accent, #4c7a79);
+  margin: 0 0 0.1in;
+}
+.tpl-modern .booklet-name {
+  font-size: 26pt;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  padding-bottom: 0.15in;
+  border-bottom: 3px solid var(--accent, #4c7a79);
+}
+.tpl-modern .booklet-photo {
+  border-radius: 4px;
+  float: right;
+  width: 1.7in;
+  height: 1.7in;
+  margin: 0 0 0.2in 0.25in;
+}
+.tpl-modern .booklet-callout {
+  border-left: 4px solid var(--accent, #4c7a79);
+  padding: 0 0 0 0.2in;
+  margin: 0.2in 0;
+  font-size: 11pt;
+  font-style: italic;
+  color: #333;
+}
+.tpl-modern .booklet-block {
+  font-size: 10.5pt;
+}
+.tpl-modern .booklet-block h3 {
+  font-size: 10pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent, #4c7a79);
+  margin: 0 0 0.08in;
+}
+
+.tpl-modern .booklet-notes-heading {
+  font-size: 20pt;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent, #4c7a79);
+  margin: 0.5in 0 0.1in;
+  padding-bottom: 0.15in;
+  border-bottom: 3px solid var(--accent, #4c7a79);
+}
+.tpl-modern .booklet-notes-subheading {
+  font-size: 11pt;
+  color: #666;
+  margin: 0.15in 0 0.3in;
+}
+
+.tpl-modern .booklet-back-cover {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  border-top: 10px solid var(--accent, #4c7a79);
+}
+.tpl-modern .booklet-back-logo {
+  max-width: 1.3in;
+  max-height: 1.3in;
+  object-fit: contain;
+  margin-bottom: 0.3in;
+}
+.tpl-modern .booklet-back-church {
+  font-size: 14pt;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 0.15in;
+}
+.tpl-modern .booklet-back-message {
+  font-size: 10.5pt;
+  color: #555;
+  max-width: 4.5in;
+  margin: 0 0 1in;
+}
+
+/* ==========================================================================
+   Template: Traditional
+   Inspired by traditional missionary prayer cards and church bulletins —
+   a thin double-rule border framing every page, a small centered
+   portrait medallion, serif typography throughout, an italic eyebrow,
+   and muted color used only for rules, never tint fills.
+   ========================================================================== */
+.tpl-traditional {
+  font-family: "Times New Roman", Georgia, serif;
+}
+.tpl-traditional .booklet-shape {
+  display: none;
+}
+.tpl-traditional .booklet-cover,
+.tpl-traditional .booklet-index,
+.tpl-traditional .booklet-page {
+  border: 1px solid var(--accent, #6b5b4c);
+  outline: 1px solid var(--accent, #6b5b4c);
+  outline-offset: -6px;
+  padding: 0.4in;
+}
+
+.tpl-traditional .booklet-cover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.tpl-traditional .booklet-cover-title {
+  font-size: 40pt;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  margin: 0 0 0.2in;
+}
+.tpl-traditional .booklet-cover-subtitle {
+  font-size: 14pt;
+  font-style: italic;
+  color: #555;
+  margin: 0;
+}
+.tpl-traditional .booklet-cover-date {
+  font-size: 10pt;
+  color: #999;
+  margin-top: 0.6in;
+}
+
+.tpl-traditional .booklet-index-title {
+  font-size: 22pt;
+  font-weight: 400;
+  text-align: center;
+  margin: 0.3in 0 0.35in;
+  font-style: italic;
+}
+.tpl-traditional .booklet-index-list {
+  font-size: 11.5pt;
+  line-height: 2;
+  text-align: center;
+}
+
+.tpl-traditional .booklet-eyebrow {
+  font-style: italic;
+  font-size: 11pt;
+  color: var(--accent, #6b5b4c);
+  text-align: center;
+  margin: 0 0 0.1in;
+}
+.tpl-traditional .booklet-name {
+  font-size: 26pt;
+  font-weight: 400;
+  text-align: center;
+  padding-bottom: 0.15in;
+  border-bottom: 1px solid var(--accent, #6b5b4c);
+}
+.tpl-traditional .booklet-photo {
+  border-radius: 50%;
+  width: 1.1in;
+  height: 1.1in;
+  display: block;
+  margin: 0 auto 0.25in;
+  border: 3px double var(--accent, #6b5b4c);
+  padding: 3px;
+}
+.tpl-traditional .booklet-callout {
+  border-top: 1px solid var(--accent, #6b5b4c);
+  border-bottom: 1px solid var(--accent, #6b5b4c);
+  padding: 0.2in 0;
+  margin: 0.2in 0;
+  font-size: 11.5pt;
+  text-align: center;
+  font-style: italic;
+}
+.tpl-traditional .booklet-block {
+  font-size: 11pt;
+  text-align: center;
+}
+.tpl-traditional .booklet-block h3 {
+  font-size: 12pt;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--accent, #6b5b4c);
+  margin: 0 0 0.08in;
+}
+
+.tpl-traditional .booklet-notes-heading {
+  font-size: 20pt;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--accent, #6b5b4c);
+  text-align: center;
+  margin: 0.4in 0 0.1in;
+}
+.tpl-traditional .booklet-notes-subheading {
+  font-size: 11.5pt;
+  color: #666;
+  text-align: center;
+  margin: 0 0 0.3in;
+}
+
+.tpl-traditional .booklet-back-cover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.tpl-traditional .booklet-back-logo {
+  max-width: 1.2in;
+  max-height: 1.2in;
+  object-fit: contain;
+  margin-bottom: 0.3in;
+}
+.tpl-traditional .booklet-back-church {
+  font-size: 15pt;
+  font-weight: 400;
+  margin: 0 0 0.15in;
+}
+.tpl-traditional .booklet-back-message {
+  font-size: 11.5pt;
+  font-style: italic;
+  color: #555;
+  max-width: 3.8in;
+  margin: 0;
 }

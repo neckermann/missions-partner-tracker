@@ -261,15 +261,22 @@ new tab; **Delete** removes it permanently.
 
 ## Printable partner booklet
 
-**Print Booklet** builds a print-formatted directory: choose who's
-included (archived, restricted-access, organizations), what shows on each
-page (photo, overview, location, address, family info, sending
-church/org, and an optional facing "Notes & Prayer Requests" page with
-ruled lines), and set a cover title/subtitle. **Update Preview** renders
-it on the page (not automatic on every checkbox, since re-pagination is
-expensive); **Open in New Tab to Print** builds a clean, paginated
-document ready for your browser's print dialog — useful for printing a
-physical prayer/support directory for your congregation.
+**Print Booklet** builds a print-formatted directory: pick a **Look &
+Feel** template (Classic — warm accent-colored circles and a tinted
+callout; Modern — clean, no decorative shapes, bold rules; Traditional —
+a bordered page frame, small centered portrait, serif type throughout),
+choose who's included (archived, restricted-access, organizations), what
+shows on each page (photo, overview, location, address, family info,
+sending church/org, and an optional facing "Notes & Prayer Requests" page
+with ruled lines), and set a cover title/subtitle. Every booklet also
+ends with a closing back cover — your church's logo and name (from
+[Church Settings](#church-settings-admin-only)) plus your About Text or
+Public Tagline as a closing message, or a generic thank-you if neither is
+set. **Update Preview** re-renders on the page — automatically when you
+switch templates, but not on every checkbox (re-pagination is expensive)
+— and **Open in New Tab to Print** builds a clean, paginated document
+ready for your browser's print dialog — useful for printing a physical
+prayer/support directory for your congregation.
 
 ## Church Settings (Admin only)
 
