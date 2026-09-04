@@ -4,6 +4,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { uploadImageToS3, deleteFromS3IfOwned } = require("../utils/s3");
+const { matchesFileSignature } = require("../utils/fileSignature");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -101,6 +102,9 @@ router.post(
   async (req, res, next) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No image file provided" });
+      if (!matchesFileSignature(req.file.buffer, req.file.mimetype)) {
+        return res.status(400).json({ error: "File content doesn't match its declared image type" });
+      }
 
       const existing = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
 

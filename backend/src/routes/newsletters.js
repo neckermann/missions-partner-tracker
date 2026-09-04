@@ -4,6 +4,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { uploadPrivateFileToS3, getPresignedDownloadUrl, deleteFromS3ByKey } = require("../utils/s3");
+const { matchesFileSignature } = require("../utils/fileSignature");
 
 const router = express.Router();
 router.use(requireAuth); // admin-only for now — no public routes for this yet
@@ -78,6 +79,13 @@ router.post(
   async (req, res, next) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No file provided" });
+
+      // .eml has no reliable magic bytes across mail clients (see
+      // resolveExt above), so it's exempt -- everything else this route
+      // accepts (pdf/jpeg/png) does have one and gets verified.
+      if (!/\.eml$/i.test(req.file.originalname) && !matchesFileSignature(req.file.buffer, req.file.mimetype)) {
+        return res.status(400).json({ error: "File content doesn't match its declared type" });
+      }
 
       const meta = metaSchema.refine(
         (data) => Boolean(data.missionaryId) !== Boolean(data.organizationId),
