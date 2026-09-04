@@ -422,12 +422,18 @@ function orgLogo() {
 // seeding never hard-fails over a third-party API being unavailable.
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 
-// Keys match missionaryPhotoCategory()'s return values below.
+// Keys match missionaryPhotoCategory()'s return values below. The
+// couple/family queries use specific relationship terms rather than
+// generic ones like "couple" or "parents" -- stock photo libraries tag
+// these terms more consistently with a matching two-adult portrait, which
+// lines up with how personName() above builds a paired household. Pexels
+// has no content-matching guarantee beyond its own tagging, so this is a
+// best effort, not a hard guarantee.
 const PEXELS_MISSIONARY_QUERIES = {
   single_adult: ["portrait of adult smiling", "young professional headshot"],
-  couple: ["couple portrait smiling", "two adults portrait outdoor"],
-  family_with_kids: ["family portrait outdoor", "parents with children studio"],
-  large_family: ["multigenerational family portrait", "large family group photo"],
+  couple: ["husband and wife portrait smiling", "man and woman couple portrait outdoor"],
+  family_with_kids: ["mother father and children portrait", "mom dad kids family outdoor portrait"],
+  large_family: ["mom dad grandparents family group portrait", "parents children large family portrait"],
 };
 const PEXELS_ORG_LOGO_QUERIES = ["abstract logo design", "minimalist brand logo", "nonprofit organization logo"];
 

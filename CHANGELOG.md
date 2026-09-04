@@ -27,7 +27,10 @@ Nothing yet.
   downloaded and re-uploaded through the app's own S3 pipeline like a
   real admin upload, not hotlinked. A handful of Pexels search calls per
   seed run (one per category, not per-partner), well under the free
-  tier's rate limit. Entirely optional — unset (or any failed request)
+  tier's rate limit. Search terms for two-adult households use specific
+  relationship terms (rather than a generic "couple"/"parents") since
+  stock photo libraries tag those more consistently with a matching
+  two-person portrait. Entirely optional — unset (or any failed request)
   falls back to the existing generated SVG silhouette avatars exactly as
   before, so seeding never depends on a third-party API being available.
 
