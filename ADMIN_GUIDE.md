@@ -414,6 +414,14 @@ Optionally, `SEED_MISSIONARY_COUNT`/`SEED_ORGANIZATION_COUNT` control how
 much fake data each reset generates (default 35/12, same as local
 `npm run seed`) — a public demo might want more to look fuller.
 
+Also optionally, `PEXELS_API_KEY` gets real stock photos instead of
+generated silhouette avatars — each seeded missionary gets a photo
+matched to their household size (single adult, couple, family with kids,
+larger family), and each organization gets a logo-style photo. Free key
+at [pexels.com/api](https://www.pexels.com/api/); see
+`backend/.env.example` for details. Leave it unset and seeding still
+works exactly as before, just with silhouettes.
+
 Calling `POST /api/demo/reset` with `Authorization: Bearer <DEMO_RESET_TOKEN>`
 (or running `npm run demo:reset` locally/on the server directly) wipes the
 database (`npx prisma migrate reset --force`), clears every object in the

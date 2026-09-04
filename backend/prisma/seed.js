@@ -7,7 +7,7 @@
 // per record. Run with `npm run seed` from backend/.
 require("dotenv").config();
 const { PrismaClient } = require("@prisma/client");
-const { uploadPrivateFileToS3 } = require("../src/utils/s3");
+const { uploadPrivateFileToS3, uploadImageToS3 } = require("../src/utils/s3");
 const prisma = new PrismaClient();
 
 // Overridable via env for deployments that want a different amount of
@@ -416,6 +416,124 @@ function orgLogo() {
   return svgDataUri(buildingSilhouette(pick(SILHOUETTE_COLORS)));
 }
 
+// --- Real stock photos via Pexels (optional) ---
+// Entirely optional: if PEXELS_API_KEY isn't set, or a request fails, every
+// function below falls back to the generated SVG silhouettes above, so
+// seeding never hard-fails over a third-party API being unavailable.
+const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
+
+// Keys match missionaryPhotoCategory()'s return values below.
+const PEXELS_MISSIONARY_QUERIES = {
+  single_adult: ["portrait of adult smiling", "young professional headshot"],
+  couple: ["couple portrait smiling", "two adults portrait outdoor"],
+  family_with_kids: ["family portrait outdoor", "parents with children studio"],
+  large_family: ["multigenerational family portrait", "large family group photo"],
+};
+const PEXELS_ORG_LOGO_QUERIES = ["abstract logo design", "minimalist brand logo", "nonprofit organization logo"];
+
+// Mirrors exactly how `adults`/`children` are built above: one adult with
+// no children is "single_adult", two adults with no children is "couple",
+// and from there it's just how many kids.
+function missionaryPhotoCategory(isFamily, childCount) {
+  if (!isFamily) return "single_adult";
+  if (childCount === 0) return "couple";
+  if (childCount <= 2) return "family_with_kids";
+  return "large_family";
+}
+
+async function fetchPexelsPhotos(query, perPage = 15) {
+  try {
+    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${perPage}&orientation=square`;
+    const res = await fetch(url, { headers: { Authorization: PEXELS_API_KEY } });
+    if (!res.ok) {
+      console.warn(`  Pexels search failed for "${query}": HTTP ${res.status}`);
+      return [];
+    }
+    const data = await res.json();
+    // .large (~940px) rather than .medium (~350px) -- still a small JPEG,
+    // but holds up on the partner detail page's larger hero photo, not
+    // just card-sized thumbnails.
+    return (data.photos || []).map((p) => p.src.large);
+  } catch (err) {
+    console.warn(`  Pexels search errored for "${query}":`, err.message);
+    return [];
+  }
+}
+
+// Fisher-Yates shuffle, once per pool -- photos are then handed out in this
+// fixed (but randomized) order, wrapping around if a category runs out, so
+// a run of 50 missionaries doesn't just repeat the same handful of photos
+// in the same order every time.
+function shuffled(arr) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+// Called once at the start of a seed run -- a handful of Pexels search
+// calls total (one per query above), not per-missionary/organization, so a
+// full reseed stays comfortably under Pexels' free-tier rate limit even
+// run several times in the same hour during local testing.
+async function buildPhotoPools() {
+  if (!PEXELS_API_KEY) {
+    console.log("PEXELS_API_KEY not set -- using generated silhouette avatars instead of stock photos.");
+    return null;
+  }
+  console.log("Fetching stock photos from Pexels...");
+  const pools = {};
+  for (const [category, queries] of Object.entries(PEXELS_MISSIONARY_QUERIES)) {
+    let urls = [];
+    for (const q of queries) urls = urls.concat(await fetchPexelsPhotos(q));
+    pools[category] = { urls: shuffled(urls), next: 0 };
+    console.log(`  ${category}: ${urls.length} photos`);
+  }
+  let orgUrls = [];
+  for (const q of PEXELS_ORG_LOGO_QUERIES) orgUrls = orgUrls.concat(await fetchPexelsPhotos(q));
+  pools.org = { urls: shuffled(orgUrls), next: 0 };
+  console.log(`  org: ${orgUrls.length} photos`);
+  return pools;
+}
+
+function nextFromPool(pool) {
+  if (!pool || pool.urls.length === 0) return null;
+  const url = pool.urls[pool.next % pool.urls.length];
+  pool.next += 1;
+  return url;
+}
+
+// Downloads the actual image bytes from Pexels' own CDN (not rate-limited
+// the way the search API above is) and re-uploads through this app's own
+// S3 pipeline, exactly like a real admin's upload -- never a hotlink to an
+// external URL that could change, disappear, or fail CSP.
+async function downloadAndUploadPhoto(url, keyPrefix) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const key = `${keyPrefix}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+    return await uploadImageToS3(buffer, key, "image/jpeg");
+  } catch (err) {
+    console.warn("  Failed to download/upload a Pexels photo:", err.message);
+    return null;
+  }
+}
+
+async function resolveMissionaryPhoto(pools, isFamily, childCount) {
+  const category = missionaryPhotoCategory(isFamily, childCount);
+  const pexelsUrl = pools && nextFromPool(pools[category]);
+  const uploaded = pexelsUrl && (await downloadAndUploadPhoto(pexelsUrl, "missionaries/seed"));
+  return uploaded || missionaryPhoto(isFamily, childCount);
+}
+
+async function resolveOrgLogo(pools) {
+  const pexelsUrl = pools && nextFromPool(pools.org);
+  const uploaded = pexelsUrl && (await downloadAndUploadPhoto(pexelsUrl, "organizations/seed"));
+  return uploaded || orgLogo();
+}
+
 function buildOverview(name, fieldInfo, focusList, year, isFamily = true) {
   const overview = pick(OVERVIEW_TEMPLATES)(name, fieldInfo, focusList, year, isFamily);
   const overviewShort = pick(SHORT_TEMPLATES)(fieldInfo, focusList, year);
@@ -507,6 +625,7 @@ async function main() {
   const churchSettings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
   const admin = await prisma.user.findFirst({ where: { role: "admin" } });
   const attribution = admin ? { createdById: admin.id, updatedById: admin.id } : {};
+  const photoPools = await buildPhotoPools();
 
   console.log(`Seeding ${MISSIONARY_COUNT} missionaries...`);
   for (let i = 0; i < MISSIONARY_COUNT; i++) {
@@ -575,6 +694,8 @@ async function main() {
           : { startDate: dateBetween(3, 1), endDate: dateBetween(1, 0), notes: "Completed home assignment, deputation, and medical checkups." }]
       : [];
 
+    const photoUrl = await resolveMissionaryPhoto(photoPools, isFamily, childCount);
+
     const createdMissionary = await prisma.missionary.create({
       data: {
         displayName,
@@ -605,7 +726,7 @@ async function main() {
         twitter: chance(0.2) ? `https://twitter.com/${last.toLowerCase()}family` : null,
         instagram: chance(0.4) ? `https://instagram.com/${last.toLowerCase()}family` : null,
         linkedin: chance(0.15) ? `https://linkedin.com/in/${last.toLowerCase()}` : null,
-        photos: { create: { url: missionaryPhoto(isFamily, childCount), receivedDate: dateBetween(1, 0) } },
+        photos: { create: { url: photoUrl, receivedDate: dateBetween(1, 0) } },
         emergencyContact: chance(0.5)
           ? { name: `${pick(FIRST_M.concat(FIRST_F))} ${pick(LAST)}`, phone: fakePhone(), email: null }
           : {},
@@ -673,6 +794,8 @@ async function main() {
 
     const participantPool = [`${pick(FIRST_M)} ${pick(LAST)}`, `${pick(FIRST_F)} ${pick(LAST)}`, `${pick(FIRST_M)} ${pick(LAST)}`, `${pick(FIRST_F)} ${pick(LAST)}`];
 
+    const logoUrl = await resolveOrgLogo(photoPools);
+
     const created = await prisma.organization.create({
       data: {
         name,
@@ -703,7 +826,7 @@ async function main() {
         tripTypesSupported: pickN(TRIP_TYPES, randInt(1, 3)),
         tripSeasonNotes: chance(0.5) ? pick(SEASON_NOTES) : null,
         tripLogisticsNotes: chance(0.5) ? pick(LOGISTICS_NOTES) : null,
-        photos: { create: { url: orgLogo(), receivedDate: dateBetween(1, 0) } },
+        photos: { create: { url: logoUrl, receivedDate: dateBetween(1, 0) } },
         addresses: {
           create: [
             { type: "physical", city: fieldInfo.city, country: fieldInfo.country, gpsLat: fieldInfo.lat + (Math.random() - 0.5) * 0.3, gpsLng: fieldInfo.lng + (Math.random() - 0.5) * 0.3 },

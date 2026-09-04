@@ -16,6 +16,21 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.7] - 2026-09-04
+
+### Added
+- **Optional real stock photos for seed data**, via the
+  [Pexels API](https://www.pexels.com/api/) (`PEXELS_API_KEY`,
+  `backend/.env.example`). Each seeded missionary gets a photo matched to
+  their actual household — single adult, couple, family with kids, or a
+  larger family — and each organization gets a logo-style photo, all
+  downloaded and re-uploaded through the app's own S3 pipeline like a
+  real admin upload, not hotlinked. A handful of Pexels search calls per
+  seed run (one per category, not per-partner), well under the free
+  tier's rate limit. Entirely optional — unset (or any failed request)
+  falls back to the existing generated SVG silhouette avatars exactly as
+  before, so seeding never depends on a third-party API being available.
+
 ## [1.0.6] - 2026-09-04
 
 ### Changed
