@@ -11,7 +11,8 @@ organization partners.
 - **Admin dashboard**: CRUD screens for missionaries and organizations
   (combined into one filterable, searchable list), support tracking, trip
   history & capacity search, furlough/church-visit scheduling, private
-  newsletter uploads, a printable partner booklet export, and user
+  newsletter and document uploads (surveys, signed policies, other
+  correspondence), a printable partner booklet export, and user
   management with role-based permissions.
 - **White-labeling**: a single Church Settings screen controls the church's
   name, logo, brand color, and the term it uses for its partners (e.g. "Go
@@ -35,7 +36,7 @@ task-oriented guides:
 |---|---|---|
 | **[ADMIN_GUIDE.md](ADMIN_GUIDE.md)** | Whoever sets up and runs the instance | Full local setup, environment variables, SSO configuration, deployment (AWS and elsewhere), file storage, rate limiting, and ongoing operations (rotating secrets, upgrading a fork, troubleshooting) |
 | **[INFRASTRUCTURE.md](INFRASTRUCTURE.md)** | Whoever is standing up the AWS infrastructure from scratch | Step-by-step: database, S3, Elastic Beanstalk, IAM, GitHub Actions, CloudFront, and a custom domain with a free managed TLS certificate |
-| **[USER_GUIDE.md](USER_GUIDE.md)** | Whoever uses the admin dashboard day-to-day | Roles & permissions, MFA, adding/editing partners field-by-field, support tracking, trip history vs. trip opportunities, newsletters, the booklet export, restricted-partner privacy rules, and what the public site shows visitors |
+| **[USER_GUIDE.md](USER_GUIDE.md)** | Whoever uses the admin dashboard day-to-day | Roles & permissions, MFA, adding/editing partners field-by-field, support tracking, trip history vs. trip opportunities, newsletters, documents, the booklet export, restricted-partner privacy rules, and what the public site shows visitors |
 
 ## Project layout
 
@@ -52,7 +53,7 @@ task-oriented guides:
 | Frontend | React 18 + Vite, React Router v6 | No CSS framework — plain CSS in `frontend/src/index.css` |
 | Backend | Node/Express, Prisma ORM | Serves the built frontend directly — one deployable origin, see [ADMIN_GUIDE.md § Deploying to production](ADMIN_GUIDE.md#deploying-to-production) |
 | Database | PostgreSQL (any host) | Prisma migrations in `backend/prisma/migrations` |
-| File storage | AWS S3 | Public partner photos/logos + private newsletter PDFs, one bucket, split by key prefix |
+| File storage | AWS S3 | Public partner photos/logos + private newsletters/documents, one bucket, split by key prefix |
 | Maps/geocoding | Leaflet + OpenStreetMap Nominatim | Free, no API key; geocodes to city-level only, never a street address |
 | Auth | httpOnly session cookie + bcrypt (local), `openid-client` (SSO, any OIDC provider), `otplib`/`qrcode` (MFA) | |
 

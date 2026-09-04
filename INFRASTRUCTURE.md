@@ -61,7 +61,7 @@ If you'd rather self-host or use RDS, any Postgres 13+ works identically
 
 This is a *separate* bucket from the one Elastic Beanstalk creates for
 its own deploy artifacts in Step 3 — this one holds the app's actual
-uploaded content (partner photos, logos, newsletter PDFs).
+uploaded content (partner photos, logos, newsletters, documents).
 
 ```bash
 aws s3api create-bucket \
@@ -75,10 +75,18 @@ something specific to your church rather than a generic name.)
 
 The app writes public-read objects under `missionaries/*`,
 `organizations/*`, and `settings/*` (bucket policy, not per-object ACLs)
-and private objects under `newsletters/*` (served only via short-lived
-pre-signed URLs) — see `backend/src/utils/s3.js` and the bucket policy
-example in [ADMIN_GUIDE.md § File storage](ADMIN_GUIDE.md#file-storage-s3)
-for the exact policy JSON to attach.
+and private objects under `newsletters/*` and `documents/*` (served only
+via short-lived pre-signed URLs) — see `backend/src/utils/s3.js` and the
+bucket policy example in
+[ADMIN_GUIDE.md § File storage](ADMIN_GUIDE.md#file-storage-s3) for the
+exact policy JSON to attach. The IAM policy for whatever role/user
+uploads on your instance's behalf (the EC2 instance role in Step 3 below,
+for the AWS reference deployment) only needs `s3:PutObject`/`GetObject`/
+`DeleteObject`/`ListBucket` on the bucket as a whole — it doesn't need
+per-prefix statements, since every prefix above lives in the same
+bucket and gets the same read/write/delete treatment from the app
+itself; only the *public-read* bucket policy is what actually
+differentiates public prefixes from private ones.
 
 This becomes your `S3_BUCKET_NAME` env var.
 
@@ -127,8 +135,9 @@ This becomes your `S3_BUCKET_NAME` env var.
 
 The app's own `backend/.platform/nginx/conf.d/uploads.conf` (already in
 the repo) raises Elastic Beanstalk's default nginx body-size cap from 1MB
-to 20MB, since newsletter PDF uploads routinely exceed the default — this
-ships automatically with every deploy, nothing to configure by hand.
+to 20MB, since newsletter and document uploads routinely exceed the
+default — this ships automatically with every deploy, nothing to
+configure by hand.
 
 ## Step 4: IAM deploy user (for GitHub Actions)
 

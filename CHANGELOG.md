@@ -16,6 +16,23 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.6] - 2026-09-04
+
+### Changed
+- **Docs**: README, INFRASTRUCTURE.md, ADMIN_GUIDE.md, USER_GUIDE.md,
+  CONTRIBUTING.md, and `backend/.env.example` updated for the Documents
+  feature (a `documents/` prefix, a new file type list, an admin nav
+  entry, a new USER_GUIDE.md § Documents section with the full category
+  table). Also fixed two pre-existing inaccuracies found along the way:
+  ADMIN_GUIDE.md § File storage (S3) was missing the actual bucket-policy
+  and IAM-policy JSON that INFRASTRUCTURE.md and `.env.example` both
+  pointed readers to (now added, matching the real policies in
+  production); and CONTRIBUTING.md § Database migrations claimed
+  migrations are "hand-written, not auto-generated," when the actual
+  (and correct) practice is `npx prisma migrate dev` to generate the
+  base SQL, hand-editing only when a migration needs more than a schema
+  diff.
+
 ## [1.0.5] - 2026-09-04
 
 ### Added

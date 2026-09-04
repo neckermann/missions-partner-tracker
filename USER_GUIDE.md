@@ -29,7 +29,7 @@ Every user has one of three roles:
 | Role | Can do |
 |---|---|
 | `viewer` | Read-only access everywhere in the admin dashboard. |
-| `editor` | Everything a `viewer` can, plus create/edit missionaries, organizations, and support entries, and upload newsletters. |
+| `editor` | Everything a `viewer` can, plus create/edit missionaries, organizations, and support entries, and upload newsletters and documents. |
 | `admin` | Everything above, plus delete records, manage users, and edit Church Settings. |
 
 If something you expect to see isn't there (a nav link, a button), it's
@@ -42,9 +42,10 @@ The sidebar (and the Home page's card grid, which mirrors it) lists:
 **Home**, **Partners** (or your church's custom term, e.g. "Go Team
 Partners," if enabled in Church Settings), **Monthly Support**,
 **One-Time Needs**, **Trip History**, **Trip Opportunities**,
-**Newsletters**, **Print Booklet** — visible to everyone. **Manage Users**
-and **Church Settings** appear only for admins. The footer has **My
-Account**, a link back to the public site, and **Log out**.
+**Newsletters**, **Documents**, **Print Booklet** — visible to everyone.
+**Manage Users** and **Church Settings** appear only for admins. The
+footer has **My Account**, a link back to the public site, and **Log
+out**.
 
 Missionaries and organizations share one combined **Partners** list —
 there's no separate nav entry for each; you pick which kind to add from
@@ -145,8 +146,9 @@ A read-only view of everything above — sections with no data are hidden
 entirely rather than shown empty. Status pills under Core Info summarize
 the flags at a glance (contact-safe, public/not, restricted, sent-by-us,
 on-furlough, archived). **Edit** takes you to the form; **Back to list**
-returns you to Partners. Newsletters and photos can be uploaded, viewed,
-and deleted directly from this page (see [Newsletters](#newsletters) and
+returns you to Partners. Newsletters, documents, and photos can be
+uploaded, viewed, and deleted directly from this page (see
+[Newsletters](#newsletters), [Documents](#documents), and
 [Photo history](#photo-history) below) — but other edits (adding a trip,
 recording support) only happen through the Edit form.
 
@@ -229,6 +231,33 @@ title/notes) or directly from that partner's detail page, which embeds
 the same upload/view/delete UI. **View** opens the file in a new tab;
 **Delete** removes it permanently. Newsletters are always private — never
 shown on the public site, regardless of the partner's `isPublic` flag.
+
+## Documents
+
+A separate, more general place to keep other files from a partner —
+survey responses, a returned signed policy acknowledgment, Word/Excel/PDF
+documents, or an email you want kept on file long-term — anything that
+isn't a newsletter update. Same private, admin-only visibility as
+Newsletters; the difference is what each is *for*, not who can see it.
+
+Upload from the central **Documents** page (**+ Upload Document**: pick
+the partner, choose a file — PDF, Word `.doc`/`.docx`, Excel `.xls`/
+`.xlsx`, `.eml`, JPEG, or PNG — pick a **Category**, optional title/notes)
+or directly from that partner's detail page, which embeds the same
+upload/view/delete UI. Every document needs a category:
+
+| Category | For |
+|---|---|
+| Survey Response | A completed survey or check-in questionnaire sent back by the partner. |
+| Signed Policy | A policy acknowledgment (child protection, code of conduct, etc.) signed and returned. |
+| Email Communication | An email exchange worth keeping on file long-term. |
+| Office Document | A Word/Excel/PDF document that doesn't fit the other categories. |
+| Other | Anything else — pick this and type your own label (e.g. "Background Check"). |
+
+The central **Documents** page can filter by category and by
+missionary/organization, so you can, for example, pull up every signed
+policy on file across all partners at once. **View** opens the file in a
+new tab; **Delete** removes it permanently.
 
 ## Printable partner booklet
 

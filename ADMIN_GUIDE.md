@@ -210,6 +210,55 @@ one S3 bucket (`backend/src/utils/s3.js`), split by key prefix:
 (bucket policy, not per-object ACLs); `newsletters/*` and `documents/*`
 are private, served only via short-lived pre-signed URLs.
 
+The public-read bucket policy — attach this to your bucket, with your own
+bucket name in place of `your-bucket-name` (the reference deployment sets
+this up as part of [INFRASTRUCTURE.md § Step 2](INFRASTRUCTURE.md#step-2-s3-bucket-for-file-uploads)):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadGetObject",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": [
+        "arn:aws:s3:::your-bucket-name/missionaries/*",
+        "arn:aws:s3:::your-bucket-name/organizations/*",
+        "arn:aws:s3:::your-bucket-name/settings/*"
+      ]
+    }
+  ]
+}
+```
+
+Whatever role/user the app itself runs as (the EC2 instance role, for the
+AWS reference deployment) needs read/write/delete on the bucket as a
+whole, not scoped per prefix — the app writes to every prefix above
+(public and private alike), and only this separate bucket policy is what
+actually makes the public ones publicly readable:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AppObjectAccess",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::your-bucket-name/*"
+    },
+    {
+      "Sid": "AppBucketList",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::your-bucket-name"
+    }
+  ]
+}
+```
+
 AWS S3 is the default and needs no extra config beyond `AWS_REGION` and
 `S3_BUCKET_NAME`. In production (Elastic Beanstalk) credentials come from
 the EC2 instance role automatically; for local testing, run

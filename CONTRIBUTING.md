@@ -90,27 +90,32 @@ There's no test suite for the frontend yet either.
 - Prefer extending existing patterns over introducing new ones. For
   example, a new record type that can support a missionary or an
   organization should probably follow the existing nullable dual-FK +
-  CHECK-constraint pattern used by `SupportEntry`/`Newsletter`/etc.
-  (`backend/prisma/schema.prisma`), not a new join table shape.
+  CHECK-constraint pattern used by `SupportEntry`/`Newsletter`/`Document`/
+  etc. (`backend/prisma/schema.prisma`), not a new join table shape.
 
 ## Extending the data model
 
 The Prisma schema (`backend/prisma/schema.prisma`) covers missionaries,
 organizations, adults/children, sending church/org, addresses, support
-tracking, trips, furlough/church visits, newsletters, and church-wide
-settings. To add a new field or section, extend the schema, the Zod
-validation in the relevant route, and the admin form together — grep for
-an existing similar field (e.g. `tripSeasonNotes`) to see the full path a
-field takes from database to admin UI to public display.
+tracking, trips, furlough/church visits, newsletters, documents, and
+church-wide settings. To add a new field or section, extend the schema,
+the Zod validation in the relevant route, and the admin form together —
+grep for an existing similar field (e.g. `tripSeasonNotes`) to see the
+full path a field takes from database to admin UI to public display.
 
 ## Database migrations
 
-Migrations are hand-written, not auto-generated: add a new folder under
-`backend/prisma/migrations/<timestamp>_<name>/migration.sql` matching the
-style of an existing one, update `schema.prisma` to match, and mention in
-your PR that it needs `npx prisma migrate deploy` (or the equivalent for
-whoever's running it) — there's no CI step that applies migrations
-automatically.
+Update `schema.prisma` first, then run
+`npx prisma migrate dev --name your_migration_name` from `backend/` to
+generate the actual SQL — don't hand-write a migration folder yourself,
+that's how the timestamp prefix and Prisma's own migration bookkeeping
+stay correct. If your change needs more than the schema diff (backfilling
+a new column, a one-time data transformation), hand-add that SQL to the
+generated file afterward — see
+`backend/prisma/migrations/20260901000000_add_sso_provider/migration.sql`
+for an example that does both. Mention in your PR that it needs
+`npx prisma migrate deploy` (or the equivalent for whoever's running it)
+— there's no CI step that applies migrations automatically.
 
 ## Pull requests
 
