@@ -18,6 +18,7 @@ const organizationRoutes = require("./routes/organizations");
 const publicOrganizationRoutes = require("./routes/publicOrganizations");
 const supportNeedRoutes = require("./routes/supportNeeds");
 const newsletterRoutes = require("./routes/newsletters");
+const documentRoutes = require("./routes/documents");
 const settingsRoutes = require("./routes/settings");
 const publicSettingsRoutes = require("./routes/publicSettings");
 
@@ -73,6 +74,7 @@ app.use("/api/organizations", organizationRoutes); // protected (admin) — sess
 app.use("/api/public/organizations", publicOrganizationRoutes); // open (public site)
 app.use("/api/support-needs", supportNeedRoutes); // protected (admin) — session required
 app.use("/api/newsletters", newsletterRoutes); // protected (admin) — session required
+app.use("/api/documents", documentRoutes); // protected (admin) — session required
 app.use("/api/settings", settingsRoutes); // protected (admin for write, any role for read)
 app.use("/api/public/settings", publicSettingsRoutes); // open (public site + admin nav branding)
 

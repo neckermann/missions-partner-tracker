@@ -44,6 +44,7 @@ const organizationInclude = {
   supportEntries: { orderBy: { effectiveDate: "desc" } },
   needRequests: { orderBy: { requestDate: "desc" } },
   newsletters: { orderBy: { receivedDate: "desc" } },
+  documents: { orderBy: { receivedDate: "desc" } },
   // Full history, newest-received first — photos[0] is "current". Admin-
   // only (the public API takes just the first row; see maskData.js).
   photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }] },
@@ -392,7 +393,7 @@ router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
     const existing = await prisma.organization.findUnique({
       where: { id: req.params.id },
-      include: { newsletters: true, photos: true },
+      include: { newsletters: true, documents: true, photos: true },
     });
     if (!existing) return res.status(404).json({ error: "Not found" });
     if (!existing.archived) {
@@ -400,10 +401,10 @@ router.delete("/:id", requireRole("admin"), async (req, res, next) => {
     }
     await prisma.organization.delete({ where: { id: req.params.id } });
 
-    // The DB delete cascades to newsletters/photos/addresses/etc., but none
-    // of that touches S3 — clean up every logo (not just the current one)
-    // and any newsletter files here so a deleted organization doesn't leave
-    // orphaned objects in the bucket.
+    // The DB delete cascades to newsletters/documents/photos/addresses/etc.,
+    // but none of that touches S3 — clean up every logo (not just the
+    // current one) and any newsletter/document files here so a deleted
+    // organization doesn't leave orphaned objects in the bucket.
     existing.photos.forEach((p) => {
       deleteFromS3IfOwned(p.url).catch((err) =>
         console.error("Failed to clean up logo after delete:", err)
@@ -412,6 +413,11 @@ router.delete("/:id", requireRole("admin"), async (req, res, next) => {
     existing.newsletters.forEach((n) => {
       deleteFromS3ByKey(n.fileKey).catch((err) =>
         console.error("Failed to clean up newsletter file after delete:", err)
+      );
+    });
+    existing.documents.forEach((d) => {
+      deleteFromS3ByKey(d.fileKey).catch((err) =>
+        console.error("Failed to clean up document file after delete:", err)
       );
     });
 

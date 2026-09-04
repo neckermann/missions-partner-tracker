@@ -219,6 +219,25 @@ export async function deleteNewsletter(id) {
   await api.delete(`/newsletters/${id}`);
 }
 
+export async function fetchDocuments() {
+  const { data } = await api.get("/documents");
+  return data;
+}
+
+export async function uploadDocument(formData) {
+  const { data } = await api.post("/documents", formData);
+  return data;
+}
+
+export async function getDocumentDownloadUrl(id) {
+  const { data } = await api.get(`/documents/${id}/download`);
+  return data.url;
+}
+
+export async function deleteDocument(id) {
+  await api.delete(`/documents/${id}`);
+}
+
 export async function login(email, password) {
   const { data } = await api.post("/auth/login", { email, password });
   // MFA-enabled accounts get a pendingToken (verify a code); accounts an

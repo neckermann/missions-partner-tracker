@@ -23,6 +23,7 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin) {
     { to: "/admin/trips", label: "Trip History" },
     { to: "/admin/trips/opportunities", label: "Trip Opportunities" },
     { to: "/admin/newsletters", label: "Newsletters" },
+    { to: "/admin/documents", label: "Documents" },
     { to: "/admin/booklet", label: "Print Booklet" },
   ];
 }

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { fetchAdminOrganization } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
 import NewsletterSection from "../components/admin/NewsletterSection.jsx";
+import DocumentSection from "../components/admin/DocumentSection.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
 
 // Date-only fields are stored as UTC midnight — build the Date from raw
@@ -245,6 +246,8 @@ export default function AdminOrganizationDetail() {
         <FinancialSupportSection supportEntries={o.supportEntries} needRequests={o.needRequests} />
 
         <NewsletterSection organizationId={o.id} newsletters={o.newsletters} onChange={reload} />
+
+        <DocumentSection organizationId={o.id} documents={o.documents} onChange={reload} />
 
         {(o.overview || o.overviewShort || o.focusArea) && (
           <div className="admin-section">

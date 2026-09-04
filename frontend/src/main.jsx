@@ -20,6 +20,7 @@ import AdminOneTimeNeeds from "./pages/AdminOneTimeNeeds.jsx";
 import AdminTripHistory from "./pages/AdminTripHistory.jsx";
 import AdminTripOpportunities from "./pages/AdminTripOpportunities.jsx";
 import AdminNewsletters from "./pages/AdminNewsletters.jsx";
+import AdminDocuments from "./pages/AdminDocuments.jsx";
 import AdminChurchSettings from "./pages/AdminChurchSettings.jsx";
 import RequireAdminAuth from "./components/RequireAdminAuth.jsx";
 import AdminLayout from "./components/admin/AdminLayout.jsx";
@@ -63,6 +64,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="trips" element={<AdminTripHistory />} />
             <Route path="trips/opportunities" element={<AdminTripOpportunities />} />
             <Route path="newsletters" element={<AdminNewsletters />} />
+            <Route path="documents" element={<AdminDocuments />} />
             <Route path="account" element={<AccountSettings />} />
             <Route
               path="users"

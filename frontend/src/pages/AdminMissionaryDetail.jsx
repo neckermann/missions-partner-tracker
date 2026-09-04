@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { fetchAdminMissionary } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
 import NewsletterSection from "../components/admin/NewsletterSection.jsx";
+import DocumentSection from "../components/admin/DocumentSection.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 
@@ -218,6 +219,8 @@ export default function AdminMissionaryDetail() {
         <FinancialSupportSection supportEntries={m.supportEntries} needRequests={m.needRequests} />
 
         <NewsletterSection missionaryId={m.id} newsletters={m.newsletters} onChange={reload} />
+
+        <DocumentSection missionaryId={m.id} documents={m.documents} onChange={reload} />
 
         {(m.overview || m.overviewShort || m.focusArea) && (
           <div className="admin-section">

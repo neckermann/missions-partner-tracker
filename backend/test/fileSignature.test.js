@@ -28,6 +28,33 @@ describe("matchesFileSignature", () => {
     assert.equal(matchesFileSignature(notAnImage, "application/pdf"), false);
   });
 
+  test("accepts a real OLE2 signature for legacy Word/Excel (.doc/.xls)", () => {
+    const ole2 = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0x00]);
+    assert.equal(matchesFileSignature(ole2, "application/msword"), true);
+    assert.equal(matchesFileSignature(ole2, "application/vnd.ms-excel"), true);
+  });
+
+  test("accepts a real ZIP signature for modern Word/Excel (.docx/.xlsx)", () => {
+    const zip = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00]);
+    assert.equal(
+      matchesFileSignature(zip, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+      true
+    );
+    assert.equal(
+      matchesFileSignature(zip, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+      true
+    );
+  });
+
+  test("rejects non-Office content declared as an Office format", () => {
+    const notOffice = Buffer.from("<script>alert(1)</script>");
+    assert.equal(matchesFileSignature(notOffice, "application/msword"), false);
+    assert.equal(
+      matchesFileSignature(notOffice, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+      false
+    );
+  });
+
   test("rejects a declared type with no known signature (fails closed)", () => {
     assert.equal(matchesFileSignature(Buffer.from("anything"), "message/rfc822"), false);
   });

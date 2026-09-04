@@ -204,11 +204,11 @@ For the app's role model itself (`viewer`/`editor`/`admin`), see
 
 ## File storage (S3)
 
-Photos, logos, and newsletter PDFs are stored in one S3 bucket
-(`backend/src/utils/s3.js`), split by key prefix: `missionaries/*`,
-`organizations/*`, and `settings/*` are public-read (bucket policy, not
-per-object ACLs); `newsletters/*` is private, served only via short-lived
-pre-signed URLs.
+Photos, logos, newsletter PDFs, and other partner documents are stored in
+one S3 bucket (`backend/src/utils/s3.js`), split by key prefix:
+`missionaries/*`, `organizations/*`, and `settings/*` are public-read
+(bucket policy, not per-object ACLs); `newsletters/*` and `documents/*`
+are private, served only via short-lived pre-signed URLs.
 
 AWS S3 is the default and needs no extra config beyond `AWS_REGION` and
 `S3_BUCKET_NAME`. In production (Elastic Beanstalk) credentials come from
@@ -369,9 +369,9 @@ Calling `POST /api/demo/reset` with `Authorization: Bearer <DEMO_RESET_TOKEN>`
 (or running `npm run demo:reset` locally/on the server directly) wipes the
 database (`npx prisma migrate reset --force`), clears every object in the
 S3 bucket under the `missionaries/`, `organizations/`, `newsletters/`,
-and `settings/` prefixes (the database reset means nothing can still
-reference an old upload — a prior cycle's seeded photos, a demo visitor's
-newsletter, a custom logo someone set), then reseeds
+`documents/`, and `settings/` prefixes (the database reset means nothing
+can still reference an old upload — a prior cycle's seeded photos, a demo
+visitor's newsletter, a custom logo someone set), then reseeds
 (`backend/prisma/seed.js`), recreates the demo login
 (`backend/prisma/createAdmin.js`), and sets Church Settings to a
 demo-branded name/tagline/about-text that tells visitors it's a live

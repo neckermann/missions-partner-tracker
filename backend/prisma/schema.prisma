@@ -85,6 +85,7 @@ model Missionary {
   // unrelated to these discrete dollar-amount requests).
   needRequests       SupportNeed[]
   newsletters        Newsletter[]
+  documents          Document[]
   // Full upload history, not just the current one — see the Photo model.
   // The "current" photo (what the admin form and public site show) is
   // whichever has the latest receivedDate, not just the latest upload.
@@ -283,6 +284,7 @@ model Organization {
   supportEntries     SupportEntry[]
   needRequests       SupportNeed[] // see Missionary.needRequests for the naming note
   newsletters        Newsletter[]
+  documents          Document[]
   // See Missionary.photos for the "current" resolution rule.
   photos             Photo[]
 
@@ -427,6 +429,41 @@ model Newsletter {
 
   @@index([missionaryId])
   @@index([organizationId])
+}
+
+// General-purpose document storage for a Missionary or Organization —
+// survey responses, signed policy acknowledgments, other office documents
+// (Word/Excel/PDF), and long-term email records that don't belong in the
+// Newsletter feed above. Same private-S3/presigned-URL access model as
+// Newsletter, same "documents/" prefix pattern, same admin-only
+// visibility — see the comment on Newsletter above for the reasoning.
+// `category` is a plain validated string (see routes/documents.js), not a
+// native Prisma enum — same convention as Organization.orgType and
+// User.role elsewhere in this schema, so a fork can add its own category
+// without a migration.
+model Document {
+  id             String        @id @default(uuid())
+  missionaryId   String?
+  missionary     Missionary?   @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  category       String        // "survey_response" | "signed_policy" | "email" | "office_document" | "other"
+  customCategory String?       // free-typed label, only used when category is "other"
+  title          String?
+  receivedDate   DateTime      @db.Date
+  fileKey        String        // S3 object key (private — never a public URL)
+  fileName       String        // original uploaded filename, for display/download
+  contentType    String
+  fileSize       Int?          // bytes
+  notes          String?       @db.Text
+
+  createdAt      DateTime      @default(now())
+  createdById    String?
+
+  @@index([missionaryId])
+  @@index([organizationId])
+  @@index([category])
 }
 
 // Every photo ever uploaded for a Missionary or Organization, not just the

@@ -16,6 +16,24 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.5] - 2026-09-04
+
+### Added
+- **Document repository**: a general-purpose place to store survey
+  responses, signed policy acknowledgments, other office documents
+  (Word/Excel/PDF), and long-term email records for a missionary or
+  organization — separate from the Newsletter feed. Same admin-only,
+  private-S3/pre-signed-URL access model as Newsletters. Each document
+  gets a category (Survey Response, Signed Policy, Email Communication,
+  Office Document, or a free-typed Other label), a received date, and
+  notes, and the consolidated **Admin → Documents** page can filter by
+  category and by missionary/organization. Accepts PDF, Word (.doc/
+  .docx), Excel (.xls/.xlsx), .eml, JPEG, and PNG — every format except
+  .eml is verified against its actual file content on upload, not just
+  its declared type (see `backend/src/utils/fileSignature.js`).
+  New `Document` table — run `npx prisma migrate deploy` when upgrading
+  (see [UPGRADING.md](UPGRADING.md)).
+
 ## [1.0.4] - 2026-09-03
 
 ### Changed

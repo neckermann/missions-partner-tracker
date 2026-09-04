@@ -43,7 +43,7 @@ async function resetDemoData() {
   // custom logo someone set through Church Settings). Running this after
   // seed.js instead would delete the very newsletters seed.js just
   // uploaded moments earlier in the same reset.
-  await deleteAllObjectsUnderPrefixes(["missionaries/", "organizations/", "newsletters/", "settings/"]);
+  await deleteAllObjectsUnderPrefixes(["missionaries/", "organizations/", "newsletters/", "documents/", "settings/"]);
 
   run("node", ["prisma/seed.js"]);
   run("node", ["prisma/createAdmin.js", email, password]);
