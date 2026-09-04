@@ -217,6 +217,9 @@ const TEMPLATE_OPTIONS = [
   { value: "classic", label: "Classic", description: "Warm accent-colored circles, a soft tinted callout, a circular photo — the original look." },
   { value: "modern", label: "Modern", description: "Clean and structured — no decorative shapes, bold rules, a rectangular photo, condensed sans-serif headers." },
   { value: "traditional", label: "Traditional", description: "Understated and formal — a thin bordered page frame, a small centered portrait, serif type throughout." },
+  { value: "keepsake", label: "Keepsake", description: "Warm and personal — a polaroid-framed, slightly tilted photo, a handwritten-note callout, soft cream background." },
+  { value: "portfolio", label: "Portfolio", description: "Photo-led and minimal — a large full-width photo, high-contrast dark header, light caption-style text." },
+  { value: "friendly", label: "Friendly", description: "Bright and casual — a bold color-block header, a large circular photo, rounded pill-style info rows." },
 ];
 
 function buildBookletHtml({

@@ -262,10 +262,14 @@ new tab; **Delete** removes it permanently.
 ## Printable partner booklet
 
 **Print Booklet** builds a print-formatted directory: pick a **Look &
-Feel** template (Classic — warm accent-colored circles and a tinted
-callout; Modern — clean, no decorative shapes, bold rules; Traditional —
-a bordered page frame, small centered portrait, serif type throughout),
-choose who's included (archived, restricted-access, organizations), what
+Feel** template — Classic (warm accent-colored circles and a tinted
+callout), Modern (clean, no decorative shapes, bold rules), Traditional
+(a bordered page frame, small centered portrait, serif type throughout),
+Keepsake (a polaroid-framed, slightly tilted photo, a handwritten-note
+callout), Portfolio (a large photo-led layout, high-contrast dark
+header), or Friendly (a bold color-block header, a large circular photo,
+rounded pill-style info rows) — choose who's included (archived,
+restricted-access, organizations), what
 shows on each page (photo, overview, location, address, family info,
 sending church/org, and an optional facing "Notes & Prayer Requests" page
 with ruled lines), and set a cover title/subtitle. Every booklet also

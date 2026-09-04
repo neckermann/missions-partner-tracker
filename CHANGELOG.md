@@ -16,6 +16,21 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.10] - 2026-09-04
+
+### Added
+- **Three more booklet templates**, inspired by real family-souvenir,
+  photography, and "about me"-style booklet designs: **Keepsake** (a
+  polaroid-framed, slightly tilted photo, a dashed-border handwritten-
+  note callout, warm cream background), **Portfolio** (a large,
+  near-full-width photo, a high-contrast dark cover/back-cover, minimal
+  caption-style text), and **Friendly** (a bold color-block header band,
+  a large circular photo overlapping it, rounded pill-style section
+  labels). Same pattern as the original three — pure CSS additions
+  (`.tpl-keepsake`/`.tpl-portfolio`/`.tpl-friendly` in
+  `frontend/src/styles/booklet.css`), no changes to the shared content-
+  generation code. Six templates total now.
+
 ## [1.0.9] - 2026-09-04
 
 ### Fixed
