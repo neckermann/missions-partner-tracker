@@ -278,11 +278,46 @@ const DOCUMENT_NOTES = [
   "Received during the fall check-in cycle.",
 ];
 
-// A minimal-but-real PDF — the actual bytes only need to satisfy
-// routes/documents.js's magic-byte content check ("%PDF-"), never rendered
-// as a real document, so no page content beyond that is needed.
+// A real, structurally-valid single-page PDF (byte-accurate xref table and
+// all) with the title rendered as text — not just the "%PDF-" magic bytes.
+// An earlier version of this only wrote the magic bytes, which passed
+// routes/documents.js's upload-time signature check but produced a file
+// that opened to nothing. Built by hand rather than pulling in a PDF
+// library, since it's four fixed lines of Helvetica text on one page.
 function buildFakePdf(title) {
-  return Buffer.from(`%PDF-1.4\n% Seed data placeholder for "${title}" — not a real document.\n`, "utf-8");
+  const escape = (s) => s.replace(/([()\\])/g, "\\$1");
+  const content = [
+    "BT",
+    "/F1 18 Tf",
+    `72 700 Td (${escape(title)}) Tj`,
+    "0 -28 Td (Seed data placeholder \\-\\- not a real document.) Tj",
+    "ET",
+  ].join("\n");
+  const contentBytes = Buffer.byteLength(content, "latin1");
+
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> /MediaBox [0 0 612 792] /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${contentBytes} >>\nstream\n${content}\nendstream`,
+  ];
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0]; // object 0 is the reserved free-list head, not a real object
+  objects.forEach((body, i) => {
+    offsets.push(Buffer.byteLength(pdf, "latin1"));
+    pdf += `${i + 1} 0 obj\n${body}\nendobj\n`;
+  });
+
+  const xrefOffset = Buffer.byteLength(pdf, "latin1");
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let i = 1; i <= objects.length; i++) {
+    pdf += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return Buffer.from(pdf, "latin1");
 }
 
 async function maybeAddDocument({ missionaryId, organizationId, name, slug, field }) {
