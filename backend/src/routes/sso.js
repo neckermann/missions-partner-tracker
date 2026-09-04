@@ -133,16 +133,22 @@ router.get("/callback", async (req, res) => {
 
     let user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      // Auto-provision on first SSO login, same as the app has always
-      // done — default to "editor", promote to "admin" manually once
-      // trusted.
+      // Auto-provision on first SSO login. Defaults to "viewer" (read-only,
+      // no write access) rather than "editor" — this app has no way to
+      // gate SSO sign-in to a pre-approved list of people beyond the
+      // optional allowedDomain check above, so the safe default assumes an
+      // unknown first-time SSO user hasn't been vetted yet. Promote to
+      // "editor"/"admin" manually once trusted — see ADMIN_GUIDE.md §
+      // Single sign-on (SSO) for why this matters and how to restrict who
+      // can reach this flow at all (gate access on the identity provider's
+      // side, not just here).
       user = await prisma.user.create({
         data: {
           email,
           name: claims.name || email,
           authProvider: provider.type,
           ssoProviderId: provider.id,
-          role: "editor",
+          role: "viewer",
         },
       });
     } else {

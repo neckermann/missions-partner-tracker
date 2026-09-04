@@ -16,6 +16,20 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.4] - 2026-09-03
+
+### Changed
+- **Security**: new users auto-provisioned on their first SSO login now
+  default to the `viewer` role (read-only) instead of `editor`. This app
+  has no way to vet who's on the other end of a successful identity
+  provider login beyond the optional allowed-email-domain setting, so an
+  unrecognized first-time SSO sign-in is no longer assumed trustworthy
+  enough for write access — an admin now has to explicitly promote a new
+  SSO user before they can create/edit/delete anything. See
+  [ADMIN_GUIDE.md § Single sign-on (SSO)](ADMIN_GUIDE.md#single-sign-on-sso)
+  for the full guidance on also gating access on the identity provider's
+  own side.
+
 ## [1.0.3] - 2026-09-03
 
 ### Changed

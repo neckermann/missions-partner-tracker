@@ -140,9 +140,31 @@ To add a provider:
 3. In the app, go to **Admin → Church Settings → Single Sign-On → + Add
    Provider**, fill in the button label, provider type (cosmetic — picks
    the button icon), issuer URL, client ID, and client secret, and check
-   **Enabled**. Optionally restrict it to one email domain.
+   **Enabled**. Strongly consider setting the **allowed email domain**
+   field too — see the warning below before skipping it.
 4. Save. The login page immediately shows a "Sign in with ..." button for
    it — no restart needed.
+
+**Gate access on the identity provider's side, not just here.** This app
+has exactly one optional filter on who can sign in via a given
+provider — the allowed-domain field from step 3 — and nothing else. It
+does not (and can't) know who at your organization should actually have
+access. Anyone who can complete a successful login against the IdP you
+configured gets an account here automatically (see below). Concretely:
+- **Entra ID / Okta**: don't leave the app registration open to "everyone
+  in the tenant" if that's broader than your admin team — assign the
+  app to a specific security group or a short list of named users in
+  the IdP itself, the same way you'd scope access to any other internal
+  tool.
+- **Google**: if you're using a Google Workspace account, set the OAuth
+  client's audience to your own internal organization, and still set the
+  allowed-domain field here as a second check. If you're tempted to add
+  plain consumer Google Sign-In (no Workspace, no domain restriction
+  possible), don't — that lets *any* Gmail user in the world authenticate
+  successfully and get an account.
+- Whatever the provider, if you can't restrict who's allowed to
+  authenticate on its side, at minimum set this app's allowed-domain
+  field so only your organization's email addresses can complete login.
 
 **Testing SSO in local dev**: the callback lands on the backend directly
 (`APP_BASE_URL`, e.g. `http://localhost:4000`), not the Vite dev server at
@@ -154,9 +176,13 @@ session cookie is already set and is shared across ports on `localhost`,
 so it'll already be logged in.
 
 New users who sign in through any provider for the first time are
-auto-created with role `editor`. Promote someone to `admin` directly in
-the **Manage Users** screen, the `User` table, or via Prisma Studio
-(`npm run prisma:studio`). Disabling or deleting a provider doesn't touch
+auto-created with role `viewer` (read-only — no create/edit/delete access
+anywhere in the admin panel) precisely because this app can't vet who's
+on the other end of a successful IdP login beyond the allowed-domain
+check above. Promote someone to `editor` or `admin` directly in the
+**Manage Users** screen, the `User` table, or via Prisma Studio
+(`npm run prisma:studio`) once you've confirmed they should have write
+access. Disabling or deleting a provider doesn't touch
 the users who signed in through it — they just can't sign in that way
 again until it's re-added; local login (if their account has a password)
 or another provider still works.
