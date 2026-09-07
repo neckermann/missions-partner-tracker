@@ -16,6 +16,23 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.12] - 2026-09-06
+
+### Fixed
+- **The public map didn't render at all on mobile** — closes GitHub
+  issue #7. On screens ≤800px, `.map-layout` switched to a single-column
+  stacked layout but dropped its explicit `height` entirely
+  (`height: auto`), and the map container's `height: 100%` — which
+  needs a parent with a *definite* height to mean anything — silently
+  collapsed to zero. The map was present in the DOM, just invisible, no
+  matter how far you scrolled. Mobile now gets an explicit `50vh` map
+  (`calc(100vh - 64px)`, i.e. full height, in tour mode, which never
+  shows the list alongside it) with the missionary list scrollable
+  below, and the map is reordered to appear before the list — a map
+  page should lead with the map. Verified with a real headless-browser
+  check: the map container now measures a real, non-zero height and
+  its tiles actually load, in both normal and tour mode.
+
 ## [1.0.11] - 2026-09-07
 
 ### Added

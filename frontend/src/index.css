@@ -73,7 +73,31 @@ a { color: var(--brand-color, #2a5d3c); }
 }
 .map-layout.tour-mode { grid-template-columns: 1fr; }
 @media (max-width: 800px) {
-  .map-layout { grid-template-columns: 1fr; height: auto; }
+  /* Side-by-side becomes stacked on mobile -- the map needs its own
+     explicit height here, not just "height: auto" on the grid, since
+     .map-container/.leaflet-container below resolve their own
+     `height: 100%` against *this* element. A 100% height means nothing
+     against an auto-height parent (that's the CSS percentage-height
+     rule: it only resolves against a parent with a definite height), so
+     without an explicit height here the map silently collapses to zero
+     height -- present in the DOM, invisible on screen, exactly the "map
+     page doesn't work at all" symptom. `order` puts the map first
+     (a map page should lead with the map, not a mile of list first),
+     while keeping the list's own DOM position unchanged. */
+  .map-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 50vh auto;
+    height: auto;
+  }
+  /* Tour mode never renders the list at all (see PublicMap.jsx) --
+     give the map the full available height instead of just the 50vh
+     meant to leave room for a list that isn't there. */
+  .map-layout.tour-mode {
+    grid-template-rows: calc(100vh - 64px);
+    height: calc(100vh - 64px);
+  }
+  .map-container { order: 1; }
+  .missionary-list { order: 2; }
 }
 
 .missionary-list {
