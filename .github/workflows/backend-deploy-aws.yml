@@ -21,6 +21,13 @@ on:
 jobs:
   backend-tests:
     runs-on: ubuntu-latest
+    env:
+      # No real database here -- these are pure unit tests (see
+      # CONTRIBUTING.md). This exists only so `npm ci`'s postinstall
+      # (`prisma generate`) doesn't fail: Prisma 7's prisma.config.js
+      # `env("DATABASE_URL")` throws if the variable is unset at all,
+      # even though `generate` itself never opens a connection.
+      DATABASE_URL: postgresql://unused:unused@localhost:5432/unused
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7

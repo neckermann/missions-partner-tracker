@@ -16,6 +16,21 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.20] - 2026-09-07
+
+### Fixed
+- **CI's `backend-tests` job failed after v1.0.19** — `npm ci`'s
+  postinstall (`prisma generate`) crashed with `PrismaConfigEnvError:
+  Cannot resolve environment variable: DATABASE_URL`. That job
+  deliberately has no real database (pure unit tests, see
+  CONTRIBUTING.md), but Prisma 7's `env()` helper in
+  `backend/prisma.config.js` now throws if the variable is unset at all,
+  not just if a real connection is attempted — `generate` itself never
+  opens one. Added a placeholder `DATABASE_URL` to that job; found by
+  actually watching the push run (Actions had just been re-enabled on
+  this repo, so this is the first push to exercise `backend-tests` for
+  real since the Prisma 7 migration).
+
 ## [1.0.19] - 2026-09-07
 
 ### Changed
