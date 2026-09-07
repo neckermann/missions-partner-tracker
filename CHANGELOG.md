@@ -16,6 +16,22 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.17] - 2026-09-07
+
+### Fixed
+- **`npm run seed` crashed with "Region is missing" when no AWS S3
+  configuration is present** — `maybeAddNewsletter`/`maybeAddDocument`
+  (`backend/prisma/seed.js`) always uploaded their generated sample
+  files through S3, with no fallback, unlike the Pexels photo path a few
+  lines above them, which already degrades gracefully when unconfigured.
+  This has been true since the Newsletter/Document features shipped; the
+  new CI `e2e` job (v1.0.16) was just the first thing to actually run
+  `npm run seed` in an environment with no AWS credentials at all, which
+  is what surfaced it. Now skipped (with a one-time log line) when
+  `S3_BUCKET_NAME` isn't set — every missionary/organization still gets
+  everything else seed data normally provides, just without sample
+  newsletters/documents.
+
 ## [1.0.16] - 2026-09-07
 
 ### Added

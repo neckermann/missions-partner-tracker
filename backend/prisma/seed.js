@@ -246,8 +246,26 @@ function buildFakeEml(fromName, fromSlug, subject, field) {
   return Buffer.from(eml, "utf-8");
 }
 
+// Newsletters/documents are real S3 uploads (see downloadAndUploadPhoto's
+// comment above for why -- same reasoning), unlike the Pexels photo path,
+// which already has a no-op fallback when it's not configured. Without an
+// S3 bucket configured at all (no AWS_ACCESS_KEY_ID/region resolvable,
+// e.g. a local `npm run seed` run with no AWS credentials set up, or a CI
+// job that has no reason to touch real S3), the upload calls below throw.
+// Match Pexels' pattern: skip these two, log it once, and let seeding
+// continue -- every missionary/org still gets everything else.
+let warnedNoS3 = false;
+function s3Configured() {
+  const configured = !!process.env.S3_BUCKET_NAME;
+  if (!configured && !warnedNoS3) {
+    console.log("S3_BUCKET_NAME not set -- skipping seeded newsletters/documents (everything else still seeds normally).");
+    warnedNoS3 = true;
+  }
+  return configured;
+}
+
 async function maybeAddNewsletter({ missionaryId, organizationId, name, slug, field }) {
-  if (!chance(0.3)) return;
+  if (!chance(0.3) || !s3Configured()) return;
   const subject = `${pick(NEWSLETTER_SUBJECTS)} — ${pick(NEWSLETTER_SEASONS)} ${randInt(2023, 2026)}`;
   const buffer = buildFakeEml(name, slug, subject, field);
   const ownerId = missionaryId || organizationId;
@@ -328,7 +346,7 @@ function buildFakePdf(title) {
 }
 
 async function maybeAddDocument({ missionaryId, organizationId, name, slug, field }) {
-  if (!chance(0.35)) return;
+  if (!chance(0.35) || !s3Configured()) return;
   const category = pick(["survey_response", "signed_policy", "office_document", "email", "other"]);
   const isOther = category === "other";
   const title = isOther ? pick(OTHER_DOCUMENT_TITLES) : pick(DOCUMENT_TITLES[category]);
