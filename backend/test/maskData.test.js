@@ -1,6 +1,10 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const { toInitials, toPublicMissionary, toPublicOrganization } = require("../src/utils/maskData");
+const { toInitials, toPublicMissionary, toPublicOrganization, missionaryHouseholdCategory } = require("../src/utils/maskData");
+
+function isSilhouetteDataUri(value) {
+  return typeof value === "string" && value.startsWith("data:image/svg+xml,");
+}
 
 describe("toInitials", () => {
   test("converts a full name to initials", () => {
@@ -50,6 +54,34 @@ function baseMissionary(overrides = {}) {
     ...overrides,
   };
 }
+
+describe("missionaryHouseholdCategory", () => {
+  test("no adults recorded, no children -> single", () => {
+    assert.equal(missionaryHouseholdCategory({}), "single");
+  });
+  test("one adult, no children -> single", () => {
+    assert.equal(missionaryHouseholdCategory({ adults: [{ name: "Jordan" }] }), "single");
+  });
+  test("two adults, no children -> couple", () => {
+    assert.equal(
+      missionaryHouseholdCategory({ adults: [{ name: "Jordan" }, { name: "Alex" }] }),
+      "couple"
+    );
+  });
+  test("any children at all -> family, regardless of adult count", () => {
+    assert.equal(
+      missionaryHouseholdCategory({ adults: [{ name: "Jordan" }], children: [{ name: "Kid" }] }),
+      "family"
+    );
+    assert.equal(
+      missionaryHouseholdCategory({
+        adults: [{ name: "Jordan" }, { name: "Alex" }],
+        children: [{ name: "Kid" }],
+      }),
+      "family"
+    );
+  });
+});
 
 describe("toPublicMissionary", () => {
   test("returns null when not public", () => {
@@ -106,9 +138,12 @@ describe("toPublicMissionary", () => {
     assert.equal(result.photo, null);
   });
 
-  test("restricted: never exposes a photo, current or otherwise", () => {
-    const result = toPublicMissionary(baseMissionary({ isRestricted: true }));
-    assert.equal(result.photo, undefined);
+  test("restricted: never exposes their real photo, current or otherwise — gets a generic silhouette instead", () => {
+    const result = toPublicMissionary(
+      baseMissionary({ isRestricted: true, photos: [{ id: "p1", url: "https://example.com/real-photo.jpg" }] })
+    );
+    assert.notEqual(result.photo, "https://example.com/real-photo.jpg");
+    assert.equal(isSilhouetteDataUri(result.photo), true);
   });
 
   test("public, non-restricted: never leaks internal-only fields", () => {
@@ -124,6 +159,19 @@ describe("toPublicMissionary", () => {
   test("restricted: reduces the name to initials", () => {
     const result = toPublicMissionary(baseMissionary({ isRestricted: true }));
     assert.equal(result.displayName, "J.R.");
+  });
+
+  test("restricted: silhouette photo matches the real household composition", () => {
+    const single = toPublicMissionary(baseMissionary({ isRestricted: true, adults: [{ name: "Jordan" }], children: [] }));
+    const couple = toPublicMissionary(
+      baseMissionary({ isRestricted: true, adults: [{ name: "Jordan" }, { name: "Alex" }], children: [] })
+    );
+    const family = toPublicMissionary(baseMissionary({ isRestricted: true })); // baseMissionary already has a child
+    // Each category's shape is a distinct SVG, so a different household
+    // composition must not all collapse to the same generic image.
+    assert.notEqual(single.photo, couple.photo);
+    assert.notEqual(couple.photo, family.photo);
+    assert.notEqual(single.photo, family.photo);
   });
 
   test("restricted: replaces precise GPS with a country-level centroid", () => {
@@ -217,8 +265,9 @@ describe("toPublicOrganization", () => {
     assert.equal(result.photo, "https://example.com/current-logo.jpg");
   });
 
-  test("restricted: never exposes a photo, current or otherwise", () => {
+  test("restricted: never exposes its real photo, current or otherwise — gets a generic silhouette instead", () => {
     const result = toPublicOrganization(baseOrganization({ isRestricted: true }));
-    assert.equal(result.photo, undefined);
+    assert.notEqual(result.photo, "https://example.com/current-logo.jpg");
+    assert.equal(isSilhouetteDataUri(result.photo), true);
   });
 });

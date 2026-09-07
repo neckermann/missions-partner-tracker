@@ -8,6 +8,13 @@
 require("dotenv").config();
 const { PrismaClient } = require("@prisma/client");
 const { uploadPrivateFileToS3, uploadImageToS3 } = require("../src/utils/s3");
+const {
+  svgDataUri,
+  personSilhouette,
+  coupleSilhouette,
+  familySilhouette,
+  buildingSilhouette,
+} = require("../src/utils/silhouette");
 const prisma = new PrismaClient();
 
 // Overridable via env for deployments that want a different amount of
@@ -384,28 +391,11 @@ function personName() {
   return { displayName: `${solo} ${last}`, last, isFamily: false };
 }
 
-// Plain flat silhouette icons, generated as inline SVG data URIs — no
-// external image service at all, so there's zero risk of an inappropriate
-// or unavailable image (unlike a random-real-photo pool, or depending on a
-// third-party API staying up). Shape reflects household composition (solo,
-// couple, or family with kids); background color is just for variety.
+// Shape builders live in src/utils/silhouette.js (shared with maskData.js,
+// which uses them with a fixed neutral color for restricted-partner public
+// photos) — here they're used with a randomly-picked color per record,
+// purely for demo-data variety when Pexels isn't configured.
 const SILHOUETTE_COLORS = ["2a5d3c", "1d4e89", "8a3324", "6b4c9a", "b45309", "0f766e", "7c2d12", "4338ca"];
-
-function svgDataUri(svg) {
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-}
-function personSilhouette(bg) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="${bg}"/><circle cx="100" cy="80" r="35" fill="#fff"/><path d="M40 170 Q40 110 100 110 Q160 110 160 170 Z" fill="#fff"/></svg>`;
-}
-function coupleSilhouette(bg) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="${bg}"/><circle cx="75" cy="75" r="28" fill="#fff"/><path d="M30 165 Q30 115 75 115 Q120 115 120 165 Z" fill="#fff"/><circle cx="130" cy="80" r="26" fill="#ffffffcc"/><path d="M88 168 Q88 122 130 122 Q172 122 172 168 Z" fill="#ffffffcc"/></svg>`;
-}
-function familySilhouette(bg) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="${bg}"/><circle cx="60" cy="70" r="24" fill="#fff"/><path d="M25 165 Q25 122 60 122 Q95 122 95 165 Z" fill="#fff"/><circle cx="140" cy="70" r="24" fill="#ffffffcc"/><path d="M105 165 Q105 122 140 122 Q175 122 175 165 Z" fill="#ffffffcc"/><circle cx="100" cy="112" r="16" fill="#ffffffee"/><path d="M76 168 Q76 142 100 142 Q124 142 124 168 Z" fill="#ffffffee"/></svg>`;
-}
-function buildingSilhouette(bg) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="${bg}"/><path d="M100 30 L170 72 L30 72 Z" fill="#fff"/><rect x="38" y="78" width="12" height="78" fill="#fff"/><rect x="66" y="78" width="12" height="78" fill="#fff"/><rect x="94" y="78" width="12" height="78" fill="#fff"/><rect x="122" y="78" width="12" height="78" fill="#fff"/><rect x="150" y="78" width="12" height="78" fill="#fff"/><rect x="25" y="158" width="150" height="14" fill="#fff"/></svg>`;
-}
 
 function missionaryPhoto(isFamily, childCount) {
   const bg = pick(SILHOUETTE_COLORS);

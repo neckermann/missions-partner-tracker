@@ -16,6 +16,25 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.11] - 2026-09-07
+
+### Added
+- **Generic photos for restricted-access partners**: restricted
+  missionaries and organizations previously had no public photo at all
+  (`photo` was simply absent from the API response) — they now get a
+  plain SVG silhouette icon instead, matching their real household
+  (single, couple, or family for a missionary; a generic building icon
+  for an organization). Never a real photo of any kind, generic stock or
+  otherwise — the whole point of `isRestricted` masking is anonymity, so
+  this is a shape-only icon, same reasoning as the initials-only name and
+  country-level pin it already gets. Shape-drawing code is shared with
+  `prisma/seed.js`'s existing fallback avatars (extracted to
+  `backend/src/utils/silhouette.js`) — seed data keeps its randomized
+  colors for demo variety; real restricted partners get a fixed neutral
+  color for consistency. The public partner-detail page also no longer
+  wraps a restricted partner's photo in a "view full size" link, since
+  that never made sense for a generic icon.
+
 ## [1.0.10] - 2026-09-04
 
 ### Added

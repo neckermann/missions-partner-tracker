@@ -184,9 +184,12 @@ site can see, independently of each other:
 - **Restricted-access location** (`isRestricted`) — only relevant if
   `isPublic` is also checked. Automatically, on the public site only:
   reduces the missionary's name to initials (an organization's name stays
-  visible — it's an institution, not a person), drops the precise GPS pin
-  down to a country-level approximation (or no pin at all, if their
-  country isn't recognized — see
+  visible — it's an institution, not a person), replaces their real photo
+  with a generic silhouette icon (a plain shape — single, couple, or
+  family, matching their actual household — never a real photo of any
+  kind, generic or otherwise), drops the precise GPS pin down to a
+  country-level approximation (or no pin at all, if their country isn't
+  recognized — see
   [ADMIN_GUIDE.md § Troubleshooting](ADMIN_GUIDE.md#troubleshooting)),
   replaces the overview with a generic security-conscious blurb, and
   strips all contact info, sending church/org, and children's

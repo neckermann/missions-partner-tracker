@@ -86,9 +86,17 @@ export default function PublicPartnerDetail() {
 
         <div className="partner-detail-header" style={{ marginTop: "1rem" }}>
           {partner.photo ? (
-            <a href={partner.photo} target="_blank" rel="noreferrer">
+            // Restricted partners get a generic silhouette here (see
+            // maskData.js), not a real photo -- "view full size" makes no
+            // sense for a generic icon, so only non-restricted photos are
+            // wrapped as a link.
+            partner.isRestricted ? (
               <img src={partner.photo} alt={name} className="partner-detail-photo" />
-            </a>
+            ) : (
+              <a href={partner.photo} target="_blank" rel="noreferrer">
+                <img src={partner.photo} alt={name} className="partner-detail-photo" />
+              </a>
+            )
           ) : (
             <div className="partner-detail-photo" />
           )}

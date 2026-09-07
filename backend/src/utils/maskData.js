@@ -1,3 +1,5 @@
+const { silhouetteFor } = require("./silhouette");
+
 /**
  * Turns a name into initials, e.g. "Jordan Rivera" -> "J.R."
  */
@@ -282,6 +284,17 @@ const COUNTRY_CENTROIDS = {
   Zimbabwe: { lat: -20, lng: 30 },
 };
 
+// "single" | "couple" | "family" -- which generic silhouette a restricted
+// missionary's household gets on the public site (see toPublicMissionary
+// below). Any child at all means "family" regardless of adult count,
+// since the shape itself is what communicates "this is a household with
+// kids," not a precise headcount.
+function missionaryHouseholdCategory(m) {
+  if ((m.children?.length ?? 0) > 0) return "family";
+  if ((m.adults?.length ?? 0) >= 2) return "couple";
+  return "single";
+}
+
 /**
  * Given a full Missionary record (with relations included), return the
  * shape that is safe to send to the PUBLIC website, based on isPublic /
@@ -323,6 +336,11 @@ function toPublicMissionary(m) {
       gpsLng: centroid?.lng ?? null,
       overviewShort: "Restricted-access location.",
       overview: "Serving in a restricted-access location. Specific details are withheld for security.",
+      // A generic silhouette (single/couple/family, matching the real
+      // household), never their real uploaded photo — even a generic
+      // *human* photo would undercut the anonymity isRestricted exists
+      // for, so this is a plain shape icon, not a stock photo.
+      photo: silhouetteFor(missionaryHouseholdCategory(m)),
     };
   }
 
@@ -388,6 +406,9 @@ function toPublicOrganization(o) {
       gpsLng: centroid?.lng ?? null,
       overviewShort: "Restricted-access location.",
       overview: "Partnering in a restricted-access location. Specific details are withheld for security.",
+      // Generic building icon, same reasoning as the missionary branch
+      // above — never the org's real logo/photo.
+      photo: silhouetteFor("organization"),
     };
   }
 
@@ -411,4 +432,4 @@ function toPublicOrganization(o) {
   };
 }
 
-module.exports = { toInitials, toPublicMissionary, toPublicOrganization };
+module.exports = { toInitials, toPublicMissionary, toPublicOrganization, missionaryHouseholdCategory };
