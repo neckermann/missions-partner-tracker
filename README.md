@@ -59,6 +59,12 @@ task-oriented guides:
 
 ## Quick start
 
+**Fork this repo first** (the button, top right of this page) rather than
+cloning it directly — every church runs their own fork, and forking (not
+downloading a copy) is what gets you GitHub's one-click **Sync fork**
+button for pulling in future updates with no git commands at all; see
+[UPGRADING.md](UPGRADING.md). Then clone *your fork*, not this repo.
+
 Full walkthrough (prerequisites, env var reference, troubleshooting):
 [ADMIN_GUIDE.md § Local development setup](ADMIN_GUIDE.md#local-development-setup).
 The short version:

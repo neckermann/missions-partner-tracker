@@ -3,21 +3,55 @@
 This project is meant to be forked once per church, not run as a shared
 hosted service — so "upgrading" means pulling changes from the original
 project into your own fork, the same way you'd pull upstream changes into
-any fork.
+any fork. Forking (rather than, say, GitHub's "Use this template" button)
+is deliberate: a real fork keeps a tracked relationship to this repo,
+which is what unlocks the easy update path below — a template-generated
+copy doesn't have that relationship, and would leave you with the manual
+git path as your only option.
 
 This works cleanly for one specific reason: everything that makes your
 instance *yours* — church name, logo, brand color, the term you use for
 partners — lives in the database (Church Settings), set through the admin
 UI, not hardcoded in the files that get updated. As long as you keep it
-that way, pulling in new releases should almost always be a clean merge
-with no conflicts to resolve. If you *have* directly edited application
-code for your own church, that's fine, but expect an occasional merge
-conflict on the lines you changed — see the last section below.
+that way, pulling in new releases should almost always be a clean,
+conflict-free update. If you *have* directly edited application code for
+your own church, that's fine, but expect an occasional merge conflict on
+the lines you changed — see the last section below.
 
-## One-time setup
+Logged-in admins also see a banner right in the dashboard when their
+instance is running behind the latest release — you don't have to
+remember to check GitHub. See `backend/src/utils/versionCheck.js` if
+you're curious how that works.
 
-Add this repository as a second remote (`upstream`) alongside your own
-fork (`origin`):
+## The easy way: GitHub's "Sync fork" button
+
+If you haven't directly edited application code, this is the whole
+process — no terminal, no git commands, done entirely in your browser:
+
+1. Go to your fork's page on GitHub (`github.com/<you>/missions-partner-tracker`).
+2. Click **Sync fork** (above the file list) → **Update branch**. This
+   fast-forwards your fork's `main` to match this project's `main`.
+3. Whatever machine you deploy from, pull that update down and finish the
+   remaining steps (reinstall dependencies, apply migrations, redeploy) —
+   see steps 3–6 under **The manual way** below; they're the same either
+   way, this just replaces steps 1–2.
+
+This only works cleanly as a plain fast-forward — if you've made your own
+commits on `main`, GitHub will tell you a merge is needed instead and
+you'll want the manual path below. It also only applies to a genuine
+GitHub fork (created via the **Fork** button) — a private fork that was
+set up by copying files rather than forking the actual repo won't have a
+**Sync fork** button at all (see
+[ADMIN_GUIDE.md § If you're running a private fork alongside this public repo](ADMIN_GUIDE.md#if-youre-running-a-private-fork-alongside-this-public-repo)).
+
+## The manual way: git
+
+Use this if you've directly modified application code, your fork is
+private and wasn't created via GitHub's Fork button, or you just prefer
+the command line.
+
+**One-time setup** — add this repository as a second remote (`upstream`)
+alongside your own fork (`origin`):
 
 ```bash
 git remote add upstream https://github.com/neckermann/missions-partner-tracker.git
@@ -26,7 +60,7 @@ git remote add upstream https://github.com/neckermann/missions-partner-tracker.g
 (If the project has since been renamed/moved, GitHub redirects the old URL
 automatically, so this keeps working either way.)
 
-## Pulling in an update
+**Pulling in an update:**
 
 1. Check [CHANGELOG.md](CHANGELOG.md) for what changed since the version
    you're on, and whether it's flagged as a breaking (`MAJOR`) change —

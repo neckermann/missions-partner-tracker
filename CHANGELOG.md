@@ -16,6 +16,47 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.15] - 2026-09-07
+
+### Added
+- **"Update available" banner** in the admin dashboard: logged-in admins
+  now see a dismissible notice when their instance is running behind the
+  latest tagged release on the public repo, linking straight to what
+  changed — closes the gap where staying current required knowing to
+  check GitHub yourself. Backed by a new admin-only `GET
+  /api/version-check` (`backend/src/utils/versionCheck.js`), which
+  compares `backend/package.json`'s version against the GitHub Releases
+  API (cached 24h, fails silently if GitHub is unreachable — this is a
+  courtesy, never something that should make the dashboard look broken).
+  Dismissal is remembered per-version (`localStorage`), so dismissing
+  today's notice doesn't silently suppress next month's.
+  `backend/package.json`'s version is now the single source of truth for
+  "what's running" — every release bumps it from here on, even a
+  frontend-only change, since only `backend/` ships in the deployed
+  artifact (the build workflow copies the built frontend into
+  `backend/public` before zipping just `backend/`).
+- **GitHub Releases**, backfilled for every existing tag (`v1.0.0`
+  through `v1.0.14`) from their CHANGELOG entries — this repo had tags
+  but no actual Releases, which meant the GitHub Releases API (what the
+  new banner checks, and what GitHub's own "Watch → Releases only"
+  notifications key off of) had nothing to return. Releases are now part
+  of the regular release process alongside the version-bump commit and
+  tag.
+
+### Changed
+- **UPGRADING.md** now leads with GitHub's **Sync fork** button as the
+  recommended update path (no git, no terminal — a fast-forward merge
+  done entirely in the browser) for any fork that hasn't directly edited
+  application code, with the existing manual `git fetch`/`merge` steps
+  kept as the path for private forks (that weren't created via GitHub's
+  Fork button) or forks with local code changes. This is *why* the
+  project stays fork-based rather than moving to GitHub's "Use this
+  template" — a template-generated copy has no tracked relationship back
+  to this repo, so it wouldn't get a Sync fork button at all.
+- **README.md**'s Quick start now opens by telling you to fork the repo
+  (and clone your fork, not this one) before the local setup steps, which
+  previously assumed you already had.
+
 ## [1.0.14] - 2026-09-07
 
 ### Added

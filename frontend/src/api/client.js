@@ -136,6 +136,14 @@ export async function fetchChurchSettings() {
   return data;
 }
 
+// Backs the "an update is available" banner in AdminLayout.jsx. Admin-role
+// only, so a non-admin staff account just won't see the banner rather than
+// erroring — see UpdateBanner.jsx.
+export async function fetchVersionCheck() {
+  const { data } = await api.get("/version-check");
+  return data;
+}
+
 export async function updateChurchSettings(payload) {
   const { data } = await api.put("/settings", payload);
   return data;

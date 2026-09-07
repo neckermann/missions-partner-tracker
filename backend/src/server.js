@@ -21,6 +21,7 @@ const newsletterRoutes = require("./routes/newsletters");
 const documentRoutes = require("./routes/documents");
 const settingsRoutes = require("./routes/settings");
 const publicSettingsRoutes = require("./routes/publicSettings");
+const versionRoutes = require("./routes/version");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -87,6 +88,7 @@ app.use("/api/newsletters", newsletterRoutes); // protected (admin) — session 
 app.use("/api/documents", documentRoutes); // protected (admin) — session required
 app.use("/api/settings", settingsRoutes); // protected (admin for write, any role for read)
 app.use("/api/public/settings", publicSettingsRoutes); // open (public site + admin nav branding)
+app.use("/api/version-check", versionRoutes); // protected (admin role only)
 
 // Only exists at all if DEMO_RESET_TOKEN is configured — absent in every
 // normal deployment. See ADMIN_GUIDE.md § Demo mode.
