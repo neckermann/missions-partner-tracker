@@ -1,7 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { authenticator } = require("otplib");
+const { generateSecret, generateURI, verify: verifyOtp } = require("otplib");
 const QRCode = require("qrcode");
 const prisma = require("../prismaClient");
 const { requireAuth, requireAuthOrMfaSetup } = require("../middleware/requireAuth");
@@ -96,7 +96,7 @@ router.post("/mfa/login-verify", async (req, res, next) => {
       return res.status(401).json({ error: "Invalid MFA session" });
     }
 
-    const valid = authenticator.check(String(token), decryptField(user.mfaSecret));
+    const { valid } = await verifyOtp({ secret: decryptField(user.mfaSecret), token: String(token) });
     if (!valid) return res.status(401).json({ error: "Invalid code" });
 
     res.json(await completeLogin(res, user));
@@ -162,12 +162,12 @@ router.post("/mfa/setup", requireAuthOrMfaSetup, async (req, res, next) => {
       return res.status(400).json({ error: "MFA is already enabled — disable it first to re-enroll" });
     }
 
-    const secret = authenticator.generateSecret();
+    const secret = generateSecret();
     await prisma.user.update({ where: { id: user.id }, data: { mfaSecret: encryptField(secret) } });
 
     // The QR code / manual-entry value must be the raw secret — encryption
     // is only for what's persisted to the database.
-    const otpauth = authenticator.keyuri(user.email, MFA_ISSUER, secret);
+    const otpauth = generateURI({ issuer: MFA_ISSUER, label: user.email, secret });
     const qrCode = await QRCode.toDataURL(otpauth);
 
     res.json({ secret, qrCode });
@@ -192,7 +192,7 @@ router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) =
       return res.status(400).json({ error: "No MFA setup in progress" });
     }
 
-    const valid = authenticator.check(String(token), decryptField(user.mfaSecret));
+    const { valid } = await verifyOtp({ secret: decryptField(user.mfaSecret), token: String(token) });
     if (!valid) return res.status(401).json({ error: "Invalid code" });
 
     const updated = await prisma.user.update({

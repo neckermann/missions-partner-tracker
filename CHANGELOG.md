@@ -16,6 +16,39 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.21] - 2026-09-07
+
+### Changed
+- **otplib 12 -> 13.5.0**: real migration, not a drop-in bump — v13 is a
+  complete rewrite that removed the `authenticator` object entirely.
+  `backend/src/routes/auth.js` now calls the new functional API directly:
+  `authenticator.generateSecret()` -> `generateSecret()`,
+  `authenticator.keyuri(email, issuer, secret)` ->
+  `generateURI({ issuer, label: email, secret })` (note the reordered,
+  now-named arguments), and `authenticator.check(token, secret)` ->
+  `await verify({ secret, token })`, which is now async and returns
+  `{ valid, delta }` instead of a plain boolean. Verified with a real
+  round-trip (generate a secret, generate a valid code for it, confirm
+  `verify` accepts it and rejects a wrong one) and a full live MFA
+  setup/verify-setup API test against the demo admin account.
+- **multer 1.4.5 -> 2.3.0, express-rate-limit 7.5.1 -> 8.7.0, bcryptjs
+  2.4.3 -> 3.0.3**: despite being major version bumps, all three turned
+  out to be genuinely drop-in for how this app uses them (checked each
+  library's actual breaking-change list against this codebase's specific
+  usage before assuming so): multer's `fileFilter(req, file, cb)`
+  callback shape and `MulterError` are unchanged; this app's
+  `rateLimit({ windowMs, max })` calls don't touch any of the
+  options/headers express-rate-limit v8 removed; bcryptjs 3's
+  CommonJS `require()` still resolves via its package.json `exports`
+  map (its main breaking change was ESM-first tooling, not the
+  `hash`/`compare` API surface this app calls).
+
+These four were the remainder of the ~19 first-run Dependabot PRs.
+Closes out that backlog entirely — every dependency it flagged is now
+either merged as-is or migrated for real, and the config itself
+(`.github/dependabot.yml.disabled`) is tightened against a repeat pile-up
+whenever it's turned back on.
+
 ## [1.0.20] - 2026-09-07
 
 ### Fixed
