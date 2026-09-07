@@ -71,12 +71,16 @@ model Missionary {
 
   emergencyContact   Json?    // { name, phone, email }
 
-  sendingChurch      SendingChurch?
-  sendingOrg         SendingOrg?
+  // Was two separate 1:1 relations (SendingChurch?/SendingOrg?) -- merged
+  // into one dual-purpose table (see SendingParty below), same discriminator
+  // pattern Address already uses for physical/mailing. Route handlers pick
+  // out the one they want via `.find(sp => sp.type === "church")`, same as
+  // they already do for addresses.
+  sendingParties     SendingParty[]
   adults             Adult[]
   children           Child[]
   addresses          Address[]
-  missionTrips       MissionTrip[]
+  missionTrips       Trip[]
   furloughs          Furlough[]
   churchVisits       ChurchVisit[]
   supportEntries     SupportEntry[]
@@ -119,16 +123,26 @@ model Child {
   birthday     DateTime?  @db.Date
 }
 
-// A missionary can have up to one address per type. "physical" is their
-// actual serving location (may be a full street address or just
-// city/state/country, depending on what's known/safe to record) and is
-// also the source of the public map pin (gpsLat/gpsLng). "mailing" is the
-// existing US-side contact/support-mail address and has no coordinates.
+// A missionary or organization can have up to one address per type.
+// "physical" is their actual serving location (may be a full street
+// address or just city/state/country, depending on what's known/safe to
+// record) and is also the source of the public map pin (gpsLat/gpsLng).
+// "mailing" is the existing US-side contact/support-mail address and has
+// no coordinates. Formerly two separate tables (Address for missionaries,
+// OrganizationAddress for organizations) -- merged into this one,
+// following the same nullable dual-FK pattern already used by Newsletter/
+// Document/SupportEntry/ChurchVisit. Two separate @@unique constraints
+// (rather than one) since a Postgres unique index never conflicts across
+// rows where the constrained column is NULL on both sides -- one
+// constraint per parent type is what actually enforces "at most one
+// physical + one mailing address" independently for each.
 model Address {
-  id                  String     @id @default(uuid())
-  missionaryId        String
-  missionary          Missionary @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
-  type                String     // "physical" | "mailing"
+  id                  String        @id @default(uuid())
+  missionaryId        String?
+  missionary          Missionary?   @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  organizationId      String?
+  organization        Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type                String        // "physical" | "mailing"
   addressLine1        String?
   addressLine2        String?
   city                String?
@@ -141,31 +155,38 @@ model Address {
   receivePackages     Boolean?
 
   @@unique([missionaryId, type])
+  @@unique([organizationId, type])
 }
 
-// A past team trip to visit this missionary — history for reference, not a
-// capacity/preference profile (that lives on Missionary.tripTypesSupported etc).
-model MissionTrip {
-  id           String            @id @default(uuid())
-  missionaryId String
-  missionary   Missionary        @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
-  startDate    DateTime?         @db.Date
-  endDate      DateTime?         @db.Date
-  tripType     String?           // e.g. "Construction", "Medical/Dental" — preset or custom
-  description  String?           @db.Text // what the team did
-  notes        String?           @db.Text
-  participants TripParticipant[]
+// A past team trip to visit this missionary or organization — history for
+// reference, not a capacity/preference profile (that lives on
+// Missionary/Organization.tripTypesSupported etc). Formerly two separate
+// tables (MissionTrip for missionaries, OrganizationTrip for
+// organizations, renamed to Trip here) -- merged following the same
+// pattern as Address above.
+model Trip {
+  id             String            @id @default(uuid())
+  missionaryId   String?
+  missionary     Missionary?       @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  startDate      DateTime?         @db.Date
+  endDate        DateTime?         @db.Date
+  tripType       String?           // e.g. "Construction", "Medical/Dental" — preset or custom
+  description    String?           @db.Text // what the team did
+  notes          String?           @db.Text
+  participants   TripParticipant[]
 }
 
-// Individual person on a MissionTrip. isLeader marks the trip leader(s)
-// rather than keeping a separate, potentially-inconsistent "leader name" field.
+// Individual person on a Trip. isLeader marks the trip leader(s) rather
+// than keeping a separate, potentially-inconsistent "leader name" field.
 model TripParticipant {
-  id       String      @id @default(uuid())
+  id       String   @id @default(uuid())
   tripId   String
-  trip     MissionTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  trip     Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
   name     String
-  role     String?     // e.g. "Medical", "Construction", "Translator"
-  isLeader Boolean     @default(false)
+  role     String?  // e.g. "Medical", "Construction", "Translator"
+  isLeader Boolean  @default(false)
   phone    String?
   email    String?
 }
@@ -205,28 +226,38 @@ model ChurchVisit {
   @@index([organizationId])
 }
 
-model SendingChurch {
-  id             String     @id @default(uuid())
-  missionaryId   String     @unique
-  missionary     Missionary @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
-  name           String?
-  contactName    String?
-  contactEmail   String?
-  websiteLink    String?
-  mailingAddress Json?
-  phone          String?
-}
+// Who sent this missionary -- their sending church and/or sending
+// organization, each recorded once per missionary (`type` distinguishes
+// which; @@unique enforces "at most one of each per missionary", same
+// role the old @unique on missionaryId alone played back when these were
+// two separate one-row-per-missionary tables). Missionary-only -- an
+// organization has no equivalent "who sent it" concept, so unlike
+// Address/Trip above this isn't a missionary/organization split, it's two
+// formerly-separate-but-identical models (SendingChurch, SendingOrg) on
+// the same parent, merged the same way Address already distinguishes
+// "physical"/"mailing". The address itself is now real structured columns
+// (addressLine1 etc., matching Address's shape) rather than the old
+// `mailingAddress Json?` blob -- that JSON field was never validated,
+// never queryable, and out of step with how every other address in this
+// schema is stored.
+model SendingParty {
+  id                  String     @id @default(uuid())
+  missionaryId        String
+  missionary          Missionary @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  type                String     // "church" | "org"
+  name                String?
+  contactName         String?
+  contactEmail        String?
+  websiteLink         String?
+  phone               String?
+  addressLine1        String?
+  addressLine2        String?
+  city                String?
+  stateProvinceRegion String?
+  postalCode          String?
+  country             String?
 
-model SendingOrg {
-  id             String     @id @default(uuid())
-  missionaryId   String     @unique
-  missionary     Missionary @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
-  name           String?
-  contactName    String?
-  contactEmail   String?
-  websiteLink    String?
-  mailingAddress Json?
-  phone          String?
+  @@unique([missionaryId, type])
 }
 
 // A local or national partner organization, tracked as its own standalone
@@ -278,8 +309,8 @@ model Organization {
   instagram          String?
   linkedin           String?
 
-  addresses          OrganizationAddress[]
-  orgTrips           OrganizationTrip[]
+  addresses          Address[]
+  orgTrips           Trip[]
   churchVisits       ChurchVisit[]
   supportEntries     SupportEntry[]
   needRequests       SupportNeed[] // see Missionary.needRequests for the naming note
@@ -297,52 +328,6 @@ model Organization {
   @@index([archived])
 }
 
-// Mirrors Address, but for an Organization instead of a Missionary — kept
-// as a separate model rather than a shared/polymorphic one, matching this
-// schema's existing convention (see SendingChurch/SendingOrg).
-model OrganizationAddress {
-  id                  String       @id @default(uuid())
-  organizationId      String
-  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  type                String       // "physical" | "mailing"
-  addressLine1        String?
-  addressLine2        String?
-  city                String?
-  stateProvinceRegion String?
-  postalCode          String?
-  country             String?
-  gpsLat              Float?
-  gpsLng              Float?
-  receiveMail         Boolean?
-  receivePackages     Boolean?
-
-  @@unique([organizationId, type])
-}
-
-// Mirrors MissionTrip, but for an Organization instead of a Missionary.
-model OrganizationTrip {
-  id             String   @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  startDate      DateTime? @db.Date
-  endDate        DateTime? @db.Date
-  tripType       String?
-  description    String?  @db.Text
-  notes          String?  @db.Text
-  participants   OrganizationTripParticipant[]
-}
-
-// Mirrors TripParticipant, but for an OrganizationTrip.
-model OrganizationTripParticipant {
-  id       String   @id @default(uuid())
-  tripId   String
-  trip     OrganizationTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  name     String
-  role     String?
-  isLeader Boolean  @default(false)
-  phone    String?
-  email    String?
-}
 
 // A monthly-support dollar amount effective as of a given date, for either a
 // Missionary or an Organization — exactly one of missionaryId/organizationId

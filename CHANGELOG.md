@@ -16,6 +16,43 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.13] - 2026-09-07
+
+### Changed
+- **Consolidated duplicated missionary/organization tables into shared
+  ones**: `Address`/`OrganizationAddress`, `MissionTrip`+`TripParticipant`/
+  `OrganizationTrip`+`OrganizationTripParticipant`, and `SendingChurch`/
+  `SendingOrg` were three separate pairs of near-identical tables, one per
+  parent type — the exact duplication this codebase's own conventions
+  (see [CONTRIBUTING.md § Code style](CONTRIBUTING.md)) warn against, and
+  a maintenance risk long-term (a bug fix or new field applied to one side
+  and forgotten on the other). All three now follow the same nullable
+  dual-FK pattern already used by `SupportEntry`/`Newsletter`/`Document`/
+  `ChurchVisit`: `Address` and the renamed `MissionTrip` → `Trip` gained a
+  nullable `organizationId` alongside `missionaryId`, and
+  `OrganizationAddress`/`OrganizationTrip`/`OrganizationTripParticipant`
+  were dropped. `SendingChurch`/`SendingOrg` (a same-parent duplication,
+  not a missionary/org split) were merged into one `SendingParty` table
+  with a `type: "church" | "org"` column; its `mailingAddress` field was
+  also converted from an unvalidated `Json?` blob into real structured
+  columns (`addressLine1`, `city`, `country`, etc.) matching `Address`'s
+  shape, and the API's incoming `mailingAddress` object is now
+  Zod-validated instead of accepted as `z.any()`.
+  The admin/public API request and response shapes are unchanged —
+  responses still nest `sendingChurch`/`sendingOrg` objects, so no
+  frontend code needed to change — the reshaping happens entirely in new
+  `backend/src/utils/sendingParty.js` helpers shared by
+  `routes/missionaries.js` and `routes/publicMissionaries.js`.
+  **If you have custom fork code that queries the Prisma client directly**
+  using `prisma.missionTrip`, `prisma.organizationAddress`,
+  `prisma.organizationTrip`, `prisma.organizationTripParticipant`,
+  `prisma.sendingChurch`, or `prisma.sendingOrg`, it will need updating to
+  `prisma.trip`/`prisma.address`/`prisma.sendingParty` (with a `type`
+  filter) — this is the one place this release isn't a drop-in merge.
+  Run `npx prisma migrate deploy` when upgrading (see
+  [UPGRADING.md](UPGRADING.md)); the migration preserves every existing
+  row via renames and `INSERT ... SELECT`, not a drop-and-recreate.
+
 ## [1.0.12] - 2026-09-06
 
 ### Fixed

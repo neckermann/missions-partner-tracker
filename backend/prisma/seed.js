@@ -739,32 +739,39 @@ async function main() {
         churchVisits: buildChurchVisits(),
         supportEntries: { create: buildSupportEntries() },
         needRequests: { create: buildNeedRequests() },
-        sendingChurch: {
-          create: sentByOurChurch
-            ? {
-                name: churchSettings.churchName,
-                contactName: churchSettings.contactName,
-                contactEmail: churchSettings.contactEmail,
-                websiteLink: churchSettings.websiteLink,
-                phone: churchSettings.phone,
-                mailingAddress: churchSettings.address || {},
-              }
-            : {
-                name: fallbackChurchName,
-                contactName: `${pick(FIRST_M.concat(FIRST_F))} ${pick(LAST)}`,
-                contactEmail: chance(0.6) ? `missions@${slugify(fallbackChurchName)}.example.org` : null,
-                websiteLink: chance(0.5) ? `https://${slugify(fallbackChurchName)}.example.org` : null,
-                phone: chance(0.5) ? fakePhone() : null,
-              },
-        },
-        sendingOrg: {
-          create: {
-            name: sendingOrgName,
-            contactName: `${pick(FIRST_M.concat(FIRST_F))} ${pick(LAST)}`,
-            contactEmail: chance(0.7) ? `partnercare@${slugify(sendingOrgName)}.example.org` : null,
-            websiteLink: chance(0.6) ? `https://${slugify(sendingOrgName)}.example.org` : null,
-            phone: chance(0.5) ? fakePhone() : null,
-          },
+        // SendingParty rows store the mailing address as flat columns (see
+        // schema.prisma), so churchSettings.address (still the old nested
+        // JSON shape from ChurchSettings) is spread directly rather than
+        // assigned to a `mailingAddress` key.
+        sendingParties: {
+          create: [
+            sentByOurChurch
+              ? {
+                  type: "church",
+                  name: churchSettings.churchName,
+                  contactName: churchSettings.contactName,
+                  contactEmail: churchSettings.contactEmail,
+                  websiteLink: churchSettings.websiteLink,
+                  phone: churchSettings.phone,
+                  ...(churchSettings.address || {}),
+                }
+              : {
+                  type: "church",
+                  name: fallbackChurchName,
+                  contactName: `${pick(FIRST_M.concat(FIRST_F))} ${pick(LAST)}`,
+                  contactEmail: chance(0.6) ? `missions@${slugify(fallbackChurchName)}.example.org` : null,
+                  websiteLink: chance(0.5) ? `https://${slugify(fallbackChurchName)}.example.org` : null,
+                  phone: chance(0.5) ? fakePhone() : null,
+                },
+            {
+              type: "org",
+              name: sendingOrgName,
+              contactName: `${pick(FIRST_M.concat(FIRST_F))} ${pick(LAST)}`,
+              contactEmail: chance(0.7) ? `partnercare@${slugify(sendingOrgName)}.example.org` : null,
+              websiteLink: chance(0.6) ? `https://${slugify(sendingOrgName)}.example.org` : null,
+              phone: chance(0.5) ? fakePhone() : null,
+            },
+          ],
         },
         ...attribution,
       },

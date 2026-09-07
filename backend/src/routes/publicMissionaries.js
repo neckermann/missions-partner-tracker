@@ -1,6 +1,7 @@
 const express = require("express");
 const prisma = require("../prismaClient");
 const { toPublicMissionary } = require("../utils/maskData");
+const { shapeSendingParties } = require("../utils/sendingParty");
 
 const router = express.Router();
 
@@ -13,8 +14,7 @@ router.get("/", async (req, res, next) => {
       include: {
         adults: true,
         children: true,
-        sendingChurch: true,
-        sendingOrg: true,
+        sendingParties: true,
         addresses: { where: { type: "physical" } }, // only the pin coordinates are ever surfaced publicly
         // Only the current photo (most recently received) is ever surfaced
         // publicly — never the upload history.
@@ -23,7 +23,7 @@ router.get("/", async (req, res, next) => {
       orderBy: { displayName: "asc" },
     });
 
-    const publicList = records.map(toPublicMissionary).filter(Boolean);
+    const publicList = records.map(shapeSendingParties).map(toPublicMissionary).filter(Boolean);
     res.json(publicList);
   } catch (err) {
     next(err);
@@ -38,8 +38,7 @@ router.get("/:id", async (req, res, next) => {
       include: {
         adults: true,
         children: true,
-        sendingChurch: true,
-        sendingOrg: true,
+        sendingParties: true,
         addresses: { where: { type: "physical" } }, // only the pin coordinates are ever surfaced publicly
         // Only the current photo (most recently received) is ever surfaced
         // publicly — never the upload history.
@@ -47,7 +46,7 @@ router.get("/:id", async (req, res, next) => {
       },
     });
 
-    const publicRecord = toPublicMissionary(record);
+    const publicRecord = toPublicMissionary(shapeSendingParties(record));
     if (!publicRecord) return res.status(404).json({ error: "Not found" });
     res.json(publicRecord);
   } catch (err) {

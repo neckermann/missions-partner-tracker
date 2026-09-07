@@ -300,10 +300,10 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     // wholesale on edit, same as missionaries.
     const updated = await prisma.$transaction(async (tx) => {
       if (addressRows) {
-        await tx.organizationAddress.deleteMany({ where: { organizationId: req.params.id } });
+        await tx.address.deleteMany({ where: { organizationId: req.params.id } });
       }
       if (orgTrips) {
-        await tx.organizationTrip.deleteMany({ where: { organizationId: req.params.id } });
+        await tx.trip.deleteMany({ where: { organizationId: req.params.id } });
       }
       if (churchVisits) {
         await tx.churchVisit.deleteMany({ where: { organizationId: req.params.id } });

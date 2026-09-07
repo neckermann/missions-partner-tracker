@@ -6,6 +6,7 @@ const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { uploadImageToS3, deleteFromS3IfOwned, deleteFromS3ByKey } = require("../utils/s3");
 const { geocodeAddress } = require("../utils/geocode");
 const { matchesFileSignature } = require("../utils/fileSignature");
+const { flattenSendingParty, shapeSendingParties } = require("../utils/sendingParty");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -40,8 +41,7 @@ function handleUploadErrors(err, req, res, next) {
 const missionaryInclude = {
   adults: true,
   children: true,
-  sendingChurch: true,
-  sendingOrg: true,
+  sendingParties: true,
   addresses: true,
   missionTrips: { include: { participants: true } },
   furloughs: { orderBy: { startDate: "desc" } },
@@ -54,21 +54,6 @@ const missionaryInclude = {
   // only (the public API takes just the first row; see maskData.js).
   photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }] },
 };
-
-// Shared shape for SendingChurch/SendingOrg. Explicit fields (rather than
-// z.any()) so Zod strips relation-managed keys like `id`/`missionaryId` that
-// the frontend round-trips back from a GET response — Prisma's nested
-// upsert rejects those as unknown arguments otherwise.
-const sendingPartySchema = z
-  .object({
-    name: z.string().optional().nullable(),
-    contactName: z.string().optional().nullable(),
-    contactEmail: z.string().optional().nullable(),
-    websiteLink: z.string().optional().nullable(),
-    mailingAddress: z.any().optional().nullable(),
-    phone: z.string().optional().nullable(),
-  })
-  .optional();
 
 // A missionary has at most one address per type: "physical" (actual serving
 // location — may be a full street address or just city/state/country, and
@@ -90,6 +75,39 @@ const addressesSchema = z
   .object({
     physical: addressFieldsSchema.optional(),
     mailing: addressFieldsSchema.optional(),
+  })
+  .optional();
+
+// Shared shape for the sendingChurch/sendingOrg API fields. Explicit
+// fields (rather than z.any()) so Zod strips relation-managed keys like
+// `id`/`missionaryId` that the frontend round-trips back from a GET
+// response — the nested-write helpers reject those as unknown columns
+// otherwise. `mailingAddress` stays a nested object in the API contract
+// even though the database stores it as flat columns now (see
+// SendingParty in schema.prisma and utils/sendingParty.js, shared with
+// routes/publicMissionaries.js) -- that's what keeps this schema change
+// invisible to the frontend. It's now a real validated schema (a subset
+// of addressFieldsSchema -- no gpsLat/gpsLng/receiveMail/receivePackages,
+// none of which SendingParty has columns for) rather than the z.any() it
+// was when this was still an unvalidated JSON blob.
+const sendingPartySchema = z
+  .object({
+    name: z.string().optional().nullable(),
+    contactName: z.string().optional().nullable(),
+    contactEmail: z.string().optional().nullable(),
+    websiteLink: z.string().optional().nullable(),
+    mailingAddress: addressFieldsSchema
+      .pick({
+        addressLine1: true,
+        addressLine2: true,
+        city: true,
+        stateProvinceRegion: true,
+        postalCode: true,
+        country: true,
+      })
+      .optional()
+      .nullable(),
+    phone: z.string().optional().nullable(),
   })
   .optional();
 
@@ -229,7 +247,7 @@ router.get("/", async (req, res, next) => {
       include: missionaryInclude,
       orderBy: { displayName: "asc" },
     });
-    res.json(records);
+    res.json(records.map(shapeSendingParties));
   } catch (err) {
     next(err);
   }
@@ -243,7 +261,7 @@ router.get("/:id", async (req, res, next) => {
       include: missionaryInclude,
     });
     if (!record) return res.status(404).json({ error: "Not found" });
-    res.json(record);
+    res.json(shapeSendingParties(record));
   } catch (err) {
     next(err);
   }
@@ -267,6 +285,10 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
       ...scalarData
     } = data;
     const addressRows = await buildAddressRows(addresses);
+    const sendingPartyRows = [
+      ...(sendingChurch ? [flattenSendingParty(sendingChurch, "church")] : []),
+      ...(sendingOrg ? [flattenSendingParty(sendingOrg, "org")] : []),
+    ];
 
     const created = await prisma.missionary.create({
       data: {
@@ -275,8 +297,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
         updatedById: req.user.id,
         adults: adults ? { create: adults } : undefined,
         children: children ? { create: children } : undefined,
-        sendingChurch: sendingChurch ? { create: sendingChurch } : undefined,
-        sendingOrg: sendingOrg ? { create: sendingOrg } : undefined,
+        sendingParties: sendingPartyRows.length ? { create: sendingPartyRows } : undefined,
         addresses: addressRows?.length ? { create: addressRows } : undefined,
         missionTrips: missionTrips
           ? {
@@ -294,7 +315,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
       include: missionaryInclude,
     });
 
-    res.status(201).json(created);
+    res.status(201).json(shapeSendingParties(created));
   } catch (err) {
     if (err.name === "ZodError") return res.status(400).json({ error: err.errors });
     next(err);
@@ -345,7 +366,7 @@ router.post(
         include: missionaryInclude,
       });
 
-      res.json(updated);
+      res.json(shapeSendingParties(updated));
     } catch (err) {
       next(err);
     }
@@ -394,7 +415,11 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     // Adults/children/addresses/missionTrips/furloughs/churchVisits/
     // supportEntries/needRequests are replaced wholesale on edit for
     // simplicity. (A more granular per-record PATCH can be added later if
-    // needed.) Deleting a MissionTrip cascades to its participants.
+    // needed.) Deleting a Trip cascades to its participants. sendingChurch/
+    // sendingOrg are handled independently of each other (each only
+    // touched if its own field was actually sent), since they're now two
+    // differently-typed rows in the same sendingParties relation rather
+    // than two separate 1:1 relations.
     const updated = await prisma.$transaction(async (tx) => {
       if (adults) {
         await tx.adult.deleteMany({ where: { missionaryId: req.params.id } });
@@ -406,7 +431,7 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
         await tx.address.deleteMany({ where: { missionaryId: req.params.id } });
       }
       if (missionTrips) {
-        await tx.missionTrip.deleteMany({ where: { missionaryId: req.params.id } });
+        await tx.trip.deleteMany({ where: { missionaryId: req.params.id } });
       }
       if (furloughs) {
         await tx.furlough.deleteMany({ where: { missionaryId: req.params.id } });
@@ -420,6 +445,17 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
       if (needRequests) {
         await tx.supportNeed.deleteMany({ where: { missionaryId: req.params.id } });
       }
+      if (sendingChurch) {
+        await tx.sendingParty.deleteMany({ where: { missionaryId: req.params.id, type: "church" } });
+      }
+      if (sendingOrg) {
+        await tx.sendingParty.deleteMany({ where: { missionaryId: req.params.id, type: "org" } });
+      }
+
+      const sendingPartyRows = [
+        ...(sendingChurch ? [flattenSendingParty(sendingChurch, "church")] : []),
+        ...(sendingOrg ? [flattenSendingParty(sendingOrg, "org")] : []),
+      ];
 
       return tx.missionary.update({
         where: { id: req.params.id },
@@ -428,12 +464,7 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
           updatedById: req.user.id,
           adults: adults ? { create: adults } : undefined,
           children: children ? { create: children } : undefined,
-          sendingChurch: sendingChurch
-            ? { upsert: { create: sendingChurch, update: sendingChurch } }
-            : undefined,
-          sendingOrg: sendingOrg
-            ? { upsert: { create: sendingOrg, update: sendingOrg } }
-            : undefined,
+          sendingParties: sendingPartyRows.length ? { create: sendingPartyRows } : undefined,
           addresses: addressRows?.length ? { create: addressRows } : undefined,
           missionTrips: missionTrips
             ? {
@@ -452,7 +483,7 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
       });
     });
 
-    res.json(updated);
+    res.json(shapeSendingParties(updated));
   } catch (err) {
     if (err.name === "ZodError") return res.status(400).json({ error: err.errors });
     next(err);
@@ -485,7 +516,7 @@ router.post("/:id/archive", requireRole("admin", "editor"), async (req, res, nex
       });
     });
 
-    res.json(updated);
+    res.json(shapeSendingParties(updated));
   } catch (err) {
     next(err);
   }
@@ -501,7 +532,7 @@ router.post("/:id/unarchive", requireRole("admin", "editor"), async (req, res, n
       data: { archived: false, archivedAt: null, updatedById: req.user.id },
       include: missionaryInclude,
     });
-    res.json(updated);
+    res.json(shapeSendingParties(updated));
   } catch (err) {
     next(err);
   }
