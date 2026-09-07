@@ -101,6 +101,12 @@ jobs:
       - name: Install backend deps
         run: cd backend && npm ci
 
+      # Playwright itself (@playwright/test, @axe-core/playwright) lives in
+      # frontend/'s devDependencies -- the frontend-build job's own `npm ci`
+      # doesn't carry over here, only the build artifact downloaded above.
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
       - name: Apply migrations and seed
         run: |
           cd backend

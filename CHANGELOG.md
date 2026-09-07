@@ -16,6 +16,19 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.18] - 2026-09-07
+
+### Fixed
+- **CI `e2e` job never installed frontend dependencies** — found the same
+  way as v1.0.17's fix, by actually watching the new pipeline run for
+  real against the demo repo rather than assuming the YAML was correct.
+  `frontend-build` runs `npm ci` in its own isolated job; that install
+  doesn't carry over to `e2e` (a separate runner — only the built
+  `backend/public` artifact is shared between them), so
+  `@playwright/test` was never actually installed there and the whole
+  job failed at "Run e2e suite" with `Cannot find package
+  '@playwright/test'`. Added the missing `cd frontend && npm ci` step.
+
 ## [1.0.17] - 2026-09-07
 
 ### Fixed
