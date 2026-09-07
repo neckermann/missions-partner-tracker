@@ -1,7 +1,7 @@
 {
   "name": "missions-partner-tracker-frontend",
   "private": true,
-  "version": "1.0.16",
+  "version": "1.0.19",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,9 +13,9 @@
     "axios": "^1.20.0",
     "leaflet": "^1.9.4",
     "pagedjs": "^0.4.3",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-leaflet": "^4.2.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.18.3"
   },
   "devDependencies": {

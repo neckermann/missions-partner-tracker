@@ -2,7 +2,7 @@
 // field-level encryption (see backend/src/utils/crypto.js and
 // UPGRADING.md). Safe to run more than once — already-encrypted values are
 // left untouched.
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 const prisma = require("../src/prismaClient");
 const { encryptField, isEncrypted } = require("../src/utils/crypto");
 

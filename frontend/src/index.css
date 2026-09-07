@@ -144,6 +144,16 @@ a { color: var(--brand-color, #2a5d3c); }
 }
 .map-container { height: 100%; }
 
+/* Leaflet's own default attribution-control link ("Leaflet" ->
+   leafletjs.com) fails WCAG AA color-contrast (2.55:1 against its
+   surrounding text, need 3:1) and has no non-color distinguisher
+   (underline) -- axe-core flags this as a real "serious" violation.
+   Darkening it and adding an underline fixes both at once. */
+.leaflet-control-attribution a {
+  color: #0090c8;
+  text-decoration: underline;
+}
+
 .popup-card { max-width: 220px; }
 .popup-header {
   display: flex;

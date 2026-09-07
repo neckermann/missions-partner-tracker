@@ -3,7 +3,7 @@
 // Requires DEMO_ADMIN_EMAIL/DEMO_ADMIN_PASSWORD so a misconfigured demo
 // can't reset into a state nobody can log into. Safe to run manually
 // (`npm run demo:reset`) or via the opt-in POST /api/demo/reset route.
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 const path = require("path");
 const { execFileSync } = require("child_process");
 const prisma = require("../src/prismaClient");

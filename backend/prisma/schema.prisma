@@ -5,9 +5,12 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// The connection URL used to live here (url = env("DATABASE_URL")) --
+// Prisma 7 removed that; it's now in prisma.config.js instead (which
+// also stays the single source of truth for prisma migrate/studio/etc.
+// commands, not this file).
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Missionary {

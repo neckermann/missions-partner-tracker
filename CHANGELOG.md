@@ -16,7 +16,53 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
-## [1.0.18] - 2026-09-07
+## [1.0.19] - 2026-09-07
+
+### Changed
+- **Prisma 5 -> 7.10.0**. Prisma 7 removed `datasource { url = env(...) }`
+  from `schema.prisma` entirely and requires a driver adapter for every
+  database. The connection URL now lives in a new `backend/prisma.config.js`
+  (also the new single source of truth for `prisma migrate`/`studio`/etc.
+  commands), and the three places that construct a `PrismaClient`
+  (`src/prismaClient.js`, `prisma/seed.js`, `prisma/createAdmin.js`) now
+  pass it a `@prisma/adapter-pg` instance instead of connecting bare.
+  Prisma 7 also stopped auto-loading `.env` (previously implicit
+  whenever `PrismaClient` was constructed) — `createAdmin.js`, the only
+  one of the three that didn't already load it explicitly, now does.
+  Stayed on the `prisma-client-js` generator (deprecated in v7 but still
+  functional) rather than also adopting the new Rust-free `prisma-client`
+  generator, which would have meant relocating the generated client and
+  touching every import site — a reasonable follow-up later, not
+  necessary for this migration.
+- **React 18 -> 19.2.8, react-dom 18 -> 19.2.8, react-leaflet 4 -> 5.0.0**
+  (react-leaflet 5 requires React 19, so these three moved together).
+  No code changes were needed — this codebase already used
+  `createRoot`/functional components/hooks throughout, with no
+  `PropTypes`/`defaultProps`/legacy patterns anywhere to migrate.
+
+### Fixed
+- **A real WCAG AA violation in Leaflet's own default attribution-control
+  link** ("Leaflet" -> leafletjs.com, in the map's bottom-right corner):
+  2.55:1 color contrast against its surrounding text (need 3:1) with no
+  non-color distinguisher like an underline either. Pre-existing (not
+  introduced by the React/react-leaflet bump above), just newly caught by
+  a timing difference that made the e2e accessibility suite's map check
+  flaky before landing on a real, always-there issue. Fixed with a
+  `.leaflet-control-attribution a` override (darker link blue + underline).
+- **`npm audit` surfaced 4 high-severity advisories** (`deepmerge-ts`,
+  `mysql2`) pulled in transitively by the `prisma` CLI package itself —
+  confirmed these are dev-tooling-only (the CLI is a devDependency,
+  excluded from production installs under `NODE_ENV=production`; the
+  vulnerable packages are used by Prisma's own config-merging and
+  MySQL-provider support, irrelevant to this Postgres-only app's actual
+  runtime). 7.10.0 is the latest stable release; no newer version fixes
+  this yet — that's on Prisma's own dependency tree, not something this
+  app's config can route around.
+
+These three were the last of the ~19 first-run Dependabot PRs still open
+(closes GitHub issues represented by PRs #30, #37, #29, #27, #28) —
+done as real migration work here rather than merged as-is, since none of
+the three were drop-in version bumps.
 
 ### Fixed
 - **CI `e2e` job never installed frontend dependencies** — found the same

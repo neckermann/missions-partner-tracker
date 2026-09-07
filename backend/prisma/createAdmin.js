@@ -2,9 +2,16 @@
 // is configured. Run with:
 //   node prisma/createAdmin.js you@yourchurch.org "YourStrongPassword!"
 
+// Prisma 7 stopped auto-loading .env (previously implicit whenever
+// PrismaClient was constructed) -- this script is normally run standalone
+// via `node prisma/createAdmin.js ...`, not through server.js, so it
+// needs its own explicit load now (seed.js already had this).
+require("dotenv").config({ quiet: true });
 const { PrismaClient } = require("@prisma/client");
+const { PrismaPg } = require("@prisma/adapter-pg");
 const bcrypt = require("bcryptjs");
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   const [, , email, password] = process.argv;

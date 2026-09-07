@@ -5,8 +5,9 @@
 // randomly generated from curated pools below, not hand-written per record,
 // so re-running produces a fresh (larger) set rather than editing this file
 // per record. Run with `npm run seed` from backend/.
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 const { PrismaClient } = require("@prisma/client");
+const { PrismaPg } = require("@prisma/adapter-pg");
 const { uploadPrivateFileToS3, uploadImageToS3 } = require("../src/utils/s3");
 const {
   svgDataUri,
@@ -15,7 +16,8 @@ const {
   familySilhouette,
   buildingSilhouette,
 } = require("../src/utils/silhouette");
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 // Overridable via env for deployments that want a different amount of
 // seed data (e.g. a public demo) without forking this file.
