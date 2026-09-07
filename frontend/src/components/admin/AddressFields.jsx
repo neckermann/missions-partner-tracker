@@ -1,6 +1,9 @@
 import React from "react";
+import { COUNTRY_CONTINENTS } from "../../utils/countryContinents.js";
 
-export default function AddressFields({ value, onChange, showMailFlags = false, showGps = false }) {
+const COUNTRY_NAMES = Object.keys(COUNTRY_CONTINENTS).sort();
+
+export default function AddressFields({ value, onChange, showMailFlags = false, showGps = false, idPrefix = "address" }) {
   function update(field, val) {
     onChange({ ...value, [field]: val });
   }
@@ -55,7 +58,21 @@ export default function AddressFields({ value, onChange, showMailFlags = false, 
       </label>
       <label>
         Country
-        <input value={value.country || ""} onChange={(e) => update("country", e.target.value)} />
+        <input
+          value={value.country || ""}
+          onChange={(e) => update("country", e.target.value)}
+          list={`${idPrefix}-country-list`}
+          placeholder="Start typing a country..."
+        />
+        {/* A datalist, not a hard <select> -- it suggests the ~250 names this
+            app otherwise recognizes (continent filters, map centroids), but
+            still accepts free text for a name/spelling it doesn't know
+            rather than blocking entry. */}
+        <datalist id={`${idPrefix}-country-list`}>
+          {COUNTRY_NAMES.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
       </label>
       {showMailFlags && (
         <div className="admin-checkbox-row" style={{ gridColumn: "1 / -1" }}>

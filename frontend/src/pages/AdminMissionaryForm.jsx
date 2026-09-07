@@ -11,6 +11,7 @@ import AddressFields from "../components/admin/AddressFields.jsx";
 import SendingPartySection from "../components/admin/SendingPartySection.jsx";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import CountryStats from "../components/CountryStats.jsx";
+import { getFipsCode } from "../utils/countryFipsCodes.js";
 
 // The API now stores birthdays as a real DATE column, so it returns full
 // ISO datetime strings (e.g. "1979-05-04T00:00:00.000Z"). <input type="date">
@@ -195,6 +196,22 @@ export default function AdminMissionaryForm() {
 
   function updateNested(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  // Auto-fills the FIPS field from the physical address's country the
+  // moment it resolves to a known name, but only while the field is still
+  // blank -- a manual entry (however it was made) is never overwritten,
+  // since FIPS and ISO codes genuinely disagree for many countries and an
+  // admin may deliberately want a specific one.
+  function handlePhysicalAddressChange(addr) {
+    setForm((f) => {
+      const next = { ...f, addresses: { ...f.addresses, physical: addr } };
+      if (!f.fipsCountryCode && addr.country !== f.addresses.physical?.country) {
+        const fips = getFipsCode(addr.country);
+        if (fips) next.fipsCountryCode = fips;
+      }
+      return next;
+    });
   }
 
   function handleImageSelect(e) {
@@ -735,16 +752,19 @@ export default function AdminMissionaryForm() {
           </p>
           <AddressFields
             value={form.addresses.physical}
-            onChange={(addr) => updateNested("addresses", { ...form.addresses, physical: addr })}
+            onChange={handlePhysicalAddressChange}
             showGps
+            idPrefix="physical"
           />
           <label>
             Country Code (FIPS/ISO)
             <input value={form.fipsCountryCode || ""} onChange={(e) => update("fipsCountryCode", e.target.value)} />
           </label>
           <p style={{ marginTop: "0.4rem", color: "#666", fontSize: "0.85rem" }}>
-            Used to look up Joshua Project country statistics below. Required for that lookup to
-            work — it is not inferred from the physical address.
+            Used to look up Joshua Project country statistics below. Auto-filled from the
+            physical address's country when recognized and this field is still blank — it uses
+            FIPS codes specifically, which often differ from the more familiar ISO code (e.g. the
+            Philippines is RP, not PH), so double-check it if you're entering it by hand.
           </p>
           <div style={{ marginTop: "0.75rem" }}>
             <CountryStats countryCode={form.fipsCountryCode} />
@@ -757,6 +777,7 @@ export default function AdminMissionaryForm() {
             value={form.addresses.mailing}
             onChange={(addr) => updateNested("addresses", { ...form.addresses, mailing: addr })}
             showMailFlags
+            idPrefix="mailing"
           />
         </div>
 

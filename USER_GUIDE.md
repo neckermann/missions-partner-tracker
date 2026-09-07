@@ -94,11 +94,18 @@ The form is organized into sections:
   also manage these from the dedicated **One-Time Needs** page).
 - **Ministry Overview** — Short Overview (used on directory cards), Full
   Overview, and Ministry Focus.
-- **Serving Location** — a full address, plus GPS coordinates (leave
-  blank to auto-geocode from the address on save, or enter manually) and
-  a Country Code, which drives a live Joshua Project stats lookup on the
-  form itself. This exact address is never shown publicly — only the GPS
-  pin is, and only at all if `isPublic` is checked.
+- **Serving Location** — a full address (country is a suggest-as-you-type
+  field, not a hard dropdown — pick a suggestion or type your own if it's
+  not in the list), plus GPS coordinates (leave blank to auto-geocode from
+  the address on save, or enter manually) and a Country Code, which drives
+  a live Joshua Project stats lookup on the form itself. That code
+  auto-fills from the address's country the first time it resolves to a
+  recognized name, but only while the field is still blank — enter it
+  yourself and it's never overwritten. It's a FIPS code specifically,
+  which for many countries differs from the more familiar ISO code (e.g.
+  the Philippines is `RP`, not `PH`) — that mismatch is exactly why the
+  auto-fill exists. This exact address is never shown publicly — only the
+  GPS pin is, and only at all if `isPublic` is checked.
 - **Mailing & Contact Address** — a separate address, with "Receives mail
   here" / "Receives packages here" checkboxes.
 - **Adults** — Wedding Anniversary, then one row per adult in the

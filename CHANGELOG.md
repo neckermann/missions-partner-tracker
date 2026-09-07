@@ -16,6 +16,29 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.14] - 2026-09-07
+
+### Added
+- **Country suggestions and FIPS auto-fill**: the address "Country" field
+  (missionary and organization forms) is now a suggest-as-you-type input
+  backed by the same ~250-name list already used for the continent
+  filter/map centroids (`frontend/src/utils/countryContinents.js`) —
+  still free text, so an unusual spelling or a name not in the list is
+  never blocked. The "Country Code (FIPS/ISO)" field auto-fills from the
+  physical address's country the moment it resolves to a recognized name,
+  but only while that field is still blank — a manual entry, however it
+  got there, is never overwritten. This closes the main source of wrong
+  country codes: FIPS 10-4 (what this field, and the Joshua Project
+  lookup it drives, actually uses) genuinely disagrees with the more
+  familiar ISO 3166-1 code for many countries — the Philippines is `RP`
+  not `PH`, Bolivia is `BL` not `BO`, Japan is `JA` not `JP` — so typing
+  the "obvious" code was a common, silent mistake. New
+  `frontend/src/utils/countryFipsCodes.js` holds the name -> FIPS lookup
+  table (sourced from the FIPS 10-4 standard), covering every
+  `COUNTRY_CONTINENTS` entry except three with no single clean FIPS
+  mapping (Åland Islands, Caribbean Netherlands, Palestine) — those still
+  work as free text, they just don't trigger auto-fill.
+
 ## [1.0.13] - 2026-09-07
 
 ### Changed
