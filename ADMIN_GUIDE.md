@@ -313,19 +313,44 @@ is included as a ready-to-use template for that fork's own AWS setup:
   for TLS and caching — serves both the API and the frontend build
 - **File storage**: AWS S3
 
-The workflow runs on every push to `main` that touches `backend/**` or
-`frontend/**`: it builds the frontend (writing into `backend/public`),
-zips the backend (including that build), uploads it to S3, and rolls it
-out to Elastic Beanstalk. It ships **disabled** in this repo (Actions tab
-→ the workflow → Enable workflow) since there's no AWS environment behind
-this specific repo to deploy to. **To use it in your fork**, set your own
-EB resource names as repository variables (`EB_APP_NAME`, `EB_ENV_NAME`,
-`AWS_REGION`, `EB_DEPLOY_S3_BUCKET` under **Settings → Secrets and
-variables → Actions → Variables**) plus `AWS_ACCESS_KEY_ID`/
-`AWS_SECRET_ACCESS_KEY` as repo *secrets* — without real values set
-there, the workflow's placeholder fallback values
-(`your-eb-application-name`, etc.) won't resolve to anything that exists,
-and the deploy step will fail.
+The workflow runs on every pull request and every push to `main` that
+touches `backend/**` or `frontend/**`, as six jobs:
+
+1. **`backend-tests`** / **`frontend-build`** — the backend test suite and
+   a frontend production build. Run on PRs too, so a bad change is caught
+   before it merges, not after.
+2. **`e2e`** — boots a real instance of the app against a fresh, freshly
+   seeded Postgres (a GitHub Actions service container, not your real
+   database) with a throwaway admin login created just for the run, and
+   runs the committed Playwright suite (`frontend/e2e/`) against it —
+   login, the public directory/map, admin create/edit/delete, and an
+   accessibility (axe-core) pass. Also runs on PRs.
+3. **`deploy`** — *only on a push to `main`* (never on a PR, and never
+   without the jobs above passing first): builds the deployable zip and
+   rolls it out to Elastic Beanstalk, same as before.
+4. **`smoke-test`** — *only on a push to `main`*, after `deploy`: waits
+   for Elastic Beanstalk's own health check to settle to Green, then
+   makes real HTTP requests against the freshly-deployed environment
+   (`/api/health`, the public missionaries API, the public site) to
+   confirm the new version is actually serving correctly — not just that
+   the process is up.
+5. **`rollback`** — only runs if `deploy` succeeded but `smoke-test`
+   failed: rolls the environment back to whichever version was running
+   immediately before this deploy, then still fails the workflow (a
+   visible red X, not a silent success) so a bad release is never
+   invisible.
+
+It ships **disabled** in this repo (Actions tab → the workflow → Enable
+workflow) since there's no AWS environment behind this specific repo to
+deploy to. **To use it in your fork**, set your own EB resource names as
+repository variables (`EB_APP_NAME`, `EB_ENV_NAME`, `AWS_REGION`,
+`EB_DEPLOY_S3_BUCKET` under **Settings → Secrets and variables → Actions
+→ Variables**) plus `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` as repo
+*secrets* — without real values set there, the workflow's placeholder
+fallback values (`your-eb-application-name`, etc.) won't resolve to
+anything that exists, and the deploy step will fail. No new
+variables/secrets beyond what deploying already needed — `smoke-test` and
+`rollback` reuse the same AWS credentials and `EB_ENV_NAME`.
 
 For the full step-by-step walkthrough of standing up this AWS setup from
 nothing — the Elastic Beanstalk application and environment, the S3

@@ -238,7 +238,7 @@ export default function PublicMap() {
             live on /partners now; a click here still opens the marker's
             popup, which links out to that full profile. */}
         {!autoScroll && (
-          <div className="missionary-list">
+          <div className="missionary-list" tabIndex={0} role="region" aria-label="Partner list">
             {missionaries.length === 0 && <p style={{ padding: "1rem" }}>Loading...</p>}
             {missionaries.map((m) => {
               const coordIdx = withCoords.indexOf(m);

@@ -144,6 +144,13 @@ export async function fetchVersionCheck() {
   return data;
 }
 
+// Backs the database-backup reminder in AdminLayout.jsx. Admin-role only,
+// same reasoning as fetchVersionCheck above -- see BackupReminder.jsx.
+export async function fetchBackupCheck() {
+  const { data } = await api.get("/backup-check");
+  return data;
+}
+
 export async function updateChurchSettings(payload) {
   const { data } = await api.put("/settings", payload);
   return data;

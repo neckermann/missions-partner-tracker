@@ -16,6 +16,61 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.16] - 2026-09-07
+
+### Added
+- **Full CI/CD pipeline**: closes GitHub issues #8, #12. The deploy
+  workflow (`.github/workflows/backend-deploy-aws.yml`) now runs tests
+  before, during, and after every deploy instead of just deploying
+  unconditionally on every push to `main`:
+  - `backend-tests` / `frontend-build` / a new **`e2e`** job (a committed
+    Playwright suite, `frontend/e2e/` — login, admin missionary/
+    organization CRUD including the country/FIPS auto-fill, the public
+    directory and map, and an accessibility pass) all run on every PR and
+    push, against a throwaway Postgres the `e2e` job provisions itself.
+    `deploy` only starts once all three pass.
+  - A new **`smoke-test`** job runs after `deploy`: waits for Elastic
+    Beanstalk's health to settle to Green, then makes real requests
+    against the freshly-deployed environment to confirm it's actually
+    serving correctly, not just that the process is up.
+  - A new **`rollback`** job runs automatically if `smoke-test` fails
+    after a successful deploy: rolls the environment back to whatever was
+    running immediately before, then still fails the workflow (visibly,
+    not silently) so a bad release is never left live *or* invisible.
+  - No new required secrets or repository variables — `smoke-test` and
+    `rollback` reuse the AWS credentials and `EB_ENV_NAME` deploying
+    already needed.
+- **Accessibility fixes**, found via the new e2e suite's axe-core pass
+  (closes GitHub issue #14): the public directory's three filter
+  `<select>`s and search input had no accessible name; the map's
+  scrollable partner-list panel wasn't keyboard-focusable; the admin
+  sidebar's active-link highlight and the secondary-button gray
+  (`.btn.secondary`) both fell short of WCAG AA's 4.5:1 text-contrast
+  minimum. The active-link fix also generalizes better than the old value
+  did: it now darkens (black-tinted overlay) rather than lightens
+  (white-tinted) the church's configured `--brand-color`, since darkening
+  reliably preserves contrast against the white nav text regardless of
+  which color a church picks, where lightening could go either way.
+- **Dependabot** (closes GitHub issue #9): weekly automated dependency
+  updates for `backend/`, `frontend/`, and the GitHub Actions workflows
+  themselves, with minor/patch updates grouped to cut down on PR noise.
+- **Database backup reminder** (closes GitHub issue #11): a dismissible
+  admin-dashboard notice (re-appears roughly every 90 days after being
+  dismissed, not just once) pointing at
+  [ADMIN_GUIDE.md § Database backups](ADMIN_GUIDE.md#database-backups) —
+  tailored per-provider (Neon, Supabase, RDS recognized by
+  `DATABASE_URL`'s hostname; a generic reminder otherwise). Backed by a
+  new admin-only `GET /api/backup-check`
+  (`backend/src/utils/backupCheck.js`), which never exposes the actual
+  connection string.
+
+### Changed
+- **CONTRIBUTING.md**'s testing section now documents the e2e suite
+  (how to run it locally against any running instance via
+  `E2E_BASE_URL`/`E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD`) and corrects two
+  claims that were true when written but no longer are: there is now a
+  test database (in CI) and a frontend test suite.
+
 ## [1.0.15] - 2026-09-07
 
 ### Added

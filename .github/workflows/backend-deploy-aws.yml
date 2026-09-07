@@ -1,6 +1,16 @@
 name: Deploy backend to Elastic Beanstalk
 
+# Runs the same test/build/e2e gate on every PR (so a bad change never
+# even reaches main) and on every push to main (so a direct push gets the
+# same protection) -- deploy/smoke-test/rollback only ever run on the
+# latter, gated by the `if:` on each of those jobs below.
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/backend-deploy-aws.yml'
   push:
     branches: [main]
     paths:
@@ -9,8 +19,126 @@ on:
       - '.github/workflows/backend-deploy-aws.yml'
 
 jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install and test
+        run: |
+          cd backend
+          npm ci
+          npm test
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+      # Written into backend/public (see frontend/vite.config.js) -- shared
+      # with the e2e and deploy jobs below so the frontend is only built
+      # once per run, not three times.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: backend/public
+          retention-days: 1
+
+  # Boots a real Postgres-backed instance of the app (fresh database,
+  # freshly seeded, a throwaway admin login created just for this run) and
+  # runs the committed Playwright suite (frontend/e2e/) against it --
+  # covers login, the public directory/map, and admin CRUD including the
+  # country/FIPS auto-fill -- plus an accessibility pass (axe-core) on the
+  # public-facing pages and the admin dashboard.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-build]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: e2e
+          POSTGRES_PASSWORD: e2e
+          POSTGRES_DB: e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://e2e:e2e@localhost:5432/e2e
+      SESSION_SECRET: e2e-only-not-a-real-secret-${{ github.run_id }}
+      FIELD_ENCRYPTION_KEY: nrDh8s5f9J4S3nEwF8s5f9J4S3nEwF8s5f9J4S3nEw=
+      APP_BASE_URL: http://localhost:4000
+      NOMINATIM_CONTACT: e2e-ci@example.com
+      NODE_ENV: test
+      PORT: 4000
+      E2E_BASE_URL: http://localhost:4000
+      E2E_ADMIN_EMAIL: e2e@example.com
+      E2E_ADMIN_PASSWORD: E2eOnlyPassword123!
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: backend/public
+
+      - name: Install backend deps
+        run: cd backend && npm ci
+
+      - name: Apply migrations and seed
+        run: |
+          cd backend
+          npx prisma migrate deploy
+          npm run seed
+          node prisma/createAdmin.js "$E2E_ADMIN_EMAIL" "$E2E_ADMIN_PASSWORD"
+
+      - name: Boot the app
+        run: |
+          cd backend
+          node src/server.js &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4000/api/health > /dev/null; then
+              echo "App is up."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "App never became healthy."
+          exit 1
+
+      - name: Install Playwright browsers
+        run: cd frontend && npx playwright install --with-deps chromium
+
+      - name: Run e2e suite
+        run: cd frontend && npx playwright test
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
+
   deploy:
     runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-build, e2e]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     # Set these as repository variables (Settings -> Secrets and variables ->
     # Actions -> Variables) rather than editing this file, plus the
     # AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY secrets below. The fallback
@@ -20,22 +148,16 @@ jobs:
       EB_ENV_NAME: ${{ vars.EB_ENV_NAME || 'your-eb-environment-name' }}
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       S3_BUCKET: ${{ vars.EB_DEPLOY_S3_BUCKET || 'your-eb-deploy-bucket' }}
+    outputs:
+      previous_version: ${{ steps.previous.outputs.label }}
+      new_version: ${{ steps.version.outputs.label }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/download-artifact@v4
         with:
-          node-version: 22
-
-      # Written into backend/public (see frontend/vite.config.js), so the
-      # zip step below picks it up automatically as part of backend/ — this
-      # app is one deployable origin, the backend serves this build
-      # directly (see backend/src/server.js).
-      - name: Build frontend
-        run: |
-          cd frontend
-          npm ci
-          npm run build
+          name: frontend-dist
+          path: backend/public
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -43,6 +165,17 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+
+      # Captured before touching anything, so the rollback job below has
+      # something to roll back to if the new version turns out unhealthy.
+      - name: Record currently-deployed version
+        id: previous
+        run: |
+          LABEL=$(aws elasticbeanstalk describe-environments \
+            --environment-names ${{ env.EB_ENV_NAME }} \
+            --query "Environments[0].VersionLabel" --output text)
+          echo "label=$LABEL" >> $GITHUB_OUTPUT
+          echo "Currently deployed: $LABEL"
 
       - name: Zip backend + built frontend
         run: |
@@ -69,40 +202,141 @@ jobs:
             --environment-name ${{ env.EB_ENV_NAME }} \
             --version-label ${{ steps.version.outputs.label }}
 
-      - name: Wait for environment to stabilize
+      # Only waits for the deploy command itself to finish rolling out --
+      # not proof the app is actually healthy, just that EB is done
+      # applying the update. The smoke-test job below is what actually
+      # confirms the app works.
+      - name: Wait for deployment to finish rolling out
         run: |
-          # EB's Status flipping to "Ready" means the update itself is done,
-          # but enhanced health reporting polls on its own separate cadence
-          # and can lag a cycle or two behind -- so a Yellow/Red reading
-          # right when Status first becomes Ready is a normal transient
-          # blip, not necessarily a real failure. Give health up to 2
-          # minutes to catch up to Green before treating it as fatal.
-          READY_SINCE=""
-          for i in $(seq 1 40); do
+          for i in $(seq 1 30); do
             STATUS=$(aws elasticbeanstalk describe-environments \
               --environment-names ${{ env.EB_ENV_NAME }} \
               --query "Environments[0].Status" --output text)
+            echo "Attempt $i: Status=$STATUS"
+            if [ "$STATUS" = "Ready" ]; then
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Timed out waiting for the deployment to finish rolling out."
+          exit 1
+
+  # Confirms the newly-deployed version is actually working -- not just
+  # that EB's own health check is Green (which only proves the process is
+  # up and responding), but that the real API endpoints the app depends on
+  # return correct responses. Talks to the environment's own EB domain
+  # directly (not the custom/CloudFront domain, if one exists) so this
+  # always reflects exactly what was just deployed, with no CDN caching in
+  # the way -- see UPGRADING.md/INFRASTRUCTURE.md for why that domain is
+  # HTTP-only (TLS is terminated at CloudFront, not here).
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      EB_ENV_NAME: ${{ vars.EB_ENV_NAME || 'your-eb-environment-name' }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # EB's own enhanced-health reporting polls on a separate cadence
+      # from the deploy itself and can lag a cycle or two behind, so a
+      # Yellow/Red reading right after Status first becomes Ready is a
+      # normal transient blip -- give it up to 2 minutes to settle to
+      # Green before treating it as fatal.
+      - name: Wait for EB health to settle to Green
+        id: wait_health
+        run: |
+          READY_SINCE=""
+          for i in $(seq 1 20); do
             HEALTH=$(aws elasticbeanstalk describe-environments \
               --environment-names ${{ env.EB_ENV_NAME }} \
               --query "Environments[0].Health" --output text)
-            echo "Attempt $i: Status=$STATUS Health=$HEALTH"
+            CNAME=$(aws elasticbeanstalk describe-environments \
+              --environment-names ${{ env.EB_ENV_NAME }} \
+              --query "Environments[0].CNAME" --output text)
+            echo "Attempt $i: Health=$HEALTH"
+            echo "cname=$CNAME" >> $GITHUB_OUTPUT
 
-            if [ "$STATUS" = "Ready" ] && [ "$HEALTH" = "Green" ]; then
-              echo "Environment is healthy."
+            if [ "$HEALTH" = "Green" ]; then
               exit 0
             fi
-
-            if [ "$STATUS" = "Ready" ]; then
-              if [ -z "$READY_SINCE" ]; then
-                READY_SINCE=$i
-                echo "Status is Ready; giving health up to 2 more minutes to settle to Green."
-              elif [ $((i - READY_SINCE)) -ge 6 ]; then
-                echo "Environment has been Ready for 2+ minutes but health is still $HEALTH — check manually."
-                exit 1
-              fi
+            if [ -z "$READY_SINCE" ]; then
+              READY_SINCE=$i
+            elif [ $((i - READY_SINCE)) -ge 8 ]; then
+              echo "Health has not reached Green after 2+ minutes."
+              exit 1
             fi
-
-            sleep 20
+            sleep 15
           done
-          echo "Timed out waiting for environment to stabilize."
+          echo "Timed out waiting for health to settle."
+          exit 1
+
+      - name: Functional smoke checks
+        run: |
+          BASE="http://${{ steps.wait_health.outputs.cname }}"
+          echo "Checking $BASE"
+
+          echo "-- /api/health --"
+          curl -sf "$BASE/api/health" | grep -q '"ok":true' || { echo "Health check failed"; exit 1; }
+
+          echo "-- /api/public/missionaries --"
+          curl -sf "$BASE/api/public/missionaries" | head -c 1 | grep -q '\[' || { echo "Public missionaries endpoint didn't return an array"; exit 1; }
+
+          echo "-- / (public site) --"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/")
+          [ "$STATUS" = "200" ] || { echo "Public site returned $STATUS"; exit 1; }
+
+          echo "All smoke checks passed."
+
+  # Only runs if the deploy itself succeeded but the new version failed
+  # its smoke test -- rolls the environment back to whatever was running
+  # immediately before this deploy, then still fails the workflow (a red
+  # X, not a silent green) so a bad release is never invisible.
+  rollback:
+    runs-on: ubuntu-latest
+    needs: [deploy, smoke-test]
+    if: always() && needs.deploy.result == 'success' && needs.smoke-test.result == 'failure'
+    env:
+      EB_ENV_NAME: ${{ vars.EB_ENV_NAME || 'your-eb-environment-name' }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Roll back to the previous version
+        run: |
+          echo "Smoke test failed -- rolling back to ${{ needs.deploy.outputs.previous_version }}"
+          aws elasticbeanstalk update-environment \
+            --environment-name ${{ env.EB_ENV_NAME }} \
+            --version-label ${{ needs.deploy.outputs.previous_version }}
+
+      - name: Wait for rollback to finish rolling out
+        run: |
+          for i in $(seq 1 30); do
+            STATUS=$(aws elasticbeanstalk describe-environments \
+              --environment-names ${{ env.EB_ENV_NAME }} \
+              --query "Environments[0].Status" --output text)
+            echo "Attempt $i: Status=$STATUS"
+            if [ "$STATUS" = "Ready" ]; then
+              break
+            fi
+            sleep 15
+          done
+
+      # Rolling back successfully still means the push that triggered this
+      # run was bad -- fail the workflow so it shows up as a failure, not
+      # a quiet success, even though production is now back to healthy.
+      - name: Fail the workflow (rollback succeeded, but the new version did not)
+        run: |
+          echo "Rolled back to ${{ needs.deploy.outputs.previous_version }}. The version that triggered this run (${{ needs.deploy.outputs.new_version }}) failed its smoke test and was never left live."
           exit 1

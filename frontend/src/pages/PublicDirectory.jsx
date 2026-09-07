@@ -122,18 +122,22 @@ export default function PublicDirectory() {
       )}
 
       <div className="partner-filter-bar">
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+        <select aria-label="Filter by partner type" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
           <option value="all">All Partners</option>
           <option value="missionary">Missionaries</option>
           <option value="organization">Organizations</option>
         </select>
-        <select value={continentFilter} onChange={(e) => handleContinentChange(e.target.value)}>
+        <select
+          aria-label="Filter by continent"
+          value={continentFilter}
+          onChange={(e) => handleContinentChange(e.target.value)}
+        >
           <option value="all">All Continents</option>
           {availableContinents.map((c) => (
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
-        <select value={countryFilter} onChange={(e) => setCountryFilter(e.target.value)}>
+        <select aria-label="Filter by country" value={countryFilter} onChange={(e) => setCountryFilter(e.target.value)}>
           <option value="all">All Countries</option>
           {availableCountries.map((c) => (
             <option key={c} value={c}>{c}</option>
@@ -141,6 +145,7 @@ export default function PublicDirectory() {
         </select>
         <input
           type="text"
+          aria-label="Search partners"
           placeholder="Search by name, region, focus, or organization..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}

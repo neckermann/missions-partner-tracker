@@ -57,7 +57,12 @@ a { color: var(--brand-color, #2a5d3c); }
 .admin-sidebar-nav a:hover,
 .admin-sidebar-footer a:hover,
 .admin-sidebar-footer button:hover { background: rgba(255, 255, 255, 0.12); }
-.admin-sidebar-nav a.active { background: rgba(255, 255, 255, 0.22); font-weight: 600; }
+/* A black tint (not the old white one) so the white nav text keeps
+   sufficient contrast (WCAG AA, 4.5:1) regardless of --brand-color --
+   a church can set this to anything from Church Settings, and darkening
+   a color reliably increases contrast against white text where
+   lightening it can go either way depending on the base color. */
+.admin-sidebar-nav a.active { background: rgba(0, 0, 0, 0.28); font-weight: 600; }
 .admin-sidebar-divider { height: 1px; background: rgba(255, 255, 255, 0.2); margin: 0.75rem 0.6rem; }
 .admin-main { flex: 1; min-width: 0; }
 
@@ -244,7 +249,10 @@ a { color: var(--brand-color, #2a5d3c); }
   background: var(--brand-color, #2a5d3c); color: white; border: none; padding: 0.5rem 1rem;
   border-radius: 4px; cursor: pointer; font-size: 0.9rem;
 }
-.btn.secondary { background: #999; }
+/* #999 (the old value) only gave white text ~2.85:1 contrast against it,
+   under WCAG AA's 4.5:1 minimum for normal-size text -- #666 clears it
+   with margin (~5.7:1). */
+.btn.secondary { background: #666; }
 .btn.danger { background: #b91c1c; }
 .btn.small { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
 

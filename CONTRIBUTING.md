@@ -71,12 +71,39 @@ Tests use Node's built-in test runner (`node:test`) — no extra dependencies
 required. Coverage is intentionally focused on logic that's risky to get
 wrong silently: the public/restricted data-masking rules
 (`backend/test/maskData.test.js`) and the auth middleware
-(`backend/test/requireAuth.test.js`). There's no test database setup yet,
-so routes that hit Prisma directly (login, user management, etc.) aren't
-covered — if you're adding tests for those, or setting up a test DB, that's
-a welcome contribution.
+(`backend/test/requireAuth.test.js`). Routes that hit Prisma directly
+(login, user management, missionary/organization CRUD, etc.) aren't
+covered by these unit tests — that's what the e2e suite below is for.
 
-There's no test suite for the frontend yet either.
+### End-to-end tests (`frontend/e2e/`)
+
+A [Playwright](https://playwright.dev) suite covering the flows unit
+tests can't reach: admin login, creating/editing a missionary and an
+organization (including the country/FIPS auto-fill), the public
+directory and map, and an accessibility (axe-core) pass on the
+public-facing pages and the admin dashboard. This is what
+`.github/workflows/backend-deploy-aws.yml`'s `e2e` job runs on every PR
+and push to `main`, against a fresh Postgres service container it
+provisions itself — not your local or demo database.
+
+To run it locally, point it at any already-running instance of the app
+(local dev, or your own deployment) via env vars:
+
+```bash
+cd frontend
+npx playwright install --with-deps chromium  # one-time
+E2E_BASE_URL=http://localhost:4000 \
+E2E_ADMIN_EMAIL=you@yourchurch.org \
+E2E_ADMIN_PASSWORD=YourPassword \
+npm run test:e2e
+```
+
+`E2E_BASE_URL` must point at the backend directly (it serves the built
+frontend too — see [README.md § Tech stack](README.md#tech-stack)), not
+the Vite dev server, since these tests exercise the whole app the way a
+real deployment does. If you're adding a new page or admin flow, adding
+e2e coverage for it is welcome, but not required for every PR — use your
+judgment on what's worth the added CI time.
 
 ## Code style
 

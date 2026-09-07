@@ -8,6 +8,12 @@ dist/
 backend/public/
 *.log
 
+# Playwright's own run artifacts (frontend/e2e/, the committed test
+# source, is not affected by this)
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+
 # OS/editor cruft
 .DS_Store
 Thumbs.db
