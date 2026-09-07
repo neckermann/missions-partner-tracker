@@ -1,3 +1,24 @@
+# DISABLED -- renamed from dependabot.yml so GitHub stops reading it
+# (only that exact filename activates version updates). This ran once,
+# found a large first-time backlog (this repo had no automated dependency
+# scanning before), and opened 19 PRs. 9 low-risk ones (grouped minor/
+# patch, a few individual minor bumps, the github-actions bumps) got
+# reviewed by CI and merged same night. 5 major-version bumps are
+# genuinely not drop-in and are still open, waiting on real migration
+# work, not just a merge:
+#   #30 / #37  prisma / @prisma/client  5.x -> 7.x  (schema.prisma's
+#              `datasource { url = ... }` was removed in Prisma 7 --
+#              needs a new prisma.config.ts + PrismaClient adapter
+#              config, not a version bump)
+#   #29 / #27  react / react-dom  18.x -> 19.x
+#   #28        react-leaflet  4.x -> 5.x
+# A few more (actions/checkout, multer, express-rate-limit, otplib,
+# bcryptjs) were mid-rebase-and-recheck when this got paused -- check
+# their current status before assuming they still need work.
+#
+# To resume: rename this file back to dependabot.yml (or just work
+# through the open PRs above manually, then re-enable when ready for
+# ongoing weekly updates again).
 version: 2
 updates:
   # Backend npm dependencies
