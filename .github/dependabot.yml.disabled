@@ -1,18 +1,36 @@
 # DISABLED -- renamed from dependabot.yml so GitHub stops reading it
-# (only that exact filename activates version updates). This ran once,
-# found a large first-time backlog (no automated dependency scanning
-# existed before), and opened a batch of PRs -- see this repo's own open
-# PR list on GitHub for exactly what's still pending. Most low-risk ones
-# (grouped minor/patch, a few individual minor bumps, the github-actions
-# bumps) are safe to review and merge once CI passes on each. A handful
-# are genuine major-version migrations, not drop-in bumps -- notably
-# prisma / @prisma/client (schema.prisma's `datasource { url = ... }` was
-# removed in Prisma 7, needing a new prisma.config.ts + PrismaClient
-# adapter config) and react / react-dom / react-leaflet (18.x/4.x -> 19.x/
-# 5.x) -- those need real migration work, not just a merge click.
+# (only that exact filename activates version updates). Its first-ever run
+# opened ~19 PRs across two repos simultaneously -- a mostly one-time
+# side effect of this repo never having had automated dependency scanning
+# before (nothing to catch up on next time), but the config below also
+# made it worse and has been tightened as a result:
+# - open-pull-requests-limit was 10 per ecosystem -- now 3, so at most a
+#   handful can ever be open across all three ecosystems combined, and
+#   Dependabot won't open new ones until old ones close.
+# - added `cooldown`, so a version that dropped in the last few days
+#   (more for majors, which are more likely to get a quick patch release
+#   fixing a launch-day bug) doesn't show up immediately.
+# - grouping now covers every update type per ecosystem, not just minor/
+#   patch -- one combined PR per ecosystem per cycle instead of several
+#   PRs all touching the same package-lock.json, which is what caused the
+#   merge-conflict cascade (merging PR A invalidates PR B's lockfile
+#   diff, requiring a rebase, repeated per PR) the first run ran into.
+#   Majors landing in the same grouped PR as everything else does mean a
+#   real breaking change can block the whole group from auto-merging --
+#   that's the correct tradeoff here (CI catching it is the point), it
+#   just means a blocked group needs a person to split it out manually
+#   rather than the rest sailing through around it.
+# - staggered each ecosystem onto a different day, so even a multi-item
+#   week doesn't land as one big simultaneous batch.
 #
-# To resume: rename this file back to dependabot.yml (or work through the
-# open PRs manually first, then re-enable for ongoing weekly updates).
+# See this repo's own open PR list on GitHub for anything still pending
+# from the first run -- notably prisma / @prisma/client (schema.prisma's
+# `datasource { url = ... }` was removed in Prisma 7, needing a new
+# prisma.config.ts + PrismaClient adapter config) and react / react-dom /
+# react-leaflet (18.x/4.x -> 19.x/5.x) are genuine migrations, not
+# drop-in bumps -- those need real work, not just a merge click.
+#
+# To resume: rename this file back to dependabot.yml.
 version: 2
 updates:
   # Backend npm dependencies
@@ -20,20 +38,28 @@ updates:
     directory: "/backend"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+      day: "monday"
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 5
+      semver-major-days: 14
     groups:
-      backend-minor-patch:
-        update-types: ["minor", "patch"]
+      backend-updates:
+        patterns: ["*"]
 
   # Frontend npm dependencies
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+      day: "wednesday"
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 5
+      semver-major-days: 14
     groups:
-      frontend-minor-patch:
-        update-types: ["minor", "patch"]
+      frontend-updates:
+        patterns: ["*"]
 
   # The GitHub Actions workflows themselves (actions/checkout, setup-node,
   # aws-actions/configure-aws-credentials, etc.)
@@ -41,3 +67,10 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "friday"
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 5
+    groups:
+      actions-updates:
+        patterns: ["*"]
