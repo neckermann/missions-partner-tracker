@@ -31,7 +31,13 @@ async function resetDemoData() {
   // of which takes the admin email/password) run without a shell at
   // all — node.exe is a real executable, so execFileSync passes their
   // args through directly with no injection risk.
-  run("npx", ["prisma", "migrate", "reset", "--force", "--skip-seed", "--skip-generate"], {
+  //
+  // No --skip-seed/--skip-generate here -- Prisma 7's `migrate reset`
+  // removed both flags outright (not just renamed), and also stopped
+  // auto-running the configured seed command on reset at all, so there's
+  // no double-seed risk from the explicit `node prisma/seed.js` call
+  // below.
+  run("npx", ["prisma", "migrate", "reset", "--force"], {
     shell: process.platform === "win32",
   });
 

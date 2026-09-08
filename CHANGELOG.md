@@ -16,6 +16,21 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [2.1.2] - 2026-09-08
+
+### Fixed
+- **`npm run demo:reset` / `POST /api/demo/reset` has been broken since
+  the Prisma 7 migration (v1.0.19)** — `prisma migrate reset` dropped the
+  `--skip-seed` and `--skip-generate` flags entirely (not renamed,
+  removed), so every reset failed at the first step with `unknown or
+  unexpected option: --skip-seed`. Went unnoticed until now because nothing
+  in CI exercises this path (it's demo-only) and it happened to be masked
+  by a separate, unrelated credentials issue on the one demo environment
+  that was calling it. Fixed by dropping both flags — Prisma 7's
+  `migrate reset` no longer auto-runs the seed command either, so there's
+  no double-seed risk from the explicit seed step that already follows it
+  in `reset-demo-data.js`.
+
 ## [2.1.1] - 2026-09-08
 
 ### Fixed
