@@ -25,12 +25,17 @@ services:
     type: web
     runtime: node
     plan: starter
-    # --include=dev on the frontend install: NODE_ENV is set below
-    # (needed at runtime) and is visible during the build too, and npm's
-    # default behavior is to silently skip devDependencies whenever
-    # NODE_ENV=production is set -- which is exactly where Vite lives, so
-    # the build fails with "vite: not found" otherwise.
-    buildCommand: cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install
+    # --include=dev on both installs: NODE_ENV is set below (needed at
+    # runtime) and is visible during the build too, and npm's default
+    # behavior is to silently skip devDependencies whenever
+    # NODE_ENV=production is set. On the frontend that's where Vite
+    # lives (the build fails outright with "vite: not found" without
+    # this). On the backend it's where the `prisma` CLI lives -- without
+    # it, `npx prisma migrate deploy`/`migrate reset` still "work" by
+    # silently downloading prisma fresh from the registry every time
+    # instead of using the pinned version already in package-lock.json,
+    # which is slower and not actually reproducible.
+    buildCommand: cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install --include=dev
     startCommand: cd backend && node src/server.js
     # Runs after the build above but before the new version takes
     # traffic -- applies any pending schema changes first, so a rolling

@@ -16,6 +16,20 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [2.1.1] - 2026-09-08
+
+### Fixed
+- **`render.yaml`'s backend build silently skipped the `prisma` CLI.**
+  Same root cause as the frontend's earlier `vite: not found` fix (see
+  v2.1.0) — `NODE_ENV=production` is visible during the build, and npm
+  skips devDependencies whenever that's set. Unlike the frontend build,
+  this didn't fail outright: `npx prisma migrate deploy` (and any other
+  `npx prisma ...` call, including a demo reset's `migrate reset`) just
+  silently fell back to downloading `prisma` fresh from the registry on
+  every run instead of using the pinned version already in
+  `package-lock.json` — slower, and not actually reproducible. Backend's
+  install now also uses `--include=dev`.
+
 ## [2.1.0] - 2026-09-08
 
 ### Added
