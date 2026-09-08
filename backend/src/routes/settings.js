@@ -11,11 +11,11 @@ router.use(requireAuth); // everything below requires a logged-in user
 // The logo's bytes live right on this row (logoBytes/logoContentType —
 // see the comment on that field in schema.prisma) but every query below
 // omits logoBytes and every response synthesizes this `{ url } | null`
-// shape instead, same contract the frontend has always seen back when
-// `logo` was a `{ url }` JSON blob pointing at S3. Presence is read off
-// logoContentType (always set together with logoBytes — see POST /logo
-// below) rather than logoBytes itself, so checking "is there a logo" never
-// requires fetching the image data at all.
+// shape instead — the frontend just needs a fetchable URL, never the raw
+// bytes inline. Presence is read off logoContentType (always set
+// together with logoBytes — see POST /logo below) rather than
+// logoBytes itself, so checking "is there a logo" never requires
+// fetching the image data at all.
 function shapeSettings(settings) {
   if (!settings) return settings;
   const { logoContentType, ...rest } = settings;

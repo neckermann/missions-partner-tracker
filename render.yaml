@@ -40,8 +40,9 @@ services:
     # Runs after the build above but before the new version takes
     # traffic -- applies any pending schema changes first, so a rolling
     # deploy never has new code running against an old schema. Only
-    # additive/backwards-compatible migrations should ever ship (see the
-    # same note in .github/workflows/backend-deploy-aws.yml's deploy job).
+    # additive/backwards-compatible migrations should ever ship, since
+    # the previous app version keeps serving traffic against the new
+    # schema for the short window until the new version is live.
     preDeployCommand: cd backend && npx prisma migrate deploy
     healthCheckPath: /api/health
     envVars:

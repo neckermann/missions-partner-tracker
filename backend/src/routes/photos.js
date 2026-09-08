@@ -3,12 +3,11 @@ const prisma = require("../prismaClient");
 
 const router = express.Router();
 
-// GET /api/photos/:id/raw — public, unauthenticated. Matches the old S3
-// bucket's public-read policy on "missionaries/"/"organizations/" keys:
-// a missionary/org photo has always been reachable by anyone who has its
-// URL, restricted or not (maskData.js is what keeps a restricted record's
-// real photo out of any response in the first place — this route was
-// never the access boundary, and still isn't).
+// GET /api/photos/:id/raw — public, unauthenticated. A missionary/org
+// photo is reachable by anyone who has its URL, restricted or not —
+// maskData.js is what keeps a restricted record's real photo out of any
+// response in the first place, this route was never meant to be the
+// access boundary.
 router.get("/:id/raw", async (req, res, next) => {
   try {
     const photo = await prisma.photo.findUnique({

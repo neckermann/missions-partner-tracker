@@ -509,8 +509,9 @@ model Document {
 // Every photo ever uploaded for a Missionary or Organization, not just the
 // current one — same shared-table approach as Newsletter. Unlike
 // Newsletter, photos are public (served unauthenticated at
-// GET /api/photos/:id/raw, matching the old S3 bucket's public-read
-// policy) — but the bytes still live in this row, not an object store;
+// GET /api/photos/:id/raw — maskData.js is what keeps a restricted
+// record's real photo out of any response in the first place, not this
+// route) — but the bytes still live in this row, not an object store;
 // see the comment on Newsletter above for why. Same `omit: { bytes: true
 // }` discipline applies here: every list/detail query synthesizes a
 // `url: "/api/photos/<id>/raw"` string instead of ever returning the raw

@@ -35,8 +35,7 @@ function resolveExt(file) {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  // 10MB, not the 20MB this used to allow -- see the same comment in
-  // routes/newsletters.js.
+  // See the same limit (and why) in routes/newsletters.js.
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (!resolveExt(file)) {

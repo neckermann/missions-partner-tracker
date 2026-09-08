@@ -25,11 +25,9 @@ function resolveExt(file) {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  // 10MB, not the 20MB this used to allow -- files live directly in
-  // Postgres now (see the Newsletter model comment in schema.prisma),
-  // and that's the size past which the usual guidance shifts from "just
-  // use the database" to "use object storage instead." Matches
-  // .platform/nginx/conf.d/uploads.conf.
+  // Files live directly in Postgres (see the Newsletter model comment
+  // in schema.prisma) -- 10MB is the size past which the usual guidance
+  // shifts from "just use the database" to "use object storage instead."
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (!resolveExt(file)) {

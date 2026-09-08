@@ -1,3 +1,7 @@
+
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateTable
 CREATE TABLE "Missionary" (
     "id" TEXT NOT NULL,
@@ -29,7 +33,6 @@ CREATE TABLE "Missionary" (
     "twitter" TEXT,
     "instagram" TEXT,
     "linkedin" TEXT,
-    "images" JSONB,
     "emergencyContact" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -65,7 +68,8 @@ CREATE TABLE "Child" (
 -- CreateTable
 CREATE TABLE "Address" (
     "id" TEXT NOT NULL,
-    "missionaryId" TEXT NOT NULL,
+    "missionaryId" TEXT,
+    "organizationId" TEXT,
     "type" TEXT NOT NULL,
     "addressLine1" TEXT,
     "addressLine2" TEXT,
@@ -82,16 +86,17 @@ CREATE TABLE "Address" (
 );
 
 -- CreateTable
-CREATE TABLE "MissionTrip" (
+CREATE TABLE "Trip" (
     "id" TEXT NOT NULL,
-    "missionaryId" TEXT NOT NULL,
+    "missionaryId" TEXT,
+    "organizationId" TEXT,
     "startDate" DATE,
     "endDate" DATE,
     "tripType" TEXT,
     "description" TEXT,
     "notes" TEXT,
 
-    CONSTRAINT "MissionTrip_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Trip_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -131,31 +136,23 @@ CREATE TABLE "ChurchVisit" (
 );
 
 -- CreateTable
-CREATE TABLE "SendingChurch" (
+CREATE TABLE "SendingParty" (
     "id" TEXT NOT NULL,
     "missionaryId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
     "name" TEXT,
     "contactName" TEXT,
     "contactEmail" TEXT,
     "websiteLink" TEXT,
-    "mailingAddress" JSONB,
     "phone" TEXT,
+    "addressLine1" TEXT,
+    "addressLine2" TEXT,
+    "city" TEXT,
+    "stateProvinceRegion" TEXT,
+    "postalCode" TEXT,
+    "country" TEXT,
 
-    CONSTRAINT "SendingChurch_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "SendingOrg" (
-    "id" TEXT NOT NULL,
-    "missionaryId" TEXT NOT NULL,
-    "name" TEXT,
-    "contactName" TEXT,
-    "contactEmail" TEXT,
-    "websiteLink" TEXT,
-    "mailingAddress" JSONB,
-    "phone" TEXT,
-
-    CONSTRAINT "SendingOrg_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "SendingParty_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -189,58 +186,12 @@ CREATE TABLE "Organization" (
     "twitter" TEXT,
     "instagram" TEXT,
     "linkedin" TEXT,
-    "images" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "createdById" TEXT,
     "updatedById" TEXT,
 
     CONSTRAINT "Organization_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "OrganizationAddress" (
-    "id" TEXT NOT NULL,
-    "organizationId" TEXT NOT NULL,
-    "type" TEXT NOT NULL,
-    "addressLine1" TEXT,
-    "addressLine2" TEXT,
-    "city" TEXT,
-    "stateProvinceRegion" TEXT,
-    "postalCode" TEXT,
-    "country" TEXT,
-    "gpsLat" DOUBLE PRECISION,
-    "gpsLng" DOUBLE PRECISION,
-    "receiveMail" BOOLEAN,
-    "receivePackages" BOOLEAN,
-
-    CONSTRAINT "OrganizationAddress_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "OrganizationTrip" (
-    "id" TEXT NOT NULL,
-    "organizationId" TEXT NOT NULL,
-    "startDate" DATE,
-    "endDate" DATE,
-    "tripType" TEXT,
-    "description" TEXT,
-    "notes" TEXT,
-
-    CONSTRAINT "OrganizationTrip_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "OrganizationTripParticipant" (
-    "id" TEXT NOT NULL,
-    "tripId" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "role" TEXT,
-    "isLeader" BOOLEAN NOT NULL DEFAULT false,
-    "phone" TEXT,
-    "email" TEXT,
-
-    CONSTRAINT "OrganizationTripParticipant_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -273,13 +224,32 @@ CREATE TABLE "SupportNeed" (
 );
 
 -- CreateTable
+CREATE TABLE "PrayerRequest" (
+    "id" TEXT NOT NULL,
+    "missionaryId" TEXT,
+    "organizationId" TEXT,
+    "category" TEXT NOT NULL,
+    "requestText" TEXT NOT NULL,
+    "dateReceived" DATE NOT NULL,
+    "isPublic" BOOLEAN NOT NULL DEFAULT false,
+    "status" TEXT NOT NULL DEFAULT 'ongoing',
+    "dateAnswered" DATE,
+    "answeredNote" TEXT,
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdById" TEXT,
+
+    CONSTRAINT "PrayerRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Newsletter" (
     "id" TEXT NOT NULL,
     "missionaryId" TEXT,
     "organizationId" TEXT,
     "title" TEXT,
     "receivedDate" DATE NOT NULL,
-    "fileKey" TEXT NOT NULL,
+    "bytes" BYTEA NOT NULL,
     "fileName" TEXT NOT NULL,
     "contentType" TEXT NOT NULL,
     "fileSize" INTEGER,
@@ -288,6 +258,41 @@ CREATE TABLE "Newsletter" (
     "createdById" TEXT,
 
     CONSTRAINT "Newsletter_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Document" (
+    "id" TEXT NOT NULL,
+    "missionaryId" TEXT,
+    "organizationId" TEXT,
+    "category" TEXT NOT NULL,
+    "customCategory" TEXT,
+    "title" TEXT,
+    "receivedDate" DATE NOT NULL,
+    "bytes" BYTEA NOT NULL,
+    "fileName" TEXT NOT NULL,
+    "contentType" TEXT NOT NULL,
+    "fileSize" INTEGER,
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdById" TEXT,
+
+    CONSTRAINT "Document_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Photo" (
+    "id" TEXT NOT NULL,
+    "missionaryId" TEXT,
+    "organizationId" TEXT,
+    "bytes" BYTEA NOT NULL,
+    "receivedDate" DATE NOT NULL,
+    "contentType" TEXT,
+    "fileSize" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdById" TEXT,
+
+    CONSTRAINT "Photo_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -305,7 +310,8 @@ CREATE TABLE "ChurchSettings" (
     "publicTagline" TEXT,
     "aboutText" TEXT,
     "primaryColor" TEXT,
-    "logo" JSONB,
+    "logoBytes" BYTEA,
+    "logoContentType" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "updatedById" TEXT,
@@ -324,11 +330,29 @@ CREATE TABLE "User" (
     "active" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "lastLoginAt" TIMESTAMP(3),
+    "ssoProviderId" TEXT,
     "mfaEnabled" BOOLEAN NOT NULL DEFAULT false,
     "mfaSecret" TEXT,
     "mfaSetupRequired" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SsoProvider" (
+    "id" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "enabled" BOOLEAN NOT NULL DEFAULT false,
+    "displayName" TEXT NOT NULL,
+    "issuerUrl" TEXT NOT NULL,
+    "clientId" TEXT NOT NULL,
+    "clientSecret" TEXT NOT NULL,
+    "allowedDomain" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedById" TEXT,
+
+    CONSTRAINT "SsoProvider_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -341,6 +365,9 @@ CREATE INDEX "Missionary_archived_idx" ON "Missionary"("archived");
 CREATE UNIQUE INDEX "Address_missionaryId_type_key" ON "Address"("missionaryId", "type");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Address_organizationId_type_key" ON "Address"("organizationId", "type");
+
+-- CreateIndex
 CREATE INDEX "Furlough_missionaryId_idx" ON "Furlough"("missionaryId");
 
 -- CreateIndex
@@ -350,19 +377,13 @@ CREATE INDEX "ChurchVisit_missionaryId_idx" ON "ChurchVisit"("missionaryId");
 CREATE INDEX "ChurchVisit_organizationId_idx" ON "ChurchVisit"("organizationId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "SendingChurch_missionaryId_key" ON "SendingChurch"("missionaryId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "SendingOrg_missionaryId_key" ON "SendingOrg"("missionaryId");
+CREATE UNIQUE INDEX "SendingParty_missionaryId_type_key" ON "SendingParty"("missionaryId", "type");
 
 -- CreateIndex
 CREATE INDEX "Organization_isPublic_isRestricted_idx" ON "Organization"("isPublic", "isRestricted");
 
 -- CreateIndex
 CREATE INDEX "Organization_archived_idx" ON "Organization"("archived");
-
--- CreateIndex
-CREATE UNIQUE INDEX "OrganizationAddress_organizationId_type_key" ON "OrganizationAddress"("organizationId", "type");
 
 -- CreateIndex
 CREATE INDEX "SupportEntry_missionaryId_idx" ON "SupportEntry"("missionaryId");
@@ -377,10 +398,37 @@ CREATE INDEX "SupportNeed_missionaryId_idx" ON "SupportNeed"("missionaryId");
 CREATE INDEX "SupportNeed_organizationId_idx" ON "SupportNeed"("organizationId");
 
 -- CreateIndex
+CREATE INDEX "PrayerRequest_missionaryId_idx" ON "PrayerRequest"("missionaryId");
+
+-- CreateIndex
+CREATE INDEX "PrayerRequest_organizationId_idx" ON "PrayerRequest"("organizationId");
+
+-- CreateIndex
+CREATE INDEX "PrayerRequest_category_idx" ON "PrayerRequest"("category");
+
+-- CreateIndex
+CREATE INDEX "PrayerRequest_status_idx" ON "PrayerRequest"("status");
+
+-- CreateIndex
 CREATE INDEX "Newsletter_missionaryId_idx" ON "Newsletter"("missionaryId");
 
 -- CreateIndex
 CREATE INDEX "Newsletter_organizationId_idx" ON "Newsletter"("organizationId");
+
+-- CreateIndex
+CREATE INDEX "Document_missionaryId_idx" ON "Document"("missionaryId");
+
+-- CreateIndex
+CREATE INDEX "Document_organizationId_idx" ON "Document"("organizationId");
+
+-- CreateIndex
+CREATE INDEX "Document_category_idx" ON "Document"("category");
+
+-- CreateIndex
+CREATE INDEX "Photo_missionaryId_idx" ON "Photo"("missionaryId");
+
+-- CreateIndex
+CREATE INDEX "Photo_organizationId_idx" ON "Photo"("organizationId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
@@ -395,10 +443,16 @@ ALTER TABLE "Child" ADD CONSTRAINT "Child_missionaryId_fkey" FOREIGN KEY ("missi
 ALTER TABLE "Address" ADD CONSTRAINT "Address_missionaryId_fkey" FOREIGN KEY ("missionaryId") REFERENCES "Missionary"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "MissionTrip" ADD CONSTRAINT "MissionTrip_missionaryId_fkey" FOREIGN KEY ("missionaryId") REFERENCES "Missionary"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Address" ADD CONSTRAINT "Address_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "TripParticipant" ADD CONSTRAINT "TripParticipant_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "MissionTrip"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Trip" ADD CONSTRAINT "Trip_missionaryId_fkey" FOREIGN KEY ("missionaryId") REFERENCES "Missionary"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Trip" ADD CONSTRAINT "Trip_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TripParticipant" ADD CONSTRAINT "TripParticipant_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "Trip"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Furlough" ADD CONSTRAINT "Furlough_missionaryId_fkey" FOREIGN KEY ("missionaryId") REFERENCES "Missionary"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -410,19 +464,7 @@ ALTER TABLE "ChurchVisit" ADD CONSTRAINT "ChurchVisit_missionaryId_fkey" FOREIGN
 ALTER TABLE "ChurchVisit" ADD CONSTRAINT "ChurchVisit_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "SendingChurch" ADD CONSTRAINT "SendingChurch_missionaryId_fkey" FOREIGN KEY ("missionaryId") REFERENCES "Missionary"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "SendingOrg" ADD CONSTRAINT "SendingOrg_missionaryId_fkey" FOREIGN KEY ("missionaryId") REFERENCES "Missionary"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "OrganizationAddress" ADD CONSTRAINT "OrganizationAddress_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "OrganizationTrip" ADD CONSTRAINT "OrganizationTrip_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "OrganizationTripParticipant" ADD CONSTRAINT "OrganizationTripParticipant_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "OrganizationTrip"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "SendingParty" ADD CONSTRAINT "SendingParty_missionaryId_fkey" FOREIGN KEY ("missionaryId") REFERENCES "Missionary"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SupportEntry" ADD CONSTRAINT "SupportEntry_missionaryId_fkey" FOREIGN KEY ("missionaryId") REFERENCES "Missionary"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -437,37 +479,29 @@ ALTER TABLE "SupportNeed" ADD CONSTRAINT "SupportNeed_missionaryId_fkey" FOREIGN
 ALTER TABLE "SupportNeed" ADD CONSTRAINT "SupportNeed_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "PrayerRequest" ADD CONSTRAINT "PrayerRequest_missionaryId_fkey" FOREIGN KEY ("missionaryId") REFERENCES "Missionary"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PrayerRequest" ADD CONSTRAINT "PrayerRequest_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Newsletter" ADD CONSTRAINT "Newsletter_missionaryId_fkey" FOREIGN KEY ("missionaryId") REFERENCES "Missionary"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Newsletter" ADD CONSTRAINT "Newsletter_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- CheckConstraint
--- SupportEntry, SupportNeed, Newsletter, and ChurchVisit are shared tables
--- that can belong to either a Missionary or an Organization (never both,
--- never neither) — not enforceable through Prisma's schema language, so
--- these are plain DB check constraints.
-ALTER TABLE "SupportEntry" ADD CONSTRAINT "SupportEntry_one_parent_check"
-    CHECK (
-        ("missionaryId" IS NOT NULL AND "organizationId" IS NULL) OR
-        ("missionaryId" IS NULL AND "organizationId" IS NOT NULL)
-    );
+-- AddForeignKey
+ALTER TABLE "Document" ADD CONSTRAINT "Document_missionaryId_fkey" FOREIGN KEY ("missionaryId") REFERENCES "Missionary"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "SupportNeed" ADD CONSTRAINT "SupportNeed_one_parent_check"
-    CHECK (
-        ("missionaryId" IS NOT NULL AND "organizationId" IS NULL) OR
-        ("missionaryId" IS NULL AND "organizationId" IS NOT NULL)
-    );
+-- AddForeignKey
+ALTER TABLE "Document" ADD CONSTRAINT "Document_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "Newsletter" ADD CONSTRAINT "Newsletter_one_parent_check"
-    CHECK (
-        ("missionaryId" IS NOT NULL AND "organizationId" IS NULL) OR
-        ("missionaryId" IS NULL AND "organizationId" IS NOT NULL)
-    );
+-- AddForeignKey
+ALTER TABLE "Photo" ADD CONSTRAINT "Photo_missionaryId_fkey" FOREIGN KEY ("missionaryId") REFERENCES "Missionary"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "ChurchVisit" ADD CONSTRAINT "ChurchVisit_one_parent_check"
-    CHECK (
-        ("missionaryId" IS NOT NULL AND "organizationId" IS NULL) OR
-        ("missionaryId" IS NULL AND "organizationId" IS NOT NULL)
-    );
+-- AddForeignKey
+ALTER TABLE "Photo" ADD CONSTRAINT "Photo_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "User" ADD CONSTRAINT "User_ssoProviderId_fkey" FOREIGN KEY ("ssoProviderId") REFERENCES "SsoProvider"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
