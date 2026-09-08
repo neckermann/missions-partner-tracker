@@ -16,6 +16,19 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.26] - 2026-09-08
+
+### Fixed
+- **v1.0.25's own new "Apply database migrations" step broke the deploy
+  job.** `npm ci`'s postinstall runs `prisma generate`, which loads
+  `prisma.config.js`, which throws if `DATABASE_URL` isn't set at all —
+  same failure mode already fixed for the `backend-tests` job back in
+  v1.0.20. The new migration step fetched `DATABASE_URL` from EB *after*
+  "Install backend deps" ran, so the fetch never had a chance to help.
+  Fixed by fetching it first and exporting via `$GITHUB_ENV` so every
+  later step in the job has it. Caught on demo before it ever reached
+  production.
+
 ## [1.0.25] - 2026-09-08
 
 ### Fixed
