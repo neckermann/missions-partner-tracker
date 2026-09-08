@@ -16,6 +16,35 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.22] - 2026-09-07
+
+### Added
+- **Prayer request tracking** (closes GitHub issue #43): a new
+  admin-managed record per missionary/organization — category
+  (short-term, admin-only, vs. long-term, which can optionally be shown
+  publicly), the request itself, date received, and (when it happens) an
+  answer date and note on how it was answered. Manage from a partner's
+  detail page or the new central **Prayer Requests** admin page; a
+  long-term request marked public shows on that partner's public profile
+  and, if enabled, the printed booklet.
+  Deliberately designed as a long-term testimony record, not a
+  pass/fail checklist: `status` has three neutral values — "ongoing"
+  (the default; still open, no implication anything failed to happen),
+  "untracked" (an explicit opt-out for requests nobody intends to follow
+  up on, like a routine short-term ask), and "answered" (the one worth
+  surfacing). Nowhere in the app — the admin section, the consolidated
+  admin page, the public profile, or the booklet — does an open request
+  get a "pending"/"unanswered" label, badge, or warning color; only
+  "answered" ever gets called out, as a quiet note.
+  New `backend/src/routes/prayerRequests.js` (same dual-FK,
+  admin-JSON-CRUD shape as `routes/supportNeeds.js`); `maskData.js`
+  curates public long-term+public requests down to just the
+  request/status/answer fields (no id, category, or admin notes);
+  `prisma/seed.js` generates a realistic mix (varied category/status,
+  weighted toward still-open since that's what real prayer request data
+  actually looks like at any given moment — this isn't a showcase of
+  resolved ones).
+
 ## [1.0.21] - 2026-09-07
 
 ### Changed

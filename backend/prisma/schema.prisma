@@ -91,6 +91,7 @@ model Missionary {
   // existing free-text `supportNeeds` field above (ministry-need narrative,
   // unrelated to these discrete dollar-amount requests).
   needRequests       SupportNeed[]
+  prayerRequests     PrayerRequest[]
   newsletters        Newsletter[]
   documents          Document[]
   // Full upload history, not just the current one — see the Photo model.
@@ -317,6 +318,7 @@ model Organization {
   churchVisits       ChurchVisit[]
   supportEntries     SupportEntry[]
   needRequests       SupportNeed[] // see Missionary.needRequests for the naming note
+  prayerRequests     PrayerRequest[]
   newsletters        Newsletter[]
   documents          Document[]
   // See Missionary.photos for the "current" resolution rule.
@@ -384,6 +386,54 @@ model SupportNeed {
 
   @@index([missionaryId])
   @@index([organizationId])
+}
+
+// A prayer request received from a Missionary or Organization — meant as
+// a long-term, ongoing record of what's been prayed for and (when it
+// happens) how it was answered, not a pass/fail checklist. `status`
+// deliberately has no "unanswered" value: "ongoing" (the default) means
+// still-open/still-praying, with no implication anything failed to
+// happen — most requests, especially long-running ones, simply don't
+// have a resolution yet, and that's normal, not a gap to flag.
+// "untracked" is an explicit opt-out for requests nobody intends to
+// revisit for a formal answer (a routine short-term ask like "safe
+// travels this week" isn't usually worth following up on specifically).
+// "answered" is the one worth surfacing -- paired with dateAnswered and
+// answeredNote, this is what lets a church look back over time and see
+// how prayers were actually answered, which is the whole point of
+// keeping this long-term rather than letting requests fall off after
+// they're no longer current.
+//
+// `category` ("short_term" | "long_term") controls where a request can
+// ever be shown publicly: only "long_term" requests are eligible, and
+// only when `isPublic` is also explicitly set — same explicit opt-in
+// pattern as Missionary/Organization.isPublic elsewhere in this schema,
+// so a long-term request isn't shown publicly just because of its
+// category alone.
+model PrayerRequest {
+  id             String        @id @default(uuid())
+  missionaryId   String?
+  missionary     Missionary?   @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  category     String    // "short_term" | "long_term"
+  requestText  String    @db.Text
+  dateReceived DateTime  @db.Date
+  isPublic     Boolean   @default(false) // only takes effect when category is "long_term"
+
+  status       String    @default("ongoing") // "ongoing" | "answered" | "untracked"
+  dateAnswered DateTime? @db.Date
+  answeredNote String?   @db.Text
+
+  notes        String?   @db.Text
+  createdAt    DateTime  @default(now())
+  createdById  String?
+
+  @@index([missionaryId])
+  @@index([organizationId])
+  @@index([category])
+  @@index([status])
 }
 
 // A newsletter file (PDF, .eml export, or a screenshot image) received from

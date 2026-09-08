@@ -86,6 +86,27 @@ function renderFamilyBlock(m, fields) {
   return `<div class="booklet-block"><h3>Family</h3>${rows.join("")}</div>`;
 }
 
+// The booklet is meant to be printed and handed out, same audience as
+// the public site -- so this applies the identical visibility rule
+// (long-term + explicitly marked public) rather than trusting the admin
+// data source's full list, which includes short-term/private ones too.
+// No "ongoing"/"untracked" callout here either, same reasoning as
+// PublicPartnerDetail.jsx and PrayerRequestSection.jsx.
+function renderPrayerRequestsBlock(entity) {
+  const requests = (entity.prayerRequests || []).filter((p) => p.category === "long_term" && p.isPublic);
+  if (!requests.length) return "";
+  const items = requests
+    .map((p) => {
+      const answered =
+        p.status === "answered"
+          ? `<p style="margin: 0.15rem 0 0; font-size: 9pt; color: #666;">✓ Answered${p.dateAnswered ? ` ${escapeHtml(formatDate(p.dateAnswered))}` : ""}${p.answeredNote ? ` — ${escapeHtml(p.answeredNote)}` : ""}</p>`
+          : "";
+      return `<p style="margin: 0 0 0.1in;">${escapeHtml(p.requestText)}</p>${answered}`;
+    })
+    .join("");
+  return `<div class="booklet-block"><h3>Prayer Requests</h3>${items}</div>`;
+}
+
 function renderSendingPartyBlock(m) {
   const parts = [];
   if (m.sendingChurch?.name) {
@@ -158,6 +179,7 @@ function buildOrganizationPageHtml(o, index) {
       ${renderOrgContactBlock(o)}
       ${o.overview ? `<div class="booklet-callout"><p>${escapeHtml(o.overview)}</p></div>` : ""}
       ${o.focusArea ? `<div class="booklet-block"><h3>Focus Area</h3><p>${escapeHtml(o.focusArea)}</p></div>` : ""}
+      ${renderPrayerRequestsBlock(o)}
       <div class="booklet-footer">${escapeHtml(o.name)}</div>
     </section>`;
 }
@@ -209,6 +231,7 @@ function buildMissionaryPageHtml(m, index, fields) {
       ${fields.showMailing ? renderAddressBlock("Mailing & Contact Address", mailing) : ""}
       ${renderFamilyBlock(m, fields)}
       ${fields.showSendingParty ? renderSendingPartyBlock(m) : ""}
+      ${fields.showPrayerRequests ? renderPrayerRequestsBlock(m) : ""}
       <div class="booklet-footer">${escapeHtml(m.displayName)}</div>
     </section>`;
 }
@@ -366,6 +389,7 @@ const FIELD_OPTIONS = [
   ["showAdults", "Family: Adults & Anniversary"],
   ["showChildren", "Family: Include Children"],
   ["showSendingParty", "Sending Church/Org"],
+  ["showPrayerRequests", "Prayer Requests (long-term, public ones only)"],
   ["showNotesPage", "Notes & Prayer Page (facing page per entry)"],
 ];
 
@@ -383,6 +407,7 @@ export default function AdminBooklet() {
     showAdults: true,
     showChildren: true,
     showSendingParty: true,
+    showPrayerRequests: true,
     showNotesPage: true,
   });
   const [title, setTitle] = useState("Missionary Partners");

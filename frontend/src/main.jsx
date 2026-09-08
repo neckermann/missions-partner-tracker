@@ -17,6 +17,7 @@ import AdminUserForm from "./pages/AdminUserForm.jsx";
 import AccountSettings from "./pages/AccountSettings.jsx";
 import AdminMonthlySupport from "./pages/AdminMonthlySupport.jsx";
 import AdminOneTimeNeeds from "./pages/AdminOneTimeNeeds.jsx";
+import AdminPrayerRequests from "./pages/AdminPrayerRequests.jsx";
 import AdminTripHistory from "./pages/AdminTripHistory.jsx";
 import AdminTripOpportunities from "./pages/AdminTripOpportunities.jsx";
 import AdminNewsletters from "./pages/AdminNewsletters.jsx";
@@ -61,6 +62,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="booklet" element={<AdminBooklet />} />
             <Route path="support/monthly" element={<AdminMonthlySupport />} />
             <Route path="support/needs" element={<AdminOneTimeNeeds />} />
+            <Route path="prayer-requests" element={<AdminPrayerRequests />} />
             <Route path="trips" element={<AdminTripHistory />} />
             <Route path="trips/opportunities" element={<AdminTripOpportunities />} />
             <Route path="newsletters" element={<AdminNewsletters />} />

@@ -269,6 +269,37 @@ missionary/organization, so you can, for example, pull up every signed
 policy on file across all partners at once. **View** opens the file in a
 new tab; **Delete** removes it permanently.
 
+## Prayer Requests
+
+Meant as a long-term record of what's been prayed for and how it was
+answered — not a checklist. Add one from a partner's detail page or the
+central **Prayer Requests** page (pick the partner, category, and the
+request itself).
+
+- **Category** is **Short-term** (admin-only — a quick, timely request
+  like "safe travel next week") or **Long-term** (an ongoing request you
+  can optionally show on that partner's public profile and in the
+  printed booklet — check **Show on public profile & booklet** when
+  adding it; short-term requests are never shown publicly regardless of
+  this setting).
+- An open request just sits there — there's no "pending" or "unanswered"
+  label anywhere in the app. Most requests, especially long-running ones,
+  simply don't have a resolution yet, and that's normal, not a gap to
+  flag. If you don't intend to follow up on a specific request for a
+  formal answer (many short-term ones), check **Not tracking this one
+  for a specific answer** when adding it.
+- When a request *is* answered, click **Record Answer** on it — the date
+  and an optional note on how it was answered (shown as a quiet "✓
+  Answered" line, never a colored badge). This is the part worth keeping
+  long-term: a public long-term request's answer note shows on that
+  partner's public profile and in the booklet too, right alongside the
+  request itself — a real, growing record of how prayers actually get
+  answered over time, not just a log of what's currently outstanding.
+
+The central **Prayer Requests** page lists every request across every
+partner, filterable by category, with a running count of how many have
+been answered so far.
+
 ## Printable partner booklet
 
 **Print Booklet** builds a print-formatted directory: pick a **Look &
@@ -281,8 +312,11 @@ header), or Friendly (a bold color-block header, a large circular photo,
 rounded pill-style info rows) — choose who's included (archived,
 restricted-access, organizations), what
 shows on each page (photo, overview, location, address, family info,
-sending church/org, and an optional facing "Notes & Prayer Requests" page
-with ruled lines), and set a cover title/subtitle. Every booklet also
+sending church/org, that partner's long-term public [prayer
+requests](#prayer-requests) — an "answered" one includes its note, an
+open one doesn't call out its status at all, same as everywhere else in
+the app — and an optional facing "Notes & Prayer Page" with ruled lines
+for the reader's own handwritten notes), and set a cover title/subtitle. Every booklet also
 ends with a closing back cover — your church's logo and name (from
 [Church Settings](#church-settings-admin-only)) plus your About Text or
 Public Tagline as a closing message, or a generic thank-you if neither is

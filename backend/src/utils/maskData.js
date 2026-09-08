@@ -308,6 +308,24 @@ function missionaryHouseholdCategory(m) {
  *      a country-level pin only (never the precise serving-location
  *      coordinates), no contact info, no children data, generic overview.
  */
+// Curates a (already query-filtered to public long-term ones -- see
+// publicMissionaries.js/publicOrganizations.js) list of PrayerRequest
+// rows down to just what's safe/meaningful to show publicly. No id,
+// category, isPublic, notes, or createdById -- those are all admin-side
+// bookkeeping. `status`/`dateAnswered`/`answeredNote` come through as-is:
+// per the model comment in schema.prisma, "ongoing" carries no negative
+// implication, so there's nothing here that needs hiding or softening
+// for a public audience the way isRestricted's other masking does.
+function toPublicPrayerRequests(prayerRequests) {
+  return (prayerRequests || []).map((p) => ({
+    requestText: p.requestText,
+    dateReceived: p.dateReceived,
+    status: p.status,
+    dateAnswered: p.dateAnswered,
+    answeredNote: p.answeredNote,
+  }));
+}
+
 function toPublicMissionary(m) {
   if (!m || !m.isPublic || m.archived) return null;
 
@@ -372,6 +390,7 @@ function toPublicMissionary(m) {
     photo: m.photos?.[0]?.url ?? null,
     sendingChurch: m.sendingChurch ? { name: m.sendingChurch.name } : null,
     sendingOrg: m.sendingOrg ? { name: m.sendingOrg.name } : null,
+    prayerRequests: toPublicPrayerRequests(m.prayerRequests),
   };
 }
 
@@ -429,6 +448,7 @@ function toPublicOrganization(o) {
     instagram: o.instagram,
     linkedin: o.linkedin,
     photo: o.photos?.[0]?.url ?? null,
+    prayerRequests: toPublicPrayerRequests(o.prayerRequests),
   };
 }
 

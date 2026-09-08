@@ -215,6 +215,25 @@ export async function deleteSupportNeed(id) {
   await api.delete(`/support-needs/${id}`);
 }
 
+export async function fetchPrayerRequests() {
+  const { data } = await api.get("/prayer-requests");
+  return data;
+}
+
+export async function createPrayerRequest(payload) {
+  const { data } = await api.post("/prayer-requests", payload);
+  return data;
+}
+
+export async function updatePrayerRequest(id, payload) {
+  const { data } = await api.put(`/prayer-requests/${id}`, payload);
+  return data;
+}
+
+export async function deletePrayerRequest(id) {
+  await api.delete(`/prayer-requests/${id}`);
+}
+
 export async function fetchNewsletters() {
   const { data } = await api.get("/newsletters");
   return data;

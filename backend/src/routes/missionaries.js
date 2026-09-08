@@ -48,6 +48,7 @@ const missionaryInclude = {
   churchVisits: { orderBy: { visitDate: "desc" } },
   supportEntries: { orderBy: { effectiveDate: "desc" } },
   needRequests: { orderBy: { requestDate: "desc" } },
+  prayerRequests: { orderBy: { dateReceived: "desc" } },
   newsletters: { orderBy: { receivedDate: "desc" } },
   documents: { orderBy: { receivedDate: "desc" } },
   // Full history, newest-received first — photos[0] is "current". Admin-

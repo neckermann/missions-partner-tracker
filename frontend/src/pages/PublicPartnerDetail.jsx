@@ -11,6 +11,12 @@ function formatYear(value) {
   return String(value).slice(0, 4);
 }
 
+function formatDate(value) {
+  if (!value) return "";
+  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString();
+}
+
 // Restricted partners simply won't have most of these keys in the API
 // response at all (see toPublicMissionary/toPublicOrganization), so the
 // conditional rendering below already degrades correctly with no
@@ -144,6 +150,27 @@ export default function PublicPartnerDetail() {
               </p>
             )}
           </>
+        )}
+
+        {partner.prayerRequests?.length > 0 && (
+          <div style={{ marginTop: "1.5rem" }}>
+            <h3>Prayer Requests</h3>
+            {partner.prayerRequests.map((p, i) => (
+              <div key={i} style={{ marginTop: i === 0 ? 0 : "1rem" }}>
+                <p style={{ margin: 0 }}>{p.requestText}</p>
+                {/* Only ever calls out "answered" -- an open request just
+                    shows the request itself, no "still waiting" language
+                    or visual marker. See the PrayerRequest model comment
+                    in schema.prisma for why. */}
+                {p.status === "answered" && (
+                  <p style={{ margin: "0.25rem 0 0", fontSize: "0.9rem", color: "#666" }}>
+                    ✓ Answered{p.dateAnswered ? ` ${formatDate(p.dateAnswered)}` : ""}
+                    {p.answeredNote ? ` — ${p.answeredNote}` : ""}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
         )}
 
         {partner.fipsCountryCode && (

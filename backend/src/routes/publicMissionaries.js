@@ -16,6 +16,11 @@ router.get("/", async (req, res, next) => {
         children: true,
         sendingParties: true,
         addresses: { where: { type: "physical" } }, // only the pin coordinates are ever surfaced publicly
+        // Only long-term requests an admin explicitly marked public — see
+        // the PrayerRequest model comment in schema.prisma. Filtered here
+        // at the query level, not in maskData.js, so a short-term or
+        // non-public request never leaves the database layer at all.
+        prayerRequests: { where: { category: "long_term", isPublic: true }, orderBy: { dateReceived: "desc" } },
         // Only the current photo (most recently received) is ever surfaced
         // publicly — never the upload history.
         photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], take: 1 },
@@ -40,6 +45,11 @@ router.get("/:id", async (req, res, next) => {
         children: true,
         sendingParties: true,
         addresses: { where: { type: "physical" } }, // only the pin coordinates are ever surfaced publicly
+        // Only long-term requests an admin explicitly marked public — see
+        // the PrayerRequest model comment in schema.prisma. Filtered here
+        // at the query level, not in maskData.js, so a short-term or
+        // non-public request never leaves the database layer at all.
+        prayerRequests: { where: { category: "long_term", isPublic: true }, orderBy: { dateReceived: "desc" } },
         // Only the current photo (most recently received) is ever surfaced
         // publicly — never the upload history.
         photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], take: 1 },

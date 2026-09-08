@@ -591,6 +591,61 @@ function buildSupportEntries() {
   return entries;
 }
 
+const SHORT_TERM_PRAYER_REQUESTS = [
+  "Safe travel during the upcoming trip to the capital",
+  "Good health for the family during flu season",
+  "Wisdom for an upcoming meeting with local leaders",
+  "Safety during a short-term team's visit next month",
+  "A smooth visa renewal process",
+  "Strength during a busy season of ministry travel",
+];
+const LONG_TERM_PRAYER_REQUESTS = [
+  "Open doors to share the Gospel in an unreached community nearby",
+  "A team of local believers to help carry the ministry forward",
+  "Provision for a permanent ministry center",
+  "Breakthrough in a long-standing language barrier with the community",
+  "Continued favor with local government for ministry registration",
+  "Spiritual growth and unity among the small group of new believers",
+];
+const ANSWERED_NOTES = [
+  "A local family stepped up to help lead the work.",
+  "The paperwork was approved faster than expected.",
+  "Several people from the community put their faith in Christ.",
+  "Funding came through from an unexpected source.",
+  "The relationship healed after months of prayer.",
+];
+
+// Not every missionary/org gets one -- seeing some records with none and
+// some with several better represents real usage than a guaranteed 1-3
+// every time. Mirrors buildNeedRequests()'s shape (an array for a direct
+// `{ create: [...] }`), but status is deliberately NOT weighted toward
+// "answered" -- most real prayer requests are still open at any given
+// moment, and seed data should look like that rather than like a
+// showcase of resolved ones. See the PrayerRequest model comment in
+// schema.prisma for why "ongoing" isn't treated as a lesser outcome here.
+function buildPrayerRequests() {
+  const count = chance(0.6) ? randInt(1, 3) : 0;
+  return Array.from({ length: count }, () => {
+    const category = chance(0.5) ? "long_term" : "short_term";
+    const isLongTerm = category === "long_term";
+    const requestText = pick(isLongTerm ? LONG_TERM_PRAYER_REQUESTS : SHORT_TERM_PRAYER_REQUESTS);
+    // Short-term requests are rarely worth tracking for a formal answer;
+    // long-term ones are usually still open at any given snapshot in time.
+    const status = isLongTerm ? pick(["ongoing", "ongoing", "ongoing", "answered"]) : pick(["untracked", "untracked", "ongoing"]);
+    const answered = status === "answered";
+    return {
+      category,
+      requestText,
+      dateReceived: dateBetween(2, 0),
+      isPublic: isLongTerm && chance(0.7),
+      status,
+      dateAnswered: answered ? dateBetween(0, 0) : null,
+      answeredNote: answered && chance(0.7) ? pick(ANSWERED_NOTES) : null,
+      notes: chance(0.15) ? "Shared during a support-team update call." : null,
+    };
+  });
+}
+
 function buildNeedRequests() {
   if (!chance(0.35)) return [];
   const requested = randInt(4, 40) * 50;
@@ -759,6 +814,7 @@ async function main() {
         churchVisits: buildChurchVisits(),
         supportEntries: { create: buildSupportEntries() },
         needRequests: { create: buildNeedRequests() },
+        prayerRequests: { create: buildPrayerRequests() },
         // SendingParty rows store the mailing address as flat columns (see
         // schema.prisma), so churchSettings.address (still the old nested
         // JSON shape from ChurchSettings) is spread directly rather than
@@ -862,6 +918,7 @@ async function main() {
         churchVisits: buildChurchVisits(),
         supportEntries: { create: buildSupportEntries() },
         needRequests: { create: buildNeedRequests() },
+        prayerRequests: { create: buildPrayerRequests() },
         ...attribution,
       },
     });

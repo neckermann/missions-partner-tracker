@@ -124,8 +124,8 @@ judgment on what's worth the added CI time.
 
 The Prisma schema (`backend/prisma/schema.prisma`) covers missionaries,
 organizations, adults/children, sending church/org, addresses, support
-tracking, trips, furlough/church visits, newsletters, documents, and
-church-wide settings. To add a new field or section, extend the schema,
+tracking, trips, furlough/church visits, prayer requests, newsletters,
+documents, and church-wide settings. To add a new field or section, extend the schema,
 the Zod validation in the relevant route, and the admin form together —
 grep for an existing similar field (e.g. `tripSeasonNotes`) to see the
 full path a field takes from database to admin UI to public display.

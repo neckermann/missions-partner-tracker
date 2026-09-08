@@ -20,6 +20,7 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin) {
     { to: "/admin/partners", label: usePartnerTermInAdmin ? partnerTermPlural : "Partners" },
     { to: "/admin/support/monthly", label: "Monthly Support" },
     { to: "/admin/support/needs", label: "One-Time Needs" },
+    { to: "/admin/prayer-requests", label: "Prayer Requests" },
     { to: "/admin/trips", label: "Trip History" },
     { to: "/admin/trips/opportunities", label: "Trip Opportunities" },
     { to: "/admin/newsletters", label: "Newsletters" },

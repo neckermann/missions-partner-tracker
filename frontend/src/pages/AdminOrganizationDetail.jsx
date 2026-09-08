@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { fetchAdminOrganization } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
 import NewsletterSection from "../components/admin/NewsletterSection.jsx";
+import PrayerRequestSection from "../components/admin/PrayerRequestSection.jsx";
 import DocumentSection from "../components/admin/DocumentSection.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
 
@@ -244,6 +245,8 @@ export default function AdminOrganizationDetail() {
         </div>
 
         <FinancialSupportSection supportEntries={o.supportEntries} needRequests={o.needRequests} />
+
+        <PrayerRequestSection organizationId={o.id} prayerRequests={o.prayerRequests} onChange={reload} />
 
         <NewsletterSection organizationId={o.id} newsletters={o.newsletters} onChange={reload} />
 

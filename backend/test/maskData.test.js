@@ -156,6 +156,51 @@ describe("toPublicMissionary", () => {
     assert.deepEqual(result.sendingOrg, { name: "Some Agency" });
   });
 
+  test("public, non-restricted: curates prayer requests down to the public-facing fields", () => {
+    const result = toPublicMissionary(
+      baseMissionary({
+        prayerRequests: [
+          {
+            id: "pr1",
+            category: "long_term",
+            isPublic: true,
+            requestText: "Wisdom for a new outreach",
+            dateReceived: "2026-01-01",
+            status: "answered",
+            dateAnswered: "2026-03-01",
+            answeredNote: "Launched successfully in March.",
+            notes: "internal-only admin note",
+            createdById: "u1",
+          },
+        ],
+      })
+    );
+    assert.deepEqual(result.prayerRequests, [
+      {
+        requestText: "Wisdom for a new outreach",
+        dateReceived: "2026-01-01",
+        status: "answered",
+        dateAnswered: "2026-03-01",
+        answeredNote: "Launched successfully in March.",
+      },
+    ]);
+  });
+
+  test("public, non-restricted: an 'ongoing' prayer request carries no negative framing", () => {
+    // Explicitly guards the design intent in schema.prisma's PrayerRequest
+    // comment: "ongoing" is a plain pass-through value, not something
+    // toPublicPrayerRequests rewrites into "unanswered" or similar.
+    const result = toPublicMissionary(
+      baseMissionary({
+        prayerRequests: [
+          { category: "long_term", isPublic: true, requestText: "Safety on the field", dateReceived: "2026-01-01", status: "ongoing", dateAnswered: null, answeredNote: null },
+        ],
+      })
+    );
+    assert.equal(result.prayerRequests[0].status, "ongoing");
+    assert.equal(result.prayerRequests[0].dateAnswered, null);
+  });
+
   test("restricted: reduces the name to initials", () => {
     const result = toPublicMissionary(baseMissionary({ isRestricted: true }));
     assert.equal(result.displayName, "J.R.");
@@ -206,6 +251,7 @@ describe("toPublicMissionary", () => {
     assert.equal(result.emergencyContact, undefined);
     assert.equal(result.websiteLink, undefined);
     assert.equal(result.facebook, undefined);
+    assert.equal(result.prayerRequests, undefined);
   });
 });
 
