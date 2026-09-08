@@ -82,9 +82,9 @@ tests can't reach: admin login, creating/editing a missionary and an
 organization (including the country/FIPS auto-fill), the public
 directory and map, and an accessibility (axe-core) pass on the
 public-facing pages and the admin dashboard. This is what
-`.github/workflows/backend-deploy-aws.yml`'s `e2e` job runs on every PR
-and push to `main`, against a fresh Postgres service container it
-provisions itself — not your local or demo database.
+`.github/workflows/ci.yml`'s `e2e` job runs on every PR and push to
+`main`, against a fresh Postgres service container it provisions
+itself — not your local or demo database.
 
 To run it locally, point it at any already-running instance of the app
 (local dev, or your own deployment) via env vars:

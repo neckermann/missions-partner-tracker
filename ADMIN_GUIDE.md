@@ -256,84 +256,50 @@ Node/Express process that serves both the API and the built frontend.
 There's no separate frontend host to configure or keep in sync; deploying
 the backend *is* deploying the whole app.
 
-### Reference deployment (AWS)
+### Reference deployment (Render)
 
 This repo doesn't run a live deployment itself — it's the open-source
-upstream that a church's own private fork deploys from (see
-[Upgrading a fork](#upgrading-a-fork)). `.github/workflows/backend-deploy-aws.yml`
-is included as a ready-to-use template for that fork's own AWS setup:
-- **Database**: any Postgres — [Neon](https://neon.tech) (serverless
-  Postgres) is a lightweight choice that pairs well with this setup
-- **App**: AWS Elastic Beanstalk (Node platform), fronted by CloudFront
-  for TLS and caching — serves both the API and the frontend build
+upstream that a church's own fork deploys from (see
+[Upgrading a fork](#upgrading-a-fork)). The reference deployment is
+[Render](https://render.com), via [`render.yaml`](../render.yaml) at the
+repo root — a Blueprint that provisions the web service and Postgres
+database (which also holds every uploaded photo, newsletter, and
+document — see [File storage](#file-storage) above, nothing extra to
+provision) in one step:
 
-The workflow runs on every pull request and every push to `main` that
-touches `backend/**` or `frontend/**`, as six jobs:
+1. Fork this repo.
+2. Render Dashboard → **New → Blueprint** → pick your fork. The first
+   time you do this with a private fork, Render needs its GitHub App
+   authorized on that repo (Dashboard → Account Settings → GitHub →
+   Configure) — a one-time step.
+3. Render prompts for the handful of optional variables `render.yaml`
+   marks `sync: false` (SSO's `APP_BASE_URL`, `JOSHUA_PROJECT_API_KEY`,
+   etc. — see [Environment variables](#environment-variables)); leave
+   them blank to skip those optional features for now.
+4. Apply the blueprint. Render builds, runs `prisma migrate deploy` as a
+   pre-deploy step, and starts the app — no separate migration step to
+   remember.
+5. Create your first login:
+   `node prisma/createAdmin.js you@yourchurch.org "SomeStrongPassword!"`,
+   run from a shell with `DATABASE_URL` pointed at the same database
+   (Render Dashboard → your Postgres instance → connection info).
 
-1. **`backend-tests`** / **`frontend-build`** — the backend test suite and
-   a frontend production build. Run on PRs too, so a bad change is caught
-   before it merges, not after.
-2. **`e2e`** — boots a real instance of the app against a fresh, freshly
-   seeded Postgres (a GitHub Actions service container, not your real
-   database) with a throwaway admin login created just for the run, and
-   runs the committed Playwright suite (`frontend/e2e/`) against it —
-   login, the public directory/map, admin create/edit/delete, and an
-   accessibility (axe-core) pass. Also runs on PRs.
-3. **`deploy`** — *only on a push to `main`* (never on a PR, and never
-   without the jobs above passing first): builds the deployable zip and
-   rolls it out to Elastic Beanstalk, same as before.
-4. **`smoke-test`** — *only on a push to `main`*, after `deploy`: waits
-   for Elastic Beanstalk's own health check to settle to Green, then
-   makes real HTTP requests against the freshly-deployed environment
-   (`/api/health`, the public missionaries API, the public site) to
-   confirm the new version is actually serving correctly — not just that
-   the process is up.
-5. **`rollback`** — only runs if `deploy` succeeded but `smoke-test`
-   failed: rolls the environment back to whichever version was running
-   immediately before this deploy, then still fails the workflow (a
-   visible red X, not a silent success) so a bad release is never
-   invisible.
-
-It ships **disabled** in this repo (Actions tab → the workflow → Enable
-workflow) since there's no AWS environment behind this specific repo to
-deploy to. **To use it in your fork**, set your own EB resource names as
-repository variables (`EB_APP_NAME`, `EB_ENV_NAME`, `AWS_REGION`,
-`EB_DEPLOY_S3_BUCKET` under **Settings → Secrets and variables → Actions
-→ Variables**) plus `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` as repo
-*secrets* — without real values set there, the workflow's placeholder
-fallback values (`your-eb-application-name`, etc.) won't resolve to
-anything that exists, and the deploy step will fail. No new
-variables/secrets beyond what deploying already needed — `smoke-test` and
-`rollback` reuse the same AWS credentials and `EB_ENV_NAME`.
-
-For the full step-by-step walkthrough of standing up this AWS setup from
-nothing — the Elastic Beanstalk application and environment, the IAM
-deploy user, the GitHub Actions variables/secrets, the CloudFront
-distribution, and a custom domain with a free managed TLS certificate —
-see [INFRASTRUCTURE.md](INFRASTRUCTURE.md).
+Costs about $13/mo on Render's cheapest paid tiers — free tier exists
+but isn't viable for anything long-lived (the web service sleeps after
+15min idle, and the database gets deleted after 90 days). Every push to
+your fork's `main` redeploys automatically; `.github/workflows/ci.yml`
+runs the test suite and a real end-to-end Playwright pass on every PR
+and push, independent of deployment.
 
 ### Deploying anywhere else
 
-Nothing about this app requires AWS specifically — it's just this
-repo's own reference deployment. The fastest option is
-[`render.yaml`](../render.yaml) at the repo root — a
-[Render](https://render.com) Blueprint that provisions the web service
-and database in one step (Dashboard → **New → Blueprint**, point it at
-your fork). Costs about $13/mo on Render's cheapest paid tiers (needed
-for anything long-lived — free tier sleeps the service after 15min idle
-and deletes the database after 90 days).
-
-Other options that work well for a small church team:
+Nothing about this app is Render-specific. Some other options that work
+well for a small church team:
 
 | Piece | Options |
 |---|---|
-| Database | [Neon](https://neon.tech), [Supabase](https://supabase.com), [Railway](https://railway.app), AWS RDS, or any managed/self-hosted Postgres |
-| App | [Railway](https://railway.app), [Render](https://render.com), [Fly.io](https://fly.io), a plain VPS running `npm run start` behind nginx + `pm2` — anything that can run a long-lived Node process. There's no Dockerfile in this repo, so platforms that build straight from a Node buildpack (Railway/Render) need the least setup. Whatever you use needs to run the frontend build (`cd frontend && npm run build`) *before* starting the backend, so `backend/public` is populated. |
-
-No file storage row above — photos, newsletters, and documents live in
-the same Postgres database as everything else (see
-[File storage](#file-storage) above), so there's nothing extra to
-provision no matter where you deploy.
+| Database | [Neon](https://neon.tech), [Supabase](https://supabase.com), [Railway](https://railway.app), or any managed/self-hosted Postgres |
+| App | [Railway](https://railway.app), [Fly.io](https://fly.io), a plain VPS running `npm run start` behind nginx + `pm2` — anything that can run a long-lived Node process. There's no Dockerfile in this repo, so a platform that builds straight from a Node buildpack needs the least setup. Whatever you use needs to run the frontend build (`cd frontend && npm run build`) *before* starting the backend, so `backend/public` is populated. |
 
 Wherever you land, the deployment steps are the same shape regardless of
 provider:
@@ -361,12 +327,11 @@ A few things default to placeholder or project-specific values and should
 be treated as "must set," not "nice to set":
 - `SESSION_SECRET` — generate your own; never reuse the example value or share it across environments.
 - `NOMINATIM_CONTACT` — your own email, so misbehaving geocoding traffic isn't attributed to someone else.
-- If reusing `.github/workflows/backend-deploy-aws.yml` as-is, set the repository variables described above rather than leaving it pointed at this project's AWS resources.
 
 ### If you're running a private fork alongside this public repo
 
 Some churches keep a private fork for their real production deployment
-(with real AWS resource names, secrets, etc.) while pulling updates from
+(with real deploy credentials, connected to their own Render workspace, etc.) while pulling updates from
 this public repo as upstream. If that's your setup:
 - Keep anything environment-specific (real resource names, deploy
   credentials) in your platform's config/Secrets, **never** hardcoded
@@ -432,9 +397,9 @@ cron trigger doing:
 curl -X POST https://your-demo-domain/api/demo/reset \
   -H "Authorization: Bearer ${{ secrets.DEMO_RESET_TOKEN }}"
 ```
-No additional infrastructure needed beyond what
-[INFRASTRUCTURE.md](INFRASTRUCTURE.md) already sets up — this reuses
-GitHub Actions, which you already have for deploys.
+No additional infrastructure needed — GitHub Actions is free for this
+kind of lightweight scheduled job, and you don't need it for deploys
+themselves (Render redeploys automatically on push).
 
 **This wipes the entire database.** Never set `DEMO_RESET_TOKEN` (or run
 `npm run demo:reset`) against a deployment holding real partner data.

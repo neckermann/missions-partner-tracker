@@ -1,0 +1,150 @@
+name: CI
+
+# Runs the test/build/e2e gate on every PR (so a bad change never even
+# reaches main) and on every push to main (so a direct push gets the
+# same protection). Deployment itself isn't handled here at all -- see
+# render.yaml and ADMIN_GUIDE.md § Deploying anywhere else. Render's own
+# git integration deploys automatically on push once a service is
+# connected to a repo, so there's no separate deploy job to gate.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/ci.yml'
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    env:
+      # No real database here -- these are pure unit tests (see
+      # CONTRIBUTING.md). This exists only so `npm ci`'s postinstall
+      # (`prisma generate`) doesn't fail: Prisma 7's prisma.config.js
+      # `env("DATABASE_URL")` throws if the variable is unset at all,
+      # even though `generate` itself never opens a connection.
+      DATABASE_URL: postgresql://unused:unused@localhost:5432/unused
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install and test
+        run: |
+          cd backend
+          npm ci
+          npm test
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Build
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+      # Written into backend/public (see frontend/vite.config.js) -- shared
+      # with the e2e job below so the frontend is only built once per run.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: frontend-dist
+          path: backend/public
+          retention-days: 1
+
+  # Boots a real Postgres-backed instance of the app (fresh database,
+  # freshly seeded, a throwaway admin login created just for this run) and
+  # runs the committed Playwright suite (frontend/e2e/) against it --
+  # covers login, the public directory/map, and admin CRUD including the
+  # country/FIPS auto-fill -- plus an accessibility pass (axe-core) on the
+  # public-facing pages and the admin dashboard.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-build]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: e2e
+          POSTGRES_PASSWORD: e2e
+          POSTGRES_DB: e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://e2e:e2e@localhost:5432/e2e
+      SESSION_SECRET: e2e-only-not-a-real-secret-${{ github.run_id }}
+      FIELD_ENCRYPTION_KEY: nrDh8s5f9J4S3nEwF8s5f9J4S3nEwF8s5f9J4S3nEw=
+      APP_BASE_URL: http://localhost:4000
+      NOMINATIM_CONTACT: e2e-ci@example.com
+      NODE_ENV: test
+      PORT: 4000
+      E2E_BASE_URL: http://localhost:4000
+      E2E_ADMIN_EMAIL: e2e@example.com
+      E2E_ADMIN_PASSWORD: E2eOnlyPassword123!
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: frontend-dist
+          path: backend/public
+
+      - name: Install backend deps
+        run: cd backend && npm ci
+
+      # Playwright itself (@playwright/test, @axe-core/playwright) lives in
+      # frontend/'s devDependencies -- the frontend-build job's own `npm ci`
+      # doesn't carry over here, only the build artifact downloaded above.
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      - name: Apply migrations and seed
+        run: |
+          cd backend
+          npx prisma migrate deploy
+          npm run seed
+          node prisma/createAdmin.js "$E2E_ADMIN_EMAIL" "$E2E_ADMIN_PASSWORD"
+
+      - name: Boot the app
+        run: |
+          cd backend
+          node src/server.js &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4000/api/health > /dev/null; then
+              echo "App is up."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "App never became healthy."
+          exit 1
+
+      - name: Install Playwright browsers
+        run: cd frontend && npx playwright install --with-deps chromium
+
+      - name: Run e2e suite
+        run: cd frontend && npx playwright test
+
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7

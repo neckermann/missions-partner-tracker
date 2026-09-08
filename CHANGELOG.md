@@ -16,6 +16,33 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [3.0.0] - 2026-09-08
+
+### Changed
+- **Render is now the reference deployment, replacing AWS.** This
+  project's own demo has fully cut over (see the "Deploy to Render"
+  button in README.md and [`render.yaml`](render.yaml), added in
+  v2.1.0-v2.1.3) — this release removes the AWS path entirely rather
+  than maintaining both:
+  - `.github/workflows/backend-deploy-aws.yml` is gone. Its
+    `backend-tests`/`frontend-build`/`e2e` jobs live on unchanged in the
+    new `.github/workflows/ci.yml` (deployment-independent — it doesn't
+    deploy anywhere, just gates PRs and pushes); its
+    `deploy`/`smoke-test`/`rollback` jobs are gone outright, since
+    Render's own git integration deploys automatically on push and
+    handles health-checked rollout natively.
+  - `INFRASTRUCTURE.md` (the AWS setup walkthrough) is gone.
+  - `backend/.platform/` (the Elastic Beanstalk nginx body-size config)
+    is gone — Render has no equivalent need.
+  - ADMIN_GUIDE.md's deployment section is rewritten around
+    `render.yaml` as the reference path.
+
+  **If your fork still deploys to AWS**, this is a breaking release —
+  either keep a local copy of the old
+  `.github/workflows/backend-deploy-aws.yml`/`INFRASTRUCTURE.md`/
+  `backend/.platform/` (git history has them) rather than taking this
+  update's deletions, or migrate to Render.
+
 ## [2.1.3] - 2026-09-08
 
 ### Added

@@ -45,13 +45,12 @@ buttons work.
 
 ## Guides
 
-This README is a quick technical overview. For everything else, three
+This README is a quick technical overview. For everything else, two
 task-oriented guides:
 
 | Guide | For | Covers |
 |---|---|---|
-| **[ADMIN_GUIDE.md](ADMIN_GUIDE.md)** | Whoever sets up and runs the instance | Full local setup, environment variables, SSO configuration, deployment (AWS and elsewhere), file storage, rate limiting, and ongoing operations (rotating secrets, upgrading a fork, troubleshooting) |
-| **[INFRASTRUCTURE.md](INFRASTRUCTURE.md)** | Whoever is standing up the AWS infrastructure from scratch | Step-by-step: database, Elastic Beanstalk, IAM, GitHub Actions, CloudFront, and a custom domain with a free managed TLS certificate |
+| **[ADMIN_GUIDE.md](ADMIN_GUIDE.md)** | Whoever sets up and runs the instance | Full local setup, environment variables, SSO configuration, deployment, file storage, rate limiting, and ongoing operations (rotating secrets, upgrading a fork, troubleshooting) |
 | **[USER_GUIDE.md](USER_GUIDE.md)** | Whoever uses the admin dashboard day-to-day | Roles & permissions, MFA, adding/editing partners field-by-field, support tracking, trip history vs. trip opportunities, newsletters, documents, the booklet export, restricted-partner privacy rules, and what the public site shows visitors |
 
 ## Project layout
