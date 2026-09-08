@@ -16,6 +16,18 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.23] - 2026-09-08
+
+### Fixed
+- **The new prayer-requests e2e spec was flaky against a fresh CI
+  seed** — it picked a target missionary via
+  `missionaries.find(m => m.isPublic)`, but `toPublicMissionary()`
+  excludes archived records regardless of `isPublic` (see maskData.js).
+  Against freshly-seeded data (unlike my own accumulated local demo
+  data, which happened not to hit this combination), the found record
+  could be both public and archived, so the "shows on the public
+  profile" assertion failed. Now also checks `!m.archived`.
+
 ## [1.0.22] - 2026-09-07
 
 ### Added

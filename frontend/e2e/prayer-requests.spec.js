@@ -7,7 +7,10 @@ test.describe("Prayer requests", () => {
 
     const missionariesRes = await page.request.get("/api/missionaries");
     const missionaries = await missionariesRes.json();
-    const target = missionaries.find((m) => m.isPublic) || missionaries[0];
+    // toPublicMissionary() excludes archived records regardless of
+    // isPublic (see maskData.js) -- must check both, or this can pick a
+    // record that will never actually appear on the public site.
+    const target = missionaries.find((m) => m.isPublic && !m.archived) || missionaries[0];
 
     await page.goto(`/admin/missionaries/${target.id}`);
     await page.waitForSelector("h2");
@@ -35,9 +38,10 @@ test.describe("Prayer requests", () => {
     await expect(section).toContainText("✓ Answered");
     await expect(section).toContainText("Answered during this test run");
 
-    // If the missionary is public, the request (now answered) should show
-    // on their public profile too, filtered correctly by category+isPublic.
-    if (target.isPublic) {
+    // If the missionary is actually public (isPublic and not archived --
+    // see maskData.js), the request (now answered) should show on their
+    // public profile too, filtered correctly by category+isPublic.
+    if (target.isPublic && !target.archived) {
       await page.goto(`/partners/missionary/${target.id}`);
       await expect(page.locator("body")).toContainText(uniqueText);
       await expect(page.locator("body")).toContainText("Answered during this test run");
