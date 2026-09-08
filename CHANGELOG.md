@@ -16,6 +16,22 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [2.1.0] - 2026-09-08
+
+### Added
+- **`render.yaml`** — a Render Blueprint for deploying this app to
+  [Render](https://render.com) with a single click: one web service plus
+  one Postgres database (which also holds every uploaded photo,
+  newsletter, and document — see v2.0.0), nothing else to provision. No
+  AWS account, IAM policy, or S3 bucket needed at all. Verified against a
+  real deploy: build, `prisma migrate deploy` as a pre-deploy step, and
+  the running app all confirmed working, on both free tier (for a quick
+  check) and the cheapest paid tier (Starter web + `0.1c-256mb` Postgres,
+  ~$13/mo combined — needed for anything long-lived, since free services
+  sleep after 15min idle and free Postgres instances expire after 90
+  days). Purely additive — nothing about the existing AWS deployment
+  path changes.
+
 ## [2.0.0] - 2026-09-08
 
 ### Changed

@@ -315,8 +315,15 @@ see [INFRASTRUCTURE.md](INFRASTRUCTURE.md).
 ### Deploying anywhere else
 
 Nothing about this app requires AWS specifically — it's just this
-repo's own reference deployment. Some options that work well for a small
-church team:
+repo's own reference deployment. The fastest option is
+[`render.yaml`](../render.yaml) at the repo root — a
+[Render](https://render.com) Blueprint that provisions the web service
+and database in one step (Dashboard → **New → Blueprint**, point it at
+your fork). Costs about $13/mo on Render's cheapest paid tiers (needed
+for anything long-lived — free tier sleeps the service after 15min idle
+and deletes the database after 90 days).
+
+Other options that work well for a small church team:
 
 | Piece | Options |
 |---|---|

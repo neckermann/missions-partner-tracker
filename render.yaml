@@ -1,0 +1,72 @@
+# Render Blueprint — deploys this app with one click. See
+# ADMIN_GUIDE.md § Deploying anywhere else for the full picture, and
+# https://render.com/docs/blueprint-spec for the format itself.
+#
+# Deliberately minimal: one web service (serves both the API and the
+# built frontend, same as every other deployment target this app
+# supports — see backend/src/server.js) and one Postgres database, which
+# also holds every uploaded photo/newsletter/document (see the comment on
+# the Newsletter model in backend/prisma/schema.prisma) — nothing else to
+# provision.
+#
+# Plan values below (`starter` / `0.1c-256mb`) are the cheapest paid
+# tiers Render offers, verified against a real deploy — about $13/mo
+# combined. Free-tier equivalents exist but aren't viable for anything
+# beyond a quick check: free web services sleep after 15min idle
+# (30-60s cold start on the next request) and free Postgres instances
+# expire and get deleted after 90 days.
+databases:
+  - name: missions-partner-tracker-db
+    plan: 0.1c-256mb
+    databaseName: missions_partner_tracker
+
+services:
+  - name: missions-partner-tracker
+    type: web
+    runtime: node
+    plan: starter
+    # --include=dev on the frontend install: NODE_ENV is set below
+    # (needed at runtime) and is visible during the build too, and npm's
+    # default behavior is to silently skip devDependencies whenever
+    # NODE_ENV=production is set -- which is exactly where Vite lives, so
+    # the build fails with "vite: not found" otherwise.
+    buildCommand: cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install
+    startCommand: cd backend && node src/server.js
+    # Runs after the build above but before the new version takes
+    # traffic -- applies any pending schema changes first, so a rolling
+    # deploy never has new code running against an old schema. Only
+    # additive/backwards-compatible migrations should ever ship (see the
+    # same note in .github/workflows/backend-deploy-aws.yml's deploy job).
+    preDeployCommand: cd backend && npx prisma migrate deploy
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: missions-partner-tracker-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      # Generated automatically at deploy time -- nothing to fill in.
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: FIELD_ENCRYPTION_KEY
+        generateValue: true
+      # Optional. Only load-bearing if you configure SSO (see
+      # ADMIN_GUIDE.md § Single sign-on) -- leave blank otherwise.
+      - key: APP_BASE_URL
+        sync: false
+      # Optional. Enables country-level unreached-people-group stats on
+      # the public site -- free key at joshuaproject.net/api/request.
+      # Leave blank and that feature just doesn't show.
+      - key: JOSHUA_PROJECT_API_KEY
+        sync: false
+      # Optional. Shown in a user's authenticator app when they enroll in
+      # MFA. Leave blank to use the default ("Missions Partner Tracker
+      # Admin").
+      - key: MFA_ISSUER
+        sync: false
+      # Optional but recommended. Nominatim's (the free geocoding
+      # service this app uses) usage policy requires identifying
+      # requests with a real contact email.
+      - key: NOMINATIM_CONTACT
+        sync: false
