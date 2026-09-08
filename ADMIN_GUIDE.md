@@ -269,7 +269,11 @@ database (which also holds every uploaded photo, newsletter, and
 document — see [File storage](#file-storage) above, nothing extra to
 provision) in one step:
 
-1. Fork this repo.
+1. Fork this repo. `render.yaml` defaults both resources to `ohio` (US
+   East) — Render's Blueprint deploy has no region picker, so if you
+   want somewhere else, edit the two `region:` lines in your fork
+   before deploying (valid values: `oregon`, `ohio`, `virginia`,
+   `frankfurt`, `singapore` — the database and web service must match).
 2. Render Dashboard → **New → Blueprint** → pick your fork. The first
    time you do this with a private fork, Render needs its GitHub App
    authorized on that repo (Dashboard → Account Settings → GitHub →

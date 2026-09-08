@@ -15,9 +15,19 @@
 # beyond a quick check: free web services sleep after 15min idle
 # (30-60s cold start on the next request) and free Postgres instances
 # expire and get deleted after 90 days.
+#
+# Region defaults to `ohio` (US East) rather than Render's own default
+# (`oregon`, US West) since most of this app's userbase is expected to
+# be US East-based. Region can't be changed after a service/database is
+# created, and Render's Blueprint deploy UI has no picker for it (it
+# only prompts for `sync: false` env vars below) — to deploy somewhere
+# else, fork this file and edit both values below before deploying.
+# Valid values: oregon, ohio, virginia, frankfurt, singapore. The
+# database and web service must use the same region.
 databases:
   - name: missions-partner-tracker-db
     plan: 0.1c-256mb
+    region: ohio
     databaseName: missions_partner_tracker
 
 services:
@@ -25,6 +35,7 @@ services:
     type: web
     runtime: node
     plan: starter
+    region: ohio
     # --include=dev on both installs: NODE_ENV is set below (needed at
     # runtime) and is visible during the build too, and npm's default
     # behavior is to silently skip devDependencies whenever
