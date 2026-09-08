@@ -8,9 +8,12 @@ test.describe("Prayer requests", () => {
     const missionariesRes = await page.request.get("/api/missionaries");
     const missionaries = await missionariesRes.json();
     // toPublicMissionary() excludes archived records regardless of
-    // isPublic (see maskData.js) -- must check both, or this can pick a
-    // record that will never actually appear on the public site.
-    const target = missionaries.find((m) => m.isPublic && !m.archived) || missionaries[0];
+    // isPublic, and strips prayer requests (along with sendingChurch,
+    // the real overview, etc.) entirely for restricted ones -- see
+    // maskData.js. Need a record that's actually public in the full
+    // sense, or the "shows on the public profile" assertion below can
+    // never pass no matter how correct the app's masking is.
+    const target = missionaries.find((m) => m.isPublic && !m.archived && !m.isRestricted) || missionaries[0];
 
     await page.goto(`/admin/missionaries/${target.id}`);
     await page.waitForSelector("h2");
@@ -38,10 +41,11 @@ test.describe("Prayer requests", () => {
     await expect(section).toContainText("✓ Answered");
     await expect(section).toContainText("Answered during this test run");
 
-    // If the missionary is actually public (isPublic and not archived --
-    // see maskData.js), the request (now answered) should show on their
-    // public profile too, filtered correctly by category+isPublic.
-    if (target.isPublic && !target.archived) {
+    // Only a fully-public, non-archived, non-restricted record shows
+    // prayer requests at all on the public site (see maskData.js) -- the
+    // request (now answered) should show there too, filtered correctly
+    // by category+isPublic.
+    if (target.isPublic && !target.archived && !target.isRestricted) {
       await page.goto(`/partners/missionary/${target.id}`);
       await expect(page.locator("body")).toContainText(uniqueText);
       await expect(page.locator("body")).toContainText("Answered during this test run");

@@ -16,6 +16,19 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.24] - 2026-09-08
+
+### Fixed
+- **The prayer-requests e2e spec's target-selection was still
+  incomplete after v1.0.23** — it now correctly excluded archived
+  records, but not restricted ones. `toPublicMissionary()` strips prayer
+  requests (along with sendingChurch, the real overview, and everything
+  else) entirely for a restricted record, same as it always has — the
+  test just hadn't accounted for that third condition. Found the same
+  way as v1.0.23's fix: by watching that fix's own CI run fail against a
+  fresh seed (this time landing on a public, non-archived, but
+  restricted missionary). Now checks `!m.isRestricted` too.
+
 ## [1.0.23] - 2026-09-08
 
 ### Fixed
