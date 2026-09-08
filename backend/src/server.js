@@ -58,6 +58,11 @@ app.use(cookieParser());
 // smaller search space than a password.
 app.use("/api/auth/login", rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }));
 app.use("/api/auth/mfa/login-verify", rateLimit({ windowMs: 15 * 60 * 1000, max: 10 }));
+// /setup only ever succeeds once (see routes/auth.js), but it's
+// unauthenticated by necessity -- rate-limited for the same reason
+// /login is, for the brief window between a fresh deploy going live and
+// its owner actually completing setup.
+app.use("/api/auth/setup", rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }));
 
 // The public site's own pages (directory, map, tour) legitimately fire many
 // requests per visitor, so this is deliberately generous — it's here to

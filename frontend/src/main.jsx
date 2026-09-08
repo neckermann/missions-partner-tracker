@@ -5,6 +5,7 @@ import PublicMap from "./pages/PublicMap.jsx";
 import PublicDirectory from "./pages/PublicDirectory.jsx";
 import PublicPartnerDetail from "./pages/PublicPartnerDetail.jsx";
 import Login from "./pages/Login.jsx";
+import Setup from "./pages/Setup.jsx";
 import AdminHome from "./pages/AdminHome.jsx";
 import AdminPartners from "./pages/AdminPartners.jsx";
 import AdminMissionaryForm from "./pages/AdminMissionaryForm.jsx";
@@ -38,6 +39,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/map" element={<PublicMap />} />
           <Route path="/partners/:type/:id" element={<PublicPartnerDetail />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/setup" element={<Setup />} />
 
           {/* Admin (protected) — one shared sidebar layout for every
               sub-route below, including detail/edit forms. Role-specific

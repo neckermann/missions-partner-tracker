@@ -6,6 +6,7 @@ import {
   startForcedMfaSetup,
   confirmForcedMfaSetup,
   fetchSsoProviders,
+  fetchSetupStatus,
 } from "../api/client.js";
 
 export default function Login() {
@@ -25,7 +26,15 @@ export default function Login() {
     if (searchParams.get("error") === "sso") {
       setError("Single sign-on failed. Try again, or use your email and password below.");
     }
-  }, [searchParams]);
+    // A fresh instance has no admin account yet — send it to account
+    // creation instead of a login form nobody can use. Fails open (stays
+    // on the login form) if the check itself errors.
+    fetchSetupStatus()
+      .then((status) => {
+        if (status.needed) navigate("/setup", { replace: true });
+      })
+      .catch(() => {});
+  }, [searchParams, navigate]);
 
   async function handleLocalLogin(e) {
     e.preventDefault();

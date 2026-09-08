@@ -95,7 +95,7 @@ full file with inline comments):
 | `NODE_ENV` | No | `development` or `production` |
 | `SESSION_SECRET` | Yes | Signs the session cookie (see [Authentication setup](#authentication-setup)). Generate a long random value, e.g. `openssl rand -base64 48`. See [Rotating SESSION_SECRET](#rotating-sessionsecret) below |
 | `FIELD_ENCRYPTION_KEY` | Yes | Encrypts secrets at rest (MFA secrets, SSO client secrets). Generate with `openssl rand -base64 32`. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
-| `APP_BASE_URL` | Only if using SSO | This app's own public base URL, used to build the SSO callback URL — see [Single sign-on (SSO)](#single-sign-on-sso) |
+| `APP_BASE_URL` | Only if using SSO, and only off Render or on a custom domain | This app's own public base URL, used to build the SSO callback URL — see [Single sign-on (SSO)](#single-sign-on-sso). On Render's own `onrender.com` URL, falls back to `RENDER_EXTERNAL_URL` automatically, so this is rarely needed there. |
 | `JOSHUA_PROJECT_API_KEY` | No | Enables country-level unreached-people-group stats; get a free key at [joshuaproject.net/api/request](https://joshuaproject.net/api/request) |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
@@ -106,8 +106,10 @@ the backend and always calls `/api` on its own origin.
 ## Authentication setup
 
 Local username/password login is always available — nothing to configure
-for it beyond the account you created with `createAdmin.js`. Single
-sign-on is entirely optional and layered on top.
+for it beyond your first admin account (created at `/setup` on a fresh
+deploy, or with `createAdmin.js` — see
+[Deploying to production](#deploying-to-production)). Single sign-on is
+entirely optional and layered on top.
 
 ### Single sign-on (SSO)
 
@@ -273,16 +275,21 @@ provision) in one step:
    authorized on that repo (Dashboard → Account Settings → GitHub →
    Configure) — a one-time step.
 3. Render prompts for the handful of optional variables `render.yaml`
-   marks `sync: false` (SSO's `APP_BASE_URL`, `JOSHUA_PROJECT_API_KEY`,
-   etc. — see [Environment variables](#environment-variables)); leave
-   them blank to skip those optional features for now.
+   marks `sync: false` (`JOSHUA_PROJECT_API_KEY`, `MFA_ISSUER`, etc. —
+   see [Environment variables](#environment-variables)); leave them
+   blank to skip those optional features for now. `SESSION_SECRET` and
+   `FIELD_ENCRYPTION_KEY` are generated automatically, nothing to enter.
+   `APP_BASE_URL` (only load-bearing for SSO) doesn't need filling in
+   either — it falls back to Render's own `RENDER_EXTERNAL_URL`
+   automatically; only set it explicitly once you're on a custom domain.
 4. Apply the blueprint. Render builds, runs `prisma migrate deploy` as a
    pre-deploy step, and starts the app — no separate migration step to
    remember.
-5. Create your first login:
-   `node prisma/createAdmin.js you@yourchurch.org "SomeStrongPassword!"`,
-   run from a shell with `DATABASE_URL` pointed at the same database
-   (Render Dashboard → your Postgres instance → connection info).
+5. Visit your new site and go to `/setup` (or just `/login` — a fresh
+   instance redirects there automatically) to create your first admin
+   account, right in the browser. No shell access, no
+   `DATABASE_URL`/`createAdmin.js` needed — the point of a one-click
+   deploy is defeated if the very first login still requires a terminal.
 
 Costs about $13/mo on Render's cheapest paid tiers — free tier exists
 but isn't viable for anything long-lived (the web service sleeps after
@@ -312,9 +319,13 @@ provider:
    every variable from the
    [Environment variables table](#environment-variables) set as that
    platform's environment/config vars — never commit `.env`.
-4. Run `node prisma/createAdmin.js you@yourchurch.org "SomeStrongPassword!"`
-   once, against the production database, to create your first login.
-5. Update `APP_BASE_URL` to your real deployed URL, and if using SSO,
+4. Visit your new site and go to `/setup` to create your first admin
+   account right in the browser — or, if you'd rather do it from a
+   shell with `DATABASE_URL` set, `node prisma/createAdmin.js
+   you@yourchurch.org "SomeStrongPassword!"` does the same thing.
+5. Set `APP_BASE_URL` to your real deployed URL (not needed on Render's
+   own `onrender.com` URL — see [Reference deployment](#reference-deployment-render)
+   above), and if using SSO,
    update the reply/redirect URL registered with each identity provider
    to match `${APP_BASE_URL}/api/auth/sso/callback`.
 6. Use HTTPS everywhere in production — required for SSO and for the

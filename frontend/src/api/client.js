@@ -262,6 +262,16 @@ export async function deleteDocument(id) {
   await api.delete(`/documents/${id}`);
 }
 
+export async function fetchSetupStatus() {
+  const { data } = await api.get("/auth/setup-status");
+  return data; // { needed: boolean }
+}
+
+export async function completeSetup(email, password) {
+  const { data } = await api.post("/auth/setup", { email, password });
+  return data; // { user } — the backend also sets the session cookie, same as login
+}
+
 export async function login(email, password) {
   const { data } = await api.post("/auth/login", { email, password });
   // MFA-enabled accounts get a pendingToken (verify a code); accounts an

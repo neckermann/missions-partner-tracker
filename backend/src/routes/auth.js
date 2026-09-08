@@ -41,6 +41,61 @@ async function completeLogin(res, user) {
   return { user: sanitizeUser(user) };
 }
 
+// --- First-run setup ---
+// Replaces the old "run node prisma/createAdmin.js from a shell with
+// DATABASE_URL set" step with something doable entirely in the browser —
+// the point of a one-click deploy is defeated if creating the very
+// first login still needs local Node/database access. Both routes are
+// public (no session exists yet to require), but self-disable the
+// moment a real account exists.
+
+// GET /api/auth/setup-status — the frontend uses this to route a fresh
+// deploy straight to account creation instead of a login form nobody
+// can use yet (see Login.jsx).
+router.get("/setup-status", async (req, res, next) => {
+  try {
+    const count = await prisma.user.count();
+    res.json({ needed: count === 0 });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/setup — only ever succeeds once. Re-checks the count
+// inside the handler (not just trusting an earlier GET) so this can
+// never create a second admin once one exists — the same effect as
+// requiring auth, without needing a session that doesn't exist yet.
+router.post("/setup", async (req, res, next) => {
+  try {
+    const count = await prisma.user.count();
+    if (count > 0) {
+      return res.status(409).json({ error: "Setup has already been completed for this instance." });
+    }
+
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const user = await prisma.user.create({
+      data: {
+        email: email.toLowerCase().trim(),
+        passwordHash,
+        role: "admin",
+        authProvider: "local",
+      },
+    });
+
+    res.status(201).json(await completeLogin(res, user));
+  } catch (err) {
+    next(err);
+  }
+});
+
 // --- Local (username/password) ---
 router.post("/login", async (req, res, next) => {
   try {
