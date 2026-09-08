@@ -27,6 +27,22 @@ organization partners.
 - **Database**: PostgreSQL via Prisma ORM. Works with any Postgres — this
   project's reference deployment uses [Neon](https://neon.tech).
 
+## Deploy
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/neckermann/missions-partner-tracker)
+
+One web service plus one Postgres database (which also holds every
+uploaded photo, newsletter, and document — no separate file storage to
+provision), about $13/mo on Render's cheapest paid tiers. See
+[`render.yaml`](render.yaml) and
+[ADMIN_GUIDE.md § Deploying anywhere else](ADMIN_GUIDE.md#deploying-anywhere-else).
+
+**If you're setting up your own church's instance**, fork this repo
+first, then use Render's Dashboard (**New → Blueprint**, pick your
+fork) instead of the button above — the button always deploys from
+*this* exact repo, not your fork, since that's just how GitHub-embedded
+buttons work.
+
 ## Guides
 
 This README is a quick technical overview. For everything else, three

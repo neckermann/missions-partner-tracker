@@ -16,6 +16,14 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [2.1.3] - 2026-09-08
+
+### Added
+- A "Deploy to Render" button in the README, next to a short note that
+  forks should use Render's own Dashboard (New → Blueprint) instead —
+  the button always deploys from this exact repo, not a fork, since
+  that's just how GitHub-embedded buttons work.
+
 ## [2.1.2] - 2026-09-08
 
 ### Fixed
