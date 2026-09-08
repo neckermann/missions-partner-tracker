@@ -16,8 +16,9 @@ template targets.
 
 One deployable app (Node/Express, serving both the API and the built
 frontend) on Elastic Beanstalk, fronted by CloudFront for TLS and a
-custom domain, backed by a Postgres database and an S3 bucket for file
-uploads. GitHub Actions builds and deploys it on every push to `main`.
+custom domain, backed by a Postgres database. Photos, newsletters, and
+documents are stored in that same database — no separate file storage to
+provision. GitHub Actions builds and deploys it on every push to `main`.
 
 ```
 Browser ──HTTPS──▶ CloudFront (custom domain + ACM cert)
@@ -25,9 +26,8 @@ Browser ──HTTPS──▶ CloudFront (custom domain + ACM cert)
                        ▼
                  Elastic Beanstalk (Node.js platform, single instance)
                        │
-              ┌────────┴────────┐
-              ▼                 ▼
-         Postgres (Neon)     S3 bucket (uploads)
+                       ▼
+                 Postgres (Neon)
 ```
 
 ## Prerequisites
@@ -41,7 +41,7 @@ Browser ──HTTPS──▶ CloudFront (custom domain + ACM cert)
 - The [AWS CLI](https://aws.amazon.com/cli/) installed and configured
   with credentials that can create the resources below (an IAM user or
   role with broad admin access is easiest for this one-time setup; you'll
-  create a narrower-scoped user for ongoing deploys in Step 4).
+  create a narrower-scoped user for ongoing deploys in Step 3).
 - A GitHub fork of this repo, with `backend/**`/`frontend/**` pushable.
 
 ## Step 1: Database
@@ -57,40 +57,7 @@ of your own to manage:
 If you'd rather self-host or use RDS, any Postgres 13+ works identically
 — this app has no Neon-specific code, just a connection string.
 
-## Step 2: S3 bucket for file uploads
-
-This is a *separate* bucket from the one Elastic Beanstalk creates for
-its own deploy artifacts in Step 3 — this one holds the app's actual
-uploaded content (partner photos, logos, newsletters, documents).
-
-```bash
-aws s3api create-bucket \
-  --bucket your-church-missions-assets \
-  --region us-east-2 \
-  --create-bucket-configuration LocationConstraint=us-east-2
-```
-(Pick any region; `us-east-2` here is just this project's own reference
-choice. Bucket names are globally unique across all of AWS, so pick
-something specific to your church rather than a generic name.)
-
-The app writes public-read objects under `missionaries/*`,
-`organizations/*`, and `settings/*` (bucket policy, not per-object ACLs)
-and private objects under `newsletters/*` and `documents/*` (served only
-via short-lived pre-signed URLs) — see `backend/src/utils/s3.js` and the
-bucket policy example in
-[ADMIN_GUIDE.md § File storage](ADMIN_GUIDE.md#file-storage-s3) for the
-exact policy JSON to attach. The IAM policy for whatever role/user
-uploads on your instance's behalf (the EC2 instance role in Step 3 below,
-for the AWS reference deployment) only needs `s3:PutObject`/`GetObject`/
-`DeleteObject`/`ListBucket` on the bucket as a whole — it doesn't need
-per-prefix statements, since every prefix above lives in the same
-bucket and gets the same read/write/delete treatment from the app
-itself; only the *public-read* bucket policy is what actually
-differentiates public prefixes from private ones.
-
-This becomes your `S3_BUCKET_NAME` env var.
-
-## Step 3: Elastic Beanstalk application + environment
+## Step 2: Elastic Beanstalk application + environment
 
 1. **Create the application:**
    ```bash
@@ -122,24 +89,18 @@ This becomes your `S3_BUCKET_NAME` env var.
        Namespace=aws:elasticbeanstalk:application:environment,OptionName=DATABASE_URL,Value="postgresql://..." \
        Namespace=aws:elasticbeanstalk:application:environment,OptionName=SESSION_SECRET,Value="$(openssl rand -base64 48)" \
        Namespace=aws:elasticbeanstalk:application:environment,OptionName=FIELD_ENCRYPTION_KEY,Value="$(openssl rand -base64 32)" \
-       Namespace=aws:elasticbeanstalk:application:environment,OptionName=S3_BUCKET_NAME,Value="your-church-missions-assets" \
-       Namespace=aws:elasticbeanstalk:application:environment,OptionName=AWS_REGION,Value="us-east-2" \
        Namespace=aws:elasticbeanstalk:application:environment,OptionName=NODE_ENV,Value="production" \
      --region us-east-2
    ```
-   `APP_BASE_URL` gets set later (Step 9), once you know the app's real
-   public URL. The EC2 instance role Elastic Beanstalk creates
-   automatically (`aws-elasticbeanstalk-ec2-role`) already has S3 access,
-   so no separate credentials are needed on the instance itself for file
-   uploads.
+   `APP_BASE_URL` gets set later (Step 8), once you know the app's real
+   public URL.
 
 The app's own `backend/.platform/nginx/conf.d/uploads.conf` (already in
 the repo) raises Elastic Beanstalk's default nginx body-size cap from 1MB
-to 20MB, since newsletter and document uploads routinely exceed the
-default — this ships automatically with every deploy, nothing to
-configure by hand.
+to 10MB, since newsletter and document uploads can exceed the default —
+this ships automatically with every deploy, nothing to configure by hand.
 
-## Step 4: IAM deploy user (for GitHub Actions)
+## Step 3: IAM deploy user (for GitHub Actions)
 
 Create a narrowly-scoped IAM user that only GitHub Actions uses — never
 your own broad-access credentials:
@@ -150,9 +111,11 @@ aws iam create-user --user-name your-app-github-deploy
 
 Attach a policy scoped to exactly what the deploy workflow needs — create
 your own application version and roll it out, plus read/write to the S3
-bucket Elastic Beanstalk auto-created for deploy artifacts (**not** the
-app's own upload bucket from Step 2 — this is a different, EB-managed
-bucket, typically named `elasticbeanstalk-<region>-<account-id>`):
+bucket Elastic Beanstalk auto-created for deploy artifacts (this is
+unrelated to the app's own data — photos, newsletters, and documents live
+in the Postgres database from Step 1, not in any bucket — this one just
+holds the zipped deploy bundles GitHub Actions uploads, typically named
+`elasticbeanstalk-<region>-<account-id>`):
 
 ```json
 {
@@ -192,13 +155,13 @@ aws iam create-access-key --user-name your-app-github-deploy
 Save the resulting access key ID and secret — you'll only see the secret
 once.
 
-## Step 5: GitHub repository configuration
+## Step 4: GitHub repository configuration
 
 In your fork, **Settings → Secrets and variables → Actions**:
 
-- **Secrets**: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (from Step 4).
-- **Variables**: `EB_APP_NAME`, `EB_ENV_NAME` (from Step 3), `AWS_REGION`,
-  `EB_DEPLOY_S3_BUCKET` (the EB-managed bucket from Step 4 — find its
+- **Secrets**: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (from Step 3).
+- **Variables**: `EB_APP_NAME`, `EB_ENV_NAME` (from Step 2), `AWS_REGION`,
+  `EB_DEPLOY_S3_BUCKET` (the EB-managed bucket from Step 3 — find its
   name with `aws elasticbeanstalk describe-configuration-settings` or in
   the console under the environment's S3 storage).
 
@@ -206,7 +169,7 @@ Then enable the workflow: **Actions tab → "Deploy backend to Elastic
 Beanstalk" → Enable workflow** (it ships disabled since there's nothing
 to deploy to until you've done the above).
 
-## Step 6: First deploy
+## Step 5: First deploy
 
 Push to `main` (or re-run the workflow manually from the Actions tab). It
 builds the frontend, zips it together with the backend, and rolls it out
@@ -228,7 +191,7 @@ At this point the app is fully working at its default Elastic Beanstalk
 domain — everything past this point is about a custom domain and HTTPS,
 not core functionality.
 
-## Step 7: CloudFront distribution
+## Step 6: CloudFront distribution
 
 Elastic Beanstalk's own domain works over HTTPS already (via its default
 certificate), but a custom domain needs its own certificate, and
@@ -282,7 +245,7 @@ caching for static assets for free.
    (`*.cloudfront.net`) — the app already works at this domain over
    HTTPS. The custom domain comes next.
 
-## Step 8: Custom domain with a free managed certificate
+## Step 7: Custom domain with a free managed certificate
 
 1. **Request a certificate** — must be in `us-east-1` regardless of where
    your other resources live, since that's the only region CloudFront
@@ -318,7 +281,7 @@ caching for static assets for free.
    `aws acm describe-certificate ... --query "Certificate.Status"` until
    it reads `ISSUED`.
 4. **Attach the certificate and your domain names** to the CloudFront
-   distribution from Step 7 (`Aliases` + `ViewerCertificate` in its
+   distribution from Step 6 (`Aliases` + `ViewerCertificate` in its
    config — via `aws cloudfront update-distribution` with the
    distribution's current `ETag`, or the console's "Custom SSL
    Certificate" + "Alternate domain names (CNAMEs)" fields).
@@ -361,7 +324,7 @@ caching for static assets for free.
    — usually a handful of minutes for global propagation, though
    individual edge locations often pick up the change sooner.
 
-## Step 9: Finish env var setup
+## Step 8: Finish env var setup
 
 Set `APP_BASE_URL` to your real domain now that you have one:
 ```bash

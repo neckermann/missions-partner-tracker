@@ -439,14 +439,17 @@ model PrayerRequest {
 // A newsletter file (PDF, .eml export, or a screenshot image) received from
 // a Missionary or an Organization — exactly one of missionaryId/
 // organizationId is set, same shared-table approach as SupportEntry/
-// SupportNeed. Files live in the same S3 bucket as missionary headshots/org
-// logos, under a "newsletters/" prefix that the bucket policy deliberately
-// does NOT grant public read on (unlike "missionaries/"/"organizations/"/
-// "settings/", the last being the church logo) —
-// access is always mediated through a short-lived pre-signed URL generated
-// by the backend, admin-only for now. That indirection is what will let a
-// future "show non-restricted partners' newsletters publicly" feature ship
-// without ever having to flip anything to bucket-wide public.
+// SupportNeed. The file itself lives right in this row (see `bytes`
+// below) rather than in a separate object store — no external storage
+// service to configure at all, and Postgres's TOAST mechanism already
+// keeps large column values out-of-line and compressed, so this doesn't
+// bloat ordinary queries. Deliberately not exposed by any query that
+// doesn't need the actual file content (see the `omit: { bytes: true }`
+// on every list/detail include across the route files) — reachable only
+// through GET /api/newsletters/:id/download, admin-only for now. Fine at
+// the scale this app runs at (one church's worth of files, not a
+// multi-tenant media library) — see CONTRIBUTING.md if that ever stops
+// being true for a particular fork.
 model Newsletter {
   id             String        @id @default(uuid())
   missionaryId   String?
@@ -456,7 +459,7 @@ model Newsletter {
 
   title          String?
   receivedDate   DateTime      @db.Date
-  fileKey        String        // S3 object key (private — never a public URL)
+  bytes          Bytes         // the file itself — see the comment above this model
   fileName       String        // original uploaded filename, for display/download
   contentType    String
   fileSize       Int?          // bytes
@@ -472,13 +475,12 @@ model Newsletter {
 // General-purpose document storage for a Missionary or Organization —
 // survey responses, signed policy acknowledgments, other office documents
 // (Word/Excel/PDF), and long-term email records that don't belong in the
-// Newsletter feed above. Same private-S3/presigned-URL access model as
-// Newsletter, same "documents/" prefix pattern, same admin-only
-// visibility — see the comment on Newsletter above for the reasoning.
-// `category` is a plain validated string (see routes/documents.js), not a
-// native Prisma enum — same convention as Organization.orgType and
-// User.role elsewhere in this schema, so a fork can add its own category
-// without a migration.
+// Newsletter feed above. Same private-DB-blob access model as Newsletter,
+// same admin-only visibility — see the comment on Newsletter above for the
+// reasoning. `category` is a plain validated string (see
+// routes/documents.js), not a native Prisma enum — same convention as
+// Organization.orgType and User.role elsewhere in this schema, so a fork
+// can add its own category without a migration.
 model Document {
   id             String        @id @default(uuid())
   missionaryId   String?
@@ -490,7 +492,7 @@ model Document {
   customCategory String?       // free-typed label, only used when category is "other"
   title          String?
   receivedDate   DateTime      @db.Date
-  fileKey        String        // S3 object key (private — never a public URL)
+  bytes          Bytes         // the file itself — see the comment above this model
   fileName       String        // original uploaded filename, for display/download
   contentType    String
   fileSize       Int?          // bytes
@@ -506,10 +508,14 @@ model Document {
 
 // Every photo ever uploaded for a Missionary or Organization, not just the
 // current one — same shared-table approach as Newsletter. Unlike
-// Newsletter's private fileKey, photos are public-read (same S3 prefixes
-// as before: "missionaries/"/"organizations/"), so this stores the direct
-// URL. The "current" photo (shown in the admin form and, if the partner is
-// public, on the public site) is whichever row has the latest
+// Newsletter, photos are public (served unauthenticated at
+// GET /api/photos/:id/raw, matching the old S3 bucket's public-read
+// policy) — but the bytes still live in this row, not an object store;
+// see the comment on Newsletter above for why. Same `omit: { bytes: true
+// }` discipline applies here: every list/detail query synthesizes a
+// `url: "/api/photos/<id>/raw"` string instead of ever returning the raw
+// bytes inline. The "current" photo (shown in the admin form and, if the
+// partner is public, on the public site) is whichever row has the latest
 // receivedDate for that missionary/organization — not whichever was
 // uploaded most recently, since backfilling an older photo shouldn't
 // demote a more recent one that just hasn't been uploaded yet. Older
@@ -522,7 +528,7 @@ model Photo {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  url            String        // full public S3 URL
+  bytes          Bytes         // the image itself
   receivedDate   DateTime      @db.Date // when this photo was actually taken/received, not upload time
   contentType    String?
   fileSize       Int?          // bytes
@@ -562,7 +568,14 @@ model ChurchSettings {
   publicTagline         String?  // short subtitle under the public map/directory header
   aboutText             String?  @db.Text // optional blurb shown on the public directory
   primaryColor          String?  // hex, overrides the site's --brand-color CSS variable
-  logo                  Json?    // { url } — same shape as Missionary/Organization images
+  // The site logo, stored right in this row — see the comment on the
+  // Newsletter model for why this app keeps file bytes in Postgres
+  // instead of an object store. Public, served unauthenticated at
+  // GET /api/public/settings/logo/raw when set. API responses synthesize
+  // a `logo: { url: "..." } | null` shape from these two columns rather
+  // than ever returning logoBytes inline — same discipline as Photo.
+  logoBytes             Bytes?
+  logoContentType       String?
 
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt

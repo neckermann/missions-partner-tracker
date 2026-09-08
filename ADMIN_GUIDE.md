@@ -27,11 +27,12 @@ an `httpOnly` cookie can't be read by JS at all).
 
 ## Local development setup
 
-1. **Prerequisites**: Node.js 20.19+ or 22.12+ (required by Vite 8), a
+1. **Prerequisites**: Node.js 20.19+ or 22.12+ (required by Vite 8), and a
    Postgres database (local, Docker, or a free cloud instance like
-   [Neon](https://neon.tech) or [Supabase](https://supabase.com)), and an
-   AWS S3 bucket if you want to test file uploads (optional — everything
-   else works without it, see [File storage](#file-storage-s3) below).
+   [Neon](https://neon.tech) or [Supabase](https://supabase.com)). Photos,
+   newsletters, and documents are stored in that same database — no
+   separate file storage to set up, see [File storage](#file-storage)
+   below.
 2. **Backend**:
    ```bash
    cd backend
@@ -95,7 +96,6 @@ full file with inline comments):
 | `SESSION_SECRET` | Yes | Signs the session cookie (see [Authentication setup](#authentication-setup)). Generate a long random value, e.g. `openssl rand -base64 48`. See [Rotating SESSION_SECRET](#rotating-sessionsecret) below |
 | `FIELD_ENCRYPTION_KEY` | Yes | Encrypts secrets at rest (MFA secrets, SSO client secrets). Generate with `openssl rand -base64 32`. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
 | `APP_BASE_URL` | Only if using SSO | This app's own public base URL, used to build the SSO callback URL — see [Single sign-on (SSO)](#single-sign-on-sso) |
-| `AWS_REGION`, `S3_BUCKET_NAME` | Yes, for file uploads | See [File storage](#file-storage-s3) |
 | `JOSHUA_PROJECT_API_KEY` | No | Enables country-level unreached-people-group stats; get a free key at [joshuaproject.net/api/request](https://joshuaproject.net/api/request) |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
@@ -202,79 +202,34 @@ A few things worth knowing operationally:
 For the app's role model itself (`viewer`/`editor`/`admin`), see
 [USER_GUIDE.md § Understanding your role](USER_GUIDE.md#understanding-your-role).
 
-## File storage (S3)
+## File storage
 
-Photos, logos, newsletter PDFs, and other partner documents are stored in
-one S3 bucket (`backend/src/utils/s3.js`), split by key prefix:
-`missionaries/*`, `organizations/*`, and `settings/*` are public-read
-(bucket policy, not per-object ACLs); `newsletters/*` and `documents/*`
-are private, served only via short-lived pre-signed URLs.
+Photos, logos, newsletter PDFs, and other partner documents are stored
+directly in the database — a `bytes` column right on the `Photo`,
+`Newsletter`, and `Document` rows (see the `Newsletter` model comment in
+`backend/prisma/schema.prisma` for the full reasoning). There's no
+separate object storage service to provision, configure, or hold
+credentials for; the database backup you're already taking covers files
+too.
 
-The public-read bucket policy — attach this to your bucket, with your own
-bucket name in place of `your-bucket-name` (the reference deployment sets
-this up as part of [INFRASTRUCTURE.md § Step 2](INFRASTRUCTURE.md#step-2-s3-bucket-for-file-uploads)):
+Public images (missionary/org photos, the church logo) are served
+unauthenticated at `GET /api/photos/:id/raw` and
+`GET /api/public/settings/logo/raw` (`backend/src/routes/photos.js`,
+`publicSettings.js`) — the same access model as the old public-read S3
+prefixes, just same-origin instead of a different bucket domain. Private
+files (newsletters, documents) stream from
+`GET /api/newsletters/:id/download` / `GET /api/documents/:id/download`,
+gated by the same session-cookie auth as every other admin route — no
+signed URLs to generate or expire.
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "PublicReadGetObject",
-      "Effect": "Allow",
-      "Principal": "*",
-      "Action": "s3:GetObject",
-      "Resource": [
-        "arn:aws:s3:::your-bucket-name/missionaries/*",
-        "arn:aws:s3:::your-bucket-name/organizations/*",
-        "arn:aws:s3:::your-bucket-name/settings/*"
-      ]
-    }
-  ]
-}
-```
-
-Whatever role/user the app itself runs as (the EC2 instance role, for the
-AWS reference deployment) needs read/write/delete on the bucket as a
-whole, not scoped per prefix — the app writes to every prefix above
-(public and private alike), and only this separate bucket policy is what
-actually makes the public ones publicly readable:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "AppObjectAccess",
-      "Effect": "Allow",
-      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
-      "Resource": "arn:aws:s3:::your-bucket-name/*"
-    },
-    {
-      "Sid": "AppBucketList",
-      "Effect": "Allow",
-      "Action": "s3:ListBucket",
-      "Resource": "arn:aws:s3:::your-bucket-name"
-    }
-  ]
-}
-```
-
-AWS S3 is the default and needs no extra config beyond `AWS_REGION` and
-`S3_BUCKET_NAME`. In production (Elastic Beanstalk) credentials come from
-the EC2 instance role automatically; for local testing, run
-`aws configure` with a user/role that has access to the bucket instead of
-setting keys in `.env`.
-
-To use an S3-compatible service instead — Cloudflare R2, Backblaze B2,
-self-hosted MinIO — set `S3_ENDPOINT` (and usually
-`S3_FORCE_PATH_STYLE=true`, and `S3_PUBLIC_URL_BASE` for the public URL a
-browser uses to reach uploaded files) in `backend/.env`; see the commented
-examples in `backend/.env.example`. Running with no object storage at all
-isn't supported — the app expects every upload to return a URL any
-browser can reach directly.
-
-You can skip S3 setup entirely for local dev — every other feature works
-without it, uploads just fail until it's configured.
+Upload limits are capped at 10MB per file (`routes/newsletters.js`,
+`routes/documents.js`; missionary/org photos and the church logo were
+already capped at 5MB) — the point past which the usual Postgres guidance
+shifts from "just use the database" to "use object storage instead."
+Fine for one church's worth of files; if a particular fork's usage
+outgrows this, swapping a `bytes` column for a URL column pointing at an
+external store is a contained, well-understood migration, not an
+architecture rewrite.
 
 ## Rate limiting
 
@@ -311,7 +266,6 @@ is included as a ready-to-use template for that fork's own AWS setup:
   Postgres) is a lightweight choice that pairs well with this setup
 - **App**: AWS Elastic Beanstalk (Node platform), fronted by CloudFront
   for TLS and caching — serves both the API and the frontend build
-- **File storage**: AWS S3
 
 The workflow runs on every pull request and every push to `main` that
 touches `backend/**` or `frontend/**`, as six jobs:
@@ -353,22 +307,26 @@ variables/secrets beyond what deploying already needed — `smoke-test` and
 `rollback` reuse the same AWS credentials and `EB_ENV_NAME`.
 
 For the full step-by-step walkthrough of standing up this AWS setup from
-nothing — the Elastic Beanstalk application and environment, the S3
-bucket, the IAM deploy user, the GitHub Actions variables/secrets, the
-CloudFront distribution, and a custom domain with a free managed TLS
-certificate — see [INFRASTRUCTURE.md](INFRASTRUCTURE.md).
+nothing — the Elastic Beanstalk application and environment, the IAM
+deploy user, the GitHub Actions variables/secrets, the CloudFront
+distribution, and a custom domain with a free managed TLS certificate —
+see [INFRASTRUCTURE.md](INFRASTRUCTURE.md).
 
 ### Deploying anywhere else
 
-Nothing about this app requires AWS specifically except the S3
-file-storage code noted above. Some options that work well for a small
+Nothing about this app requires AWS specifically — it's just this
+repo's own reference deployment. Some options that work well for a small
 church team:
 
 | Piece | Options |
 |---|---|
 | Database | [Neon](https://neon.tech), [Supabase](https://supabase.com), [Railway](https://railway.app), AWS RDS, or any managed/self-hosted Postgres |
 | App | [Railway](https://railway.app), [Render](https://render.com), [Fly.io](https://fly.io), a plain VPS running `npm run start` behind nginx + `pm2` — anything that can run a long-lived Node process. There's no Dockerfile in this repo, so platforms that build straight from a Node buildpack (Railway/Render) need the least setup. Whatever you use needs to run the frontend build (`cd frontend && npm run build`) *before* starting the backend, so `backend/public` is populated. |
-| File storage | AWS S3 by default, or any S3-compatible service (Cloudflare R2, Backblaze B2, self-hosted MinIO) via `S3_ENDPOINT` — see [File storage](#file-storage-s3) above |
+
+No file storage row above — photos, newsletters, and documents live in
+the same Postgres database as everything else (see
+[File storage](#file-storage) above), so there's nothing extra to
+provision no matter where you deploy.
 
 Wherever you land, the deployment steps are the same shape regardless of
 provider:
@@ -394,7 +352,6 @@ provider:
 
 A few things default to placeholder or project-specific values and should
 be treated as "must set," not "nice to set":
-- `S3_BUCKET_NAME` — your own bucket, not a shared one.
 - `SESSION_SECRET` — generate your own; never reuse the example value or share it across environments.
 - `NOMINATIM_CONTACT` — your own email, so misbehaving geocoding traffic isn't attributed to someone else.
 - If reusing `.github/workflows/backend-deploy-aws.yml` as-is, set the repository variables described above rather than leaving it pointed at this project's AWS resources.
@@ -449,11 +406,10 @@ works exactly as before, just with silhouettes.
 
 Calling `POST /api/demo/reset` with `Authorization: Bearer <DEMO_RESET_TOKEN>`
 (or running `npm run demo:reset` locally/on the server directly) wipes the
-database (`npx prisma migrate reset --force`), clears every object in the
-S3 bucket under the `missionaries/`, `organizations/`, `newsletters/`,
-`documents/`, and `settings/` prefixes (the database reset means nothing
-can still reference an old upload — a prior cycle's seeded photos, a demo
-visitor's newsletter, a custom logo someone set), then reseeds
+database (`npx prisma migrate reset --force`) — which, since photos,
+newsletters, and documents live in that same database, also clears every
+uploaded file in one step (a prior cycle's seeded photos, a demo
+visitor's newsletter, a custom logo someone set) — then reseeds
 (`backend/prisma/seed.js`), recreates the demo login
 (`backend/prisma/createAdmin.js`), and sets Church Settings to a
 demo-branded name/tagline/about-text that tells visitors it's a live

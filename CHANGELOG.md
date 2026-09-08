@@ -16,6 +16,59 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [2.0.0] - 2026-09-08
+
+### Changed
+- **File storage moved from S3 to the database.** Photos, newsletters,
+  and documents were the last thing a new self-hosted instance needed an
+  AWS account for — S3 bucket, bucket policy, IAM permissions, an
+  `S3_BUCKET_NAME`/`AWS_REGION` pair (or `S3_ENDPOINT`/
+  `S3_FORCE_PATH_STYLE`/`S3_PUBLIC_URL_BASE` for an S3-compatible
+  alternative). All of that is gone: `Photo`, `Newsletter`, and
+  `Document` now store the file itself in a `bytes` column, and
+  `ChurchSettings.logo` (a `{ url }` JSON blob) is now
+  `logoBytes`/`logoContentType`. See the new comment on the `Newsletter`
+  model in `backend/prisma/schema.prisma` for the reasoning — in short,
+  Postgres's TOAST mechanism already keeps large column values out of
+  line and compressed, so this doesn't slow down ordinary queries (every
+  list/detail query explicitly omits `bytes`), and one church's worth of
+  files over any realistic number of years is nowhere near the scale
+  where that stops being true. `@aws-sdk/client-s3` and
+  `@aws-sdk/s3-request-presigner` are no longer dependencies at all.
+  Public images are now served at `GET /api/photos/:id/raw` and
+  `GET /api/public/settings/logo/raw` (same-origin, unauthenticated —
+  matching the old public-read S3 prefixes); private files stream
+  straight from `GET /api/newsletters/:id/download` and
+  `GET /api/documents/:id/download` (still session-auth'd), replacing the
+  short-lived pre-signed URL indirection with a direct response.
+- **Upload limit for newsletters/documents dropped from 20MB to 10MB**
+  (`routes/newsletters.js`, `routes/documents.js`, and the nginx
+  `client_max_body_size` that has to match it) — the point past which the
+  usual Postgres guidance shifts from "just use the database" to "use
+  object storage instead." Missionary/org photos and the church logo were
+  already at 5MB, unchanged.
+- Deploy-time database migrations now delete pre-existing
+  `Document`/`Newsletter`/`Photo` rows as part of adding the required
+  `bytes` column (see the migration's own comment) — their old
+  `fileKey`/`url` pointers into S3 become permanently unusable the moment
+  this ships regardless, since the app no longer knows how to reach S3 at
+  all. Not a concern for this project's own demo/production (empty at the
+  time of this release), but **if your fork has real uploaded files, back
+  up anything you need before pulling this in** — there's no automated
+  backfill from the old S3 objects into the new columns.
+
+### Fixed
+- **A public organization's detail page could never show a photo** —
+  `GET /api/public/organizations/:id` was missing the `photos` include
+  entirely (present on the list route, absent here), an unrelated
+  pre-existing bug found while touching this exact line for the storage
+  migration above.
+
+### Removed
+- The `AWS_REGION`, `S3_BUCKET_NAME`, `S3_ENDPOINT`,
+  `S3_FORCE_PATH_STYLE`, and `S3_PUBLIC_URL_BASE` environment variables —
+  no longer read anywhere in the app.
+
 ## [1.0.26] - 2026-09-08
 
 ### Fixed

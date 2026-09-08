@@ -3,12 +3,18 @@ const multer = require("multer");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
-const { uploadImageToS3, deleteFromS3IfOwned, deleteFromS3ByKey } = require("../utils/s3");
+const { withPhotoUrls } = require("../utils/photoUrls");
 const { geocodeAddress } = require("../utils/geocode");
 const { matchesFileSignature } = require("../utils/fileSignature");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
+
+// Turns each Photo row's id into the `url` the frontend expects at
+// `photos[i].url` — see utils/photoUrls.js.
+function shapeOrganization(o) {
+  return { ...o, photos: withPhotoUrls(o.photos) };
+}
 
 const IMAGE_MIME_TO_EXT = {
   "image/jpeg": "jpg",
@@ -44,11 +50,15 @@ const organizationInclude = {
   supportEntries: { orderBy: { effectiveDate: "desc" } },
   needRequests: { orderBy: { requestDate: "desc" } },
   prayerRequests: { orderBy: { dateReceived: "desc" } },
-  newsletters: { orderBy: { receivedDate: "desc" } },
-  documents: { orderBy: { receivedDate: "desc" } },
+  // omit: { bytes: true } on all three below -- the actual file content
+  // is never wanted in a list/detail response, only fetched through its
+  // own dedicated route (see routes/photos.js and the download routes in
+  // routes/newsletters.js / routes/documents.js).
+  newsletters: { orderBy: { receivedDate: "desc" }, omit: { bytes: true } },
+  documents: { orderBy: { receivedDate: "desc" }, omit: { bytes: true } },
   // Full history, newest-received first — photos[0] is "current". Admin-
   // only (the public API takes just the first row; see maskData.js).
-  photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }] },
+  photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], omit: { bytes: true } },
 };
 
 // An organization has at most one address per type — same "physical" (the
@@ -169,7 +179,7 @@ router.get("/", async (req, res, next) => {
       include: organizationInclude,
       orderBy: { name: "asc" },
     });
-    res.json(records);
+    res.json(records.map(shapeOrganization));
   } catch (err) {
     next(err);
   }
@@ -183,7 +193,7 @@ router.get("/:id", async (req, res, next) => {
       include: organizationInclude,
     });
     if (!record) return res.status(404).json({ error: "Not found" });
-    res.json(record);
+    res.json(shapeOrganization(record));
   } catch (err) {
     next(err);
   }
@@ -217,7 +227,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
       include: organizationInclude,
     });
 
-    res.status(201).json(created);
+    res.status(201).json(shapeOrganization(created));
   } catch (err) {
     if (err.name === "ZodError") return res.status(400).json({ error: err.errors });
     next(err);
@@ -244,14 +254,10 @@ router.post(
 
       const receivedDate = req.body.receivedDate ? new Date(req.body.receivedDate) : new Date();
 
-      const ext = IMAGE_MIME_TO_EXT[req.file.mimetype];
-      const key = `organizations/${req.params.id}/logo-${Date.now()}.${ext}`;
-      const url = await uploadImageToS3(req.file.buffer, key, req.file.mimetype);
-
       await prisma.photo.create({
         data: {
           organizationId: req.params.id,
-          url,
+          bytes: req.file.buffer,
           receivedDate,
           contentType: req.file.mimetype,
           fileSize: req.file.size,
@@ -265,7 +271,7 @@ router.post(
         include: organizationInclude,
       });
 
-      res.json(updated);
+      res.json(shapeOrganization(updated));
     } catch (err) {
       next(err);
     }
@@ -276,14 +282,14 @@ router.post(
 // mirrored route in routes/missionaries.js.
 router.delete("/:id/photos/:photoId", requireRole("admin"), async (req, res, next) => {
   try {
-    const photo = await prisma.photo.findUnique({ where: { id: req.params.photoId } });
+    const photo = await prisma.photo.findUnique({
+      where: { id: req.params.photoId },
+      select: { organizationId: true },
+    });
     if (!photo || photo.organizationId !== req.params.id) {
       return res.status(404).json({ error: "Not found" });
     }
     await prisma.photo.delete({ where: { id: req.params.photoId } });
-    deleteFromS3IfOwned(photo.url).catch((err) =>
-      console.error("Failed to clean up photo file after delete:", err)
-    );
     res.status(204).send();
   } catch (err) {
     next(err);
@@ -338,7 +344,7 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
       });
     });
 
-    res.json(updated);
+    res.json(shapeOrganization(updated));
   } catch (err) {
     if (err.name === "ZodError") return res.status(400).json({ error: err.errors });
     next(err);
@@ -368,7 +374,7 @@ router.post("/:id/archive", requireRole("admin", "editor"), async (req, res, nex
       });
     });
 
-    res.json(updated);
+    res.json(shapeOrganization(updated));
   } catch (err) {
     next(err);
   }
@@ -382,7 +388,7 @@ router.post("/:id/unarchive", requireRole("admin", "editor"), async (req, res, n
       data: { archived: false, archivedAt: null, updatedById: req.user.id },
       include: organizationInclude,
     });
-    res.json(updated);
+    res.json(shapeOrganization(updated));
   } catch (err) {
     next(err);
   }
@@ -394,33 +400,16 @@ router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
     const existing = await prisma.organization.findUnique({
       where: { id: req.params.id },
-      include: { newsletters: true, documents: true, photos: true },
+      select: { archived: true },
     });
     if (!existing) return res.status(404).json({ error: "Not found" });
     if (!existing.archived) {
       return res.status(400).json({ error: "Archive this organization before deleting it." });
     }
+    // Cascades to newsletters/documents/photos/addresses/etc. — their
+    // file bytes live in the same row (see the Newsletter model comment
+    // in schema.prisma), so there's no separate external cleanup needed.
     await prisma.organization.delete({ where: { id: req.params.id } });
-
-    // The DB delete cascades to newsletters/documents/photos/addresses/etc.,
-    // but none of that touches S3 — clean up every logo (not just the
-    // current one) and any newsletter/document files here so a deleted
-    // organization doesn't leave orphaned objects in the bucket.
-    existing.photos.forEach((p) => {
-      deleteFromS3IfOwned(p.url).catch((err) =>
-        console.error("Failed to clean up logo after delete:", err)
-      );
-    });
-    existing.newsletters.forEach((n) => {
-      deleteFromS3ByKey(n.fileKey).catch((err) =>
-        console.error("Failed to clean up newsletter file after delete:", err)
-      );
-    });
-    existing.documents.forEach((d) => {
-      deleteFromS3ByKey(d.fileKey).catch((err) =>
-        console.error("Failed to clean up document file after delete:", err)
-      );
-    });
 
     res.status(204).send();
   } catch (err) {

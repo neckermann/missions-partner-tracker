@@ -8,9 +8,7 @@
 require("dotenv").config({ quiet: true });
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
-const { uploadPrivateFileToS3, uploadImageToS3 } = require("../src/utils/s3");
 const {
-  svgDataUri,
   personSilhouette,
   coupleSilhouette,
   familySilhouette,
@@ -248,38 +246,17 @@ function buildFakeEml(fromName, fromSlug, subject, field) {
   return Buffer.from(eml, "utf-8");
 }
 
-// Newsletters/documents are real S3 uploads (see downloadAndUploadPhoto's
-// comment above for why -- same reasoning), unlike the Pexels photo path,
-// which already has a no-op fallback when it's not configured. Without an
-// S3 bucket configured at all (no AWS_ACCESS_KEY_ID/region resolvable,
-// e.g. a local `npm run seed` run with no AWS credentials set up, or a CI
-// job that has no reason to touch real S3), the upload calls below throw.
-// Match Pexels' pattern: skip these two, log it once, and let seeding
-// continue -- every missionary/org still gets everything else.
-let warnedNoS3 = false;
-function s3Configured() {
-  const configured = !!process.env.S3_BUCKET_NAME;
-  if (!configured && !warnedNoS3) {
-    console.log("S3_BUCKET_NAME not set -- skipping seeded newsletters/documents (everything else still seeds normally).");
-    warnedNoS3 = true;
-  }
-  return configured;
-}
-
 async function maybeAddNewsletter({ missionaryId, organizationId, name, slug, field }) {
-  if (!chance(0.3) || !s3Configured()) return;
+  if (!chance(0.3)) return;
   const subject = `${pick(NEWSLETTER_SUBJECTS)} — ${pick(NEWSLETTER_SEASONS)} ${randInt(2023, 2026)}`;
   const buffer = buildFakeEml(name, slug, subject, field);
-  const ownerId = missionaryId || organizationId;
-  const key = `newsletters/${ownerId}/${Date.now()}-update.eml`;
-  await uploadPrivateFileToS3(buffer, key, "message/rfc822");
   await prisma.newsletter.create({
     data: {
       missionaryId: missionaryId || undefined,
       organizationId: organizationId || undefined,
       title: subject,
       receivedDate: dateBetween(1, 0),
-      fileKey: key,
+      bytes: buffer,
       fileName: "update.eml",
       contentType: "message/rfc822",
       fileSize: buffer.length,
@@ -348,12 +325,11 @@ function buildFakePdf(title) {
 }
 
 async function maybeAddDocument({ missionaryId, organizationId, name, slug, field }) {
-  if (!chance(0.35) || !s3Configured()) return;
+  if (!chance(0.35)) return;
   const category = pick(["survey_response", "signed_policy", "office_document", "email", "other"]);
   const isOther = category === "other";
   const title = isOther ? pick(OTHER_DOCUMENT_TITLES) : pick(DOCUMENT_TITLES[category]);
   const customCategory = isOther ? pick(OTHER_DOCUMENT_CATEGORIES) : null;
-  const ownerId = missionaryId || organizationId;
 
   let buffer, fileName, contentType;
   if (category === "email") {
@@ -366,8 +342,6 @@ async function maybeAddDocument({ missionaryId, organizationId, name, slug, fiel
     contentType = "application/pdf";
   }
 
-  const key = `documents/${ownerId}/${Date.now()}-${fileName}`;
-  await uploadPrivateFileToS3(buffer, key, contentType);
   await prisma.document.create({
     data: {
       missionaryId: missionaryId || undefined,
@@ -377,7 +351,7 @@ async function maybeAddDocument({ missionaryId, organizationId, name, slug, fiel
       title,
       receivedDate: dateBetween(1, 0),
       notes: chance(0.5) ? pick(DOCUMENT_NOTES) : null,
-      fileKey: key,
+      bytes: buffer,
       fileName,
       contentType,
       fileSize: buffer.length,
@@ -417,13 +391,17 @@ function personName() {
 // purely for demo-data variety when Pexels isn't configured.
 const SILHOUETTE_COLORS = ["2a5d3c", "1d4e89", "8a3324", "6b4c9a", "b45309", "0f766e", "7c2d12", "4338ca"];
 
+// Returns { bytes, contentType } -- same shape as downloadAndUploadPhoto's
+// real-photo path below, so resolveMissionaryPhoto/resolveOrgLogo can
+// treat "got a real Pexels photo" and "fell back to a silhouette" the
+// same way.
 function missionaryPhoto(isFamily, childCount) {
   const bg = pick(SILHOUETTE_COLORS);
   const svg = childCount > 0 ? familySilhouette(bg) : isFamily ? coupleSilhouette(bg) : personSilhouette(bg);
-  return svgDataUri(svg);
+  return { bytes: Buffer.from(svg, "utf-8"), contentType: "image/svg+xml" };
 }
 function orgLogo() {
-  return svgDataUri(buildingSilhouette(pick(SILHOUETTE_COLORS)));
+  return { bytes: Buffer.from(buildingSilhouette(pick(SILHOUETTE_COLORS)), "utf-8"), contentType: "image/svg+xml" };
 }
 
 // --- Real stock photos via Pexels (optional) ---
@@ -521,18 +499,17 @@ function nextFromPool(pool) {
 }
 
 // Downloads the actual image bytes from Pexels' own CDN (not rate-limited
-// the way the search API above is) and re-uploads through this app's own
-// S3 pipeline, exactly like a real admin's upload -- never a hotlink to an
-// external URL that could change, disappear, or fail CSP.
-async function downloadAndUploadPhoto(url, keyPrefix) {
+// the way the search API above is), exactly like a real admin's upload
+// would end up stored -- never a hotlink to an external URL that could
+// change, disappear, or fail CSP. Returns the same { bytes, contentType }
+// shape as the silhouette fallbacks above.
+async function downloadAndUploadPhoto(url) {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
-    const buffer = Buffer.from(await res.arrayBuffer());
-    const key = `${keyPrefix}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-    return await uploadImageToS3(buffer, key, "image/jpeg");
+    return { bytes: Buffer.from(await res.arrayBuffer()), contentType: "image/jpeg" };
   } catch (err) {
-    console.warn("  Failed to download/upload a Pexels photo:", err.message);
+    console.warn("  Failed to download a Pexels photo:", err.message);
     return null;
   }
 }
@@ -540,14 +517,14 @@ async function downloadAndUploadPhoto(url, keyPrefix) {
 async function resolveMissionaryPhoto(pools, isFamily, childCount) {
   const category = missionaryPhotoCategory(isFamily, childCount);
   const pexelsUrl = pools && nextFromPool(pools[category]);
-  const uploaded = pexelsUrl && (await downloadAndUploadPhoto(pexelsUrl, "missionaries/seed"));
-  return uploaded || missionaryPhoto(isFamily, childCount);
+  const downloaded = pexelsUrl && (await downloadAndUploadPhoto(pexelsUrl));
+  return downloaded || missionaryPhoto(isFamily, childCount);
 }
 
 async function resolveOrgLogo(pools) {
   const pexelsUrl = pools && nextFromPool(pools.org);
-  const uploaded = pexelsUrl && (await downloadAndUploadPhoto(pexelsUrl, "organizations/seed"));
-  return uploaded || orgLogo();
+  const downloaded = pexelsUrl && (await downloadAndUploadPhoto(pexelsUrl));
+  return downloaded || orgLogo();
 }
 
 function buildOverview(name, fieldInfo, focusList, year, isFamily = true) {
@@ -765,7 +742,7 @@ async function main() {
           : { startDate: dateBetween(3, 1), endDate: dateBetween(1, 0), notes: "Completed home assignment, deputation, and medical checkups." }]
       : [];
 
-    const photoUrl = await resolveMissionaryPhoto(photoPools, isFamily, childCount);
+    const photo = await resolveMissionaryPhoto(photoPools, isFamily, childCount);
 
     const createdMissionary = await prisma.missionary.create({
       data: {
@@ -797,7 +774,9 @@ async function main() {
         twitter: chance(0.2) ? `https://twitter.com/${last.toLowerCase()}family` : null,
         instagram: chance(0.4) ? `https://instagram.com/${last.toLowerCase()}family` : null,
         linkedin: chance(0.15) ? `https://linkedin.com/in/${last.toLowerCase()}` : null,
-        photos: { create: { url: photoUrl, receivedDate: dateBetween(1, 0) } },
+        photos: {
+          create: { bytes: photo.bytes, contentType: photo.contentType, receivedDate: dateBetween(1, 0) },
+        },
         emergencyContact: chance(0.5)
           ? { name: `${pick(FIRST_M.concat(FIRST_F))} ${pick(LAST)}`, phone: fakePhone(), email: null }
           : {},
@@ -873,7 +852,7 @@ async function main() {
 
     const participantPool = [`${pick(FIRST_M)} ${pick(LAST)}`, `${pick(FIRST_F)} ${pick(LAST)}`, `${pick(FIRST_M)} ${pick(LAST)}`, `${pick(FIRST_F)} ${pick(LAST)}`];
 
-    const logoUrl = await resolveOrgLogo(photoPools);
+    const logo = await resolveOrgLogo(photoPools);
 
     const created = await prisma.organization.create({
       data: {
@@ -905,7 +884,9 @@ async function main() {
         tripTypesSupported: pickN(TRIP_TYPES, randInt(1, 3)),
         tripSeasonNotes: chance(0.5) ? pick(SEASON_NOTES) : null,
         tripLogisticsNotes: chance(0.5) ? pick(LOGISTICS_NOTES) : null,
-        photos: { create: { url: logoUrl, receivedDate: dateBetween(1, 0) } },
+        photos: {
+          create: { bytes: logo.bytes, contentType: logo.contentType, receivedDate: dateBetween(1, 0) },
+        },
         addresses: {
           create: [
             { type: "physical", city: fieldInfo.city, country: fieldInfo.country, gpsLat: fieldInfo.lat + (Math.random() - 0.5) * 0.3, gpsLng: fieldInfo.lng + (Math.random() - 0.5) * 0.3 },

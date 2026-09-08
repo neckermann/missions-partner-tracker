@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { uploadNewsletter, getNewsletterDownloadUrl, deleteNewsletter } from "../../api/client.js";
+import { uploadNewsletter, deleteNewsletter } from "../../api/client.js";
 
 // Date-only fields are stored as UTC midnight — build the Date from raw
 // Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
@@ -64,13 +64,11 @@ export default function NewsletterSection({ missionaryId, organizationId, newsle
     }
   }
 
-  async function handleView(n) {
-    try {
-      const url = await getNewsletterDownloadUrl(n.id);
-      window.open(url, "_blank");
-    } catch (err) {
-      alert(err.response?.data?.error || "Failed to open file");
-    }
+  function handleView(n) {
+    // A direct, same-origin, cookie-authenticated download — no async
+    // lookup needed now that the file is served straight from the
+    // database (see backend/src/routes/newsletters.js).
+    window.open(`/api/newsletters/${n.id}/download`, "_blank");
   }
 
   async function handleDelete(n) {

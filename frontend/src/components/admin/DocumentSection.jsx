@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { uploadDocument, getDocumentDownloadUrl, deleteDocument } from "../../api/client.js";
+import { uploadDocument, deleteDocument } from "../../api/client.js";
 import { DOCUMENT_CATEGORIES, documentCategoryLabel } from "../../utils/documentCategories.js";
 
 // Date-only fields are stored as UTC midnight — build the Date from raw
@@ -73,13 +73,11 @@ export default function DocumentSection({ missionaryId, organizationId, document
     }
   }
 
-  async function handleView(d) {
-    try {
-      const url = await getDocumentDownloadUrl(d.id);
-      window.open(url, "_blank");
-    } catch (err) {
-      alert(err.response?.data?.error || "Failed to open file");
-    }
+  function handleView(d) {
+    // A direct, same-origin, cookie-authenticated download — no async
+    // lookup needed now that the file is served straight from the
+    // database (see backend/src/routes/documents.js).
+    window.open(`/api/documents/${d.id}/download`, "_blank");
   }
 
   async function handleDelete(d) {

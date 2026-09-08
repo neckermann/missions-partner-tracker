@@ -5,7 +5,6 @@ const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
-const { publicBaseUrl } = require("./utils/s3");
 
 const authRoutes = require("./routes/auth");
 const ssoRoutes = require("./routes/sso");
@@ -20,6 +19,7 @@ const supportNeedRoutes = require("./routes/supportNeeds");
 const prayerRequestRoutes = require("./routes/prayerRequests");
 const newsletterRoutes = require("./routes/newsletters");
 const documentRoutes = require("./routes/documents");
+const photoRoutes = require("./routes/photos");
 const settingsRoutes = require("./routes/settings");
 const publicSettingsRoutes = require("./routes/publicSettings");
 const versionRoutes = require("./routes/version");
@@ -28,29 +28,19 @@ const backupCheckRoutes = require("./routes/backupCheck");
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// helmet()'s default CSP is `img-src 'self' data:`, which blocks every
-// missionary/organization photo and church logo — they're all rendered as
-// <img src={photo.url}> pointing at the S3/CloudFront bucket, a different
-// origin than this app — and the public map, which loads its tiles from
-// OpenStreetMap's own subdomained tile servers and its default marker
-// pin/shadow icons from unpkg's CDN (both hardcoded in PublicMap.jsx's
-// TileLayer url and icon imports). Widening just img-src (not disabling
-// CSP) to also allow those known origins. The S3 one is only added if S3
-// is actually configured — an unconfigured instance has no photos to
-// load anyway.
-const s3Origin = process.env.S3_BUCKET_NAME || process.env.S3_PUBLIC_URL_BASE ? publicBaseUrl() : null;
+// helmet()'s default CSP is `img-src 'self' data:`, which blocks the public
+// map's tiles (OpenStreetMap's own subdomained tile servers) and its default
+// marker pin/shadow icons (unpkg's CDN), both hardcoded in PublicMap.jsx's
+// TileLayer url and icon imports. Missionary/organization photos and the
+// church logo don't need a widened img-src at all — they're served from
+// this app's own origin (routes/photos.js, publicSettings.js), already
+// covered by 'self'.
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        "img-src": [
-          "'self'",
-          "data:",
-          "https://*.tile.openstreetmap.org",
-          "https://unpkg.com",
-          ...(s3Origin ? [s3Origin] : []),
-        ],
+        "img-src": ["'self'", "data:", "https://*.tile.openstreetmap.org", "https://unpkg.com"],
       },
     },
   })
@@ -89,6 +79,7 @@ app.use("/api/support-needs", supportNeedRoutes); // protected (admin) — sessi
 app.use("/api/prayer-requests", prayerRequestRoutes); // protected (admin) — session required
 app.use("/api/newsletters", newsletterRoutes); // protected (admin) — session required
 app.use("/api/documents", documentRoutes); // protected (admin) — session required
+app.use("/api/photos", photoRoutes); // open (public — same as when these were S3 public-read objects)
 app.use("/api/settings", settingsRoutes); // protected (admin for write, any role for read)
 app.use("/api/public/settings", publicSettingsRoutes); // open (public site + admin nav branding)
 app.use("/api/version-check", versionRoutes); // protected (admin role only)

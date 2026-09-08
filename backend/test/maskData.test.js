@@ -48,8 +48,8 @@ function baseMissionary(overrides = {}) {
     // Pre-sorted newest-first, matching missionaryInclude's orderBy — [0] is
     // "current." Older entries exist only to prove they're never exposed.
     photos: [
-      { id: "p2", url: "https://example.com/current.jpg", receivedDate: "2026-01-01" },
-      { id: "p1", url: "https://example.com/old.jpg", receivedDate: "2025-01-01" },
+      { id: "p2", receivedDate: "2026-01-01" },
+      { id: "p1", receivedDate: "2025-01-01" },
     ],
     ...overrides,
   };
@@ -130,7 +130,7 @@ describe("toPublicMissionary", () => {
   // same "strips everything identifying" list).
   test("public, non-restricted: exposes only the current photo, not history", () => {
     const result = toPublicMissionary(baseMissionary());
-    assert.equal(result.photo, "https://example.com/current.jpg");
+    assert.equal(result.photo, "/api/photos/p2/raw");
   });
 
   test("public, non-restricted: photo is null when no photos exist", () => {
@@ -140,9 +140,9 @@ describe("toPublicMissionary", () => {
 
   test("restricted: never exposes their real photo, current or otherwise — gets a generic silhouette instead", () => {
     const result = toPublicMissionary(
-      baseMissionary({ isRestricted: true, photos: [{ id: "p1", url: "https://example.com/real-photo.jpg" }] })
+      baseMissionary({ isRestricted: true, photos: [{ id: "p1" }] })
     );
-    assert.notEqual(result.photo, "https://example.com/real-photo.jpg");
+    assert.notEqual(result.photo, "/api/photos/p1/raw");
     assert.equal(isSilhouetteDataUri(result.photo), true);
   });
 
@@ -268,8 +268,8 @@ function baseOrganization(overrides = {}) {
     overviewShort: "Short overview.",
     addresses: [{ type: "physical", country: "India", gpsLat: 20.1, gpsLng: 78.2 }],
     photos: [
-      { id: "p2", url: "https://example.com/current-logo.jpg", receivedDate: "2026-01-01" },
-      { id: "p1", url: "https://example.com/old-logo.jpg", receivedDate: "2025-01-01" },
+      { id: "p2", receivedDate: "2026-01-01" },
+      { id: "p1", receivedDate: "2025-01-01" },
     ],
     ...overrides,
   };
@@ -308,12 +308,12 @@ describe("toPublicOrganization", () => {
   // equivalent toPublicMissionary tests above.
   test("public, non-restricted: exposes only the current photo, not history", () => {
     const result = toPublicOrganization(baseOrganization());
-    assert.equal(result.photo, "https://example.com/current-logo.jpg");
+    assert.equal(result.photo, "/api/photos/p2/raw");
   });
 
   test("restricted: never exposes its real photo, current or otherwise — gets a generic silhouette instead", () => {
     const result = toPublicOrganization(baseOrganization({ isRestricted: true }));
-    assert.notEqual(result.photo, "https://example.com/current-logo.jpg");
+    assert.notEqual(result.photo, "/api/photos/p2/raw");
     assert.equal(isSilhouetteDataUri(result.photo), true);
   });
 });

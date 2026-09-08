@@ -387,7 +387,7 @@ function toPublicMissionary(m) {
     // Only the current photo (see Photo model / publicMissionaries.js's
     // `take: 1` include) is ever surfaced publicly — never the upload
     // history, and never at all for a restricted record (see above).
-    photo: m.photos?.[0]?.url ?? null,
+    photo: m.photos?.[0] ? `/api/photos/${m.photos[0].id}/raw` : null,
     sendingChurch: m.sendingChurch ? { name: m.sendingChurch.name } : null,
     sendingOrg: m.sendingOrg ? { name: m.sendingOrg.name } : null,
     prayerRequests: toPublicPrayerRequests(m.prayerRequests),
@@ -447,7 +447,7 @@ function toPublicOrganization(o) {
     twitter: o.twitter,
     instagram: o.instagram,
     linkedin: o.linkedin,
-    photo: o.photos?.[0]?.url ?? null,
+    photo: o.photos?.[0] ? `/api/photos/${o.photos[0].id}/raw` : null,
     prayerRequests: toPublicPrayerRequests(o.prayerRequests),
   };
 }

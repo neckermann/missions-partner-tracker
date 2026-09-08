@@ -23,7 +23,7 @@ router.get("/", async (req, res, next) => {
         prayerRequests: { where: { category: "long_term", isPublic: true }, orderBy: { dateReceived: "desc" } },
         // Only the current photo (most recently received) is ever surfaced
         // publicly — never the upload history.
-        photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], take: 1 },
+        photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], take: 1, omit: { bytes: true } },
       },
       orderBy: { displayName: "asc" },
     });
@@ -52,7 +52,7 @@ router.get("/:id", async (req, res, next) => {
         prayerRequests: { where: { category: "long_term", isPublic: true }, orderBy: { dateReceived: "desc" } },
         // Only the current photo (most recently received) is ever surfaced
         // publicly — never the upload history.
-        photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], take: 1 },
+        photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], take: 1, omit: { bytes: true } },
       },
     });
 

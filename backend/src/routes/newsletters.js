@@ -3,7 +3,6 @@ const multer = require("multer");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
-const { uploadPrivateFileToS3, getPresignedDownloadUrl, deleteFromS3ByKey } = require("../utils/s3");
 const { matchesFileSignature } = require("../utils/fileSignature");
 
 const router = express.Router();
@@ -26,7 +25,12 @@ function resolveExt(file) {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 }, // matches .platform/nginx/conf.d/uploads.conf
+  // 10MB, not the 20MB this used to allow -- files live directly in
+  // Postgres now (see the Newsletter model comment in schema.prisma),
+  // and that's the size past which the usual guidance shifts from "just
+  // use the database" to "use object storage instead." Matches
+  // .platform/nginx/conf.d/uploads.conf.
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (!resolveExt(file)) {
       const err = new Error("Only PDF, .eml, JPEG, or PNG files are allowed");
@@ -62,6 +66,7 @@ router.get("/", async (req, res, next) => {
   try {
     const records = await prisma.newsletter.findMany({
       include: newsletterInclude,
+      omit: { bytes: true }, // file content only ever comes back via GET /:id/download
       orderBy: { receivedDate: "desc" },
     });
     res.json(records);
@@ -92,21 +97,17 @@ router.post(
         { message: "Exactly one of missionaryId or organizationId is required", path: ["missionaryId"] }
       ).parse(req.body);
 
-      const ext = resolveExt(req.file);
-      const ownerId = meta.missionaryId || meta.organizationId;
-      const key = `newsletters/${ownerId}/${Date.now()}-${req.file.originalname.replace(/[^\w.\-]/g, "_")}`;
-      await uploadPrivateFileToS3(req.file.buffer, key, req.file.mimetype || `application/${ext}`);
-
       const created = await prisma.newsletter.create({
         data: {
           ...meta,
-          fileKey: key,
+          bytes: req.file.buffer,
           fileName: req.file.originalname,
           contentType: req.file.mimetype || "application/octet-stream",
           fileSize: req.file.size,
           createdById: req.user.id,
         },
         include: newsletterInclude,
+        omit: { bytes: true },
       });
 
       res.status(201).json(created);
@@ -117,16 +118,17 @@ router.post(
   }
 );
 
-// GET /api/newsletters/:id/download — returns a short-lived signed URL
-// rather than redirecting directly, so the frontend controls how/when it
-// opens (e.g. window.open in a new tab) instead of navigating the SPA away.
+// GET /api/newsletters/:id/download — streams the file straight from the
+// database (still requireAuth'd, per router.use above; no separate signed
+// URL to generate since there's no external store to sign a URL for).
 router.get("/:id/download", async (req, res, next) => {
   try {
     const record = await prisma.newsletter.findUnique({ where: { id: req.params.id } });
     if (!record) return res.status(404).json({ error: "Not found" });
 
-    const url = await getPresignedDownloadUrl(record.fileKey, record.fileName);
-    res.json({ url });
+    res.set("Content-Type", record.contentType || "application/octet-stream");
+    res.set("Content-Disposition", `inline; filename="${record.fileName.replace(/"/g, "")}"`);
+    res.send(record.bytes);
   } catch (err) {
     next(err);
   }
@@ -135,11 +137,13 @@ router.get("/:id/download", async (req, res, next) => {
 // DELETE /api/newsletters/:id (admin only)
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
-    const record = await prisma.newsletter.findUnique({ where: { id: req.params.id } });
+    const record = await prisma.newsletter.findUnique({
+      where: { id: req.params.id },
+      select: { id: true },
+    });
     if (!record) return res.status(404).json({ error: "Not found" });
 
     await prisma.newsletter.delete({ where: { id: req.params.id } });
-    deleteFromS3ByKey(record.fileKey).catch((err) => console.error("Failed to delete newsletter file from S3:", err));
 
     res.status(204).send();
   } catch (err) {

@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   fetchNewsletters,
   uploadNewsletter,
-  getNewsletterDownloadUrl,
   deleteNewsletter,
   fetchAdminMissionaries,
   fetchAdminOrganizations,
@@ -94,13 +93,11 @@ export default function AdminNewsletters() {
     }
   }
 
-  async function handleView(n) {
-    try {
-      const url = await getNewsletterDownloadUrl(n.id);
-      window.open(url, "_blank");
-    } catch (err) {
-      alert(err.response?.data?.error || "Failed to open file");
-    }
+  function handleView(n) {
+    // A direct, same-origin, cookie-authenticated download — no async
+    // lookup needed now that the file is served straight from the
+    // database (see backend/src/routes/newsletters.js).
+    window.open(`/api/newsletters/${n.id}/download`, "_blank");
   }
 
   async function handleDelete(n) {
