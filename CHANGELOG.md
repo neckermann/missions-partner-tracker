@@ -16,6 +16,39 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.0.25] - 2026-09-08
+
+### Fixed
+- **The deploy pipeline never ran database migrations against the real
+  target environment.** `prisma migrate deploy` only ran inside the `e2e`
+  job's throwaway CI database — demo's and production's actual Postgres
+  databases were never migrated by the pipeline itself. This went
+  unnoticed until v1.0.22's `PrayerRequest` table: demo happened to have
+  it already (applied by hand while building the feature locally), but
+  production didn't, and production's `/api/public/missionaries` started
+  erroring once the new code tried to `include` a table that didn't
+  exist — caught correctly by the smoke-test job, which rolled production
+  back to the previous version as designed. Fixed by adding an "Apply
+  database migrations" step to the `deploy` job, running before the new
+  version goes live. It reads `DATABASE_URL` directly from the target EB
+  environment's own configuration (via the AWS credentials the job
+  already has) rather than duplicating it as a separate GitHub secret, so
+  EB stays the single source of truth for that value. Only
+  additive/backwards-compatible migrations should ever land here, since
+  the previous app version keeps serving traffic against the new schema
+  for the short window until the new version is live.
+- **The admin "out of date" banner was wrong about being out of date.**
+  `versionCheck.js` compares `backend/package.json`'s version against the
+  latest GitHub release tag, and its own long-standing comment says that
+  value must be bumped on *every* release — even a frontend-only one —
+  specifically so this stays accurate. v1.0.23 and v1.0.24 were both
+  frontend-only (an e2e test fix) and only bumped
+  `frontend/package.json`, leaving `backend/package.json` at 1.0.22 while
+  the latest release tag moved to v1.0.24 — so every instance correctly
+  running the latest code still saw a false "update available" banner.
+  This release's version bump resyncs it; going forward, every release
+  bumps `backend/package.json` regardless of which side actually changed.
+
 ## [1.0.24] - 2026-09-08
 
 ### Fixed

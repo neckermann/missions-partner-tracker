@@ -190,6 +190,30 @@ jobs:
           echo "label=$LABEL" >> $GITHUB_OUTPUT
           echo "Currently deployed: $LABEL"
 
+      - name: Install backend deps
+        run: cd backend && npm ci
+
+      # Applied directly against the target EB environment's real database,
+      # before the new code goes live -- so a rolling single-instance
+      # deploy never has the new code running against an old schema.
+      # Pulls DATABASE_URL straight from the EB environment's own config
+      # (using the AWS credentials already configured above) rather than
+      # keeping a second copy of it as a GitHub secret -- EB stays the one
+      # place this value lives. Only additive/backwards-compatible
+      # migrations should ever land here, since the previous app version
+      # keeps running against this same schema until the deploy below
+      # finishes.
+      - name: Apply database migrations
+        run: |
+          DATABASE_URL=$(aws elasticbeanstalk describe-configuration-settings \
+            --environment-name ${{ env.EB_ENV_NAME }} \
+            --application-name ${{ env.EB_APP_NAME }} \
+            --query "ConfigurationSettings[0].OptionSettings[?OptionName=='DATABASE_URL'].Value | [0]" \
+            --output text)
+          echo "::add-mask::$DATABASE_URL"
+          cd backend
+          DATABASE_URL="$DATABASE_URL" npx prisma migrate deploy
+
       - name: Zip backend + built frontend
         run: |
           cd backend
