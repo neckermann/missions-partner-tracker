@@ -2,16 +2,19 @@ import React, { useEffect, useState } from "react";
 import { fetchChurchSettings, updateChurchSettings, uploadChurchLogo } from "../api/client.js";
 
 const emptyForm = {
+  partnerTermSingular: "",
+  partnerTermPlural: "",
+  usePartnerTermInAdmin: false,
   publicTagline: "",
   aboutText: "",
   primaryColor: "",
   logo: {},
 };
 
-// See the same note in AdminSettingsGeneral.jsx -- `s?.id` (not `!s`) is
-// the "has this church configured anything yet" check, and this only pulls
-// in the fields this page owns so saving here never touches General's,
-// Features', or SSO's fields.
+// See the same note in AdminSettingsAbout.jsx -- `s?.id` (not `!s`) is the
+// "has this church configured anything yet" check, and this only pulls in
+// the fields this page owns so saving here never touches the other Site
+// Administration pages' fields.
 function mergeFetchedRecord(s) {
   if (!s?.id) return emptyForm;
   return {
@@ -70,10 +73,11 @@ export default function AdminSettingsBranding() {
   }
 
   return (
-    <div className="form-has-floating-actions">
+    <div className="admin-shell form-has-floating-actions">
+      <h2>Branding</h2>
       <p style={{ color: "#555" }}>
-        How this church presents itself on the public site — tagline, about text, brand color,
-        and logo.
+        How this church presents itself — public-site tagline, about text, brand color, logo, and
+        what to call its partners.
       </p>
 
       <form onSubmit={handleSubmit} className="admin-form">
@@ -126,6 +130,44 @@ export default function AdminSettingsBranding() {
                 Remove logo
               </button>
             )}
+          </div>
+        </div>
+
+        <div className="admin-section">
+          <h3>Partner Terminology</h3>
+          <p style={{ marginTop: 0, color: "#666", fontSize: "0.85rem" }}>
+            What this church calls its missionary and organization partners — e.g. "Go Team
+            Partner" / "Go Team Partners". Used on the public site regardless of whether a
+            partner is an individual/family or an organization. Leave blank to keep the
+            default "Missionary" / "Missionaries" wording.
+          </p>
+          <div className="form-grid">
+            <label>
+              Singular
+              <input
+                value={form.partnerTermSingular || ""}
+                onChange={(e) => update("partnerTermSingular", e.target.value)}
+                placeholder="Missionary"
+              />
+            </label>
+            <label>
+              Plural
+              <input
+                value={form.partnerTermPlural || ""}
+                onChange={(e) => update("partnerTermPlural", e.target.value)}
+                placeholder="Missionaries"
+              />
+            </label>
+          </div>
+          <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
+            <label>
+              <input
+                type="checkbox"
+                checked={form.usePartnerTermInAdmin}
+                onChange={(e) => update("usePartnerTermInAdmin", e.target.checked)}
+              />
+              Also use this term in the admin interface (nav/list headings)
+            </label>
           </div>
         </div>
 

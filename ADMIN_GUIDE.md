@@ -106,8 +106,8 @@ the backend and always calls `/api` on its own origin.
 
 ## Feature toggles
 
-Church Settings → Features (`/admin/settings/features`) lets an admin turn
-off parts of the app a church isn't using — hides the corresponding nav
+Site Administration → Enabled Features (`/admin/settings/features`) lets an
+admin turn off parts of the app a church isn't using — hides the corresponding nav
 link/section (and, for the public-site toggles, the site itself) without
 losing any data already on file. Enforced server-side too (not just hidden
 in the UI): a disabled feature's API routes 404, same as a route that was
@@ -132,12 +132,13 @@ The registry backing this list lives in `backend/src/utils/features.js` —
 adding a new toggle later is a one-line entry there plus a `requireFeature("key")`
 check on the relevant route(s), not a database migration.
 
-Church Settings itself lives at `/admin/settings`, with its own tab nav
-(General, Branding, Features, Single Sign-On, Users) rather than one long
-page — User Management moved here from its own top-level nav link. Adding
-a new settings category later is a new tab in
-`components/admin/AdminSettingsLayout.jsx` plus a new child route in
-`main.jsx`, not a restructure.
+All of this lives under **Site Administration**, an expandable group in
+the admin sidebar itself (not a separate page with its own tab bar) —
+click it to reveal Manage Users, Branding, Enabled Features, Single
+Sign-On, and About Church. User Management moved here from its own
+top-level nav link. Adding a new settings category later is a new entry in
+`SITE_ADMIN_LINKS` (`components/admin/AdminSidebar.jsx`) plus a new child
+route in `main.jsx`, not a restructure.
 
 ## Authentication setup
 
@@ -154,7 +155,7 @@ One generic OIDC login flow (`backend/src/routes/sso.js`, via
 ID, Google Workspace, Okta, or anything else that publishes an OIDC
 discovery document. Unlike the rest of this table, **there are no env vars
 to set for SSO itself** — every provider (including its client secret) is
-configured entirely from **Admin → Church Settings → Single Sign-On**, and
+configured entirely from **Admin → Site Administration → Single Sign-On**, and
 takes effect immediately with no redeploy. The only env vars SSO needs at
 all are `FIELD_ENCRYPTION_KEY` (encrypts the client secret at rest) and
 `APP_BASE_URL` (used to build the callback URL), both listed above.
@@ -175,7 +176,7 @@ To add a provider:
    - **Okta**: your Okta admin console → Applications → your app. Issuer
      URL is your Okta domain, e.g. `https://your-org.okta.com`.
    - Any other OIDC provider: check its docs for the issuer URL.
-3. In the app, go to **Admin → Church Settings → Single Sign-On → + Add
+3. In the app, go to **Admin → Site Administration → Single Sign-On → + Add
    Provider**, fill in the button label, provider type (cosmetic — picks
    the button icon), issuer URL, client ID, and client secret, and check
    **Enabled**. Strongly consider setting the **allowed email domain**

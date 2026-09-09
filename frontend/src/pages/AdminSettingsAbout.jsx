@@ -18,18 +18,16 @@ const emptyForm = {
   contactEmail: "",
   websiteLink: "",
   address: { ...emptyAddress },
-  partnerTermSingular: "",
-  partnerTermPlural: "",
-  usePartnerTermInAdmin: false,
 };
 
 // Settings is a singleton — GET returns { featureRegistry } with everything
 // else absent before it's ever been saved (see routes/settings.js), so
 // `s?.id` (not `!s`) is the actual "has this church configured anything
-// yet" check — same pattern as AdminSettingsBranding.jsx/Features.jsx.
-// Only pulls in the fields this page owns -- Branding/Features/SSO are
-// separate tabs (see AdminSettingsLayout.jsx), each PUTting just its own
-// slice, so saving here never touches the others' fields.
+// yet" check — same pattern as the other Site Administration pages. Only
+// pulls in the fields this page owns -- Branding/Features/SSO/Users are
+// separate pages under the sidebar's Site Administration group (see
+// AdminSidebar.jsx), each PUTting just its own slice, so saving here never
+// touches the others' fields.
 function mergeFetchedRecord(s) {
   if (!s?.id) return emptyForm;
   return {
@@ -39,7 +37,7 @@ function mergeFetchedRecord(s) {
   };
 }
 
-export default function AdminSettingsGeneral() {
+export default function AdminSettingsAbout() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
@@ -67,7 +65,8 @@ export default function AdminSettingsGeneral() {
   }
 
   return (
-    <div className="form-has-floating-actions">
+    <div className="admin-shell form-has-floating-actions">
+      <h2>About Church</h2>
       <p style={{ color: "#555" }}>
         Basic church info — used to auto-fill the Sending Church section when this church is the
         sender, and for contact details shown across the admin app.
@@ -100,44 +99,6 @@ export default function AdminSettingsGeneral() {
           </div>
           <h4>Address</h4>
           <AddressFields value={form.address} onChange={(addr) => update("address", addr)} />
-        </div>
-
-        <div className="admin-section">
-          <h3>Partner Terminology</h3>
-          <p style={{ marginTop: 0, color: "#666", fontSize: "0.85rem" }}>
-            What this church calls its missionary and organization partners — e.g. "Go Team
-            Partner" / "Go Team Partners". Used on the public site regardless of whether a
-            partner is an individual/family or an organization. Leave blank to keep the
-            default "Missionary" / "Missionaries" wording.
-          </p>
-          <div className="form-grid">
-            <label>
-              Singular
-              <input
-                value={form.partnerTermSingular || ""}
-                onChange={(e) => update("partnerTermSingular", e.target.value)}
-                placeholder="Missionary"
-              />
-            </label>
-            <label>
-              Plural
-              <input
-                value={form.partnerTermPlural || ""}
-                onChange={(e) => update("partnerTermPlural", e.target.value)}
-                placeholder="Missionaries"
-              />
-            </label>
-          </div>
-          <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={form.usePartnerTermInAdmin}
-                onChange={(e) => update("usePartnerTermInAdmin", e.target.checked)}
-              />
-              Also use this term in the admin interface (nav/list headings)
-            </label>
-          </div>
         </div>
 
         <div className="form-save-bar">

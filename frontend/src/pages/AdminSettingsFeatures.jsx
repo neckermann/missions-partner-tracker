@@ -65,12 +65,14 @@ export default function AdminSettingsFeatures() {
   const adminFeatures = featureRegistry.filter((f) => f.group !== "public");
 
   return (
-    <form onSubmit={handleSubmit} className="admin-form form-has-floating-actions">
-      <p style={{ color: "#555", marginTop: 0 }}>
+    <div className="admin-shell form-has-floating-actions">
+      <h2>Enabled Features</h2>
+      <p style={{ color: "#555" }}>
         Turn off anything this church isn't using — hides it from the admin nav (and, for
         public-facing features, from visitors) without losing any data already on file.
       </p>
 
+      <form onSubmit={handleSubmit} className="admin-form">
       {publicFeatures.length > 0 && (
         <div className="admin-section">
           <h3>Public site</h3>
@@ -105,6 +107,7 @@ export default function AdminSettingsFeatures() {
         </button>
         {success && <span style={{ color: "#2a5d3c" }}>{success}</span>}
       </div>
-    </form>
+      </form>
+    </div>
   );
 }

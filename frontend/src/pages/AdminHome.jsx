@@ -55,14 +55,9 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
 
 const ADMIN_ONLY_SECTIONS = [
   {
-    to: "/admin/settings/users",
-    title: "Manage Users",
-    description: "Add, edit, or remove admin accounts, and manage two-factor authentication.",
-  },
-  {
     to: "/admin/settings",
-    title: "Church Settings",
-    description: "Church info, branding, feature toggles, single sign-on, and user management.",
+    title: "Site Administration",
+    description: "Manage users, branding, feature toggles, single sign-on, and church info.",
   },
 ];
 

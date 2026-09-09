@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, NavLink as RouterNavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
 import { fetchCurrentUser, logout } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 
@@ -37,12 +37,30 @@ function SidebarLink({ to, label, end }) {
   );
 }
 
+// Manage Users, Branding, Enabled Features, Single Sign-On, About Church --
+// order as specified, not alphabetical or route order.
+const SITE_ADMIN_LINKS = [
+  { to: "/admin/settings/users", label: "Manage Users" },
+  { to: "/admin/settings/branding", label: "Branding" },
+  { to: "/admin/settings/features", label: "Enabled Features" },
+  { to: "/admin/settings/sso", label: "Single Sign-On" },
+  { to: "/admin/settings/about", label: "About Church" },
+];
+
 export default function AdminSidebar() {
   const [currentUser, setCurrentUser] = useState(null);
+  // Manually-toggled OR auto-expanded while already on one of its own
+  // pages, so navigating straight to e.g. /admin/settings/branding (a
+  // bookmark, a page refresh) doesn't leave the group looking collapsed
+  // with no visible indication of where you are.
+  const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { churchName, partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const links = buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures);
   const title = churchName ? `${churchName} Admin` : "Missions Team Admin";
+  const inSiteAdmin = location.pathname.startsWith("/admin/settings");
+  const showSiteAdmin = expanded || inSiteAdmin;
 
   useEffect(() => {
     fetchCurrentUser().then(setCurrentUser);
@@ -55,14 +73,25 @@ export default function AdminSidebar() {
         {links.map((link) => (
           <SidebarLink key={link.to} {...link} />
         ))}
-        {/* User management moved under Church Settings' own Users tab
-            (see AdminSettingsLayout.jsx) rather than its own top-level
-            link -- one place for account-level admin concerns to live and
-            grow, instead of two. */}
         {currentUser?.role === "admin" && (
           <>
             <div className="admin-sidebar-divider" />
-            <SidebarLink to="/admin/settings" label="Church Settings" />
+            <button
+              type="button"
+              className="admin-sidebar-group-toggle"
+              aria-expanded={showSiteAdmin}
+              onClick={() => setExpanded((v) => !v)}
+            >
+              Site Administration
+              <span className="admin-sidebar-group-arrow">{showSiteAdmin ? "▾" : "▸"}</span>
+            </button>
+            {showSiteAdmin && (
+              <div className="admin-sidebar-subnav">
+                {SITE_ADMIN_LINKS.map((link) => (
+                  <SidebarLink key={link.to} {...link} />
+                ))}
+              </div>
+            )}
           </>
         )}
       </nav>

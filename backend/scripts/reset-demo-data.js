@@ -7,6 +7,7 @@ require("dotenv").config({ quiet: true });
 const path = require("path");
 const { execFileSync } = require("child_process");
 const prisma = require("../src/prismaClient");
+const { FEATURE_KEYS } = require("../src/utils/features");
 
 const BACKEND_DIR = path.join(__dirname, "..");
 
@@ -46,6 +47,14 @@ async function resetDemoData() {
 
   const demoNotice = `This is a live public demo of Missions Partner Tracker, running against fake data. It resets automatically on a schedule — nothing you do here is permanent. Sign in at /login with ${email} / ${password} to try the admin dashboard.`;
 
+  // migrate reset above drops and recreates the schema, so ChurchSettings
+  // starts empty every time -- every registry feature (see
+  // src/utils/features.js) needs to be explicitly turned back on here,
+  // not just left to its own default, since aiExtraction's default is off.
+  // A visitor exploring the public demo should see the whole app working,
+  // not accidentally find half of it toggled off.
+  const allFeaturesOn = Object.fromEntries(FEATURE_KEYS.map((key) => [key, true]));
+
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
     create: {
@@ -53,11 +62,13 @@ async function resetDemoData() {
       churchName: "Demo Church",
       publicTagline: "Live public demo — resets automatically",
       aboutText: demoNotice,
+      enabledFeatures: allFeaturesOn,
     },
     update: {
       churchName: "Demo Church",
       publicTagline: "Live public demo — resets automatically",
       aboutText: demoNotice,
+      enabledFeatures: allFeaturesOn,
     },
   });
 }

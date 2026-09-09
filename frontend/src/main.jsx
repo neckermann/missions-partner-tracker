@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import PublicMap from "./pages/PublicMap.jsx";
 import PublicDirectory from "./pages/PublicDirectory.jsx";
 import PublicPartnerDetail from "./pages/PublicPartnerDetail.jsx";
@@ -16,11 +16,10 @@ import AdminOrganizationDetail from "./pages/AdminOrganizationDetail.jsx";
 import AdminUsers from "./pages/AdminUsers.jsx";
 import AdminUserForm from "./pages/AdminUserForm.jsx";
 import AccountSettings from "./pages/AccountSettings.jsx";
-import AdminSettingsGeneral from "./pages/AdminSettingsGeneral.jsx";
+import AdminSettingsAbout from "./pages/AdminSettingsAbout.jsx";
 import AdminSettingsBranding from "./pages/AdminSettingsBranding.jsx";
 import AdminSettingsFeatures from "./pages/AdminSettingsFeatures.jsx";
 import AdminSettingsSso from "./pages/AdminSettingsSso.jsx";
-import AdminSettingsLayout from "./components/admin/AdminSettingsLayout.jsx";
 import AdminMonthlySupport from "./pages/AdminMonthlySupport.jsx";
 import AdminOneTimeNeeds from "./pages/AdminOneTimeNeeds.jsx";
 import AdminPrayerRequests from "./pages/AdminPrayerRequests.jsx";
@@ -95,21 +94,16 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="newsletters" element={<AdminNewsletters />} />
             <Route path="documents" element={<AdminDocuments />} />
             <Route path="account" element={<AccountSettings />} />
-            {/* Church Settings -- one admin-only guard on the whole
-                sub-tree (AdminSettingsLayout's tabs, including User
-                Management) instead of repeating RequireAdminAuth per leaf
-                route, now that Users lives here too instead of its own
-                top-level nav entry. */}
-            <Route
-              path="settings"
-              element={
-                <RequireAdminAuth role="admin">
-                  <AdminSettingsLayout />
-                </RequireAdminAuth>
-              }
-            >
-              <Route index element={<Navigate to="general" replace />} />
-              <Route path="general" element={<AdminSettingsGeneral />} />
+            {/* Site Administration -- one admin-only guard on the whole
+                sub-tree instead of repeating RequireAdminAuth per leaf
+                route. No shared visual layout here (no wrapper element,
+                just Outlet) -- unlike the rest of /admin/*, these pages are
+                reached via the sidebar's own expandable "Site
+                Administration" group (see AdminSidebar.jsx), not a
+                same-page tab bar, so each page owns its own heading. */}
+            <Route path="settings" element={<RequireAdminAuth role="admin"><Outlet /></RequireAdminAuth>}>
+              <Route index element={<Navigate to="about" replace />} />
+              <Route path="about" element={<AdminSettingsAbout />} />
               <Route path="branding" element={<AdminSettingsBranding />} />
               <Route path="features" element={<AdminSettingsFeatures />} />
               <Route path="sso" element={<AdminSettingsSso />} />

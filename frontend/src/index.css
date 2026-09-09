@@ -64,6 +64,26 @@ a { color: var(--brand-color, #2a5d3c); }
    lightening it can go either way depending on the base color. */
 .admin-sidebar-nav a.active { background: rgba(0, 0, 0, 0.28); font-weight: 600; }
 .admin-sidebar-divider { height: 1px; background: rgba(255, 255, 255, 0.2); margin: 0.75rem 0.6rem; }
+
+/* "Site Administration" -- a disclosure toggle (button, not a link; it
+   doesn't navigate anywhere itself) that expands a nested list of admin
+   sub-pages, rather than a separate page with its own tab bar -- keeps
+   "where am I" answered by the sidebar itself, the same way every other
+   section here already works. */
+.admin-sidebar-group-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.admin-sidebar-group-arrow { font-size: 0.75rem; opacity: 0.8; }
+.admin-sidebar-subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-top: 0.15rem;
+}
+.admin-sidebar-subnav a { padding-left: 1.5rem; font-size: 0.85rem; }
 .admin-main { flex: 1; min-width: 0; }
 
 @media (max-width: 800px) {

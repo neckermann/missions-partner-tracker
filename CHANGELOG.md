@@ -16,6 +16,15 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.3.1] - 2026-09-09
+
+Site Administration is now an expandable group in the admin sidebar itself
+(Manage Users, Branding, Enabled Features, Single Sign-On, About Church),
+not a separate page with its own tab bar. Partner terminology moved from
+About Church into Branding. The scheduled demo reset now explicitly turns
+every feature on (including AI request scanning, off by default) instead
+of leaving some toggled off after the schema gets rebuilt from scratch.
+
 ## [1.3.0] - 2026-09-09
 
 Five more feature toggles (Prayer Requests, One-Time Needs, Monthly
