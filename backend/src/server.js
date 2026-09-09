@@ -16,7 +16,9 @@ const countryInfoRoutes = require("./routes/countryInfo");
 const organizationRoutes = require("./routes/organizations");
 const publicOrganizationRoutes = require("./routes/publicOrganizations");
 const supportNeedRoutes = require("./routes/supportNeeds");
+const supportEntryRoutes = require("./routes/supportEntries");
 const prayerRequestRoutes = require("./routes/prayerRequests");
+const tripRoutes = require("./routes/trips");
 const newsletterRoutes = require("./routes/newsletters");
 const documentRoutes = require("./routes/documents");
 const photoRoutes = require("./routes/photos");
@@ -81,7 +83,9 @@ app.use("/api/public/country-info", countryInfoRoutes); // open (Joshua Project 
 app.use("/api/organizations", organizationRoutes); // protected (admin) — session required
 app.use("/api/public/organizations", publicOrganizationRoutes); // open (public site)
 app.use("/api/support-needs", supportNeedRoutes); // protected (admin) — session required
+app.use("/api/support-entries", supportEntryRoutes); // protected (admin) — session required
 app.use("/api/prayer-requests", prayerRequestRoutes); // protected (admin) — session required
+app.use("/api/trips", tripRoutes); // protected (admin) — session required
 app.use("/api/newsletters", newsletterRoutes); // protected (admin) — session required
 app.use("/api/documents", documentRoutes); // protected (admin) — session required
 app.use("/api/photos", photoRoutes); // open (public — same as when these were S3 public-read objects)

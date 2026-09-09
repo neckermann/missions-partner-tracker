@@ -16,6 +16,18 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.7.0] - 2026-09-09
+
+Trip History and Monthly Support are no longer read-only reports at the
+top level. Trip History now has its own Add/Edit/Delete, including trip
+participants, without needing to open a partner's full edit form (new
+`Trip` CRUD endpoints, standalone from the missionary/organization's own
+bulk trip-array save). Monthly Support gets a "+ Add Support Entry" flow
+and a per-partner History panel to log a new amount or correct a
+mis-entered one -- deliberately no in-place edit, since a support entry is
+a point-in-time record, same as a real financial ledger: fixing a mistake
+means deleting the bad entry and adding a new one, not rewriting history.
+
 ## [1.6.0] - 2026-09-09
 
 Newsletters and Documents now have a real "Edit" option too (both the

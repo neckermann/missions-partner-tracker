@@ -215,6 +215,38 @@ export async function deleteSupportNeed(id) {
   await api.delete(`/support-needs/${id}`);
 }
 
+// Standalone SupportEntry create/delete (backend/src/routes/supportEntries.js)
+// -- used by the consolidated Monthly Support admin page to log a new
+// entry against any missionary/org. No update function -- support entries
+// are point-in-time records, not editable in place (see the route's
+// comment); fix a mistake by deleting the bad entry and adding a new one.
+export async function createSupportEntry(payload) {
+  const { data } = await api.post("/support-entries", payload);
+  return data;
+}
+
+export async function deleteSupportEntry(id) {
+  await api.delete(`/support-entries/${id}`);
+}
+
+// Standalone Trip CRUD (backend/src/routes/trips.js) -- used by the
+// consolidated Trip History admin page. Doesn't overlap with the
+// missionTrips/orgTrips array each entity's own edit form already sends as
+// part of its whole-record save.
+export async function createTrip(payload) {
+  const { data } = await api.post("/trips", payload);
+  return data;
+}
+
+export async function updateTrip(id, payload) {
+  const { data } = await api.put(`/trips/${id}`, payload);
+  return data;
+}
+
+export async function deleteTrip(id) {
+  await api.delete(`/trips/${id}`);
+}
+
 export async function fetchPrayerRequests() {
   const { data } = await api.get("/prayer-requests");
   return data;

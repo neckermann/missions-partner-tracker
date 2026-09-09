@@ -210,10 +210,16 @@ show for your specific restricted-access partners.
 
 ## Financial support & one-time needs
 
-**Monthly Support** is a read-only rollup: every partner with at least
-one support entry, their current monthly amount, and a running total —
-archived partners excluded unless you check "Include archived." Click any
-row to jump to that partner.
+**Monthly Support** shows every partner with at least one support entry,
+their current monthly amount, and a running total — archived partners
+excluded unless you check "Include archived." Click a row to jump to that
+partner. **+ Add Support Entry** logs a new amount against any partner
+(the newest effective date is always what counts as "current"); each
+row's **History** button expands to every entry on file for that partner,
+with a **Delete** to remove one entered by mistake. There's deliberately
+no in-place edit here — a support entry is a point-in-time record, like a
+line in a ledger, so correcting one means deleting it and adding a new
+entry rather than rewriting history.
 
 **One-Time Needs** lists every recorded need across all partners, with a
 status pill (Pending Decision / Fully Funded / Partially Funded /
@@ -225,9 +231,14 @@ has made a call.
 ## Trip history & trip opportunities
 
 These are two different things:
-- **Trip History** is a read-only, filterable log of trips that already
-  happened, flattened across every partner — filter by type, year, team
-  size; trips themselves are added from a partner's Edit form, not here.
+- **Trip History** is a filterable log of trips that already happened,
+  flattened across every partner — filter by type, year, team size. **+
+  Add Trip** logs one (pick the partner, dates, trip type, description,
+  and participants) without leaving the page; each row has its own
+  **Edit** (everything except which partner it's under — delete and
+  re-add to move a trip to a different partner) and **Delete**. Trips can
+  still be added/edited from a partner's own Edit form too, same as
+  before — both write to the same records.
 - **Trip Opportunities** is a forward-looking capacity search — "who
   could host a trip like this" — filtering by team size, trip type,
   region, and how recently a team last visited, reading the same Trip
