@@ -62,16 +62,19 @@ const documentInclude = {
   organization: { select: { id: true, name: true } },
 };
 
-const metaSchema = z
-  .object({
-    missionaryId: z.string().optional().nullable(),
-    organizationId: z.string().optional().nullable(),
-    category: z.enum(CATEGORIES),
-    customCategory: z.string().optional().nullable(),
-    title: z.string().optional().nullable(),
-    receivedDate: z.coerce.date(),
-    notes: z.string().optional().nullable(),
-  })
+// A plain object (not the refined version below) so PUT /:id can
+// .omit()/.partial() it -- .refine() wraps a schema in a way that no
+// longer exposes those.
+const metaObjectSchema = z.object({
+  missionaryId: z.string().optional().nullable(),
+  organizationId: z.string().optional().nullable(),
+  category: z.enum(CATEGORIES),
+  customCategory: z.string().optional().nullable(),
+  title: z.string().optional().nullable(),
+  receivedDate: z.coerce.date(),
+  notes: z.string().optional().nullable(),
+});
+const metaSchema = metaObjectSchema
   .refine((data) => Boolean(data.missionaryId) !== Boolean(data.organizationId), {
     message: "Exactly one of missionaryId or organizationId is required",
     path: ["missionaryId"],
@@ -156,6 +159,48 @@ router.get("/:id/download", async (req, res, next) => {
     res.set("Content-Disposition", `inline; filename="${record.fileName.replace(/"/g, "")}"`);
     res.send(record.bytes);
   } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/documents/:id (update metadata — editor or admin). Everything
+// but the file itself is editable, including category/customCategory and
+// re-parenting to a different missionary/organization (e.g. it was filed
+// under the wrong partner or category) -- the file's bytes/fileName/
+// contentType/fileSize are immutable (upload a new document and delete
+// this one if the file's wrong).
+router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
+  try {
+    const data = metaObjectSchema.partial().parse(req.body);
+
+    const existing = await prisma.document.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: "Not found" });
+
+    // Same merge-then-validate approach as PUT /api/newsletters/:id -- both
+    // metaSchema refinements (exactly one of missionaryId/organizationId,
+    // customCategory required when category is "other") are re-checked
+    // against what the record will actually look like after the merge,
+    // not just the raw partial body.
+    const missionaryId = data.missionaryId !== undefined ? data.missionaryId : existing.missionaryId;
+    const organizationId = data.organizationId !== undefined ? data.organizationId : existing.organizationId;
+    if (Boolean(missionaryId) === Boolean(organizationId)) {
+      return res.status(400).json({ error: "Exactly one of missionaryId or organizationId is required" });
+    }
+    const category = data.category !== undefined ? data.category : existing.category;
+    const customCategory = data.customCategory !== undefined ? data.customCategory : existing.customCategory;
+    if (category === "other" && !customCategory?.trim()) {
+      return res.status(400).json({ error: "customCategory is required when category is \"other\"" });
+    }
+
+    const updated = await prisma.document.update({
+      where: { id: req.params.id },
+      data,
+      include: documentInclude,
+      omit: { bytes: true },
+    });
+    res.json(updated);
+  } catch (err) {
+    if (err.name === "ZodError") return res.status(400).json({ error: err.errors });
     next(err);
   }
 });

@@ -239,8 +239,11 @@ Upload from the central **Newsletters** page (**+ Upload Newsletter**:
 pick the partner, choose a file — PDF, `.eml`, JPEG, or PNG — optional
 title/notes) or directly from that partner's detail page, which embeds
 the same upload/view/delete UI. **View** opens the file in a new tab;
-**Delete** removes it permanently. Newsletters are always private — never
-shown on the public site, regardless of the partner's `isPublic` flag.
+**Edit** lets you fix everything but the uploaded file itself — title,
+received date, notes, and (from the central page only) which partner
+it's filed under; **Delete** removes it permanently. Newsletters are
+always private — never shown on the public site, regardless of the
+partner's `isPublic` flag.
 
 ## Documents
 
@@ -267,7 +270,9 @@ upload/view/delete UI. Every document needs a category:
 The central **Documents** page can filter by category and by
 missionary/organization, so you can, for example, pull up every signed
 policy on file across all partners at once. **View** opens the file in a
-new tab; **Delete** removes it permanently.
+new tab; **Edit** lets you fix everything but the uploaded file itself —
+category, title, received date, notes, and (from the central page only)
+which partner it's filed under; **Delete** removes it permanently.
 
 ## Prayer Requests
 

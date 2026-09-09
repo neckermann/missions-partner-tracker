@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { uploadDocument, deleteDocument, extractFromDocument } from "../../api/client.js";
+import { uploadDocument, updateDocument, deleteDocument, extractFromDocument } from "../../api/client.js";
 import { DOCUMENT_CATEGORIES, documentCategoryLabel } from "../../utils/documentCategories.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
@@ -46,6 +46,8 @@ export default function DocumentSection({ missionaryId, organizationId, document
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ category: "", customCategory: "", title: "", receivedDate: "", notes: "" });
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -97,6 +99,45 @@ export default function DocumentSection({ missionaryId, organizationId, document
     if (!confirm(`Delete "${d.title || d.fileName}"? This cannot be undone.`)) return;
     await deleteDocument(d.id);
     await onChange();
+  }
+
+  // Everything but the file itself is editable (see the PUT route comment
+  // in backend/src/routes/documents.js). Re-parenting to a different
+  // missionary/organization isn't offered here -- this section is embedded
+  // on that partner's own detail page, which doesn't have the full
+  // missionary/organization list loaded; use the top-level Documents page
+  // for that.
+  function startEdit(d) {
+    setEditingId(d.id);
+    setError("");
+    setEditForm({
+      category: d.category,
+      customCategory: d.customCategory || "",
+      title: d.title || "",
+      receivedDate: String(d.receivedDate).slice(0, 10),
+      notes: d.notes || "",
+    });
+  }
+
+  async function submitEdit(id) {
+    setError("");
+    if (editForm.category === "other" && !editForm.customCategory.trim()) {
+      setError("Enter a label for this document's category");
+      return;
+    }
+    try {
+      await updateDocument(id, {
+        category: editForm.category,
+        customCategory: editForm.category === "other" ? editForm.customCategory : null,
+        title: editForm.title,
+        receivedDate: editForm.receivedDate,
+        notes: editForm.notes,
+      });
+      setEditingId(null);
+      await onChange();
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to save changes");
+    }
   }
 
   return (
@@ -185,11 +226,76 @@ export default function DocumentSection({ missionaryId, organizationId, document
                       Scan for requests
                     </button>
                   )}
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    onClick={() => (editingId === d.id ? (setEditingId(null), setError("")) : startEdit(d))}
+                  >
+                    {editingId === d.id ? "Cancel" : "Edit"}
+                  </button>
                   <button type="button" className="btn danger small" onClick={() => handleDelete(d)}>
                     Delete
                   </button>
                 </div>
               </div>
+              {editingId === d.id && (
+                <div className="form-grid" style={{ marginTop: "0.75rem" }}>
+                  <label title="Everything but the file itself can be edited. To move this to a different missionary/organization, use the top-level Documents page.">
+                    Category
+                    <select
+                      value={editForm.category}
+                      onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
+                    >
+                      {DOCUMENT_CATEGORIES.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {editForm.category === "other" && (
+                    <label>
+                      Category label
+                      <input
+                        value={editForm.customCategory}
+                        onChange={(e) => setEditForm((f) => ({ ...f, customCategory: e.target.value }))}
+                        placeholder="e.g. Background Check"
+                        required
+                      />
+                    </label>
+                  )}
+                  <label>
+                    Title
+                    <input
+                      value={editForm.title}
+                      onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                      placeholder="e.g. 2026 Field Survey"
+                    />
+                  </label>
+                  <label>
+                    Received Date
+                    <input
+                      type="date"
+                      value={editForm.receivedDate}
+                      onChange={(e) => setEditForm((f) => ({ ...f, receivedDate: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label style={{ gridColumn: "1 / -1" }}>
+                    Notes
+                    <input
+                      value={editForm.notes}
+                      onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                    />
+                  </label>
+                  {error && <p style={{ color: "#b91c1c", gridColumn: "1 / -1" }}>{error}</p>}
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <button type="button" className="btn small" onClick={() => submitEdit(d.id)}>
+                      Save
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))
         ) : (

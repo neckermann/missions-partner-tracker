@@ -248,6 +248,13 @@ export async function deleteNewsletter(id) {
   await api.delete(`/newsletters/${id}`);
 }
 
+// Everything but the file itself is editable -- see the PUT route comment
+// in backend/src/routes/newsletters.js.
+export async function updateNewsletter(id, data) {
+  const { data: updated } = await api.put(`/newsletters/${id}`, data);
+  return updated;
+}
+
 // Returns { prayerRequests: [...], oneTimeNeeds: [...] } -- nothing is
 // persisted server-side, the caller reviews and explicitly adds each one
 // (see ExtractionReviewModal.jsx).
@@ -268,6 +275,13 @@ export async function uploadDocument(formData) {
 
 export async function deleteDocument(id) {
   await api.delete(`/documents/${id}`);
+}
+
+// Everything but the file itself is editable -- see the PUT route comment
+// in backend/src/routes/documents.js.
+export async function updateDocument(id, data) {
+  const { data: updated } = await api.put(`/documents/${id}`, data);
+  return updated;
 }
 
 // See extractFromNewsletter above -- same shape, same nothing-persisted behavior.

@@ -404,11 +404,11 @@ model SupportNeed {
 // keeping this long-term rather than letting requests fall off after
 // they're no longer current.
 //
-// `category` ("short_term" | "long_term") controls where a request can
-// ever be shown publicly: only "long_term" requests are eligible, and
+// `category` ("strategic" | "situational") controls where a request can
+// ever be shown publicly: only "strategic" requests are eligible, and
 // only when `isPublic` is also explicitly set — same explicit opt-in
 // pattern as Missionary/Organization.isPublic elsewhere in this schema,
-// so a long-term request isn't shown publicly just because of its
+// so a strategic request isn't shown publicly just because of its
 // category alone.
 model PrayerRequest {
   id             String        @id @default(uuid())

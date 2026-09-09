@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import {
   fetchDocuments,
   uploadDocument,
+  updateDocument,
   deleteDocument,
   extractFromDocument,
   fetchAdminMissionaries,
@@ -65,6 +66,8 @@ export default function AdminDocuments() {
   const [error, setError] = useState("");
   const [entityFilter, setEntityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ entityKey: "", category: "", customCategory: "", title: "", receivedDate: "", notes: "" });
 
   function reload() {
     fetchDocuments().then(setDocuments).catch(console.error);
@@ -128,6 +131,51 @@ export default function AdminDocuments() {
     if (!confirm(`Delete this document for ${entity.name}? This cannot be undone.`)) return;
     await deleteDocument(d.id);
     reload();
+  }
+
+  // Everything but the file itself is editable (see the PUT route comment
+  // in backend/src/routes/documents.js) -- entityKey mirrors the same
+  // combined missionary/organization dropdown used in the Add form above.
+  function startEdit(d) {
+    const entityKey = d.missionary ? `missionary:${d.missionary.id}` : d.organization ? `organization:${d.organization.id}` : "";
+    setError("");
+    setEditingId(d.id);
+    setEditForm({
+      entityKey,
+      category: d.category,
+      customCategory: d.customCategory || "",
+      title: d.title || "",
+      receivedDate: String(d.receivedDate).slice(0, 10),
+      notes: d.notes || "",
+    });
+  }
+
+  async function submitEdit(id) {
+    setError("");
+    if (!editForm.entityKey) {
+      setError("Choose a missionary or organization");
+      return;
+    }
+    if (editForm.category === "other" && !editForm.customCategory.trim()) {
+      setError("Enter a label for this document's category");
+      return;
+    }
+    const [entityType, entityId] = editForm.entityKey.split(":");
+    try {
+      await updateDocument(id, {
+        missionaryId: entityType === "missionary" ? entityId : null,
+        organizationId: entityType === "organization" ? entityId : null,
+        category: editForm.category,
+        customCategory: editForm.category === "other" ? editForm.customCategory : null,
+        title: editForm.title,
+        receivedDate: editForm.receivedDate,
+        notes: editForm.notes,
+      });
+      setEditingId(null);
+      reload();
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to save changes");
+    }
   }
 
   const filtered = documents.filter(
@@ -282,33 +330,128 @@ export default function AdminDocuments() {
           {filtered.map((d) => {
             const entity = entityFor(d);
             return (
-              <tr key={d.id}>
-                <td>{entity.link ? <Link to={entity.link}>{entity.name}</Link> : entity.name}</td>
-                <td>{entity.type}</td>
-                <td>{documentCategoryLabel(d)}</td>
-                <td>{d.title || "—"}</td>
-                <td>{formatDate(d.receivedDate)}</td>
-                <td>
-                  {d.fileName}
-                  {d.fileSize != null && (
-                    <span style={{ color: "#888", fontSize: "0.85rem" }}> ({formatFileSize(d.fileSize)})</span>
-                  )}
-                </td>
-                <td style={{ maxWidth: "16rem" }}>{d.notes || "—"}</td>
-                <td className="table-actions">
-                  <button type="button" className="btn secondary small" onClick={() => handleView(d)}>
-                    View
-                  </button>
-                  {enabledFeatures.aiExtraction && isScannable(d) && (
-                    <button type="button" className="btn secondary small" onClick={() => setScanning(d)}>
-                      Scan for requests
+              <React.Fragment key={d.id}>
+                <tr>
+                  <td>{entity.link ? <Link to={entity.link}>{entity.name}</Link> : entity.name}</td>
+                  <td>{entity.type}</td>
+                  <td>{documentCategoryLabel(d)}</td>
+                  <td>{d.title || "—"}</td>
+                  <td>{editingId === d.id ? formatDate(editForm.receivedDate) : formatDate(d.receivedDate)}</td>
+                  <td>
+                    {d.fileName}
+                    {d.fileSize != null && (
+                      <span style={{ color: "#888", fontSize: "0.85rem" }}> ({formatFileSize(d.fileSize)})</span>
+                    )}
+                  </td>
+                  <td style={{ maxWidth: "16rem" }}>{editingId === d.id ? editForm.notes || "—" : d.notes || "—"}</td>
+                  <td className="table-actions">
+                    <button type="button" className="btn secondary small" onClick={() => handleView(d)}>
+                      View
                     </button>
-                  )}
-                  <button type="button" className="btn danger small" onClick={() => handleDelete(d)}>
-                    Delete
-                  </button>
-                </td>
-              </tr>
+                    {enabledFeatures.aiExtraction && isScannable(d) && (
+                      <button type="button" className="btn secondary small" onClick={() => setScanning(d)}>
+                        Scan for requests
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn secondary small"
+                      onClick={() => (editingId === d.id ? (setEditingId(null), setError("")) : startEdit(d))}
+                    >
+                      {editingId === d.id ? "Cancel" : "Edit"}
+                    </button>
+                    <button type="button" className="btn danger small" onClick={() => handleDelete(d)}>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+                {editingId === d.id && (
+                  <tr>
+                    <td colSpan={8}>
+                      <div className="form-grid">
+                        <label style={{ gridColumn: "1 / -1" }} title="Everything but the file itself can be edited.">
+                          Missionary or Organization
+                          <select
+                            value={editForm.entityKey}
+                            onChange={(e) => setEditForm((f) => ({ ...f, entityKey: e.target.value }))}
+                            required
+                          >
+                            <option value="">Select one...</option>
+                            <optgroup label="Missionaries">
+                              {missionaries.map((m) => (
+                                <option key={m.id} value={`missionary:${m.id}`}>
+                                  {m.displayName}
+                                </option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="Organizations">
+                              {organizations.map((o) => (
+                                <option key={o.id} value={`organization:${o.id}`}>
+                                  {o.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          </select>
+                        </label>
+                        <label>
+                          Category
+                          <select
+                            value={editForm.category}
+                            onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
+                          >
+                            {DOCUMENT_CATEGORIES.map((c) => (
+                              <option key={c.value} value={c.value}>
+                                {c.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        {editForm.category === "other" && (
+                          <label>
+                            Category label
+                            <input
+                              value={editForm.customCategory}
+                              onChange={(e) => setEditForm((f) => ({ ...f, customCategory: e.target.value }))}
+                              placeholder="e.g. Background Check"
+                              required
+                            />
+                          </label>
+                        )}
+                        <label>
+                          Title
+                          <input
+                            value={editForm.title}
+                            onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                            placeholder="e.g. 2026 Field Survey"
+                          />
+                        </label>
+                        <label>
+                          Received Date
+                          <input
+                            type="date"
+                            value={editForm.receivedDate}
+                            onChange={(e) => setEditForm((f) => ({ ...f, receivedDate: e.target.value }))}
+                            required
+                          />
+                        </label>
+                        <label style={{ gridColumn: "1 / -1" }}>
+                          Notes
+                          <input
+                            value={editForm.notes}
+                            onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                          />
+                        </label>
+                      </div>
+                      {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+                      <div style={{ marginTop: "0.5rem" }}>
+                        <button type="button" className="btn small" onClick={() => submitEdit(d.id)}>
+                          Save
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             );
           })}
           {filtered.length === 0 && (

@@ -16,6 +16,18 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.6.0] - 2026-09-09
+
+Newsletters and Documents now have a real "Edit" option too (both the
+top-level page and the embedded section on a partner's detail page) --
+everything but the uploaded file itself is editable, including moving a
+misfiled newsletter/document to a different missionary or organization
+(top-level pages only; the embedded section stays scoped to the partner
+you're already viewing) and, for documents, changing the category. Also
+fixes a stale doc comment left behind by the 1.4.0 prayer request category
+rename, and a Playwright e2e test that still selected the old "Long-term"
+option label.
+
 ## [1.5.0] - 2026-09-09
 
 Prayer Requests and One-Time Needs now have a real "Edit" option (fix a

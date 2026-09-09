@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { uploadNewsletter, deleteNewsletter, extractFromNewsletter } from "../../api/client.js";
+import { uploadNewsletter, updateNewsletter, deleteNewsletter, extractFromNewsletter } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
 
@@ -44,6 +44,8 @@ export default function NewsletterSection({ missionaryId, organizationId, newsle
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ title: "", receivedDate: "", notes: "" });
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -87,6 +89,27 @@ export default function NewsletterSection({ missionaryId, organizationId, newsle
     if (!confirm(`Delete "${n.title || n.fileName}"? This cannot be undone.`)) return;
     await deleteNewsletter(n.id);
     await onChange();
+  }
+
+  // Everything but the file itself is editable (see the PUT route comment
+  // in backend/src/routes/newsletters.js). Re-parenting to a different
+  // missionary/organization isn't offered here -- this section is embedded
+  // on that partner's own detail page, which doesn't have the full
+  // missionary/organization list loaded; use the top-level Newsletters
+  // page for that.
+  function startEdit(n) {
+    setEditingId(n.id);
+    setEditForm({ title: n.title || "", receivedDate: String(n.receivedDate).slice(0, 10), notes: n.notes || "" });
+  }
+
+  async function submitEdit(id) {
+    try {
+      await updateNewsletter(id, editForm);
+      setEditingId(null);
+      await onChange();
+    } catch (err) {
+      alert(err.response?.data?.error || "Failed to save changes");
+    }
   }
 
   return (
@@ -154,11 +177,51 @@ export default function NewsletterSection({ missionaryId, organizationId, newsle
                       Scan for requests
                     </button>
                   )}
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    onClick={() => (editingId === n.id ? setEditingId(null) : startEdit(n))}
+                  >
+                    {editingId === n.id ? "Cancel" : "Edit"}
+                  </button>
                   <button type="button" className="btn danger small" onClick={() => handleDelete(n)}>
                     Delete
                   </button>
                 </div>
               </div>
+              {editingId === n.id && (
+                <div className="form-grid" style={{ marginTop: "0.75rem" }}>
+                  <label title="Everything but the file itself can be edited. To move this to a different missionary/organization, use the top-level Newsletters page.">
+                    Title
+                    <input
+                      value={editForm.title}
+                      onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                      placeholder="e.g. Summer 2026 Update"
+                    />
+                  </label>
+                  <label>
+                    Received Date
+                    <input
+                      type="date"
+                      value={editForm.receivedDate}
+                      onChange={(e) => setEditForm((f) => ({ ...f, receivedDate: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label style={{ gridColumn: "1 / -1" }}>
+                    Notes
+                    <input
+                      value={editForm.notes}
+                      onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                    />
+                  </label>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <button type="button" className="btn small" onClick={() => submitEdit(n.id)}>
+                      Save
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))
         ) : (

@@ -135,6 +135,43 @@ router.get("/:id/download", async (req, res, next) => {
   }
 });
 
+// PUT /api/newsletters/:id (update metadata — editor or admin). Everything
+// but the file itself is editable, including re-parenting to a different
+// missionary/organization (e.g. it was filed under the wrong partner) --
+// the file's bytes/fileName/contentType/fileSize are immutable (upload a
+// new newsletter and delete this one if the file's wrong).
+router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
+  try {
+    const data = metaSchema.partial().parse(req.body);
+
+    const existing = await prisma.newsletter.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: "Not found" });
+
+    // missionaryId/organizationId are independently optional in the partial
+    // schema, so re-check the "exactly one" invariant against what the
+    // record will actually look like after merging in whichever of the two
+    // fields the request touched.
+    if (data.missionaryId !== undefined || data.organizationId !== undefined) {
+      const missionaryId = data.missionaryId !== undefined ? data.missionaryId : existing.missionaryId;
+      const organizationId = data.organizationId !== undefined ? data.organizationId : existing.organizationId;
+      if (Boolean(missionaryId) === Boolean(organizationId)) {
+        return res.status(400).json({ error: "Exactly one of missionaryId or organizationId is required" });
+      }
+    }
+
+    const updated = await prisma.newsletter.update({
+      where: { id: req.params.id },
+      data,
+      include: newsletterInclude,
+      omit: { bytes: true },
+    });
+    res.json(updated);
+  } catch (err) {
+    if (err.name === "ZodError") return res.status(400).json({ error: err.errors });
+    next(err);
+  }
+});
+
 // POST /api/newsletters/:id/extract — scans the file with Claude for prayer
 // requests and one-time needs (editor or admin, same as upload). Gated on
 // the "aiExtraction" feature specifically (not the router-wide "newsletters"

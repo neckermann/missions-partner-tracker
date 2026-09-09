@@ -20,9 +20,9 @@ test.describe("Prayer requests", () => {
 
     const uniqueText = `E2E prayer request ${Date.now()}`;
     await page.click("button:has-text('+ Add Prayer Request')");
-    await page.selectOption("select", { label: "Long-term (can be shared publicly)" });
+    await page.selectOption("select", { label: "Strategic (ministry vision/calling — can be shared publicly)" });
     await page.fill("textarea", uniqueText);
-    await page.locator('input[type="checkbox"]').first().check(); // "Show on public profile & booklet"
+    await page.locator('input[type="checkbox"]').first().check(); // "Show on public profile"
     await page.click('button[type="submit"]:has-text("Add Prayer Request")');
 
     const section = page.locator(".admin-section", { hasText: "Prayer Requests" }).first();
