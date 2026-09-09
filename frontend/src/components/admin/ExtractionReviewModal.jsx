@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPrayerRequest, createSupportNeed } from "../../api/client.js";
+import { useSettings } from "../../context/SettingsContext.jsx";
 
 // Shared by NewsletterSection and DocumentSection's "Scan for requests"
 // button. `scan` is the extractFromNewsletter/extractFromDocument call
@@ -9,6 +10,7 @@ import { createPrayerRequest, createSupportNeed } from "../../api/client.js";
 // the modal without adding just discards the rest of the suggestions
 // (re-runnable any time from the same button).
 export default function ExtractionReviewModal({ scan, missionaryId, organizationId, defaultDate, onClose }) {
+  const { enabledFeatures } = useSettings();
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [error, setError] = useState("");
   const [prayerRequests, setPrayerRequests] = useState([]);
@@ -17,8 +19,15 @@ export default function ExtractionReviewModal({ scan, missionaryId, organization
   useEffect(() => {
     scan()
       .then((result) => {
-        setPrayerRequests((result.prayerRequests || []).map((r) => ({ ...r, state: "pending" })));
-        setOneTimeNeeds((result.oneTimeNeeds || []).map((n) => ({ ...n, state: "pending" })));
+        // Suggestions for a feature this church has turned off don't make
+        // sense to offer -- the Add button would just 404 (see
+        // requireFeature("prayerRequests"/"oneTimeNeeds") on the backend).
+        setPrayerRequests(
+          enabledFeatures.prayerRequests ? (result.prayerRequests || []).map((r) => ({ ...r, state: "pending" })) : []
+        );
+        setOneTimeNeeds(
+          enabledFeatures.oneTimeNeeds ? (result.oneTimeNeeds || []).map((n) => ({ ...n, state: "pending" })) : []
+        );
         setStatus("ready");
       })
       .catch((err) => {

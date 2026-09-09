@@ -20,7 +20,18 @@ const DEFAULTS = {
   // Resolved booleans (env-var checks already applied server-side, see
   // routes/publicSettings.js) -- every key defaults to true here so a page
   // never flashes "disabled" while this first fetch is still in flight.
-  enabledFeatures: { newsletters: true, documents: true, publicDirectory: true, publicMap: true, aiExtraction: false },
+  enabledFeatures: {
+    newsletters: true,
+    documents: true,
+    publicDirectory: true,
+    publicMap: true,
+    aiExtraction: false,
+    prayerRequests: true,
+    oneTimeNeeds: true,
+    monthlySupport: true,
+    trips: true,
+    booklet: true,
+  },
 };
 
 const SettingsContext = createContext({ ...DEFAULTS, loading: true });

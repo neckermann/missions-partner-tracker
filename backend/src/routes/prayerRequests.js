@@ -2,9 +2,11 @@ const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireFeature } = require("../middleware/requireFeature");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireFeature("prayerRequests"));
 
 // Free-standing CRUD for the consolidated "Prayer Requests" admin page,
 // same shape as routes/supportNeeds.js. `status` has no "unanswered"

@@ -103,6 +103,7 @@ router.get("/", async (req, res, next) => {
       label: FEATURES[key].label,
       description: FEATURES[key].description,
       defaultEnabled: FEATURES[key].defaultEnabled,
+      group: FEATURES[key].group,
       requiresEnvVar: FEATURES[key].requiresEnvVar || null,
       envVarSatisfied: FEATURES[key].requiresEnvVar ? Boolean(process.env[FEATURES[key].requiresEnvVar]) : true,
     }));

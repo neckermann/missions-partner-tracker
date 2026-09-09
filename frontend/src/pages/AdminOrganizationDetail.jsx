@@ -46,33 +46,36 @@ function formatCurrency(amount) {
 // site — see toPublicMissionary/toPublicOrganization in backend/src/utils/maskData.js).
 // Duplicated from AdminMissionaryDetail.jsx, matching this codebase's
 // existing convention for small per-page helper components.
-function FinancialSupportSection({ supportEntries, needRequests }) {
+function FinancialSupportSection({ supportEntries, needRequests, showMonthlySupport, showOneTimeNeeds }) {
   // The API already orders both by date descending, so the first entry is
   // "current" by definition.
   const current = supportEntries?.[0];
 
   return (
     <>
-      <div className="admin-section">
-        <h3>Financial Support</h3>
-        <div style={{ marginBottom: "1rem" }}>
-          <Field label="Current Monthly Support" value={formatCurrency(current?.amount)} showEmpty />
-        </div>
-        {supportEntries?.length > 0 ? (
-          supportEntries.map((entry) => (
-            <div key={entry.id} className="repeatable-row">
-              <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-                <Field label="Amount" value={formatCurrency(entry.amount)} />
-                <Field label="Effective Date" value={formatDate(entry.effectiveDate)} />
-                <Field label="Notes" value={entry.notes} />
+      {showMonthlySupport && (
+        <div className="admin-section">
+          <h3>Financial Support</h3>
+          <div style={{ marginBottom: "1rem" }}>
+            <Field label="Current Monthly Support" value={formatCurrency(current?.amount)} showEmpty />
+          </div>
+          {supportEntries?.length > 0 ? (
+            supportEntries.map((entry) => (
+              <div key={entry.id} className="repeatable-row">
+                <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
+                  <Field label="Amount" value={formatCurrency(entry.amount)} />
+                  <Field label="Effective Date" value={formatDate(entry.effectiveDate)} />
+                  <Field label="Notes" value={entry.notes} />
+                </div>
               </div>
-            </div>
-          ))
-        ) : (
-          <p style={{ color: "#888" }}>No support history on file.</p>
-        )}
-      </div>
+            ))
+          ) : (
+            <p style={{ color: "#888" }}>No support history on file.</p>
+          )}
+        </div>
+      )}
 
+      {showOneTimeNeeds && (
       <div className="admin-section">
         <h3>One-Time Needs</h3>
         {needRequests?.length > 0 ? (
@@ -108,6 +111,7 @@ function FinancialSupportSection({ supportEntries, needRequests }) {
           <p style={{ color: "#888" }}>No needs on file.</p>
         )}
       </div>
+      )}
     </>
   );
 }
@@ -246,9 +250,16 @@ export default function AdminOrganizationDetail() {
           )}
         </div>
 
-        <FinancialSupportSection supportEntries={o.supportEntries} needRequests={o.needRequests} />
+        <FinancialSupportSection
+          supportEntries={o.supportEntries}
+          needRequests={o.needRequests}
+          showMonthlySupport={enabledFeatures.monthlySupport}
+          showOneTimeNeeds={enabledFeatures.oneTimeNeeds}
+        />
 
-        <PrayerRequestSection organizationId={o.id} prayerRequests={o.prayerRequests} onChange={reload} />
+        {enabledFeatures.prayerRequests && (
+          <PrayerRequestSection organizationId={o.id} prayerRequests={o.prayerRequests} onChange={reload} />
+        )}
 
         {enabledFeatures.newsletters && (
           <NewsletterSection organizationId={o.id} newsletters={o.newsletters} onChange={reload} />

@@ -2,9 +2,17 @@ const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireFeature } = require("../middleware/requireFeature");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
+// Only gates this standalone CRUD path -- doesn't reach the nested
+// needRequests array inside routes/missionaries.js/organizations.js (see
+// the comment above), which stays usable from a missionary/org's own edit
+// form either way. A narrower gap than most of this app's other toggles,
+// which is why this one hasn't gotten the same full nav-declutter benefit
+// as Newsletters/Documents -- worth revisiting if it matters in practice.
+router.use(requireFeature("oneTimeNeeds"));
 
 // Free-standing CRUD for SupportNeed, on top of the wholesale-replace
 // `needRequests` array already handled inside routes/missionaries.js and

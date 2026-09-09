@@ -16,6 +16,19 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.3.0] - 2026-09-09
+
+Five more feature toggles (Prayer Requests, One-Time Needs, Monthly
+Support, Mission Trips, Print Booklet), grouped into Public vs. Admin
+sections in Church Settings > Features. Church Settings itself is now a
+proper admin sub-section with its own tab nav (General, Branding,
+Features, Single Sign-On, Users) instead of one long page — User
+Management moved here from its own top-level nav entry. Every checkbox in
+the admin app now renders as a pill toggle, restyled directly via CSS
+(no markup changes). Seed data now weaves prayer requests and one-time
+needs into a fraction of generated newsletters/documents, so a fresh seed
+or demo reset always has something real for AI request scanning to find.
+
 ## [1.2.1] - 2026-09-09
 
 Fixed: "Scan for requests" was missing from the standalone Newsletters and

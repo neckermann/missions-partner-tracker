@@ -45,7 +45,7 @@ export default function AdminUserForm() {
       } else {
         await createUser(payload);
       }
-      navigate("/admin/users");
+      navigate("/admin/settings/users");
     } catch (err) {
       setError(err.response?.data?.error || "Failed to save user");
     } finally {
@@ -135,7 +135,7 @@ export default function AdminUserForm() {
           <button type="submit" className="btn" disabled={saving}>
             {saving ? "Saving..." : "Save"}
           </button>
-          <button type="button" className="btn secondary" style={{ marginLeft: "0.5rem" }} onClick={() => navigate("/admin/users")}>
+          <button type="button" className="btn secondary" style={{ marginLeft: "0.5rem" }} onClick={() => navigate("/admin/settings/users")}>
             Cancel
           </button>
         </div>

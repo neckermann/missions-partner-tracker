@@ -227,12 +227,53 @@ const NEWSLETTER_OPENERS = [
   "As always, we're thankful for this church family standing behind us",
 ];
 
+// A fraction of generated newsletters/documents get a prayer request
+// and/or one-time need woven in, so a fresh seed/demo reset always has
+// something real for the AI request-scanning feature (see
+// backend/src/utils/extraction.js) to actually find -- otherwise every
+// newsletter is generic "thanks for your support" filler with nothing to
+// extract, and the feature looks broken on a brand-new instance.
+const PRAYER_REQUEST_LINES = [
+  "Please pray for safety as I travel to the field next month.",
+  "Please continue praying for wisdom as we plan next steps for the ministry here.",
+  "Pray for our team as we prepare for the upcoming outreach event.",
+  "Please keep praying for open doors as we build relationships in the community.",
+  "Pray for good health and stamina during this busy season of ministry.",
+  "Please pray for our kids as they adjust to a new season of transition.",
+  "We'd covet your prayers for a difficult family situation back home that has been weighing on us.",
+  "Please pray for clarity as we discern what our next assignment should look like.",
+  "Pray for the local believers we're discipling, that they'd grow in confidence sharing their faith.",
+  "Please keep lifting up a close friend here who is walking through a serious illness.",
+];
+const ONE_TIME_NEED_LINES = [
+  (amount) => `Our vehicle needs significant repairs, and we're asking for help covering the $${amount} cost.`,
+  (amount) => `We have an unexpected medical bill of $${amount} and would be grateful for any support toward it.`,
+  (amount) => `We're hoping to raise $${amount} to replace ministry equipment that broke down recently.`,
+  (amount) => `A specific need has come up -- we're asking for help with $${amount} in visa renewal fees.`,
+  (amount) => `We're believing God for provision toward a $${amount} need to repair storm damage to our home here.`,
+  () => `We're trusting God for provision to cover an unexpected need this month -- if you feel led to help, please reach out.`,
+];
+
+// Independent odds -- most newsletters get neither (realistic; most updates
+// are just updates), some get one, a few get both.
+function scannableExtras() {
+  const parts = [];
+  if (chance(0.4)) parts.push(`Prayer requests:\n${pick(PRAYER_REQUEST_LINES)}`);
+  if (chance(0.2)) {
+    const line = pick(ONE_TIME_NEED_LINES);
+    const amount = randInt(2, 20) * 100; // round hundreds, like a real ask
+    parts.push(`One-time need:\n${line(amount)}`);
+  }
+  return parts.join("\n\n");
+}
+
 // Uploaded as .eml (a plain-text "saved email") rather than a generated
 // PDF — trivially valid with no binary structure to get wrong, and matches
 // one of the file types the Newsletter feature already explicitly supports
 // (see routes/newsletters.js's resolveExt).
 function buildFakeEml(fromName, fromSlug, subject, field) {
-  const body = `${pick(NEWSLETTER_OPENERS)} as we serve in ${field}. This season has brought both challenges and encouragement, and we're excited to share a bit of both with you.\n\nThank you for partnering with us.\n\nIn Him,\n${fromName}`;
+  const extras = scannableExtras();
+  const body = `${pick(NEWSLETTER_OPENERS)} as we serve in ${field}. This season has brought both challenges and encouragement, and we're excited to share a bit of both with you.${extras ? `\n\n${extras}` : ""}\n\nThank you for partnering with us.\n\nIn Him,\n${fromName}`;
   const eml = [
     `From: ${fromName} <${fromSlug}@example.com>`,
     `To: missions@example.org`,
@@ -282,19 +323,45 @@ const DOCUMENT_NOTES = [
   "Received during the fall check-in cycle.",
 ];
 
+// ~90 chars fits comfortably at 11pt Helvetica within a 612pt-wide page's
+// margins -- rough estimate (no real text-metrics), fine for seed-data
+// placeholder text rather than production typesetting.
+function wrapText(text, maxChars = 90) {
+  const words = text.split(/\s+/);
+  const lines = [];
+  let line = "";
+  for (const word of words) {
+    if (line && (line + " " + word).length > maxChars) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = line ? `${line} ${word}` : word;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
 // A real, structurally-valid single-page PDF (byte-accurate xref table and
-// all) with the title rendered as text — not just the "%PDF-" magic bytes.
-// An earlier version of this only wrote the magic bytes, which passed
-// routes/documents.js's upload-time signature check but produced a file
-// that opened to nothing. Built by hand rather than pulling in a PDF
-// library, since it's four fixed lines of Helvetica text on one page.
-function buildFakePdf(title) {
+// all) with the title (and, for a fraction of documents, a prayer request
+// and/or one-time need -- see scannableExtras) rendered as text, not just
+// the "%PDF-" magic bytes. An earlier version of this only wrote the magic
+// bytes, which passed routes/documents.js's upload-time signature check but
+// produced a file that opened to nothing. Built by hand rather than pulling
+// in a PDF library, since it's a handful of fixed lines of Helvetica text
+// on one page.
+function buildFakePdf(title, extraText) {
   const escape = (s) => s.replace(/([()\\])/g, "\\$1");
+  const bodyLines = extraText
+    ? extraText.split("\n").flatMap((line) => (line ? wrapText(line) : [""]))
+    : ["Seed data placeholder -- not a real document."];
   const content = [
     "BT",
     "/F1 18 Tf",
     `72 700 Td (${escape(title)}) Tj`,
-    "0 -28 Td (Seed data placeholder \\-\\- not a real document.) Tj",
+    "/F1 11 Tf",
+    "0 -32 Td",
+    ...bodyLines.map((line) => `0 -15 Td (${escape(line)}) Tj`),
     "ET",
   ].join("\n");
   const contentBytes = Buffer.byteLength(content, "latin1");
@@ -337,7 +404,11 @@ async function maybeAddDocument({ missionaryId, organizationId, name, slug, fiel
     fileName = "email.eml";
     contentType = "message/rfc822";
   } else {
-    buffer = buildFakePdf(title);
+    // Only for categories where a prayer request/need mention is plausible
+    // content -- a signed policy or background-check result wouldn't
+    // realistically contain one.
+    const extraText = category === "office_document" || category === "survey_response" ? scannableExtras() : "";
+    buffer = buildFakePdf(title, extraText);
     fileName = "document.pdf";
     contentType = "application/pdf";
   }
@@ -913,9 +984,17 @@ async function main() {
   console.log(`Done. Missionaries: ${finalMissionaries}, Organizations: ${finalOrgs}.`);
 }
 
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+// Guarded so this file can be safely require()'d elsewhere (e.g. to reuse
+// buildFakePdf/buildFakeEml for a quick manual check) without silently
+// re-running the whole seed against whatever DATABASE_URL happens to be
+// active -- found the hard way while verifying this file's own changes.
+if (require.main === module) {
+  main()
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());
+}
+
+module.exports = { buildFakePdf, buildFakeEml, scannableExtras };

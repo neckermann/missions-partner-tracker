@@ -41,7 +41,7 @@ export default function AdminUsers() {
     <div className="admin-shell">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Users ({users.length})</h2>
-        <Link to="/admin/users/new" className="btn">+ Add User</Link>
+        <Link to="/admin/settings/users/new" className="btn">+ Add User</Link>
       </div>
 
         <table className="admin-table">
@@ -78,7 +78,7 @@ export default function AdminUsers() {
                 </td>
                 <td>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "Never"}</td>
                 <td className="table-actions">
-                  <Link to={`/admin/users/${u.id}`}>Edit</Link>
+                  <Link to={`/admin/settings/users/${u.id}`}>Edit</Link>
                   {u.authProvider === "local" && u.mfaEnabled && (
                     <button className="btn secondary small" onClick={() => handleResetMfa(u.id, u.email)}>
                       Reset MFA

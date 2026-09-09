@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import PublicMap from "./pages/PublicMap.jsx";
 import PublicDirectory from "./pages/PublicDirectory.jsx";
 import PublicPartnerDetail from "./pages/PublicPartnerDetail.jsx";
@@ -16,6 +16,11 @@ import AdminOrganizationDetail from "./pages/AdminOrganizationDetail.jsx";
 import AdminUsers from "./pages/AdminUsers.jsx";
 import AdminUserForm from "./pages/AdminUserForm.jsx";
 import AccountSettings from "./pages/AccountSettings.jsx";
+import AdminSettingsGeneral from "./pages/AdminSettingsGeneral.jsx";
+import AdminSettingsBranding from "./pages/AdminSettingsBranding.jsx";
+import AdminSettingsFeatures from "./pages/AdminSettingsFeatures.jsx";
+import AdminSettingsSso from "./pages/AdminSettingsSso.jsx";
+import AdminSettingsLayout from "./components/admin/AdminSettingsLayout.jsx";
 import AdminMonthlySupport from "./pages/AdminMonthlySupport.jsx";
 import AdminOneTimeNeeds from "./pages/AdminOneTimeNeeds.jsx";
 import AdminPrayerRequests from "./pages/AdminPrayerRequests.jsx";
@@ -23,9 +28,9 @@ import AdminTripHistory from "./pages/AdminTripHistory.jsx";
 import AdminTripOpportunities from "./pages/AdminTripOpportunities.jsx";
 import AdminNewsletters from "./pages/AdminNewsletters.jsx";
 import AdminDocuments from "./pages/AdminDocuments.jsx";
-import AdminChurchSettings from "./pages/AdminChurchSettings.jsx";
 import RequireAdminAuth from "./components/RequireAdminAuth.jsx";
 import RequirePublicSite from "./components/RequirePublicSite.jsx";
+import RequireAdminFeature from "./components/RequireAdminFeature.jsx";
 import AdminLayout from "./components/admin/AdminLayout.jsx";
 import { SettingsProvider } from "./context/SettingsContext.jsx";
 import "./index.css";
@@ -69,47 +74,49 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="organizations/new" element={<AdminOrganizationForm />} />
             <Route path="organizations/:id" element={<AdminOrganizationDetail />} />
             <Route path="organizations/:id/edit" element={<AdminOrganizationForm />} />
-            <Route path="booklet" element={<AdminBooklet />} />
-            <Route path="support/monthly" element={<AdminMonthlySupport />} />
-            <Route path="support/needs" element={<AdminOneTimeNeeds />} />
-            <Route path="prayer-requests" element={<AdminPrayerRequests />} />
-            <Route path="trips" element={<AdminTripHistory />} />
-            <Route path="trips/opportunities" element={<AdminTripOpportunities />} />
+            <Route path="booklet" element={<RequireAdminFeature feature="booklet"><AdminBooklet /></RequireAdminFeature>} />
+            <Route
+              path="support/monthly"
+              element={<RequireAdminFeature feature="monthlySupport"><AdminMonthlySupport /></RequireAdminFeature>}
+            />
+            <Route
+              path="support/needs"
+              element={<RequireAdminFeature feature="oneTimeNeeds"><AdminOneTimeNeeds /></RequireAdminFeature>}
+            />
+            <Route
+              path="prayer-requests"
+              element={<RequireAdminFeature feature="prayerRequests"><AdminPrayerRequests /></RequireAdminFeature>}
+            />
+            <Route path="trips" element={<RequireAdminFeature feature="trips"><AdminTripHistory /></RequireAdminFeature>} />
+            <Route
+              path="trips/opportunities"
+              element={<RequireAdminFeature feature="trips"><AdminTripOpportunities /></RequireAdminFeature>}
+            />
             <Route path="newsletters" element={<AdminNewsletters />} />
             <Route path="documents" element={<AdminDocuments />} />
             <Route path="account" element={<AccountSettings />} />
-            <Route
-              path="users"
-              element={
-                <RequireAdminAuth role="admin">
-                  <AdminUsers />
-                </RequireAdminAuth>
-              }
-            />
-            <Route
-              path="users/new"
-              element={
-                <RequireAdminAuth role="admin">
-                  <AdminUserForm />
-                </RequireAdminAuth>
-              }
-            />
-            <Route
-              path="users/:id"
-              element={
-                <RequireAdminAuth role="admin">
-                  <AdminUserForm />
-                </RequireAdminAuth>
-              }
-            />
+            {/* Church Settings -- one admin-only guard on the whole
+                sub-tree (AdminSettingsLayout's tabs, including User
+                Management) instead of repeating RequireAdminAuth per leaf
+                route, now that Users lives here too instead of its own
+                top-level nav entry. */}
             <Route
               path="settings"
               element={
                 <RequireAdminAuth role="admin">
-                  <AdminChurchSettings />
+                  <AdminSettingsLayout />
                 </RequireAdminAuth>
               }
-            />
+            >
+              <Route index element={<Navigate to="general" replace />} />
+              <Route path="general" element={<AdminSettingsGeneral />} />
+              <Route path="branding" element={<AdminSettingsBranding />} />
+              <Route path="features" element={<AdminSettingsFeatures />} />
+              <Route path="sso" element={<AdminSettingsSso />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="users/new" element={<AdminUserForm />} />
+              <Route path="users/:id" element={<AdminUserForm />} />
+            </Route>
           </Route>
         </Routes>
       </BrowserRouter>

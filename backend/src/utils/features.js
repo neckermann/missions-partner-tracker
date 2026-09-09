@@ -3,32 +3,73 @@
 // model comment in schema.prisma). The frontend keeps its own copy of the
 // label/description text for display (same pattern as the Document category
 // labels in routes/documents.js) -- keep the two in sync by hand.
+//
+// `group` is "public" for the two toggles a logged-out visitor can actually
+// notice (the site disappearing/reappearing at "/" or "/map") and "admin"
+// for everything else, which only ever changes what a logged-in admin sees
+// in their own nav -- drives the two-section split in
+// pages/AdminSettingsFeatures.jsx.
 const FEATURES = {
-  newsletters: {
-    label: "Newsletters",
-    description: "The newsletter archive on missionary/organization pages and its own admin section.",
-    defaultEnabled: true,
-  },
-  documents: {
-    label: "Documents",
-    description: "The general document repo (survey responses, signed policies, etc.).",
-    defaultEnabled: true,
-  },
   publicDirectory: {
     label: "Public directory",
     description: "The public list/search view at the site's root (\"/\"). Turning this off shows a private-instance message there instead.",
     defaultEnabled: true,
+    group: "public",
   },
   publicMap: {
     label: "Public map",
     description: "The public map view (\"/map\"). Turning this off shows a private-instance message there instead.",
     defaultEnabled: true,
+    group: "public",
+  },
+  newsletters: {
+    label: "Newsletters",
+    description: "The newsletter archive on missionary/organization pages and its own admin section.",
+    defaultEnabled: true,
+    group: "admin",
+  },
+  documents: {
+    label: "Documents",
+    description: "The general document repo (survey responses, signed policies, etc.).",
+    defaultEnabled: true,
+    group: "admin",
   },
   aiExtraction: {
     label: "AI request scanning",
     description: "Scan uploaded newsletters and email documents for prayer requests and one-time needs using Claude. Requires ANTHROPIC_API_KEY to be configured.",
     defaultEnabled: false,
     requiresEnvVar: "ANTHROPIC_API_KEY",
+    group: "admin",
+  },
+  prayerRequests: {
+    label: "Prayer requests",
+    description: "The Prayer Requests admin section, and the prayer request list on missionary/organization pages.",
+    defaultEnabled: true,
+    group: "admin",
+  },
+  oneTimeNeeds: {
+    label: "One-time needs",
+    description: "The One-Time Needs admin section, and the one-time needs list on missionary/organization pages.",
+    defaultEnabled: true,
+    group: "admin",
+  },
+  monthlySupport: {
+    label: "Monthly support",
+    description: "The Monthly Support report page.",
+    defaultEnabled: true,
+    group: "admin",
+  },
+  trips: {
+    label: "Mission trips",
+    description: "The Trip History and Trip Opportunities pages.",
+    defaultEnabled: true,
+    group: "admin",
+  },
+  booklet: {
+    label: "Print booklet",
+    description: "The printable prayer & support directory generator.",
+    defaultEnabled: true,
+    group: "admin",
   },
 };
 

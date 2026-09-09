@@ -335,6 +335,30 @@ a { color: var(--brand-color, #2a5d3c); }
   color: #555;
 }
 
+/* Settings sub-nav (Church Settings > Theme/Features/SSO/...) -- an
+   underline-tab row, not the dark sidebar's pill style, since this sits on
+   the light content area as a second-level nav within one already-selected
+   top-level section. Room to grow: more tabs just add to the row (wraps if
+   it ever gets crowded) rather than needing a second full sidebar. */
+.admin-settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  border-bottom: 1px solid #e2e2e2;
+  margin: 0.5rem 0 1.5rem;
+}
+.admin-settings-tabs a {
+  padding: 0.6rem 0.1rem;
+  color: #666;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.admin-settings-tabs a:hover { color: #222; }
+.admin-settings-tabs a.active { color: var(--brand-color, #2a5d3c); border-bottom-color: var(--brand-color, #2a5d3c); }
+
 .admin-checkbox-row { display: flex; flex-wrap: wrap; gap: 1.25rem; }
 .admin-checkbox-row label {
   flex-direction: row;
@@ -342,7 +366,6 @@ a { color: var(--brand-color, #2a5d3c); }
   gap: 0.4rem;
   font-weight: normal;
 }
-.admin-checkbox-row input[type="checkbox"] { width: auto; }
 
 .btn-remove {
   background: none;
@@ -396,27 +419,30 @@ a { color: var(--brand-color, #2a5d3c); }
 .status-pill.warn { background: #b45309; color: white; }
 .status-pill.good { background: var(--brand-color, #2a5d3c); color: white; }
 
-/* Pill toggle switch (Church Settings > Features) -- qualified under
-   .admin-section so it beats .admin-shell label's flex-column layout
-   without needing !important. Hidden checkbox + a styled sliding track,
-   the standard accessible toggle-switch pattern (still a real checkbox
-   for keyboard/screen-reader support, just visually replaced). */
-.admin-section .toggle-switch {
+/* Every checkbox in the admin app renders as a pill toggle -- restyling
+   the native input directly (appearance: none + a ::before dot) rather
+   than wrapping it in extra markup, so any checkbox anywhere (present or
+   future) gets this for free. Still a real checkbox, so keyboard/
+   screen-reader behavior is unchanged. .admin-shell qualifies it so the
+   public site (no checkboxes today, but if one's ever added) isn't
+   silently opted in. */
+.admin-shell input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
   position: relative;
-  display: inline-block;
   width: 42px;
   height: 24px;
+  min-width: 42px;
   flex-shrink: 0;
-}
-.toggle-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
-.toggle-switch .toggle-track {
-  position: absolute;
-  inset: 0;
-  background: #ccc;
+  margin: 0;
+  padding: 0;
+  border: none;
   border-radius: 999px;
+  background: #ccc;
+  cursor: pointer;
   transition: background-color 0.15s ease;
 }
-.toggle-switch .toggle-track::before {
+.admin-shell input[type="checkbox"]::before {
   content: "";
   position: absolute;
   height: 18px;
@@ -428,11 +454,10 @@ a { color: var(--brand-color, #2a5d3c); }
   transition: transform 0.15s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
-.toggle-switch input:checked + .toggle-track { background: var(--brand-color, #2a5d3c); }
-.toggle-switch input:checked + .toggle-track::before { transform: translateX(18px); }
-.toggle-switch input:focus-visible + .toggle-track { outline: 2px solid var(--brand-color, #2a5d3c); outline-offset: 2px; }
-.toggle-switch input:disabled { cursor: not-allowed; }
-.toggle-switch input:disabled + .toggle-track { opacity: 0.5; }
+.admin-shell input[type="checkbox"]:checked { background: var(--brand-color, #2a5d3c); }
+.admin-shell input[type="checkbox"]:checked::before { transform: translateX(18px); }
+.admin-shell input[type="checkbox"]:focus-visible { outline: 2px solid var(--brand-color, #2a5d3c); outline-offset: 2px; }
+.admin-shell input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.5; }
 
 .admin-card-grid {
   display: grid;

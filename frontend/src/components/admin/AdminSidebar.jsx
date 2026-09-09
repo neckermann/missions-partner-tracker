@@ -18,14 +18,14 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
   return [
     { to: "/admin", label: "Home", end: true },
     { to: "/admin/partners", label: usePartnerTermInAdmin ? partnerTermPlural : "Partners" },
-    { to: "/admin/support/monthly", label: "Monthly Support" },
-    { to: "/admin/support/needs", label: "One-Time Needs" },
-    { to: "/admin/prayer-requests", label: "Prayer Requests" },
-    { to: "/admin/trips", label: "Trip History" },
-    { to: "/admin/trips/opportunities", label: "Trip Opportunities" },
+    enabledFeatures.monthlySupport && { to: "/admin/support/monthly", label: "Monthly Support" },
+    enabledFeatures.oneTimeNeeds && { to: "/admin/support/needs", label: "One-Time Needs" },
+    enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
+    enabledFeatures.trips && { to: "/admin/trips", label: "Trip History" },
+    enabledFeatures.trips && { to: "/admin/trips/opportunities", label: "Trip Opportunities" },
     enabledFeatures.newsletters && { to: "/admin/newsletters", label: "Newsletters" },
     enabledFeatures.documents && { to: "/admin/documents", label: "Documents" },
-    { to: "/admin/booklet", label: "Print Booklet" },
+    enabledFeatures.booklet && { to: "/admin/booklet", label: "Print Booklet" },
   ].filter(Boolean);
 }
 
@@ -55,10 +55,13 @@ export default function AdminSidebar() {
         {links.map((link) => (
           <SidebarLink key={link.to} {...link} />
         ))}
+        {/* User management moved under Church Settings' own Users tab
+            (see AdminSettingsLayout.jsx) rather than its own top-level
+            link -- one place for account-level admin concerns to live and
+            grow, instead of two. */}
         {currentUser?.role === "admin" && (
           <>
             <div className="admin-sidebar-divider" />
-            <SidebarLink to="/admin/users" label="Manage Users" />
             <SidebarLink to="/admin/settings" label="Church Settings" />
           </>
         )}

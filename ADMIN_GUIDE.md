@@ -106,23 +106,38 @@ the backend and always calls `/api` on its own origin.
 
 ## Feature toggles
 
-Church Settings → Features (`/admin/settings`) lets an admin turn off parts
-of the app a church isn't using — hides the corresponding nav link/section
-(and, for the public site, the site itself) without losing any data already
-on file. Enforced server-side too (not just hidden in the UI): a disabled
-feature's API routes 404, same as a route that was never built.
+Church Settings → Features (`/admin/settings/features`) lets an admin turn
+off parts of the app a church isn't using — hides the corresponding nav
+link/section (and, for the public-site toggles, the site itself) without
+losing any data already on file. Enforced server-side too (not just hidden
+in the UI): a disabled feature's API routes 404, same as a route that was
+never built. Grouped in the UI by what a toggle actually affects — Public
+site (the two toggles a logged-out visitor can notice at all) vs. Admin
+features (everything else, which only changes a logged-in admin's own nav).
 
 | Feature | Default | Notes |
 |---|---|---|
-| Newsletters | On | The newsletter archive on missionary/organization pages and its own admin section. |
-| Documents | On | The general document repo (survey responses, signed policies, etc.). |
 | Public directory | On | The public list/search view at the site's root (`/`). Off shows a short "this isn't public" page there instead. |
 | Public map | On | The public map view (`/map`). Same off-behavior as above. Independent of the directory toggle — a church can run either one alone, or both, or neither; the partner-detail page stays reachable as long as at least one of the two is on. |
+| Newsletters | On | The newsletter archive on missionary/organization pages and its own admin section. |
+| Documents | On | The general document repo (survey responses, signed policies, etc.). |
+| Prayer requests | On | The Prayer Requests admin section, and the prayer request list on missionary/organization pages. |
+| One-time needs | On | The One-Time Needs admin section, and the one-time needs list on missionary/organization pages. Only gates the standalone `/api/support-needs` CRUD — a need can still be added via a missionary/organization's own edit form either way (a narrower gap than the other toggles here). |
+| Monthly support | On | The Monthly Support report page. |
+| Mission trips | On | The Trip History and Trip Opportunities pages. |
+| Print booklet | On | The printable prayer & support directory generator. |
 | AI request scanning | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires `ANTHROPIC_API_KEY` to be set (see above); the toggle stays off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 
 The registry backing this list lives in `backend/src/utils/features.js` —
 adding a new toggle later is a one-line entry there plus a `requireFeature("key")`
 check on the relevant route(s), not a database migration.
+
+Church Settings itself lives at `/admin/settings`, with its own tab nav
+(General, Branding, Features, Single Sign-On, Users) rather than one long
+page — User Management moved here from its own top-level nav link. Adding
+a new settings category later is a new tab in
+`components/admin/AdminSettingsLayout.jsx` plus a new child route in
+`main.jsx`, not a restructure.
 
 ## Authentication setup
 
