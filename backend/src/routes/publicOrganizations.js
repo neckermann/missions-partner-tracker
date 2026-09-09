@@ -4,7 +4,10 @@ const { toPublicOrganization } = require("../utils/maskData");
 const { requireFeature } = require("../middleware/requireFeature");
 
 const router = express.Router();
-router.use(requireFeature("publicSite"));
+// Backs both the directory and map pages, and the partner-detail page
+// linked from either -- reachable as long as at least one is on (see
+// isAnyFeatureEnabled's comment in utils/features.js).
+router.use(requireFeature(["publicDirectory", "publicMap"]));
 
 // GET /api/public/organizations
 router.get("/", async (req, res, next) => {

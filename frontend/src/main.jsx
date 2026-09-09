@@ -36,9 +36,16 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <BrowserRouter>
         <Routes>
           {/* Public site */}
-          <Route path="/" element={<RequirePublicSite><PublicDirectory /></RequirePublicSite>} />
-          <Route path="/map" element={<RequirePublicSite><PublicMap /></RequirePublicSite>} />
-          <Route path="/partners/:type/:id" element={<RequirePublicSite><PublicPartnerDetail /></RequirePublicSite>} />
+          <Route path="/" element={<RequirePublicSite feature="publicDirectory"><PublicDirectory /></RequirePublicSite>} />
+          <Route path="/map" element={<RequirePublicSite feature="publicMap"><PublicMap /></RequirePublicSite>} />
+          <Route
+            path="/partners/:type/:id"
+            element={
+              <RequirePublicSite feature={["publicDirectory", "publicMap"]}>
+                <PublicPartnerDetail />
+              </RequirePublicSite>
+            }
+          />
           <Route path="/login" element={<Login />} />
           <Route path="/setup" element={<Setup />} />
 

@@ -242,18 +242,27 @@ export default function AdminChurchSettings() {
               const checked = form.enabledFeatures[f.key] ?? f.defaultEnabled;
               const blockedByEnvVar = f.requiresEnvVar && !f.envVarSatisfied;
               return (
-                <label
+                // A plain div, not <label> -- .admin-shell label forces
+                // flex-direction: column (stacked, for the usual
+                // label-above-input fields elsewhere in this form), which
+                // isn't what a toggle row wants. The toggle switch itself
+                // still uses its own inner <label> (see .toggle-switch in
+                // index.css) so the checkbox stays keyboard/screen-reader
+                // accessible.
+                <div
                   key={f.key}
-                  style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem", marginTop: "0.75rem", fontWeight: "normal" }}
+                  style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", marginTop: "0.9rem" }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={checked && !blockedByEnvVar}
-                    disabled={blockedByEnvVar}
-                    onChange={() => toggleFeature(f.key)}
-                    style={{ marginTop: "0.2rem" }}
-                  />
-                  <span>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={checked && !blockedByEnvVar}
+                      disabled={blockedByEnvVar}
+                      onChange={() => toggleFeature(f.key)}
+                    />
+                    <span className="toggle-track" />
+                  </label>
+                  <div>
                     <strong>{f.label}</strong>
                     <div style={{ fontSize: "0.85rem", color: "#666" }}>{f.description}</div>
                     {blockedByEnvVar && (
@@ -261,8 +270,8 @@ export default function AdminChurchSettings() {
                         Requires {f.requiresEnvVar} to be configured on the server first.
                       </div>
                     )}
-                  </span>
-                </label>
+                  </div>
+                </div>
               );
             })}
           </div>

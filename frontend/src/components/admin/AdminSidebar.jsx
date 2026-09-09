@@ -65,7 +65,14 @@ export default function AdminSidebar() {
       </nav>
       <div className="admin-sidebar-footer">
         <SidebarLink to="/admin/account" label="My Account" />
-        {enabledFeatures.publicSite && <Link to="/">View public site</Link>}
+        {/* Prefers the directory as the primary public entry point; falls
+            back to the map if only that's on, and hides entirely if
+            neither public-facing page is enabled. */}
+        {enabledFeatures.publicDirectory ? (
+          <Link to="/">View public site</Link>
+        ) : (
+          enabledFeatures.publicMap && <Link to="/map">View public map</Link>
+        )}
         <button
           className="btn secondary"
           onClick={async () => {

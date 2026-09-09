@@ -14,9 +14,14 @@ const FEATURES = {
     description: "The general document repo (survey responses, signed policies, etc.).",
     defaultEnabled: true,
   },
-  publicSite: {
-    label: "Public site",
-    description: "The public directory and map at the site's root. Turning this off shows a private-instance message there instead.",
+  publicDirectory: {
+    label: "Public directory",
+    description: "The public list/search view at the site's root (\"/\"). Turning this off shows a private-instance message there instead.",
+    defaultEnabled: true,
+  },
+  publicMap: {
+    label: "Public map",
+    description: "The public map view (\"/map\"). Turning this off shows a private-instance message there instead.",
     defaultEnabled: true,
   },
   aiExtraction: {
@@ -43,4 +48,13 @@ function isFeatureEnabled(enabledFeatures, key) {
   return true;
 }
 
-module.exports = { FEATURES, FEATURE_KEYS, isFeatureEnabled };
+// The public missionary/organization data routes back both the directory
+// and map pages (same underlying list -- see PublicDirectory.jsx and
+// PublicMap.jsx), and the partner-detail page is linked from either one --
+// so that data stays reachable as long as at least one of the two is on,
+// only 404ing once a church has turned off both.
+function isAnyFeatureEnabled(enabledFeatures, keys) {
+  return keys.some((key) => isFeatureEnabled(enabledFeatures, key));
+}
+
+module.exports = { FEATURES, FEATURE_KEYS, isFeatureEnabled, isAnyFeatureEnabled };

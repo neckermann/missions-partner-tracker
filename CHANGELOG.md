@@ -16,6 +16,14 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.2.0] - 2026-09-09
+
+The "Public site" feature toggle is now two independent toggles, Public
+directory and Public map -- a church can run either one alone, both, or
+neither (the partner-detail page stays reachable as long as at least one
+is on). Church Settings > Features also now renders as pill toggle
+switches instead of checkboxes.
+
 ## [1.1.1] - 2026-09-09
 
 AI request scanning now reads `.eml` files too, not just PDF/JPEG/PNG --
