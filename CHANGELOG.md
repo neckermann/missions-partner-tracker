@@ -16,6 +16,13 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.3.2] - 2026-09-09
+
+Fixed: the "Site Administration" sidebar toggle rendered as a plain
+browser button (boxed, wrong colors) instead of matching the rest of the
+sidebar -- the dark-sidebar CSS reset only covered footer buttons, not
+nav ones.
+
 ## [1.3.1] - 2026-09-09
 
 Site Administration is now an expandable group in the admin sidebar itself

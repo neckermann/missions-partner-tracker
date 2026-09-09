@@ -41,6 +41,7 @@ a { color: var(--brand-color, #2a5d3c); }
 .admin-sidebar-nav { display: flex; flex-direction: column; gap: 0.15rem; }
 .admin-sidebar-footer { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.2); display: flex; flex-direction: column; gap: 0.15rem; }
 .admin-sidebar-nav a,
+.admin-sidebar-nav button,
 .admin-sidebar-footer a,
 .admin-sidebar-footer button {
   color: white;
@@ -55,6 +56,7 @@ a { color: var(--brand-color, #2a5d3c); }
   font-family: inherit;
 }
 .admin-sidebar-nav a:hover,
+.admin-sidebar-nav button:hover,
 .admin-sidebar-footer a:hover,
 .admin-sidebar-footer button:hover { background: rgba(255, 255, 255, 0.12); }
 /* A black tint (not the old white one) so the white nav text keeps
@@ -75,15 +77,19 @@ a { color: var(--brand-color, #2a5d3c); }
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
-.admin-sidebar-group-arrow { font-size: 0.75rem; opacity: 0.8; }
+.admin-sidebar-group-arrow { font-size: 0.7rem; opacity: 0.75; transition: transform 0.15s ease; }
 .admin-sidebar-subnav {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  margin-top: 0.15rem;
+  margin: 0.15rem 0 0 0.6rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
 }
-.admin-sidebar-subnav a { padding-left: 1.5rem; font-size: 0.85rem; }
+.admin-sidebar-subnav a { padding-left: 0.6rem; font-size: 0.85rem; font-weight: normal; }
 .admin-main { flex: 1; min-width: 0; }
 
 @media (max-width: 800px) {
