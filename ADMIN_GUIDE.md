@@ -117,7 +117,7 @@ feature's API routes 404, same as a route that was never built.
 | Newsletters | On | The newsletter archive on missionary/organization pages and its own admin section. |
 | Documents | On | The general document repo (survey responses, signed policies, etc.). |
 | Public site | On | The public directory and map at the site's root. Off shows a short "this directory isn't public" page there instead. |
-| AI request scanning | **Off** | Adds a "Scan for requests" button on each newsletter/email-type document (PDF, JPEG, or PNG only — Word/Excel/.eml aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires `ANTHROPIC_API_KEY` to be set (see above); the toggle stays off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
+| AI request scanning | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires `ANTHROPIC_API_KEY` to be set (see above); the toggle stays off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 
 The registry backing this list lives in `backend/src/utils/features.js` —
 adding a new toggle later is a one-line entry there plus a `requireFeature("key")`

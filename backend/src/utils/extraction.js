@@ -1,6 +1,7 @@
 const Anthropic = require("@anthropic-ai/sdk");
 const { zodOutputFormat } = require("@anthropic-ai/sdk/helpers/zod");
 const { z } = require("zod");
+const { simpleParser } = require("mailparser");
 
 // Matches the fields PrayerRequest/SupportNeed actually need on create (see
 // schema.prisma) -- dateReceived/requestDate aren't extracted, the caller
@@ -41,36 +42,55 @@ function client() {
   return new Anthropic();
 }
 
-// contentType comes from the stored Newsletter/Document row -- both routes
-// only ever accept PDF/JPEG/PNG uploads that pass a magic-byte check (see
-// routes/newsletters.js, routes/documents.js), so this list matches what
-// could ever actually reach here. Word/Excel/.eml aren't included: Claude's
-// document input only natively reads PDF and image content, and this stays
-// a single-call extraction rather than adding a separate text-extraction
-// step for those formats.
-function isExtractable(contentType) {
-  return Boolean(SUPPORTED_CONTENT_TYPES[contentType]);
+// .eml's browser-reported contentType is unreliable (often
+// application/octet-stream or blank -- see the same comment in
+// routes/newsletters.js/documents.js), so it's recognized by filename
+// extension instead, same as upload-time validation does.
+function isEml(fileName) {
+  return /\.eml$/i.test(fileName || "");
 }
 
-async function extractRequestsFromFile({ bytes, contentType }) {
-  const blockType = SUPPORTED_CONTENT_TYPES[contentType];
-  if (!blockType) {
-    const err = new Error(`Can't scan a ${contentType} file -- only PDF, JPEG, or PNG are supported`);
-    err.status = 400;
-    throw err;
-  }
-
+// Builds the one Claude content block this file becomes: PDF/JPEG/PNG go in
+// as-is (native document/vision input, no separate parsing needed); .eml is
+// parsed with mailparser and sent as plain text -- it's just structured text
+// (RFC 822 headers + a text/html body), nothing like Word/Excel's opaque
+// binary formats, so no vision call is needed for it at all. Word/Excel
+// themselves stay unsupported: no text-extraction step for those (yet).
+async function buildFileBlock({ bytes, contentType, fileName }) {
   // Prisma's driver adapter (@prisma/adapter-pg) returns Bytes columns as a
   // plain Uint8Array, not a Node Buffer -- Uint8Array has no overridden
   // toString(encoding), so bytes.toString("base64") silently produces
   // "37,80,68,70,..." (Array.prototype.toString's comma-joined decimals)
   // instead of base64. Buffer.from() wraps the same underlying data without
   // copying it, and does have the real base64 encoder.
-  const base64 = Buffer.from(bytes).toString("base64");
-  const fileBlock =
-    blockType === "document"
+  const buffer = Buffer.from(bytes);
+
+  const blockType = SUPPORTED_CONTENT_TYPES[contentType];
+  if (blockType) {
+    const base64 = buffer.toString("base64");
+    return blockType === "document"
       ? { type: "document", source: { type: "base64", media_type: contentType, data: base64 } }
       : { type: "image", source: { type: "base64", media_type: contentType, data: base64 } };
+  }
+
+  if (isEml(fileName)) {
+    const parsed = await simpleParser(buffer);
+    const body = parsed.text || parsed.html || "";
+    if (!body.trim()) {
+      const err = new Error("This email has no readable body text to scan");
+      err.status = 400;
+      throw err;
+    }
+    return { type: "text", text: `Subject: ${parsed.subject || "(no subject)"}\n\n${body}` };
+  }
+
+  const err = new Error(`Can't scan a ${contentType} file -- only PDF, JPEG, PNG, or .eml are supported`);
+  err.status = 400;
+  throw err;
+}
+
+async function extractRequestsFromFile(record) {
+  const fileBlock = await buildFileBlock(record);
 
   const response = await client().messages.parse({
     model: "claude-opus-5",
@@ -96,4 +116,4 @@ async function extractRequestsFromFile({ bytes, contentType }) {
   return response.parsed_output || { prayerRequests: [], oneTimeNeeds: [] };
 }
 
-module.exports = { extractRequestsFromFile, isExtractable, ExtractionSchema };
+module.exports = { extractRequestsFromFile, isEml, ExtractionSchema };

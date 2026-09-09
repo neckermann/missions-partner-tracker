@@ -21,11 +21,14 @@ function formatFileSize(bytes) {
 
 const todayInputValue = () => new Date().toISOString().slice(0, 10);
 
-// Claude's document input only natively reads PDF/JPEG/PNG (see
-// backend/src/utils/extraction.js) -- Word/Excel/.eml uploads (allowed for
-// documents generally, see the file input below) just don't get the Scan
-// button rather than showing one that always 400s.
+// Everything extractRequestsFromFile actually reads (see
+// backend/src/utils/extraction.js): PDF/JPEG/PNG by contentType, .eml by
+// filename (its browser-reported contentType is unreliable -- same
+// reasoning as resolveExt() in routes/documents.js). Word/Excel uploads
+// (allowed for documents generally, see the file input below) don't get
+// the Scan button rather than showing one that 400s.
 const SCANNABLE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
+const isScannable = (d) => SCANNABLE_TYPES.has(d.contentType) || /\.eml$/i.test(d.fileName || "");
 
 // Same shared-vs-duplicated reasoning as NewsletterSection: reused as-is on
 // both AdminMissionaryDetail.jsx and AdminOrganizationDetail.jsx. Pass
@@ -177,7 +180,7 @@ export default function DocumentSection({ missionaryId, organizationId, document
                   <button type="button" className="btn secondary small" onClick={() => handleView(d)}>
                     View
                   </button>
-                  {enabledFeatures.aiExtraction && SCANNABLE_TYPES.has(d.contentType) && (
+                  {enabledFeatures.aiExtraction && isScannable(d) && (
                     <button type="button" className="btn secondary small" onClick={() => setScanning(d)}>
                       Scan for requests
                     </button>

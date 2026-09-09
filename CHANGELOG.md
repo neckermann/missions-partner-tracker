@@ -16,6 +16,13 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.1.1] - 2026-09-09
+
+AI request scanning now reads `.eml` files too, not just PDF/JPEG/PNG --
+it's just structured text (headers + a text/html body), so this parses it
+directly and sends the body as text rather than treating it like an
+opaque binary format the way Word/Excel are.
+
 ## [1.1.0] - 2026-09-09
 
 Per-church feature toggles (Admin → Church Settings → Features) — turn off
