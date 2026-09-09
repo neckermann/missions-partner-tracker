@@ -16,6 +16,14 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.5.0] - 2026-09-09
+
+Prayer Requests and One-Time Needs now have a real "Edit" option (fix a
+typo, correct an amount, change the category) on both the top-level page
+and the embedded section on a partner's own detail page -- previously
+the only way to change one after the fact was delete and re-add. Doesn't
+touch the answer/decision workflow, which keeps its own dedicated flow.
+
 ## [1.4.0] - 2026-09-09
 
 Prayer request categories renamed from short-term/long-term (a time

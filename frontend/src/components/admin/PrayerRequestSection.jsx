@@ -38,6 +38,8 @@ export default function PrayerRequestSection({ missionaryId, organizationId, pra
   const [error, setError] = useState("");
   const [answeringId, setAnsweringId] = useState(null);
   const [answer, setAnswer] = useState({ dateAnswered: todayInputValue(), answeredNote: "" });
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(null);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -89,6 +91,40 @@ export default function PrayerRequestSection({ missionaryId, organizationId, pra
     if (!confirm("Delete this prayer request? This cannot be undone.")) return;
     await deletePrayerRequest(request.id);
     await onChange();
+  }
+
+  // Same scope boundary as AdminPrayerRequests.jsx -- deliberately doesn't
+  // touch status/dateAnswered/answeredNote, which stays exclusively the
+  // Record Answer flow's job.
+  function startEdit(request) {
+    setEditingId(request.id);
+    setEditForm({
+      category: request.category,
+      requestText: request.requestText,
+      dateReceived: String(request.dateReceived).slice(0, 10),
+      isPublic: request.isPublic,
+      includeInBooklet: request.includeInBooklet,
+      notes: request.notes || "",
+    });
+  }
+
+  async function submitEdit(id) {
+    const isStrategic = editForm.category === "strategic";
+    try {
+      await updatePrayerRequest(id, {
+        category: editForm.category,
+        requestText: editForm.requestText.trim(),
+        dateReceived: editForm.dateReceived,
+        isPublic: isStrategic ? editForm.isPublic : false,
+        includeInBooklet: isStrategic && editForm.isPublic ? editForm.includeInBooklet : false,
+        notes: editForm.notes || null,
+      });
+      setEditingId(null);
+      setEditForm(null);
+      await onChange();
+    } catch (err) {
+      alert(err.response?.data?.error || "Failed to save changes");
+    }
   }
 
   return (
@@ -182,25 +218,95 @@ export default function PrayerRequestSection({ missionaryId, organizationId, pra
           prayerRequests.map((p) => (
             <div key={p.id} className="repeatable-row">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.5rem" }}>
-                <div>
-                  <p style={{ margin: 0 }}>{p.requestText}</p>
-                  <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
-                    Received {formatDate(p.dateReceived)} · {p.category === "strategic" ? "Strategic" : "Situational"}
-                    {p.category === "strategic" && p.isPublic && " · Public"}
-                    {p.category === "strategic" && p.isPublic && p.includeInBooklet && " · In booklet"}
-                  </div>
-                  {/* The only status ever called out here is "answered" -- an
-                      "ongoing" or "untracked" request just shows nothing
-                      extra, matching this feature's whole design intent. */}
-                  {p.status === "answered" && (
-                    <div style={{ fontSize: "0.85rem", color: "#2a5d3c", marginTop: "0.4rem" }}>
-                      ✓ Answered {formatDate(p.dateAnswered)}
-                      {p.answeredNote && ` — ${p.answeredNote}`}
+                {editingId === p.id ? (
+                  <div className="form-grid" style={{ flex: 1 }}>
+                    <label>
+                      Category
+                      <select
+                        value={editForm.category}
+                        onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
+                      >
+                        <option value="strategic">Strategic (ministry vision/calling — can be shared publicly)</option>
+                        <option value="situational">Situational (health, travel, family, logistics — admin-only)</option>
+                      </select>
+                    </label>
+                    <label>
+                      Date Received
+                      <input
+                        type="date"
+                        value={editForm.dateReceived}
+                        onChange={(e) => setEditForm((f) => ({ ...f, dateReceived: e.target.value }))}
+                        required
+                      />
+                    </label>
+                    <label style={{ gridColumn: "1 / -1" }}>
+                      Prayer Request
+                      <textarea
+                        rows={2}
+                        value={editForm.requestText}
+                        onChange={(e) => setEditForm((f) => ({ ...f, requestText: e.target.value }))}
+                        required
+                      />
+                    </label>
+                    {editForm.category === "strategic" && (
+                      <div className="admin-checkbox-row" style={{ gridColumn: "1 / -1" }}>
+                        <label title="Shows on this partner's public profile page, if the public site is enabled.">
+                          <input
+                            type="checkbox"
+                            checked={editForm.isPublic}
+                            onChange={(e) => setEditForm((f) => ({ ...f, isPublic: e.target.checked, includeInBooklet: e.target.checked && f.includeInBooklet }))}
+                          />
+                          Show on public profile
+                        </label>
+                        {editForm.isPublic && (
+                          <label title="Eligible to print in the booklet -- the actual number shown per partner is capped there (see the Booklet page) so this section doesn't take over the page.">
+                            <input
+                              type="checkbox"
+                              checked={editForm.includeInBooklet}
+                              onChange={(e) => setEditForm((f) => ({ ...f, includeInBooklet: e.target.checked }))}
+                            />
+                            Include in printed booklet
+                          </label>
+                        )}
+                      </div>
+                    )}
+                    <label style={{ gridColumn: "1 / -1" }}>
+                      Admin Notes (optional, never shown publicly)
+                      <input value={editForm.notes} onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))} />
+                    </label>
+                    <div style={{ gridColumn: "1 / -1", display: "flex", gap: "0.5rem" }}>
+                      <button type="button" className="btn small" onClick={() => submitEdit(p.id)}>
+                        Save
+                      </button>
+                      <button type="button" className="btn secondary small" onClick={() => { setEditingId(null); setEditForm(null); }}>
+                        Cancel
+                      </button>
                     </div>
-                  )}
-                  {p.notes && <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>{p.notes}</div>}
-                </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p style={{ margin: 0 }}>{p.requestText}</p>
+                    <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
+                      Received {formatDate(p.dateReceived)} · {p.category === "strategic" ? "Strategic" : "Situational"}
+                      {p.category === "strategic" && p.isPublic && " · Public"}
+                      {p.category === "strategic" && p.isPublic && p.includeInBooklet && " · In booklet"}
+                    </div>
+                    {/* The only status ever called out here is "answered" -- an
+                        "ongoing" or "untracked" request just shows nothing
+                        extra, matching this feature's whole design intent. */}
+                    {p.status === "answered" && (
+                      <div style={{ fontSize: "0.85rem", color: "#2a5d3c", marginTop: "0.4rem" }}>
+                        ✓ Answered {formatDate(p.dateAnswered)}
+                        {p.answeredNote && ` — ${p.answeredNote}`}
+                      </div>
+                    )}
+                    {p.notes && <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>{p.notes}</div>}
+                  </div>
+                )}
                 <div className="table-actions">
+                  <button type="button" className="btn secondary small" onClick={() => startEdit(p)}>
+                    Edit
+                  </button>
                   {p.status !== "answered" && (
                     <button type="button" className="btn secondary small" onClick={() => startAnswer(p)}>
                       Record Answer

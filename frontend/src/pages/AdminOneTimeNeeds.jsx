@@ -55,6 +55,8 @@ export default function AdminOneTimeNeeds() {
   const [error, setError] = useState("");
   const [decidingId, setDecidingId] = useState(null);
   const [decision, setDecision] = useState({ approvedAmount: "", approvedDate: "" });
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(null);
 
   function reload() {
     fetchSupportNeeds().then(setNeeds).catch(console.error);
@@ -115,6 +117,35 @@ export default function AdminOneTimeNeeds() {
       reload();
     } catch (err) {
       alert(err.response?.data?.error || "Failed to record decision");
+    }
+  }
+
+  // Deliberately doesn't touch approvedAmount/approvedDate -- that stays
+  // the Record Decision flow's job, same reasoning as
+  // AdminPrayerRequests.jsx's startEdit/submitEdit.
+  function startEdit(need) {
+    setEditingId(need.id);
+    setEditForm({
+      description: need.description,
+      requestedAmount: String(need.requestedAmount),
+      requestDate: String(need.requestDate).slice(0, 10),
+      notes: need.notes || "",
+    });
+  }
+
+  async function submitEdit(id) {
+    try {
+      await updateSupportNeed(id, {
+        description: editForm.description.trim(),
+        requestedAmount: Number(editForm.requestedAmount),
+        requestDate: editForm.requestDate,
+        notes: editForm.notes || null,
+      });
+      setEditingId(null);
+      setEditForm(null);
+      reload();
+    } catch (err) {
+      alert(err.response?.data?.error || "Failed to save changes");
     }
   }
 
@@ -232,33 +263,84 @@ export default function AdminOneTimeNeeds() {
                     <span>{entity.name}</span>
                   )}
                 </div>
-                <button className="btn danger small" onClick={() => handleDelete(need)}>
-                  Delete
-                </button>
+                <div className="table-actions">
+                  <button type="button" className="btn secondary small" onClick={() => startEdit(need)}>
+                    Edit
+                  </button>
+                  <button className="btn danger small" onClick={() => handleDelete(need)}>
+                    Delete
+                  </button>
+                </div>
               </div>
 
-              <p style={{ margin: "0.5rem 0" }}>{need.description}</p>
+              {editingId === need.id ? (
+                <div className="form-grid" style={{ marginTop: "0.5rem" }}>
+                  <label style={{ gridColumn: "1 / -1" }}>
+                    Description
+                    <input
+                      value={editForm.description}
+                      onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Requested Amount ($)
+                    <input
+                      type="number"
+                      min="0"
+                      value={editForm.requestedAmount}
+                      onChange={(e) => setEditForm((f) => ({ ...f, requestedAmount: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Request Date
+                    <input
+                      type="date"
+                      value={editForm.requestDate}
+                      onChange={(e) => setEditForm((f) => ({ ...f, requestDate: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label style={{ gridColumn: "1 / -1" }}>
+                    Notes
+                    <input value={editForm.notes} onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))} />
+                  </label>
+                  <div style={{ gridColumn: "1 / -1", display: "flex", gap: "0.5rem" }}>
+                    <button type="button" className="btn small" onClick={() => submitEdit(need.id)}>
+                      Save
+                    </button>
+                    <button type="button" className="btn secondary small" onClick={() => { setEditingId(null); setEditForm(null); }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p style={{ margin: "0.5rem 0" }}>{need.description}</p>
 
-              <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", fontSize: "0.9rem" }}>
-                <div>
-                  <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Requested</div>
-                  <div>{formatCurrency(need.requestedAmount)} on {formatDate(need.requestDate)}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Approved</div>
-                  <div>
-                    {need.approvedAmount != null
-                      ? `${formatCurrency(need.approvedAmount)} on ${formatDate(need.approvedDate)}`
-                      : "Not yet decided"}
+                  <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", fontSize: "0.9rem" }}>
+                    <div>
+                      <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Requested</div>
+                      <div>{formatCurrency(need.requestedAmount)} on {formatDate(need.requestDate)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Approved</div>
+                      <div>
+                        {need.approvedAmount != null
+                          ? `${formatCurrency(need.approvedAmount)} on ${formatDate(need.approvedDate)}`
+                          : "Not yet decided"}
+                      </div>
+                    </div>
+                    {need.notes && (
+                      <div>
+                        <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Notes</div>
+                        <div>{need.notes}</div>
+                      </div>
+                    )}
                   </div>
-                </div>
-                {need.notes && (
-                  <div>
-                    <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Notes</div>
-                    <div>{need.notes}</div>
-                  </div>
-                )}
-              </div>
+                </>
+              )}
 
               {need.approvedAmount == null && (
                 <div style={{ marginTop: "0.75rem" }}>

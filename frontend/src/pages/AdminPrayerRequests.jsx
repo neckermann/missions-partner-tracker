@@ -53,6 +53,8 @@ export default function AdminPrayerRequests() {
   const [error, setError] = useState("");
   const [answeringId, setAnsweringId] = useState(null);
   const [answer, setAnswer] = useState({ dateAnswered: todayInputValue(), answeredNote: "" });
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(null);
 
   function reload() {
     fetchPrayerRequests().then(setRequests).catch(console.error);
@@ -115,6 +117,43 @@ export default function AdminPrayerRequests() {
       reload();
     } catch (err) {
       alert(err.response?.data?.error || "Failed to record the answer");
+    }
+  }
+
+  // Deliberately doesn't touch status/dateAnswered/answeredNote -- that
+  // workflow already has its own guarded flow (Record Answer, only shown
+  // while a request is still open), and letting a generic content-edit
+  // form also toggle status risks silently reopening an answered request.
+  // This is for fixing the text/category/publicity/notes after the fact,
+  // not for redoing the answer workflow.
+  function startEdit(request) {
+    setEditingId(request.id);
+    setEditForm({
+      category: request.category,
+      requestText: request.requestText,
+      dateReceived: String(request.dateReceived).slice(0, 10),
+      isPublic: request.isPublic,
+      includeInBooklet: request.includeInBooklet,
+      notes: request.notes || "",
+    });
+  }
+
+  async function submitEdit(id) {
+    const isStrategic = editForm.category === "strategic";
+    try {
+      await updatePrayerRequest(id, {
+        category: editForm.category,
+        requestText: editForm.requestText.trim(),
+        dateReceived: editForm.dateReceived,
+        isPublic: isStrategic ? editForm.isPublic : false,
+        includeInBooklet: isStrategic && editForm.isPublic ? editForm.includeInBooklet : false,
+        notes: editForm.notes || null,
+      });
+      setEditingId(null);
+      setEditForm(null);
+      reload();
+    } catch (err) {
+      alert(err.response?.data?.error || "Failed to save changes");
     }
   }
 
@@ -264,6 +303,9 @@ export default function AdminPrayerRequests() {
                 )}
               </div>
               <div className="table-actions">
+                <button type="button" className="btn secondary small" onClick={() => startEdit(request)}>
+                  Edit
+                </button>
                 {request.status !== "answered" && (
                   <button type="button" className="btn secondary small" onClick={() => startAnswer(request)}>
                     Record Answer
@@ -275,7 +317,74 @@ export default function AdminPrayerRequests() {
               </div>
             </div>
 
-            <p style={{ margin: "0.5rem 0" }}>{request.requestText}</p>
+            {editingId === request.id ? (
+              <div className="form-grid" style={{ marginTop: "0.5rem" }}>
+                <label>
+                  Category
+                  <select
+                    value={editForm.category}
+                    onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
+                  >
+                    <option value="strategic">Strategic (ministry vision/calling — can be shared publicly)</option>
+                    <option value="situational">Situational (health, travel, family, logistics — admin-only)</option>
+                  </select>
+                </label>
+                <label>
+                  Date Received
+                  <input
+                    type="date"
+                    value={editForm.dateReceived}
+                    onChange={(e) => setEditForm((f) => ({ ...f, dateReceived: e.target.value }))}
+                    required
+                  />
+                </label>
+                <label style={{ gridColumn: "1 / -1" }}>
+                  Prayer Request
+                  <textarea
+                    rows={2}
+                    value={editForm.requestText}
+                    onChange={(e) => setEditForm((f) => ({ ...f, requestText: e.target.value }))}
+                    required
+                  />
+                </label>
+                {editForm.category === "strategic" && (
+                  <div className="admin-checkbox-row" style={{ gridColumn: "1 / -1" }}>
+                    <label title="Shows on this partner's public profile page, if the public site is enabled.">
+                      <input
+                        type="checkbox"
+                        checked={editForm.isPublic}
+                        onChange={(e) => setEditForm((f) => ({ ...f, isPublic: e.target.checked, includeInBooklet: e.target.checked && f.includeInBooklet }))}
+                      />
+                      Show on public profile
+                    </label>
+                    {editForm.isPublic && (
+                      <label title="Eligible to print in the booklet -- the actual number shown per partner is capped there (see the Booklet page) so this section doesn't take over the page.">
+                        <input
+                          type="checkbox"
+                          checked={editForm.includeInBooklet}
+                          onChange={(e) => setEditForm((f) => ({ ...f, includeInBooklet: e.target.checked }))}
+                        />
+                        Include in printed booklet
+                      </label>
+                    )}
+                  </div>
+                )}
+                <label style={{ gridColumn: "1 / -1" }}>
+                  Admin Notes (optional, never shown publicly)
+                  <input value={editForm.notes} onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))} />
+                </label>
+                <div style={{ gridColumn: "1 / -1", display: "flex", gap: "0.5rem" }}>
+                  <button type="button" className="btn small" onClick={() => submitEdit(request.id)}>
+                    Save
+                  </button>
+                  <button type="button" className="btn secondary small" onClick={() => { setEditingId(null); setEditForm(null); }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p style={{ margin: "0.5rem 0" }}>{request.requestText}</p>
+            )}
 
             <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", fontSize: "0.9rem" }}>
               <div>
