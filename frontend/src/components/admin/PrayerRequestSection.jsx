@@ -13,10 +13,11 @@ function formatDate(value) {
 const todayInputValue = () => new Date().toISOString().slice(0, 10);
 
 const emptyNewRequest = {
-  category: "long_term",
+  category: "strategic",
   requestText: "",
   dateReceived: todayInputValue(),
   isPublic: false,
+  includeInBooklet: false,
   untracked: false,
   notes: "",
 };
@@ -43,13 +44,15 @@ export default function PrayerRequestSection({ missionaryId, organizationId, pra
     setError("");
     setSaving(true);
     try {
+      const isStrategic = newRequest.category === "strategic";
       await createPrayerRequest({
         missionaryId: missionaryId || undefined,
         organizationId: organizationId || undefined,
         category: newRequest.category,
         requestText: newRequest.requestText.trim(),
         dateReceived: newRequest.dateReceived,
-        isPublic: newRequest.category === "long_term" ? newRequest.isPublic : false,
+        isPublic: isStrategic ? newRequest.isPublic : false,
+        includeInBooklet: isStrategic && newRequest.isPublic ? newRequest.includeInBooklet : false,
         status: newRequest.untracked ? "untracked" : "ongoing",
         notes: newRequest.notes || null,
       });
@@ -106,8 +109,8 @@ export default function PrayerRequestSection({ missionaryId, organizationId, pra
                 value={newRequest.category}
                 onChange={(e) => setNewRequest((f) => ({ ...f, category: e.target.value }))}
               >
-                <option value="long_term">Long-term (can be shared publicly)</option>
-                <option value="short_term">Short-term (admin-only)</option>
+                <option value="strategic">Strategic (ministry vision/calling — can be shared publicly)</option>
+                <option value="situational">Situational (health, travel, family, logistics — admin-only)</option>
               </select>
             </label>
             <label>
@@ -128,16 +131,26 @@ export default function PrayerRequestSection({ missionaryId, organizationId, pra
                 required
               />
             </label>
-            {newRequest.category === "long_term" && (
+            {newRequest.category === "strategic" && (
               <div className="admin-checkbox-row">
-                <label>
+                <label title="Shows on this partner's public profile page, if the public site is enabled.">
                   <input
                     type="checkbox"
                     checked={newRequest.isPublic}
-                    onChange={(e) => setNewRequest((f) => ({ ...f, isPublic: e.target.checked }))}
+                    onChange={(e) => setNewRequest((f) => ({ ...f, isPublic: e.target.checked, includeInBooklet: e.target.checked && f.includeInBooklet }))}
                   />
-                  Show on public profile &amp; booklet
+                  Show on public profile
                 </label>
+                {newRequest.isPublic && (
+                  <label title="Eligible to print in the booklet -- the actual number shown per partner is capped there (see the Booklet page) so this section doesn't take over the page.">
+                    <input
+                      type="checkbox"
+                      checked={newRequest.includeInBooklet}
+                      onChange={(e) => setNewRequest((f) => ({ ...f, includeInBooklet: e.target.checked }))}
+                    />
+                    Include in printed booklet
+                  </label>
+                )}
               </div>
             )}
             <div className="admin-checkbox-row">
@@ -172,8 +185,9 @@ export default function PrayerRequestSection({ missionaryId, organizationId, pra
                 <div>
                   <p style={{ margin: 0 }}>{p.requestText}</p>
                   <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
-                    Received {formatDate(p.dateReceived)} · {p.category === "long_term" ? "Long-term" : "Short-term"}
-                    {p.category === "long_term" && p.isPublic && " · Public"}
+                    Received {formatDate(p.dateReceived)} · {p.category === "strategic" ? "Strategic" : "Situational"}
+                    {p.category === "strategic" && p.isPublic && " · Public"}
+                    {p.category === "strategic" && p.isPublic && p.includeInBooklet && " · In booklet"}
                   </div>
                   {/* The only status ever called out here is "answered" -- an
                       "ongoing" or "untracked" request just shows nothing

@@ -16,6 +16,19 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.4.0] - 2026-09-09
+
+Prayer request categories renamed from short-term/long-term (a time
+horizon) to Strategic/Situational (what the request actually is -- tied
+to the ministry's long-term vision, or whatever came up). A migration
+renames existing category values automatically (long_term -> strategic,
+short_term -> situational). Strategic + public requests can now be
+independently marked "Include in printed booklet" (a request can be
+public-site-only), and the Booklet page caps how many print per partner
+(default 4, adjustable) so a partner with a long history doesn't crowd
+out the rest of their page. The scheduled demo reset's about text now
+points to the GitHub repo for full app/usage docs.
+
 ## [1.3.2] - 2026-09-09
 
 Fixed: the "Site Administration" sidebar toggle rendered as a plain

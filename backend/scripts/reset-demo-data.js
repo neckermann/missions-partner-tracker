@@ -45,7 +45,7 @@ async function resetDemoData() {
   run("node", ["prisma/seed.js"]);
   run("node", ["prisma/createAdmin.js", email, password]);
 
-  const demoNotice = `This is a live public demo of Missions Partner Tracker, running against fake data. It resets automatically on a schedule — nothing you do here is permanent. Sign in at /login with ${email} / ${password} to try the admin dashboard.`;
+  const demoNotice = `This is a live public demo of Missions Partner Tracker, running against fake data. It resets automatically on a schedule — nothing you do here is permanent. Sign in at /login with ${email} / ${password} to try the admin dashboard. Full app details and usage docs: https://github.com/neckermann/missions-partner-tracker`;
 
   // migrate reset above drops and recreates the schema, so ChurchSettings
   // starts empty every time -- every registry feature (see

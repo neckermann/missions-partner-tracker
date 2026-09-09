@@ -9,7 +9,7 @@ const { simpleParser } = require("mailparser");
 const ExtractionSchema = z.object({
   prayerRequests: z.array(
     z.object({
-      category: z.enum(["short_term", "long_term"]),
+      category: z.enum(["strategic", "situational"]),
       requestText: z.string(),
     })
   ),
@@ -31,7 +31,7 @@ const SUPPORTED_CONTENT_TYPES = {
 
 const SYSTEM_PROMPT = `You read newsletters and letters from missionaries/organizations sent to their supporting church, looking for two specific things:
 
-1. Prayer requests -- anything the writer is asking people to pray for. Mark "short_term" for something time-bound (an upcoming trip, a specific event, a near-term health concern) and "long_term" for an ongoing situation worth tracking over time (chronic illness, a long-running ministry challenge, a persistent family need).
+1. Prayer requests -- anything the writer is asking people to pray for. Mark "strategic" when it ties to the ministry's long-term vision or calling -- church planting progress, discipleship/training programs, language learning tied to ministry effectiveness, funding or partnership development, outreach campaigns, relational bridge-building with a people group. Mark "situational" for whatever came up that isn't necessarily tied to ministry vision -- illness or injury, travel safety, family needs back home, visa/paperwork issues, housing or logistics problems, a sudden personal hardship.
 2. One-time financial needs -- a specific, named ask for money (not their regular monthly support), e.g. "we need $1,000 to replace our vehicle" or "please help us cover $500 in medical bills." Only include ones with an actual ask, not general statements about being low on funds. If a dollar amount is stated, extract it as a plain integer number of dollars; if the need is described without a specific figure, leave requestedAmount null rather than guessing.
 
 Prayer requests are often indirect ("please keep lifting up my mother's health," "pray for wisdom as we plan next steps") -- read for the actual meaning, not just explicit phrases like "prayer request." Return empty arrays for either category if nothing genuinely fits -- don't force a match.

@@ -417,10 +417,20 @@ model PrayerRequest {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  category     String    // "short_term" | "long_term"
-  requestText  String    @db.Text
-  dateReceived DateTime  @db.Date
-  isPublic     Boolean   @default(false) // only takes effect when category is "long_term"
+  // "strategic" (tied to the ministry's long-term vision/calling -- church
+  // planting, discipleship, language study, funding) vs "situational"
+  // (whatever came up -- health, travel, family, paperwork). Replaces an
+  // earlier short_term/long_term split that was about time horizon rather
+  // than what the request actually was, which didn't map cleanly onto
+  // "should this go on the public site/in the booklet" the way this does.
+  category         String    // "strategic" | "situational"
+  requestText      String    @db.Text
+  dateReceived     DateTime  @db.Date
+  isPublic         Boolean   @default(false) // only takes effect when category is "strategic"
+  // Booklet space is tight (see AdminBooklet.jsx's per-page cap), so
+  // isPublic alone doesn't mean a request prints -- only takes effect when
+  // isPublic is also true (a request can be public-site-only).
+  includeInBooklet Boolean   @default(false)
 
   status       String    @default("ongoing") // "ongoing" | "answered" | "untracked"
   dateAnswered DateTime? @db.Date

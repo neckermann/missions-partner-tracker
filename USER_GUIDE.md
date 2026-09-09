@@ -276,22 +276,30 @@ answered — not a checklist. Add one from a partner's detail page or the
 central **Prayer Requests** page (pick the partner, category, and the
 request itself).
 
-- **Category** is **Short-term** (admin-only — a quick, timely request
-  like "safe travel next week") or **Long-term** (an ongoing request you
-  can optionally show on that partner's public profile and in the
-  printed booklet — check **Show on public profile & booklet** when
-  adding it; short-term requests are never shown publicly regardless of
-  this setting).
+- **Category** is **Strategic** (tied to the ministry's long-term vision
+  or calling — church planting, discipleship, language study, funding —
+  can optionally be shown on that partner's public profile via **Show on
+  public profile**) or **Situational** (whatever came up — health,
+  travel, family needs, paperwork; admin-only, never shown publicly
+  regardless of any setting).
+- A strategic request marked **Show on public profile** can also be
+  checked **Include in printed booklet** — a separate setting, since a
+  partner can build up more public strategic requests over time than
+  would ever fit on a printed page. Only requests checked both ways ever
+  appear in the booklet, and even then only up to the per-partner cap set
+  on the [Booklet](#booklet) page (a handful, most recent first) — the
+  rest still show on the public profile, just not in print. See
+  [Printable partner booklet](#printable-partner-booklet) below.
 - An open request just sits there — there's no "pending" or "unanswered"
-  label anywhere in the app. Most requests, especially long-running ones,
+  label anywhere in the app. Most requests, especially strategic ones,
   simply don't have a resolution yet, and that's normal, not a gap to
   flag. If you don't intend to follow up on a specific request for a
-  formal answer (many short-term ones), check **Not tracking this one
+  formal answer (many situational ones), check **Not tracking this one
   for a specific answer** when adding it.
 - When a request *is* answered, click **Record Answer** on it — the date
   and an optional note on how it was answered (shown as a quiet "✓
   Answered" line, never a colored badge). This is the part worth keeping
-  long-term: a public long-term request's answer note shows on that
+  long-term: a public strategic request's answer note shows on that
   partner's public profile and in the booklet too, right alongside the
   request itself — a real, growing record of how prayers actually get
   answered over time, not just a log of what's currently outstanding.
@@ -312,11 +320,15 @@ header), or Friendly (a bold color-block header, a large circular photo,
 rounded pill-style info rows) — choose who's included (archived,
 restricted-access, organizations), what
 shows on each page (photo, overview, location, address, family info,
-sending church/org, that partner's long-term public [prayer
-requests](#prayer-requests) — an "answered" one includes its note, an
-open one doesn't call out its status at all, same as everywhere else in
-the app — and an optional facing "Notes & Prayer Page" with ruled lines
-for the reader's own handwritten notes), and set a cover title/subtitle. Every booklet also
+sending church/org, that partner's public [prayer
+requests](#prayer-requests) marked **Include in printed booklet** — an
+"answered" one includes its note, an open one doesn't call out its status
+at all, same as everywhere else in the app — and an optional facing
+"Notes & Prayer Page" with ruled lines for the reader's own handwritten
+notes). If Prayer Requests is on, a **Max prayer requests per partner**
+field caps how many print for any one partner (most recent first) so a
+partner with a long history doesn't crowd out the rest of their page.
+Set a cover title/subtitle. Every booklet also
 ends with a closing back cover — your church's logo and name (from
 [Church Settings](#church-settings-admin-only)) plus your About Text or
 Public Tagline as a closing message, or a generic thank-you if neither is

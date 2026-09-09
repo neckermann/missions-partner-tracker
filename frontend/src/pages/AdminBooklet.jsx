@@ -87,13 +87,20 @@ function renderFamilyBlock(m, fields) {
 }
 
 // The booklet is meant to be printed and handed out, same audience as
-// the public site -- so this applies the identical visibility rule
-// (long-term + explicitly marked public) rather than trusting the admin
-// data source's full list, which includes short-term/private ones too.
-// No "ongoing"/"untracked" callout here either, same reasoning as
-// PublicPartnerDetail.jsx and PrayerRequestSection.jsx.
-function renderPrayerRequestsBlock(entity) {
-  const requests = (entity.prayerRequests || []).filter((p) => p.category === "long_term" && p.isPublic);
+// the public site -- so this starts from the identical visibility rule
+// (strategic + explicitly marked public) rather than trusting the admin
+// data source's full list, which includes situational/private ones too.
+// includeInBooklet narrows further (a request can be public-site-only),
+// and maxPerPartner caps how many actually print -- a partner could have
+// a dozen public strategic requests on file over time, and a full printed
+// page of them would crowd out everything else, so this takes the most
+// recent maxPerPartner (already the API's own ordering, see
+// routes/prayerRequests.js). No "ongoing"/"untracked" callout here either,
+// same reasoning as PublicPartnerDetail.jsx and PrayerRequestSection.jsx.
+function renderPrayerRequestsBlock(entity, maxPerPartner) {
+  const requests = (entity.prayerRequests || [])
+    .filter((p) => p.category === "strategic" && p.isPublic && p.includeInBooklet)
+    .slice(0, maxPerPartner);
   if (!requests.length) return "";
   const items = requests
     .map((p) => {
@@ -165,7 +172,7 @@ function buildBlankPageHtml() {
 // One page per organization — leaner than a missionary page (no family/trip
 // capacity), just the fields explicitly asked for: type/region, supporting
 // since, contact info, overview, and focus.
-function buildOrganizationPageHtml(o, index) {
+function buildOrganizationPageHtml(o, index, maxPrayerRequests) {
   const palette = PALETTE[index % PALETTE.length];
   const eyebrow = [o.orgType, o.fieldDisplayName].filter(Boolean).join(" · ");
 
@@ -179,7 +186,7 @@ function buildOrganizationPageHtml(o, index) {
       ${renderOrgContactBlock(o)}
       ${o.overview ? `<div class="booklet-callout"><p>${escapeHtml(o.overview)}</p></div>` : ""}
       ${o.focusArea ? `<div class="booklet-block"><h3>Focus Area</h3><p>${escapeHtml(o.focusArea)}</p></div>` : ""}
-      ${renderPrayerRequestsBlock(o)}
+      ${renderPrayerRequestsBlock(o, maxPrayerRequests)}
       <div class="booklet-footer">${escapeHtml(o.name)}</div>
     </section>`;
 }
@@ -214,7 +221,7 @@ function buildBackCoverHtml({ churchName, logo, aboutText, publicTagline, accent
     </section>`;
 }
 
-function buildMissionaryPageHtml(m, index, fields) {
+function buildMissionaryPageHtml(m, index, fields, maxPrayerRequests) {
   const palette = PALETTE[index % PALETTE.length];
   const physical = (m.addresses || []).find((a) => a.type === "physical");
   const mailing = (m.addresses || []).find((a) => a.type === "mailing");
@@ -231,7 +238,7 @@ function buildMissionaryPageHtml(m, index, fields) {
       ${fields.showMailing ? renderAddressBlock("Mailing & Contact Address", mailing) : ""}
       ${renderFamilyBlock(m, fields)}
       ${fields.showSendingParty ? renderSendingPartyBlock(m) : ""}
-      ${fields.showPrayerRequests ? renderPrayerRequestsBlock(m) : ""}
+      ${fields.showPrayerRequests ? renderPrayerRequestsBlock(m, maxPrayerRequests) : ""}
       <div class="booklet-footer">${escapeHtml(m.displayName)}</div>
     </section>`;
 }
@@ -252,6 +259,7 @@ function buildBookletHtml({
   title,
   subtitle,
   fields,
+  maxPrayerRequests = 4,
   template = "classic",
   churchName,
   logo,
@@ -319,7 +327,7 @@ function buildBookletHtml({
       .map((m, i) => {
         const palette = PALETTE[i % PALETTE.length];
         pageCount += 1;
-        const detailPage = buildMissionaryPageHtml(m, i, fields);
+        const detailPage = buildMissionaryPageHtml(m, i, fields, maxPrayerRequests);
         let notesPage = "";
         if (withNotes) {
           pageCount += 1;
@@ -352,7 +360,7 @@ function buildBookletHtml({
         .map((o, i) => {
           const palette = PALETTE[i % PALETTE.length];
           pageCount += 1;
-          const detailPage = buildOrganizationPageHtml(o, i);
+          const detailPage = buildOrganizationPageHtml(o, i, maxPrayerRequests);
           let notesPage = "";
           if (withNotes) {
             pageCount += 1;
@@ -389,7 +397,11 @@ const FIELD_OPTIONS = [
   ["showAdults", "Family: Adults & Anniversary"],
   ["showChildren", "Family: Include Children"],
   ["showSendingParty", "Sending Church/Org"],
-  ["showPrayerRequests", "Prayer Requests (long-term, public ones only)"],
+  [
+    "showPrayerRequests",
+    "Prayer Requests",
+    "Only strategic requests marked both \"Show on public profile\" and \"Include in printed booklet\" -- capped per partner below.",
+  ],
   ["showNotesPage", "Notes & Prayer Page (facing page per entry)"],
 ];
 
@@ -412,6 +424,7 @@ export default function AdminBooklet() {
   });
   const [title, setTitle] = useState("Missionary Partners");
   const [subtitle, setSubtitle] = useState("Prayer & Support Directory");
+  const [maxPrayerRequests, setMaxPrayerRequests] = useState(4);
   const [template, setTemplate] = useState("classic");
   const [rendering, setRendering] = useState(false);
   const previewRef = useRef(null);
@@ -459,6 +472,7 @@ export default function AdminBooklet() {
         title,
         subtitle,
         fields,
+        maxPrayerRequests,
         template,
         churchName,
         logo,
@@ -508,6 +522,7 @@ export default function AdminBooklet() {
       title,
       subtitle,
       fields,
+      maxPrayerRequests,
       template,
       churchName,
       logo,
@@ -600,13 +615,28 @@ ${content}
           <div className="admin-section">
             <h3>What Shows on Each Page</h3>
             <div className="admin-checkbox-row">
-              {FIELD_OPTIONS.map(([key, label]) => (
-                <label key={key}>
+              {FIELD_OPTIONS.map(([key, label, tooltip]) => (
+                <label key={key} title={tooltip}>
                   <input type="checkbox" checked={fields[key]} onChange={() => toggleField(key)} />
                   {label}
                 </label>
               ))}
             </div>
+            {fields.showPrayerRequests && (
+              <label
+                style={{ marginTop: "0.75rem", maxWidth: "16rem" }}
+                title="Even a partner with many eligible requests only shows this many, most recent first, so the section doesn't crowd out the rest of their page."
+              >
+                Max prayer requests per partner
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={maxPrayerRequests}
+                  onChange={(e) => setMaxPrayerRequests(Math.max(1, Number(e.target.value) || 1))}
+                />
+              </label>
+            )}
           </div>
 
           <div className="admin-section">

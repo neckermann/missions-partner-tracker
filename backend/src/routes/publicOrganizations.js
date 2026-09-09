@@ -16,9 +16,9 @@ router.get("/", async (req, res, next) => {
       where: { isPublic: true, archived: false },
       include: {
         addresses: { where: { type: "physical" } }, // only the pin coordinates are ever surfaced publicly
-        // Only long-term requests an admin explicitly marked public — see
+        // Only strategic requests an admin explicitly marked public — see
         // the PrayerRequest model comment in schema.prisma.
-        prayerRequests: { where: { category: "long_term", isPublic: true }, orderBy: { dateReceived: "desc" } },
+        prayerRequests: { where: { category: "strategic", isPublic: true }, orderBy: { dateReceived: "desc" } },
         // Only the current photo (most recently received) is ever surfaced
         // publicly — never the upload history.
         photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], take: 1, omit: { bytes: true } },
@@ -40,7 +40,7 @@ router.get("/:id", async (req, res, next) => {
       where: { id: req.params.id },
       include: {
         addresses: { where: { type: "physical" } },
-        prayerRequests: { where: { category: "long_term", isPublic: true }, orderBy: { dateReceived: "desc" } },
+        prayerRequests: { where: { category: "strategic", isPublic: true }, orderBy: { dateReceived: "desc" } },
         // Was missing here (present on the list route above) -- an
         // organization's public detail page could never show a photo.
         photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], take: 1, omit: { bytes: true } },

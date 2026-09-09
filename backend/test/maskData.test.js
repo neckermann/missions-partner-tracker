@@ -162,7 +162,7 @@ describe("toPublicMissionary", () => {
         prayerRequests: [
           {
             id: "pr1",
-            category: "long_term",
+            category: "strategic",
             isPublic: true,
             requestText: "Wisdom for a new outreach",
             dateReceived: "2026-01-01",
@@ -193,7 +193,7 @@ describe("toPublicMissionary", () => {
     const result = toPublicMissionary(
       baseMissionary({
         prayerRequests: [
-          { category: "long_term", isPublic: true, requestText: "Safety on the field", dateReceived: "2026-01-01", status: "ongoing", dateAnswered: null, answeredNote: null },
+          { category: "strategic", isPublic: true, requestText: "Safety on the field", dateReceived: "2026-01-01", status: "ongoing", dateAnswered: null, answeredNote: null },
         ],
       })
     );

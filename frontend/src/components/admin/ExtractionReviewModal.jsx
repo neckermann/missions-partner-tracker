@@ -121,8 +121,8 @@ export default function ExtractionReviewModal({ scan, missionaryId, organization
                   onChange={(e) => updatePrayerRequest(i, "category", e.target.value)}
                   style={{ marginBottom: "0.5rem" }}
                 >
-                  <option value="short_term">Short-term</option>
-                  <option value="long_term">Long-term</option>
+                  <option value="strategic">Strategic</option>
+                  <option value="situational">Situational</option>
                 </select>
                 <textarea
                   value={r.requestText}

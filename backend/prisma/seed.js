@@ -639,7 +639,7 @@ function buildSupportEntries() {
   return entries;
 }
 
-const SHORT_TERM_PRAYER_REQUESTS = [
+const SITUATIONAL_PRAYER_REQUESTS = [
   "Safe travel during the upcoming trip to the capital",
   "Good health for the family during flu season",
   "Wisdom for an upcoming meeting with local leaders",
@@ -647,7 +647,7 @@ const SHORT_TERM_PRAYER_REQUESTS = [
   "A smooth visa renewal process",
   "Strength during a busy season of ministry travel",
 ];
-const LONG_TERM_PRAYER_REQUESTS = [
+const STRATEGIC_PRAYER_REQUESTS = [
   "Open doors to share the Gospel in an unreached community nearby",
   "A team of local believers to help carry the ministry forward",
   "Provision for a permanent ministry center",
@@ -674,18 +674,24 @@ const ANSWERED_NOTES = [
 function buildPrayerRequests() {
   const count = chance(0.6) ? randInt(1, 3) : 0;
   return Array.from({ length: count }, () => {
-    const category = chance(0.5) ? "long_term" : "short_term";
-    const isLongTerm = category === "long_term";
-    const requestText = pick(isLongTerm ? LONG_TERM_PRAYER_REQUESTS : SHORT_TERM_PRAYER_REQUESTS);
-    // Short-term requests are rarely worth tracking for a formal answer;
-    // long-term ones are usually still open at any given snapshot in time.
-    const status = isLongTerm ? pick(["ongoing", "ongoing", "ongoing", "answered"]) : pick(["untracked", "untracked", "ongoing"]);
+    const category = chance(0.5) ? "strategic" : "situational";
+    const isStrategic = category === "strategic";
+    const requestText = pick(isStrategic ? STRATEGIC_PRAYER_REQUESTS : SITUATIONAL_PRAYER_REQUESTS);
+    // Situational requests are rarely worth tracking for a formal answer;
+    // strategic ones are usually still open at any given snapshot in time.
+    const status = isStrategic ? pick(["ongoing", "ongoing", "ongoing", "answered"]) : pick(["untracked", "untracked", "ongoing"]);
     const answered = status === "answered";
+    const isPublic = isStrategic && chance(0.7);
     return {
       category,
       requestText,
       dateReceived: dateBetween(2, 0),
-      isPublic: isLongTerm && chance(0.7),
+      isPublic,
+      // Booklet space is capped per partner (see AdminBooklet.jsx), so not
+      // every public request needs to be booklet-eligible -- a little over
+      // half of the public ones, so a seeded partner with several has a
+      // realistic mix rather than either all-in or all-out.
+      includeInBooklet: isPublic && chance(0.6),
       status,
       dateAnswered: answered ? dateBetween(0, 0) : null,
       answeredNote: answered && chance(0.7) ? pick(ANSWERED_NOTES) : null,

@@ -16,10 +16,11 @@ router.use(requireFeature("prayerRequests"));
 const prayerRequestBaseSchema = z.object({
   missionaryId: z.string().optional().nullable(),
   organizationId: z.string().optional().nullable(),
-  category: z.enum(["short_term", "long_term"]),
+  category: z.enum(["strategic", "situational"]),
   requestText: z.string().min(1),
   dateReceived: z.coerce.date(),
   isPublic: z.boolean().optional(),
+  includeInBooklet: z.boolean().optional(),
   status: z.enum(["ongoing", "answered", "untracked"]).optional(),
   dateAnswered: z.coerce.date().optional().nullable(),
   answeredNote: z.string().optional().nullable(),

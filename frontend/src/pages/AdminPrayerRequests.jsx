@@ -28,10 +28,11 @@ const todayInputValue = () => new Date().toISOString().slice(0, 10);
 
 const emptyNewRequest = {
   entityKey: "",
-  category: "long_term",
+  category: "strategic",
   requestText: "",
   dateReceived: todayInputValue(),
   isPublic: false,
+  includeInBooklet: false,
   untracked: false,
   notes: "",
 };
@@ -45,7 +46,7 @@ export default function AdminPrayerRequests() {
   const [requests, setRequests] = useState([]);
   const [missionaries, setMissionaries] = useState([]);
   const [organizations, setOrganizations] = useState([]);
-  const [categoryFilter, setCategoryFilter] = useState("all"); // all | short_term | long_term
+  const [categoryFilter, setCategoryFilter] = useState("all"); // all | strategic | situational
   const [showAddForm, setShowAddForm] = useState(false);
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
   const [saving, setSaving] = useState(false);
@@ -76,13 +77,15 @@ export default function AdminPrayerRequests() {
     const [entityType, entityId] = newRequest.entityKey.split(":");
     setSaving(true);
     try {
+      const isStrategic = newRequest.category === "strategic";
       await createPrayerRequest({
         missionaryId: entityType === "missionary" ? entityId : undefined,
         organizationId: entityType === "organization" ? entityId : undefined,
         category: newRequest.category,
         requestText: newRequest.requestText.trim(),
         dateReceived: newRequest.dateReceived,
-        isPublic: newRequest.category === "long_term" ? newRequest.isPublic : false,
+        isPublic: isStrategic ? newRequest.isPublic : false,
+        includeInBooklet: isStrategic && newRequest.isPublic ? newRequest.includeInBooklet : false,
         status: newRequest.untracked ? "untracked" : "ongoing",
         notes: newRequest.notes || null,
       });
@@ -167,8 +170,8 @@ export default function AdminPrayerRequests() {
                 value={newRequest.category}
                 onChange={(e) => setNewRequest((f) => ({ ...f, category: e.target.value }))}
               >
-                <option value="long_term">Long-term (can be shared publicly)</option>
-                <option value="short_term">Short-term (admin-only)</option>
+                <option value="strategic">Strategic (ministry vision/calling — can be shared publicly)</option>
+                <option value="situational">Situational (health, travel, family, logistics — admin-only)</option>
               </select>
             </label>
             <label>
@@ -189,16 +192,26 @@ export default function AdminPrayerRequests() {
                 required
               />
             </label>
-            {newRequest.category === "long_term" && (
+            {newRequest.category === "strategic" && (
               <div className="admin-checkbox-row">
-                <label>
+                <label title="Shows on this partner's public profile page, if the public site is enabled.">
                   <input
                     type="checkbox"
                     checked={newRequest.isPublic}
-                    onChange={(e) => setNewRequest((f) => ({ ...f, isPublic: e.target.checked }))}
+                    onChange={(e) => setNewRequest((f) => ({ ...f, isPublic: e.target.checked, includeInBooklet: e.target.checked && f.includeInBooklet }))}
                   />
-                  Show on public profile &amp; booklet
+                  Show on public profile
                 </label>
+                {newRequest.isPublic && (
+                  <label title="Eligible to print in the booklet -- the actual number shown per partner is capped there (see the Booklet page) so this section doesn't take over the page.">
+                    <input
+                      type="checkbox"
+                      checked={newRequest.includeInBooklet}
+                      onChange={(e) => setNewRequest((f) => ({ ...f, includeInBooklet: e.target.checked }))}
+                    />
+                    Include in printed booklet
+                  </label>
+                )}
               </div>
             )}
             <div className="admin-checkbox-row">
@@ -231,8 +244,8 @@ export default function AdminPrayerRequests() {
         </label>
         <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ width: "auto" }}>
           <option value="all">All</option>
-          <option value="long_term">Long-term</option>
-          <option value="short_term">Short-term</option>
+          <option value="strategic">Strategic</option>
+          <option value="situational">Situational</option>
         </select>
       </div>
 
@@ -268,8 +281,9 @@ export default function AdminPrayerRequests() {
               <div>
                 <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Received</div>
                 <div>
-                  {formatDate(request.dateReceived)} · {request.category === "long_term" ? "Long-term" : "Short-term"}
-                  {request.category === "long_term" && request.isPublic && " · Public"}
+                  {formatDate(request.dateReceived)} · {request.category === "strategic" ? "Strategic" : "Situational"}
+                  {request.category === "strategic" && request.isPublic && " · Public"}
+                  {request.category === "strategic" && request.isPublic && request.includeInBooklet && " · In booklet"}
                 </div>
               </div>
               {/* Same principle as PrayerRequestSection.jsx: only "answered"
