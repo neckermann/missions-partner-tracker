@@ -4,10 +4,13 @@ import {
   fetchDocuments,
   uploadDocument,
   deleteDocument,
+  extractFromDocument,
   fetchAdminMissionaries,
   fetchAdminOrganizations,
 } from "../api/client.js";
 import { DOCUMENT_CATEGORIES, documentCategoryLabel } from "../utils/documentCategories.js";
+import { useSettings } from "../context/SettingsContext.jsx";
+import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
 
 // Date-only fields are stored as UTC midnight — build the Date from raw
 // Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
@@ -32,6 +35,14 @@ function entityFor(d) {
 
 const todayInputValue = () => new Date().toISOString().slice(0, 10);
 
+// Same set/reasoning as DocumentSection.jsx (embedded on the missionary/org
+// detail pages) -- everything extractRequestsFromFile actually reads (see
+// backend/src/utils/extraction.js): PDF/JPEG/PNG by contentType, .eml by
+// filename (its browser-reported contentType is unreliable). Word/Excel
+// don't get the Scan button rather than showing one that 400s.
+const SCANNABLE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
+const isScannable = (d) => SCANNABLE_TYPES.has(d.contentType) || /\.eml$/i.test(d.fileName || "");
+
 const emptyNewDocument = {
   entityKey: "",
   category: DOCUMENT_CATEGORIES[0].value,
@@ -42,6 +53,8 @@ const emptyNewDocument = {
 };
 
 export default function AdminDocuments() {
+  const { enabledFeatures } = useSettings();
+  const [scanning, setScanning] = useState(null); // the document being reviewed, or null
   const [documents, setDocuments] = useState([]);
   const [missionaries, setMissionaries] = useState([]);
   const [organizations, setOrganizations] = useState([]);
@@ -286,6 +299,11 @@ export default function AdminDocuments() {
                   <button type="button" className="btn secondary small" onClick={() => handleView(d)}>
                     View
                   </button>
+                  {enabledFeatures.aiExtraction && isScannable(d) && (
+                    <button type="button" className="btn secondary small" onClick={() => setScanning(d)}>
+                      Scan for requests
+                    </button>
+                  )}
                   <button type="button" className="btn danger small" onClick={() => handleDelete(d)}>
                     Delete
                   </button>
@@ -302,6 +320,16 @@ export default function AdminDocuments() {
           )}
         </tbody>
       </table>
+
+      {scanning && (
+        <ExtractionReviewModal
+          scan={() => extractFromDocument(scanning.id)}
+          missionaryId={scanning.missionary?.id}
+          organizationId={scanning.organization?.id}
+          defaultDate={scanning.receivedDate}
+          onClose={() => setScanning(null)}
+        />
+      )}
     </div>
   );
 }

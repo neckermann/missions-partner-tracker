@@ -16,6 +16,12 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.2.1] - 2026-09-09
+
+Fixed: "Scan for requests" was missing from the standalone Newsletters and
+Documents admin pages -- it only showed up on the embedded sections of an
+individual missionary/organization's detail page.
+
 ## [1.2.0] - 2026-09-09
 
 The "Public site" feature toggle is now two independent toggles, Public

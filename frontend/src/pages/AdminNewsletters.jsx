@@ -4,9 +4,12 @@ import {
   fetchNewsletters,
   uploadNewsletter,
   deleteNewsletter,
+  extractFromNewsletter,
   fetchAdminMissionaries,
   fetchAdminOrganizations,
 } from "../api/client.js";
+import { useSettings } from "../context/SettingsContext.jsx";
+import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
 
 // Date-only fields are stored as UTC midnight — build the Date from raw
 // Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
@@ -31,6 +34,13 @@ function entityFor(n) {
 
 const todayInputValue = () => new Date().toISOString().slice(0, 10);
 
+// Same set/reasoning as NewsletterSection.jsx (embedded on the missionary/org
+// detail pages) -- everything extractRequestsFromFile actually reads (see
+// backend/src/utils/extraction.js): PDF/JPEG/PNG by contentType, .eml by
+// filename (its browser-reported contentType is unreliable).
+const SCANNABLE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
+const isScannable = (n) => SCANNABLE_TYPES.has(n.contentType) || /\.eml$/i.test(n.fileName || "");
+
 const emptyNewNewsletter = {
   entityKey: "",
   title: "",
@@ -39,6 +49,8 @@ const emptyNewNewsletter = {
 };
 
 export default function AdminNewsletters() {
+  const { enabledFeatures } = useSettings();
+  const [scanning, setScanning] = useState(null); // the newsletter being reviewed, or null
   const [newsletters, setNewsletters] = useState([]);
   const [missionaries, setMissionaries] = useState([]);
   const [organizations, setOrganizations] = useState([]);
@@ -231,6 +243,11 @@ export default function AdminNewsletters() {
                     <button type="button" className="btn secondary small" onClick={() => handleView(n)}>
                       View
                     </button>
+                    {enabledFeatures.aiExtraction && isScannable(n) && (
+                      <button type="button" className="btn secondary small" onClick={() => setScanning(n)}>
+                        Scan for requests
+                      </button>
+                    )}
                     <button type="button" className="btn danger small" onClick={() => handleDelete(n)}>
                       Delete
                     </button>
@@ -247,6 +264,16 @@ export default function AdminNewsletters() {
             )}
         </tbody>
       </table>
+
+      {scanning && (
+        <ExtractionReviewModal
+          scan={() => extractFromNewsletter(scanning.id)}
+          missionaryId={scanning.missionary?.id}
+          organizationId={scanning.organization?.id}
+          defaultDate={scanning.receivedDate}
+          onClose={() => setScanning(null)}
+        />
+      )}
     </div>
   );
 }
