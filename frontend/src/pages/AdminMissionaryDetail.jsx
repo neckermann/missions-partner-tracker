@@ -154,7 +154,7 @@ export default function AdminMissionaryDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [m, setM] = useState(null);
-  const { churchName } = useSettings();
+  const { churchName, enabledFeatures } = useSettings();
 
   function reload() {
     return fetchAdminMissionary(id).then(setM);
@@ -221,9 +221,13 @@ export default function AdminMissionaryDetail() {
 
         <PrayerRequestSection missionaryId={m.id} prayerRequests={m.prayerRequests} onChange={reload} />
 
-        <NewsletterSection missionaryId={m.id} newsletters={m.newsletters} onChange={reload} />
+        {enabledFeatures.newsletters && (
+          <NewsletterSection missionaryId={m.id} newsletters={m.newsletters} onChange={reload} />
+        )}
 
-        <DocumentSection missionaryId={m.id} documents={m.documents} onChange={reload} />
+        {enabledFeatures.documents && (
+          <DocumentSection missionaryId={m.id} documents={m.documents} onChange={reload} />
+        )}
 
         {(m.overview || m.overviewShort || m.focusArea) && (
           <div className="admin-section">

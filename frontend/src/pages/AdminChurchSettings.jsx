@@ -26,32 +26,46 @@ const emptyForm = {
   aboutText: "",
   primaryColor: "",
   logo: {},
+  enabledFeatures: {},
 };
 
-// Settings is a singleton — GET returns null before it's ever been saved,
-// so this fills in the same empty defaults the create-new missionary/org
-// forms use, rather than a separate list+form+detail trio (there's only
-// ever one record here, same shape as AccountSettings.jsx).
+// Settings is a singleton — GET returns { featureRegistry } with everything
+// else absent before it's ever been saved (see routes/settings.js), so
+// `s?.id` (not `!s`) is the actual "has this church configured anything
+// yet" check now — this fills in the same empty defaults the create-new
+// missionary/org forms use, rather than a separate list+form+detail trio
+// (there's only ever one record here, same shape as AccountSettings.jsx).
 function mergeFetchedRecord(s) {
-  if (!s) return emptyForm;
+  if (!s?.id) return emptyForm;
   return {
     ...emptyForm,
     ...s,
     address: { ...emptyForm.address, ...(s.address || {}) },
     logo: s.logo || {},
+    enabledFeatures: s.enabledFeatures || {},
   };
 }
 
 export default function AdminChurchSettings() {
   const [form, setForm] = useState(emptyForm);
+  const [featureRegistry, setFeatureRegistry] = useState([]);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    fetchChurchSettings().then((s) => setForm(mergeFetchedRecord(s)));
+    fetchChurchSettings().then((s) => {
+      setForm(mergeFetchedRecord(s));
+      setFeatureRegistry(s?.featureRegistry || []);
+    });
   }, []);
+
+  function toggleFeature(key) {
+    const current = form.enabledFeatures[key] ?? featureRegistry.find((f) => f.key === key)?.defaultEnabled;
+    setForm((f) => ({ ...f, enabledFeatures: { ...f.enabledFeatures, [key]: !current } }));
+    setSuccess("");
+  }
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -216,6 +230,41 @@ export default function AdminChurchSettings() {
                 </button>
               )}
             </div>
+          </div>
+
+          <div className="admin-section">
+            <h3>Features</h3>
+            <p style={{ color: "#555", marginTop: 0 }}>
+              Turn off anything this church isn't using — hides it from the admin nav (and, for
+              the public site, from visitors) without losing any data already on file.
+            </p>
+            {featureRegistry.map((f) => {
+              const checked = form.enabledFeatures[f.key] ?? f.defaultEnabled;
+              const blockedByEnvVar = f.requiresEnvVar && !f.envVarSatisfied;
+              return (
+                <label
+                  key={f.key}
+                  style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem", marginTop: "0.75rem", fontWeight: "normal" }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked && !blockedByEnvVar}
+                    disabled={blockedByEnvVar}
+                    onChange={() => toggleFeature(f.key)}
+                    style={{ marginTop: "0.2rem" }}
+                  />
+                  <span>
+                    <strong>{f.label}</strong>
+                    <div style={{ fontSize: "0.85rem", color: "#666" }}>{f.description}</div>
+                    {blockedByEnvVar && (
+                      <div style={{ fontSize: "0.85rem", color: "#b91c1c" }}>
+                        Requires {f.requiresEnvVar} to be configured on the server first.
+                      </div>
+                    )}
+                  </span>
+                </label>
+              );
+            })}
           </div>
 
           <div className="form-save-bar">

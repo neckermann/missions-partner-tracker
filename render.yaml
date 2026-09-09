@@ -77,6 +77,13 @@ services:
       # Leave blank and that feature just doesn't show.
       - key: JOSHUA_PROJECT_API_KEY
         sync: false
+      # Optional. Powers the "AI request scanning" feature (see ADMIN_GUIDE.md
+      # § Feature toggles) -- key at console.anthropic.com. Leave blank and
+      # that feature stays unavailable regardless of its Church Settings
+      # toggle; usage is pay-per-scan (a few cents/month at typical volume),
+      # not a flat fee.
+      - key: ANTHROPIC_API_KEY
+        sync: false
       # Optional. Shown in a user's authenticator app when they enroll in
       # MFA. Leave blank to use the default ("Missions Partner Tracker
       # Admin").

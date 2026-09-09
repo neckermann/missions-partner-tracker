@@ -6,6 +6,7 @@ import NewsletterSection from "../components/admin/NewsletterSection.jsx";
 import PrayerRequestSection from "../components/admin/PrayerRequestSection.jsx";
 import DocumentSection from "../components/admin/DocumentSection.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
+import { useSettings } from "../context/SettingsContext.jsx";
 
 // Date-only fields are stored as UTC midnight — build the Date from raw
 // Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
@@ -145,6 +146,7 @@ export default function AdminOrganizationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [o, setO] = useState(null);
+  const { enabledFeatures } = useSettings();
 
   function reload() {
     return fetchAdminOrganization(id).then(setO);
@@ -248,9 +250,13 @@ export default function AdminOrganizationDetail() {
 
         <PrayerRequestSection organizationId={o.id} prayerRequests={o.prayerRequests} onChange={reload} />
 
-        <NewsletterSection organizationId={o.id} newsletters={o.newsletters} onChange={reload} />
+        {enabledFeatures.newsletters && (
+          <NewsletterSection organizationId={o.id} newsletters={o.newsletters} onChange={reload} />
+        )}
 
-        <DocumentSection organizationId={o.id} documents={o.documents} onChange={reload} />
+        {enabledFeatures.documents && (
+          <DocumentSection organizationId={o.id} documents={o.documents} onChange={reload} />
+        )}
 
         {(o.overview || o.overviewShort || o.focusArea) && (
           <div className="admin-section">

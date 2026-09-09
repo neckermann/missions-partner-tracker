@@ -3,10 +3,13 @@ const multer = require("multer");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireFeature } = require("../middleware/requireFeature");
 const { matchesFileSignature } = require("../utils/fileSignature");
+const { extractRequestsFromFile } = require("../utils/extraction");
 
 const router = express.Router();
 router.use(requireAuth); // admin-only for now — no public routes for this yet
+router.use(requireFeature("newsletters"));
 
 const MIME_TO_EXT = {
   "application/pdf": "pdf",
@@ -127,6 +130,24 @@ router.get("/:id/download", async (req, res, next) => {
     res.set("Content-Type", record.contentType || "application/octet-stream");
     res.set("Content-Disposition", `inline; filename="${record.fileName.replace(/"/g, "")}"`);
     res.send(record.bytes);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/newsletters/:id/extract — scans the file with Claude for prayer
+// requests and one-time needs (editor or admin, same as upload). Gated on
+// the "aiExtraction" feature specifically (not the router-wide "newsletters"
+// gate above) since a church can have newsletters on but AI scanning off.
+// Nothing is persisted here -- the caller reviews and explicitly adds each
+// suggestion via the existing POST /api/prayer-requests / /api/support-needs.
+router.post("/:id/extract", requireRole("admin", "editor"), requireFeature("aiExtraction"), async (req, res, next) => {
+  try {
+    const record = await prisma.newsletter.findUnique({ where: { id: req.params.id } });
+    if (!record) return res.status(404).json({ error: "Not found" });
+
+    const suggestions = await extractRequestsFromFile(record);
+    res.json(suggestions);
   } catch (err) {
     next(err);
   }

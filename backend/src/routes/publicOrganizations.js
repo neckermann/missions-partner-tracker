@@ -1,8 +1,10 @@
 const express = require("express");
 const prisma = require("../prismaClient");
 const { toPublicOrganization } = require("../utils/maskData");
+const { requireFeature } = require("../middleware/requireFeature");
 
 const router = express.Router();
+router.use(requireFeature("publicSite"));
 
 // GET /api/public/organizations
 router.get("/", async (req, res, next) => {

@@ -99,9 +99,29 @@ full file with inline comments):
 | `JOSHUA_PROJECT_API_KEY` | No | Enables country-level unreached-people-group stats; get a free key at [joshuaproject.net/api/request](https://joshuaproject.net/api/request) |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
+| `ANTHROPIC_API_KEY` | No | Powers the "AI request scanning" feature — see [Feature toggles](#feature-toggles) below. Get a key at [console.anthropic.com](https://console.anthropic.com/settings/keys). Pay-per-scan (a few cents/month at typical volume), not a flat fee. |
 
 There's nothing to configure for the frontend separately — it's served by
 the backend and always calls `/api` on its own origin.
+
+## Feature toggles
+
+Church Settings → Features (`/admin/settings`) lets an admin turn off parts
+of the app a church isn't using — hides the corresponding nav link/section
+(and, for the public site, the site itself) without losing any data already
+on file. Enforced server-side too (not just hidden in the UI): a disabled
+feature's API routes 404, same as a route that was never built.
+
+| Feature | Default | Notes |
+|---|---|---|
+| Newsletters | On | The newsletter archive on missionary/organization pages and its own admin section. |
+| Documents | On | The general document repo (survey responses, signed policies, etc.). |
+| Public site | On | The public directory and map at the site's root. Off shows a short "this directory isn't public" page there instead. |
+| AI request scanning | **Off** | Adds a "Scan for requests" button on each newsletter/email-type document (PDF, JPEG, or PNG only — Word/Excel/.eml aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires `ANTHROPIC_API_KEY` to be set (see above); the toggle stays off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
+
+The registry backing this list lives in `backend/src/utils/features.js` —
+adding a new toggle later is a one-line entry there plus a `requireFeature("key")`
+check on the relevant route(s), not a database migration.
 
 ## Authentication setup
 

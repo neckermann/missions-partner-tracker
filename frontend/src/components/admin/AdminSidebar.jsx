@@ -14,7 +14,7 @@ import { useSettings } from "../../context/SettingsContext.jsx";
 // two links read identically, which looked like a bug. "Partners" is the
 // generic default label; it swaps to the church's own term when
 // usePartnerTermInAdmin is on.
-function buildLinks(partnerTermPlural, usePartnerTermInAdmin) {
+function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
   return [
     { to: "/admin", label: "Home", end: true },
     { to: "/admin/partners", label: usePartnerTermInAdmin ? partnerTermPlural : "Partners" },
@@ -23,10 +23,10 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin) {
     { to: "/admin/prayer-requests", label: "Prayer Requests" },
     { to: "/admin/trips", label: "Trip History" },
     { to: "/admin/trips/opportunities", label: "Trip Opportunities" },
-    { to: "/admin/newsletters", label: "Newsletters" },
-    { to: "/admin/documents", label: "Documents" },
+    enabledFeatures.newsletters && { to: "/admin/newsletters", label: "Newsletters" },
+    enabledFeatures.documents && { to: "/admin/documents", label: "Documents" },
     { to: "/admin/booklet", label: "Print Booklet" },
-  ];
+  ].filter(Boolean);
 }
 
 function SidebarLink({ to, label, end }) {
@@ -40,8 +40,8 @@ function SidebarLink({ to, label, end }) {
 export default function AdminSidebar() {
   const [currentUser, setCurrentUser] = useState(null);
   const navigate = useNavigate();
-  const { churchName, partnerTermPlural, usePartnerTermInAdmin } = useSettings();
-  const links = buildLinks(partnerTermPlural, usePartnerTermInAdmin);
+  const { churchName, partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
+  const links = buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures);
   const title = churchName ? `${churchName} Admin` : "Missions Team Admin";
 
   useEffect(() => {
@@ -65,7 +65,7 @@ export default function AdminSidebar() {
       </nav>
       <div className="admin-sidebar-footer">
         <SidebarLink to="/admin/account" label="My Account" />
-        <Link to="/">View public site</Link>
+        {enabledFeatures.publicSite && <Link to="/">View public site</Link>}
         <button
           className="btn secondary"
           onClick={async () => {

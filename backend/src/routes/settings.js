@@ -4,6 +4,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { matchesFileSignature } = require("../utils/fileSignature");
+const { FEATURES, FEATURE_KEYS } = require("../utils/features");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -77,6 +78,13 @@ const settingsSchema = z.object({
   // Sets are normally via POST /logo (below), same as missionary/org
   // photos — this is here so PUT can also clear it (form sets logo: null).
   logo: z.any().optional().nullable(),
+  // Same whole-object-replace semantics as every other field here -- the
+  // frontend always PUTs its complete current map, not just the one key
+  // that changed (see AdminChurchSettings.jsx's mergeFetchedRecord).
+  // partialRecord (not record) -- a plain z.record(z.enum(...), ...) in Zod
+  // 4 requires every enum key present, rejecting a sparse map like
+  // { aiExtraction: true } with the other three keys just absent.
+  enabledFeatures: z.partialRecord(z.enum(FEATURE_KEYS), z.boolean()).optional(),
 });
 
 // GET /api/settings (any logged-in role) — null if never configured yet.
@@ -86,7 +94,19 @@ router.get("/", async (req, res, next) => {
       where: { id: "singleton" },
       omit: { logoBytes: true },
     });
-    res.json(shapeSettings(settings));
+    // Registry metadata (label/description/env-var status) travels with the
+    // response instead of being duplicated in the frontend, since whether a
+    // feature's requiresEnvVar is actually set is a server-side fact the
+    // frontend has no way to know on its own.
+    const featureRegistry = FEATURE_KEYS.map((key) => ({
+      key,
+      label: FEATURES[key].label,
+      description: FEATURES[key].description,
+      defaultEnabled: FEATURES[key].defaultEnabled,
+      requiresEnvVar: FEATURES[key].requiresEnvVar || null,
+      envVarSatisfied: FEATURES[key].requiresEnvVar ? Boolean(process.env[FEATURES[key].requiresEnvVar]) : true,
+    }));
+    res.json({ ...shapeSettings(settings), featureRegistry });
   } catch (err) {
     next(err);
   }

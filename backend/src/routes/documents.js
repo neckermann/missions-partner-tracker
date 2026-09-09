@@ -3,10 +3,13 @@ const multer = require("multer");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireFeature } = require("../middleware/requireFeature");
 const { matchesFileSignature } = require("../utils/fileSignature");
+const { extractRequestsFromFile } = require("../utils/extraction");
 
 const router = express.Router();
 router.use(requireAuth); // admin-only for now — no public routes for this yet
+router.use(requireFeature("documents"));
 
 // Keys are what's stored on Document.category and sent/received over the
 // API; labels are for display only (frontend has its own copy of these —
@@ -152,6 +155,24 @@ router.get("/:id/download", async (req, res, next) => {
     res.set("Content-Type", record.contentType || "application/octet-stream");
     res.set("Content-Disposition", `inline; filename="${record.fileName.replace(/"/g, "")}"`);
     res.send(record.bytes);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/documents/:id/extract — same as POST /api/newsletters/:id/extract
+// (see the comment there). Not restricted by category -- governed by
+// whether the stored file's actual content type is one Claude can read
+// (PDF/JPEG/PNG; extractRequestsFromFile 400s clearly for anything else,
+// e.g. a raw .eml or Word/Excel document), since that's a more accurate
+// constraint than guessing from the category label.
+router.post("/:id/extract", requireRole("admin", "editor"), requireFeature("aiExtraction"), async (req, res, next) => {
+  try {
+    const record = await prisma.document.findUnique({ where: { id: req.params.id } });
+    if (!record) return res.status(404).json({ error: "Not found" });
+
+    const suggestions = await extractRequestsFromFile(record);
+    res.json(suggestions);
   } catch (err) {
     next(err);
   }

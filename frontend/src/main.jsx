@@ -25,6 +25,7 @@ import AdminNewsletters from "./pages/AdminNewsletters.jsx";
 import AdminDocuments from "./pages/AdminDocuments.jsx";
 import AdminChurchSettings from "./pages/AdminChurchSettings.jsx";
 import RequireAdminAuth from "./components/RequireAdminAuth.jsx";
+import RequirePublicSite from "./components/RequirePublicSite.jsx";
 import AdminLayout from "./components/admin/AdminLayout.jsx";
 import { SettingsProvider } from "./context/SettingsContext.jsx";
 import "./index.css";
@@ -35,9 +36,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <BrowserRouter>
         <Routes>
           {/* Public site */}
-          <Route path="/" element={<PublicDirectory />} />
-          <Route path="/map" element={<PublicMap />} />
-          <Route path="/partners/:type/:id" element={<PublicPartnerDetail />} />
+          <Route path="/" element={<RequirePublicSite><PublicDirectory /></RequirePublicSite>} />
+          <Route path="/map" element={<RequirePublicSite><PublicMap /></RequirePublicSite>} />
+          <Route path="/partners/:type/:id" element={<RequirePublicSite><PublicPartnerDetail /></RequirePublicSite>} />
           <Route path="/login" element={<Login />} />
           <Route path="/setup" element={<Setup />} />
 

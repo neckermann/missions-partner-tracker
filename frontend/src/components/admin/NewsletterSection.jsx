@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { uploadNewsletter, deleteNewsletter } from "../../api/client.js";
+import { uploadNewsletter, deleteNewsletter, extractFromNewsletter } from "../../api/client.js";
+import { useSettings } from "../../context/SettingsContext.jsx";
+import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
 
 // Date-only fields are stored as UTC midnight — build the Date from raw
 // Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
@@ -16,6 +18,12 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Same set/reasoning as DocumentSection.jsx -- Claude's document input only
+// natively reads PDF/JPEG/PNG (see backend/src/utils/extraction.js), so a
+// .eml newsletter (allowed for upload, see the file input below) doesn't
+// get the Scan button rather than showing one that always 400s.
+const SCANNABLE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
+
 const todayInputValue = () => new Date().toISOString().slice(0, 10);
 
 // Reused as-is (not duplicated) on both AdminMissionaryDetail.jsx and
@@ -25,6 +33,8 @@ const todayInputValue = () => new Date().toISOString().slice(0, 10);
 // rather than something worth copy-pasting twice. Pass exactly one of
 // missionaryId/organizationId — matches the Newsletter model's shape.
 export default function NewsletterSection({ missionaryId, organizationId, newsletters, onChange }) {
+  const { enabledFeatures } = useSettings();
+  const [scanning, setScanning] = useState(null); // the newsletter being reviewed, or null
   const [showAddForm, setShowAddForm] = useState(false);
   const [title, setTitle] = useState("");
   const [receivedDate, setReceivedDate] = useState(todayInputValue());
@@ -137,6 +147,11 @@ export default function NewsletterSection({ missionaryId, organizationId, newsle
                   <button type="button" className="btn secondary small" onClick={() => handleView(n)}>
                     View
                   </button>
+                  {enabledFeatures.aiExtraction && SCANNABLE_TYPES.has(n.contentType) && (
+                    <button type="button" className="btn secondary small" onClick={() => setScanning(n)}>
+                      Scan for requests
+                    </button>
+                  )}
                   <button type="button" className="btn danger small" onClick={() => handleDelete(n)}>
                     Delete
                   </button>
@@ -148,6 +163,16 @@ export default function NewsletterSection({ missionaryId, organizationId, newsle
           <p style={{ color: "#888" }}>No newsletters on file.</p>
         )}
       </div>
+
+      {scanning && (
+        <ExtractionReviewModal
+          scan={() => extractFromNewsletter(scanning.id)}
+          missionaryId={missionaryId}
+          organizationId={organizationId}
+          defaultDate={scanning.receivedDate}
+          onClose={() => setScanning(null)}
+        />
+      )}
     </div>
   );
 }

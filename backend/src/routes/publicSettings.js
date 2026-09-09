@@ -1,5 +1,6 @@
 const express = require("express");
 const prisma = require("../prismaClient");
+const { FEATURE_KEYS, isFeatureEnabled } = require("../utils/features");
 
 const router = express.Router();
 
@@ -26,6 +27,14 @@ router.get("/", async (req, res, next) => {
       usePartnerTermInAdmin: settings?.usePartnerTermInAdmin || false,
       publicTagline: settings?.publicTagline || null,
       aboutText: settings?.aboutText || null,
+      // Resolved (not raw) per-feature booleans -- reflects the registry
+      // default and any requiresEnvVar check, not just what's stored. Not
+      // sensitive (whether a feature is on isn't a secret), and this is the
+      // one settings endpoint the frontend always has access to (see
+      // context/SettingsContext.jsx), so it's the natural place for it.
+      enabledFeatures: Object.fromEntries(
+        FEATURE_KEYS.map((key) => [key, isFeatureEnabled(settings?.enabledFeatures, key)])
+      ),
     });
   } catch (err) {
     next(err);

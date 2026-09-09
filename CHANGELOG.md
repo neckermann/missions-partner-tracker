@@ -16,6 +16,18 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.1.0] - 2026-09-09
+
+Per-church feature toggles (Admin → Church Settings → Features) — turn off
+Newsletters, Documents, or the public site if a church isn't using them,
+enforced server-side, not just hidden in the UI. First feature built on
+top of that system: optional AI request scanning, which reads an uploaded
+newsletter or email document (PDF, JPEG, or PNG) with Claude and suggests
+prayer requests and one-time financial needs for review — nothing is
+added without an explicit accept. Off by default, and only available at
+all once `ANTHROPIC_API_KEY` is configured, since it's the one feature
+here that sends file content to a third party.
+
 ## [1.0.0] - 2026-09-08
 
 Initial release. This project went through an extended build-and-test

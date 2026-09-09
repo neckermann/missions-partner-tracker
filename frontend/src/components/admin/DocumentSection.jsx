@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { uploadDocument, deleteDocument } from "../../api/client.js";
+import { uploadDocument, deleteDocument, extractFromDocument } from "../../api/client.js";
 import { DOCUMENT_CATEGORIES, documentCategoryLabel } from "../../utils/documentCategories.js";
+import { useSettings } from "../../context/SettingsContext.jsx";
+import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
 
 // Date-only fields are stored as UTC midnight — build the Date from raw
 // Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
@@ -19,11 +21,19 @@ function formatFileSize(bytes) {
 
 const todayInputValue = () => new Date().toISOString().slice(0, 10);
 
+// Claude's document input only natively reads PDF/JPEG/PNG (see
+// backend/src/utils/extraction.js) -- Word/Excel/.eml uploads (allowed for
+// documents generally, see the file input below) just don't get the Scan
+// button rather than showing one that always 400s.
+const SCANNABLE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
+
 // Same shared-vs-duplicated reasoning as NewsletterSection: reused as-is on
 // both AdminMissionaryDetail.jsx and AdminOrganizationDetail.jsx. Pass
 // exactly one of missionaryId/organizationId — matches the Document
 // model's shape.
 export default function DocumentSection({ missionaryId, organizationId, documents, onChange }) {
+  const { enabledFeatures } = useSettings();
+  const [scanning, setScanning] = useState(null); // the document being reviewed, or null
   const [showAddForm, setShowAddForm] = useState(false);
   const [category, setCategory] = useState(DOCUMENT_CATEGORIES[0].value);
   const [customCategory, setCustomCategory] = useState("");
@@ -167,6 +177,11 @@ export default function DocumentSection({ missionaryId, organizationId, document
                   <button type="button" className="btn secondary small" onClick={() => handleView(d)}>
                     View
                   </button>
+                  {enabledFeatures.aiExtraction && SCANNABLE_TYPES.has(d.contentType) && (
+                    <button type="button" className="btn secondary small" onClick={() => setScanning(d)}>
+                      Scan for requests
+                    </button>
+                  )}
                   <button type="button" className="btn danger small" onClick={() => handleDelete(d)}>
                     Delete
                   </button>
@@ -178,6 +193,16 @@ export default function DocumentSection({ missionaryId, organizationId, document
           <p style={{ color: "#888" }}>No documents on file.</p>
         )}
       </div>
+
+      {scanning && (
+        <ExtractionReviewModal
+          scan={() => extractFromDocument(scanning.id)}
+          missionaryId={missionaryId}
+          organizationId={organizationId}
+          defaultDate={scanning.receivedDate}
+          onClose={() => setScanning(null)}
+        />
+      )}
     </div>
   );
 }

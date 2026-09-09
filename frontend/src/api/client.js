@@ -248,6 +248,14 @@ export async function deleteNewsletter(id) {
   await api.delete(`/newsletters/${id}`);
 }
 
+// Returns { prayerRequests: [...], oneTimeNeeds: [...] } -- nothing is
+// persisted server-side, the caller reviews and explicitly adds each one
+// (see ExtractionReviewModal.jsx).
+export async function extractFromNewsletter(id) {
+  const { data } = await api.post(`/newsletters/${id}/extract`);
+  return data;
+}
+
 export async function fetchDocuments() {
   const { data } = await api.get("/documents");
   return data;
@@ -260,6 +268,12 @@ export async function uploadDocument(formData) {
 
 export async function deleteDocument(id) {
   await api.delete(`/documents/${id}`);
+}
+
+// See extractFromNewsletter above -- same shape, same nothing-persisted behavior.
+export async function extractFromDocument(id) {
+  const { data } = await api.post(`/documents/${id}/extract`);
+  return data;
 }
 
 export async function fetchSetupStatus() {

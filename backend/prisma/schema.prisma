@@ -578,6 +578,14 @@ model ChurchSettings {
   logoBytes             Bytes?
   logoContentType       String?
 
+  // Per-church on/off switches for optional features -- keys are validated
+  // against the registry in backend/src/utils/features.js (unknown keys
+  // rejected), not modeled as their own columns, so adding a new gate-able
+  // feature later is a one-line registry entry instead of a migration. A
+  // missing key defaults to enabled -- see isFeatureEnabled in that same
+  // file for the one exception (aiExtraction defaults to off).
+  enabledFeatures       Json     @default("{}")
+
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   updatedById           String?

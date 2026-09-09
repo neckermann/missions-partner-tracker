@@ -2,8 +2,10 @@ const express = require("express");
 const prisma = require("../prismaClient");
 const { toPublicMissionary } = require("../utils/maskData");
 const { shapeSendingParties } = require("../utils/sendingParty");
+const { requireFeature } = require("../middleware/requireFeature");
 
 const router = express.Router();
+router.use(requireFeature("publicSite"));
 
 // GET /api/public/missionaries
 // Returns the curated/masked list for the public website (map + list view)
