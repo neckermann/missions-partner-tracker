@@ -287,14 +287,13 @@ function buildFakeEml(fromName, fromSlug, subject, field) {
   return Buffer.from(eml, "utf-8");
 }
 
-async function maybeAddNewsletter({ missionaryId, organizationId, name, slug, field }) {
+async function maybeAddNewsletter({ partnerId, name, slug, field }) {
   if (!chance(0.3)) return;
   const subject = `${pick(NEWSLETTER_SUBJECTS)} — ${pick(NEWSLETTER_SEASONS)} ${randInt(2023, 2026)}`;
   const buffer = buildFakeEml(name, slug, subject, field);
   await prisma.newsletter.create({
     data: {
-      missionaryId: missionaryId || undefined,
-      organizationId: organizationId || undefined,
+      partnerId,
       title: subject,
       receivedDate: dateBetween(1, 0),
       bytes: buffer,
@@ -391,7 +390,7 @@ function buildFakePdf(title, extraText) {
   return Buffer.from(pdf, "latin1");
 }
 
-async function maybeAddDocument({ missionaryId, organizationId, name, slug, field }) {
+async function maybeAddDocument({ partnerId, name, slug, field }) {
   if (!chance(0.35)) return;
   const category = pick(["survey_response", "signed_policy", "office_document", "email", "other"]);
   const isOther = category === "other";
@@ -415,8 +414,7 @@ async function maybeAddDocument({ missionaryId, organizationId, name, slug, fiel
 
   await prisma.document.create({
     data: {
-      missionaryId: missionaryId || undefined,
-      organizationId: organizationId || undefined,
+      partnerId,
       category,
       customCategory,
       title,
@@ -741,8 +739,8 @@ function buildChurchVisits() {
 }
 
 async function main() {
-  const existingMissionaries = await prisma.missionary.count();
-  const existingOrgs = await prisma.organization.count();
+  const existingMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });
+  const existingOrgs = await prisma.partner.count({ where: { kind: "organization" } });
   if (existingMissionaries > 0 || existingOrgs > 0) {
     console.log(`Found ${existingMissionaries} missionaries and ${existingOrgs} organizations already on file — seeding will add more on top of these, not replace them.`);
   }
@@ -821,8 +819,9 @@ async function main() {
 
     const photo = await resolveMissionaryPhoto(photoPools, isFamily, childCount);
 
-    const createdMissionary = await prisma.missionary.create({
+    const createdMissionary = await prisma.partner.create({
       data: {
+        kind: "missionary",
         displayName,
         fieldDisplayName: fieldInfo.field,
         fipsCountryCode: fieldInfo.fips,
@@ -865,7 +864,7 @@ async function main() {
             { type: "mailing", addressLine1: `PO Box ${randInt(100, 9999)}`, city: "Rock Island", stateProvinceRegion: "IL", postalCode: "61201", country: "USA", receiveMail: true, receivePackages: chance(0.5) },
           ],
         },
-        missionTrips: { create: buildTrips(participantPool) },
+        trips: { create: buildTrips(participantPool) },
         furloughs: { create: furloughs },
         churchVisits: buildChurchVisits(),
         supportEntries: { create: buildSupportEntries() },
@@ -909,8 +908,8 @@ async function main() {
       },
     });
 
-    await maybeAddNewsletter({ missionaryId: createdMissionary.id, name: displayName, slug: last.toLowerCase(), field: fieldInfo.field });
-    await maybeAddDocument({ missionaryId: createdMissionary.id, name: displayName, slug: last.toLowerCase(), field: fieldInfo.field });
+    await maybeAddNewsletter({ partnerId: createdMissionary.id, name: displayName, slug: last.toLowerCase(), field: fieldInfo.field });
+    await maybeAddDocument({ partnerId: createdMissionary.id, name: displayName, slug: last.toLowerCase(), field: fieldInfo.field });
   }
 
   console.log(`Seeding ${ORGANIZATION_COUNT} organizations...`);
@@ -931,9 +930,10 @@ async function main() {
 
     const logo = await resolveOrgLogo(photoPools);
 
-    const created = await prisma.organization.create({
+    const created = await prisma.partner.create({
       data: {
-        name,
+        kind: "organization",
+        displayName: name,
         orgType,
         fieldDisplayName: fieldInfo.field,
         fipsCountryCode: fieldInfo.fips,
@@ -972,7 +972,7 @@ async function main() {
               : []),
           ],
         },
-        orgTrips: { create: buildTrips(participantPool) },
+        trips: { create: buildTrips(participantPool) },
         churchVisits: buildChurchVisits(),
         supportEntries: { create: buildSupportEntries() },
         needRequests: { create: buildNeedRequests() },
@@ -981,12 +981,12 @@ async function main() {
       },
     });
 
-    await maybeAddNewsletter({ organizationId: created.id, name, slug: slugify(name), field: fieldInfo.field });
-    await maybeAddDocument({ organizationId: created.id, name, slug: slugify(name), field: fieldInfo.field });
+    await maybeAddNewsletter({ partnerId: created.id, name, slug: slugify(name), field: fieldInfo.field });
+    await maybeAddDocument({ partnerId: created.id, name, slug: slugify(name), field: fieldInfo.field });
   }
 
-  const finalMissionaries = await prisma.missionary.count();
-  const finalOrgs = await prisma.organization.count();
+  const finalMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });
+  const finalOrgs = await prisma.partner.count({ where: { kind: "organization" } });
   console.log(`Done. Missionaries: ${finalMissionaries}, Organizations: ${finalOrgs}.`);
 }
 
