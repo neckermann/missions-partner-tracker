@@ -6,23 +6,17 @@ const { requireFeature } = require("../middleware/requireFeature");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
-// Only gates this standalone CRUD path -- doesn't reach the nested
-// needRequests array inside routes/missionaries.js/organizations.js (see
-// the comment above), which stays usable from a missionary/org's own edit
-// form either way. A narrower gap than most of this app's other toggles,
-// which is why this one hasn't gotten the same full nav-declutter benefit
-// as Newsletters/Documents -- worth revisiting if it matters in practice.
+// Gates the whole resource. The partner record's own PUT no longer accepts
+// a needRequests array, so this router is the only way in -- turning the
+// feature off now actually turns it off.
 router.use(requireFeature("oneTimeNeeds"));
 
-// Free-standing CRUD for SupportNeed, on top of the wholesale-replace
-// `needRequests` array already handled inside routes/missionaries.js and
-// routes/organizations.js (used by each entity's own edit form). This is
-// the API for the consolidated "One-Time Needs" admin page — creating a
-// request against any missionary/org without loading and resubmitting
+// The only writer for SupportNeed. Backs both the consolidated "One-Time
+// Needs" admin page and the needs section on a single partner's page —
+// creating a request against any partner without loading and resubmitting
 // their whole record, and recording a decision on one later.
-const supportNeedBaseSchema = z.object({
-  missionaryId: z.string().optional().nullable(),
-  organizationId: z.string().optional().nullable(),
+const supportNeedSchema = z.object({
+  partnerId: z.string(),
   description: z.string().min(1),
   requestedAmount: z.coerce.number().int().nonnegative(),
   requestDate: z.coerce.date(),
@@ -30,20 +24,19 @@ const supportNeedBaseSchema = z.object({
   approvedDate: z.coerce.date().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
-const createSupportNeedSchema = supportNeedBaseSchema.refine(
-  (data) => Boolean(data.missionaryId) !== Boolean(data.organizationId),
-  { message: "Exactly one of missionaryId or organizationId is required", path: ["missionaryId"] }
-);
 
 const supportNeedInclude = {
-  missionary: { select: { id: true, displayName: true } },
-  organization: { select: { id: true, name: true } },
+  partner: { select: { id: true, kind: true, displayName: true } },
 };
 
-// GET /api/support-needs  (all entities combined, newest request first)
+// GET /api/support-needs?partnerId=  (all partners combined, newest request first)
 router.get("/", async (req, res, next) => {
   try {
+    const where = {};
+    if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
+
     const records = await prisma.supportNeed.findMany({
+      where,
       include: supportNeedInclude,
       orderBy: { requestDate: "desc" },
     });
@@ -56,7 +49,7 @@ router.get("/", async (req, res, next) => {
 // POST /api/support-needs  (create — editor or admin)
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = createSupportNeedSchema.parse(req.body);
+    const data = supportNeedSchema.parse(req.body);
     const created = await prisma.supportNeed.create({ data, include: supportNeedInclude });
     res.status(201).json(created);
   } catch (err) {
@@ -67,15 +60,15 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 
 // PUT /api/support-needs/:id  (update — editor or admin)
 // Mainly for recording a decision (approvedAmount/approvedDate) on a
-// previously-pending request, but allows editing any field. Doesn't accept
-// re-parenting to a different missionary/organization from this endpoint —
-// only the fields below are ever applied.
+// previously-pending request, but allows editing any field — including
+// moving it to a different partner, which is now just a plain column and
+// so needs no special handling.
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const { missionaryId, organizationId, ...rest } = supportNeedBaseSchema.partial().parse(req.body);
+    const data = supportNeedSchema.partial().parse(req.body);
     const updated = await prisma.supportNeed.update({
       where: { id: req.params.id },
-      data: rest,
+      data,
       include: supportNeedInclude,
     });
     res.json(updated);

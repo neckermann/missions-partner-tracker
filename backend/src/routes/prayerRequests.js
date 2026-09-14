@@ -8,14 +8,14 @@ const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
 router.use(requireFeature("prayerRequests"));
 
-// Free-standing CRUD for the consolidated "Prayer Requests" admin page,
-// same shape as routes/supportNeeds.js. `status` has no "unanswered"
-// value on purpose (see the PrayerRequest model comment in
-// schema.prisma) -- "ongoing" is the neutral default, not a flag that
-// something failed to happen.
-const prayerRequestBaseSchema = z.object({
-  missionaryId: z.string().optional().nullable(),
-  organizationId: z.string().optional().nullable(),
+// The only writer for PrayerRequest, same shape as routes/supportNeeds.js.
+// Backs both the consolidated "Prayer Requests" admin page and the prayer
+// section on a single partner's page. `status` has no "unanswered" value on
+// purpose (see the PrayerRequest model comment in schema.prisma) --
+// "ongoing" is the neutral default, not a flag that something failed to
+// happen.
+const prayerRequestSchema = z.object({
+  partnerId: z.string(),
   category: z.enum(["strategic", "situational"]),
   requestText: z.string().min(1),
   dateReceived: z.coerce.date(),
@@ -26,20 +26,18 @@ const prayerRequestBaseSchema = z.object({
   answeredNote: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
-const createPrayerRequestSchema = prayerRequestBaseSchema.refine(
-  (data) => Boolean(data.missionaryId) !== Boolean(data.organizationId),
-  { message: "Exactly one of missionaryId or organizationId is required", path: ["missionaryId"] }
-);
-
 const prayerRequestInclude = {
-  missionary: { select: { id: true, displayName: true } },
-  organization: { select: { id: true, name: true } },
+  partner: { select: { id: true, kind: true, displayName: true } },
 };
 
-// GET /api/prayer-requests  (all entities combined, newest received first)
+// GET /api/prayer-requests?partnerId=  (all partners combined, newest received first)
 router.get("/", async (req, res, next) => {
   try {
+    const where = {};
+    if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
+
     const records = await prisma.prayerRequest.findMany({
+      where,
       include: prayerRequestInclude,
       orderBy: { dateReceived: "desc" },
     });
@@ -52,9 +50,9 @@ router.get("/", async (req, res, next) => {
 // POST /api/prayer-requests  (create — editor or admin)
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = createPrayerRequestSchema.parse(req.body);
+    const data = prayerRequestSchema.parse(req.body);
     const created = await prisma.prayerRequest.create({
-      data: { ...data, createdById: req.user.id },
+      data,
       include: prayerRequestInclude,
     });
     res.status(201).json(created);
@@ -66,15 +64,15 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 
 // PUT /api/prayer-requests/:id  (update — editor or admin)
 // Mainly for recording an answer (status/dateAnswered/answeredNote) on a
-// previously-ongoing request, but allows editing any field. Doesn't
-// accept re-parenting to a different missionary/organization from this
-// endpoint — only the fields below are ever applied.
+// previously-ongoing request, but allows editing any field — including
+// moving it to a different partner, which is now just a plain column and so
+// needs no special handling.
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const { missionaryId, organizationId, ...rest } = prayerRequestBaseSchema.partial().parse(req.body);
+    const data = prayerRequestSchema.partial().parse(req.body);
     const updated = await prisma.prayerRequest.update({
       where: { id: req.params.id },
-      data: rest,
+      data,
       include: prayerRequestInclude,
     });
     res.json(updated);

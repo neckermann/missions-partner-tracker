@@ -50,22 +50,24 @@ function handleUploadErrors(err, req, res, next) {
 }
 
 const newsletterInclude = {
-  missionary: { select: { id: true, displayName: true } },
-  organization: { select: { id: true, name: true } },
+  partner: { select: { id: true, kind: true, displayName: true } },
 };
 
 const metaSchema = z.object({
-  missionaryId: z.string().optional().nullable(),
-  organizationId: z.string().optional().nullable(),
+  partnerId: z.string(),
   title: z.string().optional().nullable(),
   receivedDate: z.coerce.date(),
   notes: z.string().optional().nullable(),
 });
 
-// GET /api/newsletters (all entities combined, newest first)
+// GET /api/newsletters?partnerId= (all partners combined, newest first)
 router.get("/", async (req, res, next) => {
   try {
+    const where = {};
+    if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
+
     const records = await prisma.newsletter.findMany({
+      where,
       include: newsletterInclude,
       omit: { bytes: true }, // file content only ever comes back via GET /:id/download
       orderBy: { receivedDate: "desc" },
@@ -93,10 +95,7 @@ router.post(
         return res.status(400).json({ error: "File content doesn't match its declared type" });
       }
 
-      const meta = metaSchema.refine(
-        (data) => Boolean(data.missionaryId) !== Boolean(data.organizationId),
-        { message: "Exactly one of missionaryId or organizationId is required", path: ["missionaryId"] }
-      ).parse(req.body);
+      const meta = metaSchema.parse(req.body);
 
       const created = await prisma.newsletter.create({
         data: {
@@ -105,7 +104,6 @@ router.post(
           fileName: req.file.originalname,
           contentType: req.file.mimetype || "application/octet-stream",
           fileSize: req.file.size,
-          createdById: req.user.id,
         },
         include: newsletterInclude,
         omit: { bytes: true },
@@ -136,29 +134,13 @@ router.get("/:id/download", async (req, res, next) => {
 });
 
 // PUT /api/newsletters/:id (update metadata — editor or admin). Everything
-// but the file itself is editable, including re-parenting to a different
-// missionary/organization (e.g. it was filed under the wrong partner) --
-// the file's bytes/fileName/contentType/fileSize are immutable (upload a
-// new newsletter and delete this one if the file's wrong).
+// but the file itself is editable, including moving it to a different
+// partner (e.g. it was filed under the wrong one) -- the file's
+// bytes/fileName/contentType/fileSize are immutable (upload a new
+// newsletter and delete this one if the file's wrong).
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const data = metaSchema.partial().parse(req.body);
-
-    const existing = await prisma.newsletter.findUnique({ where: { id: req.params.id } });
-    if (!existing) return res.status(404).json({ error: "Not found" });
-
-    // missionaryId/organizationId are independently optional in the partial
-    // schema, so re-check the "exactly one" invariant against what the
-    // record will actually look like after merging in whichever of the two
-    // fields the request touched.
-    if (data.missionaryId !== undefined || data.organizationId !== undefined) {
-      const missionaryId = data.missionaryId !== undefined ? data.missionaryId : existing.missionaryId;
-      const organizationId = data.organizationId !== undefined ? data.organizationId : existing.organizationId;
-      if (Boolean(missionaryId) === Boolean(organizationId)) {
-        return res.status(400).json({ error: "Exactly one of missionaryId or organizationId is required" });
-      }
-    }
-
     const updated = await prisma.newsletter.update({
       where: { id: req.params.id },
       data,
@@ -168,6 +150,7 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     res.json(updated);
   } catch (err) {
     if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
+    if (err.code === "P2025") return res.status(404).json({ error: "Not found" });
     next(err);
   }
 });

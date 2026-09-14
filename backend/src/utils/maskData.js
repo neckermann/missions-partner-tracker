@@ -285,7 +285,7 @@ const COUNTRY_CENTROIDS = {
 };
 
 // "single" | "couple" | "family" -- which generic silhouette a restricted
-// missionary's household gets on the public site (see toPublicMissionary
+// missionary's household gets on the public site (see toPublicPartner
 // below). Any child at all means "family" regardless of adult count,
 // since the shape itself is what communicates "this is a household with
 // kids," not a precise headcount.
@@ -295,27 +295,14 @@ function missionaryHouseholdCategory(m) {
   return "single";
 }
 
-/**
- * Given a full Missionary record (with relations included), return the
- * shape that is safe to send to the PUBLIC website, based on isPublic /
- * isRestricted flags.
- *
- * - isPublic = false          -> return null (caller should filter these out)
- * - isPublic = true, restricted = false -> full "public" fields, still
- *      excludes internal-only data (emergency contacts, raw phone/email
- *      unless explicitly marked contactSafe, internal notes, user ids)
- * - isPublic = true, restricted = true  -> heavily generic: initials only,
- *      a country-level pin only (never the precise serving-location
- *      coordinates), no contact info, no children data, generic overview.
- */
-// Curates a (already query-filtered to public long-term ones -- see
-// publicMissionaries.js/publicOrganizations.js) list of PrayerRequest
-// rows down to just what's safe/meaningful to show publicly. No id,
-// category, isPublic, notes, or createdById -- those are all admin-side
-// bookkeeping. `status`/`dateAnswered`/`answeredNote` come through as-is:
-// per the model comment in schema.prisma, "ongoing" carries no negative
-// implication, so there's nothing here that needs hiding or softening
-// for a public audience the way isRestricted's other masking does.
+// Curates a (already query-filtered to public strategic ones -- see
+// publicPartners.js) list of PrayerRequest rows down to just what's
+// safe/meaningful to show publicly. No id, category, isPublic, or notes --
+// those are all admin-side bookkeeping. `status`/`dateAnswered`/
+// `answeredNote` come through as-is: per the model comment in
+// schema.prisma, "ongoing" carries no negative implication, so there's
+// nothing here that needs hiding or softening for a public audience the
+// way isRestricted's other masking does.
 function toPublicPrayerRequests(prayerRequests) {
   return (prayerRequests || []).map((p) => ({
     requestText: p.requestText,
@@ -326,130 +313,109 @@ function toPublicPrayerRequests(prayerRequests) {
   }));
 }
 
-function toPublicMissionary(m) {
-  if (!m || !m.isPublic || m.archived) return null;
+/**
+ * Given a full Partner record (with relations included), return the shape
+ * that is safe to send to the PUBLIC website, based on isPublic /
+ * isRestricted flags.
+ *
+ * - isPublic = false          -> return null (caller should filter these out)
+ * - isPublic = true, restricted = false -> full "public" fields, still
+ *      excludes internal-only data (emergency contacts, raw phone/email,
+ *      internal notes, user ids)
+ * - isPublic = true, restricted = true  -> heavily generic: a country-level
+ *      pin only (never the precise serving-location coordinates), no
+ *      contact info, no family data, generic overview.
+ *
+ * This was two near-identical functions (toPublicMissionary /
+ * toPublicOrganization) before Missionary and Organization merged into
+ * Partner. Only two differences between the kinds survive:
+ *
+ *  - The generic stand-in image (household silhouette vs. building icon).
+ *  - languagesSpoken / sendingChurch / sendingOrg are missionary-only.
+ *
+ * Name masking is deliberately the same for both. An earlier version left
+ * a restricted organization's name visible, reasoning that an institution
+ * isn't a person and so has no equivalent privacy claim. That was the
+ * wrong call for the threat this flag actually exists for: a named
+ * Christian organization in a hostile country is a fixed, physically
+ * locatable target, so publishing the name while coarsening the map pin
+ * gives away more than it withholds. Both kinds now get initials.
+ */
+function toPublicPartner(p) {
+  if (!p || !p.isPublic || p.archived) return null;
 
-  const physical = (m.addresses || []).find((a) => a.type === "physical");
+  const isOrg = p.kind === "organization";
+  const physical = (p.addresses || []).find((a) => a.type === "physical");
 
   const base = {
-    id: m.id,
-    fieldDisplayName: m.fieldDisplayName,
-    supportingSince: m.supportingSince,
+    id: p.id,
+    kind: p.kind,
+    orgType: p.orgType ?? null, // organization-only; null for a missionary
+    fieldDisplayName: p.fieldDisplayName,
+    supportingSince: p.supportingSince,
     // Country code (not name) for looking up Joshua Project stats. Fine to
     // expose even when restricted — it's the same country-level granularity
     // already shown via the masked `country` field below.
-    fipsCountryCode: m.fipsCountryCode || null,
+    fipsCountryCode: p.fipsCountryCode || null,
+    // Same country-level value in both branches (already considered safe to
+    // expose when restricted) — needed for the country/continent filters and
+    // search on the public directory, not just for restricted records.
+    country: physical?.country || p.fipsCountryCode || null,
   };
 
-  if (m.isRestricted) {
+  if (p.isRestricted) {
     const centroid = physical?.country ? COUNTRY_CENTROIDS[physical.country] : null;
     return {
       ...base,
       isRestricted: true,
-      displayName: toInitials(m.displayName),
+      // Both kinds -- see the note on name masking above.
+      displayName: toInitials(p.displayName),
       // Coarsen location to a country-level pin only — never the precise
       // serving-location coordinates.
-      country: physical?.country || m.fipsCountryCode || null,
       gpsLat: centroid?.lat ?? null,
       gpsLng: centroid?.lng ?? null,
       overviewShort: "Restricted-access location.",
-      overview: "Serving in a restricted-access location. Specific details are withheld for security.",
-      // A generic silhouette (single/couple/family, matching the real
-      // household), never their real uploaded photo — even a generic
-      // *human* photo would undercut the anonymity isRestricted exists
-      // for, so this is a plain shape icon, not a stock photo.
-      photo: silhouetteFor(missionaryHouseholdCategory(m)),
+      overview: isOrg
+        ? "Partnering in a restricted-access location. Specific details are withheld for security."
+        : "Serving in a restricted-access location. Specific details are withheld for security.",
+      // A generic stand-in, never the real uploaded photo — even a generic
+      // *human* photo would undercut the anonymity isRestricted exists for,
+      // so this is a plain shape icon, not a stock photo. Missionaries get a
+      // silhouette matching their real household shape; orgs get a building.
+      photo: silhouetteFor(isOrg ? "organization" : missionaryHouseholdCategory(p)),
     };
   }
 
   // Public, not restricted -> fuller (but still curated) view
   return {
     ...base,
-    displayName: m.displayName,
-    // Same country-level value as the restricted branch above (already
-    // considered safe to expose there) — needed for the country/continent
-    // filters and search on the public directory, not just restricted
-    // records.
-    country: physical?.country || m.fipsCountryCode || null,
+    displayName: p.displayName,
     gpsLat: physical?.gpsLat ?? null,
     gpsLng: physical?.gpsLng ?? null,
-    overview: m.overview,
-    overviewShort: m.overviewShort,
-    focusArea: m.focusArea,
-    websiteLink: m.websiteLink,
-    supportLink: m.supportLink,
-    newsletterSignup: m.newsletterSignup,
-    facebook: m.facebook,
-    twitter: m.twitter,
-    instagram: m.instagram,
-    linkedin: m.linkedin,
-    languagesSpoken: m.languagesSpoken,
-    // Only the current photo (see Photo model / publicMissionaries.js's
+    overview: p.overview,
+    overviewShort: p.overviewShort,
+    focusArea: p.focusArea,
+    websiteLink: p.websiteLink,
+    supportLink: p.supportLink,
+    newsletterSignup: p.newsletterSignup,
+    facebook: p.facebook,
+    twitter: p.twitter,
+    instagram: p.instagram,
+    linkedin: p.linkedin,
+    // Only the current photo (see the Photo model / publicPartners.js's
     // `take: 1` include) is ever surfaced publicly — never the upload
     // history, and never at all for a restricted record (see above).
-    photo: m.photos?.[0] ? `/api/photos/${m.photos[0].id}/raw` : null,
-    sendingChurch: m.sendingChurch ? { name: m.sendingChurch.name } : null,
-    sendingOrg: m.sendingOrg ? { name: m.sendingOrg.name } : null,
-    prayerRequests: toPublicPrayerRequests(m.prayerRequests),
+    photo: p.photos?.[0] ? `/api/photos/${p.photos[0].id}/raw` : null,
+    prayerRequests: toPublicPrayerRequests(p.prayerRequests),
+    // --- Missionary-only below ---
+    ...(isOrg
+      ? {}
+      : {
+          languagesSpoken: p.languagesSpoken,
+          sendingChurch: p.sendingChurch ? { name: p.sendingChurch.name } : null,
+          sendingOrg: p.sendingOrg ? { name: p.sendingOrg.name } : null,
+        }),
   };
 }
 
-/**
- * Same isPublic/isRestricted masking philosophy as toPublicMissionary, for
- * Organization records. Unlike a restricted missionary, a restricted org's
- * `name` stays visible — it's an institution, not a person, so there's no
- * equivalent privacy reason to reduce it to initials. Only its precise
- * location/contact info gets stripped.
- */
-function toPublicOrganization(o) {
-  if (!o || !o.isPublic || o.archived) return null;
-
-  const physical = (o.addresses || []).find((a) => a.type === "physical");
-
-  const base = {
-    id: o.id,
-    name: o.name,
-    orgType: o.orgType,
-    fieldDisplayName: o.fieldDisplayName,
-    supportingSince: o.supportingSince,
-    fipsCountryCode: o.fipsCountryCode || null,
-  };
-
-  if (o.isRestricted) {
-    const centroid = physical?.country ? COUNTRY_CENTROIDS[physical.country] : null;
-    return {
-      ...base,
-      isRestricted: true,
-      country: physical?.country || o.fipsCountryCode || null,
-      gpsLat: centroid?.lat ?? null,
-      gpsLng: centroid?.lng ?? null,
-      overviewShort: "Restricted-access location.",
-      overview: "Partnering in a restricted-access location. Specific details are withheld for security.",
-      // Generic building icon, same reasoning as the missionary branch
-      // above — never the org's real logo/photo.
-      photo: silhouetteFor("organization"),
-    };
-  }
-
-  return {
-    ...base,
-    // Same country-level value as the restricted branch above.
-    country: physical?.country || o.fipsCountryCode || null,
-    gpsLat: physical?.gpsLat ?? null,
-    gpsLng: physical?.gpsLng ?? null,
-    overview: o.overview,
-    overviewShort: o.overviewShort,
-    focusArea: o.focusArea,
-    websiteLink: o.websiteLink,
-    supportLink: o.supportLink,
-    newsletterSignup: o.newsletterSignup,
-    facebook: o.facebook,
-    twitter: o.twitter,
-    instagram: o.instagram,
-    linkedin: o.linkedin,
-    photo: o.photos?.[0] ? `/api/photos/${o.photos[0].id}/raw` : null,
-    prayerRequests: toPublicPrayerRequests(o.prayerRequests),
-  };
-}
-
-module.exports = { toInitials, toPublicMissionary, toPublicOrganization, missionaryHouseholdCategory };
+module.exports = { toInitials, toPublicPartner, missionaryHouseholdCategory };

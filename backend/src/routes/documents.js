@@ -58,42 +58,35 @@ function handleUploadErrors(err, req, res, next) {
 }
 
 const documentInclude = {
-  missionary: { select: { id: true, displayName: true } },
-  organization: { select: { id: true, name: true } },
+  partner: { select: { id: true, kind: true, displayName: true } },
 };
 
 // A plain object (not the refined version below) so PUT /:id can
-// .omit()/.partial() it -- .refine() wraps a schema in a way that no
-// longer exposes those.
+// .partial() it -- .refine() wraps a schema in a way that no longer
+// exposes that.
 const metaObjectSchema = z.object({
-  missionaryId: z.string().optional().nullable(),
-  organizationId: z.string().optional().nullable(),
+  partnerId: z.string(),
   category: z.enum(CATEGORIES),
   customCategory: z.string().optional().nullable(),
   title: z.string().optional().nullable(),
   receivedDate: z.coerce.date(),
   notes: z.string().optional().nullable(),
 });
-const metaSchema = metaObjectSchema
-  .refine((data) => Boolean(data.missionaryId) !== Boolean(data.organizationId), {
-    message: "Exactly one of missionaryId or organizationId is required",
-    path: ["missionaryId"],
-  })
-  .refine((data) => data.category !== "other" || Boolean(data.customCategory?.trim()), {
-    message: "customCategory is required when category is \"other\"",
-    path: ["customCategory"],
-  });
+const metaSchema = metaObjectSchema.refine(
+  (data) => data.category !== "other" || Boolean(data.customCategory?.trim()),
+  { message: "customCategory is required when category is \"other\"", path: ["customCategory"] }
+);
 
-// GET /api/documents (all entities combined, newest first) — optional
-// ?category=, ?missionaryId=, ?organizationId= query filters for the
-// consolidated admin list page; the frontend also does its own client-side
-// filtering on top of this for instant response without a round-trip.
+// GET /api/documents (all partners combined, newest first) — optional
+// ?category=, ?partnerId= query filters for the consolidated admin list
+// page and the documents section on a single partner's page; the frontend
+// also does its own client-side filtering on top of this for instant
+// response without a round-trip.
 router.get("/", async (req, res, next) => {
   try {
     const where = {};
     if (req.query.category) where.category = String(req.query.category);
-    if (req.query.missionaryId) where.missionaryId = String(req.query.missionaryId);
-    if (req.query.organizationId) where.organizationId = String(req.query.organizationId);
+    if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
 
     const records = await prisma.document.findMany({
       where,
@@ -133,7 +126,6 @@ router.post(
           fileName: req.file.originalname,
           contentType: req.file.mimetype || "application/octet-stream",
           fileSize: req.file.size,
-          createdById: req.user.id,
         },
         include: documentInclude,
         omit: { bytes: true },
@@ -165,10 +157,9 @@ router.get("/:id/download", async (req, res, next) => {
 
 // PUT /api/documents/:id (update metadata — editor or admin). Everything
 // but the file itself is editable, including category/customCategory and
-// re-parenting to a different missionary/organization (e.g. it was filed
-// under the wrong partner or category) -- the file's bytes/fileName/
-// contentType/fileSize are immutable (upload a new document and delete
-// this one if the file's wrong).
+// moving it to a different partner (e.g. it was filed under the wrong one)
+// -- the file's bytes/fileName/contentType/fileSize are immutable (upload
+// a new document and delete this one if the file's wrong).
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const data = metaObjectSchema.partial().parse(req.body);
@@ -176,16 +167,10 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     const existing = await prisma.document.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: "Not found" });
 
-    // Same merge-then-validate approach as PUT /api/newsletters/:id -- both
-    // metaSchema refinements (exactly one of missionaryId/organizationId,
-    // customCategory required when category is "other") are re-checked
-    // against what the record will actually look like after the merge,
-    // not just the raw partial body.
-    const missionaryId = data.missionaryId !== undefined ? data.missionaryId : existing.missionaryId;
-    const organizationId = data.organizationId !== undefined ? data.organizationId : existing.organizationId;
-    if (Boolean(missionaryId) === Boolean(organizationId)) {
-      return res.status(400).json({ error: "Exactly one of missionaryId or organizationId is required" });
-    }
+    // The one metaSchema refinement that still needs re-checking on a
+    // partial update: either field can arrive alone, so "other" requires a
+    // customCategory is evaluated against what the record will actually
+    // look like after the merge, not just the raw body.
     const category = data.category !== undefined ? data.category : existing.category;
     const customCategory = data.customCategory !== undefined ? data.customCategory : existing.customCategory;
     if (category === "other" && !customCategory?.trim()) {

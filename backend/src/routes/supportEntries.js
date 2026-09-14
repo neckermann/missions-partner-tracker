@@ -6,52 +6,38 @@ const { requireFeature } = require("../middleware/requireFeature");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
-// Only gates this standalone CRUD path -- doesn't reach the nested
-// supportEntries array inside routes/missionaries.js/organizations.js,
-// which stays usable from a missionary/org's own edit form either way. Same
-// narrower-gap situation as routes/supportNeeds.js and routes/trips.js.
+// Gates the whole resource. The partner record's own PUT no longer accepts
+// a supportEntries array, so this router is the only way in -- turning the
+// feature off now actually turns it off.
 router.use(requireFeature("monthlySupport"));
 
-// Free-standing create/delete for SupportEntry, on top of the
-// wholesale-replace `supportEntries` array already handled inside
-// routes/missionaries.js and routes/organizations.js (used by each entity's
-// own edit form). This is the API for the consolidated "Monthly Support"
-// admin page -- logging a new support amount against any missionary/org
-// without loading and resubmitting their whole record.
+// The only writer for SupportEntry. The partner record's own PUT no longer
+// accepts a supportEntries array -- see the comment on PUT /api/partners/:id.
 //
-// Deliberately no PUT/edit here: a support entry is a point-in-time record
-// of what the monthly amount was set to as of effectiveDate, same as a
-// real financial ledger. Correcting a mistake means deleting the bad entry
-// and adding a new one, not silently rewriting history -- "current
-// support" is always just whichever entry has the latest effectiveDate
-// (see the schema.prisma comment on supportEntrySchema in missionaries.js).
-const supportEntrySchema = z
-  .object({
-    missionaryId: z.string().optional().nullable(),
-    organizationId: z.string().optional().nullable(),
-    amount: z.coerce.number().int().nonnegative(),
-    effectiveDate: z.coerce.date(),
-    notes: z.string().optional().nullable(),
-  })
-  .refine((data) => Boolean(data.missionaryId) !== Boolean(data.organizationId), {
-    message: "Exactly one of missionaryId or organizationId is required",
-    path: ["missionaryId"],
-  });
+// Deliberately no PUT/edit here either: a support entry is a point-in-time
+// record of what the monthly amount was set to as of effectiveDate, same as
+// a real financial ledger. Correcting a mistake means deleting the bad entry
+// and adding a new one, not silently rewriting history -- "current support"
+// is always just whichever entry has the latest effectiveDate.
+const supportEntrySchema = z.object({
+  partnerId: z.string(),
+  amount: z.coerce.number().int().nonnegative(),
+  effectiveDate: z.coerce.date(),
+  notes: z.string().optional().nullable(),
+});
 
 const supportEntryInclude = {
-  missionary: { select: { id: true, displayName: true } },
-  organization: { select: { id: true, name: true } },
+  partner: { select: { id: true, kind: true, displayName: true } },
 };
 
-// GET /api/support-entries  (all entities combined, newest first) -- full
-// history, not just each partner's current amount (the top-level page
-// already gets "current" for free via each entity's own supportEntries
-// relation, ordered desc; this is for showing/deleting individual entries).
+// GET /api/support-entries?partnerId=  (all partners combined, newest
+// first) -- full history, not just each partner's current amount. Backs
+// both the consolidated Monthly Support page and the support section on a
+// single partner's page.
 router.get("/", async (req, res, next) => {
   try {
     const where = {};
-    if (req.query.missionaryId) where.missionaryId = String(req.query.missionaryId);
-    if (req.query.organizationId) where.organizationId = String(req.query.organizationId);
+    if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
 
     const records = await prisma.supportEntry.findMany({
       where,

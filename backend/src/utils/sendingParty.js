@@ -1,11 +1,12 @@
-// Shared between routes/missionaries.js and routes/publicMissionaries.js --
-// both query the same Missionary.sendingParties relation and need to
-// reshape it back into the sendingChurch/sendingOrg object pair every
-// caller (admin forms, maskData.js, AdminBooklet.jsx, the public site)
-// has always expected. See SendingParty in schema.prisma for why this
-// reshaping exists: two formerly-separate 1:1 relations (SendingChurch,
-// SendingOrg) were merged into one type-discriminated to-many relation,
-// and this is what makes that change invisible outside these two files.
+// Shared between routes/partners.js and routes/publicPartners.js -- both
+// query the same Partner.sendingParties relation and need to reshape it
+// back into the sendingChurch/sendingOrg object pair every caller (admin
+// UI, maskData.js, AdminBooklet.jsx, the public site) has always expected.
+// See SendingParty in schema.prisma for why this reshaping exists: two
+// formerly-separate 1:1 relations (SendingChurch, SendingOrg) were merged
+// into one type-discriminated to-many relation, and this is what makes
+// that change invisible outside these two files. Missionary-only -- an
+// organization has no sending party, so both fields come back null.
 
 // API -> DB: unpacks the nested `mailingAddress` object into the flat
 // columns SendingParty actually stores.
@@ -18,7 +19,7 @@ function flattenSendingParty(sp, type) {
 // the nested `mailingAddress` shape the frontend has always expected.
 function nestSendingParty(sp) {
   if (!sp) return null;
-  const { id, missionaryId, type, addressLine1, addressLine2, city, stateProvinceRegion, postalCode, country, ...rest } = sp;
+  const { id, partnerId, type, addressLine1, addressLine2, city, stateProvinceRegion, postalCode, country, ...rest } = sp;
   return { ...rest, mailingAddress: { addressLine1, addressLine2, city, stateProvinceRegion, postalCode, country } };
 }
 

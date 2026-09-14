@@ -14,8 +14,8 @@ router.use(requireAuth); // everything below requires a logged-in user
 // Composes the two post-query response transforms this route file needs:
 // sending-party shaping (see utils/sendingParty.js) and turning each Photo
 // row's id into the `url` the frontend expects (see utils/photoUrls.js).
-function shapeMissionary(m) {
-  return shapeSendingParties({ ...m, photos: withPhotoUrls(m.photos) });
+function shapePartner(p) {
+  return shapeSendingParties({ ...p, photos: withPhotoUrls(p.photos) });
 }
 
 const IMAGE_MIME_TO_EXT = {
@@ -45,29 +45,62 @@ function handleUploadErrors(err, req, res, next) {
   next(err);
 }
 
-const missionaryInclude = {
+// What GET /:id returns: the partner record itself plus the small
+// one-per-partner relations that are genuinely part of it and are only
+// ever written through this route.
+//
+// Deliberately NOT the history collections (trips, support entries,
+// one-time needs, prayer requests, newsletters, documents). Those are
+// independent resources with their own endpoints, and each section of the
+// partner page loads the one it needs -- a list row shouldn't drag ten
+// years of history across the wire to render a name.
+const partnerRecordInclude = {
   adults: true,
   children: true,
   sendingParties: true,
   addresses: true,
-  missionTrips: { include: { participants: true } },
   furloughs: { orderBy: { startDate: "desc" } },
   churchVisits: { orderBy: { visitDate: "desc" } },
-  supportEntries: { orderBy: { effectiveDate: "desc" } },
-  needRequests: { orderBy: { requestDate: "desc" } },
-  prayerRequests: { orderBy: { dateReceived: "desc" } },
-  // omit: { bytes: true } on all three below -- the actual file content
-  // is never wanted in a list/detail response, only fetched through its
-  // own dedicated route (see routes/photos.js and the download routes in
-  // routes/newsletters.js / routes/documents.js).
-  newsletters: { orderBy: { receivedDate: "desc" }, omit: { bytes: true } },
-  documents: { orderBy: { receivedDate: "desc" }, omit: { bytes: true } },
-  // Full history, newest-received first — photos[0] is "current". Admin-
-  // only (the public API takes just the first row; see maskData.js).
+  // Full history, newest-received first — photos[0] is "current". Bytes are
+  // never wanted here; the image comes from routes/photos.js.
   photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], omit: { bytes: true } },
 };
 
-// A missionary has at most one address per type: "physical" (actual serving
+// What GET / returns per row: enough to render a list, and nothing more.
+// Each partner previously came back with thirteen relations eagerly loaded
+// even when the caller only needed a name and a country.
+const partnerSummarySelect = {
+  id: true,
+  kind: true,
+  displayName: true,
+  fieldDisplayName: true,
+  fipsCountryCode: true,
+  orgType: true,
+  isPublic: true,
+  isRestricted: true,
+  archived: true,
+  sentByOurChurch: true,
+  supportingSince: true,
+  overviewShort: true,
+  focusArea: true,
+  addresses: {
+    where: { type: "physical" },
+    select: { city: true, stateProvinceRegion: true, country: true, gpsLat: true, gpsLng: true },
+  },
+  // "Current" monthly support is just the latest row by effectiveDate.
+  supportEntries: {
+    orderBy: { effectiveDate: "desc" },
+    take: 1,
+    select: { amount: true, effectiveDate: true },
+  },
+  photos: {
+    orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }],
+    take: 1,
+    select: { id: true, receivedDate: true },
+  },
+};
+
+// A partner has at most one address per type: "physical" (actual serving
 // location — may be a full street address or just city/state/country, and
 // is the source of the public map pin via gpsLat/gpsLng) and "mailing"
 // (US-side contact/support-mail address, no coordinates).
@@ -92,16 +125,12 @@ const addressesSchema = z
 
 // Shared shape for the sendingChurch/sendingOrg API fields. Explicit
 // fields (rather than z.any()) so Zod strips relation-managed keys like
-// `id`/`missionaryId` that the frontend round-trips back from a GET
-// response — the nested-write helpers reject those as unknown columns
-// otherwise. `mailingAddress` stays a nested object in the API contract
-// even though the database stores it as flat columns now (see
-// SendingParty in schema.prisma and utils/sendingParty.js, shared with
-// routes/publicMissionaries.js) -- that's what keeps this schema change
-// invisible to the frontend. It's now a real validated schema (a subset
-// of addressFieldsSchema -- no gpsLat/gpsLng/receiveMail/receivePackages,
-// none of which SendingParty has columns for) rather than the z.any() it
-// was when this was still an unvalidated JSON blob.
+// `id`/`partnerId` that the frontend round-trips back from a GET response
+// — the nested-write helpers reject those as unknown columns otherwise.
+// `mailingAddress` stays a nested object in the API contract even though
+// the database stores it as flat columns (see SendingParty in
+// schema.prisma and utils/sendingParty.js, shared with
+// routes/publicPartners.js).
 const sendingPartySchema = z
   .object({
     name: z.string().optional().nullable(),
@@ -122,6 +151,83 @@ const sendingPartySchema = z
     phone: z.string().optional().nullable(),
   })
   .optional();
+
+// A period off the field, at home. endDate is left optional/nullable for
+// an open-ended/ongoing furlough.
+const furloughSchema = z.object({
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
+// A single visit to the church. "Last visit" is read off whichever entry
+// has the latest visitDate.
+const churchVisitSchema = z.object({
+  visitDate: z.coerce.date(),
+  notes: z.string().optional().nullable(),
+});
+
+// One schema for both kinds. The kind-specific fields are all optional, so
+// an organization simply never sends the missionary-only ones and vice
+// versa — the same arrangement the database uses (nullable columns and
+// naturally-empty relations) rather than two parallel schemas.
+const partnerSchema = z.object({
+  kind: z.enum(["missionary", "organization"]),
+  displayName: z.string().min(1),
+  fieldDisplayName: z.string().optional().nullable(),
+  fipsCountryCode: z.string().optional().nullable(),
+  isPublic: z.boolean().optional(),
+  isRestricted: z.boolean().optional(),
+  preferredContactMethod: z.string().optional().nullable(),
+  overview: z.string().optional().nullable(),
+  overviewShort: z.string().optional().nullable(),
+  focusArea: z.string().optional().nullable(),
+  websiteLink: z.string().optional().nullable(),
+  supportLink: z.string().optional().nullable(),
+  newsletterSignup: z.string().optional().nullable(),
+  facebook: z.string().optional().nullable(),
+  twitter: z.string().optional().nullable(),
+  instagram: z.string().optional().nullable(),
+  linkedin: z.string().optional().nullable(),
+  supportingSince: z.coerce.date().optional().nullable(),
+  tripTeamSizeMin: z.coerce.number().int().optional().nullable(),
+  tripTeamSizeMax: z.coerce.number().int().optional().nullable(),
+  tripTypesSupported: z.array(z.string()).optional(),
+  tripSeasonNotes: z.string().optional().nullable(),
+  tripLogisticsNotes: z.string().optional().nullable(),
+
+  // --- Organization-only ---
+  orgType: z.string().optional().nullable(),
+  contactName: z.string().optional().nullable(),
+  contactPhone: z.string().optional().nullable(),
+  contactEmail: z.string().optional().nullable(),
+
+  // --- Missionary-only ---
+  contactSafe: z.boolean().optional(),
+  sentByOurChurch: z.boolean().optional(),
+  anniversary: z.coerce.date().optional().nullable(),
+  languagesSpoken: z.array(z.string()).optional(),
+  emergencyContact: z.any().optional(),
+  adults: z
+    .array(
+      z.object({
+        name: z.string(),
+        phone1: z.string().optional().nullable(),
+        phone2: z.string().optional().nullable(),
+        email: z.string().optional().nullable(),
+        birthday: z.coerce.date().optional().nullable(),
+      })
+    )
+    .optional(),
+  children: z.array(z.object({ name: z.string(), birthday: z.coerce.date().optional().nullable() })).optional(),
+  sendingChurch: sendingPartySchema,
+  sendingOrg: sendingPartySchema,
+
+  // --- Shared sub-records written through this route ---
+  addresses: addressesSchema,
+  furloughs: z.array(furloughSchema).optional(),
+  churchVisits: z.array(churchVisitSchema).optional(),
+});
 
 // Converts the { physical, mailing } shape used by the API into the row
 // array Prisma's addresses relation expects, dropping any type that wasn't
@@ -146,163 +252,61 @@ async function buildAddressRows(addresses) {
   return rows;
 }
 
-const tripParticipantSchema = z.object({
-  name: z.string(),
-  role: z.string().optional().nullable(),
-  isLeader: z.boolean().optional(),
-  phone: z.string().optional().nullable(),
-  email: z.string().optional().nullable(),
-});
-const missionTripSchema = z.object({
-  startDate: z.coerce.date().optional().nullable(),
-  endDate: z.coerce.date().optional().nullable(),
-  tripType: z.string().optional().nullable(),
-  description: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
-  participants: z.array(tripParticipantSchema).optional(),
-});
-
-// A single point-in-time monthly support amount. Never validated against
-// prior entries (e.g. requiring dates to be unique/ordered) — admins may
-// want to backfill or correct history, and the "current" amount is always
-// just whichever entry has the latest effectiveDate.
-const supportEntrySchema = z.object({
-  amount: z.coerce.number().int().nonnegative(),
-  effectiveDate: z.coerce.date(),
-  notes: z.string().optional().nullable(),
-});
-
-// A one-time need request and (once decided) our response to it.
-// approvedAmount/approvedDate are left optional/nullable since a need may
-// still be pending a decision.
-const supportNeedSchema = z.object({
-  description: z.string().min(1),
-  requestedAmount: z.coerce.number().int().nonnegative(),
-  requestDate: z.coerce.date(),
-  approvedAmount: z.coerce.number().int().nonnegative().optional().nullable(),
-  approvedDate: z.coerce.date().optional().nullable(),
-  notes: z.string().optional().nullable(),
-});
-
-// A period off the field, at home. endDate is left optional/nullable for
-// an open-ended/ongoing furlough.
-const furloughSchema = z.object({
-  startDate: z.coerce.date(),
-  endDate: z.coerce.date().optional().nullable(),
-  notes: z.string().optional().nullable(),
-});
-
-// A single visit to the church. "Last visit" is read off whichever entry
-// has the latest visitDate, same idea as supportEntrySchema's "current".
-const churchVisitSchema = z.object({
-  visitDate: z.coerce.date(),
-  notes: z.string().optional().nullable(),
-});
-
-// Loose validation — tighten as your fields stabilize.
-const missionarySchema = z.object({
-  displayName: z.string().min(1),
-  fieldDisplayName: z.string().optional().nullable(),
-  fipsCountryCode: z.string().optional().nullable(),
-  isPublic: z.boolean().optional(),
-  isRestricted: z.boolean().optional(),
-  contactSafe: z.boolean().optional(),
-  sentByOurChurch: z.boolean().optional(),
-  preferredContactMethod: z.string().optional().nullable(),
-  overview: z.string().optional().nullable(),
-  overviewShort: z.string().optional().nullable(),
-  focusArea: z.string().optional().nullable(),
-  websiteLink: z.string().optional().nullable(),
-  supportLink: z.string().optional().nullable(),
-  newsletterSignup: z.string().optional().nullable(),
-  facebook: z.string().optional().nullable(),
-  twitter: z.string().optional().nullable(),
-  instagram: z.string().optional().nullable(),
-  linkedin: z.string().optional().nullable(),
-  supportingSince: z.coerce.date().optional().nullable(),
-  anniversary: z.coerce.date().optional().nullable(),
-  languagesSpoken: z.array(z.string()).optional(),
-  tripTeamSizeMin: z.coerce.number().int().optional().nullable(),
-  tripTeamSizeMax: z.coerce.number().int().optional().nullable(),
-  tripTypesSupported: z.array(z.string()).optional(),
-  tripSeasonNotes: z.string().optional().nullable(),
-  tripLogisticsNotes: z.string().optional().nullable(),
-  missionTrips: z.array(missionTripSchema).optional(),
-  furloughs: z.array(furloughSchema).optional(),
-  churchVisits: z.array(churchVisitSchema).optional(),
-  supportEntries: z.array(supportEntrySchema).optional(),
-  needRequests: z.array(supportNeedSchema).optional(),
-  addresses: addressesSchema,
-  emergencyContact: z.any().optional(),
-  adults: z
-    .array(
-      z.object({
-        name: z.string(),
-        phone1: z.string().optional().nullable(),
-        phone2: z.string().optional().nullable(),
-        email: z.string().optional().nullable(),
-        birthday: z.coerce.date().optional().nullable(),
-      })
-    )
-    .optional(),
-  children: z
-    .array(z.object({ name: z.string(), birthday: z.coerce.date().optional().nullable() }))
-    .optional(),
-  sendingChurch: sendingPartySchema,
-  sendingOrg: sendingPartySchema,
-});
-
-// GET /api/missionaries  (list, full data, any logged-in role)
+// GET /api/partners  (list — summary rows only)
+// Optional ?kind=missionary|organization, ?archived=true|false (omit for
+// both), ?q= name/field search.
 router.get("/", async (req, res, next) => {
   try {
-    const records = await prisma.missionary.findMany({
-      include: missionaryInclude,
+    const where = {};
+    if (req.query.kind) where.kind = String(req.query.kind);
+    if (req.query.archived === "true") where.archived = true;
+    if (req.query.archived === "false") where.archived = false;
+    if (req.query.q) {
+      const q = String(req.query.q);
+      where.OR = [
+        { displayName: { contains: q, mode: "insensitive" } },
+        { fieldDisplayName: { contains: q, mode: "insensitive" } },
+      ];
+    }
+
+    const records = await prisma.partner.findMany({
+      where,
+      select: partnerSummarySelect,
       orderBy: { displayName: "asc" },
     });
-    res.json(records.map(shapeMissionary));
+    res.json(records.map((r) => ({ ...r, photos: withPhotoUrls(r.photos) })));
   } catch (err) {
     next(err);
   }
 });
 
-// GET /api/missionaries/:id
+// GET /api/partners/:id  (the record and its one-per-partner relations —
+// see partnerRecordInclude for why the history collections aren't here)
 router.get("/:id", async (req, res, next) => {
   try {
-    const record = await prisma.missionary.findUnique({
+    const record = await prisma.partner.findUnique({
       where: { id: req.params.id },
-      include: missionaryInclude,
+      include: partnerRecordInclude,
     });
     if (!record) return res.status(404).json({ error: "Not found" });
-    res.json(shapeMissionary(record));
+    res.json(shapePartner(record));
   } catch (err) {
     next(err);
   }
 });
 
-// POST /api/missionaries  (create — editor or admin)
+// POST /api/partners  (create — editor or admin)
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = missionarySchema.parse(req.body);
-    const {
-      adults,
-      children,
-      sendingChurch,
-      sendingOrg,
-      addresses,
-      missionTrips,
-      furloughs,
-      churchVisits,
-      supportEntries,
-      needRequests,
-      ...scalarData
-    } = data;
+    const data = partnerSchema.parse(req.body);
+    const { adults, children, sendingChurch, sendingOrg, addresses, furloughs, churchVisits, ...scalarData } = data;
     const addressRows = await buildAddressRows(addresses);
     const sendingPartyRows = [
       ...(sendingChurch ? [flattenSendingParty(sendingChurch, "church")] : []),
       ...(sendingOrg ? [flattenSendingParty(sendingOrg, "org")] : []),
     ];
 
-    const created = await prisma.missionary.create({
+    const created = await prisma.partner.create({
       data: {
         ...scalarData,
         createdById: req.user.id,
@@ -311,30 +315,20 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
         children: children ? { create: children } : undefined,
         sendingParties: sendingPartyRows.length ? { create: sendingPartyRows } : undefined,
         addresses: addressRows?.length ? { create: addressRows } : undefined,
-        missionTrips: missionTrips
-          ? {
-              create: missionTrips.map(({ participants, ...trip }) => ({
-                ...trip,
-                participants: participants ? { create: participants } : undefined,
-              })),
-            }
-          : undefined,
         furloughs: furloughs ? { create: furloughs } : undefined,
         churchVisits: churchVisits ? { create: churchVisits } : undefined,
-        supportEntries: supportEntries ? { create: supportEntries } : undefined,
-        needRequests: needRequests ? { create: needRequests } : undefined,
       },
-      include: missionaryInclude,
+      include: partnerRecordInclude,
     });
 
-    res.status(201).json(shapeMissionary(created));
+    res.status(201).json(shapePartner(created));
   } catch (err) {
     if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
     next(err);
   }
 });
 
-// POST /api/missionaries/:id/image (upload headshot — editor or admin)
+// POST /api/partners/:id/image (upload photo — editor or admin)
 // Adds a new Photo row rather than overwriting one — the previous current
 // photo becomes history instead of being deleted, so it can be viewed or
 // individually removed later (see DELETE /:id/photos/:photoId below).
@@ -350,7 +344,7 @@ router.post(
         return res.status(400).json({ error: "File content doesn't match its declared image type" });
       }
 
-      const existing = await prisma.missionary.findUnique({ where: { id: req.params.id } });
+      const existing = await prisma.partner.findUnique({ where: { id: req.params.id } });
       if (!existing) return res.status(404).json({ error: "Not found" });
 
       // Defaults to today, same as the newsletter upload's receivedDate —
@@ -359,39 +353,38 @@ router.post(
 
       await prisma.photo.create({
         data: {
-          missionaryId: req.params.id,
+          partnerId: req.params.id,
           bytes: req.file.buffer,
           receivedDate,
           contentType: req.file.mimetype,
           fileSize: req.file.size,
-          createdById: req.user.id,
         },
       });
 
-      const updated = await prisma.missionary.update({
+      const updated = await prisma.partner.update({
         where: { id: req.params.id },
         data: { updatedById: req.user.id },
-        include: missionaryInclude,
+        include: partnerRecordInclude,
       });
 
-      res.json(shapeMissionary(updated));
+      res.json(shapePartner(updated));
     } catch (err) {
       next(err);
     }
   }
 );
 
-// DELETE /api/missionaries/:id/photos/:photoId (admin only — same
-// permission level as deleting a newsletter). Deletes one photo from
-// history; if it was the current one, whichever photo has the
-// next-latest receivedDate becomes current automatically.
+// DELETE /api/partners/:id/photos/:photoId (admin only — same permission
+// level as deleting a newsletter). Deletes one photo from history; if it
+// was the current one, whichever photo has the next-latest receivedDate
+// becomes current automatically.
 router.delete("/:id/photos/:photoId", requireRole("admin"), async (req, res, next) => {
   try {
     const photo = await prisma.photo.findUnique({
       where: { id: req.params.photoId },
-      select: { missionaryId: true },
+      select: { partnerId: true },
     });
-    if (!photo || photo.missionaryId !== req.params.id) {
+    if (!photo || photo.partnerId !== req.params.id) {
       return res.status(404).json({ error: "Not found" });
     }
     await prisma.photo.delete({ where: { id: req.params.photoId } });
@@ -401,71 +394,42 @@ router.delete("/:id/photos/:photoId", requireRole("admin"), async (req, res, nex
   }
 });
 
-// PUT /api/missionaries/:id (update — editor or admin)
+// PUT /api/partners/:id (update — editor or admin)
+//
+// Handles the partner record and the sub-records this route is the *only*
+// writer for: adults, children, addresses, sending parties, furloughs and
+// church visits. Those are still replaced wholesale when their key is
+// present, which is safe precisely because nothing else writes them.
+//
+// Trips, support entries, one-time needs, prayer requests, newsletters and
+// documents are deliberately NOT accepted here, even if the client sends
+// them. Each has its own per-row endpoint, and accepting them here meant
+// deleting and recreating every row on each save — which churned their ids,
+// reset their timestamps, and silently destroyed any row added through the
+// other endpoint since the client last loaded the record.
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = missionarySchema.partial().parse(req.body);
-    const {
-      adults,
-      children,
-      sendingChurch,
-      sendingOrg,
-      addresses,
-      missionTrips,
-      furloughs,
-      churchVisits,
-      supportEntries,
-      needRequests,
-      ...scalarData
-    } = data;
+    const data = partnerSchema.partial().parse(req.body);
+    const { adults, children, sendingChurch, sendingOrg, addresses, furloughs, churchVisits, ...scalarData } = data;
     const addressRows = await buildAddressRows(addresses);
 
-    // Adults/children/addresses/missionTrips/furloughs/churchVisits/
-    // supportEntries/needRequests are replaced wholesale on edit for
-    // simplicity. (A more granular per-record PATCH can be added later if
-    // needed.) Deleting a Trip cascades to its participants. sendingChurch/
-    // sendingOrg are handled independently of each other (each only
-    // touched if its own field was actually sent), since they're now two
-    // differently-typed rows in the same sendingParties relation rather
-    // than two separate 1:1 relations.
     const updated = await prisma.$transaction(async (tx) => {
-      if (adults) {
-        await tx.adult.deleteMany({ where: { missionaryId: req.params.id } });
-      }
-      if (children) {
-        await tx.child.deleteMany({ where: { missionaryId: req.params.id } });
-      }
-      if (addressRows) {
-        await tx.address.deleteMany({ where: { missionaryId: req.params.id } });
-      }
-      if (missionTrips) {
-        await tx.trip.deleteMany({ where: { missionaryId: req.params.id } });
-      }
-      if (furloughs) {
-        await tx.furlough.deleteMany({ where: { missionaryId: req.params.id } });
-      }
-      if (churchVisits) {
-        await tx.churchVisit.deleteMany({ where: { missionaryId: req.params.id } });
-      }
-      if (supportEntries) {
-        await tx.supportEntry.deleteMany({ where: { missionaryId: req.params.id } });
-      }
-      if (needRequests) {
-        await tx.supportNeed.deleteMany({ where: { missionaryId: req.params.id } });
-      }
-      if (sendingChurch) {
-        await tx.sendingParty.deleteMany({ where: { missionaryId: req.params.id, type: "church" } });
-      }
-      if (sendingOrg) {
-        await tx.sendingParty.deleteMany({ where: { missionaryId: req.params.id, type: "org" } });
-      }
+      if (adults) await tx.adult.deleteMany({ where: { partnerId: req.params.id } });
+      if (children) await tx.child.deleteMany({ where: { partnerId: req.params.id } });
+      if (addressRows) await tx.address.deleteMany({ where: { partnerId: req.params.id } });
+      if (furloughs) await tx.furlough.deleteMany({ where: { partnerId: req.params.id } });
+      if (churchVisits) await tx.churchVisit.deleteMany({ where: { partnerId: req.params.id } });
+      // sendingChurch/sendingOrg are handled independently of each other —
+      // each is only touched if its own field was actually sent.
+      if (sendingChurch) await tx.sendingParty.deleteMany({ where: { partnerId: req.params.id, type: "church" } });
+      if (sendingOrg) await tx.sendingParty.deleteMany({ where: { partnerId: req.params.id, type: "org" } });
 
       const sendingPartyRows = [
         ...(sendingChurch ? [flattenSendingParty(sendingChurch, "church")] : []),
         ...(sendingOrg ? [flattenSendingParty(sendingOrg, "org")] : []),
       ];
 
-      return tx.missionary.update({
+      return tx.partner.update({
         where: { id: req.params.id },
         data: {
           ...scalarData,
@@ -474,95 +438,87 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
           children: children ? { create: children } : undefined,
           sendingParties: sendingPartyRows.length ? { create: sendingPartyRows } : undefined,
           addresses: addressRows?.length ? { create: addressRows } : undefined,
-          missionTrips: missionTrips
-            ? {
-                create: missionTrips.map(({ participants, ...trip }) => ({
-                  ...trip,
-                  participants: participants ? { create: participants } : undefined,
-                })),
-              }
-            : undefined,
           furloughs: furloughs ? { create: furloughs } : undefined,
           churchVisits: churchVisits ? { create: churchVisits } : undefined,
-          supportEntries: supportEntries ? { create: supportEntries } : undefined,
-          needRequests: needRequests ? { create: needRequests } : undefined,
         },
-        include: missionaryInclude,
+        include: partnerRecordInclude,
       });
     });
 
-    res.json(shapeMissionary(updated));
+    res.json(shapePartner(updated));
   } catch (err) {
     if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
+    if (err.code === "P2025") return res.status(404).json({ error: "Not found" });
     next(err);
   }
 });
 
-// POST /api/missionaries/:id/archive (editor or admin) — the "soft delete".
+// POST /api/partners/:id/archive (editor or admin) — the "soft delete".
 // Pulls the record out of public data (isPublic: false), zeros out monthly
 // support by adding a new $0 SupportEntry (never edits/removes old entries,
 // so support history stays intact), and flags it archived so it drops out
 // of the default admin list view.
 router.post("/:id/archive", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const existing = await prisma.missionary.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.partner.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: "Not found" });
 
     const updated = await prisma.$transaction(async (tx) => {
       await tx.supportEntry.create({
         data: {
-          missionaryId: req.params.id,
+          partnerId: req.params.id,
           amount: 0,
           effectiveDate: new Date(),
           notes: "Support zeroed on archive",
         },
       });
-      return tx.missionary.update({
+      return tx.partner.update({
         where: { id: req.params.id },
         data: { archived: true, archivedAt: new Date(), isPublic: false, updatedById: req.user.id },
-        include: missionaryInclude,
+        include: partnerRecordInclude,
       });
     });
 
-    res.json(shapeMissionary(updated));
+    res.json(shapePartner(updated));
   } catch (err) {
     next(err);
   }
 });
 
-// POST /api/missionaries/:id/unarchive (editor or admin) — reverses archive.
+// POST /api/partners/:id/unarchive (editor or admin) — reverses archive.
 // Does not restore isPublic or re-add support on its own; those are
 // deliberate decisions to make again once someone's actually back.
 router.post("/:id/unarchive", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const updated = await prisma.missionary.update({
+    const updated = await prisma.partner.update({
       where: { id: req.params.id },
       data: { archived: false, archivedAt: null, updatedById: req.user.id },
-      include: missionaryInclude,
+      include: partnerRecordInclude,
     });
-    res.json(shapeMissionary(updated));
+    res.json(shapePartner(updated));
   } catch (err) {
+    if (err.code === "P2025") return res.status(404).json({ error: "Not found" });
     next(err);
   }
 });
 
-// DELETE /api/missionaries/:id (admin only). Only permitted once a record
-// has been archived — archiving is the deliberate first step, so a record
-// can't be permanently removed in a single click.
+// DELETE /api/partners/:id (admin only). Only permitted once a record has
+// been archived — archiving is the deliberate first step, so a record can't
+// be permanently removed in a single click.
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
-    const existing = await prisma.missionary.findUnique({
+    const existing = await prisma.partner.findUnique({
       where: { id: req.params.id },
       select: { archived: true },
     });
     if (!existing) return res.status(404).json({ error: "Not found" });
     if (!existing.archived) {
-      return res.status(400).json({ error: "Archive this missionary before deleting it." });
+      return res.status(400).json({ error: "Archive this partner before deleting it." });
     }
-    // Cascades to newsletters/documents/photos/addresses/etc. — their
-    // file bytes live in the same row (see the Newsletter model comment
-    // in schema.prisma), so there's no separate external cleanup needed.
-    await prisma.missionary.delete({ where: { id: req.params.id } });
+    // Cascades to newsletters/documents/photos/addresses/etc. — their file
+    // bytes live in the same row (see the Newsletter model comment in
+    // schema.prisma), so there's no separate external cleanup needed.
+    await prisma.partner.delete({ where: { id: req.params.id } });
 
     res.status(204).send();
   } catch (err) {

@@ -6,17 +6,14 @@ const { requireFeature } = require("../middleware/requireFeature");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
-// Only gates this standalone CRUD path -- doesn't reach the nested
-// missionTrips/orgTrips array inside routes/missionaries.js/organizations.js,
-// which stays usable from a missionary/org's own edit form either way. Same
-// narrower-gap situation as routes/supportNeeds.js.
+// Gates the whole resource. The partner record's own PUT no longer accepts
+// a trips array, so this router is the only way in -- turning the feature
+// off now actually turns it off.
 router.use(requireFeature("trips"));
 
-// Free-standing CRUD for Trip (+ its TripParticipant children), on top of
-// the wholesale-replace missionTrips/orgTrips array already handled inside
-// routes/missionaries.js and routes/organizations.js (used by each entity's
-// own edit form). This is the API for the consolidated "Trip History"
-// admin page -- logging or correcting a trip against any missionary/org
+// The only writer for Trip (+ its TripParticipant children). Backs both the
+// consolidated "Trip History" admin page and the trips section on a single
+// partner's page -- logging or correcting a trip against any partner
 // without loading and resubmitting their whole record.
 const participantSchema = z.object({
   name: z.string().min(1),
@@ -26,9 +23,8 @@ const participantSchema = z.object({
   email: z.string().optional().nullable(),
 });
 
-const tripBaseSchema = z.object({
-  missionaryId: z.string().optional().nullable(),
-  organizationId: z.string().optional().nullable(),
+const tripSchema = z.object({
+  partnerId: z.string(),
   startDate: z.coerce.date().optional().nullable(),
   endDate: z.coerce.date().optional().nullable(),
   tripType: z.string().optional().nullable(),
@@ -36,21 +32,43 @@ const tripBaseSchema = z.object({
   notes: z.string().optional().nullable(),
   participants: z.array(participantSchema).optional(),
 });
-const createTripSchema = tripBaseSchema.refine(
-  (data) => Boolean(data.missionaryId) !== Boolean(data.organizationId),
-  { message: "Exactly one of missionaryId or organizationId is required", path: ["missionaryId"] }
-);
 
 const tripInclude = {
-  missionary: { select: { id: true, displayName: true } },
-  organization: { select: { id: true, name: true } },
+  partner: { select: { id: true, kind: true, displayName: true } },
   participants: true,
 };
+
+// GET /api/trips?partnerId=&tripType=&year=  (all partners combined,
+// most recent first). Previously the Trip History page had to fetch every
+// missionary and every organization with all their relations and flatten
+// the result in the browser; this replaces that with one query.
+router.get("/", async (req, res, next) => {
+  try {
+    const where = {};
+    if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
+    if (req.query.tripType) where.tripType = String(req.query.tripType);
+    if (req.query.year) {
+      const year = Number(req.query.year);
+      if (Number.isInteger(year)) {
+        where.startDate = { gte: new Date(Date.UTC(year, 0, 1)), lt: new Date(Date.UTC(year + 1, 0, 1)) };
+      }
+    }
+
+    const records = await prisma.trip.findMany({
+      where,
+      include: tripInclude,
+      orderBy: { startDate: "desc" },
+    });
+    res.json(records);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // POST /api/trips  (create — editor or admin)
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const { participants, ...data } = createTripSchema.parse(req.body);
+    const { participants, ...data } = tripSchema.parse(req.body);
     const created = await prisma.trip.create({
       data: {
         ...data,
@@ -65,16 +83,16 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   }
 });
 
-// PUT /api/trips/:id  (update — editor or admin). Doesn't accept
-// re-parenting to a different missionary/organization from this endpoint --
-// same boundary as PUT /api/support-needs/:id. Participants, when included
-// in the request, are always replaced wholesale (delete then recreate)
-// rather than diffed -- same approach the missionary/organization's own
-// bulk trip-array save already uses, and simpler than tracking which
-// participant row is "the same person" across an edit.
+// PUT /api/trips/:id  (update — editor or admin). Every field is editable,
+// including moving the trip to a different partner, which is now just a
+// plain column. Participants, when included in the request, are replaced
+// wholesale (delete then recreate) rather than diffed -- simpler than
+// tracking which participant row is "the same person" across an edit, and
+// they carry nothing (no id references, no timestamps) that recreating
+// them loses.
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const { participants, missionaryId, organizationId, ...data } = tripBaseSchema.partial().parse(req.body);
+    const { participants, ...data } = tripSchema.partial().parse(req.body);
 
     const existing = await prisma.trip.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: "Not found" });

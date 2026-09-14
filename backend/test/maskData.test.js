@@ -1,6 +1,12 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const { toInitials, toPublicMissionary, toPublicOrganization, missionaryHouseholdCategory } = require("../src/utils/maskData");
+const { toInitials, toPublicPartner, missionaryHouseholdCategory } = require("../src/utils/maskData");
+
+// Missionary and Organization merged into a single Partner model with a
+// `kind` discriminator, so both fixtures below feed the same serializer.
+// The describe blocks stay split by kind because the masking rules
+// genuinely differ between them (initials vs. name, silhouette vs.
+// building icon, missionary-only fields).
 
 function isSilhouetteDataUri(value) {
   return typeof value === "string" && value.startsWith("data:image/svg+xml,");
@@ -31,6 +37,7 @@ describe("toInitials", () => {
 function baseMissionary(overrides = {}) {
   return {
     id: "m1",
+    kind: "missionary",
     isPublic: true,
     isRestricted: false,
     archived: false,
@@ -83,22 +90,22 @@ describe("missionaryHouseholdCategory", () => {
   });
 });
 
-describe("toPublicMissionary", () => {
+describe("toPublicPartner — missionary", () => {
   test("returns null when not public", () => {
-    assert.equal(toPublicMissionary(baseMissionary({ isPublic: false })), null);
+    assert.equal(toPublicPartner(baseMissionary({ isPublic: false })), null);
   });
 
   test("returns null when archived, even if public", () => {
-    assert.equal(toPublicMissionary(baseMissionary({ archived: true })), null);
+    assert.equal(toPublicPartner(baseMissionary({ archived: true })), null);
   });
 
   test("returns null for a missing/undefined record", () => {
-    assert.equal(toPublicMissionary(null), null);
-    assert.equal(toPublicMissionary(undefined), null);
+    assert.equal(toPublicPartner(null), null);
+    assert.equal(toPublicPartner(undefined), null);
   });
 
   test("public, non-restricted: exposes the real name and precise location", () => {
-    const result = toPublicMissionary(baseMissionary());
+    const result = toPublicPartner(baseMissionary());
     assert.equal(result.displayName, "Jordan Rivera");
     assert.equal(result.gpsLat, 13.75);
     assert.equal(result.gpsLng, 100.5);
@@ -112,12 +119,12 @@ describe("toPublicMissionary", () => {
   // directory's continent/country filters and search, since they rely on
   // this field for every record, not just restricted ones.
   test("public, non-restricted: still exposes the country field", () => {
-    const result = toPublicMissionary(baseMissionary());
+    const result = toPublicPartner(baseMissionary());
     assert.equal(result.country, "Thailand");
   });
 
   test("public, non-restricted: falls back to the FIPS code when the address has no country", () => {
-    const result = toPublicMissionary(
+    const result = toPublicPartner(
       baseMissionary({ addresses: [{ type: "physical", gpsLat: 13.75, gpsLng: 100.5 }] })
     );
     assert.equal(result.country, "TH");
@@ -129,17 +136,17 @@ describe("toPublicMissionary", () => {
   // are already covered above for the same reason -- photo belongs in that
   // same "strips everything identifying" list).
   test("public, non-restricted: exposes only the current photo, not history", () => {
-    const result = toPublicMissionary(baseMissionary());
+    const result = toPublicPartner(baseMissionary());
     assert.equal(result.photo, "/api/photos/p2/raw");
   });
 
   test("public, non-restricted: photo is null when no photos exist", () => {
-    const result = toPublicMissionary(baseMissionary({ photos: [] }));
+    const result = toPublicPartner(baseMissionary({ photos: [] }));
     assert.equal(result.photo, null);
   });
 
   test("restricted: never exposes their real photo, current or otherwise — gets a generic silhouette instead", () => {
-    const result = toPublicMissionary(
+    const result = toPublicPartner(
       baseMissionary({ isRestricted: true, photos: [{ id: "p1" }] })
     );
     assert.notEqual(result.photo, "/api/photos/p1/raw");
@@ -147,7 +154,7 @@ describe("toPublicMissionary", () => {
   });
 
   test("public, non-restricted: never leaks internal-only fields", () => {
-    const result = toPublicMissionary(baseMissionary());
+    const result = toPublicPartner(baseMissionary());
     assert.equal(result.emergencyContact, undefined);
     assert.equal(result.children, undefined);
     // sendingChurch/sendingOrg are curated down to just a name, never the
@@ -157,7 +164,7 @@ describe("toPublicMissionary", () => {
   });
 
   test("public, non-restricted: curates prayer requests down to the public-facing fields", () => {
-    const result = toPublicMissionary(
+    const result = toPublicPartner(
       baseMissionary({
         prayerRequests: [
           {
@@ -190,7 +197,7 @@ describe("toPublicMissionary", () => {
     // Explicitly guards the design intent in schema.prisma's PrayerRequest
     // comment: "ongoing" is a plain pass-through value, not something
     // toPublicPrayerRequests rewrites into "unanswered" or similar.
-    const result = toPublicMissionary(
+    const result = toPublicPartner(
       baseMissionary({
         prayerRequests: [
           { category: "strategic", isPublic: true, requestText: "Safety on the field", dateReceived: "2026-01-01", status: "ongoing", dateAnswered: null, answeredNote: null },
@@ -202,16 +209,16 @@ describe("toPublicMissionary", () => {
   });
 
   test("restricted: reduces the name to initials", () => {
-    const result = toPublicMissionary(baseMissionary({ isRestricted: true }));
+    const result = toPublicPartner(baseMissionary({ isRestricted: true }));
     assert.equal(result.displayName, "J.R.");
   });
 
   test("restricted: silhouette photo matches the real household composition", () => {
-    const single = toPublicMissionary(baseMissionary({ isRestricted: true, adults: [{ name: "Jordan" }], children: [] }));
-    const couple = toPublicMissionary(
+    const single = toPublicPartner(baseMissionary({ isRestricted: true, adults: [{ name: "Jordan" }], children: [] }));
+    const couple = toPublicPartner(
       baseMissionary({ isRestricted: true, adults: [{ name: "Jordan" }, { name: "Alex" }], children: [] })
     );
-    const family = toPublicMissionary(baseMissionary({ isRestricted: true })); // baseMissionary already has a child
+    const family = toPublicPartner(baseMissionary({ isRestricted: true })); // baseMissionary already has a child
     // Each category's shape is a distinct SVG, so a different household
     // composition must not all collapse to the same generic image.
     assert.notEqual(single.photo, couple.photo);
@@ -220,7 +227,7 @@ describe("toPublicMissionary", () => {
   });
 
   test("restricted: replaces precise GPS with a country-level centroid", () => {
-    const result = toPublicMissionary(baseMissionary({ isRestricted: true }));
+    const result = toPublicPartner(baseMissionary({ isRestricted: true }));
     // Thailand's centroid from COUNTRY_CENTROIDS, not the precise 13.75/100.5
     // serving-location coordinates from the address.
     assert.equal(result.gpsLat, 15);
@@ -232,19 +239,19 @@ describe("toPublicMissionary", () => {
       isRestricted: true,
       addresses: [{ type: "physical", country: "Narnia", gpsLat: 1, gpsLng: 1 }],
     });
-    const result = toPublicMissionary(record);
+    const result = toPublicPartner(record);
     assert.equal(result.gpsLat, null);
     assert.equal(result.gpsLng, null);
   });
 
   test("restricted: replaces the overview with a generic security blurb", () => {
-    const result = toPublicMissionary(baseMissionary({ isRestricted: true }));
+    const result = toPublicPartner(baseMissionary({ isRestricted: true }));
     assert.equal(result.overview, "Serving in a restricted-access location. Specific details are withheld for security.");
     assert.equal(result.overviewShort, "Restricted-access location.");
   });
 
   test("restricted: strips contact info, sending church/org, and children entirely", () => {
-    const result = toPublicMissionary(baseMissionary({ isRestricted: true }));
+    const result = toPublicPartner(baseMissionary({ isRestricted: true }));
     assert.equal(result.sendingChurch, undefined);
     assert.equal(result.sendingOrg, undefined);
     assert.equal(result.children, undefined);
@@ -258,10 +265,11 @@ describe("toPublicMissionary", () => {
 function baseOrganization(overrides = {}) {
   return {
     id: "o1",
+    kind: "organization",
     isPublic: true,
     isRestricted: false,
     archived: false,
-    name: "Example Relief Org",
+    displayName: "Example Relief Org",
     orgType: "NGO",
     fieldDisplayName: "East Africa",
     overview: "Full public overview.",
@@ -275,44 +283,49 @@ function baseOrganization(overrides = {}) {
   };
 }
 
-describe("toPublicOrganization", () => {
+describe("toPublicPartner — organization", () => {
   test("returns null when not public or archived", () => {
-    assert.equal(toPublicOrganization(baseOrganization({ isPublic: false })), null);
-    assert.equal(toPublicOrganization(baseOrganization({ archived: true })), null);
+    assert.equal(toPublicPartner(baseOrganization({ isPublic: false })), null);
+    assert.equal(toPublicPartner(baseOrganization({ archived: true })), null);
   });
 
-  test("restricted: keeps the org name visible (unlike a restricted missionary)", () => {
-    const result = toPublicOrganization(baseOrganization({ isRestricted: true }));
-    assert.equal(result.name, "Example Relief Org");
+  // A named Christian organization in a hostile country is a fixed,
+  // physically locatable target, so it gets the same name masking a
+  // restricted missionary does. An earlier version left org names visible;
+  // see the note on toPublicPartner for why that was the wrong call.
+  test("restricted: reduces the org name to initials, same as a missionary", () => {
+    const result = toPublicPartner(baseOrganization({ isRestricted: true }));
+    assert.equal(result.displayName, "E.R.O.");
+    assert.notEqual(result.displayName, "Example Relief Org");
   });
 
   test("restricted: still coarsens location and overview like a missionary", () => {
-    const result = toPublicOrganization(baseOrganization({ isRestricted: true }));
+    const result = toPublicPartner(baseOrganization({ isRestricted: true }));
     assert.equal(result.gpsLat, 20); // India's centroid, not 20.1
     assert.equal(result.overview, "Partnering in a restricted-access location. Specific details are withheld for security.");
   });
 
   test("public, non-restricted: exposes precise location", () => {
-    const result = toPublicOrganization(baseOrganization());
+    const result = toPublicPartner(baseOrganization());
     assert.equal(result.gpsLat, 20.1);
     assert.equal(result.gpsLng, 78.2);
   });
 
-  // Regression test -- see the equivalent toPublicMissionary test above.
+  // Regression test -- see the equivalent toPublicPartner test above.
   test("public, non-restricted: still exposes the country field", () => {
-    const result = toPublicOrganization(baseOrganization());
+    const result = toPublicPartner(baseOrganization());
     assert.equal(result.country, "India");
   });
 
   // Regression coverage for the photo-history feature -- see the
-  // equivalent toPublicMissionary tests above.
+  // equivalent toPublicPartner tests above.
   test("public, non-restricted: exposes only the current photo, not history", () => {
-    const result = toPublicOrganization(baseOrganization());
+    const result = toPublicPartner(baseOrganization());
     assert.equal(result.photo, "/api/photos/p2/raw");
   });
 
   test("restricted: never exposes its real photo, current or otherwise — gets a generic silhouette instead", () => {
-    const result = toPublicOrganization(baseOrganization({ isRestricted: true }));
+    const result = toPublicPartner(baseOrganization({ isRestricted: true }));
     assert.notEqual(result.photo, "/api/photos/p2/raw");
     assert.equal(isSilhouetteDataUri(result.photo), true);
   });
