@@ -141,7 +141,7 @@ router.post(
 
       res.status(201).json(created);
     } catch (err) {
-      if (err.name === "ZodError") return res.status(400).json({ error: err.errors });
+      if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
       next(err);
     }
   }
@@ -200,7 +200,7 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     });
     res.json(updated);
   } catch (err) {
-    if (err.name === "ZodError") return res.status(400).json({ error: err.errors });
+    if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
     next(err);
   }
 });

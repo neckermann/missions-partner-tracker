@@ -59,7 +59,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
     });
     res.status(201).json(created);
   } catch (err) {
-    if (err.name === "ZodError") return res.status(400).json({ error: err.errors });
+    if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
     next(err);
   }
 });
@@ -79,7 +79,8 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     });
     res.json(updated);
   } catch (err) {
-    if (err.name === "ZodError") return res.status(400).json({ error: err.errors });
+    if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
+    if (err.code === "P2025") return res.status(404).json({ error: "Not found" });
     next(err);
   }
 });
@@ -90,6 +91,7 @@ router.delete("/:id", requireRole("admin"), async (req, res, next) => {
     await prisma.prayerRequest.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (err) {
+    if (err.code === "P2025") return res.status(404).json({ error: "Not found" });
     next(err);
   }
 });
