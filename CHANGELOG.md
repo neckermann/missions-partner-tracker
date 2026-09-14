@@ -16,6 +16,14 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [2.0.1] - 2026-09-14
+
+Fixed: a mistyped or removed API path came back as the app's HTML shell
+with a 200 instead of a 404, so anything calling a wrong endpoint saw a
+confusing parse error rather than a plain "not found." Long-standing, but
+2.0.0 made it visible — `/api/missionaries` and `/api/organizations` are
+gone now, and both were answering with a web page.
+
 ## [2.0.0] - 2026-09-14
 
 **Breaking: this release replaces the database schema and does not migrate
