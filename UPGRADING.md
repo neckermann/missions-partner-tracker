@@ -23,6 +23,34 @@ instance is running behind the latest release — you don't have to
 remember to check GitHub. See `backend/src/utils/versionCheck.js` if
 you're curious how that works.
 
+## Stop: read this before upgrading to 2.0.0
+
+**Version 2.0.0 replaces the database schema and does not migrate your
+existing data.** Missionaries and organizations became one "partner"
+record, every table was rebuilt around that, and the migration history was
+squashed to a single fresh baseline. There is no upgrade path that
+preserves what's already in your database.
+
+If you are running this with real data, **export it before you upgrade**.
+The most direct way is a full database dump, which also keeps your
+uploaded files (photos, newsletters and documents live in the database, not
+on disk):
+
+```
+pg_dump "$DATABASE_URL" > backup-before-2.0.0.sql
+```
+
+Then, when you upgrade, expect to start from an empty database and re-enter
+your partners. Applying 2.0.0's migration on top of a 1.x database will
+fail rather than silently damage it — `prisma migrate deploy` refuses to
+apply a baseline over tables that already exist — so a botched upgrade
+leaves your data intact and your old version still running.
+
+This is a one-time break. It happened now, while the project is young
+enough that the reference deployment held only demo data, precisely so it
+wouldn't have to happen later with real churches' records on the line.
+Normal releases stay additive and safe to pull in, as described below.
+
 ## The easy way: GitHub's "Sync fork" button
 
 If you haven't directly edited application code, this is the whole

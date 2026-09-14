@@ -16,6 +16,50 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [2.0.0] - 2026-09-14
+
+**Breaking: this release replaces the database schema and does not migrate
+existing data.** Missionaries and organizations are now one "partner"
+record. If you are running a fork with real data, export it before
+upgrading — see [UPGRADING.md](UPGRADING.md).
+
+Missionaries and organizations were always two tables that shared 36 of
+their fields, and two of the apparent differences turned out to be naming
+accidents for the same thing (`displayName`/`name`, and
+`missionTrips`/`orgTrips`, which pointed at the same table). Everything
+downstream paid for the split: roughly 160 places in the code branched on
+which of the two it was holding, and an "exactly one of missionary or
+organization" rule was re-implemented by hand in eight route files because
+no foreign key could express it. Merging them deleted about 2,250 more
+lines than it added and turned that rule into something the database
+enforces.
+
+What you'll notice:
+
+- **One Partners list, one partner page, one form.** The separate
+  missionary and organization pages are gone. Old links still work —
+  `/admin/missionaries/:id` and `/admin/organizations/:id` redirect, and
+  the ids didn't change.
+- **Trips, monthly support and one-time needs are no longer edited from a
+  partner's form.** Each has its own page and its own section, and the
+  partner form ignores them entirely. This closes a bug where saving a
+  partner could silently delete rows added from those pages since the form
+  was opened.
+- **A restricted organization's name is now masked to initials**, the same
+  as a restricted missionary. A named Christian organization in a hostile
+  country is a fixed, locatable target, so publishing the name while
+  coarsening the map pin gave away more than it withheld.
+- **Validation errors now say what was actually wrong.** A Zod upgrade had
+  quietly turned every "please fix this field" response into an empty one.
+- **Faster admin lists.** Pages that need a name and a country no longer
+  load ten years of a partner's history to render a row.
+
+Under the hood: route-level tests exist for the first time (the previous
+89 tests all covered pure functions, and neither bug above was catchable by
+them), and the Trip History and Monthly Support pages now ask the server
+for what they need instead of downloading every partner and filtering in
+the browser.
+
 ## [1.7.0] - 2026-09-09
 
 Trip History and Monthly Support are no longer read-only reports at the
