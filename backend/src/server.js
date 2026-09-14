@@ -98,14 +98,22 @@ if (process.env.DEMO_RESET_TOKEN) {
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
+// An unmatched /api/* path is a bug in the caller, not a page to render --
+// without this it falls through to the SPA catch-all below and comes back
+// as index.html with a 200, so a client calling a removed or misspelled
+// endpoint sees a confusing JSON parse error instead of a clear 404. (The
+// comment here used to claim mounting order alone prevented that. It
+// didn't; "after the API routes" is exactly what makes the catch-all
+// swallow them.) Caught after v2.0.0 removed /api/missionaries and
+// /api/organizations, when both started returning HTML.
+app.use("/api", (req, res) => res.status(404).json({ error: "Not found" }));
+
 // --- Frontend ---
 // This backend serves the built frontend directly, so the whole app is one
 // deployable origin. The build writes into backend/public (a sibling of
 // src/, not frontend/dist — see frontend/vite.config.js) specifically so
 // this path stays correct however the deploy bundle is packaged, since
-// it's always relative to this file, never to the repo root. Mounted
-// after every /api/* route above so an unmatched API path still 404s as
-// JSON instead of falling through to index.html.
+// it's always relative to this file, never to the repo root.
 const frontendBuild = path.join(__dirname, "../public");
 app.use(express.static(frontendBuild));
 app.get("*splat", (req, res) => res.sendFile(path.join(frontendBuild, "index.html")));

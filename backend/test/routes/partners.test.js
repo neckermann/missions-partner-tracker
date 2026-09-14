@@ -90,6 +90,20 @@ describe("partners: validation", () => {
     assert.equal((await admin(`/api/partners/${missing}`)).status, 404);
     assert.equal((await admin(`/api/partners/${missing}`, { method: "PUT", body: { overview: "x" } })).status, 404);
   });
+
+  // An unmatched /api path used to fall through to the SPA catch-all and
+  // come back as index.html with a 200 -- so a client calling a removed
+  // endpoint (say /api/missionaries after the v2.0.0 merge) got HTML and a
+  // confusing parse error rather than a clear 404.
+  test("an unmatched /api path returns a JSON 404, not the SPA shell", async () => {
+    const res = await admin("/api/missionaries");
+    assert.equal(res.status, 404);
+    assert.deepEqual(res.body, { error: "Not found" });
+
+    const nonsense = await admin("/api/definitely-not-a-route");
+    assert.equal(nonsense.status, 404);
+    assert.deepEqual(nonsense.body, { error: "Not found" });
+  });
 });
 
 describe("partners: read models", () => {
