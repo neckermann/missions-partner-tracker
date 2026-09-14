@@ -25,7 +25,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # No real database here -- these are pure unit tests (see
-      # CONTRIBUTING.md). This exists only so `npm ci`'s postinstall
+      # CONTRIBUTING.md). `npm test` globs test/*.test.js only; the
+      # route-level tests live in test/routes/ and run in the e2e job
+      # below, which has Postgres. This exists only so `npm ci`'s postinstall
       # (`prisma generate`) doesn't fail: Prisma 7's prisma.config.js
       # `env("DATABASE_URL")` throws if the variable is unset at all,
       # even though `generate` itself never opens a connection.
@@ -121,6 +123,13 @@ jobs:
           npx prisma migrate deploy
           npm run seed
           node prisma/createAdmin.js "$E2E_ADMIN_EMAIL" "$E2E_ADMIN_PASSWORD"
+
+      # Runs here rather than in the backend-tests job because these boot
+      # the real app against a real database -- that job deliberately has
+      # neither. Ordered before the app boots so a route-level regression
+      # fails fast, without waiting on Playwright.
+      - name: Run backend route tests
+        run: cd backend && npm run test:routes
 
       - name: Boot the app
         run: |

@@ -13,7 +13,8 @@
     "seed": "node prisma/seed.js",
     "migrate:encrypt-secrets": "node scripts/encrypt-legacy-mfa-secrets.js",
     "demo:reset": "node scripts/reset-demo-data.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:routes": "node --test --test-concurrency=1 test/routes/*.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

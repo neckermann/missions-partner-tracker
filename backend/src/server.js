@@ -125,6 +125,14 @@ app.use((err, req, res, next) => {
   res.status(status).json({ error: message });
 });
 
-app.listen(PORT, () => {
-  console.log(`Missionary Tracker API listening on port ${PORT}`);
-});
+// Guarded so this file can be require()'d by the route tests, which boot
+// the real app on an ephemeral port rather than mocking it -- same reason
+// prisma/seed.js has the same guard. Running it directly still listens
+// exactly as before.
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Missionary Tracker API listening on port ${PORT}`);
+  });
+}
+
+module.exports = app;
