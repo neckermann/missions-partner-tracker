@@ -9,7 +9,7 @@ import { useSettings } from "../../context/SettingsContext.jsx";
 // written until the admin explicitly clicks Add on a given card; closing
 // the modal without adding just discards the rest of the suggestions
 // (re-runnable any time from the same button).
-export default function ExtractionReviewModal({ scan, missionaryId, organizationId, defaultDate, onClose }) {
+export default function ExtractionReviewModal({ scan, partnerId, defaultDate, onClose }) {
   const { enabledFeatures } = useSettings();
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [error, setError] = useState("");
@@ -49,8 +49,7 @@ export default function ExtractionReviewModal({ scan, missionaryId, organization
     setPrayerRequests((list) => list.map((x, idx) => (idx === i ? { ...x, state: "saving" } : x)));
     try {
       await createPrayerRequest({
-        missionaryId,
-        organizationId,
+        partnerId,
         category: r.category,
         requestText: r.requestText,
         dateReceived: defaultDate,
@@ -71,8 +70,7 @@ export default function ExtractionReviewModal({ scan, missionaryId, organization
     setOneTimeNeeds((list) => list.map((x, idx) => (idx === i ? { ...x, state: "saving" } : x)));
     try {
       await createSupportNeed({
-        missionaryId,
-        organizationId,
+        partnerId,
         description: n.description,
         requestedAmount: n.requestedAmount,
         requestDate: defaultDate,

@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  fetchAdminMissionaries,
-  fetchAdminOrganizations,
+  fetchTrips,
+  fetchPartners,
   createTrip,
   updateTrip,
   deleteTrip,
 } from "../api/client.js";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
+import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 
 // Date-only fields are stored as UTC midnight — build the Date from raw
 // Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
@@ -48,7 +49,7 @@ const TRIP_TYPE_PRESETS = [
 
 const emptyParticipant = { name: "", role: "", isLeader: false, phone: "", email: "" };
 const emptyTripForm = {
-  entityKey: "",
+  partnerId: "",
   startDate: "",
   endDate: "",
   tripType: "",
@@ -66,8 +67,8 @@ const emptyFilters = {
 };
 
 export default function AdminTripHistory() {
-  const [missionaries, setMissionaries] = useState([]);
-  const [organizations, setOrganizations] = useState([]);
+  const [records, setRecords] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [filters, setFilters] = useState(emptyFilters);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTrip, setNewTrip] = useState(emptyTripForm);
@@ -77,44 +78,34 @@ export default function AdminTripHistory() {
   const [editForm, setEditForm] = useState(emptyTripForm);
 
   function reload() {
-    fetchAdminMissionaries().then(setMissionaries).catch(console.error);
-    fetchAdminOrganizations().then(setOrganizations).catch(console.error);
+    fetchTrips().then(setRecords).catch(console.error);
   }
 
   useEffect(() => {
     reload();
+    // Only for the add/edit form's partner picker — the trips themselves
+    // carry the partner they belong to.
+    fetchPartners().then(setPartners).catch(console.error);
   }, []);
 
   function updateFilter(field, value) {
     setFilters((f) => ({ ...f, [field]: value }));
   }
 
-  // Flattens every trip (from every missionary and organization) into one
-  // list with a common shape, so the rest of the page doesn't need to know
-  // it's really two separate relations (missionTrips vs orgTrips).
-  const trips = useMemo(() => {
-    const fromMissionaries = missionaries.flatMap((m) =>
-      (m.missionTrips || []).map((t) => ({
+  // One query returns every trip with its partner attached. This page used
+  // to fetch every missionary and every organization — each with all of
+  // their relations — and flatten the two trip arrays out in the browser.
+  const trips = useMemo(
+    () =>
+      records.map((t) => ({
         ...t,
-        entityType: "Missionary",
-        entityName: m.displayName,
-        entityLink: `/admin/missionaries/${m.id}`,
+        entityType: t.partner?.kind === "organization" ? "Organization" : "Missionary",
+        entityName: t.partner?.displayName || "—",
+        entityLink: t.partner ? `/admin/partners/${t.partner.id}` : null,
         size: (t.participants || []).length,
-      }))
-    );
-    const fromOrgs = organizations.flatMap((o) =>
-      (o.orgTrips || []).map((t) => ({
-        ...t,
-        entityType: "Organization",
-        entityName: o.name,
-        entityLink: `/admin/organizations/${o.id}`,
-        size: (t.participants || []).length,
-      }))
-    );
-    return [...fromMissionaries, ...fromOrgs].sort(
-      (a, b) => new Date(b.startDate || 0) - new Date(a.startDate || 0)
-    );
-  }, [missionaries, organizations]);
+      })),
+    [records]
+  );
 
   // Filter option lists are built from the trips actually on file (not a
   // hardcoded preset list), so a custom trip type someone typed in still
@@ -163,16 +154,14 @@ export default function AdminTripHistory() {
   async function handleAddSubmit(e) {
     e.preventDefault();
     setError("");
-    if (!newTrip.entityKey) {
-      setError("Choose a missionary or organization");
+    if (!newTrip.partnerId) {
+      setError("Choose a partner");
       return;
     }
-    const [entityType, entityId] = newTrip.entityKey.split(":");
     setSaving(true);
     try {
       await createTrip({
-        missionaryId: entityType === "missionary" ? entityId : null,
-        organizationId: entityType === "organization" ? entityId : null,
+        partnerId: newTrip.partnerId,
         startDate: newTrip.startDate || null,
         endDate: newTrip.endDate || null,
         tripType: newTrip.tripType || null,
@@ -194,7 +183,7 @@ export default function AdminTripHistory() {
     setError("");
     setEditingId(trip.id);
     setEditForm({
-      entityKey: "",
+      partnerId: "",
       startDate: toDateInputValue(trip.startDate),
       endDate: toDateInputValue(trip.endDate),
       tripType: trip.tripType || "",
@@ -302,28 +291,13 @@ export default function AdminTripHistory() {
         <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
           <div className="form-grid">
             <label style={{ gridColumn: "1 / -1" }}>
-              Missionary or Organization
-              <select
-                value={newTrip.entityKey}
-                onChange={(e) => setNewTrip((f) => ({ ...f, entityKey: e.target.value }))}
+              Partner
+              <PartnerSelect
+                partners={partners}
+                value={newTrip.partnerId}
+                onChange={(partnerId) => setNewTrip((f) => ({ ...f, partnerId }))}
                 required
-              >
-                <option value="">Select one...</option>
-                <optgroup label="Missionaries">
-                  {missionaries.map((m) => (
-                    <option key={m.id} value={`missionary:${m.id}`}>
-                      {m.displayName}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Organizations">
-                  {organizations.map((o) => (
-                    <option key={o.id} value={`organization:${o.id}`}>
-                      {o.name}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
+              />
             </label>
             <label>
               Start Date

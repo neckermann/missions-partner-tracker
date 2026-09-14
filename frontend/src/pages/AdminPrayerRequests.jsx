@@ -5,9 +5,9 @@ import {
   createPrayerRequest,
   updatePrayerRequest,
   deletePrayerRequest,
-  fetchAdminMissionaries,
-  fetchAdminOrganizations,
+  fetchPartners,
 } from "../api/client.js";
+import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 
 // Date-only fields are stored as UTC midnight — build the Date from raw
 // Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
@@ -19,15 +19,19 @@ function formatDate(value) {
 }
 
 function entityFor(request) {
-  if (request.missionary) return { type: "Missionary", name: request.missionary.displayName, link: `/admin/missionaries/${request.missionary.id}` };
-  if (request.organization) return { type: "Organization", name: request.organization.name, link: `/admin/organizations/${request.organization.id}` };
-  return { type: "—", name: "—", link: null };
+  const p = request.partner;
+  if (!p) return { type: "—", name: "—", link: null };
+  return {
+    type: p.kind === "organization" ? "Organization" : "Missionary",
+    name: p.displayName,
+    link: `/admin/partners/${p.id}`,
+  };
 }
 
 const todayInputValue = () => new Date().toISOString().slice(0, 10);
 
 const emptyNewRequest = {
-  entityKey: "",
+  partnerId: "",
   category: "strategic",
   requestText: "",
   dateReceived: todayInputValue(),
@@ -44,8 +48,7 @@ const emptyNewRequest = {
 // "Answered", as a quiet note, not a checklist item.
 export default function AdminPrayerRequests() {
   const [requests, setRequests] = useState([]);
-  const [missionaries, setMissionaries] = useState([]);
-  const [organizations, setOrganizations] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState("all"); // all | strategic | situational
   const [showAddForm, setShowAddForm] = useState(false);
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
@@ -62,8 +65,7 @@ export default function AdminPrayerRequests() {
 
   useEffect(() => {
     reload();
-    fetchAdminMissionaries().then(setMissionaries).catch(console.error);
-    fetchAdminOrganizations().then(setOrganizations).catch(console.error);
+    fetchPartners().then(setPartners).catch(console.error);
   }, []);
 
   const filteredRequests = requests.filter((r) => categoryFilter === "all" || r.category === categoryFilter);
@@ -72,17 +74,15 @@ export default function AdminPrayerRequests() {
   async function handleAddSubmit(e) {
     e.preventDefault();
     setError("");
-    if (!newRequest.entityKey) {
-      setError("Choose a missionary or organization");
+    if (!newRequest.partnerId) {
+      setError("Choose a partner");
       return;
     }
-    const [entityType, entityId] = newRequest.entityKey.split(":");
     setSaving(true);
     try {
       const isStrategic = newRequest.category === "strategic";
       await createPrayerRequest({
-        missionaryId: entityType === "missionary" ? entityId : undefined,
-        organizationId: entityType === "organization" ? entityId : undefined,
+        partnerId: newRequest.partnerId,
         category: newRequest.category,
         requestText: newRequest.requestText.trim(),
         dateReceived: newRequest.dateReceived,
@@ -180,28 +180,13 @@ export default function AdminPrayerRequests() {
         <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
           <div className="form-grid">
             <label style={{ gridColumn: "1 / -1" }}>
-              Missionary or Organization
-              <select
-                value={newRequest.entityKey}
-                onChange={(e) => setNewRequest((f) => ({ ...f, entityKey: e.target.value }))}
+              Partner
+              <PartnerSelect
+                partners={partners}
+                value={newRequest.partnerId}
+                onChange={(partnerId) => setNewRequest((f) => ({ ...f, partnerId }))}
                 required
-              >
-                <option value="">Select one...</option>
-                <optgroup label="Missionaries">
-                  {missionaries.map((m) => (
-                    <option key={m.id} value={`missionary:${m.id}`}>
-                      {m.displayName}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Organizations">
-                  {organizations.map((o) => (
-                    <option key={o.id} value={`organization:${o.id}`}>
-                      {o.name}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
+              />
             </label>
             <label>
               Category

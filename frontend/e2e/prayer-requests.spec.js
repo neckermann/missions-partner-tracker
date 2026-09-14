@@ -5,7 +5,7 @@ test.describe("Prayer requests", () => {
   test("create on a missionary, record an answer, and confirm it appears publicly with no negative framing for other open requests", async ({ page }) => {
     await login(page);
 
-    const missionariesRes = await page.request.get("/api/missionaries");
+    const missionariesRes = await page.request.get("/api/partners?kind=missionary");
     const missionaries = await missionariesRes.json();
     // toPublicMissionary() excludes archived records regardless of
     // isPublic, and strips prayer requests (along with sendingChurch,
@@ -15,7 +15,7 @@ test.describe("Prayer requests", () => {
     // never pass no matter how correct the app's masking is.
     const target = missionaries.find((m) => m.isPublic && !m.archived && !m.isRestricted) || missionaries[0];
 
-    await page.goto(`/admin/missionaries/${target.id}`);
+    await page.goto(`/admin/partners/${target.id}`);
     await page.waitForSelector("h2");
 
     const uniqueText = `E2E prayer request ${Date.now()}`;
@@ -46,7 +46,7 @@ test.describe("Prayer requests", () => {
     // request (now answered) should show there too, filtered correctly
     // by category+isPublic.
     if (target.isPublic && !target.archived && !target.isRestricted) {
-      await page.goto(`/partners/missionary/${target.id}`);
+      await page.goto(`/partners/${target.id}`);
       await expect(page.locator("body")).toContainText(uniqueText);
       await expect(page.locator("body")).toContainText("Answered during this test run");
     }

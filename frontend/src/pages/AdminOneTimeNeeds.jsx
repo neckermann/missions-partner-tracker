@@ -5,9 +5,9 @@ import {
   createSupportNeed,
   updateSupportNeed,
   deleteSupportNeed,
-  fetchAdminMissionaries,
-  fetchAdminOrganizations,
+  fetchPartners,
 } from "../api/client.js";
+import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 
 function formatCurrency(amount) {
   if (amount == null) return "—";
@@ -31,13 +31,17 @@ function statusFor(need) {
 }
 
 function entityFor(need) {
-  if (need.missionary) return { type: "Missionary", name: need.missionary.displayName, link: `/admin/missionaries/${need.missionary.id}` };
-  if (need.organization) return { type: "Organization", name: need.organization.name, link: `/admin/organizations/${need.organization.id}` };
-  return { type: "—", name: "—", link: null };
+  const p = need.partner;
+  if (!p) return { type: "—", name: "—", link: null };
+  return {
+    type: p.kind === "organization" ? "Organization" : "Missionary",
+    name: p.displayName,
+    link: `/admin/partners/${p.id}`,
+  };
 }
 
 const emptyNewNeed = {
-  entityKey: "",
+  partnerId: "",
   description: "",
   requestedAmount: "",
   requestDate: "",
@@ -46,8 +50,7 @@ const emptyNewNeed = {
 
 export default function AdminOneTimeNeeds() {
   const [needs, setNeeds] = useState([]);
-  const [missionaries, setMissionaries] = useState([]);
-  const [organizations, setOrganizations] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [statusFilter, setStatusFilter] = useState("all"); // all | pending | decided
   const [showAddForm, setShowAddForm] = useState(false);
   const [newNeed, setNewNeed] = useState(emptyNewNeed);
@@ -64,8 +67,7 @@ export default function AdminOneTimeNeeds() {
 
   useEffect(() => {
     reload();
-    fetchAdminMissionaries().then(setMissionaries).catch(console.error);
-    fetchAdminOrganizations().then(setOrganizations).catch(console.error);
+    fetchPartners().then(setPartners).catch(console.error);
   }, []);
 
   const filteredNeeds = needs.filter((need) => {
@@ -77,16 +79,14 @@ export default function AdminOneTimeNeeds() {
   async function handleAddSubmit(e) {
     e.preventDefault();
     setError("");
-    if (!newNeed.entityKey) {
-      setError("Choose a missionary or organization");
+    if (!newNeed.partnerId) {
+      setError("Choose a partner");
       return;
     }
-    const [entityType, entityId] = newNeed.entityKey.split(":");
     setSaving(true);
     try {
       await createSupportNeed({
-        missionaryId: entityType === "missionary" ? entityId : undefined,
-        organizationId: entityType === "organization" ? entityId : undefined,
+        partnerId: newNeed.partnerId,
         description: newNeed.description.trim(),
         requestedAmount: Number(newNeed.requestedAmount),
         requestDate: newNeed.requestDate,
@@ -169,28 +169,13 @@ export default function AdminOneTimeNeeds() {
           <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
             <div className="form-grid">
               <label style={{ gridColumn: "1 / -1" }}>
-                Missionary or Organization
-                <select
-                  value={newNeed.entityKey}
-                  onChange={(e) => setNewNeed((f) => ({ ...f, entityKey: e.target.value }))}
+                Partner
+                <PartnerSelect
+                  partners={partners}
+                  value={newNeed.partnerId}
+                  onChange={(partnerId) => setNewNeed((f) => ({ ...f, partnerId }))}
                   required
-                >
-                  <option value="">Select one...</option>
-                  <optgroup label="Missionaries">
-                    {missionaries.map((m) => (
-                      <option key={m.id} value={`missionary:${m.id}`}>
-                        {m.displayName}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Organizations">
-                    {organizations.map((o) => (
-                      <option key={o.id} value={`organization:${o.id}`}>
-                        {o.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
+                />
               </label>
               <label style={{ gridColumn: "1 / -1" }}>
                 Description

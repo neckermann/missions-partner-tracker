@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
-  fetchAdminMissionary,
-  createMissionary,
-  updateMissionary,
-  uploadMissionaryImage,
+  fetchPartner,
+  createPartner,
+  updatePartner,
+  uploadPartnerImage,
   fetchChurchSettings,
 } from "../api/client.js";
 import AddressFields from "../components/admin/AddressFields.jsx";
@@ -35,15 +35,6 @@ const TRIP_TYPE_PRESETS = [
   "Music/Worship",
   "Administrative/Support",
 ];
-
-const emptyTrip = {
-  startDate: "",
-  endDate: "",
-  tripType: "",
-  description: "",
-  notes: "",
-  participants: [],
-};
 
 const emptyAddress = {
   addressLine1: "",
@@ -103,12 +94,15 @@ const emptyForm = {
   tripTypesSupported: [],
   tripSeasonNotes: "",
   tripLogisticsNotes: "",
-  missionTrips: [],
   furloughs: [],
   churchVisits: [],
   sentByOurChurch: false,
-  supportEntries: [],
-  needRequests: [],
+  // Organization-only. A missionary leaves these blank and the columns stay
+  // null, the same way the database models it.
+  orgType: "Local",
+  contactName: "",
+  contactPhone: "",
+  contactEmail: "",
   addresses: {
     physical: { ...emptyAddress, gpsLat: null, gpsLng: null },
     mailing: { ...emptyAddress, receiveMail: false, receivePackages: false },
@@ -129,11 +123,8 @@ function mergeFetchedRecord(m) {
     ...m,
     languagesSpoken: m.languagesSpoken || [],
     tripTypesSupported: m.tripTypesSupported || [],
-    missionTrips: (m.missionTrips || []).map((t) => ({ ...t, participants: t.participants || [] })),
     furloughs: m.furloughs || [],
     churchVisits: m.churchVisits || [],
-    supportEntries: m.supportEntries || [],
-    needRequests: m.needRequests || [],
     addresses: {
       physical: {
         ...emptyForm.addresses.physical,
@@ -160,11 +151,19 @@ function mergeFetchedRecord(m) {
   };
 }
 
-export default function AdminMissionaryForm() {
+// One form for both kinds of partner. The kind is fixed at creation (from
+// ?kind= on the new-partner route) and never changes afterwards — moving a
+// record between kinds isn't a real workflow, and the sub-records differ
+// enough that it wouldn't be a clean conversion anyway.
+export default function AdminPartnerForm() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(() => ({
+    ...emptyForm,
+    kind: searchParams.get("kind") === "organization" ? "organization" : "missionary",
+  }));
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -172,6 +171,7 @@ export default function AdminMissionaryForm() {
   const [currentPhotoUrl, setCurrentPhotoUrl] = useState(null);
   const [customContactMethod, setCustomContactMethod] = useState(false);
   const [churchSettings, setChurchSettings] = useState(null);
+  const isOrg = form.kind === "organization";
 
   useEffect(() => {
     fetchChurchSettings().then(setChurchSettings).catch(() => {});
@@ -179,7 +179,7 @@ export default function AdminMissionaryForm() {
 
   useEffect(() => {
     if (isEdit) {
-      fetchAdminMissionary(id).then((m) => {
+      fetchPartner(id).then((m) => {
         const merged = mergeFetchedRecord(m);
         setForm(merged);
         setCurrentPhotoUrl(m.photos?.[0]?.url ?? null);
@@ -288,41 +288,6 @@ export default function AdminMissionaryForm() {
     );
   }
 
-  // --- Trip history ---
-  function addTrip() {
-    update("missionTrips", [...form.missionTrips, { ...emptyTrip }]);
-  }
-  function updateTrip(index, field, value) {
-    const next = [...form.missionTrips];
-    next[index] = { ...next[index], [field]: value };
-    update("missionTrips", next);
-  }
-  function removeTrip(index) {
-    update("missionTrips", form.missionTrips.filter((_, i) => i !== index));
-  }
-  function addParticipant(tripIndex) {
-    const next = [...form.missionTrips];
-    next[tripIndex] = {
-      ...next[tripIndex],
-      participants: [...(next[tripIndex].participants || []), { name: "", role: "", isLeader: false, phone: "", email: "" }],
-    };
-    update("missionTrips", next);
-  }
-  function updateParticipant(tripIndex, participantIndex, field, value) {
-    const next = [...form.missionTrips];
-    const participants = [...(next[tripIndex].participants || [])];
-    participants[participantIndex] = { ...participants[participantIndex], [field]: value };
-    next[tripIndex] = { ...next[tripIndex], participants };
-    update("missionTrips", next);
-  }
-  function removeParticipant(tripIndex, participantIndex) {
-    const next = [...form.missionTrips];
-    next[tripIndex] = {
-      ...next[tripIndex],
-      participants: next[tripIndex].participants.filter((_, i) => i !== participantIndex),
-    };
-    update("missionTrips", next);
-  }
 
   // --- Furlough history ---
   function addFurlough() {
@@ -371,34 +336,11 @@ export default function AdminMissionaryForm() {
     }
   }
 
-  // --- Monthly support history ---
-  function addSupportEntry() {
-    update("supportEntries", [{ amount: "", effectiveDate: "", notes: "" }, ...form.supportEntries]);
-  }
-  function updateSupportEntry(index, field, value) {
-    const next = [...form.supportEntries];
-    next[index] = { ...next[index], [field]: value };
-    update("supportEntries", next);
-  }
-  function removeSupportEntry(index) {
-    update("supportEntries", form.supportEntries.filter((_, i) => i !== index));
-  }
-
-  // --- One-time need requests ---
-  function addSupportNeed() {
-    update("needRequests", [
-      { description: "", requestedAmount: "", requestDate: "", approvedAmount: "", approvedDate: "", notes: "" },
-      ...form.needRequests,
-    ]);
-  }
-  function updateSupportNeed(index, field, value) {
-    const next = [...form.needRequests];
-    next[index] = { ...next[index], [field]: value };
-    update("needRequests", next);
-  }
-  function removeSupportNeed(index) {
-    update("needRequests", form.needRequests.filter((_, i) => i !== index));
-  }
+  // Monthly support, one-time needs and trips are deliberately absent from
+  // this form. Each is its own resource with its own endpoint, edited from
+  // its section on the partner's page or from the consolidated admin page.
+  // The partner PUT ignores them even if sent -- see the comment on
+  // PUT /api/partners/:id in backend/src/routes/partners.js.
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -412,32 +354,12 @@ export default function AdminMissionaryForm() {
       .filter((c) => c.name);
     const cleanLanguages = form.languagesSpoken.map((l) => l.trim()).filter(Boolean);
     const cleanTripTypesSupported = form.tripTypesSupported.map((t) => t.trim()).filter(Boolean);
-    const cleanMissionTrips = form.missionTrips.map((trip) => ({
-      ...trip,
-      startDate: trip.startDate || null,
-      endDate: trip.endDate || null,
-      participants: (trip.participants || [])
-        .map((p) => ({ ...p, name: p.name.trim() }))
-        .filter((p) => p.name),
-    }));
     const cleanFurloughs = form.furloughs
       .filter((f) => f.startDate)
       .map((f) => ({ ...f, endDate: f.endDate || null }));
     const cleanChurchVisits = form.churchVisits.filter((v) => v.visitDate);
     // Drop rows missing their required fields rather than sending
     // half-filled entries — same convention as adults/children above.
-    const cleanSupportEntries = form.supportEntries
-      .filter((s) => s.effectiveDate && s.amount !== "")
-      .map((s) => ({ ...s, amount: Number(s.amount) }));
-    const cleanSupportNeeds = form.needRequests
-      .filter((s) => s.description.trim() && s.requestDate && s.requestedAmount !== "")
-      .map((s) => ({
-        ...s,
-        description: s.description.trim(),
-        requestedAmount: Number(s.requestedAmount),
-        approvedAmount: s.approvedAmount === "" || s.approvedAmount == null ? null : Number(s.approvedAmount),
-        approvedDate: s.approvedDate || null,
-      }));
     const cleanPhysical = {
       ...form.addresses.physical,
       gpsLat: form.addresses.physical.gpsLat === "" || form.addresses.physical.gpsLat == null
@@ -452,37 +374,43 @@ export default function AdminMissionaryForm() {
       ...form,
       supportingSince: form.supportingSince || null,
       anniversary: form.anniversary || null,
-      adults: cleanAdults,
-      children: cleanChildren,
       languagesSpoken: cleanLanguages,
       tripTeamSizeMin: form.tripTeamSizeMin === "" ? null : Number(form.tripTeamSizeMin),
       tripTeamSizeMax: form.tripTeamSizeMax === "" ? null : Number(form.tripTeamSizeMax),
       tripTypesSupported: cleanTripTypesSupported,
-      missionTrips: cleanMissionTrips,
-      furloughs: cleanFurloughs,
       churchVisits: cleanChurchVisits,
-      supportEntries: cleanSupportEntries,
-      needRequests: cleanSupportNeeds,
-      // Only persist sending church/org if a name was actually entered —
-      // otherwise leave whatever relation already exists untouched.
-      sendingChurch: form.sendingChurch.name.trim() ? form.sendingChurch : undefined,
-      sendingOrg: form.sendingOrg.name.trim() ? form.sendingOrg : undefined,
       addresses: {
         physical: hasAnyAddressValue(cleanPhysical) ? cleanPhysical : undefined,
         mailing: hasAnyAddressValue(form.addresses.mailing) ? form.addresses.mailing : undefined,
       },
+      // Missionary-only. Sent as undefined for an organization so the PUT
+      // leaves those (always-empty) relations alone rather than clearing
+      // and recreating them on every save.
+      adults: isOrg ? undefined : cleanAdults,
+      children: isOrg ? undefined : cleanChildren,
+      furloughs: isOrg ? undefined : cleanFurloughs,
+      // Only persist sending church/org if a name was actually entered —
+      // otherwise leave whatever relation already exists untouched.
+      sendingChurch: !isOrg && form.sendingChurch.name.trim() ? form.sendingChurch : undefined,
+      sendingOrg: !isOrg && form.sendingOrg.name.trim() ? form.sendingOrg : undefined,
+      emergencyContact: isOrg ? undefined : form.emergencyContact,
+      // Organization-only, mirrored the same way.
+      orgType: isOrg ? form.orgType : undefined,
+      contactName: isOrg ? form.contactName : undefined,
+      contactPhone: isOrg ? form.contactPhone : undefined,
+      contactEmail: isOrg ? form.contactEmail : undefined,
     };
 
     try {
       const record = isEdit
-        ? await updateMissionary(id, payload)
-        : await createMissionary(payload);
+        ? await updatePartner(id, payload)
+        : await createPartner(payload);
 
       if (imageFile) {
-        await uploadMissionaryImage(record.id, imageFile, imageReceivedDate);
+        await uploadPartnerImage(record.id, imageFile, imageReceivedDate);
       }
 
-      navigate(`/admin/missionaries/${record.id}`);
+      navigate(`/admin/partners/${record.id}`);
     } finally {
       setSaving(false);
     }
@@ -490,7 +418,9 @@ export default function AdminMissionaryForm() {
 
   return (
     <div className="admin-shell form-has-floating-actions">
-      <h2>{isEdit ? "Edit Missionary" : "Add Missionary"}</h2>
+      <h2>
+        {isEdit ? "Edit" : "Add"} {isOrg ? "Organization" : "Missionary"}
+      </h2>
       <form onSubmit={handleSubmit} className="admin-form">
         <div className="admin-section">
           <h3>Photo</h3>
@@ -536,13 +466,38 @@ export default function AdminMissionaryForm() {
           <h3>Core Info</h3>
           <div className="form-grid">
             <label>
-              Display Name
+              {isOrg ? "Organization Name" : "Display Name"}
               <input value={form.displayName} onChange={(e) => update("displayName", e.target.value)} required />
             </label>
+            {isOrg && (
+              <label>
+                Organization Type
+                <select value={form.orgType || "Local"} onChange={(e) => update("orgType", e.target.value)}>
+                  <option value="Local">Local</option>
+                  <option value="National">National</option>
+                </select>
+              </label>
+            )}
             <label>
               Field / Region Display Name
               <input value={form.fieldDisplayName || ""} onChange={(e) => update("fieldDisplayName", e.target.value)} />
             </label>
+            {isOrg && (
+              <>
+                <label>
+                  Contact Name
+                  <input value={form.contactName || ""} onChange={(e) => update("contactName", e.target.value)} />
+                </label>
+                <label>
+                  Contact Phone
+                  <input value={form.contactPhone || ""} onChange={(e) => update("contactPhone", e.target.value)} />
+                </label>
+                <label>
+                  Contact Email
+                  <input value={form.contactEmail || ""} onChange={(e) => update("contactEmail", e.target.value)} />
+                </label>
+              </>
+            )}
             <label>
               Supporting Since
               <input
@@ -596,10 +551,12 @@ export default function AdminMissionaryForm() {
           </div>
 
           <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
-            <label>
-              <input type="checkbox" checked={form.contactSafe} onChange={(e) => update("contactSafe", e.target.checked)} />
-              Safe to contact
-            </label>
+            {!isOrg && (
+              <label>
+                <input type="checkbox" checked={form.contactSafe} onChange={(e) => update("contactSafe", e.target.checked)} />
+                Safe to contact
+              </label>
+            )}
             <label>
               <input type="checkbox" checked={form.isPublic} onChange={(e) => update("isPublic", e.target.checked)} />
               Show on public site
@@ -611,113 +568,7 @@ export default function AdminMissionaryForm() {
           </div>
         </div>
 
-        <div className="admin-section">
-          <h3>Financial Support</h3>
-          <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "-0.5rem" }}>
-            Monthly support amount over time — add a new entry whenever it changes, the most
-            recent effective date is treated as the current amount. Admin-only, never shown on
-            the public site.
-          </p>
-          {form.supportEntries.map((entry, i) => (
-            <div className="repeatable-row" key={i}>
-              <button type="button" className="btn-remove" onClick={() => removeSupportEntry(i)} title="Remove">
-                ✕
-              </button>
-              <div className="form-grid">
-                <label>
-                  Monthly Amount ($)
-                  <input
-                    type="number"
-                    min="0"
-                    value={entry.amount}
-                    onChange={(e) => updateSupportEntry(i, "amount", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Effective Date
-                  <input
-                    type="date"
-                    value={toDateInputValue(entry.effectiveDate)}
-                    onChange={(e) => updateSupportEntry(i, "effectiveDate", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Notes
-                  <input value={entry.notes || ""} onChange={(e) => updateSupportEntry(i, "notes", e.target.value)} />
-                </label>
-              </div>
-            </div>
-          ))}
-          <button type="button" className="btn secondary small" onClick={addSupportEntry}>
-            + Add Support Entry
-          </button>
-        </div>
 
-        <div className="admin-section">
-          <h3>One-Time Needs</h3>
-          <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "-0.5rem" }}>
-            One-off requests (e.g. a benevolence gift) and what we actually approved — leave
-            Approved Amount blank until a decision is made. Admin-only.
-          </p>
-          {form.needRequests.map((need, i) => (
-            <div className="repeatable-row" key={i}>
-              <button type="button" className="btn-remove" onClick={() => removeSupportNeed(i)} title="Remove">
-                ✕
-              </button>
-              <div className="form-grid">
-                <label style={{ gridColumn: "1 / -1" }}>
-                  Description
-                  <input
-                    value={need.description}
-                    onChange={(e) => updateSupportNeed(i, "description", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Requested Amount ($)
-                  <input
-                    type="number"
-                    min="0"
-                    value={need.requestedAmount}
-                    onChange={(e) => updateSupportNeed(i, "requestedAmount", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Request Date
-                  <input
-                    type="date"
-                    value={toDateInputValue(need.requestDate)}
-                    onChange={(e) => updateSupportNeed(i, "requestDate", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Approved Amount ($)
-                  <input
-                    type="number"
-                    min="0"
-                    value={need.approvedAmount}
-                    onChange={(e) => updateSupportNeed(i, "approvedAmount", e.target.value)}
-                    placeholder="Not yet decided"
-                  />
-                </label>
-                <label>
-                  Approved Date
-                  <input
-                    type="date"
-                    value={toDateInputValue(need.approvedDate)}
-                    onChange={(e) => updateSupportNeed(i, "approvedDate", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Notes
-                  <input value={need.notes || ""} onChange={(e) => updateSupportNeed(i, "notes", e.target.value)} />
-                </label>
-              </div>
-            </div>
-          ))}
-          <button type="button" className="btn secondary small" onClick={addSupportNeed}>
-            + Add Need
-          </button>
-        </div>
 
         <div className="admin-section">
           <h3>Ministry Overview</h3>
@@ -781,6 +632,7 @@ export default function AdminMissionaryForm() {
           />
         </div>
 
+        {!isOrg && (
         <div className="admin-section">
           <h3>Adults</h3>
           <label style={{ maxWidth: "220px", marginBottom: "1rem" }}>
@@ -828,7 +680,9 @@ export default function AdminMissionaryForm() {
             + Add Adult
           </button>
         </div>
+        )}
 
+        {!isOrg && (
         <div className="admin-section">
           <h3>Children</h3>
           {form.children.map((child, i) => (
@@ -856,7 +710,9 @@ export default function AdminMissionaryForm() {
             + Add Child
           </button>
         </div>
+        )}
 
+        {!isOrg && (
         <div className="admin-section">
           <h3>Emergency Contact</h3>
           <div className="form-grid">
@@ -883,7 +739,9 @@ export default function AdminMissionaryForm() {
             </label>
           </div>
         </div>
+        )}
 
+        {!isOrg && (
         <div className="admin-section">
           <h3>Languages Spoken</h3>
           {form.languagesSpoken.map((lang, i) => (
@@ -898,6 +756,7 @@ export default function AdminMissionaryForm() {
             + Add Language
           </button>
         </div>
+        )}
 
         <div className="admin-section">
           <h3>Trip Capacity</h3>
@@ -955,117 +814,8 @@ export default function AdminMissionaryForm() {
           </label>
         </div>
 
-        <div className="admin-section">
-          <h3>Trip History</h3>
-          {form.missionTrips.map((trip, tripIndex) => (
-            <div className="repeatable-row" key={tripIndex}>
-              <button type="button" className="btn-remove" onClick={() => removeTrip(tripIndex)} title="Remove">
-                ✕
-              </button>
-              <div className="form-grid">
-                <label>
-                  Start Date
-                  <input
-                    type="date"
-                    value={toDateInputValue(trip.startDate)}
-                    onChange={(e) => updateTrip(tripIndex, "startDate", e.target.value)}
-                  />
-                </label>
-                <label>
-                  End Date
-                  <input
-                    type="date"
-                    value={toDateInputValue(trip.endDate)}
-                    onChange={(e) => updateTrip(tripIndex, "endDate", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Trip Type
-                  <PresetOrCustomSelect
-                    value={trip.tripType}
-                    onChange={(val) => updateTrip(tripIndex, "tripType", val)}
-                    presets={TRIP_TYPE_PRESETS}
-                    placeholder="e.g. Photography"
-                  />
-                </label>
-              </div>
-              <label style={{ marginTop: "0.75rem" }}>
-                Description (what the team did)
-                <textarea
-                  rows={2}
-                  value={trip.description || ""}
-                  onChange={(e) => updateTrip(tripIndex, "description", e.target.value)}
-                />
-              </label>
-              <label style={{ marginTop: "0.75rem" }}>
-                Notes
-                <textarea rows={2} value={trip.notes || ""} onChange={(e) => updateTrip(tripIndex, "notes", e.target.value)} />
-              </label>
 
-              <h4 style={{ marginTop: "1rem" }}>Participants</h4>
-              {(trip.participants || []).map((p, pIndex) => (
-                <div className="repeatable-row" key={pIndex} style={{ background: "white" }}>
-                  <button
-                    type="button"
-                    className="btn-remove"
-                    onClick={() => removeParticipant(tripIndex, pIndex)}
-                    title="Remove"
-                  >
-                    ✕
-                  </button>
-                  <div className="form-grid">
-                    <label>
-                      Name
-                      <input
-                        value={p.name || ""}
-                        onChange={(e) => updateParticipant(tripIndex, pIndex, "name", e.target.value)}
-                      />
-                    </label>
-                    <label>
-                      Role
-                      <input
-                        value={p.role || ""}
-                        onChange={(e) => updateParticipant(tripIndex, pIndex, "role", e.target.value)}
-                        placeholder="e.g. Construction"
-                      />
-                    </label>
-                    <label>
-                      Phone
-                      <input
-                        value={p.phone || ""}
-                        onChange={(e) => updateParticipant(tripIndex, pIndex, "phone", e.target.value)}
-                      />
-                    </label>
-                    <label>
-                      Email
-                      <input
-                        value={p.email || ""}
-                        onChange={(e) => updateParticipant(tripIndex, pIndex, "email", e.target.value)}
-                      />
-                    </label>
-                  </div>
-                  <div className="admin-checkbox-row" style={{ marginTop: "0.5rem" }}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={!!p.isLeader}
-                        onChange={(e) => updateParticipant(tripIndex, pIndex, "isLeader", e.target.checked)}
-                      />
-                      Trip Leader
-                    </label>
-                  </div>
-                </div>
-              ))}
-              <button type="button" className="btn secondary small" onClick={() => addParticipant(tripIndex)}>
-                + Add Participant
-              </button>
-            </div>
-          ))}
-          <button type="button" className="btn secondary small" onClick={addTrip}>
-            + Add Trip
-          </button>
-        </div>
-
+        {!isOrg && (
         <div className="admin-section">
           <h3>Furlough</h3>
           <p style={{ marginTop: 0, color: "#666", fontSize: "0.85rem" }}>
@@ -1105,6 +855,7 @@ export default function AdminMissionaryForm() {
             + Add Furlough
           </button>
         </div>
+        )}
 
         <div className="admin-section">
           <h3>Church Visits</h3>
@@ -1138,22 +889,27 @@ export default function AdminMissionaryForm() {
           </button>
         </div>
 
-        <SendingPartySection
-          title="Sending Church"
-          value={form.sendingChurch}
-          onChange={(val) => updateNested("sendingChurch", val)}
-          checkbox={{
-            checked: form.sentByOurChurch,
-            onChange: handleSentByOurChurch,
-            label: `Sent by ${churchSettings?.churchName || "our church"}`,
-          }}
-        />
+        {/* Missionary-only: an organization has no "who sent it" concept. */}
+        {!isOrg && (
+          <>
+            <SendingPartySection
+              title="Sending Church"
+              value={form.sendingChurch}
+              onChange={(val) => updateNested("sendingChurch", val)}
+              checkbox={{
+                checked: form.sentByOurChurch,
+                onChange: handleSentByOurChurch,
+                label: `Sent by ${churchSettings?.churchName || "our church"}`,
+              }}
+            />
 
-        <SendingPartySection
-          title="Sending Org"
-          value={form.sendingOrg}
-          onChange={(val) => updateNested("sendingOrg", val)}
-        />
+            <SendingPartySection
+              title="Sending Org"
+              value={form.sendingOrg}
+              onChange={(val) => updateNested("sendingOrg", val)}
+            />
+          </>
+        )}
 
         <div className="admin-section">
           <h3>Links &amp; Social Media</h3>
@@ -1192,7 +948,7 @@ export default function AdminMissionaryForm() {
           <button
             type="button"
             className="btn secondary"
-            onClick={() => navigate(isEdit ? `/admin/missionaries/${id}` : "/admin/partners")}
+            onClick={() => navigate(isEdit ? `/admin/partners/${id}` : "/admin/partners")}
           >
             Cancel
           </button>

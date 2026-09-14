@@ -1,14 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  fetchAdminMissionaries,
-  archiveMissionary,
-  unarchiveMissionary,
-  deleteMissionary,
-  fetchAdminOrganizations,
-  archiveOrganization,
-  unarchiveOrganization,
-  deleteOrganization,
+  fetchPartners,
+  archivePartner,
+  unarchivePartner,
+  deletePartner,
 } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getContinent } from "../utils/countryContinents.js";
@@ -45,13 +41,11 @@ function lastVisit(churchVisits) {
 // Missionaries and organizations used to have separate list pages, each
 // with its own nav link — once a church sets a shared partner term (see
 // Church Settings), those two links end up reading identically, which
-// looks like a bug rather than a feature. Combining into one browsable
-// list (mirroring the public directory's combined-list-with-type-filter
-// pattern) fixes that, while create/edit/detail stay on their own
-// type-specific pages, since the underlying data really is different.
+// looks like a bug rather than a feature. This page combined them in the
+// UI first; they're one underlying record now too, so the merging this
+// page used to do client-side is gone.
 export default function AdminPartners() {
-  const [missionaries, setMissionaries] = useState([]);
-  const [organizations, setOrganizations] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [showArchived, setShowArchived] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all"); // all | missionary | organization
   const [publicFilter, setPublicFilter] = useState("all"); // all | public | notPublic
@@ -65,63 +59,44 @@ export default function AdminPartners() {
   const sectionTitle = usePartnerTermInAdmin ? partnerTermPlural : "Partners";
 
   function reload() {
-    fetchAdminMissionaries().then(setMissionaries).catch(console.error);
-    fetchAdminOrganizations().then(setOrganizations).catch(console.error);
+    fetchPartners().then(setPartners).catch(console.error);
   }
 
   useEffect(reload, []);
 
   // Structural type labels (which underlying record this is) are kept
   // literal regardless of the custom partner term — an admin still needs
-  // to tell a missionary row from an organization row to know which form
-  // to edit it on, same reasoning as the type filter below.
-  const rows = useMemo(() => {
-    const fromMissionaries = missionaries.map((m) => ({
-      type: "missionary",
-      id: m.id,
-      name: m.displayName,
-      typeLabel: "Missionary",
-      field: m.fieldDisplayName,
-      photo: m.photos?.[0]?.url,
-      isPublic: m.isPublic,
-      isRestricted: m.isRestricted,
-      archived: m.archived,
-      sentByOurChurch: m.sentByOurChurch,
-      supportEntries: m.supportEntries,
-      churchVisits: m.churchVisits,
-      focusArea: m.focusArea,
-      overview: m.overview,
-      sendingChurchName: m.sendingChurch?.name,
-      sendingOrgName: m.sendingOrg?.name,
-      country: resolveCountry(m),
-      continent: getContinent(resolveCountry(m)),
-      detailLink: `/admin/missionaries/${m.id}`,
-      editLink: `/admin/missionaries/${m.id}/edit`,
-    }));
-    const fromOrgs = organizations.map((o) => ({
-      type: "organization",
-      id: o.id,
-      name: o.name,
-      typeLabel: `${o.orgType} Org`,
-      field: o.fieldDisplayName,
-      photo: o.photos?.[0]?.url,
-      isPublic: o.isPublic,
-      isRestricted: o.isRestricted,
-      archived: o.archived,
-      sentByOurChurch: null,
-      supportEntries: o.supportEntries,
-      churchVisits: o.churchVisits,
-      focusArea: o.focusArea,
-      overview: o.overview,
-      sendingChurchName: null, // organizations have no sendingChurch/sendingOrg relation
-      sendingOrgName: null,
-      country: resolveCountry(o),
-      continent: getContinent(resolveCountry(o)),
-      detailLink: `/admin/organizations/${o.id}`,
-      editLink: `/admin/organizations/${o.id}/edit`,
-    }));
-    return [...fromMissionaries, ...fromOrgs].sort((a, b) => a.name.localeCompare(b.name));
-  }, [missionaries, organizations]);
+  // to tell a missionary row from an organization row, same reasoning as
+  // the type filter below.
+  // One list from one endpoint now. These rows are summary records (see
+  // partnerSummarySelect in backend/src/routes/partners.js) -- the search
+  // below matches on what's actually here, not on a partner's full history.
+  const rows = useMemo(
+    () =>
+      partners
+        .map((p) => ({
+          type: p.kind,
+          id: p.id,
+          name: p.displayName,
+          typeLabel: p.kind === "organization" ? `${p.orgType || "Partner"} Org` : "Missionary",
+          field: p.fieldDisplayName,
+          photo: p.photos?.[0]?.url,
+          isPublic: p.isPublic,
+          isRestricted: p.isRestricted,
+          archived: p.archived,
+          sentByOurChurch: p.sentByOurChurch,
+          supportEntries: p.supportEntries,
+          churchVisits: p.churchVisits,
+          focusArea: p.focusArea,
+          overviewShort: p.overviewShort,
+          country: resolveCountry(p),
+          continent: getContinent(resolveCountry(p)),
+          detailLink: `/admin/partners/${p.id}`,
+          editLink: `/admin/partners/${p.id}/edit`,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [partners]
+  );
 
   const archivedCount = rows.filter((r) => r.archived).length;
 
@@ -163,9 +138,7 @@ export default function AdminPartners() {
         r.name,
         r.field,
         r.focusArea,
-        r.overview,
-        r.sendingChurchName,
-        r.sendingOrgName,
+        r.overviewShort,
         r.country
       )
     );
@@ -181,12 +154,12 @@ export default function AdminPartners() {
 
   async function handleArchive(row) {
     if (!confirm(`Archive ${row.name}? This removes them from the public site and zeros out their monthly support, but keeps their full history. You can unarchive at any time.`)) return;
-    await (row.type === "missionary" ? archiveMissionary(row.id) : archiveOrganization(row.id));
+    await archivePartner(row.id);
     reload();
   }
 
   async function handleUnarchive(row) {
-    await (row.type === "missionary" ? unarchiveMissionary(row.id) : unarchiveOrganization(row.id));
+    await unarchivePartner(row.id);
     reload();
   }
 
@@ -197,7 +170,7 @@ export default function AdminPartners() {
   async function handleDelete(row) {
     const typed = prompt(`This permanently deletes ${row.name} and cannot be undone. Type "confirm" to proceed:`);
     if (typed?.trim().toLowerCase() !== "confirm") return;
-    await (row.type === "missionary" ? deleteMissionary(row.id) : deleteOrganization(row.id));
+    await deletePartner(row.id);
     reload();
   }
 
@@ -206,15 +179,15 @@ export default function AdminPartners() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>{sectionTitle} ({visible.length})</h2>
         <div>
-          <Link to="/admin/missionaries/new" className="btn" style={{ marginRight: "0.5rem" }}>+ Add Missionary</Link>
-          <Link to="/admin/organizations/new" className="btn">+ Add Organization</Link>
+          <Link to="/admin/partners/new?kind=missionary" className="btn" style={{ marginRight: "0.5rem" }}>+ Add Missionary</Link>
+          <Link to="/admin/partners/new?kind=organization" className="btn">+ Add Organization</Link>
           </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", marginTop: "0.75rem", flexWrap: "wrap" }}>
           <input
             type="text"
-            placeholder="Search by name, field, focus, overview, or sending party..."
+            placeholder="Search by name, field, focus, or summary..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ width: "auto", minWidth: "220px" }}

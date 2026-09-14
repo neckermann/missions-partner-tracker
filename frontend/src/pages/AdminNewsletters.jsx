@@ -6,9 +6,9 @@ import {
   updateNewsletter,
   deleteNewsletter,
   extractFromNewsletter,
-  fetchAdminMissionaries,
-  fetchAdminOrganizations,
+  fetchPartners,
 } from "../api/client.js";
+import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
 
@@ -28,8 +28,14 @@ function formatFileSize(bytes) {
 }
 
 function entityFor(n) {
-  if (n.missionary) return { type: "Missionary", name: n.missionary.displayName, link: `/admin/missionaries/${n.missionary.id}` };
-  if (n.organization) return { type: "Organization", name: n.organization.name, link: `/admin/organizations/${n.organization.id}` };
+  const p = n.partner;
+  if (p) {
+    return {
+      type: p.kind === "organization" ? "Organization" : "Missionary",
+      name: p.displayName,
+      link: `/admin/partners/${p.id}`,
+    };
+  }
   return { type: "—", name: "—", link: null };
 }
 
@@ -43,7 +49,7 @@ const SCANNABLE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 const isScannable = (n) => SCANNABLE_TYPES.has(n.contentType) || /\.eml$/i.test(n.fileName || "");
 
 const emptyNewNewsletter = {
-  entityKey: "",
+  partnerId: "",
   title: "",
   receivedDate: todayInputValue(),
   notes: "",
@@ -53,8 +59,7 @@ export default function AdminNewsletters() {
   const { enabledFeatures } = useSettings();
   const [scanning, setScanning] = useState(null); // the newsletter being reviewed, or null
   const [newsletters, setNewsletters] = useState([]);
-  const [missionaries, setMissionaries] = useState([]);
-  const [organizations, setOrganizations] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newNewsletter, setNewNewsletter] = useState(emptyNewNewsletter);
   const [file, setFile] = useState(null);
@@ -62,7 +67,7 @@ export default function AdminNewsletters() {
   const [error, setError] = useState("");
   const [entityFilter, setEntityFilter] = useState("all");
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ entityKey: "", title: "", receivedDate: "", notes: "" });
+  const [editForm, setEditForm] = useState({ partnerId: "", title: "", receivedDate: "", notes: "" });
 
   function reload() {
     fetchNewsletters().then(setNewsletters).catch(console.error);
@@ -70,28 +75,25 @@ export default function AdminNewsletters() {
 
   useEffect(() => {
     reload();
-    fetchAdminMissionaries().then(setMissionaries).catch(console.error);
-    fetchAdminOrganizations().then(setOrganizations).catch(console.error);
+    fetchPartners().then(setPartners).catch(console.error);
   }, []);
 
   async function handleAddSubmit(e) {
     e.preventDefault();
     setError("");
-    if (!newNewsletter.entityKey) {
-      setError("Choose a missionary or organization");
+    if (!newNewsletter.partnerId) {
+      setError("Choose a partner");
       return;
     }
     if (!file) {
       setError("Choose a file to upload");
       return;
     }
-    const [entityType, entityId] = newNewsletter.entityKey.split(":");
     setSaving(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
-      if (entityType === "missionary") formData.append("missionaryId", entityId);
-      if (entityType === "organization") formData.append("organizationId", entityId);
+      formData.append("partnerId", newNewsletter.partnerId);
       formData.append("title", newNewsletter.title);
       formData.append("receivedDate", newNewsletter.receivedDate);
       formData.append("notes", newNewsletter.notes);
@@ -123,14 +125,12 @@ export default function AdminNewsletters() {
   }
 
   // Everything but the file itself is editable (see the PUT route comment
-  // in backend/src/routes/newsletters.js) -- entityKey mirrors the same
-  // combined missionary/organization dropdown used in the Add form above.
+  // in backend/src/routes/newsletters.js), including moving it to a
+  // different partner.
   function startEdit(n) {
-    const entity = entityFor(n);
-    const entityKey = n.missionary ? `missionary:${n.missionary.id}` : n.organization ? `organization:${n.organization.id}` : "";
     setEditingId(n.id);
     setEditForm({
-      entityKey,
+      partnerId: n.partner?.id || "",
       title: n.title || "",
       receivedDate: String(n.receivedDate).slice(0, 10),
       notes: n.notes || "",
@@ -138,15 +138,13 @@ export default function AdminNewsletters() {
   }
 
   async function submitEdit(id) {
-    if (!editForm.entityKey) {
-      alert("Choose a missionary or organization");
+    if (!editForm.partnerId) {
+      alert("Choose a partner");
       return;
     }
-    const [entityType, entityId] = editForm.entityKey.split(":");
     try {
       await updateNewsletter(id, {
-        missionaryId: entityType === "missionary" ? entityId : null,
-        organizationId: entityType === "organization" ? entityId : null,
+        partnerId: editForm.partnerId,
         title: editForm.title,
         receivedDate: editForm.receivedDate,
         notes: editForm.notes,
@@ -177,28 +175,13 @@ export default function AdminNewsletters() {
           <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
             <div className="form-grid">
               <label style={{ gridColumn: "1 / -1" }}>
-                Missionary or Organization
-                <select
-                  value={newNewsletter.entityKey}
-                  onChange={(e) => setNewNewsletter((f) => ({ ...f, entityKey: e.target.value }))}
+                Partner
+                <PartnerSelect
+                  partners={partners}
+                  value={newNewsletter.partnerId}
+                  onChange={(partnerId) => setNewNewsletter((f) => ({ ...f, partnerId }))}
                   required
-                >
-                  <option value="">Select one...</option>
-                  <optgroup label="Missionaries">
-                    {missionaries.map((m) => (
-                      <option key={m.id} value={`missionary:${m.id}`}>
-                        {m.displayName}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Organizations">
-                    {organizations.map((o) => (
-                      <option key={o.id} value={`organization:${o.id}`}>
-                        {o.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
+                />
               </label>
               <label style={{ gridColumn: "1 / -1" }}>
                 File (PDF, .eml, JPG, or PNG)
@@ -305,28 +288,13 @@ export default function AdminNewsletters() {
                       <td colSpan={6}>
                         <div className="form-grid">
                           <label style={{ gridColumn: "1 / -1" }} title="Everything but the file itself can be edited.">
-                            Missionary or Organization
-                            <select
-                              value={editForm.entityKey}
-                              onChange={(e) => setEditForm((f) => ({ ...f, entityKey: e.target.value }))}
+                            Partner
+                            <PartnerSelect
+                              partners={partners}
+                              value={editForm.partnerId}
+                              onChange={(partnerId) => setEditForm((f) => ({ ...f, partnerId }))}
                               required
-                            >
-                              <option value="">Select one...</option>
-                              <optgroup label="Missionaries">
-                                {missionaries.map((m) => (
-                                  <option key={m.id} value={`missionary:${m.id}`}>
-                                    {m.displayName}
-                                  </option>
-                                ))}
-                              </optgroup>
-                              <optgroup label="Organizations">
-                                {organizations.map((o) => (
-                                  <option key={o.id} value={`organization:${o.id}`}>
-                                    {o.name}
-                                  </option>
-                                ))}
-                              </optgroup>
-                            </select>
+                            />
                           </label>
                           <label>
                             Title
@@ -377,8 +345,7 @@ export default function AdminNewsletters() {
       {scanning && (
         <ExtractionReviewModal
           scan={() => extractFromNewsletter(scanning.id)}
-          missionaryId={scanning.missionary?.id}
-          organizationId={scanning.organization?.id}
+          partnerId={scanning.partner?.id}
           defaultDate={scanning.receivedDate}
           onClose={() => setScanning(null)}
         />

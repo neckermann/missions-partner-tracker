@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from "react-router-dom";
 import PublicMap from "./pages/PublicMap.jsx";
 import PublicDirectory from "./pages/PublicDirectory.jsx";
 import PublicPartnerDetail from "./pages/PublicPartnerDetail.jsx";
@@ -8,11 +8,9 @@ import Login from "./pages/Login.jsx";
 import Setup from "./pages/Setup.jsx";
 import AdminHome from "./pages/AdminHome.jsx";
 import AdminPartners from "./pages/AdminPartners.jsx";
-import AdminMissionaryForm from "./pages/AdminMissionaryForm.jsx";
-import AdminMissionaryDetail from "./pages/AdminMissionaryDetail.jsx";
+import AdminPartnerForm from "./pages/AdminPartnerForm.jsx";
+import AdminPartnerDetail from "./pages/AdminPartnerDetail.jsx";
 import AdminBooklet from "./pages/AdminBooklet.jsx";
-import AdminOrganizationForm from "./pages/AdminOrganizationForm.jsx";
-import AdminOrganizationDetail from "./pages/AdminOrganizationDetail.jsx";
 import AdminUsers from "./pages/AdminUsers.jsx";
 import AdminUserForm from "./pages/AdminUserForm.jsx";
 import AccountSettings from "./pages/AccountSettings.jsx";
@@ -34,6 +32,20 @@ import AdminLayout from "./components/admin/AdminLayout.jsx";
 import { SettingsProvider } from "./context/SettingsContext.jsx";
 import "./index.css";
 
+// Old /admin/missionaries/:id and /admin/organizations/:id URLs point at the
+// same record under /admin/partners/:id -- the merge kept every id, so this
+// is a straight path swap rather than a lookup.
+function LegacyPartnerRedirect({ edit = false }) {
+  const { id } = useParams();
+  return <Navigate to={`/admin/partners/${id}${edit ? "/edit" : ""}`} replace />;
+}
+
+// Same for the public site, where the kind used to be in the path.
+function LegacyPublicPartnerRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/partners/${id}`} replace />;
+}
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <SettingsProvider>
@@ -43,13 +55,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/" element={<RequirePublicSite feature="publicDirectory"><PublicDirectory /></RequirePublicSite>} />
           <Route path="/map" element={<RequirePublicSite feature="publicMap"><PublicMap /></RequirePublicSite>} />
           <Route
-            path="/partners/:type/:id"
+            path="/partners/:id"
             element={
               <RequirePublicSite feature={["publicDirectory", "publicMap"]}>
                 <PublicPartnerDetail />
               </RequirePublicSite>
             }
           />
+          <Route path="/partners/:type/:id" element={<LegacyPublicPartnerRedirect />} />
           <Route path="/login" element={<Login />} />
           <Route path="/setup" element={<Setup />} />
 
@@ -67,12 +80,18 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           >
             <Route index element={<AdminHome />} />
             <Route path="partners" element={<AdminPartners />} />
-            <Route path="missionaries/new" element={<AdminMissionaryForm />} />
-            <Route path="missionaries/:id" element={<AdminMissionaryDetail />} />
-            <Route path="missionaries/:id/edit" element={<AdminMissionaryForm />} />
-            <Route path="organizations/new" element={<AdminOrganizationForm />} />
-            <Route path="organizations/:id" element={<AdminOrganizationDetail />} />
-            <Route path="organizations/:id/edit" element={<AdminOrganizationForm />} />
+            <Route path="partners/new" element={<AdminPartnerForm />} />
+            <Route path="partners/:id" element={<AdminPartnerDetail />} />
+            <Route path="partners/:id/edit" element={<AdminPartnerForm />} />
+            {/* Missionaries and organizations merged into one Partner
+                resource in v2.0.0. These keep old bookmarks and any links
+                sent round in email working -- the ids didn't change. */}
+            <Route path="missionaries/new" element={<Navigate to="/admin/partners/new?kind=missionary" replace />} />
+            <Route path="organizations/new" element={<Navigate to="/admin/partners/new?kind=organization" replace />} />
+            <Route path="missionaries/:id" element={<LegacyPartnerRedirect />} />
+            <Route path="missionaries/:id/edit" element={<LegacyPartnerRedirect edit />} />
+            <Route path="organizations/:id" element={<LegacyPartnerRedirect />} />
+            <Route path="organizations/:id/edit" element={<LegacyPartnerRedirect edit />} />
             <Route path="booklet" element={<RequireAdminFeature feature="booklet"><AdminBooklet /></RequireAdminFeature>} />
             <Route
               path="support/monthly"

@@ -83,6 +83,13 @@ const partnerSummarySelect = {
   supportingSince: true,
   overviewShort: true,
   focusArea: true,
+  // Trip-hosting capacity: five small scalars, kept in the summary because
+  // the Trip Opportunities page filters on exactly these and nothing else.
+  tripTeamSizeMin: true,
+  tripTeamSizeMax: true,
+  tripTypesSupported: true,
+  tripSeasonNotes: true,
+  tripLogisticsNotes: true,
   addresses: {
     where: { type: "physical" },
     select: { city: true, stateProvinceRegion: true, country: true, gpsLat: true, gpsLng: true },
@@ -97,6 +104,12 @@ const partnerSummarySelect = {
     orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }],
     take: 1,
     select: { id: true, receivedDate: true },
+  },
+  // "Last visit" is just the latest row, same idea as current support.
+  churchVisits: {
+    orderBy: { visitDate: "desc" },
+    take: 1,
+    select: { visitDate: true },
   },
 };
 
@@ -255,6 +268,12 @@ async function buildAddressRows(addresses) {
 // GET /api/partners  (list — summary rows only)
 // Optional ?kind=missionary|organization, ?archived=true|false (omit for
 // both), ?q= name/field search.
+//
+// ?include=full opts into the deep record for every partner instead. The
+// printed booklet is the one screen that genuinely needs that -- it lays
+// out each partner's family, addresses, sending party and prayer requests
+// in one document -- and N+1 detail requests would be worse. It's an
+// explicit, single-caller escape hatch, deliberately not the default.
 router.get("/", async (req, res, next) => {
   try {
     const where = {};
@@ -267,6 +286,18 @@ router.get("/", async (req, res, next) => {
         { displayName: { contains: q, mode: "insensitive" } },
         { fieldDisplayName: { contains: q, mode: "insensitive" } },
       ];
+    }
+
+    if (req.query.include === "full") {
+      const full = await prisma.partner.findMany({
+        where,
+        include: {
+          ...partnerRecordInclude,
+          prayerRequests: { orderBy: { dateReceived: "desc" } },
+        },
+        orderBy: { displayName: "asc" },
+      });
+      return res.json(full.map(shapePartner));
     }
 
     const records = await prisma.partner.findMany({

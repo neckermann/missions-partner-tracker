@@ -14,23 +14,16 @@ export const api = axios.create({
 // JS never sees the token at all, which is the point: an XSS bug can't
 // steal a credential it can't read.
 
-export async function fetchPublicMissionaries() {
-  const { data } = await api.get("/public/missionaries");
+// Missionaries and organizations are one resource now, distinguished by
+// `kind` — pass { kind: "missionary" } to narrow. See the Partner model
+// comment in backend/prisma/schema.prisma for why they merged.
+export async function fetchPublicPartners(params = {}) {
+  const { data } = await api.get("/public/partners", { params });
   return data;
 }
 
-export async function fetchPublicMissionary(id) {
-  const { data } = await api.get(`/public/missionaries/${id}`);
-  return data;
-}
-
-export async function fetchPublicOrganizations() {
-  const { data } = await api.get("/public/organizations");
-  return data;
-}
-
-export async function fetchPublicOrganization(id) {
-  const { data } = await api.get(`/public/organizations/${id}`);
+export async function fetchPublicPartner(id) {
+  const { data } = await api.get(`/public/partners/${id}`);
   return data;
 }
 
@@ -39,96 +32,62 @@ export async function fetchCountryInfo(countryCode) {
   return data;
 }
 
-export async function fetchAdminMissionaries() {
-  const { data } = await api.get("/missionaries");
+// --- Partners (admin) ---
+//
+// fetchPartners returns summary rows only — enough to render a list, not a
+// partner's whole history. fetchPartner returns the record plus its
+// one-per-partner sub-records (addresses, family, sending parties,
+// furloughs, visits, photos); the history collections each come from their
+// own endpoint below, so a section fetches only what it displays.
+
+export async function fetchPartners(params = {}) {
+  const { data } = await api.get("/partners", { params });
   return data;
 }
 
-export async function fetchAdminMissionary(id) {
-  const { data } = await api.get(`/missionaries/${id}`);
+export async function fetchPartner(id) {
+  const { data } = await api.get(`/partners/${id}`);
   return data;
 }
 
-export async function createMissionary(payload) {
-  const { data } = await api.post("/missionaries", payload);
+export async function createPartner(payload) {
+  const { data } = await api.post("/partners", payload);
   return data;
 }
 
-export async function updateMissionary(id, payload) {
-  const { data } = await api.put(`/missionaries/${id}`, payload);
+// A partial update: only the keys you send are touched, so a section can
+// save just its own fields. Collection arrays (trips, support entries,
+// needs, prayer requests, newsletters, documents) are ignored if sent —
+// each has its own endpoint.
+export async function updatePartner(id, payload) {
+  const { data } = await api.put(`/partners/${id}`, payload);
   return data;
 }
 
-export async function deleteMissionary(id) {
-  await api.delete(`/missionaries/${id}`);
+export async function deletePartner(id) {
+  await api.delete(`/partners/${id}`);
 }
 
-export async function archiveMissionary(id) {
-  const { data } = await api.post(`/missionaries/${id}/archive`);
+export async function archivePartner(id) {
+  const { data } = await api.post(`/partners/${id}/archive`);
   return data;
 }
 
-export async function unarchiveMissionary(id) {
-  const { data } = await api.post(`/missionaries/${id}/unarchive`);
+export async function unarchivePartner(id) {
+  const { data } = await api.post(`/partners/${id}/unarchive`);
   return data;
 }
 
-export async function uploadMissionaryImage(id, file, receivedDate) {
+export async function uploadPartnerImage(id, file, receivedDate) {
   const formData = new FormData();
   formData.append("image", file);
   if (receivedDate) formData.append("receivedDate", receivedDate);
-  const { data } = await api.post(`/missionaries/${id}/image`, formData);
+  const { data } = await api.post(`/partners/${id}/image`, formData);
   return data;
 }
 
-export async function deleteMissionaryPhoto(id, photoId) {
-  await api.delete(`/missionaries/${id}/photos/${photoId}`);
-}
-
-export async function fetchAdminOrganizations() {
-  const { data } = await api.get("/organizations");
-  return data;
-}
-
-export async function fetchAdminOrganization(id) {
-  const { data } = await api.get(`/organizations/${id}`);
-  return data;
-}
-
-export async function createOrganization(payload) {
-  const { data } = await api.post("/organizations", payload);
-  return data;
-}
-
-export async function updateOrganization(id, payload) {
-  const { data } = await api.put(`/organizations/${id}`, payload);
-  return data;
-}
-
-export async function deleteOrganization(id) {
-  await api.delete(`/organizations/${id}`);
-}
-
-export async function archiveOrganization(id) {
-  const { data } = await api.post(`/organizations/${id}/archive`);
-  return data;
-}
-
-export async function unarchiveOrganization(id) {
-  const { data } = await api.post(`/organizations/${id}/unarchive`);
-  return data;
-}
-
-export async function uploadOrganizationImage(id, file, receivedDate) {
-  const formData = new FormData();
-  formData.append("image", file);
-  if (receivedDate) formData.append("receivedDate", receivedDate);
-  const { data } = await api.post(`/organizations/${id}/image`, formData);
-  return data;
-}
-
-export async function deleteOrganizationPhoto(id, photoId) {
-  await api.delete(`/organizations/${id}/photos/${photoId}`);
+export async function deletePartnerPhoto(id, photoId) {
+  await api.delete(`/partners/${id}/photos/${photoId}`);
 }
 
 export async function fetchChurchSettings() {
@@ -196,8 +155,12 @@ export async function deleteSsoProvider(id) {
   await api.delete(`/sso-providers/${id}`);
 }
 
-export async function fetchSupportNeeds() {
-  const { data } = await api.get("/support-needs");
+// Every collection fetcher below takes an optional { partnerId } to scope
+// it to one partner. The consolidated admin pages call them bare; the
+// sections on a partner's page pass the id. Either way it's one query,
+// rather than loading every partner and filtering in the browser.
+export async function fetchSupportNeeds(params = {}) {
+  const { data } = await api.get("/support-needs", { params });
   return data;
 }
 
@@ -215,11 +178,14 @@ export async function deleteSupportNeed(id) {
   await api.delete(`/support-needs/${id}`);
 }
 
-// Standalone SupportEntry create/delete (backend/src/routes/supportEntries.js)
-// -- used by the consolidated Monthly Support admin page to log a new
-// entry against any missionary/org. No update function -- support entries
-// are point-in-time records, not editable in place (see the route's
+// No update function for support entries on purpose -- they're
+// point-in-time ledger records, not editable in place (see the route's
 // comment); fix a mistake by deleting the bad entry and adding a new one.
+export async function fetchSupportEntries(params = {}) {
+  const { data } = await api.get("/support-entries", { params });
+  return data;
+}
+
 export async function createSupportEntry(payload) {
   const { data } = await api.post("/support-entries", payload);
   return data;
@@ -229,10 +195,14 @@ export async function deleteSupportEntry(id) {
   await api.delete(`/support-entries/${id}`);
 }
 
-// Standalone Trip CRUD (backend/src/routes/trips.js) -- used by the
-// consolidated Trip History admin page. Doesn't overlap with the
-// missionTrips/orgTrips array each entity's own edit form already sends as
-// part of its whole-record save.
+// Optional { partnerId, tripType, year } filters — the Trip History page
+// used to fetch every partner with all their relations and flatten the
+// trips out client-side; this is one query instead.
+export async function fetchTrips(params = {}) {
+  const { data } = await api.get("/trips", { params });
+  return data;
+}
+
 export async function createTrip(payload) {
   const { data } = await api.post("/trips", payload);
   return data;
@@ -247,8 +217,8 @@ export async function deleteTrip(id) {
   await api.delete(`/trips/${id}`);
 }
 
-export async function fetchPrayerRequests() {
-  const { data } = await api.get("/prayer-requests");
+export async function fetchPrayerRequests(params = {}) {
+  const { data } = await api.get("/prayer-requests", { params });
   return data;
 }
 
@@ -266,8 +236,8 @@ export async function deletePrayerRequest(id) {
   await api.delete(`/prayer-requests/${id}`);
 }
 
-export async function fetchNewsletters() {
-  const { data } = await api.get("/newsletters");
+export async function fetchNewsletters(params = {}) {
+  const { data } = await api.get("/newsletters", { params });
   return data;
 }
 
@@ -295,8 +265,8 @@ export async function extractFromNewsletter(id) {
   return data;
 }
 
-export async function fetchDocuments() {
-  const { data } = await api.get("/documents");
+export async function fetchDocuments(params = {}) {
+  const { data } = await api.get("/documents", { params });
   return data;
 }
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { fetchPublicMissionary, fetchPublicOrganization } from "../api/client.js";
+import { fetchPublicPartner } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 
@@ -18,7 +18,7 @@ function formatDate(value) {
 }
 
 // Restricted partners simply won't have most of these keys in the API
-// response at all (see toPublicMissionary/toPublicOrganization), so the
+// response at all (see toPublicPartner in maskData.js), so the
 // conditional rendering below already degrades correctly with no
 // type-specific handling needed.
 const LINK_FIELDS = [
@@ -47,18 +47,20 @@ function PublicHeader() {
 }
 
 export default function PublicPartnerDetail() {
-  const { type, id } = useParams();
+  const { id } = useParams();
   const [partner, setPartner] = useState(null);
   const [notFound, setNotFound] = useState(false);
 
+  // One endpoint for both kinds — the record says which it is, so the URL
+  // no longer needs to carry that (the old /partners/:type/:id shape
+  // redirects; see main.jsx).
   useEffect(() => {
     setPartner(null);
     setNotFound(false);
-    const fetcher = type === "organization" ? fetchPublicOrganization : fetchPublicMissionary;
-    fetcher(id)
+    fetchPublicPartner(id)
       .then(setPartner)
       .catch(() => setNotFound(true));
-  }, [type, id]);
+  }, [id]);
 
   if (notFound) {
     return (
@@ -74,8 +76,8 @@ export default function PublicPartnerDetail() {
 
   if (!partner) return <p style={{ padding: "2rem" }}>Loading...</p>;
 
-  const isOrg = type === "organization";
-  const name = isOrg ? partner.name : partner.displayName;
+  const isOrg = partner.kind === "organization";
+  const name = partner.displayName;
   const meta = isOrg
     ? [partner.orgType, partner.fieldDisplayName].filter(Boolean).join(" · ")
     : [partner.fieldDisplayName, partner.supportingSince && `Since ${formatYear(partner.supportingSince)}`]

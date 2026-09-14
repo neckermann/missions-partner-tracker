@@ -1,10 +1,5 @@
 import React, { useState } from "react";
-import {
-  uploadMissionaryImage,
-  uploadOrganizationImage,
-  deleteMissionaryPhoto,
-  deleteOrganizationPhoto,
-} from "../../api/client.js";
+import { uploadPartnerImage, deletePartnerPhoto } from "../../api/client.js";
 
 // Date-only fields are stored as UTC midnight — build the Date from raw
 // Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
@@ -17,13 +12,11 @@ function formatDate(value) {
 
 const todayInputValue = () => new Date().toISOString().slice(0, 10);
 
-// Shared by AdminMissionaryDetail.jsx and AdminOrganizationDetail.jsx, same
-// reasoning as NewsletterSection.jsx — this carries real upload/delete
-// behavior. Uploading always adds a new photo rather than replacing the
-// current one; photos is expected pre-sorted newest-received-first (see
-// missionaryInclude/organizationInclude), so photos[0] is "current."
-// Pass exactly one of missionaryId/organizationId.
-export default function PhotoHistorySection({ missionaryId, organizationId, photos, onChange }) {
+// Uploading always adds a new photo rather than replacing the current one;
+// photos is expected pre-sorted newest-received-first (see
+// partnerRecordInclude in backend/src/routes/partners.js), so photos[0] is
+// "current."
+export default function PhotoHistorySection({ partnerId, photos, onChange }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [receivedDate, setReceivedDate] = useState(todayInputValue());
   const [file, setFile] = useState(null);
@@ -39,11 +32,7 @@ export default function PhotoHistorySection({ missionaryId, organizationId, phot
     }
     setSaving(true);
     try {
-      if (missionaryId) {
-        await uploadMissionaryImage(missionaryId, file, receivedDate);
-      } else {
-        await uploadOrganizationImage(organizationId, file, receivedDate);
-      }
+      await uploadPartnerImage(partnerId, file, receivedDate);
       setReceivedDate(todayInputValue());
       setFile(null);
       setShowAddForm(false);
@@ -57,11 +46,7 @@ export default function PhotoHistorySection({ missionaryId, organizationId, phot
 
   async function handleDelete(p) {
     if (!confirm(`Delete this photo (received ${formatDate(p.receivedDate)})? This cannot be undone.`)) return;
-    if (missionaryId) {
-      await deleteMissionaryPhoto(missionaryId, p.id);
-    } else {
-      await deleteOrganizationPhoto(organizationId, p.id);
-    }
+    await deletePartnerPhoto(partnerId, p.id);
     await onChange();
   }
 

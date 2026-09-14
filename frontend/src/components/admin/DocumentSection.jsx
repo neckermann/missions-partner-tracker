@@ -32,9 +32,9 @@ const isScannable = (d) => SCANNABLE_TYPES.has(d.contentType) || /\.eml$/i.test(
 
 // Same shared-vs-duplicated reasoning as NewsletterSection: reused as-is on
 // both AdminMissionaryDetail.jsx and AdminOrganizationDetail.jsx. Pass
-// exactly one of missionaryId/organizationId — matches the Document
+// partnerId — matches the Document
 // model's shape.
-export default function DocumentSection({ missionaryId, organizationId, documents, onChange }) {
+export default function DocumentSection({ partnerId, documents, onChange }) {
   const { enabledFeatures } = useSettings();
   const [scanning, setScanning] = useState(null); // the document being reviewed, or null
   const [showAddForm, setShowAddForm] = useState(false);
@@ -64,8 +64,7 @@ export default function DocumentSection({ missionaryId, organizationId, document
     try {
       const formData = new FormData();
       formData.append("file", file);
-      if (missionaryId) formData.append("missionaryId", missionaryId);
-      if (organizationId) formData.append("organizationId", organizationId);
+      formData.append("partnerId", partnerId);
       formData.append("category", category);
       if (category === "other") formData.append("customCategory", customCategory);
       formData.append("title", title);
@@ -306,8 +305,7 @@ export default function DocumentSection({ missionaryId, organizationId, document
       {scanning && (
         <ExtractionReviewModal
           scan={() => extractFromDocument(scanning.id)}
-          missionaryId={missionaryId}
-          organizationId={organizationId}
+          partnerId={partnerId}
           defaultDate={scanning.receivedDate}
           onClose={() => setScanning(null)}
         />

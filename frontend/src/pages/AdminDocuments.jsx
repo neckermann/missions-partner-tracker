@@ -6,10 +6,10 @@ import {
   updateDocument,
   deleteDocument,
   extractFromDocument,
-  fetchAdminMissionaries,
-  fetchAdminOrganizations,
+  fetchPartners,
 } from "../api/client.js";
 import { DOCUMENT_CATEGORIES, documentCategoryLabel } from "../utils/documentCategories.js";
+import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
 
@@ -29,9 +29,13 @@ function formatFileSize(bytes) {
 }
 
 function entityFor(d) {
-  if (d.missionary) return { type: "Missionary", name: d.missionary.displayName, link: `/admin/missionaries/${d.missionary.id}` };
-  if (d.organization) return { type: "Organization", name: d.organization.name, link: `/admin/organizations/${d.organization.id}` };
-  return { type: "—", name: "—", link: null };
+  const p = d.partner;
+  if (!p) return { type: "—", name: "—", link: null };
+  return {
+    type: p.kind === "organization" ? "Organization" : "Missionary",
+    name: p.displayName,
+    link: `/admin/partners/${p.id}`,
+  };
 }
 
 const todayInputValue = () => new Date().toISOString().slice(0, 10);
@@ -45,7 +49,7 @@ const SCANNABLE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 const isScannable = (d) => SCANNABLE_TYPES.has(d.contentType) || /\.eml$/i.test(d.fileName || "");
 
 const emptyNewDocument = {
-  entityKey: "",
+  partnerId: "",
   category: DOCUMENT_CATEGORIES[0].value,
   customCategory: "",
   title: "",
@@ -57,8 +61,7 @@ export default function AdminDocuments() {
   const { enabledFeatures } = useSettings();
   const [scanning, setScanning] = useState(null); // the document being reviewed, or null
   const [documents, setDocuments] = useState([]);
-  const [missionaries, setMissionaries] = useState([]);
-  const [organizations, setOrganizations] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newDocument, setNewDocument] = useState(emptyNewDocument);
   const [file, setFile] = useState(null);
@@ -67,7 +70,7 @@ export default function AdminDocuments() {
   const [entityFilter, setEntityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ entityKey: "", category: "", customCategory: "", title: "", receivedDate: "", notes: "" });
+  const [editForm, setEditForm] = useState({ partnerId: "", category: "", customCategory: "", title: "", receivedDate: "", notes: "" });
 
   function reload() {
     fetchDocuments().then(setDocuments).catch(console.error);
@@ -75,15 +78,14 @@ export default function AdminDocuments() {
 
   useEffect(() => {
     reload();
-    fetchAdminMissionaries().then(setMissionaries).catch(console.error);
-    fetchAdminOrganizations().then(setOrganizations).catch(console.error);
+    fetchPartners().then(setPartners).catch(console.error);
   }, []);
 
   async function handleAddSubmit(e) {
     e.preventDefault();
     setError("");
-    if (!newDocument.entityKey) {
-      setError("Choose a missionary or organization");
+    if (!newDocument.partnerId) {
+      setError("Choose a partner");
       return;
     }
     if (!file) {
@@ -94,13 +96,11 @@ export default function AdminDocuments() {
       setError("Enter a label for this document's category");
       return;
     }
-    const [entityType, entityId] = newDocument.entityKey.split(":");
     setSaving(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
-      if (entityType === "missionary") formData.append("missionaryId", entityId);
-      if (entityType === "organization") formData.append("organizationId", entityId);
+      formData.append("partnerId", newDocument.partnerId);
       formData.append("category", newDocument.category);
       if (newDocument.category === "other") formData.append("customCategory", newDocument.customCategory);
       formData.append("title", newDocument.title);
@@ -134,14 +134,13 @@ export default function AdminDocuments() {
   }
 
   // Everything but the file itself is editable (see the PUT route comment
-  // in backend/src/routes/documents.js) -- entityKey mirrors the same
-  // combined missionary/organization dropdown used in the Add form above.
+  // in backend/src/routes/documents.js), including moving it to a
+  // different partner.
   function startEdit(d) {
-    const entityKey = d.missionary ? `missionary:${d.missionary.id}` : d.organization ? `organization:${d.organization.id}` : "";
     setError("");
     setEditingId(d.id);
     setEditForm({
-      entityKey,
+      partnerId: d.partner?.id || "",
       category: d.category,
       customCategory: d.customCategory || "",
       title: d.title || "",
@@ -152,19 +151,17 @@ export default function AdminDocuments() {
 
   async function submitEdit(id) {
     setError("");
-    if (!editForm.entityKey) {
-      setError("Choose a missionary or organization");
+    if (!editForm.partnerId) {
+      setError("Choose a partner");
       return;
     }
     if (editForm.category === "other" && !editForm.customCategory.trim()) {
       setError("Enter a label for this document's category");
       return;
     }
-    const [entityType, entityId] = editForm.entityKey.split(":");
     try {
       await updateDocument(id, {
-        missionaryId: entityType === "missionary" ? entityId : null,
-        organizationId: entityType === "organization" ? entityId : null,
+        partnerId: editForm.partnerId,
         category: editForm.category,
         customCategory: editForm.category === "other" ? editForm.customCategory : null,
         title: editForm.title,
@@ -201,28 +198,13 @@ export default function AdminDocuments() {
         <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
           <div className="form-grid">
             <label style={{ gridColumn: "1 / -1" }}>
-              Missionary or Organization
-              <select
-                value={newDocument.entityKey}
-                onChange={(e) => setNewDocument((f) => ({ ...f, entityKey: e.target.value }))}
+              Partner
+              <PartnerSelect
+                partners={partners}
+                value={newDocument.partnerId}
+                onChange={(partnerId) => setNewDocument((f) => ({ ...f, partnerId }))}
                 required
-              >
-                <option value="">Select one...</option>
-                <optgroup label="Missionaries">
-                  {missionaries.map((m) => (
-                    <option key={m.id} value={`missionary:${m.id}`}>
-                      {m.displayName}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Organizations">
-                  {organizations.map((o) => (
-                    <option key={o.id} value={`organization:${o.id}`}>
-                      {o.name}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
+              />
             </label>
             <label style={{ gridColumn: "1 / -1" }}>
               File (PDF, Word, Excel, .eml, JPG, or PNG)
@@ -370,28 +352,13 @@ export default function AdminDocuments() {
                     <td colSpan={8}>
                       <div className="form-grid">
                         <label style={{ gridColumn: "1 / -1" }} title="Everything but the file itself can be edited.">
-                          Missionary or Organization
-                          <select
-                            value={editForm.entityKey}
-                            onChange={(e) => setEditForm((f) => ({ ...f, entityKey: e.target.value }))}
+                          Partner
+                          <PartnerSelect
+                            partners={partners}
+                            value={editForm.partnerId}
+                            onChange={(partnerId) => setEditForm((f) => ({ ...f, partnerId }))}
                             required
-                          >
-                            <option value="">Select one...</option>
-                            <optgroup label="Missionaries">
-                              {missionaries.map((m) => (
-                                <option key={m.id} value={`missionary:${m.id}`}>
-                                  {m.displayName}
-                                </option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="Organizations">
-                              {organizations.map((o) => (
-                                <option key={o.id} value={`organization:${o.id}`}>
-                                  {o.name}
-                                </option>
-                              ))}
-                            </optgroup>
-                          </select>
+                          />
                         </label>
                         <label>
                           Category
@@ -467,8 +434,7 @@ export default function AdminDocuments() {
       {scanning && (
         <ExtractionReviewModal
           scan={() => extractFromDocument(scanning.id)}
-          missionaryId={scanning.missionary?.id}
-          organizationId={scanning.organization?.id}
+          partnerId={scanning.partner?.id}
           defaultDate={scanning.receivedDate}
           onClose={() => setScanning(null)}
         />

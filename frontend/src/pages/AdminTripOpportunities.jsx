@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchAdminMissionaries, fetchAdminOrganizations } from "../api/client.js";
+import { fetchPartners, fetchTrips } from "../api/client.js";
 import { matchesSearch } from "../utils/search.js";
 
 // Forward-looking capacity search — "who could host a trip like this" —
@@ -87,50 +87,52 @@ function fitFor(entity, filters) {
 }
 
 export default function AdminTripOpportunities() {
-  const [missionaries, setMissionaries] = useState([]);
-  const [organizations, setOrganizations] = useState([]);
+  const [partners, setPartners] = useState([]);
+  const [trips, setTrips] = useState([]);
   const [filters, setFilters] = useState(emptyFilters);
 
   useEffect(() => {
-    fetchAdminMissionaries().then(setMissionaries).catch(console.error);
-    fetchAdminOrganizations().then(setOrganizations).catch(console.error);
+    fetchPartners().then(setPartners).catch(console.error);
+    fetchTrips().then(setTrips).catch(console.error);
   }, []);
 
   function updateFilter(field, value) {
     setFilters((f) => ({ ...f, [field]: value }));
   }
 
-  const entities = useMemo(() => {
-    const fromMissionaries = missionaries.map((m) => ({
-      id: m.id,
-      entityType: "Missionary",
-      name: m.displayName,
-      link: `/admin/missionaries/${m.id}`,
-      field: m.fieldDisplayName,
-      archived: m.archived,
-      tripTeamSizeMin: m.tripTeamSizeMin,
-      tripTeamSizeMax: m.tripTeamSizeMax,
-      tripTypesSupported: m.tripTypesSupported || [],
-      tripSeasonNotes: m.tripSeasonNotes,
-      tripLogisticsNotes: m.tripLogisticsNotes,
-      lastTrip: lastTripInfo(m.missionTrips),
-    }));
-    const fromOrgs = organizations.map((o) => ({
-      id: o.id,
-      entityType: "Organization",
-      name: o.name,
-      link: `/admin/organizations/${o.id}`,
-      field: o.fieldDisplayName,
-      archived: o.archived,
-      tripTeamSizeMin: o.tripTeamSizeMin,
-      tripTeamSizeMax: o.tripTeamSizeMax,
-      tripTypesSupported: o.tripTypesSupported || [],
-      tripSeasonNotes: o.tripSeasonNotes,
-      tripLogisticsNotes: o.tripLogisticsNotes,
-      lastTrip: lastTripInfo(o.orgTrips),
-    }));
-    return [...fromMissionaries, ...fromOrgs].sort((a, b) => a.name.localeCompare(b.name));
-  }, [missionaries, organizations]);
+  // "When did a team last visit this partner" comes from the trips
+  // endpoint, grouped by partner, rather than from each partner record
+  // carrying its own trip array.
+  const tripsByPartner = useMemo(() => {
+    const byPartner = new Map();
+    for (const t of trips) {
+      if (!t.partnerId) continue;
+      if (!byPartner.has(t.partnerId)) byPartner.set(t.partnerId, []);
+      byPartner.get(t.partnerId).push(t);
+    }
+    return byPartner;
+  }, [trips]);
+
+  const entities = useMemo(
+    () =>
+      partners
+        .map((p) => ({
+          id: p.id,
+          entityType: p.kind === "organization" ? "Organization" : "Missionary",
+          name: p.displayName,
+          link: `/admin/partners/${p.id}`,
+          field: p.fieldDisplayName,
+          archived: p.archived,
+          tripTeamSizeMin: p.tripTeamSizeMin,
+          tripTeamSizeMax: p.tripTeamSizeMax,
+          tripTypesSupported: p.tripTypesSupported || [],
+          tripSeasonNotes: p.tripSeasonNotes,
+          tripLogisticsNotes: p.tripLogisticsNotes,
+          lastTrip: lastTripInfo(tripsByPartner.get(p.id)),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [partners, tripsByPartner]
+  );
 
   const tripTypeOptions = useMemo(
     () => Array.from(new Set(entities.flatMap((e) => e.tripTypesSupported))).sort(),
@@ -149,7 +151,7 @@ export default function AdminTripOpportunities() {
     <div className="admin-shell">
       <h2>Trip Opportunities</h2>
       <p style={{ color: "#555" }}>
-          Find missionaries and organizations who can host a trip you're planning, based on the
+          Find partners who can host a trip you're planning, based on the
           team size and trip types they say they support.
         </p>
 

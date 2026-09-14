@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import { fetchAdminMissionaries, fetchAdminOrganizations } from "../api/client.js";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { fetchPartners } from "../api/client.js";
 import bookletCssUrl from "../styles/booklet.css?url";
 import { useSettings } from "../context/SettingsContext.jsx";
 
@@ -181,13 +181,13 @@ function buildOrganizationPageHtml(o, index, maxPrayerRequests) {
       <div class="booklet-shape shape-a"></div>
       <div class="booklet-shape shape-b"></div>
       <p class="booklet-eyebrow">${escapeHtml(eyebrow)}</p>
-      <h2 class="booklet-name">${escapeHtml(o.name)}</h2>
+      <h2 class="booklet-name">${escapeHtml(o.displayName)}</h2>
       ${o.supportingSince ? `<p style="font-family: Arial, sans-serif; font-size: 11pt; color: #555; margin: 0 0 0.15in;">Partnering since ${escapeHtml(formatDate(o.supportingSince))}</p>` : ""}
       ${renderOrgContactBlock(o)}
       ${o.overview ? `<div class="booklet-callout"><p>${escapeHtml(o.overview)}</p></div>` : ""}
       ${o.focusArea ? `<div class="booklet-block"><h3>Focus Area</h3><p>${escapeHtml(o.focusArea)}</p></div>` : ""}
       ${renderPrayerRequestsBlock(o, maxPrayerRequests)}
-      <div class="booklet-footer">${escapeHtml(o.name)}</div>
+      <div class="booklet-footer">${escapeHtml(o.displayName)}</div>
     </section>`;
 }
 
@@ -348,7 +348,7 @@ function buildBookletHtml({
         <h2 class="booklet-index-title">Local &amp; National Partners</h2>
         <ul class="booklet-index-list">
           ${organizations
-            .map((o) => `<li>${escapeHtml(o.name)} — ${escapeHtml(o.orgType)}</li>`)
+            .map((o) => `<li>${escapeHtml(o.displayName)} — ${escapeHtml(o.orgType)}</li>`)
             .join("")}
         </ul>
       </section>`;
@@ -364,7 +364,7 @@ function buildBookletHtml({
           let notesPage = "";
           if (withNotes) {
             pageCount += 1;
-            notesPage = buildNotesPageHtml(o.name, palette.accent);
+            notesPage = buildNotesPageHtml(o.displayName, palette.accent);
           }
           return detailPage + notesPage;
         })
@@ -406,8 +406,7 @@ const FIELD_OPTIONS = [
 ];
 
 export default function AdminBooklet() {
-  const [missionaries, setMissionaries] = useState([]);
-  const [organizations, setOrganizations] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [includeArchived, setIncludeArchived] = useState(false);
   const [includeRestricted, setIncludeRestricted] = useState(true);
   const [includeOrganizations, setIncludeOrganizations] = useState(true);
@@ -438,10 +437,15 @@ export default function AdminBooklet() {
     publicTagline,
   } = useSettings();
 
+  // The booklet lays out each partner's family, addresses, sending party
+  // and prayer requests, so this is the one page that asks for the full
+  // record set rather than summary rows.
   useEffect(() => {
-    fetchAdminMissionaries().then(setMissionaries).catch(console.error);
-    fetchAdminOrganizations().then(setOrganizations).catch(console.error);
+    fetchPartners({ include: "full" }).then(setPartners).catch(console.error);
   }, []);
+
+  const missionaries = useMemo(() => partners.filter((p) => p.kind === "missionary"), [partners]);
+  const organizations = useMemo(() => partners.filter((p) => p.kind === "organization"), [partners]);
 
   // Settings load asynchronously, after this component's initial state is
   // already set — swap in the custom term as soon as it's ready, but only

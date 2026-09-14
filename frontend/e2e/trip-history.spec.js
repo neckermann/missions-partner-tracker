@@ -5,7 +5,7 @@ test.describe("Trip History", () => {
   test("add a trip with a participant, edit it, and confirm it appears in the consolidated list", async ({ page }) => {
     await login(page);
 
-    const missionariesRes = await page.request.get("/api/missionaries");
+    const missionariesRes = await page.request.get("/api/partners?kind=missionary");
     const missionaries = await missionariesRes.json();
     const target = missionaries[0];
 
@@ -18,7 +18,7 @@ test.describe("Trip History", () => {
     // "Trip Type" select, and getByLabel would otherwise match both.
     const addForm = page.locator("form");
     await page.click("button:has-text('+ Add Trip')");
-    await addForm.getByLabel("Missionary or Organization").selectOption({ label: target.displayName });
+    await addForm.getByLabel("Partner").selectOption({ label: target.displayName });
     await addForm.getByLabel("Trip Type").selectOption("Construction");
     await addForm.getByLabel("Description (what the team did)").fill(uniqueDescription);
     await addForm.getByRole("button", { name: "+ Add Participant" }).click();
@@ -50,9 +50,9 @@ test.describe("Trip History", () => {
     let created;
     await expect
       .poll(async () => {
-        const refreshed = await page.request.get(`/api/missionaries/${target.id}`);
-        const { missionTrips } = await refreshed.json();
-        created = missionTrips.find((t) => t.description === updatedDescription);
+        const refreshed = await page.request.get(`/api/trips?partnerId=${target.id}`);
+        const trips = await refreshed.json();
+        created = trips.find((t) => t.description === updatedDescription);
         return Boolean(created);
       })
       .toBeTruthy();

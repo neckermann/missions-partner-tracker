@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  fetchAdminMissionaries,
-  fetchAdminOrganizations,
+  fetchPartners,
+  fetchSupportEntries,
   createSupportEntry,
   deleteSupportEntry,
 } from "../api/client.js";
+import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 
 function formatCurrency(amount) {
   if (amount == null) return "—";
@@ -22,53 +23,61 @@ function formatDate(value) {
 }
 
 const todayInputValue = () => new Date().toISOString().slice(0, 10);
-const emptyNewEntry = { entityKey: "", amount: "", effectiveDate: todayInputValue(), notes: "" };
+const emptyNewEntry = { partnerId: "", amount: "", effectiveDate: todayInputValue(), notes: "" };
 
 export default function AdminMonthlySupport() {
-  const [missionaries, setMissionaries] = useState([]);
-  const [organizations, setOrganizations] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [includeArchived, setIncludeArchived] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newEntry, setNewEntry] = useState(emptyNewEntry);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [historyFor, setHistoryFor] = useState(null); // link of the row whose full history is expanded, or null
+  // The partner whose full history is expanded, plus that history. It's
+  // fetched on demand rather than arriving with every row: the summary
+  // list carries only each partner's *current* amount, which is all the
+  // table itself shows.
+  const [historyFor, setHistoryFor] = useState(null);
+  const [history, setHistory] = useState([]);
   const navigate = useNavigate();
 
   function reload() {
-    fetchAdminMissionaries().then(setMissionaries).catch(console.error);
-    fetchAdminOrganizations().then(setOrganizations).catch(console.error);
+    fetchPartners().then(setPartners).catch(console.error);
+    if (historyFor) loadHistory(historyFor);
   }
 
   useEffect(() => {
     reload();
   }, []);
 
-  // The API orders supportEntries by effectiveDate descending, so the first
-  // entry (if any) is always the current amount. Every entity's full
-  // history comes along for free in the same relation -- see the "History"
-  // expand row below, no separate fetch needed.
-  const rows = [
-    ...missionaries.map((m) => ({
-      type: "Missionary",
-      name: m.displayName,
-      field: m.fieldDisplayName,
-      archived: m.archived,
-      current: m.supportEntries?.[0],
-      entries: m.supportEntries || [],
-      link: `/admin/missionaries/${m.id}`,
-    })),
-    ...organizations.map((o) => ({
-      type: "Organization",
-      name: o.name,
-      field: o.fieldDisplayName,
-      archived: o.archived,
-      current: o.supportEntries?.[0],
-      entries: o.supportEntries || [],
-      link: `/admin/organizations/${o.id}`,
-    })),
-  ]
-    .filter((r) => r.current) // only entities with a support amount on file
+  function loadHistory(partnerId) {
+    fetchSupportEntries({ partnerId }).then(setHistory).catch(console.error);
+  }
+
+  function toggleHistory(partnerId) {
+    if (historyFor === partnerId) {
+      setHistoryFor(null);
+      setHistory([]);
+      return;
+    }
+    setHistoryFor(partnerId);
+    setHistory([]);
+    loadHistory(partnerId);
+  }
+
+  // fetchPartners returns each partner's latest support entry (the summary
+  // select takes 1, ordered by effectiveDate desc), which is exactly what
+  // this table shows.
+  const rows = partners
+    .map((p) => ({
+      id: p.id,
+      type: p.kind === "organization" ? "Organization" : "Missionary",
+      name: p.displayName,
+      field: p.fieldDisplayName,
+      archived: p.archived,
+      current: p.supportEntries?.[0],
+      link: `/admin/partners/${p.id}`,
+    }))
+    .filter((r) => r.current) // only partners with a support amount on file
     .filter((r) => includeArchived || !r.archived)
     .sort((a, b) => b.current.amount - a.current.amount);
 
@@ -77,16 +86,14 @@ export default function AdminMonthlySupport() {
   async function handleAddSubmit(e) {
     e.preventDefault();
     setError("");
-    if (!newEntry.entityKey) {
-      setError("Choose a missionary or organization");
+    if (!newEntry.partnerId) {
+      setError("Choose a partner");
       return;
     }
-    const [entityType, entityId] = newEntry.entityKey.split(":");
     setSaving(true);
     try {
       await createSupportEntry({
-        missionaryId: entityType === "missionary" ? entityId : null,
-        organizationId: entityType === "organization" ? entityId : null,
+        partnerId: newEntry.partnerId,
         amount: newEntry.amount,
         effectiveDate: newEntry.effectiveDate,
         notes: newEntry.notes || null,
@@ -142,28 +149,13 @@ export default function AdminMonthlySupport() {
                 style={{ gridColumn: "1 / -1" }}
                 title="A new support amount takes effect as of the date below -- it doesn't overwrite prior entries, which stay on file as history."
               >
-                Missionary or Organization
-                <select
-                  value={newEntry.entityKey}
-                  onChange={(e) => setNewEntry((f) => ({ ...f, entityKey: e.target.value }))}
+                Partner
+                <PartnerSelect
+                  partners={partners}
+                  value={newEntry.partnerId}
+                  onChange={(partnerId) => setNewEntry((f) => ({ ...f, partnerId }))}
                   required
-                >
-                  <option value="">Select one...</option>
-                  <optgroup label="Missionaries">
-                    {missionaries.map((m) => (
-                      <option key={m.id} value={`missionary:${m.id}`}>
-                        {m.displayName}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Organizations">
-                    {organizations.map((o) => (
-                      <option key={o.id} value={`organization:${o.id}`}>
-                        {o.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
+                />
               </label>
               <label>
                 Monthly Amount (USD)
@@ -219,7 +211,7 @@ export default function AdminMonthlySupport() {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <React.Fragment key={r.link}>
+              <React.Fragment key={r.id}>
                 <tr onClick={() => navigate(r.link)} style={{ cursor: "pointer" }} title="Click to view details">
                   <td>{r.name}</td>
                   <td>{r.type}</td>
@@ -230,14 +222,14 @@ export default function AdminMonthlySupport() {
                     <button
                       type="button"
                       className="btn secondary small"
-                      onClick={() => setHistoryFor(historyFor === r.link ? null : r.link)}
+                      onClick={() => toggleHistory(r.id)}
                       title="View and correct past support entries for this partner"
                     >
-                      {historyFor === r.link ? "Hide History" : `History (${r.entries.length})`}
+                      {historyFor === r.id ? "Hide History" : "History"}
                     </button>
                   </td>
                 </tr>
-                {historyFor === r.link && (
+                {historyFor === r.id && (
                   <tr onClick={(e) => e.stopPropagation()}>
                     <td colSpan={6}>
                       <table className="admin-table">
@@ -250,7 +242,7 @@ export default function AdminMonthlySupport() {
                           </tr>
                         </thead>
                         <tbody>
-                          {r.entries.map((entry) => (
+                          {history.map((entry) => (
                             <tr key={entry.id}>
                               <td>{formatCurrency(entry.amount)}</td>
                               <td>{formatDate(entry.effectiveDate)}</td>

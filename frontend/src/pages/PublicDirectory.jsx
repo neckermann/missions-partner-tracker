@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchPublicMissionaries, fetchPublicOrganizations } from "../api/client.js";
+import { fetchPublicPartners } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getContinent } from "../utils/countryContinents.js";
 import { matchesSearch } from "../utils/search.js";
@@ -10,8 +10,7 @@ import { matchesSearch } from "../utils/search.js";
 // and comparing partners. Both link into the same PublicPartnerDetail page
 // for the full write-up.
 export default function PublicDirectory() {
-  const [missionaries, setMissionaries] = useState([]);
-  const [organizations, setOrganizations] = useState([]);
+  const [records, setRecords] = useState([]);
   const [typeFilter, setTypeFilter] = useState("all"); // all | missionary | organization
   const [continentFilter, setContinentFilter] = useState("all");
   const [countryFilter, setCountryFilter] = useState("all");
@@ -19,43 +18,38 @@ export default function PublicDirectory() {
   const { logo, partnerTermPlural, publicTagline, aboutText } = useSettings();
 
   useEffect(() => {
-    fetchPublicMissionaries().then(setMissionaries).catch(console.error);
-    fetchPublicOrganizations().then(setOrganizations).catch(console.error);
+    fetchPublicPartners().then(setRecords).catch(console.error);
   }, []);
 
-  const partners = useMemo(() => {
-    const fromMissionaries = missionaries.map((m) => ({
-      type: "missionary",
-      id: m.id,
-      name: m.displayName,
-      field: m.fieldDisplayName,
-      overviewShort: m.overviewShort,
-      focusArea: m.focusArea,
-      sendingChurchName: m.sendingChurch?.name,
-      sendingOrgName: m.sendingOrg?.name,
-      photo: m.photo,
-      isRestricted: m.isRestricted,
-      country: m.country,
-      continent: getContinent(m.country),
-    }));
-    const fromOrgs = organizations.map((o) => ({
-      type: "organization",
-      id: o.id,
-      name: o.name,
-      field: [o.orgType, o.fieldDisplayName].filter(Boolean).join(" · "),
-      overviewShort: o.overviewShort,
-      focusArea: o.focusArea,
-      sendingChurchName: null, // organizations have no sendingChurch/sendingOrg relation
-      sendingOrgName: null,
-      photo: o.photo,
-      isRestricted: o.isRestricted,
-      country: o.country,
-      continent: getContinent(o.country),
-    }));
-    return [...fromMissionaries, ...fromOrgs].sort((a, b) => a.name.localeCompare(b.name));
-  }, [missionaries, organizations]);
+  // One list now — the public API returns both kinds from a single
+  // endpoint, distinguished by `kind`, so this just reshapes for display
+  // rather than merging two separately-fetched lists.
+  const partners = useMemo(
+    () =>
+      records
+        .map((p) => ({
+          type: p.kind,
+          id: p.id,
+          name: p.displayName,
+          field:
+            p.kind === "organization"
+              ? [p.orgType, p.fieldDisplayName].filter(Boolean).join(" · ")
+              : p.fieldDisplayName,
+          overviewShort: p.overviewShort,
+          focusArea: p.focusArea,
+          // Missionary-only; the serializer omits these for organizations.
+          sendingChurchName: p.sendingChurch?.name ?? null,
+          sendingOrgName: p.sendingOrg?.name ?? null,
+          photo: p.photo,
+          isRestricted: p.isRestricted,
+          country: p.country,
+          continent: getContinent(p.country),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [records]
+  );
 
-  const loaded = missionaries.length > 0 || organizations.length > 0;
+  const loaded = records.length > 0;
 
   // Both lists are built from whatever's actually represented in the data
   // right now, not the full world list — a church's partners are typically
@@ -154,7 +148,7 @@ export default function PublicDirectory() {
 
       <div className="partner-grid">
         {filtered.map((p) => (
-          <Link key={`${p.type}-${p.id}`} to={`/partners/${p.type}/${p.id}`} className="partner-card">
+          <Link key={`${p.type}-${p.id}`} to={`/partners/${p.id}`} className="partner-card">
             {p.photo ? (
               <img src={p.photo} alt={p.name} className="partner-card-photo" />
             ) : (

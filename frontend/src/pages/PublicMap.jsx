@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
-import { fetchPublicMissionaries, fetchPublicOrganizations } from "../api/client.js";
+import { fetchPublicPartners } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 
 // Default Leaflet marker icons don't load correctly with bundlers unless
@@ -98,7 +98,7 @@ function MissionaryPopup({ m }) {
           </p>
           {m.overviewShort && <p className="popup-summary">{m.overviewShort}</p>}
         </div>
-        <Link to={`/partners/missionary/${m.id}`} className="btn secondary small">
+        <Link to={`/partners/${m.id}`} className="btn secondary small">
           View Full Profile
         </Link>
       </div>
@@ -125,16 +125,16 @@ function OrganizationPopup({ o }) {
           {o.photo && (
             <img
               src={o.photo}
-              alt={o.name}
+              alt={o.displayName}
               className="popup-avatar"
               onError={(e) => (e.target.style.display = "none")}
             />
           )}
-          <h3 className="popup-name">{o.name}</h3>
+          <h3 className="popup-name">{o.displayName}</h3>
           <p className="popup-meta">{[o.orgType, o.fieldDisplayName].filter(Boolean).join(" · ")}</p>
           {o.overviewShort && <p className="popup-summary">{o.overviewShort}</p>}
         </div>
-        <Link to={`/partners/organization/${o.id}`} className="btn secondary small">
+        <Link to={`/partners/${o.id}`} className="btn secondary small">
           View Full Profile
         </Link>
       </div>
@@ -144,8 +144,7 @@ function OrganizationPopup({ o }) {
 
 export default function PublicMap() {
   const [searchParams] = useSearchParams();
-  const [missionaries, setMissionaries] = useState([]);
-  const [organizations, setOrganizations] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [activeIndex, setActiveIndex] = useState(null);
   const [activeOrg, setActiveOrg] = useState(null);
   // ?tour=1 (or just ?tourSeconds=..., which implies tour=1) auto-starts the
@@ -163,10 +162,13 @@ export default function PublicMap() {
   })();
 
   useEffect(() => {
-    fetchPublicMissionaries().then(setMissionaries).catch(console.error);
-    fetchPublicOrganizations().then(setOrganizations).catch(console.error);
+    fetchPublicPartners().then(setPartners).catch(console.error);
   }, []);
 
+  // Both kinds arrive from one endpoint now, split here for the two
+  // differently-styled marker sets and the two sidebar groups.
+  const missionaries = partners.filter((p) => p.kind === "missionary");
+  const organizations = partners.filter((p) => p.kind === "organization");
   const withCoords = missionaries.filter((m) => m.gpsLat && m.gpsLng);
   const orgsWithCoords = organizations.filter((o) => o.gpsLat && o.gpsLng);
 
@@ -239,7 +241,7 @@ export default function PublicMap() {
             popup, which links out to that full profile. */}
         {!autoScroll && (
           <div className="missionary-list" tabIndex={0} role="region" aria-label="Partner list">
-            {missionaries.length === 0 && <p style={{ padding: "1rem" }}>Loading...</p>}
+            {partners.length === 0 && <p style={{ padding: "1rem" }}>Loading...</p>}
             {missionaries.map((m) => {
               const coordIdx = withCoords.indexOf(m);
               return (
@@ -285,14 +287,14 @@ export default function PublicMap() {
                       {o.photo && (
                         <img
                           src={o.photo}
-                          alt={o.name}
+                          alt={o.displayName}
                           className="missionary-thumb"
                           onError={(e) => (e.target.style.display = "none")}
                         />
                       )}
                       <div>
                         <h3>
-                          {o.name}
+                          {o.displayName}
                           {o.isRestricted && <span className="badge-restricted">Restricted</span>}
                         </h3>
                         <p>{[o.orgType, o.fieldDisplayName].filter(Boolean).join(" · ")}</p>

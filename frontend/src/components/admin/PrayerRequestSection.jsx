@@ -24,14 +24,14 @@ const emptyNewRequest = {
 
 // Reused as-is on both AdminMissionaryDetail.jsx and
 // AdminOrganizationDetail.jsx, same pattern as NewsletterSection.jsx.
-// Pass exactly one of missionaryId/organizationId.
+// Scoped to one partner via partnerId.
 //
 // Deliberately no status badge/coloring for "ongoing" or "untracked"
 // requests — see the PrayerRequest model comment in schema.prisma for
 // why: an open request isn't a problem to flag, it's just still open.
 // The only status this UI calls out at all is "answered", as a quiet
 // note, not a checklist item being marked off.
-export default function PrayerRequestSection({ missionaryId, organizationId, prayerRequests, onChange }) {
+export default function PrayerRequestSection({ partnerId, prayerRequests, onChange }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
   const [saving, setSaving] = useState(false);
@@ -48,8 +48,7 @@ export default function PrayerRequestSection({ missionaryId, organizationId, pra
     try {
       const isStrategic = newRequest.category === "strategic";
       await createPrayerRequest({
-        missionaryId: missionaryId || undefined,
-        organizationId: organizationId || undefined,
+        partnerId,
         category: newRequest.category,
         requestText: newRequest.requestText.trim(),
         dateReceived: newRequest.dateReceived,

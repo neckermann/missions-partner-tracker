@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { fetchAdminMissionary } from "../api/client.js";
+import {
+  fetchPartner,
+  fetchPrayerRequests,
+  fetchNewsletters,
+  fetchDocuments,
+  fetchSupportEntries,
+  fetchSupportNeeds,
+} from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
 import NewsletterSection from "../components/admin/NewsletterSection.jsx";
 import PrayerRequestSection from "../components/admin/PrayerRequestSection.jsx";
@@ -154,22 +161,47 @@ function AddressSummary({ address }) {
   );
 }
 
-export default function AdminMissionaryDetail() {
+// One page for both kinds of partner. The record itself comes from
+// GET /api/partners/:id; each history collection comes from its own
+// endpoint rather than riding along on the record, so a section loads only
+// what it displays (see partnerRecordInclude in
+// backend/src/routes/partners.js for why they're not bundled).
+export default function AdminPartnerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [m, setM] = useState(null);
+  const [collections, setCollections] = useState({
+    prayerRequests: [],
+    newsletters: [],
+    documents: [],
+    supportEntries: [],
+    needRequests: [],
+  });
   const { churchName, enabledFeatures } = useSettings();
 
   function reload() {
-    return fetchAdminMissionary(id).then(setM);
+    return Promise.all([
+      fetchPartner(id).then(setM),
+      Promise.all([
+        fetchPrayerRequests({ partnerId: id }),
+        fetchNewsletters({ partnerId: id }),
+        fetchDocuments({ partnerId: id }),
+        fetchSupportEntries({ partnerId: id }),
+        fetchSupportNeeds({ partnerId: id }),
+      ]).then(([prayerRequests, newsletters, documents, supportEntries, needRequests]) =>
+        setCollections({ prayerRequests, newsletters, documents, supportEntries, needRequests })
+      ),
+    ]);
   }
 
   useEffect(() => {
-    reload();
+    reload().catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   if (!m) return <p style={{ padding: "2rem" }}>Loading...</p>;
+
+  const isOrg = m.kind === "organization";
 
   const physical = (m.addresses || []).find((a) => a.type === "physical");
   const mailing = (m.addresses || []).find((a) => a.type === "mailing");
@@ -190,7 +222,7 @@ export default function AdminMissionaryDetail() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <h2>{m.displayName}</h2>
         <div>
-          <Link to={`/admin/missionaries/${id}/edit`} className="btn" style={{ marginRight: "0.5rem" }}>
+          <Link to={`/admin/partners/${id}/edit`} className="btn" style={{ marginRight: "0.5rem" }}>
             Edit
           </Link>
           <button type="button" className="btn secondary" onClick={() => navigate("/admin/partners")}>
@@ -200,7 +232,7 @@ export default function AdminMissionaryDetail() {
       </div>
 
       <div className="admin-form">
-        <PhotoHistorySection missionaryId={m.id} photos={m.photos} onChange={reload} />
+        <PhotoHistorySection partnerId={m.id} photos={m.photos} onChange={reload} />
 
         <div className="admin-section">
           <h3>Core Info</h3>
@@ -222,22 +254,22 @@ export default function AdminMissionaryDetail() {
         </div>
 
         <FinancialSupportSection
-          supportEntries={m.supportEntries}
-          needRequests={m.needRequests}
+          supportEntries={collections.supportEntries}
+          needRequests={collections.needRequests}
           showMonthlySupport={enabledFeatures.monthlySupport}
           showOneTimeNeeds={enabledFeatures.oneTimeNeeds}
         />
 
         {enabledFeatures.prayerRequests && (
-          <PrayerRequestSection missionaryId={m.id} prayerRequests={m.prayerRequests} onChange={reload} />
+          <PrayerRequestSection partnerId={m.id} prayerRequests={collections.prayerRequests} onChange={reload} />
         )}
 
         {enabledFeatures.newsletters && (
-          <NewsletterSection missionaryId={m.id} newsletters={m.newsletters} onChange={reload} />
+          <NewsletterSection partnerId={m.id} newsletters={collections.newsletters} onChange={reload} />
         )}
 
         {enabledFeatures.documents && (
-          <DocumentSection missionaryId={m.id} documents={m.documents} onChange={reload} />
+          <DocumentSection partnerId={m.id} documents={collections.documents} onChange={reload} />
         )}
 
         {(m.overview || m.overviewShort || m.focusArea) && (
@@ -340,50 +372,6 @@ export default function AdminMissionaryDetail() {
           </div>
         </div>
 
-        <div className="admin-section">
-          <h3>Trip History</h3>
-          {m.missionTrips?.length > 0 ? (
-            m.missionTrips
-              .slice()
-              .sort((a, b) => new Date(b.startDate || 0) - new Date(a.startDate || 0))
-              .map((trip) => (
-                <div key={trip.id} className="repeatable-row">
-                  <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-                    <Field
-                      label="Dates"
-                      value={
-                        trip.startDate || trip.endDate
-                          ? `${formatDate(trip.startDate) || "?"} – ${formatDate(trip.endDate) || "?"}`
-                          : null
-                      }
-                    />
-                    <Field label="Trip Type" value={trip.tripType} />
-                  </div>
-                  <div style={{ marginTop: "0.5rem" }}>
-                    <Field label="Description" value={trip.description} />
-                    <Field label="Notes" value={trip.notes} />
-                  </div>
-                  {trip.participants?.length > 0 && (
-                    <div style={{ marginTop: "0.75rem" }}>
-                      <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "0.4rem" }}>
-                        Participants
-                      </div>
-                      {trip.participants.map((p) => (
-                        <div key={p.id} style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
-                          <Field label="Name" value={`${p.name}${p.isLeader ? " (Leader)" : ""}`} />
-                          <Field label="Role" value={p.role} />
-                          <Field label="Phone" value={p.phone} />
-                          <Field label="Email" value={p.email} />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))
-          ) : (
-            <p style={{ color: "#888" }}>No trips on file.</p>
-          )}
-        </div>
 
         <div className="admin-section">
           <h3>Furlough</h3>

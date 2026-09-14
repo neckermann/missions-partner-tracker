@@ -5,7 +5,7 @@ test.describe("Monthly Support", () => {
   test("add a support entry, confirm it becomes current, then delete it from the History panel", async ({ page }) => {
     await login(page);
 
-    const missionariesRes = await page.request.get("/api/missionaries");
+    const missionariesRes = await page.request.get("/api/partners?kind=missionary");
     const missionaries = await missionariesRes.json();
     const target = missionaries[0];
 
@@ -15,7 +15,7 @@ test.describe("Monthly Support", () => {
     const uniqueNotes = `E2E entry ${Date.now()}`;
 
     await page.click("button:has-text('+ Add Support Entry')");
-    await page.getByLabel("Missionary or Organization").selectOption({ label: target.displayName });
+    await page.getByLabel("Partner").selectOption({ label: target.displayName });
     await page.getByLabel("Monthly Amount (USD)").fill("777");
     // Far in the future so this entry is unambiguously the latest
     // effectiveDate (== "current") regardless of whatever else is on file.

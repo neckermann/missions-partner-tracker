@@ -33,8 +33,8 @@ const todayInputValue = () => new Date().toISOString().slice(0, 10);
 // AddressSummary helpers those pages already duplicate, this one carries
 // real upload/view/delete behavior, so it's a genuine shared component
 // rather than something worth copy-pasting twice. Pass exactly one of
-// missionaryId/organizationId — matches the Newsletter model's shape.
-export default function NewsletterSection({ missionaryId, organizationId, newsletters, onChange }) {
+// partnerId — matches the Newsletter model's shape.
+export default function NewsletterSection({ partnerId, newsletters, onChange }) {
   const { enabledFeatures } = useSettings();
   const [scanning, setScanning] = useState(null); // the newsletter being reviewed, or null
   const [showAddForm, setShowAddForm] = useState(false);
@@ -58,8 +58,7 @@ export default function NewsletterSection({ missionaryId, organizationId, newsle
     try {
       const formData = new FormData();
       formData.append("file", file);
-      if (missionaryId) formData.append("missionaryId", missionaryId);
-      if (organizationId) formData.append("organizationId", organizationId);
+      formData.append("partnerId", partnerId);
       formData.append("title", title);
       formData.append("receivedDate", receivedDate);
       formData.append("notes", notes);
@@ -232,8 +231,7 @@ export default function NewsletterSection({ missionaryId, organizationId, newsle
       {scanning && (
         <ExtractionReviewModal
           scan={() => extractFromNewsletter(scanning.id)}
-          missionaryId={missionaryId}
-          organizationId={organizationId}
+          partnerId={partnerId}
           defaultDate={scanning.receivedDate}
           onClose={() => setScanning(null)}
         />
