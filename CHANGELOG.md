@@ -16,6 +16,27 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [2.0.2] - 2026-09-15
+
+**The public site no longer downloads the admin app.** Until now everything
+shipped as one bundle, so someone who only ever looked at the public
+directory still received every admin page — the printed-booklet templates,
+the settings screens, all of it. No partner data was ever exposed (admin
+endpoints require a login, and public data goes through the masking
+serializer), but there was no reason to hand an anonymous visitor a
+readable map of the admin app, or to make them wait for code they can't
+use. Admin pages and the map now load only when someone actually opens
+them.
+
+Side effect: the public directory's initial download dropped from 189KB to
+101KB compressed, roughly halving it.
+
+Also added: route-level tests for trips, support entries, one-time needs,
+prayer requests and documents — covering the permission rules, the
+per-partner filters, the append-only rule on support entries, the
+"category needs a label" rule on documents, and that turning a feature off
+really does switch its endpoints off.
+
 ## [2.0.1] - 2026-09-14
 
 Fixed: a mistyped or removed API path came back as the app's HTML shell

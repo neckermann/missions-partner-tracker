@@ -1,36 +1,57 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from "react-router-dom";
-import PublicMap from "./pages/PublicMap.jsx";
 import PublicDirectory from "./pages/PublicDirectory.jsx";
 import PublicPartnerDetail from "./pages/PublicPartnerDetail.jsx";
 import Login from "./pages/Login.jsx";
 import Setup from "./pages/Setup.jsx";
-import AdminHome from "./pages/AdminHome.jsx";
-import AdminPartners from "./pages/AdminPartners.jsx";
-import AdminPartnerForm from "./pages/AdminPartnerForm.jsx";
-import AdminPartnerDetail from "./pages/AdminPartnerDetail.jsx";
-import AdminBooklet from "./pages/AdminBooklet.jsx";
-import AdminUsers from "./pages/AdminUsers.jsx";
-import AdminUserForm from "./pages/AdminUserForm.jsx";
-import AccountSettings from "./pages/AccountSettings.jsx";
-import AdminSettingsAbout from "./pages/AdminSettingsAbout.jsx";
-import AdminSettingsBranding from "./pages/AdminSettingsBranding.jsx";
-import AdminSettingsFeatures from "./pages/AdminSettingsFeatures.jsx";
-import AdminSettingsSso from "./pages/AdminSettingsSso.jsx";
-import AdminMonthlySupport from "./pages/AdminMonthlySupport.jsx";
-import AdminOneTimeNeeds from "./pages/AdminOneTimeNeeds.jsx";
-import AdminPrayerRequests from "./pages/AdminPrayerRequests.jsx";
-import AdminTripHistory from "./pages/AdminTripHistory.jsx";
-import AdminTripOpportunities from "./pages/AdminTripOpportunities.jsx";
-import AdminNewsletters from "./pages/AdminNewsletters.jsx";
-import AdminDocuments from "./pages/AdminDocuments.jsx";
 import RequireAdminAuth from "./components/RequireAdminAuth.jsx";
 import RequirePublicSite from "./components/RequirePublicSite.jsx";
 import RequireAdminFeature from "./components/RequireAdminFeature.jsx";
-import AdminLayout from "./components/admin/AdminLayout.jsx";
 import { SettingsProvider } from "./context/SettingsContext.jsx";
 import "./index.css";
+
+// Everything below is split out of the entry bundle, for two reasons.
+//
+// The first is privacy: until this split, a single bundle held every admin
+// page, so someone who only ever looked at the public directory still
+// downloaded the whole admin surface -- the printed-booklet templates, the
+// settings screens, all of it. No partner data leaked (every admin endpoint
+// is behind requireAuth, and the public API runs through the masking
+// serializer), but handing an anonymous visitor a readable map of the admin
+// app is worth avoiding on its own. e2e/public-bundle.spec.js asserts the
+// public entry point stays clean.
+//
+// The second is weight: the map pulls in Leaflet and the booklet pulls in
+// paged.js plus a 980-line print stylesheet, none of which a visitor
+// browsing the directory should pay for.
+const PublicMap = lazy(() => import("./pages/PublicMap.jsx"));
+const AdminLayout = lazy(() => import("./components/admin/AdminLayout.jsx"));
+const AdminHome = lazy(() => import("./pages/AdminHome.jsx"));
+const AdminPartners = lazy(() => import("./pages/AdminPartners.jsx"));
+const AdminPartnerForm = lazy(() => import("./pages/AdminPartnerForm.jsx"));
+const AdminPartnerDetail = lazy(() => import("./pages/AdminPartnerDetail.jsx"));
+const AdminBooklet = lazy(() => import("./pages/AdminBooklet.jsx"));
+const AdminUsers = lazy(() => import("./pages/AdminUsers.jsx"));
+const AdminUserForm = lazy(() => import("./pages/AdminUserForm.jsx"));
+const AccountSettings = lazy(() => import("./pages/AccountSettings.jsx"));
+const AdminSettingsAbout = lazy(() => import("./pages/AdminSettingsAbout.jsx"));
+const AdminSettingsBranding = lazy(() => import("./pages/AdminSettingsBranding.jsx"));
+const AdminSettingsFeatures = lazy(() => import("./pages/AdminSettingsFeatures.jsx"));
+const AdminSettingsSso = lazy(() => import("./pages/AdminSettingsSso.jsx"));
+const AdminMonthlySupport = lazy(() => import("./pages/AdminMonthlySupport.jsx"));
+const AdminOneTimeNeeds = lazy(() => import("./pages/AdminOneTimeNeeds.jsx"));
+const AdminPrayerRequests = lazy(() => import("./pages/AdminPrayerRequests.jsx"));
+const AdminTripHistory = lazy(() => import("./pages/AdminTripHistory.jsx"));
+const AdminTripOpportunities = lazy(() => import("./pages/AdminTripOpportunities.jsx"));
+const AdminNewsletters = lazy(() => import("./pages/AdminNewsletters.jsx"));
+const AdminDocuments = lazy(() => import("./pages/AdminDocuments.jsx"));
+
+// Chunks are served same-origin from this app, so the gap is a network hop
+// on a local connection, not a spinner anyone will study.
+function RouteFallback() {
+  return <p style={{ padding: "2rem" }}>Loading...</p>;
+}
 
 // Old /admin/missionaries/:id and /admin/organizations/:id URLs point at the
 // same record under /admin/partners/:id -- the merge kept every id, so this
@@ -50,6 +71,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <SettingsProvider>
       <BrowserRouter>
+        <Suspense fallback={<RouteFallback />}>
         <Routes>
           {/* Public site */}
           <Route path="/" element={<RequirePublicSite feature="publicDirectory"><PublicDirectory /></RequirePublicSite>} />
@@ -132,6 +154,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             </Route>
           </Route>
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </SettingsProvider>
   </React.StrictMode>

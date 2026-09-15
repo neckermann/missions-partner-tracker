@@ -77,7 +77,11 @@ async function client(role) {
   return async function request(path, options = {}) {
     const headers = { ...(options.headers || {}) };
     if (cookie) headers.Cookie = cookie;
-    if (options.body !== undefined && typeof options.body !== "string") {
+    // FormData must pass through untouched -- fetch generates the multipart
+    // boundary itself, and setting Content-Type by hand (or JSON-encoding
+    // it, as this used to) leaves multer seeing no file at all.
+    const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+    if (options.body !== undefined && !isFormData && typeof options.body !== "string") {
       headers["Content-Type"] = "application/json";
       options = { ...options, body: JSON.stringify(options.body) };
     }
