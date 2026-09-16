@@ -171,12 +171,14 @@ a { color: var(--brand-color, #2a5d3c); }
 .map-container { height: 100%; }
 
 /* Leaflet's own default attribution-control link ("Leaflet" ->
-   leafletjs.com) fails WCAG AA color-contrast (2.55:1 against its
-   surrounding text, need 3:1) and has no non-color distinguisher
-   (underline) -- axe-core flags this as a real "serious" violation.
-   Darkening it and adding an underline fixes both at once. */
+   leafletjs.com) fails WCAG AA color-contrast and has no non-color
+   distinguisher (underline) -- axe-core flags this as a real "serious"
+   violation. Darkening it and adding an underline fixes both at once.
+   It is 12px normal-weight text, so the threshold is 4.5:1, not the 3:1
+   this rule originally aimed at: #0090c8 on the control's #f8f8f8 only
+   reached 3.39:1 and still failed. #0070a0 gives 5.17:1. */
 .leaflet-control-attribution a {
-  color: #0090c8;
+  color: #0070a0;
   text-decoration: underline;
 }
 
