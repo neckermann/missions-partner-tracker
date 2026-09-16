@@ -16,7 +16,22 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
-## [2.0.2] - 2026-09-15
+## [2.0.2] - 2026-09-16
+
+**A partner's page is now the place you edit them.** There is no separate
+edit form any more. Each section of the page — Core Info, Ministry
+Overview, Serving Location, Family, Trip Capacity, Furlough, and the rest —
+has its own Edit button and saves only its own fields. Adding a partner
+asks for just the few things you can't fill in afterwards (which kind, a
+name, a country), and you fill in the rest on the page itself.
+
+Before this, changing one field meant opening a form holding all 36 of
+them, scrolling to find it, and saving the whole record back. That was
+also a correctness problem, not only an annoyance: the form wrote back
+whatever it had loaded when you opened it, so family members, addresses,
+furloughs or church visits changed by someone else in the meantime were
+quietly overwritten by your stale copy. A save now only touches the box
+you were looking at.
 
 **The public site no longer downloads the admin app.** Until now everything
 shipped as one bundle, so someone who only ever looked at the public

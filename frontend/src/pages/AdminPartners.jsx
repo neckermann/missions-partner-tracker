@@ -92,7 +92,6 @@ export default function AdminPartners() {
           country: resolveCountry(p),
           continent: getContinent(resolveCountry(p)),
           detailLink: `/admin/partners/${p.id}`,
-          editLink: `/admin/partners/${p.id}/edit`,
         }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     [partners]
@@ -290,7 +289,10 @@ export default function AdminPartners() {
                 <td>{currentSupport(row.supportEntries)}</td>
                 <td>{lastVisit(row.churchVisits)}</td>
                 <td className="table-actions" onClick={(e) => e.stopPropagation()}>
-                  <Link to={row.editLink}>Edit</Link>
+                  {/* The whole row is clickable, but this stays as the
+                      keyboard-reachable way in -- and editing now happens on
+                      the partner's own page, so there's nowhere else to go. */}
+                  <Link to={row.detailLink}>Open</Link>
                   {row.archived ? (
                     <>
                       <button className="btn secondary small" onClick={() => handleUnarchive(row)}>

@@ -55,10 +55,12 @@ function RouteFallback() {
 
 // Old /admin/missionaries/:id and /admin/organizations/:id URLs point at the
 // same record under /admin/partners/:id -- the merge kept every id, so this
-// is a straight path swap rather than a lookup.
-function LegacyPartnerRedirect({ edit = false }) {
+// is a straight path swap rather than a lookup. The old `/edit` paths land
+// on the same place: the partner page is the editor now, so there is
+// nowhere separate to send them.
+function LegacyPartnerRedirect() {
   const { id } = useParams();
-  return <Navigate to={`/admin/partners/${id}${edit ? "/edit" : ""}`} replace />;
+  return <Navigate to={`/admin/partners/${id}`} replace />;
 }
 
 // Same for the public site, where the kind used to be in the path.
@@ -104,16 +106,18 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="partners" element={<AdminPartners />} />
             <Route path="partners/new" element={<AdminPartnerForm />} />
             <Route path="partners/:id" element={<AdminPartnerDetail />} />
-            <Route path="partners/:id/edit" element={<AdminPartnerForm />} />
+            {/* The partner page edits itself section by section, so there is
+                no separate edit form any more -- old links land on it. */}
+            <Route path="partners/:id/edit" element={<LegacyPartnerRedirect />} />
             {/* Missionaries and organizations merged into one Partner
                 resource in v2.0.0. These keep old bookmarks and any links
                 sent round in email working -- the ids didn't change. */}
             <Route path="missionaries/new" element={<Navigate to="/admin/partners/new?kind=missionary" replace />} />
             <Route path="organizations/new" element={<Navigate to="/admin/partners/new?kind=organization" replace />} />
             <Route path="missionaries/:id" element={<LegacyPartnerRedirect />} />
-            <Route path="missionaries/:id/edit" element={<LegacyPartnerRedirect edit />} />
+            <Route path="missionaries/:id/edit" element={<LegacyPartnerRedirect />} />
             <Route path="organizations/:id" element={<LegacyPartnerRedirect />} />
-            <Route path="organizations/:id/edit" element={<LegacyPartnerRedirect edit />} />
+            <Route path="organizations/:id/edit" element={<LegacyPartnerRedirect />} />
             <Route path="booklet" element={<RequireAdminFeature feature="booklet"><AdminBooklet /></RequireAdminFeature>} />
             <Route
               path="support/monthly"
