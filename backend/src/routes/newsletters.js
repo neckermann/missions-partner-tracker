@@ -5,6 +5,7 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { matchesFileSignature } = require("../utils/fileSignature");
+const { sendStoredFile } = require("../utils/fileResponse");
 const { extractRequestsFromFile } = require("../utils/extraction");
 
 const router = express.Router();
@@ -116,9 +117,7 @@ router.get("/:id/download", async (req, res, next) => {
     const record = await prisma.newsletter.findUnique({ where: { id: req.params.id } });
     if (!record) return res.status(404).json({ error: "Not found" });
 
-    res.set("Content-Type", record.contentType || "application/octet-stream");
-    res.set("Content-Disposition", `inline; filename="${record.fileName.replace(/"/g, "")}"`);
-    res.send(record.bytes);
+    sendStoredFile(res, record);
   } catch (err) {
     next(err);
   }

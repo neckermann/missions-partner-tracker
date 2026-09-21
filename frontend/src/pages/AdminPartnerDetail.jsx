@@ -307,6 +307,18 @@ export default function AdminPartnerDetail() {
                 <label>
                   Field / Region Display Name
                   <input value={d.fieldDisplayName} onChange={(e) => set("fieldDisplayName", e.target.value)} />
+                  {/* This field is published even for a restricted partner --
+                      see toPublicPartner in backend/src/utils/maskData.js. The
+                      masking hides the name and coarsens the map pin to a
+                      country centroid, so a sub-national region typed here
+                      gives back most of what the masking just removed. */}
+                  {d.isRestricted && (
+                    <span className="field-warning">
+                      Shown publicly, even though this partner is restricted. Their name is masked to
+                      initials and the map pin is coarsened to the country — so keep this broad
+                      (&ldquo;East Africa&rdquo;), not a region or city that narrows it back down.
+                    </span>
+                  )}
                 </label>
                 <label>
                   Supporting Since
