@@ -23,6 +23,52 @@ instance is running behind the latest release — you don't have to
 remember to check GitHub. See `backend/src/utils/versionCheck.js` if
 you're curious how that works.
 
+## Stop: read this before upgrading to 3.0.0
+
+**Version 3.0.0 refuses to start if `SESSION_SECRET` is missing, shorter
+than 32 characters, or still the value from `.env.example`.**
+
+Most forks are unaffected: if you generated a real secret during setup —
+what the docs have always told you to do — upgrade normally and skip the
+rest of this section.
+
+Check before you deploy:
+
+```
+cd backend
+node -e "require('dotenv').config(); const s = process.env.SESSION_SECRET || ''; console.log(s.length >= 32 && s !== 'change-me-to-a-long-random-string' ? 'OK' : 'MUST BE REPLACED')"
+```
+
+If that prints `MUST BE REPLACED`, generate a new one and put it in your
+`.env`:
+
+```
+npm run generate-secrets
+```
+
+Replacing `SESSION_SECRET` signs everyone out. That is the only effect —
+no data is touched, and people simply log in again.
+
+**Why the app now refuses to start rather than warning.** `.env.example`
+used to ship `SESSION_SECRET="change-me-to-a-long-random-string"`. That
+value is public — it is in this repository, which anyone can read. A fork
+that copied the example file, changed `DATABASE_URL`, and deployed was
+signing its admin session cookies with a key strangers already have, which
+means a stranger could forge one. And an admin session in this app can
+read everything, including restricted partners' exact locations and
+contact details. A warning in a log nobody reads is not enough for that.
+
+`.env.example` now ships the value empty, so a fresh copy fails
+immediately and obviously instead of looking already-configured.
+
+**`FIELD_ENCRYPTION_KEY` is different — it only warns.** Its old
+placeholder was never a usable key (the app already rejected it), so a bad
+value breaks two-factor enrollment and nothing else. If you see that
+warning at startup, run `npm run generate-secrets` and set it. Be aware
+that changing a key that was previously working permanently destroys
+everything encrypted under it — currently everyone's two-factor
+enrollment, which they would need to set up again.
+
 ## Stop: read this before upgrading to 2.0.0
 
 **Version 2.0.0 replaces the database schema and does not migrate your

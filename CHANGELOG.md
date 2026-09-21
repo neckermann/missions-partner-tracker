@@ -16,6 +16,53 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [3.0.0] - 2026-09-21
+
+**Breaking: the app now refuses to start if `SESSION_SECRET` is missing,
+shorter than 32 characters, or still set to the example placeholder.** If
+your `.env` has a real, long secret — which is what the setup docs have
+always told you to generate — nothing changes and you can upgrade
+normally. If it doesn't, see [UPGRADING.md](UPGRADING.md); the fix is one
+command and takes a minute.
+
+Why this is worth a breaking release: the documented setup path is `cp
+.env.example .env`, and `.env.example` shipped
+`SESSION_SECRET="change-me-to-a-long-random-string"`. Anyone who edited
+only `DATABASE_URL` was running with a signing key published in this
+repository, which means anyone who had read the repository could mint
+themselves an admin session. There is no second line of defence behind
+that — any valid session can read every partner's full record. The
+example file now ships the value **empty**, which was the real problem:
+a placeholder that looks filled in is one nobody replaces. `npm run
+generate-secrets` prints replacements for both secrets.
+
+`FIELD_ENCRYPTION_KEY` deliberately only warns. Its placeholder can't
+actually encrypt anything — the app already refused to use it — so a bad
+value breaks two-factor enrollment and nothing else, and taking a running
+site offline over that would be worse than the problem.
+
+Also in this release:
+
+- **A failed save now tells you what was wrong, instead of blanking the
+  page.** Every form in the app had this bug: when the server rejected
+  something, the error it sent back wasn't text, and trying to display it
+  crashed the whole page to white. Validation messages now name the field
+  that was wrong ("displayName: Required"), and if any page does crash,
+  you get a card with a Reload button rather than an empty screen — with
+  the sidebar still working, so you can navigate away.
+- **Rate limits now count per visitor.** Behind a proxy they were counting
+  everyone together, so a single person hammering the login page could
+  lock the whole church out. That's fixed.
+- **Fewer confusing 500s.** Editing or deleting something that no longer
+  exists says "Not found"; a duplicate email says so plainly.
+
+Under the hood: all error handling moved into one place
+(`backend/src/middleware/errors.js`), deleting 29 copy-pasted blocks
+across 10 route files, and route-level tests now assert the *shape* of
+error responses rather than only their status codes — both past bugs here
+were invisible to status-only tests. Backend tests 89 → 130 unit and 48 →
+60 route; frontend e2e 21 → 23.
+
 ## [2.0.2] - 2026-09-16
 
 **A partner's page is now the place you edit them.** There is no separate
