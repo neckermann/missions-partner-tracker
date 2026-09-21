@@ -1,10 +1,16 @@
 require("dotenv").config({ quiet: true });
+// Before anything else: refuse to boot on a configuration that isn't safe --
+// most importantly a SESSION_SECRET still set to the published example value.
+require("./config/env").assertValidEnv();
+
 const path = require("path");
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
+
+const { errorHandler } = require("./middleware/errors");
 
 const authRoutes = require("./routes/auth");
 const ssoRoutes = require("./routes/sso");
@@ -27,6 +33,17 @@ const backupCheckRoutes = require("./routes/backupCheck");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+// Render (and Fly, Heroku, a typical nginx setup) puts exactly one proxy in
+// front of this process, so `req.ip` is the proxy's address unless Express is
+// told to read X-Forwarded-For. Without this every rate limiter below shares
+// one bucket for the whole instance, which means anyone can burn the login
+// limit and lock the entire church out.
+//
+// It must be 1 -- the number of proxies to trust -- and never `true`. `true`
+// trusts the whole X-Forwarded-For chain, so a client could send a header of
+// its own and mint itself a private bucket, which is worse than the bug.
+app.set("trust proxy", 1);
 
 // helmet()'s default CSP is `img-src 'self' data:`, which blocks the public
 // map's tiles (OpenStreetMap's own subdomained tile servers) and its default
@@ -56,7 +73,16 @@ app.use(cookieParser());
 // Rate-limit auth endpoints against brute force. The MFA code-verify step
 // gets its own (tighter) limiter since a 6-digit TOTP code is a much
 // smaller search space than a password.
-app.use("/api/auth/login", rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }));
+//
+// /login is relaxed under NODE_ENV=test because the e2e suite logs in ~10
+// times per run against a 15-minute window, so two runs inside that window
+// used to fail on the limiter -- failures that look exactly like real
+// regressions and have cost real debugging time. Only this one endpoint is
+// relaxed; the others keep their production limits so they stay testable.
+app.use(
+  "/api/auth/login",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 200 : 20 })
+);
 app.use("/api/auth/mfa/login-verify", rateLimit({ windowMs: 15 * 60 * 1000, max: 10 }));
 // /setup only ever succeeds once (see routes/auth.js), but it's
 // unauthenticated by necessity -- rate-limited for the same reason
@@ -119,19 +145,10 @@ app.use(express.static(frontendBuild));
 app.get("*splat", (req, res) => res.sendFile(path.join(frontendBuild, "index.html")));
 
 // --- Error handler ---
-// Full details always go to the server log. The client only gets err.message
-// back for deliberate, controlled errors (err.status set below 500 by the
-// route itself, e.g. Zod validation or an explicit 4xx) — an unexpected
-// exception (a raw Prisma/JS error) gets a generic message instead, since
-// its .message can otherwise leak internal details (schema/column names,
-// stack-adjacent info) to any caller, including unauthenticated public API
-// consumers.
-app.use((err, req, res, next) => {
-  console.error(err);
-  const status = err.status || 500;
-  const message = status < 500 ? err.message : "Server error";
-  res.status(status).json({ error: message });
-});
+// Every error becomes an HTTP response here, and `error` is always a string.
+// See middleware/errors.js for the full mapping and why routes shouldn't
+// catch-and-translate on their own.
+app.use(errorHandler);
 
 // Guarded so this file can be require()'d by the route tests, which boot
 // the real app on an ephemeral port rather than mocking it -- same reason

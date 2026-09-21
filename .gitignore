@@ -1,6 +1,11 @@
 node_modules/
+# Every .env variant, not just .env and .env.*.local -- a backup or a
+# .env.staging holds the same secrets the real one does, and an untracked
+# file one `git add -A` away from being published is not a safe place for
+# them. .env.example is the deliberate exception: it ships with empty values.
 .env
-.env.*.local
+.env.*
+!.env.example
 dist/
 # Frontend build output, written directly into backend/ (see
 # frontend/vite.config.js) so the existing backend deploy zip already
