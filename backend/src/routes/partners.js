@@ -2,6 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
+const { isFeatureEnabled } = require("../utils/features");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { withPhotoUrls } = require("../utils/photoUrls");
 const { geocodeAddress } = require("../utils/geocode");
@@ -281,11 +282,26 @@ router.get("/", async (req, res, next) => {
     }
 
     if (req.query.include === "full") {
+      // The booklet is the only caller, so this branch honours the same two
+      // toggles the booklet screen does. Without this, turning off Print
+      // booklet did nothing server-side, and -- worse -- a church that had
+      // turned Prayer Requests off still served every prayer request here,
+      // including the private and situational ones, to any logged-in user.
+      const settings = await prisma.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: { enabledFeatures: true },
+      });
+      if (!isFeatureEnabled(settings?.enabledFeatures, "booklet")) {
+        return res.status(404).json({ error: "Not found" });
+      }
+
       const full = await prisma.partner.findMany({
         where,
         include: {
           ...partnerRecordInclude,
-          prayerRequests: { orderBy: { dateReceived: "desc" } },
+          ...(isFeatureEnabled(settings?.enabledFeatures, "prayerRequests")
+            ? { prayerRequests: { orderBy: { dateReceived: "desc" } } }
+            : {}),
         },
         orderBy: { displayName: "asc" },
       });

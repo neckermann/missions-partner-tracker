@@ -26,11 +26,26 @@ before you can do anything else.
 
 Every user has one of three roles:
 
-| Role | Can do |
+| Role | Can change |
 |---|---|
-| `viewer` | Read-only access everywhere in the admin dashboard. |
-| `editor` | Everything a `viewer` can, plus create/edit missionaries, organizations, and support entries, and upload newsletters and documents. |
+| `viewer` | Nothing. Read-only. |
+| `editor` | Create and edit partners and support entries, and upload newsletters and documents. |
 | `admin` | Everything above, plus delete records, manage users, and edit Church Settings. |
+
+**Roles control what you can change, not what you can see.** Every account,
+including a `viewer`, can read every partner's full record — home address
+and GPS coordinates, family members' phone numbers and birthdays, emergency
+contacts, and the real name and photo of partners marked
+restricted-access. There is no reduced view for lower roles.
+
+That's a deliberate design choice, not an oversight: this is a small
+internal tool for one church, and splitting what staff can see would make
+the prayer list less useful without meaningfully protecting anything, since
+anyone who needs an account needs the information. But it does mean **an
+account is the whole permission** — treat handing one out the same way you'd
+treat handing someone the filing cabinet key. If you only want someone to
+see what's public, send them the public site; they don't need an account at
+all.
 
 If something you expect to see isn't there (a nav link, a button), it's
 almost always a role thing, not a bug — check with whoever manages users

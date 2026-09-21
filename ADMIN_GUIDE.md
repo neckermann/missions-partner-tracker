@@ -390,6 +390,38 @@ migration or a new required env var.
 
 ## Security operations
 
+### Who can see what
+
+**Authentication is the confidentiality boundary. Roles only govern
+writes.**
+
+Any account that can log in can read every partner's full record: exact
+addresses and GPS coordinates, family members' contact details and
+birthdays, emergency contacts, uploaded documents, and the real name and
+photograph of partners marked restricted-access. `viewer` restricts what
+someone can *change*, not what they can see. There is no reduced read view
+for lower roles, and adding one is a deliberate non-goal.
+
+The consequence worth internalising: **controlling who gets an account is
+the entire security model.** There is no second line of defence behind the
+login. In practice that means:
+
+- Create accounts deliberately, one at a time, for people you'd trust with
+  the information. Don't create one "so they can have a look".
+- Deactivate promptly when someone leaves. Deactivating or deleting takes
+  effect on their next request — sessions are re-checked against the
+  database rather than trusted for their full lifetime.
+- Require two-factor for accounts that can write. A password alone is one
+  phishing email away from everything above.
+- Anyone who only needs what's public should use the public site, which
+  runs every record through a masking serializer that hides restricted
+  partners' names, photos and precise locations. They don't need an
+  account at all.
+
+If you need staff who can see *some* partners but not others, this app
+can't express that, and pretending otherwise with roles would be worse
+than saying so plainly.
+
 ### Rotating SESSION_SECRET
 
 This signs the session cookie — rotating it (generate a new value, e.g.
