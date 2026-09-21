@@ -227,8 +227,8 @@ export default function AdminNewsletters() {
         )}
 
         <div className="admin-checkbox-row" style={{ marginTop: "1rem", alignItems: "center", gap: "0.5rem" }}>
-          <label style={{ flexDirection: "row", fontWeight: "normal" }}>Show:</label>
-          <select value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)} style={{ width: "auto" }}>
+          <label htmlFor="newsletters-entity-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>Show:</label>
+          <select id="newsletters-entity-filter" value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)} style={{ width: "auto" }}>
             <option value="all">All</option>
             <option value="Missionary">Missionaries</option>
             <option value="Organization">Organizations</option>

@@ -24,3 +24,6 @@ frontend/blob-report/
 Thumbs.db
 .vscode/
 .idea/
+
+# Root tooling deps (eslint/prettier) -- see the root package.json
+/node_modules/

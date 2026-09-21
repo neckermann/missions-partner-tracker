@@ -240,12 +240,13 @@ export default function PublicMap() {
             live on /partners now; a click here still opens the marker's
             popup, which links out to that full profile. */}
         {!autoScroll && (
-          <div className="missionary-list" tabIndex={0} role="region" aria-label="Partner list">
+          <div className="missionary-list" role="region" aria-label="Partner list">
             {partners.length === 0 && <p style={{ padding: "1rem" }}>Loading...</p>}
             {missionaries.map((m) => {
               const coordIdx = withCoords.indexOf(m);
               return (
-                <div
+                <button
+                  type="button"
                   key={m.id}
                   className={`missionary-card ${coordIdx === activeIndex ? "active" : ""}`}
                   onClick={() => {
@@ -270,7 +271,7 @@ export default function PublicMap() {
                       <p>{m.fieldDisplayName}</p>
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
 
@@ -278,7 +279,8 @@ export default function PublicMap() {
               <>
                 <h2 style={{ padding: "0.75rem 1.1rem 0", margin: 0, fontSize: "0.95rem" }}>Organizations</h2>
                 {organizations.map((o) => (
-                  <div
+                  <button
+                    type="button"
                     key={o.id}
                     className={`missionary-card ${activeOrg?.id === o.id ? "active" : ""}`}
                     onClick={() => setActiveOrg(orgsWithCoords.find((org) => org.id === o.id) || null)}
@@ -300,7 +302,7 @@ export default function PublicMap() {
                         <p>{[o.orgType, o.fieldDisplayName].filter(Boolean).join(" · ")}</p>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </>
             )}

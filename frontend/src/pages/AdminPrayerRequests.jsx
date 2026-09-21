@@ -263,10 +263,10 @@ export default function AdminPrayerRequests() {
       )}
 
       <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
-        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
+        <label htmlFor="prayer-category-filter" style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
           Show:
         </label>
-        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ width: "auto" }}>
+        <select id="prayer-category-filter" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ width: "auto" }}>
           <option value="all">All</option>
           <option value="strategic">Strategic</option>
           <option value="situational">Situational</option>

@@ -220,10 +220,10 @@ export default function AdminOneTimeNeeds() {
         )}
 
         <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
-          <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
+          <label htmlFor="needs-status-filter" style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
             Show:
           </label>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ width: "auto" }}>
+          <select id="needs-status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ width: "auto" }}>
             <option value="all">All</option>
             <option value="pending">Pending decision</option>
             <option value="decided">Decided</option>

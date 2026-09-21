@@ -13,14 +13,50 @@ on:
       - 'backend/**'
       - 'frontend/**'
       - '.github/workflows/ci.yml'
+      # Root tooling: without these, a change to the lint or format config
+      # wouldn't run CI, so a broken config could land unnoticed.
+      - 'eslint.config.js'
+      - '.prettierrc'
+      - '.prettierignore'
+      - 'package.json'
+      - 'package-lock.json'
   push:
     branches: [main]
     paths:
       - 'backend/**'
       - 'frontend/**'
       - '.github/workflows/ci.yml'
+      # Root tooling: without these, a change to the lint or format config
+      # wouldn't run CI, so a broken config could land unnoticed.
+      - 'eslint.config.js'
+      - '.prettierrc'
+      - '.prettierignore'
+      - 'package.json'
+      - 'package-lock.json'
 
 jobs:
+  # Runs first and on its own: it needs no database and no build, so a style
+  # or accessibility regression fails in well under a minute rather than
+  # after the e2e job has spun up Postgres.
+  #
+  # --quiet means errors only. Warnings are a deliberate to-do list (missing
+  # hook deps, autofocus on the login form) and are visible locally via
+  # `npm run lint`; gating on them would make this job red on day one, and a
+  # check that is always red is one people stop reading.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install lint tooling
+        run: npm ci
+      - name: Lint
+        run: npx eslint . --quiet
+      - name: Check formatting
+        run: npx prettier --check .
+
   backend-tests:
     runs-on: ubuntu-latest
     env:

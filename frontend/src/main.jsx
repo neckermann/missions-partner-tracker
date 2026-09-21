@@ -150,7 +150,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 reached via the sidebar's own expandable "Site
                 Administration" group (see AdminSidebar.jsx), not a
                 same-page tab bar, so each page owns its own heading. */}
-            <Route path="settings" element={<RequireAdminAuth role="admin"><Outlet /></RequireAdminAuth>}>
+            <Route path="settings" element={<RequireAdminAuth requiredRole="admin"><Outlet /></RequireAdminAuth>}>
               <Route index element={<Navigate to="about" replace />} />
               <Route path="about" element={<AdminSettingsAbout />} />
               <Route path="branding" element={<AdminSettingsBranding />} />

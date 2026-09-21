@@ -275,16 +275,16 @@ export default function AdminDocuments() {
 
       <div className="admin-checkbox-row" style={{ marginTop: "1rem", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label style={{ flexDirection: "row", fontWeight: "normal" }}>Show:</label>
-          <select value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)} style={{ width: "auto" }}>
+          <label htmlFor="documents-entity-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>Show:</label>
+          <select id="documents-entity-filter" value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)} style={{ width: "auto" }}>
             <option value="all">All</option>
             <option value="Missionary">Missionaries</option>
             <option value="Organization">Organizations</option>
           </select>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label style={{ flexDirection: "row", fontWeight: "normal" }}>Category:</label>
-          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ width: "auto" }}>
+          <label htmlFor="documents-category-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>Category:</label>
+          <select id="documents-category-filter" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ width: "auto" }}>
             <option value="all">All</option>
             {DOCUMENT_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { fetchCurrentUser } from "../api/client.js";
 
-export default function RequireAdminAuth({ children, role }) {
+export default function RequireAdminAuth({ children, requiredRole }) {
   const [status, setStatus] = useState("checking"); // checking | authed | anon
   const [user, setUser] = useState(null);
 
@@ -15,6 +15,6 @@ export default function RequireAdminAuth({ children, role }) {
 
   if (status === "checking") return <p style={{ padding: "2rem" }}>Checking session...</p>;
   if (status === "anon") return <Navigate to="/login" replace />;
-  if (role && user.role !== role) return <Navigate to="/admin" replace />;
+  if (requiredRole && user.role !== requiredRole) return <Navigate to="/admin" replace />;
   return children;
 }

@@ -1,0 +1,11 @@
+node_modules
+backend/public
+backend/prisma/migrations
+frontend/dist
+frontend/test-results
+frontend/playwright-report
+package-lock.json
+
+# Prose is wrapped by hand here, and Prettier reflows it -- which would turn
+# every future one-line doc edit into a paragraph-sized diff.
+*.md

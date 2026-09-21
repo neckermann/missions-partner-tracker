@@ -136,10 +136,24 @@ a { color: var(--brand-color, #2a5d3c); }
   border-right: 1px solid #ddd;
   background: white;
 }
+/* A real <button>: selecting a partner is an action, and a div with an
+   onClick is unreachable by keyboard. These resets keep it looking exactly
+   like the list row it is. */
 .missionary-card {
-  padding: 0.9rem 1.1rem;
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
   border-bottom: 1px solid #eee;
+  padding: 0.9rem 1.1rem;
   cursor: pointer;
+}
+.missionary-card:focus-visible {
+  outline: 2px solid var(--brand-color, #2a5d3c);
+  outline-offset: -2px;
 }
 .missionary-card:hover { background: #f0f6f1; }
 .missionary-card.active { background: #e3efe6; border-left: 4px solid var(--brand-color, #2a5d3c); }
@@ -195,6 +209,28 @@ a { color: var(--brand-color, #2a5d3c); }
   font-size: 0.8rem;
   font-weight: 400;
   line-height: 1.4;
+}
+
+/* Modal (see components/Modal.jsx). The panel takes focus on open, so
+   suppress the focus ring on the container itself -- the visible dialog is
+   the affordance, and a ring around the whole box reads as an error. */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-panel {
+  background: #fff;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.modal-panel:focus {
+  outline: none;
 }
 
 .popup-card { max-width: 220px; }

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Modal from "../Modal.jsx";
 import { createPrayerRequest, createSupportNeed } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 
@@ -85,27 +86,20 @@ export default function ExtractionReviewModal({ scan, partnerId, defaultDate, on
   const nothingFound = status === "ready" && prayerRequests.length === 0 && oneTimeNeeds.length === 0;
 
   return (
-    <div
-      style={{
-        position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
-      }}
-      onClick={onClose}
-    >
-      <div
-        className="admin-section"
-        style={{ background: "#fff", maxWidth: "40rem", width: "90%", maxHeight: "85vh", overflowY: "auto" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h3 style={{ marginBottom: 0 }}>Scan results</h3>
-          <button type="button" className="btn secondary small" onClick={onClose}>
-            Close
-          </button>
-        </div>
-
-        {status === "loading" && <p style={{ color: "#555" }}>Reading the file with Claude — this can take up to a minute...</p>}
-        {status === "error" && <p style={{ color: "#b91c1c" }}>{error}</p>}
+    <Modal title="Scan results" onClose={onClose}>
+        {/* role="status" so a screen reader announces the result when a scan
+            that can take a minute finally finishes, rather than leaving the
+            user to poll it. */}
+        {status === "loading" && (
+          <p style={{ color: "#555" }} role="status">
+            Reading the file with Claude — this can take up to a minute...
+          </p>
+        )}
+        {status === "error" && (
+          <p style={{ color: "#b91c1c" }} role="alert">
+            {error}
+          </p>
+        )}
         {nothingFound && <p style={{ color: "#888" }}>No prayer requests or one-time needs found in this file.</p>}
 
         {prayerRequests.length > 0 && (
@@ -180,7 +174,6 @@ export default function ExtractionReviewModal({ scan, partnerId, defaultDate, on
             ))}
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }
