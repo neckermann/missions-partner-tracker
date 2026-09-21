@@ -9,6 +9,7 @@ import RequireAdminAuth from "./components/RequireAdminAuth.jsx";
 import RequirePublicSite from "./components/RequirePublicSite.jsx";
 import RequireAdminFeature from "./components/RequireAdminFeature.jsx";
 import { SettingsProvider } from "./context/SettingsContext.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import "./index.css";
 
 // Everything below is split out of the entry bundle, for two reasons.
@@ -73,6 +74,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <SettingsProvider>
       <BrowserRouter>
+        {/* Outermost net: catches a render error on any page, and a failed
+            lazy-chunk import after a deploy -- Suspense covers the pending
+            state, not the failure. */}
+        <ErrorBoundary homeHref="/" homeLabel="the home page">
         <Suspense fallback={<RouteFallback />}>
         <Routes>
           {/* Public site */}
@@ -159,6 +164,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           </Route>
         </Routes>
         </Suspense>
+        </ErrorBoundary>
       </BrowserRouter>
     </SettingsProvider>
   </React.StrictMode>
