@@ -88,6 +88,22 @@ app.use("/api/auth/mfa/login-verify", rateLimit({ windowMs: 15 * 60 * 1000, max:
 // its owner actually completing setup.
 app.use("/api/auth/setup", rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }));
 
+// Everything else under /api/auth that guesses at a secret. These sit
+// behind a session, which is why they were missed -- but a session is not
+// a guess limiter:
+//
+//   /mfa/verify-setup  a 6-digit code against a 20-minute setup token
+//   /mfa/disable       the account's current password
+//   /change-password   the account's current password
+//
+// Unlimited attempts at any of those defeats the point of the control. This
+// matters more since SSO was removed: email + password with optional TOTP
+// is the only way in, so these endpoints are the whole door.
+const sensitiveAuthLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
+app.use("/api/auth/mfa/verify-setup", sensitiveAuthLimiter);
+app.use("/api/auth/mfa/disable", sensitiveAuthLimiter);
+app.use("/api/auth/change-password", sensitiveAuthLimiter);
+
 // The public site's own pages (directory, map, tour) legitimately fire many
 // requests per visitor, so this is deliberately generous — it's here to
 // blunt scripted scraping/abuse against these unauthenticated, DB-querying

@@ -13,6 +13,11 @@ const MFA_PENDING_TTL = "5m";
 const MFA_SETUP_TTL = "20m";
 // Shown in the user's authenticator app (Google Authenticator, Authy, etc.)
 // next to their account when they scan the MFA setup QR code.
+// A real bcrypt hash of a value nobody can supply, used only to burn the
+// same CPU time a genuine comparison would. Generated at startup rather
+// than hardcoded so it never looks like a credential.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync("no-such-account-placeholder", 12);
+
 const MFA_ISSUER = process.env.MFA_ISSUER || "Missions Partner Tracker Admin";
 
 function signMfaPendingToken(user) {
@@ -108,12 +113,14 @@ router.post("/login", async (req, res, next) => {
       where: { email: email.toLowerCase().trim() },
     });
 
-    if (!user || !user.active || user.authProvider !== "local" || !user.passwordHash) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    const match = await bcrypt.compare(password, user.passwordHash);
-    if (!match) return res.status(401).json({ error: "Invalid credentials" });
+    // Hash against a dummy when there's no usable account, so a miss costs
+    // the same ~100ms as a wrong password. Returning early instead would
+    // make "this email has an account" measurable from the response time,
+    // which is how you enumerate a church's admin addresses even though
+    // every reply says the same thing.
+    const usable = Boolean(user && user.active && user.authProvider === "local" && user.passwordHash);
+    const match = await bcrypt.compare(password, usable ? user.passwordHash : DUMMY_PASSWORD_HASH);
+    if (!usable || !match) return res.status(401).json({ error: "Invalid credentials" });
 
     if (user.mfaEnabled) {
       return res.json({ mfaRequired: true, pendingToken: signMfaPendingToken(user) });
@@ -151,8 +158,18 @@ router.post("/mfa/login-verify", async (req, res, next) => {
       return res.status(401).json({ error: "Invalid MFA session" });
     }
 
-    const { valid } = await verifyOtp({ secret: decryptField(user.mfaSecret), token: String(token) });
+    const { valid, timeStep } = await verifyOtp({
+      secret: decryptField(user.mfaSecret),
+      token: String(token),
+      // Refuse a code this account has already used. A TOTP code is valid
+      // for its whole 30-second window, so without this one observed code
+      // -- shoulder-surfed, phished, or read off a shared screen -- can be
+      // replayed by someone else until it expires.
+      afterTimeStep: user.mfaLastTimeStep ?? undefined,
+    });
     if (!valid) return res.status(401).json({ error: "Invalid code" });
+
+    await prisma.user.update({ where: { id: user.id }, data: { mfaLastTimeStep: timeStep } });
 
     res.json(await completeLogin(res, user));
   } catch (err) {
@@ -247,12 +264,16 @@ router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) =
       return res.status(400).json({ error: "No MFA setup in progress" });
     }
 
-    const { valid } = await verifyOtp({ secret: decryptField(user.mfaSecret), token: String(token) });
+    const { valid, timeStep } = await verifyOtp({
+      secret: decryptField(user.mfaSecret),
+      token: String(token),
+      afterTimeStep: user.mfaLastTimeStep ?? undefined,
+    });
     if (!valid) return res.status(401).json({ error: "Invalid code" });
 
     const updated = await prisma.user.update({
       where: { id: user.id },
-      data: { mfaEnabled: true, mfaSetupRequired: false },
+      data: { mfaEnabled: true, mfaSetupRequired: false, mfaLastTimeStep: timeStep },
     });
     res.json(await completeLogin(res, updated));
   } catch (err) {

@@ -532,6 +532,12 @@ model User {
   // password.
   mfaEnabled Boolean @default(false)
   mfaSecret  String?
+  // The last TOTP time step accepted for this user, so the same code can't
+  // be used twice. A TOTP code stays valid for its whole 30-second window,
+  // which means one shoulder-surfed or phished code is replayable until it
+  // expires; otplib rejects a repeat when the accepted step is passed back
+  // as `afterTimeStep`. Null until their first successful code.
+  mfaLastTimeStep Int?
   // Admin-set per-user policy flag: forces enrollment at next login when
   // true and mfaEnabled is still false. Independent of mfaEnabled so an
   // admin can mandate MFA for an account without knowing/setting the
