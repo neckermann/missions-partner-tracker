@@ -37,7 +37,10 @@ function formatDate(value) {
 function lastTripInfo(trips) {
   const dated = (trips || []).filter((t) => t.startDate);
   const lastDate = dated.length
-    ? dated.reduce((latest, t) => (new Date(t.startDate) > new Date(latest) ? t.startDate : latest), dated[0].startDate)
+    ? dated.reduce(
+        (latest, t) => (new Date(t.startDate) > new Date(latest) ? t.startDate : latest),
+        dated[0].startDate
+      )
     : null;
   return { lastDate, count: trips?.length || 0 };
 }
@@ -151,120 +154,129 @@ export default function AdminTripOpportunities() {
     <div className="admin-shell">
       <h2>Trip Opportunities</h2>
       <p style={{ color: "#555" }}>
-          Find partners who can host a trip you're planning, based on the
-          team size and trip types they say they support.
-        </p>
+        Find partners who can host a trip you're planning, based on the team size and trip types they say they
+        support.
+      </p>
 
-        <div className="admin-section">
-          <h3>Search</h3>
-          <div className="form-grid">
-            <label>
-              Partner Type
-              <select value={filters.entityType} onChange={(e) => updateFilter("entityType", e.target.value)}>
-                <option value="all">All</option>
-                <option value="Missionary">Missionary</option>
-                <option value="Organization">Organization</option>
-              </select>
-            </label>
-            <label>
-              Trip Type
-              <select value={filters.tripType} onChange={(e) => updateFilter("tripType", e.target.value)}>
-                <option value="all">Any</option>
-                {tripTypeOptions.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Team Size
-              <input
-                type="number"
-                min="0"
-                placeholder="e.g. 8"
-                value={filters.teamSize}
-                onChange={(e) => updateFilter("teamSize", e.target.value)}
-              />
-            </label>
-            <label>
-              Field / Region contains
-              <input value={filters.field} onChange={(e) => updateFilter("field", e.target.value)} placeholder="e.g. Kenya" />
-            </label>
-            <label>
-              Last Visited
-              <select value={filters.recency} onChange={(e) => updateFilter("recency", e.target.value)}>
-                <option value="any">Any</option>
-                <option value="never">Never</option>
-                <option value="over1y">Over 1 year ago</option>
-                <option value="over2y">Over 2 years ago</option>
-              </select>
-            </label>
-          </div>
-          <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={filters.includeArchived}
-                onChange={(e) => updateFilter("includeArchived", e.target.checked)}
-              />
-              Include archived
-            </label>
-          </div>
-          <button type="button" className="btn secondary small" style={{ marginTop: "1rem" }} onClick={() => setFilters(emptyFilters)}>
-            Reset
-          </button>
+      <div className="admin-section">
+        <h3>Search</h3>
+        <div className="form-grid">
+          <label>
+            Partner Type
+            <select value={filters.entityType} onChange={(e) => updateFilter("entityType", e.target.value)}>
+              <option value="all">All</option>
+              <option value="Missionary">Missionary</option>
+              <option value="Organization">Organization</option>
+            </select>
+          </label>
+          <label>
+            Trip Type
+            <select value={filters.tripType} onChange={(e) => updateFilter("tripType", e.target.value)}>
+              <option value="all">Any</option>
+              {tripTypeOptions.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Team Size
+            <input
+              type="number"
+              min="0"
+              placeholder="e.g. 8"
+              value={filters.teamSize}
+              onChange={(e) => updateFilter("teamSize", e.target.value)}
+            />
+          </label>
+          <label>
+            Field / Region contains
+            <input
+              value={filters.field}
+              onChange={(e) => updateFilter("field", e.target.value)}
+              placeholder="e.g. Kenya"
+            />
+          </label>
+          <label>
+            Last Visited
+            <select value={filters.recency} onChange={(e) => updateFilter("recency", e.target.value)}>
+              <option value="any">Any</option>
+              <option value="never">Never</option>
+              <option value="over1y">Over 1 year ago</option>
+              <option value="over2y">Over 2 years ago</option>
+            </select>
+          </label>
         </div>
+        <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
+          <label>
+            <input
+              type="checkbox"
+              checked={filters.includeArchived}
+              onChange={(e) => updateFilter("includeArchived", e.target.checked)}
+            />
+            Include archived
+          </label>
+        </div>
+        <button
+          type="button"
+          className="btn secondary small"
+          style={{ marginTop: "1rem" }}
+          onClick={() => setFilters(emptyFilters)}
+        >
+          Reset
+        </button>
+      </div>
 
-        <table className="admin-table" style={{ marginTop: "1rem" }}>
-          <thead>
-            <tr>
-              <th>Partner</th>
-              <th>Type</th>
-              <th>Field / Region</th>
-              <th>Last Trip</th>
-              <th>Team Size</th>
-              <th>Trip Types Supported</th>
-              <th>Season Notes</th>
-              <th>Logistics Notes</th>
+      <table className="admin-table" style={{ marginTop: "1rem" }}>
+        <thead>
+          <tr>
+            <th>Partner</th>
+            <th>Type</th>
+            <th>Field / Region</th>
+            <th>Last Trip</th>
+            <th>Team Size</th>
+            <th>Trip Types Supported</th>
+            <th>Season Notes</th>
+            <th>Logistics Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {results.map((e) => (
+            <tr key={`${e.entityType}-${e.id}`}>
+              <td>
+                <Link to={e.link}>{e.name}</Link>
+                {e.fit.notes.length > 0 && (
+                  <div style={{ fontSize: "0.75rem", color: "#b45309" }}>{e.fit.notes.join(" · ")}</div>
+                )}
+              </td>
+              <td>{e.entityType}</td>
+              <td>{e.field || "—"}</td>
+              <td>
+                {e.lastTrip.lastDate ? (
+                  <>
+                    {formatDate(e.lastTrip.lastDate)}
+                    <div style={{ fontSize: "0.75rem", color: "#888" }}>
+                      {e.lastTrip.count} trip{e.lastTrip.count === 1 ? "" : "s"} total
+                    </div>
+                  </>
+                ) : (
+                  <span style={{ color: "#aaa" }}>Never</span>
+                )}
+              </td>
+              <td>{teamSizeLabel(e.tripTeamSizeMin, e.tripTeamSizeMax)}</td>
+              <td>{e.tripTypesSupported.length ? e.tripTypesSupported.join(", ") : "—"}</td>
+              <td>{e.tripSeasonNotes || "—"}</td>
+              <td>{e.tripLogisticsNotes || "—"}</td>
             </tr>
-          </thead>
-          <tbody>
-            {results.map((e) => (
-              <tr key={`${e.entityType}-${e.id}`}>
-                <td>
-                  <Link to={e.link}>{e.name}</Link>
-                  {e.fit.notes.length > 0 && (
-                    <div style={{ fontSize: "0.75rem", color: "#b45309" }}>{e.fit.notes.join(" · ")}</div>
-                  )}
-                </td>
-                <td>{e.entityType}</td>
-                <td>{e.field || "—"}</td>
-                <td>
-                  {e.lastTrip.lastDate ? (
-                    <>
-                      {formatDate(e.lastTrip.lastDate)}
-                      <div style={{ fontSize: "0.75rem", color: "#888" }}>
-                        {e.lastTrip.count} trip{e.lastTrip.count === 1 ? "" : "s"} total
-                      </div>
-                    </>
-                  ) : (
-                    <span style={{ color: "#aaa" }}>Never</span>
-                  )}
-                </td>
-                <td>{teamSizeLabel(e.tripTeamSizeMin, e.tripTeamSizeMax)}</td>
-                <td>{e.tripTypesSupported.length ? e.tripTypesSupported.join(", ") : "—"}</td>
-                <td>{e.tripSeasonNotes || "—"}</td>
-                <td>{e.tripLogisticsNotes || "—"}</td>
-              </tr>
-            ))}
-            {results.length === 0 && (
-              <tr>
-                <td colSpan={8} style={{ color: "#888" }}>
-                  No matches for these filters.
-                </td>
-              </tr>
-            )}
+          ))}
+          {results.length === 0 && (
+            <tr>
+              <td colSpan={8} style={{ color: "#888" }}>
+                No matches for these filters.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

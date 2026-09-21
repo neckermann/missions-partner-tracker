@@ -13,15 +13,11 @@ const FORMAT_PREFIX = "v1";
 function getKey() {
   const keyB64 = process.env.FIELD_ENCRYPTION_KEY;
   if (!keyB64) {
-    throw new Error(
-      "FIELD_ENCRYPTION_KEY is not set — generate one with `openssl rand -base64 32`"
-    );
+    throw new Error("FIELD_ENCRYPTION_KEY is not set — generate one with `openssl rand -base64 32`");
   }
   const key = Buffer.from(keyB64, "base64");
   if (key.length !== 32) {
-    throw new Error(
-      "FIELD_ENCRYPTION_KEY must decode to exactly 32 bytes (base64 of a 256-bit key)"
-    );
+    throw new Error("FIELD_ENCRYPTION_KEY must decode to exactly 32 bytes (base64 of a 256-bit key)");
   }
   return key;
 }
@@ -39,7 +35,12 @@ function encryptField(plaintext) {
   const cipher = crypto.createCipheriv(ALGORITHM, getKey(), iv);
   const ciphertext = Buffer.concat([cipher.update(String(plaintext), "utf8"), cipher.final()]);
   const authTag = cipher.getAuthTag();
-  return [FORMAT_PREFIX, iv.toString("base64"), authTag.toString("base64"), ciphertext.toString("base64")].join(":");
+  return [
+    FORMAT_PREFIX,
+    iv.toString("base64"),
+    authTag.toString("base64"),
+    ciphertext.toString("base64"),
+  ].join(":");
 }
 
 // Tolerates a legacy plaintext value (not yet run through the one-time
@@ -52,10 +53,7 @@ function decryptField(stored) {
   const [, ivB64, authTagB64, ciphertextB64] = stored.split(":");
   const decipher = crypto.createDecipheriv(ALGORITHM, getKey(), Buffer.from(ivB64, "base64"));
   decipher.setAuthTag(Buffer.from(authTagB64, "base64"));
-  const plaintext = Buffer.concat([
-    decipher.update(Buffer.from(ciphertextB64, "base64")),
-    decipher.final(),
-  ]);
+  const plaintext = Buffer.concat([decipher.update(Buffer.from(ciphertextB64, "base64")), decipher.final()]);
   return plaintext.toString("utf8");
 }
 

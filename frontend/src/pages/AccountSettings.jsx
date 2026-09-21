@@ -1,11 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  fetchCurrentUser,
-  changePassword,
-  setupMfa,
-  verifyMfaSetup,
-  disableMfa,
-} from "../api/client.js";
+import { fetchCurrentUser, changePassword, setupMfa, verifyMfaSetup, disableMfa } from "../api/client.js";
 
 export default function AccountSettings() {
   const [user, setUser] = useState(null);
@@ -56,56 +50,56 @@ export default function AccountSettings() {
     <div className="admin-shell" style={{ maxWidth: 480 }}>
       <h2>My Account</h2>
       {user && (
-          <p style={{ color: "#555" }}>
-            Signed in as <strong>{user.email}</strong> ({user.role})
-          </p>
-        )}
+        <p style={{ color: "#555" }}>
+          Signed in as <strong>{user.email}</strong> ({user.role})
+        </p>
+      )}
 
-        {!user ? null : (
-          <div className="admin-section">
-            <h3>Change Password</h3>
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <label>
-                Current Password
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  required
-                />
-              </label>
-              <label>
-                New Password
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  minLength={8}
-                  required
-                />
-              </label>
-              <label>
-                Confirm New Password
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  minLength={8}
-                  required
-                />
-              </label>
+      {!user ? null : (
+        <div className="admin-section">
+          <h3>Change Password</h3>
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <label>
+              Current Password
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+              />
+            </label>
+            <label>
+              New Password
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                minLength={8}
+                required
+              />
+            </label>
+            <label>
+              Confirm New Password
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                minLength={8}
+                required
+              />
+            </label>
 
-              {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-              {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
+            {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+            {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
 
-              <div>
-                <button type="submit" className="btn" disabled={saving}>
-                  {saving ? "Saving..." : "Update Password"}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+            <div>
+              <button type="submit" className="btn" disabled={saving}>
+                {saving ? "Saving..." : "Update Password"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {user?.authProvider === "local" && <MfaSection user={user} onChange={reloadUser} />}
     </div>
@@ -178,10 +172,11 @@ function MfaSection({ user, onChange }) {
           <p>
             <span className="status-pill good">Enabled</span>
           </p>
-          <p style={{ color: "#555" }}>
-            Your account requires a code from your authenticator app at login.
-          </p>
-          <form onSubmit={handleDisable} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: 320 }}>
+          <p style={{ color: "#555" }}>Your account requires a code from your authenticator app at login.</p>
+          <form
+            onSubmit={handleDisable}
+            style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: 320 }}
+          >
             <label>
               Current Password
               <input
@@ -199,7 +194,10 @@ function MfaSection({ user, onChange }) {
           </form>
         </>
       ) : setupData ? (
-        <form onSubmit={handleConfirmSetup} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: 320 }}>
+        <form
+          onSubmit={handleConfirmSetup}
+          style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: 320 }}
+        >
           <p>Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):</p>
           <img src={setupData.qrCode} alt="MFA QR code" style={{ width: 200, height: 200 }} />
           <p style={{ fontSize: "0.85rem", color: "#555" }}>

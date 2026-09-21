@@ -2,7 +2,9 @@ import { test, expect } from "@playwright/test";
 import { login } from "./helpers.js";
 
 test.describe("Monthly Support", () => {
-  test("add a support entry, confirm it becomes current, then delete it from the History panel", async ({ page }) => {
+  test("add a support entry, confirm it becomes current, then delete it from the History panel", async ({
+    page,
+  }) => {
     await login(page);
 
     const missionariesRes = await page.request.get("/api/partners?kind=missionary");

@@ -61,12 +61,14 @@ export default function PublicDirectory() {
   );
   const availableCountries = useMemo(
     () =>
-      [...new Set(
-        partners
-          .filter((p) => continentFilter === "all" || p.continent === continentFilter)
-          .map((p) => p.country)
-          .filter(Boolean)
-      )].sort(),
+      [
+        ...new Set(
+          partners
+            .filter((p) => continentFilter === "all" || p.continent === continentFilter)
+            .map((p) => p.country)
+            .filter(Boolean)
+        ),
+      ].sort(),
     [partners, continentFilter]
   );
 
@@ -111,12 +113,14 @@ export default function PublicDirectory() {
         </Link>
       </header>
 
-      {aboutText && (
-        <p className="public-about-text">{aboutText}</p>
-      )}
+      {aboutText && <p className="public-about-text">{aboutText}</p>}
 
       <div className="partner-filter-bar">
-        <select aria-label="Filter by partner type" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+        <select
+          aria-label="Filter by partner type"
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+        >
           <option value="all">All Partners</option>
           <option value="missionary">Missionaries</option>
           <option value="organization">Organizations</option>
@@ -128,13 +132,21 @@ export default function PublicDirectory() {
         >
           <option value="all">All Continents</option>
           {availableContinents.map((c) => (
-            <option key={c} value={c}>{c}</option>
+            <option key={c} value={c}>
+              {c}
+            </option>
           ))}
         </select>
-        <select aria-label="Filter by country" value={countryFilter} onChange={(e) => setCountryFilter(e.target.value)}>
+        <select
+          aria-label="Filter by country"
+          value={countryFilter}
+          onChange={(e) => setCountryFilter(e.target.value)}
+        >
           <option value="all">All Countries</option>
           {availableCountries.map((c) => (
-            <option key={c} value={c}>{c}</option>
+            <option key={c} value={c}>
+              {c}
+            </option>
           ))}
         </select>
         <input
@@ -164,7 +176,9 @@ export default function PublicDirectory() {
             </div>
           </Link>
         ))}
-        {loaded && filtered.length === 0 && <p style={{ padding: "1.5rem" }}>No partners match your search.</p>}
+        {loaded && filtered.length === 0 && (
+          <p style={{ padding: "1.5rem" }}>No partners match your search.</p>
+        )}
         {!loaded && <p style={{ padding: "1.5rem" }}>Loading...</p>}
       </div>
     </div>

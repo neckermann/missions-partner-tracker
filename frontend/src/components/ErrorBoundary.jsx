@@ -44,8 +44,8 @@ export default class ErrorBoundary extends React.Component {
         <div className="admin-section" style={{ maxWidth: "36rem" }}>
           <h2 style={{ marginTop: 0 }}>Something went wrong on this page</h2>
           <p style={{ color: "#666" }}>
-            This is a bug, not something you did. Reloading usually fixes it — and always does if the
-            app was updated while this tab was open.
+            This is a bug, not something you did. Reloading usually fixes it — and always does if the app was
+            updated while this tab was open.
           </p>
           <div style={{ display: "flex", gap: "0.5rem", marginTop: "1.25rem", flexWrap: "wrap" }}>
             <button type="button" className="btn" onClick={() => window.location.reload()}>

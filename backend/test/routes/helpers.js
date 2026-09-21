@@ -71,7 +71,10 @@ async function client(role) {
       body: JSON.stringify({ email: TEST_USERS[role].email, password: TEST_PASSWORD }),
     });
     if (res.status !== 200) throw new Error(`login as ${role} failed: ${res.status}`);
-    cookie = res.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+    cookie = res.headers
+      .getSetCookie()
+      .map((c) => c.split(";")[0])
+      .join("; ");
   }
 
   return async function request(path, options = {}) {

@@ -47,9 +47,7 @@ export default function CountryStats({ countryCode }) {
               {info.PercentChristianity != null && (
                 <p>Christianity: {info.PercentChristianity.toFixed(2)}%</p>
               )}
-              {info.PercentEvangelical != null && (
-                <p>Evangelical: {info.PercentEvangelical.toFixed(2)}%</p>
-              )}
+              {info.PercentEvangelical != null && <p>Evangelical: {info.PercentEvangelical.toFixed(2)}%</p>}
               {info.JPScaleText && <p>JP Scale: {info.JPScaleText}</p>}
               <p style={{ fontSize: "0.75rem", color: "#888", marginBottom: 0 }}>
                 Source:{" "}

@@ -47,7 +47,13 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ category: "", customCategory: "", title: "", receivedDate: "", notes: "" });
+  const [editForm, setEditForm] = useState({
+    category: "",
+    customCategory: "",
+    title: "",
+    receivedDate: "",
+    notes: "",
+  });
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -183,11 +189,20 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
             )}
             <label>
               Title (optional)
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 2026 Field Survey" />
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. 2026 Field Survey"
+              />
             </label>
             <label>
               Received Date
-              <input type="date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} required />
+              <input
+                type="date"
+                value={receivedDate}
+                onChange={(e) => setReceivedDate(e.target.value)}
+                required
+              />
             </label>
             <label style={{ gridColumn: "1 / -1" }}>
               Notes
@@ -207,14 +222,24 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
         {documents?.length > 0 ? (
           documents.map((d) => (
             <div key={d.id} className="repeatable-row">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "0.5rem",
+                }}
+              >
                 <div>
                   <strong>{d.title || d.fileName}</strong>
                   <div style={{ fontSize: "0.85rem", color: "#666" }}>
                     {documentCategoryLabel(d)} · Received {formatDate(d.receivedDate)} · {d.fileName}
                     {d.fileSize != null && ` (${formatFileSize(d.fileSize)})`}
                   </div>
-                  {d.notes && <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>{d.notes}</div>}
+                  {d.notes && (
+                    <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>{d.notes}</div>
+                  )}
                 </div>
                 <div className="table-actions">
                   <button type="button" className="btn secondary small" onClick={() => handleView(d)}>

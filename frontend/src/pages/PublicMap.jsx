@@ -224,11 +224,7 @@ export default function PublicMap() {
           <Link to="/" style={{ color: "white", marginRight: "1rem" }}>
             Partner Directory
           </Link>
-          <button
-            className="btn"
-            onClick={() => setAutoScroll((v) => !v)}
-            style={{ marginRight: "0.5rem" }}
-          >
+          <button className="btn" onClick={() => setAutoScroll((v) => !v)} style={{ marginRight: "0.5rem" }}>
             {autoScroll ? "Stop Tour" : "Start Tour"}
           </button>
         </div>
@@ -317,7 +313,7 @@ export default function PublicMap() {
             scrollWheelZoom={true}
           >
             <TileLayer
-              attribution='&copy; OpenStreetMap contributors'
+              attribution="&copy; OpenStreetMap contributors"
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <FlyToController target={activeMissionary} />

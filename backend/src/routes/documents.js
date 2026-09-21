@@ -68,7 +68,7 @@ const metaObjectSchema = z.object({
 });
 const metaSchema = metaObjectSchema.refine(
   (data) => data.category !== "other" || Boolean(data.customCategory?.trim()),
-  { message: "customCategory is required when category is \"other\"", path: ["customCategory"] }
+  { message: 'customCategory is required when category is "other"', path: ["customCategory"] }
 );
 
 // GET /api/documents (all partners combined, newest first) — optional
@@ -95,41 +95,36 @@ router.get("/", async (req, res, next) => {
 });
 
 // POST /api/documents (upload — editor or admin)
-router.post(
-  "/",
-  requireRole("admin", "editor"),
-  upload.single("file"),
-  async (req, res, next) => {
-    try {
-      if (!req.file) return res.status(400).json({ error: "No file provided" });
+router.post("/", requireRole("admin", "editor"), upload.single("file"), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file provided" });
 
-      // .eml has no reliable magic bytes across mail clients (see
-      // resolveExt above), so it's exempt -- everything else this route
-      // accepts does have one and gets verified.
-      if (!/\.eml$/i.test(req.file.originalname) && !matchesFileSignature(req.file.buffer, req.file.mimetype)) {
-        return res.status(400).json({ error: "File content doesn't match its declared type" });
-      }
-
-      const meta = metaSchema.parse(req.body);
-
-      const created = await prisma.document.create({
-        data: {
-          ...meta,
-          bytes: req.file.buffer,
-          fileName: req.file.originalname,
-          contentType: req.file.mimetype || "application/octet-stream",
-          fileSize: req.file.size,
-        },
-        include: documentInclude,
-        omit: { bytes: true },
-      });
-
-      res.status(201).json(created);
-    } catch (err) {
-      next(err);
+    // .eml has no reliable magic bytes across mail clients (see
+    // resolveExt above), so it's exempt -- everything else this route
+    // accepts does have one and gets verified.
+    if (!/\.eml$/i.test(req.file.originalname) && !matchesFileSignature(req.file.buffer, req.file.mimetype)) {
+      return res.status(400).json({ error: "File content doesn't match its declared type" });
     }
+
+    const meta = metaSchema.parse(req.body);
+
+    const created = await prisma.document.create({
+      data: {
+        ...meta,
+        bytes: req.file.buffer,
+        fileName: req.file.originalname,
+        contentType: req.file.mimetype || "application/octet-stream",
+        fileSize: req.file.size,
+      },
+      include: documentInclude,
+      omit: { bytes: true },
+    });
+
+    res.status(201).json(created);
+  } catch (err) {
+    next(err);
   }
-);
+});
 
 // GET /api/documents/:id/download — streams the file straight from the
 // database (still requireAuth'd, per router.use above; no separate signed
@@ -164,7 +159,7 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     const category = data.category !== undefined ? data.category : existing.category;
     const customCategory = data.customCategory !== undefined ? data.customCategory : existing.customCategory;
     if (category === "other" && !customCategory?.trim()) {
-      return res.status(400).json({ error: "customCategory is required when category is \"other\"" });
+      return res.status(400).json({ error: 'customCategory is required when category is "other"' });
     }
 
     const updated = await prisma.document.update({
@@ -185,17 +180,22 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
 // (PDF/JPEG/PNG; extractRequestsFromFile 400s clearly for anything else,
 // e.g. a raw .eml or Word/Excel document), since that's a more accurate
 // constraint than guessing from the category label.
-router.post("/:id/extract", requireRole("admin", "editor"), requireFeature("aiExtraction"), async (req, res, next) => {
-  try {
-    const record = await prisma.document.findUnique({ where: { id: req.params.id } });
-    if (!record) return res.status(404).json({ error: "Not found" });
+router.post(
+  "/:id/extract",
+  requireRole("admin", "editor"),
+  requireFeature("aiExtraction"),
+  async (req, res, next) => {
+    try {
+      const record = await prisma.document.findUnique({ where: { id: req.params.id } });
+      if (!record) return res.status(404).json({ error: "Not found" });
 
-    const suggestions = await extractRequestsFromFile(record);
-    res.json(suggestions);
-  } catch (err) {
-    next(err);
+      const suggestions = await extractRequestsFromFile(record);
+      res.json(suggestions);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 // DELETE /api/documents/:id (admin only)
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {

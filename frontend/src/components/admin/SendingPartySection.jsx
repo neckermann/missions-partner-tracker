@@ -15,7 +15,11 @@ export default function SendingPartySection({ title, value, onChange, checkbox }
       {checkbox && (
         <div className="admin-checkbox-row" style={{ marginBottom: "1.25rem" }}>
           <label>
-            <input type="checkbox" checked={checkbox.checked} onChange={(e) => checkbox.onChange(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={checkbox.checked}
+              onChange={(e) => checkbox.onChange(e.target.checked)}
+            />
             {checkbox.label}
           </label>
         </div>

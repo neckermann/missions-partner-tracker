@@ -45,7 +45,8 @@ export default function PhotoHistorySection({ partnerId, photos, onChange }) {
   }
 
   async function handleDelete(p) {
-    if (!confirm(`Delete this photo (received ${formatDate(p.receivedDate)})? This cannot be undone.`)) return;
+    if (!confirm(`Delete this photo (received ${formatDate(p.receivedDate)})? This cannot be undone.`))
+      return;
     await deletePartnerPhoto(partnerId, p.id);
     await onChange();
   }
@@ -73,7 +74,12 @@ export default function PhotoHistorySection({ partnerId, photos, onChange }) {
             </label>
             <label>
               Received Date
-              <input type="date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} required />
+              <input
+                type="date"
+                value={receivedDate}
+                onChange={(e) => setReceivedDate(e.target.value)}
+                required
+              />
             </label>
           </div>
           {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
@@ -89,7 +95,15 @@ export default function PhotoHistorySection({ partnerId, photos, onChange }) {
         {photos?.length > 0 ? (
           photos.map((p, i) => (
             <div key={p.id} className="repeatable-row">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "0.5rem",
+                }}
+              >
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                   <img
                     src={p.url}

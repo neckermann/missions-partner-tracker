@@ -77,91 +77,148 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             lazy-chunk import after a deploy -- Suspense covers the pending
             state, not the failure. */}
         <ErrorBoundary homeHref="/" homeLabel="the home page">
-        <Suspense fallback={<RouteFallback />}>
-        <Routes>
-          {/* Public site */}
-          <Route path="/" element={<RequirePublicSite feature="publicDirectory"><PublicDirectory /></RequirePublicSite>} />
-          <Route path="/map" element={<RequirePublicSite feature="publicMap"><PublicMap /></RequirePublicSite>} />
-          <Route
-            path="/partners/:id"
-            element={
-              <RequirePublicSite feature={["publicDirectory", "publicMap"]}>
-                <PublicPartnerDetail />
-              </RequirePublicSite>
-            }
-          />
-          <Route path="/partners/:type/:id" element={<LegacyPublicPartnerRedirect />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/setup" element={<Setup />} />
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              {/* Public site */}
+              <Route
+                path="/"
+                element={
+                  <RequirePublicSite feature="publicDirectory">
+                    <PublicDirectory />
+                  </RequirePublicSite>
+                }
+              />
+              <Route
+                path="/map"
+                element={
+                  <RequirePublicSite feature="publicMap">
+                    <PublicMap />
+                  </RequirePublicSite>
+                }
+              />
+              <Route
+                path="/partners/:id"
+                element={
+                  <RequirePublicSite feature={["publicDirectory", "publicMap"]}>
+                    <PublicPartnerDetail />
+                  </RequirePublicSite>
+                }
+              />
+              <Route path="/partners/:type/:id" element={<LegacyPublicPartnerRedirect />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/setup" element={<Setup />} />
 
-          {/* Admin (protected) — one shared sidebar layout for every
+              {/* Admin (protected) — one shared sidebar layout for every
               sub-route below, including detail/edit forms. Role-specific
               routes (users, settings) add their own extra RequireAdminAuth
               on top of the outer any-logged-in-role check. */}
-          <Route
-            path="/admin"
-            element={
-              <RequireAdminAuth>
-                <AdminLayout />
-              </RequireAdminAuth>
-            }
-          >
-            <Route index element={<AdminHome />} />
-            <Route path="partners" element={<AdminPartners />} />
-            <Route path="partners/new" element={<AdminPartnerForm />} />
-            <Route path="partners/:id" element={<AdminPartnerDetail />} />
-            {/* The partner page edits itself section by section, so there is
+              <Route
+                path="/admin"
+                element={
+                  <RequireAdminAuth>
+                    <AdminLayout />
+                  </RequireAdminAuth>
+                }
+              >
+                <Route index element={<AdminHome />} />
+                <Route path="partners" element={<AdminPartners />} />
+                <Route path="partners/new" element={<AdminPartnerForm />} />
+                <Route path="partners/:id" element={<AdminPartnerDetail />} />
+                {/* The partner page edits itself section by section, so there is
                 no separate edit form any more -- old links land on it. */}
-            <Route path="partners/:id/edit" element={<LegacyPartnerRedirect />} />
-            {/* Missionaries and organizations merged into one Partner
+                <Route path="partners/:id/edit" element={<LegacyPartnerRedirect />} />
+                {/* Missionaries and organizations merged into one Partner
                 resource in v2.0.0. These keep old bookmarks and any links
                 sent round in email working -- the ids didn't change. */}
-            <Route path="missionaries/new" element={<Navigate to="/admin/partners/new?kind=missionary" replace />} />
-            <Route path="organizations/new" element={<Navigate to="/admin/partners/new?kind=organization" replace />} />
-            <Route path="missionaries/:id" element={<LegacyPartnerRedirect />} />
-            <Route path="missionaries/:id/edit" element={<LegacyPartnerRedirect />} />
-            <Route path="organizations/:id" element={<LegacyPartnerRedirect />} />
-            <Route path="organizations/:id/edit" element={<LegacyPartnerRedirect />} />
-            <Route path="booklet" element={<RequireAdminFeature feature="booklet"><AdminBooklet /></RequireAdminFeature>} />
-            <Route
-              path="support/monthly"
-              element={<RequireAdminFeature feature="monthlySupport"><AdminMonthlySupport /></RequireAdminFeature>}
-            />
-            <Route
-              path="support/needs"
-              element={<RequireAdminFeature feature="oneTimeNeeds"><AdminOneTimeNeeds /></RequireAdminFeature>}
-            />
-            <Route
-              path="prayer-requests"
-              element={<RequireAdminFeature feature="prayerRequests"><AdminPrayerRequests /></RequireAdminFeature>}
-            />
-            <Route path="trips" element={<RequireAdminFeature feature="trips"><AdminTripHistory /></RequireAdminFeature>} />
-            <Route
-              path="trips/opportunities"
-              element={<RequireAdminFeature feature="trips"><AdminTripOpportunities /></RequireAdminFeature>}
-            />
-            <Route path="newsletters" element={<AdminNewsletters />} />
-            <Route path="documents" element={<AdminDocuments />} />
-            <Route path="account" element={<AccountSettings />} />
-            {/* Site Administration -- one admin-only guard on the whole
+                <Route
+                  path="missionaries/new"
+                  element={<Navigate to="/admin/partners/new?kind=missionary" replace />}
+                />
+                <Route
+                  path="organizations/new"
+                  element={<Navigate to="/admin/partners/new?kind=organization" replace />}
+                />
+                <Route path="missionaries/:id" element={<LegacyPartnerRedirect />} />
+                <Route path="missionaries/:id/edit" element={<LegacyPartnerRedirect />} />
+                <Route path="organizations/:id" element={<LegacyPartnerRedirect />} />
+                <Route path="organizations/:id/edit" element={<LegacyPartnerRedirect />} />
+                <Route
+                  path="booklet"
+                  element={
+                    <RequireAdminFeature feature="booklet">
+                      <AdminBooklet />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
+                  path="support/monthly"
+                  element={
+                    <RequireAdminFeature feature="monthlySupport">
+                      <AdminMonthlySupport />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
+                  path="support/needs"
+                  element={
+                    <RequireAdminFeature feature="oneTimeNeeds">
+                      <AdminOneTimeNeeds />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
+                  path="prayer-requests"
+                  element={
+                    <RequireAdminFeature feature="prayerRequests">
+                      <AdminPrayerRequests />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
+                  path="trips"
+                  element={
+                    <RequireAdminFeature feature="trips">
+                      <AdminTripHistory />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
+                  path="trips/opportunities"
+                  element={
+                    <RequireAdminFeature feature="trips">
+                      <AdminTripOpportunities />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route path="newsletters" element={<AdminNewsletters />} />
+                <Route path="documents" element={<AdminDocuments />} />
+                <Route path="account" element={<AccountSettings />} />
+                {/* Site Administration -- one admin-only guard on the whole
                 sub-tree instead of repeating RequireAdminAuth per leaf
                 route. No shared visual layout here (no wrapper element,
                 just Outlet) -- unlike the rest of /admin/*, these pages are
                 reached via the sidebar's own expandable "Site
                 Administration" group (see AdminSidebar.jsx), not a
                 same-page tab bar, so each page owns its own heading. */}
-            <Route path="settings" element={<RequireAdminAuth requiredRole="admin"><Outlet /></RequireAdminAuth>}>
-              <Route index element={<Navigate to="about" replace />} />
-              <Route path="about" element={<AdminSettingsAbout />} />
-              <Route path="branding" element={<AdminSettingsBranding />} />
-              <Route path="features" element={<AdminSettingsFeatures />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="users/new" element={<AdminUserForm />} />
-              <Route path="users/:id" element={<AdminUserForm />} />
-            </Route>
-          </Route>
-        </Routes>
-        </Suspense>
+                <Route
+                  path="settings"
+                  element={
+                    <RequireAdminAuth requiredRole="admin">
+                      <Outlet />
+                    </RequireAdminAuth>
+                  }
+                >
+                  <Route index element={<Navigate to="about" replace />} />
+                  <Route path="about" element={<AdminSettingsAbout />} />
+                  <Route path="branding" element={<AdminSettingsBranding />} />
+                  <Route path="features" element={<AdminSettingsFeatures />} />
+                  <Route path="users" element={<AdminUsers />} />
+                  <Route path="users/new" element={<AdminUserForm />} />
+                  <Route path="users/:id" element={<AdminUserForm />} />
+                </Route>
+              </Route>
+            </Routes>
+          </Suspense>
         </ErrorBoundary>
       </BrowserRouter>
     </SettingsProvider>

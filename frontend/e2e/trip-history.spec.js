@@ -2,7 +2,9 @@ import { test, expect } from "@playwright/test";
 import { login } from "./helpers.js";
 
 test.describe("Trip History", () => {
-  test("add a trip with a participant, edit it, and confirm it appears in the consolidated list", async ({ page }) => {
+  test("add a trip with a participant, edit it, and confirm it appears in the consolidated list", async ({
+    page,
+  }) => {
     await login(page);
 
     const missionariesRes = await page.request.get("/api/partners?kind=missionary");

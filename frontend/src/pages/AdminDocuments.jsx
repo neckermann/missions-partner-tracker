@@ -70,7 +70,14 @@ export default function AdminDocuments() {
   const [entityFilter, setEntityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ partnerId: "", category: "", customCategory: "", title: "", receivedDate: "", notes: "" });
+  const [editForm, setEditForm] = useState({
+    partnerId: "",
+    category: "",
+    customCategory: "",
+    title: "",
+    receivedDate: "",
+    notes: "",
+  });
 
   function reload() {
     fetchDocuments().then(setDocuments).catch(console.error);
@@ -190,8 +197,8 @@ export default function AdminDocuments() {
         </button>
       </div>
       <p style={{ color: "#555" }}>
-        Survey responses, signed policies, other office documents, and long-term email records from
-        missionary and organization partners. Admin-only — never shown on the public site.
+        Survey responses, signed policies, other office documents, and long-term email records from missionary
+        and organization partners. Admin-only — never shown on the public site.
       </p>
 
       {showAddForm && (
@@ -273,18 +280,35 @@ export default function AdminDocuments() {
         </form>
       )}
 
-      <div className="admin-checkbox-row" style={{ marginTop: "1rem", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}>
+      <div
+        className="admin-checkbox-row"
+        style={{ marginTop: "1rem", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label htmlFor="documents-entity-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>Show:</label>
-          <select id="documents-entity-filter" value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)} style={{ width: "auto" }}>
+          <label htmlFor="documents-entity-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>
+            Show:
+          </label>
+          <select
+            id="documents-entity-filter"
+            value={entityFilter}
+            onChange={(e) => setEntityFilter(e.target.value)}
+            style={{ width: "auto" }}
+          >
             <option value="all">All</option>
             <option value="Missionary">Missionaries</option>
             <option value="Organization">Organizations</option>
           </select>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label htmlFor="documents-category-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>Category:</label>
-          <select id="documents-category-filter" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ width: "auto" }}>
+          <label htmlFor="documents-category-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>
+            Category:
+          </label>
+          <select
+            id="documents-category-filter"
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            style={{ width: "auto" }}
+          >
             <option value="all">All</option>
             {DOCUMENT_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
@@ -318,14 +342,21 @@ export default function AdminDocuments() {
                   <td>{entity.type}</td>
                   <td>{documentCategoryLabel(d)}</td>
                   <td>{d.title || "—"}</td>
-                  <td>{editingId === d.id ? formatDate(editForm.receivedDate) : formatDate(d.receivedDate)}</td>
+                  <td>
+                    {editingId === d.id ? formatDate(editForm.receivedDate) : formatDate(d.receivedDate)}
+                  </td>
                   <td>
                     {d.fileName}
                     {d.fileSize != null && (
-                      <span style={{ color: "#888", fontSize: "0.85rem" }}> ({formatFileSize(d.fileSize)})</span>
+                      <span style={{ color: "#888", fontSize: "0.85rem" }}>
+                        {" "}
+                        ({formatFileSize(d.fileSize)})
+                      </span>
                     )}
                   </td>
-                  <td style={{ maxWidth: "16rem" }}>{editingId === d.id ? editForm.notes || "—" : d.notes || "—"}</td>
+                  <td style={{ maxWidth: "16rem" }}>
+                    {editingId === d.id ? editForm.notes || "—" : d.notes || "—"}
+                  </td>
                   <td className="table-actions">
                     <button type="button" className="btn secondary small" onClick={() => handleView(d)}>
                       View
@@ -351,7 +382,10 @@ export default function AdminDocuments() {
                   <tr>
                     <td colSpan={8}>
                       <div className="form-grid">
-                        <label style={{ gridColumn: "1 / -1" }} title="Everything but the file itself can be edited.">
+                        <label
+                          style={{ gridColumn: "1 / -1" }}
+                          title="Everything but the file itself can be edited."
+                        >
                           Partner
                           <PartnerSelect
                             partners={partners}

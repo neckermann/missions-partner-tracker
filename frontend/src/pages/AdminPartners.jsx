@@ -1,11 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  fetchPartners,
-  archivePartner,
-  unarchivePartner,
-  deletePartner,
-} from "../api/client.js";
+import { fetchPartners, archivePartner, unarchivePartner, deletePartner } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getContinent } from "../utils/countryContinents.js";
 import { matchesSearch } from "../utils/search.js";
@@ -108,12 +103,14 @@ export default function AdminPartners() {
   );
   const availableCountries = useMemo(
     () =>
-      [...new Set(
-        rows
-          .filter((r) => continentFilter === "all" || r.continent === continentFilter)
-          .map((r) => r.country)
-          .filter(Boolean)
-      )].sort(),
+      [
+        ...new Set(
+          rows
+            .filter((r) => continentFilter === "all" || r.continent === continentFilter)
+            .map((r) => r.country)
+            .filter(Boolean)
+        ),
+      ].sort(),
     [rows, continentFilter]
   );
 
@@ -131,16 +128,7 @@ export default function AdminPartners() {
     .filter((r) => restrictedFilter === "all" || (restrictedFilter === "restricted") === r.isRestricted)
     .filter((r) => continentFilter === "all" || r.continent === continentFilter)
     .filter((r) => countryFilter === "all" || r.country === countryFilter)
-    .filter((r) =>
-      matchesSearch(
-        search,
-        r.name,
-        r.field,
-        r.focusArea,
-        r.overviewShort,
-        r.country
-      )
-    );
+    .filter((r) => matchesSearch(search, r.name, r.field, r.focusArea, r.overviewShort, r.country));
 
   function resetFilters() {
     setTypeFilter("all");
@@ -152,7 +140,12 @@ export default function AdminPartners() {
   }
 
   async function handleArchive(row) {
-    if (!confirm(`Archive ${row.name}? This removes them from the public site and zeros out their monthly support, but keeps their full history. You can unarchive at any time.`)) return;
+    if (
+      !confirm(
+        `Archive ${row.name}? This removes them from the public site and zeros out their monthly support, but keeps their full history. You can unarchive at any time.`
+      )
+    )
+      return;
     await archivePartner(row.id);
     reload();
   }
@@ -167,7 +160,9 @@ export default function AdminPartners() {
   // once that's true. Typing "confirm" back is extra friction on top of
   // that, since this step is genuinely permanent.
   async function handleDelete(row) {
-    const typed = prompt(`This permanently deletes ${row.name} and cannot be undone. Type "confirm" to proceed:`);
+    const typed = prompt(
+      `This permanently deletes ${row.name} and cannot be undone. Type "confirm" to proceed:`
+    );
     if (typed?.trim().toLowerCase() !== "confirm") return;
     await deletePartner(row.id);
     reload();
@@ -176,140 +171,186 @@ export default function AdminPartners() {
   return (
     <div className="admin-shell">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>{sectionTitle} ({visible.length})</h2>
+        <h2>
+          {sectionTitle} ({visible.length})
+        </h2>
         <div>
-          <Link to="/admin/partners/new?kind=missionary" className="btn" style={{ marginRight: "0.5rem" }}>+ Add Missionary</Link>
-          <Link to="/admin/partners/new?kind=organization" className="btn">+ Add Organization</Link>
-          </div>
+          <Link to="/admin/partners/new?kind=missionary" className="btn" style={{ marginRight: "0.5rem" }}>
+            + Add Missionary
+          </Link>
+          <Link to="/admin/partners/new?kind=organization" className="btn">
+            + Add Organization
+          </Link>
         </div>
+      </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", marginTop: "0.75rem", flexWrap: "wrap" }}>
-          <input
-            type="text"
-            placeholder="Search by name, field, focus, or summary..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: "auto", minWidth: "220px" }}
-          />
-          <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-            Type
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} style={{ width: "auto" }}>
-              <option value="all">All</option>
-              <option value="missionary">Missionaries</option>
-              <option value="organization">Organizations</option>
-            </select>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "1.5rem",
+          marginTop: "0.75rem",
+          flexWrap: "wrap",
+        }}
+      >
+        <input
+          type="text"
+          placeholder="Search by name, field, focus, or summary..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ width: "auto", minWidth: "220px" }}
+        />
+        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
+          Type
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            style={{ width: "auto" }}
+          >
+            <option value="all">All</option>
+            <option value="missionary">Missionaries</option>
+            <option value="organization">Organizations</option>
+          </select>
+        </label>
+        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
+          Public
+          <select
+            value={publicFilter}
+            onChange={(e) => setPublicFilter(e.target.value)}
+            style={{ width: "auto" }}
+          >
+            <option value="all">All</option>
+            <option value="public">Public only</option>
+            <option value="notPublic">Not public</option>
+          </select>
+        </label>
+        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
+          Restricted
+          <select
+            value={restrictedFilter}
+            onChange={(e) => setRestrictedFilter(e.target.value)}
+            style={{ width: "auto" }}
+          >
+            <option value="all">All</option>
+            <option value="restricted">Restricted only</option>
+            <option value="notRestricted">Not restricted</option>
+          </select>
+        </label>
+        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
+          Continent
+          <select
+            value={continentFilter}
+            onChange={(e) => handleContinentChange(e.target.value)}
+            style={{ width: "auto" }}
+          >
+            <option value="all">All</option>
+            {availableContinents.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
+          Country
+          <select
+            value={countryFilter}
+            onChange={(e) => setCountryFilter(e.target.value)}
+            style={{ width: "auto" }}
+          >
+            <option value="all">All</option>
+            {availableCountries.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="admin-checkbox-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+            />
+            Show archived ({archivedCount})
           </label>
-          <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-            Public
-            <select value={publicFilter} onChange={(e) => setPublicFilter(e.target.value)} style={{ width: "auto" }}>
-              <option value="all">All</option>
-              <option value="public">Public only</option>
-              <option value="notPublic">Not public</option>
-            </select>
-          </label>
-          <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-            Restricted
-            <select value={restrictedFilter} onChange={(e) => setRestrictedFilter(e.target.value)} style={{ width: "auto" }}>
-              <option value="all">All</option>
-              <option value="restricted">Restricted only</option>
-              <option value="notRestricted">Not restricted</option>
-            </select>
-          </label>
-          <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-            Continent
-            <select value={continentFilter} onChange={(e) => handleContinentChange(e.target.value)} style={{ width: "auto" }}>
-              <option value="all">All</option>
-              {availableContinents.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </label>
-          <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-            Country
-            <select value={countryFilter} onChange={(e) => setCountryFilter(e.target.value)} style={{ width: "auto" }}>
-              <option value="all">All</option>
-              {availableCountries.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </label>
-          <div className="admin-checkbox-row">
-            <label>
-              <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-              Show archived ({archivedCount})
-            </label>
-          </div>
-          <button type="button" className="btn secondary small" onClick={resetFilters}>
-            Reset filters
-          </button>
         </div>
+        <button type="button" className="btn secondary small" onClick={resetFilters}>
+          Reset filters
+        </button>
+      </div>
 
-        <table className="admin-table" style={{ marginTop: "0.75rem" }}>
-          <thead>
-            <tr>
-              <th>Photo</th>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Field</th>
-              <th>Public</th>
-              <th>Restricted</th>
-              <th>{sentByLabel}</th>
-              <th>Monthly Support</th>
-              <th>Last Visit</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((row) => (
-              <tr
-                key={`${row.type}-${row.id}`}
-                onClick={() => navigate(row.detailLink)}
-                style={{ cursor: "pointer", opacity: row.archived ? 0.6 : 1 }}
-                title="Click to view details"
-              >
-                <td>
-                  {row.photo && (
-                    <img
-                      src={row.photo}
-                      alt={row.name}
-                      className="missionary-thumb"
-                      onError={(e) => (e.target.style.display = "none")}
-                    />
-                  )}
-                </td>
-                <td>
-                  {row.name}
-                  {row.archived && <span className="status-pill warn" style={{ marginLeft: "0.5rem" }}>Archived</span>}
-                </td>
-                <td>{row.typeLabel}</td>
-                <td>{row.field}</td>
-                <td>{row.isPublic ? "Yes" : "No"}</td>
-                <td>{row.isRestricted ? "Yes" : "No"}</td>
-                <td>{row.type === "missionary" ? (row.sentByOurChurch ? "Yes" : "No") : "—"}</td>
-                <td>{currentSupport(row.supportEntries)}</td>
-                <td>{lastVisit(row.churchVisits)}</td>
-                <td className="table-actions" onClick={(e) => e.stopPropagation()}>
-                  {/* The whole row is clickable, but this stays as the
+      <table className="admin-table" style={{ marginTop: "0.75rem" }}>
+        <thead>
+          <tr>
+            <th>Photo</th>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Field</th>
+            <th>Public</th>
+            <th>Restricted</th>
+            <th>{sentByLabel}</th>
+            <th>Monthly Support</th>
+            <th>Last Visit</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {visible.map((row) => (
+            <tr
+              key={`${row.type}-${row.id}`}
+              onClick={() => navigate(row.detailLink)}
+              style={{ cursor: "pointer", opacity: row.archived ? 0.6 : 1 }}
+              title="Click to view details"
+            >
+              <td>
+                {row.photo && (
+                  <img
+                    src={row.photo}
+                    alt={row.name}
+                    className="missionary-thumb"
+                    onError={(e) => (e.target.style.display = "none")}
+                  />
+                )}
+              </td>
+              <td>
+                {row.name}
+                {row.archived && (
+                  <span className="status-pill warn" style={{ marginLeft: "0.5rem" }}>
+                    Archived
+                  </span>
+                )}
+              </td>
+              <td>{row.typeLabel}</td>
+              <td>{row.field}</td>
+              <td>{row.isPublic ? "Yes" : "No"}</td>
+              <td>{row.isRestricted ? "Yes" : "No"}</td>
+              <td>{row.type === "missionary" ? (row.sentByOurChurch ? "Yes" : "No") : "—"}</td>
+              <td>{currentSupport(row.supportEntries)}</td>
+              <td>{lastVisit(row.churchVisits)}</td>
+              <td className="table-actions" onClick={(e) => e.stopPropagation()}>
+                {/* The whole row is clickable, but this stays as the
                       keyboard-reachable way in -- and editing now happens on
                       the partner's own page, so there's nowhere else to go. */}
-                  <Link to={row.detailLink}>Open</Link>
-                  {row.archived ? (
-                    <>
-                      <button className="btn secondary small" onClick={() => handleUnarchive(row)}>
-                        Unarchive
-                      </button>
-                      <button className="btn danger small" onClick={() => handleDelete(row)}>
-                        Delete
-                      </button>
-                    </>
-                  ) : (
-                    <button className="btn secondary small" onClick={() => handleArchive(row)}>
-                      Archive
+                <Link to={row.detailLink}>Open</Link>
+                {row.archived ? (
+                  <>
+                    <button className="btn secondary small" onClick={() => handleUnarchive(row)}>
+                      Unarchive
                     </button>
-                  )}
-                </td>
-              </tr>
-            ))}
+                    <button className="btn danger small" onClick={() => handleDelete(row)}>
+                      Delete
+                    </button>
+                  </>
+                ) : (
+                  <button className="btn secondary small" onClick={() => handleArchive(row)}>
+                    Archive
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

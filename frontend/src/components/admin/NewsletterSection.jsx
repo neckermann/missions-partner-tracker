@@ -1,5 +1,10 @@
 import React, { useState } from "react";
-import { uploadNewsletter, updateNewsletter, deleteNewsletter, extractFromNewsletter } from "../../api/client.js";
+import {
+  uploadNewsletter,
+  updateNewsletter,
+  deleteNewsletter,
+  extractFromNewsletter,
+} from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
 
@@ -98,7 +103,11 @@ export default function NewsletterSection({ partnerId, newsletters, onChange }) 
   // page for that.
   function startEdit(n) {
     setEditingId(n.id);
-    setEditForm({ title: n.title || "", receivedDate: String(n.receivedDate).slice(0, 10), notes: n.notes || "" });
+    setEditForm({
+      title: n.title || "",
+      receivedDate: String(n.receivedDate).slice(0, 10),
+      notes: n.notes || "",
+    });
   }
 
   async function submitEdit(id) {
@@ -134,11 +143,20 @@ export default function NewsletterSection({ partnerId, newsletters, onChange }) 
             </label>
             <label>
               Title (optional)
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Summer 2026 Update" />
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Summer 2026 Update"
+              />
             </label>
             <label>
               Received Date
-              <input type="date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} required />
+              <input
+                type="date"
+                value={receivedDate}
+                onChange={(e) => setReceivedDate(e.target.value)}
+                required
+              />
             </label>
             <label style={{ gridColumn: "1 / -1" }}>
               Notes
@@ -158,14 +176,24 @@ export default function NewsletterSection({ partnerId, newsletters, onChange }) 
         {newsletters?.length > 0 ? (
           newsletters.map((n) => (
             <div key={n.id} className="repeatable-row">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "0.5rem",
+                }}
+              >
                 <div>
                   <strong>{n.title || n.fileName}</strong>
                   <div style={{ fontSize: "0.85rem", color: "#666" }}>
                     Received {formatDate(n.receivedDate)} · {n.fileName}
                     {n.fileSize != null && ` (${formatFileSize(n.fileSize)})`}
                   </div>
-                  {n.notes && <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>{n.notes}</div>}
+                  {n.notes && (
+                    <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>{n.notes}</div>
+                  )}
                 </div>
                 <div className="table-actions">
                   <button type="button" className="btn secondary small" onClick={() => handleView(n)}>

@@ -95,7 +95,9 @@ function Field({ label, value, showEmpty = false }) {
   if (isEmpty && !showEmpty) return null;
   return (
     <div>
-      <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+      <div
+        style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase", letterSpacing: "0.03em" }}
+      >
         {label}
       </div>
       <div style={isEmpty ? { color: "#aaa" } : undefined}>{isEmpty ? "—" : value}</div>
@@ -230,7 +232,9 @@ export default function AdminPartnerDetail() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <h2 style={{ marginBottom: "0.25rem" }}>{p.displayName}</h2>
-          <p style={{ color: "#666", margin: 0 }}>{isOrg ? `${p.orgType || "Partner"} Organization` : "Missionary"}</p>
+          <p style={{ color: "#666", margin: 0 }}>
+            {isOrg ? `${p.orgType || "Partner"} Organization` : "Missionary"}
+          </p>
         </div>
         <button type="button" className="btn secondary" onClick={() => navigate("/admin/partners")}>
           Back to list
@@ -293,7 +297,11 @@ export default function AdminPartnerDetail() {
               <div className="form-grid">
                 <label>
                   {isOrg ? "Organization Name" : "Display Name"}
-                  <input value={d.displayName} onChange={(e) => set("displayName", e.target.value)} required />
+                  <input
+                    value={d.displayName}
+                    onChange={(e) => set("displayName", e.target.value)}
+                    required
+                  />
                 </label>
                 {isOrg && (
                   <label>
@@ -306,7 +314,10 @@ export default function AdminPartnerDetail() {
                 )}
                 <label>
                   Field / Region Display Name
-                  <input value={d.fieldDisplayName} onChange={(e) => set("fieldDisplayName", e.target.value)} />
+                  <input
+                    value={d.fieldDisplayName}
+                    onChange={(e) => set("fieldDisplayName", e.target.value)}
+                  />
                   {/* This field is published even for a restricted partner --
                       see toPublicPartner in backend/src/utils/maskData.js. The
                       masking hides the name and coarsens the map pin to a
@@ -314,9 +325,9 @@ export default function AdminPartnerDetail() {
                       gives back most of what the masking just removed. */}
                   {d.isRestricted && (
                     <span className="field-warning">
-                      Shown publicly, even though this partner is restricted. Their name is masked to
-                      initials and the map pin is coarsened to the country — so keep this broad
-                      (&ldquo;East Africa&rdquo;), not a region or city that narrows it back down.
+                      Shown publicly, even though this partner is restricted. Their name is masked to initials
+                      and the map pin is coarsened to the country — so keep this broad (&ldquo;East
+                      Africa&rdquo;), not a region or city that narrows it back down.
                     </span>
                   )}
                 </label>
@@ -357,16 +368,28 @@ export default function AdminPartnerDetail() {
               <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
                 {!isOrg && (
                   <label>
-                    <input type="checkbox" checked={d.contactSafe} onChange={(e) => set("contactSafe", e.target.checked)} />
+                    <input
+                      type="checkbox"
+                      checked={d.contactSafe}
+                      onChange={(e) => set("contactSafe", e.target.checked)}
+                    />
                     Safe to contact
                   </label>
                 )}
                 <label>
-                  <input type="checkbox" checked={d.isPublic} onChange={(e) => set("isPublic", e.target.checked)} />
+                  <input
+                    type="checkbox"
+                    checked={d.isPublic}
+                    onChange={(e) => set("isPublic", e.target.checked)}
+                  />
                   Show on public site
                 </label>
                 <label title="Masks the name to initials and coarsens the map pin to a country centroid on the public site.">
-                  <input type="checkbox" checked={d.isRestricted} onChange={(e) => set("isRestricted", e.target.checked)} />
+                  <input
+                    type="checkbox"
+                    checked={d.isRestricted}
+                    onChange={(e) => set("isRestricted", e.target.checked)}
+                  />
                   Restricted-access location
                 </label>
                 {!isOrg && (
@@ -388,7 +411,11 @@ export default function AdminPartnerDetail() {
           title="Ministry Overview"
           onSaved={reload}
           onSave={save}
-          value={{ overviewShort: p.overviewShort || "", overview: p.overview || "", focusArea: p.focusArea || "" }}
+          value={{
+            overviewShort: p.overviewShort || "",
+            overview: p.overview || "",
+            focusArea: p.focusArea || "",
+          }}
           view={(v) => (
             <>
               <Field label="Short Overview" value={v.overviewShort} showEmpty />
@@ -434,7 +461,11 @@ export default function AdminPartnerDetail() {
         )}
 
         {enabledFeatures.prayerRequests && (
-          <PrayerRequestSection partnerId={p.id} prayerRequests={collections.prayerRequests} onChange={reload} />
+          <PrayerRequestSection
+            partnerId={p.id}
+            prayerRequests={collections.prayerRequests}
+            onChange={reload}
+          />
         )}
 
         {enabledFeatures.newsletters && (
@@ -496,7 +527,12 @@ export default function AdminPartnerDetail() {
           value={{ address: { ...emptyAddress, receiveMail: false, receivePackages: false, ...mailing } }}
           view={() => <AddressSummary address={mailing} />}
           edit={(d, set) => (
-            <AddressFields idPrefix="mailing" value={d.address} onChange={(addr) => set("address", addr)} showMailFlags />
+            <AddressFields
+              idPrefix="mailing"
+              value={d.address}
+              onChange={(addr) => set("address", addr)}
+              showMailFlags
+            />
           )}
         />
 
@@ -554,7 +590,11 @@ export default function AdminPartnerDetail() {
               <>
                 <label style={{ maxWidth: "220px", marginBottom: "1rem" }}>
                   Wedding Anniversary
-                  <input type="date" value={d.anniversary} onChange={(e) => set("anniversary", e.target.value)} />
+                  <input
+                    type="date"
+                    value={d.anniversary}
+                    onChange={(e) => set("anniversary", e.target.value)}
+                  />
                 </label>
                 <h4>Adults</h4>
                 <RepeatableRows
@@ -569,15 +609,25 @@ export default function AdminPartnerDetail() {
                       </label>
                       <label>
                         Birthday
-                        <input type="date" value={row.birthday || ""} onChange={(e) => setField("birthday", e.target.value)} />
+                        <input
+                          type="date"
+                          value={row.birthday || ""}
+                          onChange={(e) => setField("birthday", e.target.value)}
+                        />
                       </label>
                       <label>
                         Phone 1
-                        <input value={row.phone1 || ""} onChange={(e) => setField("phone1", e.target.value)} />
+                        <input
+                          value={row.phone1 || ""}
+                          onChange={(e) => setField("phone1", e.target.value)}
+                        />
                       </label>
                       <label>
                         Phone 2
-                        <input value={row.phone2 || ""} onChange={(e) => setField("phone2", e.target.value)} />
+                        <input
+                          value={row.phone2 || ""}
+                          onChange={(e) => setField("phone2", e.target.value)}
+                        />
                       </label>
                       <label>
                         Email
@@ -599,7 +649,11 @@ export default function AdminPartnerDetail() {
                       </label>
                       <label>
                         Birthday
-                        <input type="date" value={row.birthday || ""} onChange={(e) => setField("birthday", e.target.value)} />
+                        <input
+                          type="date"
+                          value={row.birthday || ""}
+                          onChange={(e) => setField("birthday", e.target.value)}
+                        />
                       </label>
                     </div>
                   )}
@@ -652,15 +706,28 @@ export default function AdminPartnerDetail() {
             onSave={(d) => save({ languagesSpoken: d.languagesSpoken.map((l) => l.trim()).filter(Boolean) })}
             value={{ languagesSpoken: p.languagesSpoken || [] }}
             view={(v) =>
-              v.languagesSpoken.length ? <p>{v.languagesSpoken.join(", ")}</p> : <p style={{ color: "#888" }}>None on file.</p>
+              v.languagesSpoken.length ? (
+                <p>{v.languagesSpoken.join(", ")}</p>
+              ) : (
+                <p style={{ color: "#888" }}>None on file.</p>
+              )
             }
             edit={(d, set) => (
               <RepeatableRows
                 rows={d.languagesSpoken.map((l) => ({ value: l }))}
-                onChange={(rows) => set("languagesSpoken", rows.map((r) => r.value ?? ""))}
+                onChange={(rows) =>
+                  set(
+                    "languagesSpoken",
+                    rows.map((r) => r.value ?? "")
+                  )
+                }
                 blank={{ value: "" }}
                 render={(row, setField) => (
-                  <input value={row.value || ""} onChange={(e) => setField("value", e.target.value)} placeholder="e.g. Swahili" />
+                  <input
+                    value={row.value || ""}
+                    onChange={(e) => setField("value", e.target.value)}
+                    placeholder="e.g. Swahili"
+                  />
                 )}
               />
             )}
@@ -737,7 +804,12 @@ export default function AdminPartnerDetail() {
               <h4 style={{ marginTop: "1rem" }}>Trip Types Supported</h4>
               <RepeatableRows
                 rows={d.tripTypesSupported.map((t) => ({ value: t }))}
-                onChange={(rows) => set("tripTypesSupported", rows.map((r) => r.value ?? ""))}
+                onChange={(rows) =>
+                  set(
+                    "tripTypesSupported",
+                    rows.map((r) => r.value ?? "")
+                  )
+                }
                 blank={{ value: "" }}
                 render={(row, setField) => (
                   <PresetOrCustomSelect
@@ -750,7 +822,11 @@ export default function AdminPartnerDetail() {
               />
               <label style={{ marginTop: "1rem" }}>
                 Best Time of Year / Duration Notes
-                <textarea rows={2} value={d.tripSeasonNotes} onChange={(e) => set("tripSeasonNotes", e.target.value)} />
+                <textarea
+                  rows={2}
+                  value={d.tripSeasonNotes}
+                  onChange={(e) => set("tripSeasonNotes", e.target.value)}
+                />
               </label>
               <label style={{ marginTop: "0.75rem" }}>
                 Lodging &amp; Logistics Notes
@@ -772,7 +848,11 @@ export default function AdminPartnerDetail() {
               save({
                 furloughs: d.furloughs
                   .filter((f) => f.startDate)
-                  .map((f) => ({ startDate: f.startDate, endDate: f.endDate || null, notes: f.notes || null })),
+                  .map((f) => ({
+                    startDate: f.startDate,
+                    endDate: f.endDate || null,
+                    notes: f.notes || null,
+                  })),
               })
             }
             value={{
@@ -788,7 +868,11 @@ export default function AdminPartnerDetail() {
                   <div key={f.id} className="repeatable-row">
                     <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
                       <Field label="Start Date" value={formatDate(f.startDate)} showEmpty />
-                      <Field label="End Date" value={f.endDate ? formatDate(f.endDate) : "Ongoing"} showEmpty />
+                      <Field
+                        label="End Date"
+                        value={f.endDate ? formatDate(f.endDate) : "Ongoing"}
+                        showEmpty
+                      />
                       <Field label="Notes" value={f.notes} />
                     </div>
                   </div>
@@ -806,11 +890,19 @@ export default function AdminPartnerDetail() {
                   <div className="form-grid">
                     <label>
                       Start Date
-                      <input type="date" value={row.startDate || ""} onChange={(e) => setField("startDate", e.target.value)} />
+                      <input
+                        type="date"
+                        value={row.startDate || ""}
+                        onChange={(e) => setField("startDate", e.target.value)}
+                      />
                     </label>
                     <label title="Leave blank for an ongoing furlough with no settled return date.">
                       End Date
-                      <input type="date" value={row.endDate || ""} onChange={(e) => setField("endDate", e.target.value)} />
+                      <input
+                        type="date"
+                        value={row.endDate || ""}
+                        onChange={(e) => setField("endDate", e.target.value)}
+                      />
                     </label>
                     <label style={{ gridColumn: "1 / -1" }}>
                       Notes
@@ -871,7 +963,11 @@ export default function AdminPartnerDetail() {
                 <div className="form-grid">
                   <label>
                     Visit Date
-                    <input type="date" value={row.visitDate || ""} onChange={(e) => setField("visitDate", e.target.value)} />
+                    <input
+                      type="date"
+                      value={row.visitDate || ""}
+                      onChange={(e) => setField("visitDate", e.target.value)}
+                    />
                   </label>
                   <label>
                     Notes

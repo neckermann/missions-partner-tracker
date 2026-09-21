@@ -12,13 +12,15 @@
 const FEATURES = {
   publicDirectory: {
     label: "Public directory",
-    description: "The public list/search view at the site's root (\"/\"). Turning this off shows a private-instance message there instead.",
+    description:
+      'The public list/search view at the site\'s root ("/"). Turning this off shows a private-instance message there instead.',
     defaultEnabled: true,
     group: "public",
   },
   publicMap: {
     label: "Public map",
-    description: "The public map view (\"/map\"). Turning this off shows a private-instance message there instead.",
+    description:
+      'The public map view ("/map"). Turning this off shows a private-instance message there instead.',
     defaultEnabled: true,
     group: "public",
   },
@@ -36,20 +38,23 @@ const FEATURES = {
   },
   aiExtraction: {
     label: "AI request scanning",
-    description: "Scan uploaded newsletters and email documents for prayer requests and one-time needs using Claude. Requires ANTHROPIC_API_KEY to be configured.",
+    description:
+      "Scan uploaded newsletters and email documents for prayer requests and one-time needs using Claude. Requires ANTHROPIC_API_KEY to be configured.",
     defaultEnabled: false,
     requiresEnvVar: "ANTHROPIC_API_KEY",
     group: "admin",
   },
   prayerRequests: {
     label: "Prayer requests",
-    description: "The Prayer Requests admin section, and the prayer request list on missionary/organization pages.",
+    description:
+      "The Prayer Requests admin section, and the prayer request list on missionary/organization pages.",
     defaultEnabled: true,
     group: "admin",
   },
   oneTimeNeeds: {
     label: "One-time needs",
-    description: "The One-Time Needs admin section, and the one-time needs list on missionary/organization pages.",
+    description:
+      "The One-Time Needs admin section, and the one-time needs list on missionary/organization pages.",
     defaultEnabled: true,
     group: "admin",
   },

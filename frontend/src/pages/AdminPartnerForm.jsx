@@ -57,7 +57,9 @@ export default function AdminPartnerForm() {
       });
       navigate(`/admin/partners/${record.id}`);
     } catch (err) {
-      setError(err.response?.data?.error?.[0]?.message || err.response?.data?.error || "Failed to create partner");
+      setError(
+        err.response?.data?.error?.[0]?.message || err.response?.data?.error || "Failed to create partner"
+      );
       setSaving(false);
     }
   }
@@ -133,16 +135,28 @@ export default function AdminPartnerForm() {
           <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
             {!isOrg && (
               <label>
-                <input type="checkbox" checked={form.contactSafe} onChange={(e) => set("contactSafe", e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={form.contactSafe}
+                  onChange={(e) => set("contactSafe", e.target.checked)}
+                />
                 Safe to contact
               </label>
             )}
             <label>
-              <input type="checkbox" checked={form.isPublic} onChange={(e) => set("isPublic", e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={form.isPublic}
+                onChange={(e) => set("isPublic", e.target.checked)}
+              />
               Show on public site
             </label>
             <label title="Masks the name to initials and coarsens the map pin to a country centroid on the public site.">
-              <input type="checkbox" checked={form.isRestricted} onChange={(e) => set("isRestricted", e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={form.isRestricted}
+                onChange={(e) => set("isRestricted", e.target.checked)}
+              />
               Restricted-access location
             </label>
             {!isOrg && (

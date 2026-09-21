@@ -194,8 +194,12 @@ export default function AdminPrayerRequests() {
                 value={newRequest.category}
                 onChange={(e) => setNewRequest((f) => ({ ...f, category: e.target.value }))}
               >
-                <option value="strategic">Strategic (ministry vision/calling — can be shared publicly)</option>
-                <option value="situational">Situational (health, travel, family, logistics — admin-only)</option>
+                <option value="strategic">
+                  Strategic (ministry vision/calling — can be shared publicly)
+                </option>
+                <option value="situational">
+                  Situational (health, travel, family, logistics — admin-only)
+                </option>
               </select>
             </label>
             <label>
@@ -222,7 +226,13 @@ export default function AdminPrayerRequests() {
                   <input
                     type="checkbox"
                     checked={newRequest.isPublic}
-                    onChange={(e) => setNewRequest((f) => ({ ...f, isPublic: e.target.checked, includeInBooklet: e.target.checked && f.includeInBooklet }))}
+                    onChange={(e) =>
+                      setNewRequest((f) => ({
+                        ...f,
+                        isPublic: e.target.checked,
+                        includeInBooklet: e.target.checked && f.includeInBooklet,
+                      }))
+                    }
                   />
                   Show on public profile
                 </label>
@@ -250,7 +260,10 @@ export default function AdminPrayerRequests() {
             </div>
             <label style={{ gridColumn: "1 / -1" }}>
               Admin Notes (optional, never shown publicly)
-              <input value={newRequest.notes} onChange={(e) => setNewRequest((f) => ({ ...f, notes: e.target.value }))} />
+              <input
+                value={newRequest.notes}
+                onChange={(e) => setNewRequest((f) => ({ ...f, notes: e.target.value }))}
+              />
             </label>
           </div>
           {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
@@ -263,10 +276,18 @@ export default function AdminPrayerRequests() {
       )}
 
       <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
-        <label htmlFor="prayer-category-filter" style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
+        <label
+          htmlFor="prayer-category-filter"
+          style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}
+        >
           Show:
         </label>
-        <select id="prayer-category-filter" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ width: "auto" }}>
+        <select
+          id="prayer-category-filter"
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          style={{ width: "auto" }}
+        >
           <option value="all">All</option>
           <option value="strategic">Strategic</option>
           <option value="situational">Situational</option>
@@ -277,7 +298,15 @@ export default function AdminPrayerRequests() {
         const entity = entityFor(request);
         return (
           <div key={request.id} className="repeatable-row" style={{ marginTop: "1rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.5rem" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                flexWrap: "wrap",
+                gap: "0.5rem",
+              }}
+            >
               <div>
                 {entity.link ? (
                   <Link to={entity.link}>
@@ -310,8 +339,12 @@ export default function AdminPrayerRequests() {
                     value={editForm.category}
                     onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
                   >
-                    <option value="strategic">Strategic (ministry vision/calling — can be shared publicly)</option>
-                    <option value="situational">Situational (health, travel, family, logistics — admin-only)</option>
+                    <option value="strategic">
+                      Strategic (ministry vision/calling — can be shared publicly)
+                    </option>
+                    <option value="situational">
+                      Situational (health, travel, family, logistics — admin-only)
+                    </option>
                   </select>
                 </label>
                 <label>
@@ -338,7 +371,13 @@ export default function AdminPrayerRequests() {
                       <input
                         type="checkbox"
                         checked={editForm.isPublic}
-                        onChange={(e) => setEditForm((f) => ({ ...f, isPublic: e.target.checked, includeInBooklet: e.target.checked && f.includeInBooklet }))}
+                        onChange={(e) =>
+                          setEditForm((f) => ({
+                            ...f,
+                            isPublic: e.target.checked,
+                            includeInBooklet: e.target.checked && f.includeInBooklet,
+                          }))
+                        }
                       />
                       Show on public profile
                     </label>
@@ -356,13 +395,23 @@ export default function AdminPrayerRequests() {
                 )}
                 <label style={{ gridColumn: "1 / -1" }}>
                   Admin Notes (optional, never shown publicly)
-                  <input value={editForm.notes} onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))} />
+                  <input
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                  />
                 </label>
                 <div style={{ gridColumn: "1 / -1", display: "flex", gap: "0.5rem" }}>
                   <button type="button" className="btn small" onClick={() => submitEdit(request.id)}>
                     Save
                   </button>
-                  <button type="button" className="btn secondary small" onClick={() => { setEditingId(null); setEditForm(null); }}>
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    onClick={() => {
+                      setEditingId(null);
+                      setEditForm(null);
+                    }}
+                  >
                     Cancel
                   </button>
                 </div>
@@ -375,16 +424,22 @@ export default function AdminPrayerRequests() {
               <div>
                 <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Received</div>
                 <div>
-                  {formatDate(request.dateReceived)} · {request.category === "strategic" ? "Strategic" : "Situational"}
+                  {formatDate(request.dateReceived)} ·{" "}
+                  {request.category === "strategic" ? "Strategic" : "Situational"}
                   {request.category === "strategic" && request.isPublic && " · Public"}
-                  {request.category === "strategic" && request.isPublic && request.includeInBooklet && " · In booklet"}
+                  {request.category === "strategic" &&
+                    request.isPublic &&
+                    request.includeInBooklet &&
+                    " · In booklet"}
                 </div>
               </div>
               {/* Same principle as PrayerRequestSection.jsx: only "answered"
                   gets a callout here. "ongoing"/"untracked" show nothing. */}
               {request.status === "answered" && (
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Answered</div>
+                  <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
+                    Answered
+                  </div>
                   <div style={{ color: "#2a5d3c" }}>
                     {formatDate(request.dateAnswered)}
                     {request.answeredNote && ` — ${request.answeredNote}`}
@@ -400,7 +455,15 @@ export default function AdminPrayerRequests() {
             </div>
 
             {answeringId === request.id && (
-              <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap", marginTop: "0.75rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "0.75rem",
+                  alignItems: "flex-end",
+                  flexWrap: "wrap",
+                  marginTop: "0.75rem",
+                }}
+              >
                 <label>
                   Date Answered
                   <input

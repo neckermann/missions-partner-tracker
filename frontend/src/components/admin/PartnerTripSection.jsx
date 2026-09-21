@@ -147,7 +147,11 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
           </div>
           <label style={{ marginTop: "0.75rem" }}>
             Description (what the team did)
-            <textarea rows={2} value={form.description} onChange={(e) => set("description", e.target.value)} />
+            <textarea
+              rows={2}
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+            />
           </label>
           <label style={{ marginTop: "0.75rem" }}>
             Notes
@@ -157,7 +161,12 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
           <h4 style={{ marginTop: "1rem" }}>Participants</h4>
           {form.participants.map((p, i) => (
             <div className="repeatable-row" key={i} style={{ background: "white" }}>
-              <button type="button" className="btn-remove" onClick={() => removeParticipant(i)} title="Remove">
+              <button
+                type="button"
+                className="btn-remove"
+                onClick={() => removeParticipant(i)}
+                title="Remove"
+              >
                 ✕
               </button>
               <div className="form-grid">
@@ -167,15 +176,24 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
                 </label>
                 <label>
                   Role
-                  <input value={p.role || ""} onChange={(e) => updateParticipant(i, "role", e.target.value)} />
+                  <input
+                    value={p.role || ""}
+                    onChange={(e) => updateParticipant(i, "role", e.target.value)}
+                  />
                 </label>
                 <label>
                   Phone
-                  <input value={p.phone || ""} onChange={(e) => updateParticipant(i, "phone", e.target.value)} />
+                  <input
+                    value={p.phone || ""}
+                    onChange={(e) => updateParticipant(i, "phone", e.target.value)}
+                  />
                 </label>
                 <label>
                   Email
-                  <input value={p.email || ""} onChange={(e) => updateParticipant(i, "email", e.target.value)} />
+                  <input
+                    value={p.email || ""}
+                    onChange={(e) => updateParticipant(i, "email", e.target.value)}
+                  />
                 </label>
               </div>
               <div className="admin-checkbox-row" style={{ marginTop: "0.5rem" }}>
@@ -209,7 +227,14 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
             const leaders = (t.participants || []).filter((p) => p.isLeader).map((p) => p.name);
             return (
               <div key={t.id} className="repeatable-row">
-                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: "0.5rem",
+                  }}
+                >
                   <div>
                     <strong>{t.tripType || "Trip"}</strong>
                     <div style={{ fontSize: "0.85rem", color: "#666" }}>
@@ -217,11 +242,14 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
                         ? `${formatDate(t.startDate) || "?"} – ${formatDate(t.endDate) || "?"}`
                         : "Dates not recorded"}
                       {" · "}
-                      {(t.participants || []).length} participant{(t.participants || []).length === 1 ? "" : "s"}
+                      {(t.participants || []).length} participant
+                      {(t.participants || []).length === 1 ? "" : "s"}
                       {leaders.length ? ` · Led by ${leaders.join(", ")}` : ""}
                     </div>
                     {t.description && (
-                      <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>{t.description}</div>
+                      <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
+                        {t.description}
+                      </div>
                     )}
                   </div>
                   <div className="table-actions">

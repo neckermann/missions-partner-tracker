@@ -14,11 +14,7 @@ const DIACRITICS_PATTERN = "\\u0300-\\u036f";
 const DIACRITICS = new RegExp("[" + DIACRITICS_PATTERN + "]", "g");
 
 function normalize(value) {
-  return (value ?? "")
-    .toString()
-    .normalize("NFD")
-    .replace(DIACRITICS, "")
-    .toLowerCase();
+  return (value ?? "").toString().normalize("NFD").replace(DIACRITICS, "").toLowerCase();
 }
 
 // Every word in `query` must appear somewhere across `fields`, in any

@@ -24,7 +24,10 @@ async function loginAs(email, password) {
     body: JSON.stringify({ email, password }),
   });
   if (res.status !== 200) throw new Error(`login as ${email} failed: ${res.status}`);
-  const cookie = res.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+  const cookie = res.headers
+    .getSetCookie()
+    .map((c) => c.split(";")[0])
+    .join("; ");
   return async (path) => {
     const r = await fetch(`${base}${path}`, { headers: { Cookie: cookie } });
     return { status: r.status };

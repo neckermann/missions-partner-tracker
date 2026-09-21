@@ -3,7 +3,13 @@ import { COUNTRY_CONTINENTS } from "../../utils/countryContinents.js";
 
 const COUNTRY_NAMES = Object.keys(COUNTRY_CONTINENTS).sort();
 
-export default function AddressFields({ value, onChange, showMailFlags = false, showGps = false, idPrefix = "address" }) {
+export default function AddressFields({
+  value,
+  onChange,
+  showMailFlags = false,
+  showGps = false,
+  idPrefix = "address",
+}) {
   function update(field, val) {
     onChange({ ...value, [field]: val });
   }
@@ -42,7 +48,11 @@ export default function AddressFields({ value, onChange, showMailFlags = false, 
       </label>
       <label>
         City / Town
-        <input value={value.city || ""} onChange={(e) => update("city", e.target.value)} placeholder="e.g. Oraba" />
+        <input
+          value={value.city || ""}
+          onChange={(e) => update("city", e.target.value)}
+          placeholder="e.g. Oraba"
+        />
       </label>
       <label>
         State / Province / Region / District

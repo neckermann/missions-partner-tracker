@@ -144,8 +144,12 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
                 value={newRequest.category}
                 onChange={(e) => setNewRequest((f) => ({ ...f, category: e.target.value }))}
               >
-                <option value="strategic">Strategic (ministry vision/calling — can be shared publicly)</option>
-                <option value="situational">Situational (health, travel, family, logistics — admin-only)</option>
+                <option value="strategic">
+                  Strategic (ministry vision/calling — can be shared publicly)
+                </option>
+                <option value="situational">
+                  Situational (health, travel, family, logistics — admin-only)
+                </option>
               </select>
             </label>
             <label>
@@ -172,7 +176,13 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
                   <input
                     type="checkbox"
                     checked={newRequest.isPublic}
-                    onChange={(e) => setNewRequest((f) => ({ ...f, isPublic: e.target.checked, includeInBooklet: e.target.checked && f.includeInBooklet }))}
+                    onChange={(e) =>
+                      setNewRequest((f) => ({
+                        ...f,
+                        isPublic: e.target.checked,
+                        includeInBooklet: e.target.checked && f.includeInBooklet,
+                      }))
+                    }
                   />
                   Show on public profile
                 </label>
@@ -200,7 +210,10 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
             </div>
             <label style={{ gridColumn: "1 / -1" }}>
               Admin Notes (optional, never shown publicly)
-              <input value={newRequest.notes} onChange={(e) => setNewRequest((f) => ({ ...f, notes: e.target.value }))} />
+              <input
+                value={newRequest.notes}
+                onChange={(e) => setNewRequest((f) => ({ ...f, notes: e.target.value }))}
+              />
             </label>
           </div>
           {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
@@ -216,7 +229,15 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
         {prayerRequests?.length > 0 ? (
           prayerRequests.map((p) => (
             <div key={p.id} className="repeatable-row">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.5rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                  gap: "0.5rem",
+                }}
+              >
                 {editingId === p.id ? (
                   <div className="form-grid" style={{ flex: 1 }}>
                     <label>
@@ -225,8 +246,12 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
                         value={editForm.category}
                         onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
                       >
-                        <option value="strategic">Strategic (ministry vision/calling — can be shared publicly)</option>
-                        <option value="situational">Situational (health, travel, family, logistics — admin-only)</option>
+                        <option value="strategic">
+                          Strategic (ministry vision/calling — can be shared publicly)
+                        </option>
+                        <option value="situational">
+                          Situational (health, travel, family, logistics — admin-only)
+                        </option>
                       </select>
                     </label>
                     <label>
@@ -253,7 +278,13 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
                           <input
                             type="checkbox"
                             checked={editForm.isPublic}
-                            onChange={(e) => setEditForm((f) => ({ ...f, isPublic: e.target.checked, includeInBooklet: e.target.checked && f.includeInBooklet }))}
+                            onChange={(e) =>
+                              setEditForm((f) => ({
+                                ...f,
+                                isPublic: e.target.checked,
+                                includeInBooklet: e.target.checked && f.includeInBooklet,
+                              }))
+                            }
                           />
                           Show on public profile
                         </label>
@@ -262,7 +293,9 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
                             <input
                               type="checkbox"
                               checked={editForm.includeInBooklet}
-                              onChange={(e) => setEditForm((f) => ({ ...f, includeInBooklet: e.target.checked }))}
+                              onChange={(e) =>
+                                setEditForm((f) => ({ ...f, includeInBooklet: e.target.checked }))
+                              }
                             />
                             Include in printed booklet
                           </label>
@@ -271,13 +304,23 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
                     )}
                     <label style={{ gridColumn: "1 / -1" }}>
                       Admin Notes (optional, never shown publicly)
-                      <input value={editForm.notes} onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))} />
+                      <input
+                        value={editForm.notes}
+                        onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                      />
                     </label>
                     <div style={{ gridColumn: "1 / -1", display: "flex", gap: "0.5rem" }}>
                       <button type="button" className="btn small" onClick={() => submitEdit(p.id)}>
                         Save
                       </button>
-                      <button type="button" className="btn secondary small" onClick={() => { setEditingId(null); setEditForm(null); }}>
+                      <button
+                        type="button"
+                        className="btn secondary small"
+                        onClick={() => {
+                          setEditingId(null);
+                          setEditForm(null);
+                        }}
+                      >
                         Cancel
                       </button>
                     </div>
@@ -286,7 +329,8 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
                   <div>
                     <p style={{ margin: 0 }}>{p.requestText}</p>
                     <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
-                      Received {formatDate(p.dateReceived)} · {p.category === "strategic" ? "Strategic" : "Situational"}
+                      Received {formatDate(p.dateReceived)} ·{" "}
+                      {p.category === "strategic" ? "Strategic" : "Situational"}
                       {p.category === "strategic" && p.isPublic && " · Public"}
                       {p.category === "strategic" && p.isPublic && p.includeInBooklet && " · In booklet"}
                     </div>
@@ -299,7 +343,11 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
                         {p.answeredNote && ` — ${p.answeredNote}`}
                       </div>
                     )}
-                    {p.notes && <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>{p.notes}</div>}
+                    {p.notes && (
+                      <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
+                        {p.notes}
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="table-actions">
@@ -318,7 +366,15 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
               </div>
 
               {answeringId === p.id && (
-                <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap", marginTop: "0.75rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "0.75rem",
+                    alignItems: "flex-end",
+                    flexWrap: "wrap",
+                    marginTop: "0.75rem",
+                  }}
+                >
                   <label>
                     Date Answered
                     <input

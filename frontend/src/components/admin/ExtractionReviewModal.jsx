@@ -24,10 +24,14 @@ export default function ExtractionReviewModal({ scan, partnerId, defaultDate, on
         // sense to offer -- the Add button would just 404 (see
         // requireFeature("prayerRequests"/"oneTimeNeeds") on the backend).
         setPrayerRequests(
-          enabledFeatures.prayerRequests ? (result.prayerRequests || []).map((r) => ({ ...r, state: "pending" })) : []
+          enabledFeatures.prayerRequests
+            ? (result.prayerRequests || []).map((r) => ({ ...r, state: "pending" }))
+            : []
         );
         setOneTimeNeeds(
-          enabledFeatures.oneTimeNeeds ? (result.oneTimeNeeds || []).map((n) => ({ ...n, state: "pending" })) : []
+          enabledFeatures.oneTimeNeeds
+            ? (result.oneTimeNeeds || []).map((n) => ({ ...n, state: "pending" }))
+            : []
         );
         setStatus("ready");
       })
@@ -87,93 +91,107 @@ export default function ExtractionReviewModal({ scan, partnerId, defaultDate, on
 
   return (
     <Modal title="Scan results" onClose={onClose}>
-        {/* role="status" so a screen reader announces the result when a scan
+      {/* role="status" so a screen reader announces the result when a scan
             that can take a minute finally finishes, rather than leaving the
             user to poll it. */}
-        {status === "loading" && (
-          <p style={{ color: "#555" }} role="status">
-            Reading the file with Claude — this can take up to a minute...
-          </p>
-        )}
-        {status === "error" && (
-          <p style={{ color: "#b91c1c" }} role="alert">
-            {error}
-          </p>
-        )}
-        {nothingFound && <p style={{ color: "#888" }}>No prayer requests or one-time needs found in this file.</p>}
+      {status === "loading" && (
+        <p style={{ color: "#555" }} role="status">
+          Reading the file with Claude — this can take up to a minute...
+        </p>
+      )}
+      {status === "error" && (
+        <p style={{ color: "#b91c1c" }} role="alert">
+          {error}
+        </p>
+      )}
+      {nothingFound && (
+        <p style={{ color: "#888" }}>No prayer requests or one-time needs found in this file.</p>
+      )}
 
-        {prayerRequests.length > 0 && (
-          <div style={{ marginTop: "1rem" }}>
-            <h4>Prayer requests</h4>
-            {prayerRequests.map((r, i) => (
-              <div key={i} className="repeatable-row">
-                <select
-                  value={r.category}
-                  disabled={r.state !== "pending"}
-                  onChange={(e) => updatePrayerRequest(i, "category", e.target.value)}
-                  style={{ marginBottom: "0.5rem" }}
-                >
-                  <option value="strategic">Strategic</option>
-                  <option value="situational">Situational</option>
-                </select>
-                <textarea
-                  value={r.requestText}
-                  disabled={r.state !== "pending"}
-                  onChange={(e) => updatePrayerRequest(i, "requestText", e.target.value)}
-                  rows={2}
-                  style={{ width: "100%" }}
-                />
-                <div className="table-actions" style={{ marginTop: "0.5rem" }}>
-                  {r.state === "added" ? (
-                    <span style={{ color: "#2a5d3c" }}>Added ✓</span>
-                  ) : (
-                    <button type="button" className="btn small" disabled={r.state === "saving"} onClick={() => addPrayerRequest(i)}>
-                      {r.state === "saving" ? "Adding..." : "+ Add prayer request"}
-                    </button>
-                  )}
-                </div>
+      {prayerRequests.length > 0 && (
+        <div style={{ marginTop: "1rem" }}>
+          <h4>Prayer requests</h4>
+          {prayerRequests.map((r, i) => (
+            <div key={i} className="repeatable-row">
+              <select
+                value={r.category}
+                disabled={r.state !== "pending"}
+                onChange={(e) => updatePrayerRequest(i, "category", e.target.value)}
+                style={{ marginBottom: "0.5rem" }}
+              >
+                <option value="strategic">Strategic</option>
+                <option value="situational">Situational</option>
+              </select>
+              <textarea
+                value={r.requestText}
+                disabled={r.state !== "pending"}
+                onChange={(e) => updatePrayerRequest(i, "requestText", e.target.value)}
+                rows={2}
+                style={{ width: "100%" }}
+              />
+              <div className="table-actions" style={{ marginTop: "0.5rem" }}>
+                {r.state === "added" ? (
+                  <span style={{ color: "#2a5d3c" }}>Added ✓</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn small"
+                    disabled={r.state === "saving"}
+                    onClick={() => addPrayerRequest(i)}
+                  >
+                    {r.state === "saving" ? "Adding..." : "+ Add prayer request"}
+                  </button>
+                )}
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
+      )}
 
-        {oneTimeNeeds.length > 0 && (
-          <div style={{ marginTop: "1rem" }}>
-            <h4>One-time needs</h4>
-            {oneTimeNeeds.map((n, i) => (
-              <div key={i} className="repeatable-row">
-                <textarea
-                  value={n.description}
+      {oneTimeNeeds.length > 0 && (
+        <div style={{ marginTop: "1rem" }}>
+          <h4>One-time needs</h4>
+          {oneTimeNeeds.map((n, i) => (
+            <div key={i} className="repeatable-row">
+              <textarea
+                value={n.description}
+                disabled={n.state !== "pending"}
+                onChange={(e) => updateNeed(i, "description", e.target.value)}
+                rows={2}
+                style={{ width: "100%" }}
+              />
+              <label style={{ display: "block", marginTop: "0.5rem", fontWeight: "normal" }}>
+                Amount ($)
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={n.requestedAmount ?? ""}
                   disabled={n.state !== "pending"}
-                  onChange={(e) => updateNeed(i, "description", e.target.value)}
-                  rows={2}
-                  style={{ width: "100%" }}
+                  onChange={(e) =>
+                    updateNeed(i, "requestedAmount", e.target.value ? Number(e.target.value) : null)
+                  }
+                  style={{ width: "8rem", marginLeft: "0.5rem" }}
                 />
-                <label style={{ display: "block", marginTop: "0.5rem", fontWeight: "normal" }}>
-                  Amount ($)
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={n.requestedAmount ?? ""}
-                    disabled={n.state !== "pending"}
-                    onChange={(e) => updateNeed(i, "requestedAmount", e.target.value ? Number(e.target.value) : null)}
-                    style={{ width: "8rem", marginLeft: "0.5rem" }}
-                  />
-                </label>
-                <div className="table-actions" style={{ marginTop: "0.5rem" }}>
-                  {n.state === "added" ? (
-                    <span style={{ color: "#2a5d3c" }}>Added ✓</span>
-                  ) : (
-                    <button type="button" className="btn small" disabled={n.state === "saving"} onClick={() => addNeed(i)}>
-                      {n.state === "saving" ? "Adding..." : "+ Add one-time need"}
-                    </button>
-                  )}
-                </div>
+              </label>
+              <div className="table-actions" style={{ marginTop: "0.5rem" }}>
+                {n.state === "added" ? (
+                  <span style={{ color: "#2a5d3c" }}>Added ✓</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn small"
+                    disabled={n.state === "saving"}
+                    onClick={() => addNeed(i)}
+                  >
+                    {n.state === "saving" ? "Adding..." : "+ Add one-time need"}
+                  </button>
+                )}
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
+      )}
     </Modal>
   );
 }

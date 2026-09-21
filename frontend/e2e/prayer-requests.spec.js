@@ -2,7 +2,9 @@ import { test, expect } from "@playwright/test";
 import { login } from "./helpers.js";
 
 test.describe("Prayer requests", () => {
-  test("create on a missionary, record an answer, and confirm it appears publicly with no negative framing for other open requests", async ({ page }) => {
+  test("create on a missionary, record an answer, and confirm it appears publicly with no negative framing for other open requests", async ({
+    page,
+  }) => {
     await login(page);
 
     const missionariesRes = await page.request.get("/api/partners?kind=missionary");
@@ -20,7 +22,9 @@ test.describe("Prayer requests", () => {
 
     const uniqueText = `E2E prayer request ${Date.now()}`;
     await page.click("button:has-text('+ Add Prayer Request')");
-    await page.selectOption("select", { label: "Strategic (ministry vision/calling — can be shared publicly)" });
+    await page.selectOption("select", {
+      label: "Strategic (ministry vision/calling — can be shared publicly)",
+    });
     await page.fill("textarea", uniqueText);
     await page.locator('input[type="checkbox"]').first().check(); // "Show on public profile"
     await page.click('button[type="submit"]:has-text("Add Prayer Request")');

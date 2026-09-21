@@ -66,7 +66,10 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 // above.
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
-    const existing = await prisma.supportEntry.findUnique({ where: { id: req.params.id }, select: { id: true } });
+    const existing = await prisma.supportEntry.findUnique({
+      where: { id: req.params.id },
+      select: { id: true },
+    });
     if (!existing) return res.status(404).json({ error: "Not found" });
 
     await prisma.supportEntry.delete({ where: { id: req.params.id } });

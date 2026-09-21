@@ -99,7 +99,13 @@ async function extractRequestsFromFile(record) {
     messages: [
       {
         role: "user",
-        content: [fileBlock, { type: "text", text: "Extract any prayer requests and one-time financial needs from this document." }],
+        content: [
+          fileBlock,
+          {
+            type: "text",
+            text: "Extract any prayer requests and one-time financial needs from this document.",
+          },
+        ],
       },
     ],
     output_config: { format: zodOutputFormat(ExtractionSchema) },

@@ -1,6 +1,13 @@
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
-const { client, stopServer, ensureTestUsers, removeTestUsers, removeFixturePartners, FIXTURE_TAG } = require("./helpers");
+const {
+  client,
+  stopServer,
+  ensureTestUsers,
+  removeTestUsers,
+  removeFixturePartners,
+  FIXTURE_TAG,
+} = require("./helpers");
 
 // maskData.test.js covers the serializer as a pure function. These cover
 // the boundary itself: that the public routes actually run everything
@@ -75,8 +82,14 @@ describe("public partners: masking is applied by the route, not just available",
     const { body } = await anon(`/api/public/partners/${p.id}`);
 
     assert.notEqual(body.displayName, `${FIXTURE_TAG} Jordan Rivera`);
-    assert.ok(!JSON.stringify(body).includes("SECRET-OVERVIEW-TEXT"), "the real overview must not appear anywhere in the response");
-    assert.ok(!JSON.stringify(body).includes("secret.example.com"), "links must not appear anywhere in the response");
+    assert.ok(
+      !JSON.stringify(body).includes("SECRET-OVERVIEW-TEXT"),
+      "the real overview must not appear anywhere in the response"
+    );
+    assert.ok(
+      !JSON.stringify(body).includes("secret.example.com"),
+      "links must not appear anywhere in the response"
+    );
     assert.notEqual(body.gpsLat, 13.75, "the precise serving-location pin must be replaced");
     assert.equal(body.gpsLat, 15, "restricted records get the country centroid instead");
     assert.ok(body.photo.startsWith("data:image/svg+xml,"), "restricted records get a generic silhouette");
@@ -107,10 +120,18 @@ describe("public partners: masking is applied by the route, not just available",
 
   test("admin-only collections never appear on a public record", async () => {
     const p = await createPartner({ isPublic: true });
-    await admin("/api/support-entries", { method: "POST", body: { partnerId: p.id, amount: 500, effectiveDate: "2026-01-01" } });
+    await admin("/api/support-entries", {
+      method: "POST",
+      body: { partnerId: p.id, amount: 500, effectiveDate: "2026-01-01" },
+    });
     await admin("/api/prayer-requests", {
       method: "POST",
-      body: { partnerId: p.id, category: "situational", requestText: "SITUATIONAL-SECRET", dateReceived: "2026-01-01" },
+      body: {
+        partnerId: p.id,
+        category: "situational",
+        requestText: "SITUATIONAL-SECRET",
+        dateReceived: "2026-01-01",
+      },
     });
 
     const { body } = await anon(`/api/public/partners/${p.id}`);
@@ -126,11 +147,23 @@ describe("public partners: masking is applied by the route, not just available",
     const p = await createPartner({ isPublic: true });
     await admin("/api/prayer-requests", {
       method: "POST",
-      body: { partnerId: p.id, category: "strategic", isPublic: false, requestText: "NOT-PUBLIC-YET", dateReceived: "2026-01-01" },
+      body: {
+        partnerId: p.id,
+        category: "strategic",
+        isPublic: false,
+        requestText: "NOT-PUBLIC-YET",
+        dateReceived: "2026-01-01",
+      },
     });
     await admin("/api/prayer-requests", {
       method: "POST",
-      body: { partnerId: p.id, category: "strategic", isPublic: true, requestText: "SHAREABLE", dateReceived: "2026-01-02" },
+      body: {
+        partnerId: p.id,
+        category: "strategic",
+        isPublic: true,
+        requestText: "SHAREABLE",
+        dateReceived: "2026-01-02",
+      },
     });
 
     const { body } = await anon(`/api/public/partners/${p.id}`);

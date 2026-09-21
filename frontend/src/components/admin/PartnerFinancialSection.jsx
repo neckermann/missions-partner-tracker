@@ -81,7 +81,10 @@ export default function PartnerFinancialSection({
   }
 
   async function removeEntry(row) {
-    if (!confirm(`Delete the ${formatCurrency(row.amount)} entry effective ${formatDate(row.effectiveDate)}?`)) return;
+    if (
+      !confirm(`Delete the ${formatCurrency(row.amount)} entry effective ${formatDate(row.effectiveDate)}?`)
+    )
+      return;
     await deleteSupportEntry(row.id);
     await onChange();
   }
@@ -151,7 +154,9 @@ export default function PartnerFinancialSection({
             <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
               Current Monthly Support
             </div>
-            <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>{formatCurrency(current?.amount) ?? "—"}</div>
+            <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>
+              {formatCurrency(current?.amount) ?? "—"}
+            </div>
           </div>
 
           {addingEntry && (
@@ -179,7 +184,10 @@ export default function PartnerFinancialSection({
                 </label>
                 <label style={{ gridColumn: "1 / -1" }}>
                   Notes
-                  <input value={entry.notes} onChange={(e) => setEntry((f) => ({ ...f, notes: e.target.value }))} />
+                  <input
+                    value={entry.notes}
+                    onChange={(e) => setEntry((f) => ({ ...f, notes: e.target.value }))}
+                  />
                 </label>
               </div>
               <button type="submit" className="btn small" style={{ marginTop: "0.75rem" }} disabled={saving}>
@@ -191,7 +199,14 @@ export default function PartnerFinancialSection({
           {supportEntries?.length > 0 ? (
             supportEntries.map((row) => (
               <div key={row.id} className="repeatable-row">
-                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: "0.5rem",
+                  }}
+                >
                   <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
                     <strong>{formatCurrency(row.amount)}</strong>
                     <span style={{ color: "#666" }}>effective {formatDate(row.effectiveDate)}</span>
@@ -252,7 +267,10 @@ export default function PartnerFinancialSection({
                 </label>
                 <label style={{ gridColumn: "1 / -1" }}>
                   Notes
-                  <input value={need.notes} onChange={(e) => setNeed((f) => ({ ...f, notes: e.target.value }))} />
+                  <input
+                    value={need.notes}
+                    onChange={(e) => setNeed((f) => ({ ...f, notes: e.target.value }))}
+                  />
                 </label>
               </div>
               <button type="submit" className="btn small" style={{ marginTop: "0.75rem" }} disabled={saving}>
@@ -266,7 +284,14 @@ export default function PartnerFinancialSection({
               const status = needStatus(row);
               return (
                 <div key={row.id} className="repeatable-row">
-                  <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      flexWrap: "wrap",
+                      gap: "0.5rem",
+                    }}
+                  >
                     <div>
                       <span className={`status-pill ${status.tone}`}>{status.label}</span>
                       <div style={{ marginTop: "0.4rem" }}>{row.description}</div>
@@ -278,7 +303,9 @@ export default function PartnerFinancialSection({
                           }`}
                       </div>
                       {row.notes && (
-                        <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>{row.notes}</div>
+                        <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
+                          {row.notes}
+                        </div>
                       )}
                     </div>
                     <div className="table-actions">
@@ -320,7 +347,12 @@ export default function PartnerFinancialSection({
                         />
                       </label>
                       <div style={{ gridColumn: "1 / -1" }}>
-                        <button type="button" className="btn small" onClick={() => submitDecision(row.id)} disabled={saving}>
+                        <button
+                          type="button"
+                          className="btn small"
+                          onClick={() => submitDecision(row.id)}
+                          disabled={saving}
+                        >
                           Save Decision
                         </button>
                       </div>

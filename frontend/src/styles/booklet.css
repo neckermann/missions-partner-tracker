@@ -89,7 +89,12 @@ body {
 .booklet-notes-lines {
   flex: 1;
   min-height: 5in;
-  background-image: linear-gradient(to bottom, transparent calc(0.4in - 1px), #ccc calc(0.4in - 1px), #ccc 0.4in);
+  background-image: linear-gradient(
+    to bottom,
+    transparent calc(0.4in - 1px),
+    #ccc calc(0.4in - 1px),
+    #ccc 0.4in
+  );
   background-size: 100% 0.4in;
 }
 

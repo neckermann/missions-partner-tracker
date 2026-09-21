@@ -9,7 +9,14 @@ import React from "react";
 //
 // `partners` is whatever fetchPartners() returned — it only reads id, kind
 // and displayName, so a summary row is enough.
-export default function PartnerSelect({ partners, value, onChange, required, includeArchived = false, ...rest }) {
+export default function PartnerSelect({
+  partners,
+  value,
+  onChange,
+  required,
+  includeArchived = false,
+  ...rest
+}) {
   const usable = includeArchived ? partners : partners.filter((p) => !p.archived);
   const missionaries = usable.filter((p) => p.kind === "missionary");
   const organizations = usable.filter((p) => p.kind === "organization");

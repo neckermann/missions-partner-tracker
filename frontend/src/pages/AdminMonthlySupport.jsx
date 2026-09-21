@@ -1,11 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  fetchPartners,
-  fetchSupportEntries,
-  createSupportEntry,
-  deleteSupportEntry,
-} from "../api/client.js";
+import { fetchPartners, fetchSupportEntries, createSupportEntry, deleteSupportEntry } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 
 function formatCurrency(amount) {
@@ -109,7 +104,11 @@ export default function AdminMonthlySupport() {
   }
 
   async function handleDeleteEntry(entry) {
-    if (!confirm(`Delete the ${formatCurrency(entry.amount)} entry effective ${formatDate(entry.effectiveDate)}? This cannot be undone.`))
+    if (
+      !confirm(
+        `Delete the ${formatCurrency(entry.amount)} entry effective ${formatDate(entry.effectiveDate)}? This cannot be undone.`
+      )
+    )
       return;
     await deleteSupportEntry(entry.id);
     reload();
@@ -118,161 +117,168 @@ export default function AdminMonthlySupport() {
   return (
     <div className="admin-shell">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2>Monthly Support</h2>
-          <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-            <div className="admin-checkbox-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={includeArchived}
-                  onChange={(e) => setIncludeArchived(e.target.checked)}
-                />
-                Include archived
-              </label>
-            </div>
-            <button
-              className="btn"
-              onClick={() => {
-                setShowAddForm((v) => !v);
-                setError("");
-              }}
+        <h2>Monthly Support</h2>
+        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <div className="admin-checkbox-row">
+            <label>
+              <input
+                type="checkbox"
+                checked={includeArchived}
+                onChange={(e) => setIncludeArchived(e.target.checked)}
+              />
+              Include archived
+            </label>
+          </div>
+          <button
+            className="btn"
+            onClick={() => {
+              setShowAddForm((v) => !v);
+              setError("");
+            }}
+          >
+            {showAddForm ? "Cancel" : "+ Add Support Entry"}
+          </button>
+        </div>
+      </div>
+
+      {showAddForm && (
+        <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
+          <div className="form-grid">
+            <label
+              style={{ gridColumn: "1 / -1" }}
+              title="A new support amount takes effect as of the date below -- it doesn't overwrite prior entries, which stay on file as history."
             >
-              {showAddForm ? "Cancel" : "+ Add Support Entry"}
+              Partner
+              <PartnerSelect
+                partners={partners}
+                value={newEntry.partnerId}
+                onChange={(partnerId) => setNewEntry((f) => ({ ...f, partnerId }))}
+                required
+              />
+            </label>
+            <label>
+              Monthly Amount (USD)
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={newEntry.amount}
+                onChange={(e) => setNewEntry((f) => ({ ...f, amount: e.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Effective Date
+              <input
+                type="date"
+                value={newEntry.effectiveDate}
+                onChange={(e) => setNewEntry((f) => ({ ...f, effectiveDate: e.target.value }))}
+                required
+              />
+            </label>
+            <label style={{ gridColumn: "1 / -1" }}>
+              Notes
+              <input
+                value={newEntry.notes}
+                onChange={(e) => setNewEntry((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </label>
+          </div>
+          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+          <div style={{ marginTop: "1rem" }}>
+            <button type="submit" className="btn" disabled={saving}>
+              {saving ? "Saving..." : "Save Entry"}
             </button>
           </div>
-        </div>
+        </form>
+      )}
 
-        {showAddForm && (
-          <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
-            <div className="form-grid">
-              <label
-                style={{ gridColumn: "1 / -1" }}
-                title="A new support amount takes effect as of the date below -- it doesn't overwrite prior entries, which stay on file as history."
+      <div className="admin-section" style={{ marginTop: "1rem" }}>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "baseline" }}>
+          <span style={{ fontSize: "0.85rem", color: "#555" }}>Total monthly support ({rows.length}):</span>
+          <span style={{ fontSize: "1.3rem", fontWeight: 700 }}>{formatCurrency(total)}</span>
+        </div>
+      </div>
+
+      <table className="admin-table" style={{ marginTop: "1rem" }}>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Field / Region</th>
+            <th>Monthly Amount</th>
+            <th>Effective Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <React.Fragment key={r.id}>
+              <tr
+                onClick={() => navigate(r.link)}
+                style={{ cursor: "pointer" }}
+                title="Click to view details"
               >
-                Partner
-                <PartnerSelect
-                  partners={partners}
-                  value={newEntry.partnerId}
-                  onChange={(partnerId) => setNewEntry((f) => ({ ...f, partnerId }))}
-                  required
-                />
-              </label>
-              <label>
-                Monthly Amount (USD)
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={newEntry.amount}
-                  onChange={(e) => setNewEntry((f) => ({ ...f, amount: e.target.value }))}
-                  required
-                />
-              </label>
-              <label>
-                Effective Date
-                <input
-                  type="date"
-                  value={newEntry.effectiveDate}
-                  onChange={(e) => setNewEntry((f) => ({ ...f, effectiveDate: e.target.value }))}
-                  required
-                />
-              </label>
-              <label style={{ gridColumn: "1 / -1" }}>
-                Notes
-                <input value={newEntry.notes} onChange={(e) => setNewEntry((f) => ({ ...f, notes: e.target.value }))} />
-              </label>
-            </div>
-            {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-            <div style={{ marginTop: "1rem" }}>
-              <button type="submit" className="btn" disabled={saving}>
-                {saving ? "Saving..." : "Save Entry"}
-              </button>
-            </div>
-          </form>
-        )}
-
-        <div className="admin-section" style={{ marginTop: "1rem" }}>
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "baseline" }}>
-            <span style={{ fontSize: "0.85rem", color: "#555" }}>Total monthly support ({rows.length}):</span>
-            <span style={{ fontSize: "1.3rem", fontWeight: 700 }}>{formatCurrency(total)}</span>
-          </div>
-        </div>
-
-        <table className="admin-table" style={{ marginTop: "1rem" }}>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Field / Region</th>
-              <th>Monthly Amount</th>
-              <th>Effective Date</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <React.Fragment key={r.id}>
-                <tr onClick={() => navigate(r.link)} style={{ cursor: "pointer" }} title="Click to view details">
-                  <td>{r.name}</td>
-                  <td>{r.type}</td>
-                  <td>{r.field}</td>
-                  <td>{formatCurrency(r.current.amount)}</td>
-                  <td>{formatDate(r.current.effectiveDate)}</td>
-                  <td className="table-actions" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      className="btn secondary small"
-                      onClick={() => toggleHistory(r.id)}
-                      title="View and correct past support entries for this partner"
-                    >
-                      {historyFor === r.id ? "Hide History" : "History"}
-                    </button>
-                  </td>
-                </tr>
-                {historyFor === r.id && (
-                  <tr onClick={(e) => e.stopPropagation()}>
-                    <td colSpan={6}>
-                      <table className="admin-table">
-                        <thead>
-                          <tr>
-                            <th>Amount</th>
-                            <th>Effective Date</th>
-                            <th>Notes</th>
-                            <th></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {history.map((entry) => (
-                            <tr key={entry.id}>
-                              <td>{formatCurrency(entry.amount)}</td>
-                              <td>{formatDate(entry.effectiveDate)}</td>
-                              <td>{entry.notes || "—"}</td>
-                              <td className="table-actions">
-                                <button
-                                  type="button"
-                                  className="btn danger small"
-                                  onClick={() => handleDeleteEntry(entry)}
-                                >
-                                  Delete
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ color: "#888" }}>
-                  No support entries on file yet.
+                <td>{r.name}</td>
+                <td>{r.type}</td>
+                <td>{r.field}</td>
+                <td>{formatCurrency(r.current.amount)}</td>
+                <td>{formatDate(r.current.effectiveDate)}</td>
+                <td className="table-actions" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    onClick={() => toggleHistory(r.id)}
+                    title="View and correct past support entries for this partner"
+                  >
+                    {historyFor === r.id ? "Hide History" : "History"}
+                  </button>
                 </td>
               </tr>
-            )}
-          </tbody>
+              {historyFor === r.id && (
+                <tr onClick={(e) => e.stopPropagation()}>
+                  <td colSpan={6}>
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Amount</th>
+                          <th>Effective Date</th>
+                          <th>Notes</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {history.map((entry) => (
+                          <tr key={entry.id}>
+                            <td>{formatCurrency(entry.amount)}</td>
+                            <td>{formatDate(entry.effectiveDate)}</td>
+                            <td>{entry.notes || "—"}</td>
+                            <td className="table-actions">
+                              <button
+                                type="button"
+                                className="btn danger small"
+                                onClick={() => handleDeleteEntry(entry)}
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              )}
+            </React.Fragment>
+          ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={6} style={{ color: "#888" }}>
+                No support entries on file yet.
+              </td>
+            </tr>
+          )}
+        </tbody>
       </table>
     </div>
   );

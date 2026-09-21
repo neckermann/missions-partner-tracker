@@ -47,7 +47,11 @@ async function createPartner(overrides = {}) {
 describe("partners: auth gates", () => {
   test("unauthenticated requests are rejected", async () => {
     assert.equal((await anon("/api/partners")).status, 401);
-    assert.equal((await anon("/api/partners", { method: "POST", body: { kind: "missionary", displayName: "x" } })).status, 401);
+    assert.equal(
+      (await anon("/api/partners", { method: "POST", body: { kind: "missionary", displayName: "x" } }))
+        .status,
+      401
+    );
   });
 
   test("a viewer can read but not write", async () => {
@@ -61,7 +65,10 @@ describe("partners: auth gates", () => {
 
   test("an editor can write but cannot delete", async () => {
     const p = await createPartner();
-    assert.equal((await editor(`/api/partners/${p.id}`, { method: "PUT", body: { overview: "ok" } })).status, 200);
+    assert.equal(
+      (await editor(`/api/partners/${p.id}`, { method: "PUT", body: { overview: "ok" } })).status,
+      200
+    );
     await editor(`/api/partners/${p.id}/archive`, { method: "POST" });
     assert.equal((await editor(`/api/partners/${p.id}`, { method: "DELETE" })).status, 403);
   });
@@ -77,7 +84,10 @@ describe("partners: validation", () => {
   // So the contract is now both halves at once: the body must name the
   // offending field, AND it must be a string. See middleware/errors.js.
   test("a validation error names the offending field, as a string", async () => {
-    const res = await admin("/api/partners", { method: "POST", body: { kind: "not-a-kind", displayName: "x" } });
+    const res = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "not-a-kind", displayName: "x" },
+    });
     assert.equal(res.status, 400);
     assert.equal(typeof res.body.error, "string", `expected a string, got ${JSON.stringify(res.body)}`);
     assert.match(res.body.error, /kind/);
@@ -93,7 +103,10 @@ describe("partners: validation", () => {
   test("an unknown id returns 404, not 500", async () => {
     const missing = "00000000-0000-4000-8000-000000000000";
     assert.equal((await admin(`/api/partners/${missing}`)).status, 404);
-    assert.equal((await admin(`/api/partners/${missing}`, { method: "PUT", body: { overview: "x" } })).status, 404);
+    assert.equal(
+      (await admin(`/api/partners/${missing}`, { method: "PUT", body: { overview: "x" } })).status,
+      404
+    );
   });
 
   // An unmatched /api path used to fall through to the SPA catch-all and
@@ -119,7 +132,15 @@ describe("partners: read models", () => {
     const row = body[0];
     // The whole point of the summary select: a list row must not drag a
     // partner's entire history across the wire.
-    for (const absent of ["trips", "needRequests", "prayerRequests", "newsletters", "documents", "adults", "children"]) {
+    for (const absent of [
+      "trips",
+      "needRequests",
+      "prayerRequests",
+      "newsletters",
+      "documents",
+      "adults",
+      "children",
+    ]) {
       assert.ok(!(absent in row), `summary row should not include ${absent}`);
     }
     assert.ok("displayName" in row && "kind" in row);
@@ -130,7 +151,14 @@ describe("partners: read models", () => {
     const { status, body } = await admin(`/api/partners/${p.id}`);
     assert.equal(status, 200);
     assert.equal(body.adults.length, 1);
-    for (const absent of ["trips", "supportEntries", "needRequests", "prayerRequests", "newsletters", "documents"]) {
+    for (const absent of [
+      "trips",
+      "supportEntries",
+      "needRequests",
+      "prayerRequests",
+      "newsletters",
+      "documents",
+    ]) {
       assert.ok(!(absent in body), `detail record should not include ${absent}`);
     }
   });

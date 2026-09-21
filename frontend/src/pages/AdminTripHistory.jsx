@@ -1,12 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  fetchTrips,
-  fetchPartners,
-  createTrip,
-  updateTrip,
-  deleteTrip,
-} from "../api/client.js";
+import { fetchTrips, fetchPartners, createTrip, updateTrip, deleteTrip } from "../api/client.js";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 
@@ -234,7 +228,10 @@ export default function AdminTripHistory() {
             <div className="form-grid">
               <label>
                 Name
-                <input value={p.name} onChange={(e) => updateParticipant(which, pIndex, "name", e.target.value)} />
+                <input
+                  value={p.name}
+                  onChange={(e) => updateParticipant(which, pIndex, "name", e.target.value)}
+                />
               </label>
               <label>
                 Role
@@ -246,11 +243,17 @@ export default function AdminTripHistory() {
               </label>
               <label>
                 Phone
-                <input value={p.phone || ""} onChange={(e) => updateParticipant(which, pIndex, "phone", e.target.value)} />
+                <input
+                  value={p.phone || ""}
+                  onChange={(e) => updateParticipant(which, pIndex, "phone", e.target.value)}
+                />
               </label>
               <label>
                 Email
-                <input value={p.email || ""} onChange={(e) => updateParticipant(which, pIndex, "email", e.target.value)} />
+                <input
+                  value={p.email || ""}
+                  onChange={(e) => updateParticipant(which, pIndex, "email", e.target.value)}
+                />
               </label>
             </div>
             <div className="admin-checkbox-row" style={{ marginTop: "0.5rem" }}>
@@ -335,7 +338,11 @@ export default function AdminTripHistory() {
           </label>
           <label style={{ marginTop: "0.75rem" }}>
             Notes
-            <textarea rows={2} value={newTrip.notes} onChange={(e) => setNewTrip((f) => ({ ...f, notes: e.target.value }))} />
+            <textarea
+              rows={2}
+              value={newTrip.notes}
+              onChange={(e) => setNewTrip((f) => ({ ...f, notes: e.target.value }))}
+            />
           </label>
           {renderParticipantsEditor("new", newTrip)}
           {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
@@ -399,7 +406,12 @@ export default function AdminTripHistory() {
             />
           </label>
         </div>
-        <button type="button" className="btn secondary small" style={{ marginTop: "1rem" }} onClick={() => setFilters(emptyFilters)}>
+        <button
+          type="button"
+          className="btn secondary small"
+          style={{ marginTop: "1rem" }}
+          onClick={() => setFilters(emptyFilters)}
+        >
           Reset Filters
         </button>
       </div>
@@ -411,7 +423,9 @@ export default function AdminTripHistory() {
             <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>{filteredTrips.length}</div>
           </div>
           <div>
-            <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Total Participants</div>
+            <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
+              Total Participants
+            </div>
             <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>{totalParticipants}</div>
           </div>
         </div>

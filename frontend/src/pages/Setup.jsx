@@ -51,9 +51,9 @@ export default function Setup() {
     <div className="admin-shell" style={{ maxWidth: 420 }}>
       <h2>Welcome</h2>
       <p style={{ color: "#555" }}>
-        This is a fresh instance with no admin account yet. Create the first one below — you'll
-        be signed in immediately afterward, and can invite others or configure your church's
-        branding from the admin dashboard.
+        This is a fresh instance with no admin account yet. Create the first one below — you'll be signed in
+        immediately afterward, and can invite others or configure your church's branding from the admin
+        dashboard.
       </p>
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         <label>

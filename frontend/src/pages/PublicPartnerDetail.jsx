@@ -132,7 +132,13 @@ export default function PublicPartnerDetail() {
         {links.length > 0 && (
           <div className="partner-links">
             {links.map(([key, label]) => (
-              <a key={key} href={partner[key]} target="_blank" rel="noreferrer" className="btn secondary small">
+              <a
+                key={key}
+                href={partner[key]}
+                target="_blank"
+                rel="noreferrer"
+                className="btn secondary small"
+              >
                 {label}
               </a>
             ))}

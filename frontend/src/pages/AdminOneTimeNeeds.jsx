@@ -160,219 +160,254 @@ export default function AdminOneTimeNeeds() {
     <div className="admin-shell">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>One-Time Needs</h2>
-          <button className="btn" onClick={() => setShowAddForm((v) => !v)}>
-            {showAddForm ? "Cancel" : "+ Add Need"}
-          </button>
-        </div>
+        <button className="btn" onClick={() => setShowAddForm((v) => !v)}>
+          {showAddForm ? "Cancel" : "+ Add Need"}
+        </button>
+      </div>
 
-        {showAddForm && (
-          <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
-            <div className="form-grid">
-              <label style={{ gridColumn: "1 / -1" }}>
-                Partner
-                <PartnerSelect
-                  partners={partners}
-                  value={newNeed.partnerId}
-                  onChange={(partnerId) => setNewNeed((f) => ({ ...f, partnerId }))}
-                  required
-                />
-              </label>
-              <label style={{ gridColumn: "1 / -1" }}>
-                Description
-                <input
-                  value={newNeed.description}
-                  onChange={(e) => setNewNeed((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="e.g. One-time gift to help a family in their congregation"
-                  required
-                />
-              </label>
-              <label>
-                Requested Amount ($)
-                <input
-                  type="number"
-                  min="0"
-                  value={newNeed.requestedAmount}
-                  onChange={(e) => setNewNeed((f) => ({ ...f, requestedAmount: e.target.value }))}
-                  required
-                />
-              </label>
-              <label>
-                Request Date
-                <input
-                  type="date"
-                  value={newNeed.requestDate}
-                  onChange={(e) => setNewNeed((f) => ({ ...f, requestDate: e.target.value }))}
-                  required
-                />
-              </label>
-              <label style={{ gridColumn: "1 / -1" }}>
-                Notes
-                <input value={newNeed.notes} onChange={(e) => setNewNeed((f) => ({ ...f, notes: e.target.value }))} />
-              </label>
+      {showAddForm && (
+        <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
+          <div className="form-grid">
+            <label style={{ gridColumn: "1 / -1" }}>
+              Partner
+              <PartnerSelect
+                partners={partners}
+                value={newNeed.partnerId}
+                onChange={(partnerId) => setNewNeed((f) => ({ ...f, partnerId }))}
+                required
+              />
+            </label>
+            <label style={{ gridColumn: "1 / -1" }}>
+              Description
+              <input
+                value={newNeed.description}
+                onChange={(e) => setNewNeed((f) => ({ ...f, description: e.target.value }))}
+                placeholder="e.g. One-time gift to help a family in their congregation"
+                required
+              />
+            </label>
+            <label>
+              Requested Amount ($)
+              <input
+                type="number"
+                min="0"
+                value={newNeed.requestedAmount}
+                onChange={(e) => setNewNeed((f) => ({ ...f, requestedAmount: e.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Request Date
+              <input
+                type="date"
+                value={newNeed.requestDate}
+                onChange={(e) => setNewNeed((f) => ({ ...f, requestDate: e.target.value }))}
+                required
+              />
+            </label>
+            <label style={{ gridColumn: "1 / -1" }}>
+              Notes
+              <input
+                value={newNeed.notes}
+                onChange={(e) => setNewNeed((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </label>
+          </div>
+          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+          <div style={{ marginTop: "1rem" }}>
+            <button type="submit" className="btn" disabled={saving}>
+              {saving ? "Saving..." : "Add Need"}
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
+        <label
+          htmlFor="needs-status-filter"
+          style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}
+        >
+          Show:
+        </label>
+        <select
+          id="needs-status-filter"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          style={{ width: "auto" }}
+        >
+          <option value="all">All</option>
+          <option value="pending">Pending decision</option>
+          <option value="decided">Decided</option>
+        </select>
+      </div>
+
+      {filteredNeeds.map((need) => {
+        const entity = entityFor(need);
+        const status = statusFor(need);
+        return (
+          <div key={need.id} className="repeatable-row" style={{ marginTop: "1rem" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                flexWrap: "wrap",
+                gap: "0.5rem",
+              }}
+            >
+              <div>
+                <span className={`status-pill ${status.tone}`} style={{ marginRight: "0.5rem" }}>
+                  {status.label}
+                </span>
+                {entity.link ? (
+                  <Link to={entity.link}>
+                    {entity.name} ({entity.type})
+                  </Link>
+                ) : (
+                  <span>{entity.name}</span>
+                )}
+              </div>
+              <div className="table-actions">
+                <button type="button" className="btn secondary small" onClick={() => startEdit(need)}>
+                  Edit
+                </button>
+                <button className="btn danger small" onClick={() => handleDelete(need)}>
+                  Delete
+                </button>
+              </div>
             </div>
-            {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-            <div style={{ marginTop: "1rem" }}>
-              <button type="submit" className="btn" disabled={saving}>
-                {saving ? "Saving..." : "Add Need"}
-              </button>
-            </div>
-          </form>
-        )}
 
-        <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
-          <label htmlFor="needs-status-filter" style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-            Show:
-          </label>
-          <select id="needs-status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ width: "auto" }}>
-            <option value="all">All</option>
-            <option value="pending">Pending decision</option>
-            <option value="decided">Decided</option>
-          </select>
-        </div>
-
-        {filteredNeeds.map((need) => {
-          const entity = entityFor(need);
-          const status = statusFor(need);
-          return (
-            <div key={need.id} className="repeatable-row" style={{ marginTop: "1rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.5rem" }}>
-                <div>
-                  <span className={`status-pill ${status.tone}`} style={{ marginRight: "0.5rem" }}>
-                    {status.label}
-                  </span>
-                  {entity.link ? (
-                    <Link to={entity.link}>
-                      {entity.name} ({entity.type})
-                    </Link>
-                  ) : (
-                    <span>{entity.name}</span>
-                  )}
-                </div>
-                <div className="table-actions">
-                  <button type="button" className="btn secondary small" onClick={() => startEdit(need)}>
-                    Edit
+            {editingId === need.id ? (
+              <div className="form-grid" style={{ marginTop: "0.5rem" }}>
+                <label style={{ gridColumn: "1 / -1" }}>
+                  Description
+                  <input
+                    value={editForm.description}
+                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                    required
+                  />
+                </label>
+                <label>
+                  Requested Amount ($)
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.requestedAmount}
+                    onChange={(e) => setEditForm((f) => ({ ...f, requestedAmount: e.target.value }))}
+                    required
+                  />
+                </label>
+                <label>
+                  Request Date
+                  <input
+                    type="date"
+                    value={editForm.requestDate}
+                    onChange={(e) => setEditForm((f) => ({ ...f, requestDate: e.target.value }))}
+                    required
+                  />
+                </label>
+                <label style={{ gridColumn: "1 / -1" }}>
+                  Notes
+                  <input
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                  />
+                </label>
+                <div style={{ gridColumn: "1 / -1", display: "flex", gap: "0.5rem" }}>
+                  <button type="button" className="btn small" onClick={() => submitEdit(need.id)}>
+                    Save
                   </button>
-                  <button className="btn danger small" onClick={() => handleDelete(need)}>
-                    Delete
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    onClick={() => {
+                      setEditingId(null);
+                      setEditForm(null);
+                    }}
+                  >
+                    Cancel
                   </button>
                 </div>
               </div>
+            ) : (
+              <>
+                <p style={{ margin: "0.5rem 0" }}>{need.description}</p>
 
-              {editingId === need.id ? (
-                <div className="form-grid" style={{ marginTop: "0.5rem" }}>
-                  <label style={{ gridColumn: "1 / -1" }}>
-                    Description
-                    <input
-                      value={editForm.description}
-                      onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                      required
-                    />
-                  </label>
-                  <label>
-                    Requested Amount ($)
-                    <input
-                      type="number"
-                      min="0"
-                      value={editForm.requestedAmount}
-                      onChange={(e) => setEditForm((f) => ({ ...f, requestedAmount: e.target.value }))}
-                      required
-                    />
-                  </label>
-                  <label>
-                    Request Date
-                    <input
-                      type="date"
-                      value={editForm.requestDate}
-                      onChange={(e) => setEditForm((f) => ({ ...f, requestDate: e.target.value }))}
-                      required
-                    />
-                  </label>
-                  <label style={{ gridColumn: "1 / -1" }}>
-                    Notes
-                    <input value={editForm.notes} onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))} />
-                  </label>
-                  <div style={{ gridColumn: "1 / -1", display: "flex", gap: "0.5rem" }}>
-                    <button type="button" className="btn small" onClick={() => submitEdit(need.id)}>
-                      Save
+                <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", fontSize: "0.9rem" }}>
+                  <div>
+                    <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
+                      Requested
+                    </div>
+                    <div>
+                      {formatCurrency(need.requestedAmount)} on {formatDate(need.requestDate)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
+                      Approved
+                    </div>
+                    <div>
+                      {need.approvedAmount != null
+                        ? `${formatCurrency(need.approvedAmount)} on ${formatDate(need.approvedDate)}`
+                        : "Not yet decided"}
+                    </div>
+                  </div>
+                  {need.notes && (
+                    <div>
+                      <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
+                        Notes
+                      </div>
+                      <div>{need.notes}</div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {need.approvedAmount == null && (
+              <div style={{ marginTop: "0.75rem" }}>
+                {decidingId === need.id ? (
+                  <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
+                    <label>
+                      Approved Amount ($)
+                      <input
+                        type="number"
+                        min="0"
+                        value={decision.approvedAmount}
+                        onChange={(e) => setDecision((d) => ({ ...d, approvedAmount: e.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      Approved Date
+                      <input
+                        type="date"
+                        value={decision.approvedDate}
+                        onChange={(e) => setDecision((d) => ({ ...d, approvedDate: e.target.value }))}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="btn small"
+                      onClick={() => submitDecision(need.id)}
+                      disabled={decision.approvedAmount === "" || !decision.approvedDate}
+                    >
+                      Save Decision
                     </button>
-                    <button type="button" className="btn secondary small" onClick={() => { setEditingId(null); setEditForm(null); }}>
+                    <button type="button" className="btn secondary small" onClick={() => setDecidingId(null)}>
                       Cancel
                     </button>
                   </div>
-                </div>
-              ) : (
-                <>
-                  <p style={{ margin: "0.5rem 0" }}>{need.description}</p>
-
-                  <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", fontSize: "0.9rem" }}>
-                    <div>
-                      <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Requested</div>
-                      <div>{formatCurrency(need.requestedAmount)} on {formatDate(need.requestDate)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Approved</div>
-                      <div>
-                        {need.approvedAmount != null
-                          ? `${formatCurrency(need.approvedAmount)} on ${formatDate(need.approvedDate)}`
-                          : "Not yet decided"}
-                      </div>
-                    </div>
-                    {need.notes && (
-                      <div>
-                        <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Notes</div>
-                        <div>{need.notes}</div>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {need.approvedAmount == null && (
-                <div style={{ marginTop: "0.75rem" }}>
-                  {decidingId === need.id ? (
-                    <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
-                      <label>
-                        Approved Amount ($)
-                        <input
-                          type="number"
-                          min="0"
-                          value={decision.approvedAmount}
-                          onChange={(e) => setDecision((d) => ({ ...d, approvedAmount: e.target.value }))}
-                        />
-                      </label>
-                      <label>
-                        Approved Date
-                        <input
-                          type="date"
-                          value={decision.approvedDate}
-                          onChange={(e) => setDecision((d) => ({ ...d, approvedDate: e.target.value }))}
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        className="btn small"
-                        onClick={() => submitDecision(need.id)}
-                        disabled={decision.approvedAmount === "" || !decision.approvedDate}
-                      >
-                        Save Decision
-                      </button>
-                      <button type="button" className="btn secondary small" onClick={() => setDecidingId(null)}>
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button type="button" className="btn secondary small" onClick={() => startDecision(need)}>
-                      Record Decision
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      {filteredNeeds.length === 0 && (
-        <p style={{ color: "#888", marginTop: "1rem" }}>No needs on file.</p>
-      )}
+                ) : (
+                  <button type="button" className="btn secondary small" onClick={() => startDecision(need)}>
+                    Record Decision
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {filteredNeeds.length === 0 && <p style={{ color: "#888", marginTop: "1rem" }}>No needs on file.</p>}
     </div>
   );
 }

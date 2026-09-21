@@ -74,12 +74,15 @@ export default function Login() {
       <div className="admin-shell" style={{ maxWidth: 400 }}>
         <h2>Two-Factor Setup Required</h2>
         <p style={{ color: "#555" }}>
-          An administrator requires two-factor authentication on this account. Scan this QR
-          code with an authenticator app (Google Authenticator, Authy, etc.), then enter the
-          6-digit code it shows to finish signing in.
+          An administrator requires two-factor authentication on this account. Scan this QR code with an
+          authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code it shows to
+          finish signing in.
         </p>
         {setupData && (
-          <form onSubmit={handleSetupConfirm} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <form
+            onSubmit={handleSetupConfirm}
+            style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+          >
             <img src={setupData.qrCode} alt="MFA QR code" style={{ width: 200, height: 200 }} />
             <p style={{ fontSize: "0.85rem", color: "#555" }}>
               Can't scan it? Enter this code manually: <code>{setupData.secret}</code>
@@ -98,7 +101,9 @@ export default function Login() {
               />
             </label>
             {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-            <button type="submit" className="btn">Confirm & Sign In</button>
+            <button type="submit" className="btn">
+              Confirm & Sign In
+            </button>
           </form>
         )}
       </div>
@@ -125,7 +130,9 @@ export default function Login() {
             />
           </label>
           {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-          <button type="submit" className="btn">Verify</button>
+          <button type="submit" className="btn">
+            Verify
+          </button>
           <button
             type="button"
             className="btn secondary"
@@ -156,7 +163,9 @@ export default function Login() {
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </label>
         {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-        <button type="submit" className="btn">Sign in</button>
+        <button type="submit" className="btn">
+          Sign in
+        </button>
       </form>
     </div>
   );

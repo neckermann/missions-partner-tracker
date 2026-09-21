@@ -7,18 +7,17 @@ const { requireRole } = require("../middleware/requireAuth");
 const router = express.Router();
 router.use(requireRole("admin")); // user management is admin-only
 
-const createUserSchema = z
-  .object({
-    email: z.string().email(),
-    name: z.string().optional().nullable(),
-    role: z.enum(["admin", "editor", "viewer"]).default("editor"),
-    // Every account is local now. The column stays (see the User model in
-    // schema.prisma) because auth.js still refuses to password-authenticate
-    // anything that isn't "local" -- cheap insurance against a passwordless
-    // row ever being created by some future path.
-    authProvider: z.literal("local").default("local"),
-    password: z.string().min(8),
-  });
+const createUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().optional().nullable(),
+  role: z.enum(["admin", "editor", "viewer"]).default("editor"),
+  // Every account is local now. The column stays (see the User model in
+  // schema.prisma) because auth.js still refuses to password-authenticate
+  // anything that isn't "local" -- cheap insurance against a passwordless
+  // row ever being created by some future path.
+  authProvider: z.literal("local").default("local"),
+  password: z.string().min(8),
+});
 
 const updateUserSchema = z.object({
   name: z.string().optional().nullable(),

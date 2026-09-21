@@ -50,7 +50,10 @@ describe("matchesFileSignature", () => {
     const notOffice = Buffer.from("<script>alert(1)</script>");
     assert.equal(matchesFileSignature(notOffice, "application/msword"), false);
     assert.equal(
-      matchesFileSignature(notOffice, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+      matchesFileSignature(
+        notOffice,
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ),
       false
     );
   });

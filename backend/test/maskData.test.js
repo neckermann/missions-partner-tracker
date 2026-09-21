@@ -70,10 +70,7 @@ describe("missionaryHouseholdCategory", () => {
     assert.equal(missionaryHouseholdCategory({ adults: [{ name: "Jordan" }] }), "single");
   });
   test("two adults, no children -> couple", () => {
-    assert.equal(
-      missionaryHouseholdCategory({ adults: [{ name: "Jordan" }, { name: "Alex" }] }),
-      "couple"
-    );
+    assert.equal(missionaryHouseholdCategory({ adults: [{ name: "Jordan" }, { name: "Alex" }] }), "couple");
   });
   test("any children at all -> family, regardless of adult count", () => {
     assert.equal(
@@ -146,9 +143,7 @@ describe("toPublicPartner — missionary", () => {
   });
 
   test("restricted: never exposes their real photo, current or otherwise — gets a generic silhouette instead", () => {
-    const result = toPublicPartner(
-      baseMissionary({ isRestricted: true, photos: [{ id: "p1" }] })
-    );
+    const result = toPublicPartner(baseMissionary({ isRestricted: true, photos: [{ id: "p1" }] }));
     assert.notEqual(result.photo, "/api/photos/p1/raw");
     assert.equal(isSilhouetteDataUri(result.photo), true);
   });
@@ -200,7 +195,15 @@ describe("toPublicPartner — missionary", () => {
     const result = toPublicPartner(
       baseMissionary({
         prayerRequests: [
-          { category: "strategic", isPublic: true, requestText: "Safety on the field", dateReceived: "2026-01-01", status: "ongoing", dateAnswered: null, answeredNote: null },
+          {
+            category: "strategic",
+            isPublic: true,
+            requestText: "Safety on the field",
+            dateReceived: "2026-01-01",
+            status: "ongoing",
+            dateAnswered: null,
+            answeredNote: null,
+          },
         ],
       })
     );
@@ -214,7 +217,9 @@ describe("toPublicPartner — missionary", () => {
   });
 
   test("restricted: silhouette photo matches the real household composition", () => {
-    const single = toPublicPartner(baseMissionary({ isRestricted: true, adults: [{ name: "Jordan" }], children: [] }));
+    const single = toPublicPartner(
+      baseMissionary({ isRestricted: true, adults: [{ name: "Jordan" }], children: [] })
+    );
     const couple = toPublicPartner(
       baseMissionary({ isRestricted: true, adults: [{ name: "Jordan" }, { name: "Alex" }], children: [] })
     );
@@ -246,7 +251,10 @@ describe("toPublicPartner — missionary", () => {
 
   test("restricted: replaces the overview with a generic security blurb", () => {
     const result = toPublicPartner(baseMissionary({ isRestricted: true }));
-    assert.equal(result.overview, "Serving in a restricted-access location. Specific details are withheld for security.");
+    assert.equal(
+      result.overview,
+      "Serving in a restricted-access location. Specific details are withheld for security."
+    );
     assert.equal(result.overviewShort, "Restricted-access location.");
   });
 
@@ -302,7 +310,10 @@ describe("toPublicPartner — organization", () => {
   test("restricted: still coarsens location and overview like a missionary", () => {
     const result = toPublicPartner(baseOrganization({ isRestricted: true }));
     assert.equal(result.gpsLat, 20); // India's centroid, not 20.1
-    assert.equal(result.overview, "Partnering in a restricted-access location. Specific details are withheld for security.");
+    assert.equal(
+      result.overview,
+      "Partnering in a restricted-access location. Specific details are withheld for security."
+    );
   });
 
   test("public, non-restricted: exposes precise location", () => {

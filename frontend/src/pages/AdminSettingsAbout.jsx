@@ -68,8 +68,8 @@ export default function AdminSettingsAbout() {
     <div className="admin-shell form-has-floating-actions">
       <h2>About Church</h2>
       <p style={{ color: "#555" }}>
-        Basic church info — used to auto-fill the Sending Church section when this church is the
-        sender, and for contact details shown across the admin app.
+        Basic church info — used to auto-fill the Sending Church section when this church is the sender, and
+        for contact details shown across the admin app.
       </p>
 
       <form onSubmit={handleSubmit} className="admin-form">
@@ -90,7 +90,10 @@ export default function AdminSettingsAbout() {
             </label>
             <label>
               Contact Email
-              <input value={form.contactEmail || ""} onChange={(e) => update("contactEmail", e.target.value)} />
+              <input
+                value={form.contactEmail || ""}
+                onChange={(e) => update("contactEmail", e.target.value)}
+              />
             </label>
             <label>
               Website

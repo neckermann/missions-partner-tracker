@@ -13,11 +13,15 @@ import { login } from "./helpers.js";
 // Every section on the partner page has its own Edit/Save pair, so a button
 // has to be scoped to the section it belongs to.
 function section(page, title) {
-  return page.locator(".admin-section").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+  return page
+    .locator(".admin-section")
+    .filter({ has: page.getByRole("heading", { name: title, exact: true }) });
 }
 
 test.describe("Admin partner CRUD", () => {
-  test("create a missionary with FIPS auto-fill, edit it in place, then archive and delete", async ({ page }) => {
+  test("create a missionary with FIPS auto-fill, edit it in place, then archive and delete", async ({
+    page,
+  }) => {
     await login(page);
 
     await page.goto("/admin/partners/new?kind=missionary");
@@ -87,7 +91,9 @@ test.describe("Admin partner CRUD", () => {
     expect(del.ok()).toBeTruthy();
   });
 
-  test("old missionary, organization and /edit URLs redirect to the merged partner page", async ({ page }) => {
+  test("old missionary, organization and /edit URLs redirect to the merged partner page", async ({
+    page,
+  }) => {
     await login(page);
 
     const res = await page.request.get("/api/partners?kind=missionary");

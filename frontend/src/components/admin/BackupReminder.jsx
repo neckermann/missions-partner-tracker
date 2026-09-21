@@ -6,9 +6,11 @@ const REMIND_AGAIN_AFTER_MS = 90 * 24 * 60 * 60 * 1000; // ~90 days
 
 const PROVIDER_MESSAGES = {
   neon: "You're on Neon — confirm your plan includes point-in-time recovery (Neon console → your project → Backup/Restore).",
-  supabase: "You're on Supabase — confirm your plan's backup retention window covers how much data loss your church would tolerate.",
+  supabase:
+    "You're on Supabase — confirm your plan's backup retention window covers how much data loss your church would tolerate.",
   rds: "You're on Amazon RDS — confirm automated backups and your retention window are enabled (RDS console → your instance → Maintenance & backups).",
-  other: "This app doesn't manage database backups itself — confirm your Postgres provider's backup/retention settings.",
+  other:
+    "This app doesn't manage database backups itself — confirm your Postgres provider's backup/retention settings.",
 };
 
 // A periodic (not one-time-forever) reminder that nothing in this app

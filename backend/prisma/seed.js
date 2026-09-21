@@ -63,26 +63,154 @@ function slugify(s) {
 // actual partner, swap it out; the point of demo data is that it's
 // obviously not anyone real.
 const FIRST_M = [
-  "Aaron", "Bill", "Bob", "Bobby", "Charles", "Craig", "David", "Dan", "Eric", "Frank",
-  "Gary", "Greg", "Henry", "Jack", "James", "Jason", "Jeff", "John", "Josh", "Kevin",
-  "Mark", "Matt", "Michael", "Nathan", "Paul", "Peter", "Phil", "Rick", "Robert", "Ryan",
-  "Sam", "Scott", "Steve", "Tim", "Tom", "Tyler", "Wayne", "Andrew", "Brian", "Chris",
-  "Derek", "Ethan", "Gavin", "Ian", "Jared", "Lucas", "Marcus", "Owen",
+  "Aaron",
+  "Bill",
+  "Bob",
+  "Bobby",
+  "Charles",
+  "Craig",
+  "David",
+  "Dan",
+  "Eric",
+  "Frank",
+  "Gary",
+  "Greg",
+  "Henry",
+  "Jack",
+  "James",
+  "Jason",
+  "Jeff",
+  "John",
+  "Josh",
+  "Kevin",
+  "Mark",
+  "Matt",
+  "Michael",
+  "Nathan",
+  "Paul",
+  "Peter",
+  "Phil",
+  "Rick",
+  "Robert",
+  "Ryan",
+  "Sam",
+  "Scott",
+  "Steve",
+  "Tim",
+  "Tom",
+  "Tyler",
+  "Wayne",
+  "Andrew",
+  "Brian",
+  "Chris",
+  "Derek",
+  "Ethan",
+  "Gavin",
+  "Ian",
+  "Jared",
+  "Lucas",
+  "Marcus",
+  "Owen",
 ];
 const FIRST_F = [
-  "Amanda", "Amy", "Angela", "Anna", "Barbara", "Beth", "Carol", "Cathy", "Christy", "Debbie",
-  "Diane", "Elizabeth", "Emily", "Emma", "Erin", "Grace", "Hannah", "Jenny", "Julie", "Karen",
-  "Katie", "Kim", "Laura", "Linda", "Lisa", "Lori", "Mary", "Melissa", "Michelle", "Nancy",
-  "Rachel", "Rebecca", "Sandy", "Sarah", "Stephanie", "Susan", "Tammy", "Tracy", "Wendy", "Kathy",
-  "Alyssa", "Brooke", "Danielle", "Faith", "Heather", "Jasmine", "Megan", "Olivia",
+  "Amanda",
+  "Amy",
+  "Angela",
+  "Anna",
+  "Barbara",
+  "Beth",
+  "Carol",
+  "Cathy",
+  "Christy",
+  "Debbie",
+  "Diane",
+  "Elizabeth",
+  "Emily",
+  "Emma",
+  "Erin",
+  "Grace",
+  "Hannah",
+  "Jenny",
+  "Julie",
+  "Karen",
+  "Katie",
+  "Kim",
+  "Laura",
+  "Linda",
+  "Lisa",
+  "Lori",
+  "Mary",
+  "Melissa",
+  "Michelle",
+  "Nancy",
+  "Rachel",
+  "Rebecca",
+  "Sandy",
+  "Sarah",
+  "Stephanie",
+  "Susan",
+  "Tammy",
+  "Tracy",
+  "Wendy",
+  "Kathy",
+  "Alyssa",
+  "Brooke",
+  "Danielle",
+  "Faith",
+  "Heather",
+  "Jasmine",
+  "Megan",
+  "Olivia",
 ];
 const LAST = [
-  "Whitfield", "Ashworth", "Callahan", "Delacroix", "Everhart", "Fairweather", "Gallagher", "Hensley",
-  "Ironside", "Jorgensen", "Kavanagh", "Lindholm", "Marchetti", "Norwood", "Ostrander", "Prescott",
-  "Quintero", "Ravenscroft", "Sinclair", "Thackeray", "Underhill", "Vandermeer", "Wexford", "Yardley",
-  "Zelinski", "Abernathy", "Bramwell", "Castellano", "Draycott", "Ellsworth", "Farnsworth", "Greenfield",
-  "Isherwood", "Kirkland", "Larrabee", "Moreland", "Nettleton", "Oakleigh", "Pemberton", "Radcliffe",
-  "Stanhope", "Tillman", "Wentworth", "Ashby", "Blackwood", "Chessington", "Dunmore", "Holloway",
+  "Whitfield",
+  "Ashworth",
+  "Callahan",
+  "Delacroix",
+  "Everhart",
+  "Fairweather",
+  "Gallagher",
+  "Hensley",
+  "Ironside",
+  "Jorgensen",
+  "Kavanagh",
+  "Lindholm",
+  "Marchetti",
+  "Norwood",
+  "Ostrander",
+  "Prescott",
+  "Quintero",
+  "Ravenscroft",
+  "Sinclair",
+  "Thackeray",
+  "Underhill",
+  "Vandermeer",
+  "Wexford",
+  "Yardley",
+  "Zelinski",
+  "Abernathy",
+  "Bramwell",
+  "Castellano",
+  "Draycott",
+  "Ellsworth",
+  "Farnsworth",
+  "Greenfield",
+  "Isherwood",
+  "Kirkland",
+  "Larrabee",
+  "Moreland",
+  "Nettleton",
+  "Oakleigh",
+  "Pemberton",
+  "Radcliffe",
+  "Stanhope",
+  "Tillman",
+  "Wentworth",
+  "Ashby",
+  "Blackwood",
+  "Chessington",
+  "Dunmore",
+  "Holloway",
 ];
 
 // --- mission fields (city/country/coords/FIPS) ---
@@ -101,28 +229,64 @@ const FIELDS = [
   { field: "Kathmandu Valley", city: "Kathmandu", country: "Nepal", fips: "NP", lat: 27.72, lng: 85.32 },
   { field: "Mongolia", city: "Ulaanbaatar", country: "Mongolia", fips: "MG", lat: 47.89, lng: 106.91 },
   { field: "Oaxaca Region", city: "Oaxaca", country: "Mexico", fips: "MX", lat: 17.06, lng: -96.73 },
-  { field: "Western Guatemala", city: "Quetzaltenango", country: "Guatemala", fips: "GT", lat: 14.83, lng: -91.52 },
+  {
+    field: "Western Guatemala",
+    city: "Quetzaltenango",
+    country: "Guatemala",
+    fips: "GT",
+    lat: 14.83,
+    lng: -91.52,
+  },
   { field: "Honduras", city: "Tegucigalpa", country: "Honduras", fips: "HO", lat: 14.07, lng: -87.19 },
   { field: "Cusco Region", city: "Cusco", country: "Peru", fips: "PE", lat: -13.53, lng: -71.97 },
   { field: "Andean Ecuador", city: "Quito", country: "Ecuador", fips: "EC", lat: -0.18, lng: -78.47 },
   { field: "Bolivia", city: "La Paz", country: "Bolivia", fips: "BL", lat: -16.5, lng: -68.15 },
   { field: "Amazon Basin", city: "Manaus", country: "Brazil", fips: "BR", lat: -3.1, lng: -60.02 },
-  { field: "Transylvania Region", city: "Cluj-Napoca", country: "Romania", fips: "RO", lat: 46.77, lng: 23.6 },
+  {
+    field: "Transylvania Region",
+    city: "Cluj-Napoca",
+    country: "Romania",
+    fips: "RO",
+    lat: 46.77,
+    lng: 23.6,
+  },
   { field: "Western Ukraine", city: "Lviv", country: "Ukraine", fips: "UP", lat: 49.84, lng: 24.03 },
   { field: "Albania", city: "Tirana", country: "Albania", fips: "AL", lat: 41.33, lng: 19.82 },
   { field: "Catalonia", city: "Barcelona", country: "Spain", fips: "SP", lat: 41.39, lng: 2.17 },
   { field: "Southern Germany", city: "Munich", country: "Germany", fips: "GM", lat: 48.14, lng: 11.58 },
   { field: "Rhône-Alpes", city: "Lyon", country: "France", fips: "FR", lat: 45.76, lng: 4.83 },
-  { field: "Papua New Guinea Highlands", city: "Mount Hagen", country: "Papua New Guinea", fips: "PP", lat: -5.86, lng: 144.23 },
+  {
+    field: "Papua New Guinea Highlands",
+    city: "Mount Hagen",
+    country: "Papua New Guinea",
+    fips: "PP",
+    lat: -5.86,
+    lng: 144.23,
+  },
   { field: "Southwest China", city: "Kunming", country: "China", fips: "CH", lat: 25.04, lng: 102.71 },
 ];
 
 const FOCUS_POOL = [
-  "church planting", "discipleship training", "Bible translation", "leadership development",
-  "orphan and widow care", "medical outreach", "evangelism", "VBS and children's ministry",
-  "pastor training", "community development", "literacy education", "clean water projects",
-  "women's ministry", "youth ministry", "refugee ministry", "prison ministry",
-  "radio broadcasting", "Bible college teaching", "campus ministry", "sports outreach",
+  "church planting",
+  "discipleship training",
+  "Bible translation",
+  "leadership development",
+  "orphan and widow care",
+  "medical outreach",
+  "evangelism",
+  "VBS and children's ministry",
+  "pastor training",
+  "community development",
+  "literacy education",
+  "clean water projects",
+  "women's ministry",
+  "youth ministry",
+  "refugee ministry",
+  "prison ministry",
+  "radio broadcasting",
+  "Bible college teaching",
+  "campus ministry",
+  "sports outreach",
 ];
 
 const CLOSING_SENTENCES = [
@@ -153,12 +317,18 @@ function joinFocus(list) {
 // solo missionary gets "has"/"spends", so the bios read grammatically
 // correct either way.
 const OVERVIEW_TEMPLATES = [
-  (name, f, focusList, year, fam) => `${name} ${fam ? "have" : "has"} served in ${f.field} since ${year}, focusing on ${joinFocus(focusList)}. ${pick(CLOSING_SENTENCES)}`,
-  (name, f, focusList, year, fam) => `Since ${year}, ${name} ${fam ? "have" : "has"} called ${f.city}, ${f.country} home, investing ${fam ? "their lives" : "their life"} in ${joinFocus(focusList)}. ${pick(CLOSING_SENTENCES)}`,
-  (name, f, focusList, year) => `${name} moved to ${f.field} in ${year} with a vision for ${joinFocus(focusList)}. ${pick(CLOSING_SENTENCES)}`,
-  (name, f, focusList, year, fam) => `For ${Math.max(1, new Date().getFullYear() - year)} years, ${name} ${fam ? "have" : "has"} poured ${fam ? "their lives" : "their life"} into ${f.field}, especially ${joinFocus(focusList)}. ${pick(CLOSING_SENTENCES)}`,
-  (name, f, focusList, year, fam) => `${name} first arrived in ${f.country} in ${year} and ${fam ? "have" : "has"} devoted themselves to ${joinFocus(focusList)} ever since. ${pick(CLOSING_SENTENCES)}`,
-  (name, f, focusList, year, fam) => `Based in ${f.city} since ${year}, ${name} ${fam ? "spend" : "spends"} most of their time on ${joinFocus(focusList)}. ${pick(CLOSING_SENTENCES)}`,
+  (name, f, focusList, year, fam) =>
+    `${name} ${fam ? "have" : "has"} served in ${f.field} since ${year}, focusing on ${joinFocus(focusList)}. ${pick(CLOSING_SENTENCES)}`,
+  (name, f, focusList, year, fam) =>
+    `Since ${year}, ${name} ${fam ? "have" : "has"} called ${f.city}, ${f.country} home, investing ${fam ? "their lives" : "their life"} in ${joinFocus(focusList)}. ${pick(CLOSING_SENTENCES)}`,
+  (name, f, focusList, year) =>
+    `${name} moved to ${f.field} in ${year} with a vision for ${joinFocus(focusList)}. ${pick(CLOSING_SENTENCES)}`,
+  (name, f, focusList, year, fam) =>
+    `For ${Math.max(1, new Date().getFullYear() - year)} years, ${name} ${fam ? "have" : "has"} poured ${fam ? "their lives" : "their life"} into ${f.field}, especially ${joinFocus(focusList)}. ${pick(CLOSING_SENTENCES)}`,
+  (name, f, focusList, year, fam) =>
+    `${name} first arrived in ${f.country} in ${year} and ${fam ? "have" : "has"} devoted themselves to ${joinFocus(focusList)} ever since. ${pick(CLOSING_SENTENCES)}`,
+  (name, f, focusList, year, fam) =>
+    `Based in ${f.city} since ${year}, ${name} ${fam ? "spend" : "spends"} most of their time on ${joinFocus(focusList)}. ${pick(CLOSING_SENTENCES)}`,
 ];
 const SHORT_TEMPLATES = [
   (f, focusList, year) => `Serving in ${f.field} since ${year}, focused on ${focusList[0]}.`,
@@ -168,24 +338,66 @@ const SHORT_TEMPLATES = [
 ];
 
 const TRIP_TYPES = [
-  "Construction", "Medical/Dental", "VBS/Children's Ministry", "Evangelism/Outreach",
-  "Teaching/Discipleship", "Prayer", "General Labor", "Sports Ministry", "Music/Worship", "Administrative/Support",
+  "Construction",
+  "Medical/Dental",
+  "VBS/Children's Ministry",
+  "Evangelism/Outreach",
+  "Teaching/Discipleship",
+  "Prayer",
+  "General Labor",
+  "Sports Ministry",
+  "Music/Worship",
+  "Administrative/Support",
 ];
-const TRIP_ROLES = ["Team Leader", "Construction", "Medical", "Translator", "Photographer", "Youth Ministry", "Cook", "Logistics"];
+const TRIP_ROLES = [
+  "Team Leader",
+  "Construction",
+  "Medical",
+  "Translator",
+  "Photographer",
+  "Youth Ministry",
+  "Cook",
+  "Logistics",
+];
 const LANGUAGES_POOL = [
-  "Spanish", "Portuguese", "French", "Swahili", "Thai", "Japanese", "Mandarin", "Khmer",
-  "Amharic", "Luganda", "Quechua", "Tagalog", "Vietnamese", "Hindi", "Romanian", "Mongolian",
+  "Spanish",
+  "Portuguese",
+  "French",
+  "Swahili",
+  "Thai",
+  "Japanese",
+  "Mandarin",
+  "Khmer",
+  "Amharic",
+  "Luganda",
+  "Quechua",
+  "Tagalog",
+  "Vietnamese",
+  "Hindi",
+  "Romanian",
+  "Mongolian",
 ];
 const SENDING_ORGS = [
-  "ABWE", "SEND International", "Josiah Venture", "WorldVenture", "TEAM", "Pioneers",
-  "International Mission Board", "OMF International", "Wycliffe Bible Translators",
+  "ABWE",
+  "SEND International",
+  "Josiah Venture",
+  "WorldVenture",
+  "TEAM",
+  "Pioneers",
+  "International Mission Board",
+  "OMF International",
+  "Wycliffe Bible Translators",
 ];
 // Fallback for SendingChurch when Church Settings hasn't been configured
 // yet — per the README's setup order (migrate -> seed -> createAdmin),
 // that's the common case, so this can't rely on churchSettings existing.
 const FALLBACK_CHURCH_NAMES = [
-  "Grace Community Church", "First Baptist Church", "Crossroads Fellowship",
-  "Hillside Community Church", "Faith Community Church", "Riverside Chapel",
+  "Grace Community Church",
+  "First Baptist Church",
+  "Crossroads Fellowship",
+  "Hillside Community Church",
+  "Faith Community Church",
+  "Riverside Chapel",
 ];
 const CONTACT_METHODS = ["Email", "Phone", "WhatsApp", "Signal"];
 
@@ -218,7 +430,13 @@ const CHURCH_VISIT_NOTES = [
   "Brought a short video update to share during the potluck.",
 ];
 
-const NEWSLETTER_SUBJECTS = ["Ministry Update", "Prayer Letter", "Quarterly Newsletter", "Field Update", "Year-End Update"];
+const NEWSLETTER_SUBJECTS = [
+  "Ministry Update",
+  "Prayer Letter",
+  "Quarterly Newsletter",
+  "Field Update",
+  "Year-End Update",
+];
 const NEWSLETTER_SEASONS = ["Winter", "Spring", "Summer", "Fall"];
 const NEWSLETTER_OPENERS = [
   "Thank you for your continued prayers and support",
@@ -246,12 +464,16 @@ const PRAYER_REQUEST_LINES = [
   "Please keep lifting up a close friend here who is walking through a serious illness.",
 ];
 const ONE_TIME_NEED_LINES = [
-  (amount) => `Our vehicle needs significant repairs, and we're asking for help covering the $${amount} cost.`,
-  (amount) => `We have an unexpected medical bill of $${amount} and would be grateful for any support toward it.`,
+  (amount) =>
+    `Our vehicle needs significant repairs, and we're asking for help covering the $${amount} cost.`,
+  (amount) =>
+    `We have an unexpected medical bill of $${amount} and would be grateful for any support toward it.`,
   (amount) => `We're hoping to raise $${amount} to replace ministry equipment that broke down recently.`,
   (amount) => `A specific need has come up -- we're asking for help with $${amount} in visa renewal fees.`,
-  (amount) => `We're believing God for provision toward a $${amount} need to repair storm damage to our home here.`,
-  () => `We're trusting God for provision to cover an unexpected need this month -- if you feel led to help, please reach out.`,
+  (amount) =>
+    `We're believing God for provision toward a $${amount} need to repair storm damage to our home here.`,
+  () =>
+    `We're trusting God for provision to cover an unexpected need this month -- if you feel led to help, please reach out.`,
 ];
 
 // Independent odds -- most newsletters get neither (realistic; most updates
@@ -308,8 +530,16 @@ async function maybeAddNewsletter({ partnerId, name, slug, field }) {
 // CATEGORIES for what these keys mean. "other" pairs a title with its own
 // free-typed customCategory, same as a real admin would fill in.
 const DOCUMENT_TITLES = {
-  survey_response: ["Annual Field Survey Response", "Mid-Year Check-In Survey", "Partner Satisfaction Survey"],
-  signed_policy: ["Signed Child Protection Policy", "Signed Code of Conduct", "Signed Financial Accountability Agreement"],
+  survey_response: [
+    "Annual Field Survey Response",
+    "Mid-Year Check-In Survey",
+    "Partner Satisfaction Survey",
+  ],
+  signed_policy: [
+    "Signed Child Protection Policy",
+    "Signed Code of Conduct",
+    "Signed Financial Accountability Agreement",
+  ],
   office_document: ["Ministry Budget Overview", "Field Report", "Travel Itinerary"],
   email: ["Re: Prayer Request Update", "Follow-up from Field Visit", "Question about Support Timeline"],
 };
@@ -406,7 +636,8 @@ async function maybeAddDocument({ partnerId, name, slug, field }) {
     // Only for categories where a prayer request/need mention is plausible
     // content -- a signed policy or background-check result wouldn't
     // realistically contain one.
-    const extraText = category === "office_document" || category === "survey_response" ? scannableExtras() : "";
+    const extraText =
+      category === "office_document" || category === "survey_response" ? scannableExtras() : "";
     buffer = buildFakePdf(title, extraText);
     fileName = "document.pdf";
     contentType = "application/pdf";
@@ -470,7 +701,10 @@ function missionaryPhoto(isFamily, childCount) {
   return { bytes: Buffer.from(svg, "utf-8"), contentType: "image/svg+xml" };
 }
 function orgLogo() {
-  return { bytes: Buffer.from(buildingSilhouette(pick(SILHOUETTE_COLORS)), "utf-8"), contentType: "image/svg+xml" };
+  return {
+    bytes: Buffer.from(buildingSilhouette(pick(SILHOUETTE_COLORS)), "utf-8"),
+    contentType: "image/svg+xml",
+  };
 }
 
 // --- Real stock photos via Pexels (optional) ---
@@ -492,7 +726,11 @@ const PEXELS_MISSIONARY_QUERIES = {
   family_with_kids: ["mother father and children portrait", "mom dad kids family outdoor portrait"],
   large_family: ["mom dad grandparents family group portrait", "parents children large family portrait"],
 };
-const PEXELS_ORG_LOGO_QUERIES = ["abstract logo design", "minimalist brand logo", "nonprofit organization logo"];
+const PEXELS_ORG_LOGO_QUERIES = [
+  "abstract logo design",
+  "minimalist brand logo",
+  "nonprofit organization logo",
+];
 
 // Mirrors exactly how `adults`/`children` are built above: one adult with
 // no children is "single_adult", two adults with no children is "couple",
@@ -632,7 +870,11 @@ function buildSupportEntries() {
   const base = randInt(12, 64) * 25; // $300 - $1600, in $25 increments
   const entries = [{ amount: base, effectiveDate: dateBetween(1, 0), notes: null }];
   if (chance(0.5)) {
-    entries.push({ amount: Math.max(200, base - randInt(1, 6) * 25), effectiveDate: dateBetween(3, 1), notes: "Adjusted after annual budget review." });
+    entries.push({
+      amount: Math.max(200, base - randInt(1, 6) * 25),
+      effectiveDate: dateBetween(3, 1),
+      notes: "Adjusted after annual budget review.",
+    });
   }
   return entries;
 }
@@ -677,7 +919,9 @@ function buildPrayerRequests() {
     const requestText = pick(isStrategic ? STRATEGIC_PRAYER_REQUESTS : SITUATIONAL_PRAYER_REQUESTS);
     // Situational requests are rarely worth tracking for a formal answer;
     // strategic ones are usually still open at any given snapshot in time.
-    const status = isStrategic ? pick(["ongoing", "ongoing", "ongoing", "answered"]) : pick(["untracked", "untracked", "ongoing"]);
+    const status = isStrategic
+      ? pick(["ongoing", "ongoing", "ongoing", "answered"])
+      : pick(["untracked", "untracked", "ongoing"]);
     const answered = status === "answered";
     const isPublic = isStrategic && chance(0.7);
     return {
@@ -724,7 +968,13 @@ function buildNeedRequests() {
       requestDate: dateBetween(1, 0),
       approvedAmount,
       approvedDate,
-      notes: chance(0.3) ? pick(["Discussed with the missions committee before approval.", "Time-sensitive — needed before the next field visit.", "Follow-up request from a previous conversation."]) : null,
+      notes: chance(0.3)
+        ? pick([
+            "Discussed with the missions committee before approval.",
+            "Time-sensitive — needed before the next field visit.",
+            "Follow-up request from a previous conversation.",
+          ])
+        : null,
     },
   ];
 }
@@ -742,7 +992,9 @@ async function main() {
   const existingMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });
   const existingOrgs = await prisma.partner.count({ where: { kind: "organization" } });
   if (existingMissionaries > 0 || existingOrgs > 0) {
-    console.log(`Found ${existingMissionaries} missionaries and ${existingOrgs} organizations already on file — seeding will add more on top of these, not replace them.`);
+    console.log(
+      `Found ${existingMissionaries} missionaries and ${existingOrgs} organizations already on file — seeding will add more on top of these, not replace them.`
+    );
   }
 
   const churchSettings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
@@ -774,7 +1026,14 @@ async function main() {
     const fallbackChurchName = pick(FALLBACK_CHURCH_NAMES);
     const sendingOrgName = pick(SENDING_ORGS);
 
-    const participantPool = [`${pick(FIRST_M)} ${pick(LAST)}`, `${pick(FIRST_F)} ${pick(LAST)}`, `${pick(FIRST_M)} ${pick(LAST)}`, `${pick(FIRST_F)} ${pick(LAST)}`, `${pick(FIRST_M)} ${pick(LAST)}`, `${pick(FIRST_F)} ${pick(LAST)}`];
+    const participantPool = [
+      `${pick(FIRST_M)} ${pick(LAST)}`,
+      `${pick(FIRST_F)} ${pick(LAST)}`,
+      `${pick(FIRST_M)} ${pick(LAST)}`,
+      `${pick(FIRST_F)} ${pick(LAST)}`,
+      `${pick(FIRST_M)} ${pick(LAST)}`,
+      `${pick(FIRST_F)} ${pick(LAST)}`,
+    ];
 
     // Every missionary gets at least one Adult record (themselves) — a solo
     // missionary isn't just an empty household, and this is the only place
@@ -812,9 +1071,19 @@ async function main() {
     }));
 
     const furloughs = chance(0.2)
-      ? [chance(0.3)
-          ? { startDate: dateBetween(0, 0), endDate: null, notes: "Currently stateside for home assignment." }
-          : { startDate: dateBetween(3, 1), endDate: dateBetween(1, 0), notes: "Completed home assignment, deputation, and medical checkups." }]
+      ? [
+          chance(0.3)
+            ? {
+                startDate: dateBetween(0, 0),
+                endDate: null,
+                notes: "Currently stateside for home assignment.",
+              }
+            : {
+                startDate: dateBetween(3, 1),
+                endDate: dateBetween(1, 0),
+                notes: "Completed home assignment, deputation, and medical checkups.",
+              },
+        ]
       : [];
 
     const photo = await resolveMissionaryPhoto(photoPools, isFamily, childCount);
@@ -860,8 +1129,23 @@ async function main() {
         children: { create: children },
         addresses: {
           create: [
-            { type: "physical", city: fieldInfo.city, country: fieldInfo.country, gpsLat: fieldInfo.lat + (Math.random() - 0.5) * 0.3, gpsLng: fieldInfo.lng + (Math.random() - 0.5) * 0.3 },
-            { type: "mailing", addressLine1: `PO Box ${randInt(100, 9999)}`, city: "Rock Island", stateProvinceRegion: "IL", postalCode: "61201", country: "USA", receiveMail: true, receivePackages: chance(0.5) },
+            {
+              type: "physical",
+              city: fieldInfo.city,
+              country: fieldInfo.country,
+              gpsLat: fieldInfo.lat + (Math.random() - 0.5) * 0.3,
+              gpsLng: fieldInfo.lng + (Math.random() - 0.5) * 0.3,
+            },
+            {
+              type: "mailing",
+              addressLine1: `PO Box ${randInt(100, 9999)}`,
+              city: "Rock Island",
+              stateProvinceRegion: "IL",
+              postalCode: "61201",
+              country: "USA",
+              receiveMail: true,
+              receivePackages: chance(0.5),
+            },
           ],
         },
         trips: { create: buildTrips(participantPool) },
@@ -908,8 +1192,18 @@ async function main() {
       },
     });
 
-    await maybeAddNewsletter({ partnerId: createdMissionary.id, name: displayName, slug: last.toLowerCase(), field: fieldInfo.field });
-    await maybeAddDocument({ partnerId: createdMissionary.id, name: displayName, slug: last.toLowerCase(), field: fieldInfo.field });
+    await maybeAddNewsletter({
+      partnerId: createdMissionary.id,
+      name: displayName,
+      slug: last.toLowerCase(),
+      field: fieldInfo.field,
+    });
+    await maybeAddDocument({
+      partnerId: createdMissionary.id,
+      name: displayName,
+      slug: last.toLowerCase(),
+      field: fieldInfo.field,
+    });
   }
 
   console.log(`Seeding ${ORGANIZATION_COUNT} organizations...`);
@@ -926,7 +1220,12 @@ async function main() {
     const isRestricted = isPublic && chance(0.1);
     const archived = i === 0; // one archived org, to demo the feature
 
-    const participantPool = [`${pick(FIRST_M)} ${pick(LAST)}`, `${pick(FIRST_F)} ${pick(LAST)}`, `${pick(FIRST_M)} ${pick(LAST)}`, `${pick(FIRST_F)} ${pick(LAST)}`];
+    const participantPool = [
+      `${pick(FIRST_M)} ${pick(LAST)}`,
+      `${pick(FIRST_F)} ${pick(LAST)}`,
+      `${pick(FIRST_M)} ${pick(LAST)}`,
+      `${pick(FIRST_F)} ${pick(LAST)}`,
+    ];
 
     const logo = await resolveOrgLogo(photoPools);
 
@@ -966,9 +1265,24 @@ async function main() {
         },
         addresses: {
           create: [
-            { type: "physical", city: fieldInfo.city, country: fieldInfo.country, gpsLat: fieldInfo.lat + (Math.random() - 0.5) * 0.3, gpsLng: fieldInfo.lng + (Math.random() - 0.5) * 0.3 },
+            {
+              type: "physical",
+              city: fieldInfo.city,
+              country: fieldInfo.country,
+              gpsLat: fieldInfo.lat + (Math.random() - 0.5) * 0.3,
+              gpsLng: fieldInfo.lng + (Math.random() - 0.5) * 0.3,
+            },
             ...(chance(0.4)
-              ? [{ type: "mailing", addressLine1: `PO Box ${randInt(100, 9999)}`, city: fieldInfo.city, country: fieldInfo.country, receiveMail: true, receivePackages: chance(0.5) }]
+              ? [
+                  {
+                    type: "mailing",
+                    addressLine1: `PO Box ${randInt(100, 9999)}`,
+                    city: fieldInfo.city,
+                    country: fieldInfo.country,
+                    receiveMail: true,
+                    receivePackages: chance(0.5),
+                  },
+                ]
               : []),
           ],
         },

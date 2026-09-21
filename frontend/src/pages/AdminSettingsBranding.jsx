@@ -76,8 +76,8 @@ export default function AdminSettingsBranding() {
     <div className="admin-shell form-has-floating-actions">
       <h2>Branding</h2>
       <p style={{ color: "#555" }}>
-        How this church presents itself — public-site tagline, about text, brand color, logo, and
-        what to call its partners.
+        How this church presents itself — public-site tagline, about text, brand color, logo, and what to call
+        its partners.
       </p>
 
       <form onSubmit={handleSubmit} className="admin-form">
@@ -136,10 +136,9 @@ export default function AdminSettingsBranding() {
         <div className="admin-section">
           <h3>Partner Terminology</h3>
           <p style={{ marginTop: 0, color: "#666", fontSize: "0.85rem" }}>
-            What this church calls its missionary and organization partners — e.g. "Go Team
-            Partner" / "Go Team Partners". Used on the public site regardless of whether a
-            partner is an individual/family or an organization. Leave blank to keep the
-            default "Missionary" / "Missionaries" wording.
+            What this church calls its missionary and organization partners — e.g. "Go Team Partner" / "Go
+            Team Partners". Used on the public site regardless of whether a partner is an individual/family or
+            an organization. Leave blank to keep the default "Missionary" / "Missionaries" wording.
           </p>
           <div className="form-grid">
             <label>

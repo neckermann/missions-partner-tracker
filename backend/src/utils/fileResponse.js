@@ -19,11 +19,7 @@
 
 // Types whose bytes are checked at upload time and are therefore safe to
 // hand the browser to render. Mirrors utils/fileSignature.js.
-const VERIFIED_INLINE_TYPES = new Set([
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
-]);
+const VERIFIED_INLINE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
 // A filename reaches a response header here. busboy percent-decodes RFC 5987
 // `filename*`, so control characters can survive an upload; Node rejects

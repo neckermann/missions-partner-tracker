@@ -73,41 +73,36 @@ router.get("/", async (req, res, next) => {
 });
 
 // POST /api/newsletters (upload — editor or admin)
-router.post(
-  "/",
-  requireRole("admin", "editor"),
-  upload.single("file"),
-  async (req, res, next) => {
-    try {
-      if (!req.file) return res.status(400).json({ error: "No file provided" });
+router.post("/", requireRole("admin", "editor"), upload.single("file"), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file provided" });
 
-      // .eml has no reliable magic bytes across mail clients (see
-      // resolveExt above), so it's exempt -- everything else this route
-      // accepts (pdf/jpeg/png) does have one and gets verified.
-      if (!/\.eml$/i.test(req.file.originalname) && !matchesFileSignature(req.file.buffer, req.file.mimetype)) {
-        return res.status(400).json({ error: "File content doesn't match its declared type" });
-      }
-
-      const meta = metaSchema.parse(req.body);
-
-      const created = await prisma.newsletter.create({
-        data: {
-          ...meta,
-          bytes: req.file.buffer,
-          fileName: req.file.originalname,
-          contentType: req.file.mimetype || "application/octet-stream",
-          fileSize: req.file.size,
-        },
-        include: newsletterInclude,
-        omit: { bytes: true },
-      });
-
-      res.status(201).json(created);
-    } catch (err) {
-      next(err);
+    // .eml has no reliable magic bytes across mail clients (see
+    // resolveExt above), so it's exempt -- everything else this route
+    // accepts (pdf/jpeg/png) does have one and gets verified.
+    if (!/\.eml$/i.test(req.file.originalname) && !matchesFileSignature(req.file.buffer, req.file.mimetype)) {
+      return res.status(400).json({ error: "File content doesn't match its declared type" });
     }
+
+    const meta = metaSchema.parse(req.body);
+
+    const created = await prisma.newsletter.create({
+      data: {
+        ...meta,
+        bytes: req.file.buffer,
+        fileName: req.file.originalname,
+        contentType: req.file.mimetype || "application/octet-stream",
+        fileSize: req.file.size,
+      },
+      include: newsletterInclude,
+      omit: { bytes: true },
+    });
+
+    res.status(201).json(created);
+  } catch (err) {
+    next(err);
   }
-);
+});
 
 // GET /api/newsletters/:id/download — streams the file straight from the
 // database (still requireAuth'd, per router.use above; no separate signed
@@ -149,17 +144,22 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
 // gate above) since a church can have newsletters on but AI scanning off.
 // Nothing is persisted here -- the caller reviews and explicitly adds each
 // suggestion via the existing POST /api/prayer-requests / /api/support-needs.
-router.post("/:id/extract", requireRole("admin", "editor"), requireFeature("aiExtraction"), async (req, res, next) => {
-  try {
-    const record = await prisma.newsletter.findUnique({ where: { id: req.params.id } });
-    if (!record) return res.status(404).json({ error: "Not found" });
+router.post(
+  "/:id/extract",
+  requireRole("admin", "editor"),
+  requireFeature("aiExtraction"),
+  async (req, res, next) => {
+    try {
+      const record = await prisma.newsletter.findUnique({ where: { id: req.params.id } });
+      if (!record) return res.status(404).json({ error: "Not found" });
 
-    const suggestions = await extractRequestsFromFile(record);
-    res.json(suggestions);
-  } catch (err) {
-    next(err);
+      const suggestions = await extractRequestsFromFile(record);
+      res.json(suggestions);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 // DELETE /api/newsletters/:id (admin only)
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {

@@ -12,7 +12,8 @@ describe("detectProvider", () => {
   });
 
   test("recognizes Neon", () => {
-    process.env.DATABASE_URL = "postgresql://user:pass@ep-floral-heart-ax0dnb7s.us-east-2.aws.neon.tech/neondb";
+    process.env.DATABASE_URL =
+      "postgresql://user:pass@ep-floral-heart-ax0dnb7s.us-east-2.aws.neon.tech/neondb";
     assert.equal(detectProvider(), "neon");
   });
 

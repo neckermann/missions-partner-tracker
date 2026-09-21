@@ -50,7 +50,9 @@ export default function EditableSection({ title, value, onSave, onSaved, view, e
       setEditing(false);
       await onSaved?.();
     } catch (err) {
-      setError(err.response?.data?.error?.[0]?.message || err.response?.data?.error || "Failed to save changes");
+      setError(
+        err.response?.data?.error?.[0]?.message || err.response?.data?.error || "Failed to save changes"
+      );
     } finally {
       setSaving(false);
     }

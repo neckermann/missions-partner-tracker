@@ -26,7 +26,7 @@ const PALETTE = [
 function escapeHtml(value) {
   return String(value ?? "").replace(
     /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
   );
 }
 
@@ -46,9 +46,7 @@ function formatDate(value) {
 function renderAddressBlock(label, address) {
   if (!address) return "";
   const lines = [address.addressLine1, address.addressLine2].filter(Boolean);
-  const cityLine = [address.city, address.stateProvinceRegion, address.postalCode]
-    .filter(Boolean)
-    .join(", ");
+  const cityLine = [address.city, address.stateProvinceRegion, address.postalCode].filter(Boolean).join(", ");
   if (!lines.length && !cityLine && !address.country) return "";
   return `
     <div class="booklet-block">
@@ -66,7 +64,8 @@ function renderAddressBlock(label, address) {
 function renderFamilyBlock(m, fields) {
   const rows = [];
   if (fields.showAdults) {
-    if (m.anniversary) rows.push(`<p><strong>Anniversary:</strong> ${escapeHtml(formatDate(m.anniversary))}</p>`);
+    if (m.anniversary)
+      rows.push(`<p><strong>Anniversary:</strong> ${escapeHtml(formatDate(m.anniversary))}</p>`);
     if (m.preferredContactMethod) {
       rows.push(`<p><strong>Preferred Contact:</strong> ${escapeHtml(m.preferredContactMethod)}</p>`);
     }
@@ -244,12 +243,41 @@ function buildMissionaryPageHtml(m, index, fields, maxPrayerRequests) {
 }
 
 const TEMPLATE_OPTIONS = [
-  { value: "classic", label: "Classic", description: "Warm accent-colored circles, a soft tinted callout, a circular photo — the original look." },
-  { value: "modern", label: "Modern", description: "Clean and structured — no decorative shapes, bold rules, a rectangular photo, condensed sans-serif headers." },
-  { value: "traditional", label: "Traditional", description: "Understated and formal — a thin bordered page frame, a small centered portrait, serif type throughout." },
-  { value: "keepsake", label: "Keepsake", description: "Warm and personal — a polaroid-framed, slightly tilted photo, a handwritten-note callout, soft cream background." },
-  { value: "portfolio", label: "Portfolio", description: "Photo-led and minimal — a large full-width photo, high-contrast dark header, light caption-style text." },
-  { value: "friendly", label: "Friendly", description: "Bright and casual — a bold color-block header, a large circular photo, rounded pill-style info rows." },
+  {
+    value: "classic",
+    label: "Classic",
+    description: "Warm accent-colored circles, a soft tinted callout, a circular photo — the original look.",
+  },
+  {
+    value: "modern",
+    label: "Modern",
+    description:
+      "Clean and structured — no decorative shapes, bold rules, a rectangular photo, condensed sans-serif headers.",
+  },
+  {
+    value: "traditional",
+    label: "Traditional",
+    description:
+      "Understated and formal — a thin bordered page frame, a small centered portrait, serif type throughout.",
+  },
+  {
+    value: "keepsake",
+    label: "Keepsake",
+    description:
+      "Warm and personal — a polaroid-framed, slightly tilted photo, a handwritten-note callout, soft cream background.",
+  },
+  {
+    value: "portfolio",
+    label: "Portfolio",
+    description:
+      "Photo-led and minimal — a large full-width photo, high-contrast dark header, light caption-style text.",
+  },
+  {
+    value: "friendly",
+    label: "Friendly",
+    description:
+      "Bright and casual — a bold color-block header, a large circular photo, rounded pill-style info rows.",
+  },
 ];
 
 function buildBookletHtml({
@@ -384,7 +412,13 @@ function buildBookletHtml({
     }
   }
 
-  const backCover = buildBackCoverHtml({ churchName, logo, aboutText, publicTagline, accent: PALETTE[0].accent });
+  const backCover = buildBackCoverHtml({
+    churchName,
+    logo,
+    aboutText,
+    publicTagline,
+    accent: PALETTE[0].accent,
+  });
 
   return `<div class="tpl-${template}">${cover}${index}${pages}${orgSection}${backCover}</div>`;
 }
@@ -400,7 +434,7 @@ const FIELD_OPTIONS = [
   [
     "showPrayerRequests",
     "Prayer Requests",
-    "Only strategic requests marked both \"Show on public profile\" and \"Include in printed booklet\" -- capped per partner below.",
+    'Only strategic requests marked both "Show on public profile" and "Include in printed booklet" -- capped per partner below.',
   ],
   ["showNotesPage", "Notes & Prayer Page (facing page per entry)"],
 ];
@@ -584,7 +618,9 @@ ${content}
                     />
                     {t.label}
                   </span>
-                  <span style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>{t.description}</span>
+                  <span style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
+                    {t.description}
+                  </span>
                 </label>
               ))}
             </div>
@@ -594,7 +630,11 @@ ${content}
             <h3>Who's Included</h3>
             <div className="admin-checkbox-row">
               <label>
-                <input type="checkbox" checked={includeArchived} onChange={(e) => setIncludeArchived(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={includeArchived}
+                  onChange={(e) => setIncludeArchived(e.target.checked)}
+                />
                 Archived
               </label>
               <label>

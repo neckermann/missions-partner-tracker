@@ -88,7 +88,11 @@ export default function AdminUserForm() {
           {isEdit && (
             <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
               <label>
-                <input type="checkbox" checked={form.active} onChange={(e) => update("active", e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={form.active}
+                  onChange={(e) => update("active", e.target.checked)}
+                />
                 Active
               </label>
               <label>
@@ -103,8 +107,8 @@ export default function AdminUserForm() {
           )}
           {form.mfaEnabled && (
             <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
-              This user already has two-factor authentication enabled. Use "Reset MFA" on the
-              Users list if they need to re-enroll.
+              This user already has two-factor authentication enabled. Use "Reset MFA" on the Users list if
+              they need to re-enroll.
             </p>
           )}
 
@@ -126,7 +130,12 @@ export default function AdminUserForm() {
           <button type="submit" className="btn" disabled={saving}>
             {saving ? "Saving..." : "Save"}
           </button>
-          <button type="button" className="btn secondary" style={{ marginLeft: "0.5rem" }} onClick={() => navigate("/admin/settings/users")}>
+          <button
+            type="button"
+            className="btn secondary"
+            style={{ marginLeft: "0.5rem" }}
+            onClick={() => navigate("/admin/settings/users")}
+          >
             Cancel
           </button>
         </div>

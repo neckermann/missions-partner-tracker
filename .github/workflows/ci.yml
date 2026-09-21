@@ -10,29 +10,29 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'backend/**'
-      - 'frontend/**'
-      - '.github/workflows/ci.yml'
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/ci.yml"
       # Root tooling: without these, a change to the lint or format config
       # wouldn't run CI, so a broken config could land unnoticed.
-      - 'eslint.config.js'
-      - '.prettierrc'
-      - '.prettierignore'
-      - 'package.json'
-      - 'package-lock.json'
+      - "eslint.config.js"
+      - ".prettierrc"
+      - ".prettierignore"
+      - "package.json"
+      - "package-lock.json"
   push:
     branches: [main]
     paths:
-      - 'backend/**'
-      - 'frontend/**'
-      - '.github/workflows/ci.yml'
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/ci.yml"
       # Root tooling: without these, a change to the lint or format config
       # wouldn't run CI, so a broken config could land unnoticed.
-      - 'eslint.config.js'
-      - '.prettierrc'
-      - '.prettierignore'
-      - 'package.json'
-      - 'package-lock.json'
+      - "eslint.config.js"
+      - ".prettierrc"
+      - ".prettierignore"
+      - "package.json"
+      - "package-lock.json"
 
 jobs:
   # Runs first and on its own: it needs no database and no build, so a style

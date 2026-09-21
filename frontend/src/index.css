@@ -1,11 +1,15 @@
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: #f7f5f0;
   color: #222;
 }
-a { color: var(--brand-color, #2a5d3c); }
+a {
+  color: var(--brand-color, #2a5d3c);
+}
 
 .app-header {
   padding: 1rem 1.5rem;
@@ -15,16 +19,33 @@ a { color: var(--brand-color, #2a5d3c); }
   justify-content: space-between;
   align-items: center;
 }
-.app-header h1 { font-size: 1.15rem; margin: 0; }
-.header-logo { height: 36px; width: 36px; object-fit: contain; border-radius: 4px; background: white; }
-.header-tagline { margin: 0.15rem 0 0; font-size: 0.8rem; color: rgba(255, 255, 255, 0.85); }
+.app-header h1 {
+  font-size: 1.15rem;
+  margin: 0;
+}
+.header-logo {
+  height: 36px;
+  width: 36px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: white;
+}
+.header-tagline {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.85);
+}
 
 /* Admin section layout — a persistent left sidebar (replacing the old
    single-row top nav, which ran out of room as sections were added) plus a
    content area on the right. Used for every /admin/* route via AdminLayout,
    including detail/edit forms, which previously had no persistent nav at
    all — this fixes that inconsistency as a side effect. */
-.admin-layout { display: flex; align-items: flex-start; min-height: 100vh; }
+.admin-layout {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100vh;
+}
 .admin-sidebar {
   width: 230px;
   flex-shrink: 0;
@@ -37,9 +58,24 @@ a { color: var(--brand-color, #2a5d3c); }
   position: sticky;
   top: 0;
 }
-.admin-sidebar-title { font-size: 1.05rem; margin: 0 0 1.5rem; line-height: 1.3; }
-.admin-sidebar-nav { display: flex; flex-direction: column; gap: 0.15rem; }
-.admin-sidebar-footer { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.2); display: flex; flex-direction: column; gap: 0.15rem; }
+.admin-sidebar-title {
+  font-size: 1.05rem;
+  margin: 0 0 1.5rem;
+  line-height: 1.3;
+}
+.admin-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.admin-sidebar-footer {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
 .admin-sidebar-nav a,
 .admin-sidebar-nav button,
 .admin-sidebar-footer a,
@@ -58,14 +94,23 @@ a { color: var(--brand-color, #2a5d3c); }
 .admin-sidebar-nav a:hover,
 .admin-sidebar-nav button:hover,
 .admin-sidebar-footer a:hover,
-.admin-sidebar-footer button:hover { background: rgba(255, 255, 255, 0.12); }
+.admin-sidebar-footer button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
 /* A black tint (not the old white one) so the white nav text keeps
    sufficient contrast (WCAG AA, 4.5:1) regardless of --brand-color --
    a church can set this to anything from Church Settings, and darkening
    a color reliably increases contrast against white text where
    lightening it can go either way depending on the base color. */
-.admin-sidebar-nav a.active { background: rgba(0, 0, 0, 0.28); font-weight: 600; }
-.admin-sidebar-divider { height: 1px; background: rgba(255, 255, 255, 0.2); margin: 0.75rem 0.6rem; }
+.admin-sidebar-nav a.active {
+  background: rgba(0, 0, 0, 0.28);
+  font-weight: 600;
+}
+.admin-sidebar-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0.75rem 0.6rem;
+}
 
 /* "Site Administration" -- a disclosure toggle (button, not a link; it
    doesn't navigate anywhere itself) that expands a nested list of admin
@@ -80,7 +125,11 @@ a { color: var(--brand-color, #2a5d3c); }
   font-weight: 600;
   letter-spacing: 0.02em;
 }
-.admin-sidebar-group-arrow { font-size: 0.7rem; opacity: 0.75; transition: transform 0.15s ease; }
+.admin-sidebar-group-arrow {
+  font-size: 0.7rem;
+  opacity: 0.75;
+  transition: transform 0.15s ease;
+}
 .admin-sidebar-subnav {
   display: flex;
   flex-direction: column;
@@ -89,12 +138,25 @@ a { color: var(--brand-color, #2a5d3c); }
   padding-left: 0.6rem;
   border-left: 1px solid rgba(255, 255, 255, 0.2);
 }
-.admin-sidebar-subnav a { padding-left: 0.6rem; font-size: 0.85rem; font-weight: normal; }
-.admin-main { flex: 1; min-width: 0; }
+.admin-sidebar-subnav a {
+  padding-left: 0.6rem;
+  font-size: 0.85rem;
+  font-weight: normal;
+}
+.admin-main {
+  flex: 1;
+  min-width: 0;
+}
 
 @media (max-width: 800px) {
-  .admin-layout { flex-direction: column; }
-  .admin-sidebar { width: 100%; min-height: auto; position: static; }
+  .admin-layout {
+    flex-direction: column;
+  }
+  .admin-sidebar {
+    width: 100%;
+    min-height: auto;
+    position: static;
+  }
 }
 
 .map-layout {
@@ -102,7 +164,9 @@ a { color: var(--brand-color, #2a5d3c); }
   grid-template-columns: 380px 1fr;
   height: calc(100vh - 64px);
 }
-.map-layout.tour-mode { grid-template-columns: 1fr; }
+.map-layout.tour-mode {
+  grid-template-columns: 1fr;
+}
 @media (max-width: 800px) {
   /* Side-by-side becomes stacked on mobile -- the map needs its own
      explicit height here, not just "height: auto" on the grid, since
@@ -127,8 +191,12 @@ a { color: var(--brand-color, #2a5d3c); }
     grid-template-rows: calc(100vh - 64px);
     height: calc(100vh - 64px);
   }
-  .map-container { order: 1; }
-  .missionary-list { order: 2; }
+  .map-container {
+    order: 1;
+  }
+  .missionary-list {
+    order: 2;
+  }
 }
 
 .missionary-list {
@@ -155,10 +223,22 @@ a { color: var(--brand-color, #2a5d3c); }
   outline: 2px solid var(--brand-color, #2a5d3c);
   outline-offset: -2px;
 }
-.missionary-card:hover { background: #f0f6f1; }
-.missionary-card.active { background: #e3efe6; border-left: 4px solid var(--brand-color, #2a5d3c); }
-.missionary-card h3 { margin: 0 0 0.25rem; font-size: 1rem; }
-.missionary-card p { margin: 0; font-size: 0.85rem; color: #555; }
+.missionary-card:hover {
+  background: #f0f6f1;
+}
+.missionary-card.active {
+  background: #e3efe6;
+  border-left: 4px solid var(--brand-color, #2a5d3c);
+}
+.missionary-card h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+.missionary-card p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #555;
+}
 .badge-restricted {
   display: inline-block;
   font-size: 0.7rem;
@@ -182,7 +262,9 @@ a { color: var(--brand-color, #2a5d3c); }
   border-radius: 50%;
   flex-shrink: 0;
 }
-.map-container { height: 100%; }
+.map-container {
+  height: 100%;
+}
 
 /* Leaflet's own default attribution-control link ("Leaflet" ->
    leafletjs.com) fails WCAG AA color-contrast and has no non-color
@@ -233,7 +315,9 @@ a { color: var(--brand-color, #2a5d3c); }
   outline: none;
 }
 
-.popup-card { max-width: 220px; }
+.popup-card {
+  max-width: 220px;
+}
 .popup-header {
   display: flex;
   flex-direction: column;
@@ -251,9 +335,19 @@ a { color: var(--brand-color, #2a5d3c); }
   background: #eee;
   cursor: pointer;
 }
-.popup-name { margin: 0; font-size: 1rem; }
-.popup-meta { margin: 0; font-size: 0.8rem; color: #666; }
-.popup-summary { margin: 0.3rem 0 0; font-size: 0.8rem; }
+.popup-name {
+  margin: 0;
+  font-size: 1rem;
+}
+.popup-meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #666;
+}
+.popup-summary {
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
+}
 
 /* Public partner directory (/partners) and detail page (/partners/:type/:id) */
 .public-about-text {
@@ -275,7 +369,10 @@ a { color: var(--brand-color, #2a5d3c); }
   border: 1px solid #ccc;
   border-radius: 4px;
 }
-.partner-filter-bar input { min-width: 220px; flex: 1; }
+.partner-filter-bar input {
+  min-width: 220px;
+  flex: 1;
+}
 
 .partner-grid {
   display: grid;
@@ -291,7 +388,9 @@ a { color: var(--brand-color, #2a5d3c); }
   overflow: hidden;
   text-decoration: none;
   color: inherit;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
 }
 .partner-card:hover {
   border-color: var(--brand-color, #2a5d3c);
@@ -304,10 +403,23 @@ a { color: var(--brand-color, #2a5d3c); }
   background: #eee;
   display: block;
 }
-.partner-card-body { padding: 1rem; }
-.partner-card-body h3 { margin: 0 0 0.25rem; font-size: 1rem; }
-.partner-card-meta { margin: 0 0 0.5rem; font-size: 0.8rem; color: #666; }
-.partner-card-summary { margin: 0; font-size: 0.85rem; color: #444; }
+.partner-card-body {
+  padding: 1rem;
+}
+.partner-card-body h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+.partner-card-meta {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  color: #666;
+}
+.partner-card-summary {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #444;
+}
 
 .partner-detail-header {
   display: flex;
@@ -330,20 +442,46 @@ a { color: var(--brand-color, #2a5d3c); }
   margin-top: 1rem;
 }
 
-.admin-shell { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
-.admin-table { width: 100%; border-collapse: collapse; }
-.admin-table th, .admin-table td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; }
-.admin-table tbody tr:hover { background: #f0f6f1; }
+.admin-shell {
+  max-width: 1000px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 1px solid #eee;
+}
+.admin-table tbody tr:hover {
+  background: #f0f6f1;
+}
 .btn {
-  background: var(--brand-color, #2a5d3c); color: white; border: none; padding: 0.5rem 1rem;
-  border-radius: 4px; cursor: pointer; font-size: 0.9rem;
+  background: var(--brand-color, #2a5d3c);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
 }
 /* #999 (the old value) only gave white text ~2.85:1 contrast against it,
    under WCAG AA's 4.5:1 minimum for normal-size text -- #666 clears it
    with margin (~5.7:1). */
-.btn.secondary { background: #666; }
-.btn.danger { background: #b91c1c; }
-.btn.small { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+.btn.secondary {
+  background: #666;
+}
+.btn.danger {
+  background: #b91c1c;
+}
+.btn.small {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+}
 
 .table-actions {
   display: flex;
@@ -360,7 +498,9 @@ a { color: var(--brand-color, #2a5d3c); }
   color: #444;
   gap: 0.3rem;
 }
-.admin-shell input, .admin-shell textarea, .admin-shell select {
+.admin-shell input,
+.admin-shell textarea,
+.admin-shell select {
   padding: 0.5rem;
   font-size: 0.9rem;
   font-weight: normal;
@@ -369,18 +509,31 @@ a { color: var(--brand-color, #2a5d3c); }
   border-radius: 4px;
   background: white;
 }
-.admin-shell textarea { min-height: 90px; resize: vertical; }
+.admin-shell textarea {
+  min-height: 90px;
+  resize: vertical;
+}
 
-.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem 1.25rem; }
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem 1.25rem;
+}
 
-.admin-form { display: flex; flex-direction: column; gap: 1.75rem; }
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
 
 /* Long edit forms (missionary/org/church settings) float Save/Cancel at the
    bottom of the viewport instead of only at the end of the page, so they're
    reachable without scrolling all the way down. The page needs matching
    bottom padding (.form-has-floating-actions) so this bar never covers the
    last field. */
-.form-has-floating-actions { padding-bottom: 5.5rem; }
+.form-has-floating-actions {
+  padding-bottom: 5.5rem;
+}
 .form-save-bar {
   position: fixed;
   bottom: 0;
@@ -435,10 +588,19 @@ a { color: var(--brand-color, #2a5d3c); }
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
 }
-.admin-settings-tabs a:hover { color: #222; }
-.admin-settings-tabs a.active { color: var(--brand-color, #2a5d3c); border-bottom-color: var(--brand-color, #2a5d3c); }
+.admin-settings-tabs a:hover {
+  color: #222;
+}
+.admin-settings-tabs a.active {
+  color: var(--brand-color, #2a5d3c);
+  border-bottom-color: var(--brand-color, #2a5d3c);
+}
 
-.admin-checkbox-row { display: flex; flex-wrap: wrap; gap: 1.25rem; }
+.admin-checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
 .admin-checkbox-row label {
   flex-direction: row;
   align-items: center;
@@ -455,7 +617,9 @@ a { color: var(--brand-color, #2a5d3c); }
   cursor: pointer;
   padding: 0.25rem;
 }
-.btn-remove:hover { color: #7f1616; }
+.btn-remove:hover {
+  color: #7f1616;
+}
 
 .repeatable-row {
   position: relative;
@@ -472,10 +636,22 @@ a { color: var(--brand-color, #2a5d3c); }
   right: 0.5rem;
 }
 
-.tag-input-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; }
-.tag-input-row input { flex: 1; }
+.tag-input-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
+.tag-input-row input {
+  flex: 1;
+}
 
-.headshot-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+.headshot-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
 
 .country-stats-panel {
   margin-top: 0.5rem;
@@ -485,7 +661,9 @@ a { color: var(--brand-color, #2a5d3c); }
   background: #fafaf8;
   font-size: 0.85rem;
 }
-.country-stats-panel p { margin: 0.25rem 0; }
+.country-stats-panel p {
+  margin: 0.25rem 0;
+}
 
 .status-pill {
   display: inline-block;
@@ -495,8 +673,14 @@ a { color: var(--brand-color, #2a5d3c); }
   background: #eee;
   color: #444;
 }
-.status-pill.warn { background: #b45309; color: white; }
-.status-pill.good { background: var(--brand-color, #2a5d3c); color: white; }
+.status-pill.warn {
+  background: #b45309;
+  color: white;
+}
+.status-pill.good {
+  background: var(--brand-color, #2a5d3c);
+  color: white;
+}
 
 /* Every checkbox in the admin app renders as a pill toggle -- restyling
    the native input directly (appearance: none + a ::before dot) rather
@@ -533,10 +717,20 @@ a { color: var(--brand-color, #2a5d3c); }
   transition: transform 0.15s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
-.admin-shell input[type="checkbox"]:checked { background: var(--brand-color, #2a5d3c); }
-.admin-shell input[type="checkbox"]:checked::before { transform: translateX(18px); }
-.admin-shell input[type="checkbox"]:focus-visible { outline: 2px solid var(--brand-color, #2a5d3c); outline-offset: 2px; }
-.admin-shell input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.5; }
+.admin-shell input[type="checkbox"]:checked {
+  background: var(--brand-color, #2a5d3c);
+}
+.admin-shell input[type="checkbox"]:checked::before {
+  transform: translateX(18px);
+}
+.admin-shell input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--brand-color, #2a5d3c);
+  outline-offset: 2px;
+}
+.admin-shell input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
 
 .admin-card-grid {
   display: grid;
@@ -552,14 +746,23 @@ a { color: var(--brand-color, #2a5d3c); }
   padding: 1.5rem;
   text-decoration: none;
   color: inherit;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
 }
 .admin-card:hover {
   border-color: var(--brand-color, #2a5d3c);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
-.admin-card h3 { margin: 0 0 0.5rem; color: var(--brand-color, #2a5d3c); }
-.admin-card p { margin: 0; color: #555; font-size: 0.9rem; }
+.admin-card h3 {
+  margin: 0 0 0.5rem;
+  color: var(--brand-color, #2a5d3c);
+}
+.admin-card p {
+  margin: 0;
+  color: #555;
+  font-size: 0.9rem;
+}
 
 .booklet-preview {
   max-width: 8.5in;
@@ -568,9 +771,16 @@ a { color: var(--brand-color, #2a5d3c); }
 }
 
 @media print {
-  .no-print { display: none !important; }
-  body * { visibility: hidden; }
-  .booklet-preview, .booklet-preview * { visibility: visible; }
+  .no-print {
+    display: none !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .booklet-preview,
+  .booklet-preview * {
+    visibility: visible;
+  }
   .booklet-preview {
     display: block;
     position: absolute;

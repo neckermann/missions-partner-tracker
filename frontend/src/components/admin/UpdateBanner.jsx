@@ -53,13 +53,13 @@ export default function UpdateBanner() {
       }}
     >
       <span>
-        A new version is available (<strong>v{info.latestVersion}</strong>, you're on v
-        {info.currentVersion}) — see{" "}
+        A new version is available (<strong>v{info.latestVersion}</strong>, you're on v{info.currentVersion})
+        — see{" "}
         <a href={info.releaseUrl} target="_blank" rel="noreferrer">
           what's new
         </a>
-        , then use GitHub's <strong>Sync fork</strong> button on your fork's page to pull it in
-        (see UPGRADING.md if you're not sure where that is).
+        , then use GitHub's <strong>Sync fork</strong> button on your fork's page to pull it in (see
+        UPGRADING.md if you're not sure where that is).
       </span>
       <button
         type="button"

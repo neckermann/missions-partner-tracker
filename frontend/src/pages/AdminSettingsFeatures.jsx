@@ -10,7 +10,12 @@ function FeatureToggleRow({ feature, checked, onToggle }) {
   const blockedByEnvVar = feature.requiresEnvVar && !feature.envVarSatisfied;
   return (
     <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", marginTop: "0.9rem" }}>
-      <input type="checkbox" checked={checked && !blockedByEnvVar} disabled={blockedByEnvVar} onChange={onToggle} />
+      <input
+        type="checkbox"
+        checked={checked && !blockedByEnvVar}
+        disabled={blockedByEnvVar}
+        onChange={onToggle}
+      />
       <div>
         <strong>{feature.label}</strong>
         <div style={{ fontSize: "0.85rem", color: "#666" }}>{feature.description}</div>
@@ -68,45 +73,45 @@ export default function AdminSettingsFeatures() {
     <div className="admin-shell form-has-floating-actions">
       <h2>Enabled Features</h2>
       <p style={{ color: "#555" }}>
-        Turn off anything this church isn't using — hides it from the admin nav (and, for
-        public-facing features, from visitors) without losing any data already on file.
+        Turn off anything this church isn't using — hides it from the admin nav (and, for public-facing
+        features, from visitors) without losing any data already on file.
       </p>
 
       <form onSubmit={handleSubmit} className="admin-form">
-      {publicFeatures.length > 0 && (
-        <div className="admin-section">
-          <h3>Public site</h3>
-          {publicFeatures.map((f) => (
-            <FeatureToggleRow
-              key={f.key}
-              feature={f}
-              checked={enabledFeatures[f.key] ?? f.defaultEnabled}
-              onToggle={() => toggleFeature(f.key)}
-            />
-          ))}
-        </div>
-      )}
+        {publicFeatures.length > 0 && (
+          <div className="admin-section">
+            <h3>Public site</h3>
+            {publicFeatures.map((f) => (
+              <FeatureToggleRow
+                key={f.key}
+                feature={f}
+                checked={enabledFeatures[f.key] ?? f.defaultEnabled}
+                onToggle={() => toggleFeature(f.key)}
+              />
+            ))}
+          </div>
+        )}
 
-      {adminFeatures.length > 0 && (
-        <div className="admin-section">
-          <h3>Admin features</h3>
-          {adminFeatures.map((f) => (
-            <FeatureToggleRow
-              key={f.key}
-              feature={f}
-              checked={enabledFeatures[f.key] ?? f.defaultEnabled}
-              onToggle={() => toggleFeature(f.key)}
-            />
-          ))}
-        </div>
-      )}
+        {adminFeatures.length > 0 && (
+          <div className="admin-section">
+            <h3>Admin features</h3>
+            {adminFeatures.map((f) => (
+              <FeatureToggleRow
+                key={f.key}
+                feature={f}
+                checked={enabledFeatures[f.key] ?? f.defaultEnabled}
+                onToggle={() => toggleFeature(f.key)}
+              />
+            ))}
+          </div>
+        )}
 
-      <div className="form-save-bar">
-        <button type="submit" className="btn" disabled={saving}>
-          {saving ? "Saving..." : "Save"}
-        </button>
-        {success && <span style={{ color: "#2a5d3c" }}>{success}</span>}
-      </div>
+        <div className="form-save-bar">
+          <button type="submit" className="btn" disabled={saving}>
+            {saving ? "Saving..." : "Save"}
+          </button>
+          {success && <span style={{ color: "#2a5d3c" }}>{success}</span>}
+        </div>
       </form>
     </div>
   );

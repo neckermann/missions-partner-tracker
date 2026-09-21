@@ -97,7 +97,9 @@ router.get("/", async (req, res, next) => {
       defaultEnabled: FEATURES[key].defaultEnabled,
       group: FEATURES[key].group,
       requiresEnvVar: FEATURES[key].requiresEnvVar || null,
-      envVarSatisfied: FEATURES[key].requiresEnvVar ? Boolean(process.env[FEATURES[key].requiresEnvVar]) : true,
+      envVarSatisfied: FEATURES[key].requiresEnvVar
+        ? Boolean(process.env[FEATURES[key].requiresEnvVar])
+        : true,
     }));
     res.json({ ...shapeSettings(settings), featureRegistry });
   } catch (err) {
@@ -130,29 +132,29 @@ router.put("/", requireRole("admin"), async (req, res, next) => {
 });
 
 // POST /api/settings/logo (admin only)
-router.post(
-  "/logo",
-  requireRole("admin"),
-  upload.single("image"),
-  async (req, res, next) => {
-    try {
-      if (!req.file) return res.status(400).json({ error: "No image file provided" });
-      if (!matchesFileSignature(req.file.buffer, req.file.mimetype)) {
-        return res.status(400).json({ error: "File content doesn't match its declared image type" });
-      }
-
-      const updated = await prisma.churchSettings.upsert({
-        where: { id: "singleton" },
-        create: { id: "singleton", logoBytes: req.file.buffer, logoContentType: req.file.mimetype, updatedById: req.user.id },
-        update: { logoBytes: req.file.buffer, logoContentType: req.file.mimetype, updatedById: req.user.id },
-        omit: { logoBytes: true },
-      });
-
-      res.json(shapeSettings(updated));
-    } catch (err) {
-      next(err);
+router.post("/logo", requireRole("admin"), upload.single("image"), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No image file provided" });
+    if (!matchesFileSignature(req.file.buffer, req.file.mimetype)) {
+      return res.status(400).json({ error: "File content doesn't match its declared image type" });
     }
+
+    const updated = await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      create: {
+        id: "singleton",
+        logoBytes: req.file.buffer,
+        logoContentType: req.file.mimetype,
+        updatedById: req.user.id,
+      },
+      update: { logoBytes: req.file.buffer, logoContentType: req.file.mimetype, updatedById: req.user.id },
+      omit: { logoBytes: true },
+    });
+
+    res.json(shapeSettings(updated));
+  } catch (err) {
+    next(err);
   }
-);
+});
 
 module.exports = router;

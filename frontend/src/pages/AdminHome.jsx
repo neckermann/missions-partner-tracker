@@ -43,7 +43,8 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
     enabledFeatures.documents && {
       to: "/admin/documents",
       title: "Documents",
-      description: "Survey responses, signed policies, and other documents from missionary and organization partners.",
+      description:
+        "Survey responses, signed policies, and other documents from missionary and organization partners.",
     },
     enabledFeatures.booklet && {
       to: "/admin/booklet",

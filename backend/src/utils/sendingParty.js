@@ -19,8 +19,22 @@ function flattenSendingParty(sp, type) {
 // the nested `mailingAddress` shape the frontend has always expected.
 function nestSendingParty(sp) {
   if (!sp) return null;
-  const { id, partnerId, type, addressLine1, addressLine2, city, stateProvinceRegion, postalCode, country, ...rest } = sp;
-  return { ...rest, mailingAddress: { addressLine1, addressLine2, city, stateProvinceRegion, postalCode, country } };
+  const {
+    id,
+    partnerId,
+    type,
+    addressLine1,
+    addressLine2,
+    city,
+    stateProvinceRegion,
+    postalCode,
+    country,
+    ...rest
+  } = sp;
+  return {
+    ...rest,
+    mailingAddress: { addressLine1, addressLine2, city, stateProvinceRegion, postalCode, country },
+  };
 }
 
 // DB -> API: a missionary record's `sendingParties` array is reshaped

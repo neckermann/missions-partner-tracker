@@ -225,7 +225,9 @@ const partnerSchema = z.object({
       })
     )
     .optional(),
-  children: z.array(z.object({ name: z.string(), birthday: z.coerce.date().optional().nullable() })).optional(),
+  children: z
+    .array(z.object({ name: z.string(), birthday: z.coerce.date().optional().nullable() }))
+    .optional(),
   sendingChurch: sendingPartySchema,
   sendingOrg: sendingPartySchema,
 
@@ -338,7 +340,8 @@ router.get("/:id", async (req, res, next) => {
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const data = partnerSchema.parse(req.body);
-    const { adults, children, sendingChurch, sendingOrg, addresses, furloughs, churchVisits, ...scalarData } = data;
+    const { adults, children, sendingChurch, sendingOrg, addresses, furloughs, churchVisits, ...scalarData } =
+      data;
     const addressRows = await buildAddressRows(addresses);
     const sendingPartyRows = [
       ...(sendingChurch ? [flattenSendingParty(sendingChurch, "church")] : []),
@@ -370,46 +373,41 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 // Adds a new Photo row rather than overwriting one — the previous current
 // photo becomes history instead of being deleted, so it can be viewed or
 // individually removed later (see DELETE /:id/photos/:photoId below).
-router.post(
-  "/:id/image",
-  requireRole("admin", "editor"),
-  upload.single("image"),
-  async (req, res, next) => {
-    try {
-      if (!req.file) return res.status(400).json({ error: "No image file provided" });
-      if (!matchesFileSignature(req.file.buffer, req.file.mimetype)) {
-        return res.status(400).json({ error: "File content doesn't match its declared image type" });
-      }
-
-      const existing = await prisma.partner.findUnique({ where: { id: req.params.id } });
-      if (!existing) return res.status(404).json({ error: "Not found" });
-
-      // Defaults to today, same as the newsletter upload's receivedDate —
-      // lets an admin backfill an older photo with its real date instead.
-      const receivedDate = req.body.receivedDate ? new Date(req.body.receivedDate) : new Date();
-
-      await prisma.photo.create({
-        data: {
-          partnerId: req.params.id,
-          bytes: req.file.buffer,
-          receivedDate,
-          contentType: req.file.mimetype,
-          fileSize: req.file.size,
-        },
-      });
-
-      const updated = await prisma.partner.update({
-        where: { id: req.params.id },
-        data: { updatedById: req.user.id },
-        include: partnerRecordInclude,
-      });
-
-      res.json(shapePartner(updated));
-    } catch (err) {
-      next(err);
+router.post("/:id/image", requireRole("admin", "editor"), upload.single("image"), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No image file provided" });
+    if (!matchesFileSignature(req.file.buffer, req.file.mimetype)) {
+      return res.status(400).json({ error: "File content doesn't match its declared image type" });
     }
+
+    const existing = await prisma.partner.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: "Not found" });
+
+    // Defaults to today, same as the newsletter upload's receivedDate —
+    // lets an admin backfill an older photo with its real date instead.
+    const receivedDate = req.body.receivedDate ? new Date(req.body.receivedDate) : new Date();
+
+    await prisma.photo.create({
+      data: {
+        partnerId: req.params.id,
+        bytes: req.file.buffer,
+        receivedDate,
+        contentType: req.file.mimetype,
+        fileSize: req.file.size,
+      },
+    });
+
+    const updated = await prisma.partner.update({
+      where: { id: req.params.id },
+      data: { updatedById: req.user.id },
+      include: partnerRecordInclude,
+    });
+
+    res.json(shapePartner(updated));
+  } catch (err) {
+    next(err);
   }
-);
+});
 
 // DELETE /api/partners/:id/photos/:photoId (admin only — same permission
 // level as deleting a newsletter). Deletes one photo from history; if it
@@ -447,7 +445,8 @@ router.delete("/:id/photos/:photoId", requireRole("admin"), async (req, res, nex
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const data = partnerSchema.partial().parse(req.body);
-    const { adults, children, sendingChurch, sendingOrg, addresses, furloughs, churchVisits, ...scalarData } = data;
+    const { adults, children, sendingChurch, sendingOrg, addresses, furloughs, churchVisits, ...scalarData } =
+      data;
     const addressRows = await buildAddressRows(addresses);
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -458,7 +457,8 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
       if (churchVisits) await tx.churchVisit.deleteMany({ where: { partnerId: req.params.id } });
       // sendingChurch/sendingOrg are handled independently of each other —
       // each is only touched if its own field was actually sent.
-      if (sendingChurch) await tx.sendingParty.deleteMany({ where: { partnerId: req.params.id, type: "church" } });
+      if (sendingChurch)
+        await tx.sendingParty.deleteMany({ where: { partnerId: req.params.id, type: "church" } });
       if (sendingOrg) await tx.sendingParty.deleteMany({ where: { partnerId: req.params.id, type: "org" } });
 
       const sendingPartyRows = [

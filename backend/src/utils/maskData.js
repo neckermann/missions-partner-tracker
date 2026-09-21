@@ -82,7 +82,7 @@ const COUNTRY_CENTROIDS = {
   "Costa Rica": { lat: 10, lng: -84 },
   Croatia: { lat: 45.16666666, lng: 15.5 },
   Cuba: { lat: 21.5, lng: -80 },
-  "Curaçao": { lat: 12.116667, lng: -68.933333 },
+  Curaçao: { lat: 12.116667, lng: -68.933333 },
   Cyprus: { lat: 35, lng: 33 },
   Czechia: { lat: 49.75, lng: 15.5 },
   "Czech Republic": { lat: 49.75, lng: 15.5 }, // common alias for Czechia
