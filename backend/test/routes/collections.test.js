@@ -159,8 +159,10 @@ describe("collections: CRUD and partner scoping", () => {
       const { partnerId, ...withoutPartner } = c.create();
       const res = await admin(c.path, { method: "POST", body: withoutPartner });
       assert.equal(res.status, 400);
-      assert.ok(Array.isArray(res.body.error));
-      assert.deepEqual(res.body.error[0].path, ["partnerId"]);
+      // A string, not Zod's issues array -- the frontend renders this value
+      // directly, so an object here blanks the page. See middleware/errors.js.
+      assert.equal(typeof res.body.error, "string", `expected a string, got ${JSON.stringify(res.body)}`);
+      assert.match(res.body.error, /partnerId/);
     });
   }
 });

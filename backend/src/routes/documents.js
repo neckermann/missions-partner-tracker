@@ -50,13 +50,6 @@ const upload = multer({
   },
 });
 
-function handleUploadErrors(err, req, res, next) {
-  if (err instanceof multer.MulterError || err.status === 400) {
-    return res.status(400).json({ error: err.message });
-  }
-  next(err);
-}
-
 const documentInclude = {
   partner: { select: { id: true, kind: true, displayName: true } },
 };
@@ -105,7 +98,6 @@ router.post(
   "/",
   requireRole("admin", "editor"),
   upload.single("file"),
-  handleUploadErrors,
   async (req, res, next) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No file provided" });
@@ -133,7 +125,6 @@ router.post(
 
       res.status(201).json(created);
     } catch (err) {
-      if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
       next(err);
     }
   }
@@ -185,7 +176,6 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     });
     res.json(updated);
   } catch (err) {
-    if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
     next(err);
   }
 });

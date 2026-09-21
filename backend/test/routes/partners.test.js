@@ -68,21 +68,26 @@ describe("partners: auth gates", () => {
 });
 
 describe("partners: validation", () => {
-  // Regression test for the bug where every 400 serialized to a literal {}
-  // because Zod v4 renamed ZodError.errors to .issues. The body must
-  // actually say which field was wrong.
-  test("a validation error names the offending field", async () => {
+  // Regression test for two bugs in a row on the same line of code. First
+  // every 400 serialized to a literal {}, because Zod v4 renamed
+  // ZodError.errors to .issues. The fix returned err.issues -- an array of
+  // objects -- which the frontend renders straight into JSX, so React threw
+  // "Objects are not valid as a React child" and blanked the page.
+  //
+  // So the contract is now both halves at once: the body must name the
+  // offending field, AND it must be a string. See middleware/errors.js.
+  test("a validation error names the offending field, as a string", async () => {
     const res = await admin("/api/partners", { method: "POST", body: { kind: "not-a-kind", displayName: "x" } });
     assert.equal(res.status, 400);
-    assert.ok(Array.isArray(res.body.error), `expected an issues array, got ${JSON.stringify(res.body)}`);
-    assert.ok(res.body.error.length > 0, "error array must not be empty");
-    assert.deepEqual(res.body.error[0].path, ["kind"]);
+    assert.equal(typeof res.body.error, "string", `expected a string, got ${JSON.stringify(res.body)}`);
+    assert.match(res.body.error, /kind/);
   });
 
   test("a missing required field is rejected", async () => {
     const res = await admin("/api/partners", { method: "POST", body: { kind: "missionary" } });
     assert.equal(res.status, 400);
-    assert.deepEqual(res.body.error[0].path, ["displayName"]);
+    assert.equal(typeof res.body.error, "string");
+    assert.match(res.body.error, /displayName/);
   });
 
   test("an unknown id returns 404, not 500", async () => {

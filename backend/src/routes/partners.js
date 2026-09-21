@@ -37,14 +37,6 @@ const upload = multer({
   },
 });
 
-// Surfaces multer errors (bad file type, too large) as 400s instead of 500s.
-function handleUploadErrors(err, req, res, next) {
-  if (err instanceof multer.MulterError || err.status === 400) {
-    return res.status(400).json({ error: err.message });
-  }
-  next(err);
-}
-
 // What GET /:id returns: the partner record itself plus the small
 // one-per-partner relations that are genuinely part of it and are only
 // ever written through this route.
@@ -354,7 +346,6 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 
     res.status(201).json(shapePartner(created));
   } catch (err) {
-    if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
     next(err);
   }
 });
@@ -367,7 +358,6 @@ router.post(
   "/:id/image",
   requireRole("admin", "editor"),
   upload.single("image"),
-  handleUploadErrors,
   async (req, res, next) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No image file provided" });
@@ -478,8 +468,6 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
 
     res.json(shapePartner(updated));
   } catch (err) {
-    if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
-    if (err.code === "P2025") return res.status(404).json({ error: "Not found" });
     next(err);
   }
 });
@@ -528,7 +516,6 @@ router.post("/:id/unarchive", requireRole("admin", "editor"), async (req, res, n
     });
     res.json(shapePartner(updated));
   } catch (err) {
-    if (err.code === "P2025") return res.status(404).json({ error: "Not found" });
     next(err);
   }
 });

@@ -83,8 +83,6 @@ router.post("/", async (req, res, next) => {
     });
     res.status(201).json(sanitize(created));
   } catch (err) {
-    if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
-    if (err.code === "P2002") return res.status(409).json({ error: "Email already in use" });
     next(err);
   }
 });
@@ -105,7 +103,6 @@ router.put("/:id", async (req, res, next) => {
     const updated = await prisma.user.update({ where: { id: req.params.id }, data: updateData });
     res.json(sanitize(updated));
   } catch (err) {
-    if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
     next(err);
   }
 });
@@ -122,7 +119,6 @@ router.post("/:id/mfa/reset", async (req, res, next) => {
     });
     res.json(sanitize(updated));
   } catch (err) {
-    if (err.code === "P2025") return res.status(404).json({ error: "Not found" });
     next(err);
   }
 });

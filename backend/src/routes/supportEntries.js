@@ -57,7 +57,6 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
     const created = await prisma.supportEntry.create({ data, include: supportEntryInclude });
     res.status(201).json(created);
   } catch (err) {
-    if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
     next(err);
   }
 });

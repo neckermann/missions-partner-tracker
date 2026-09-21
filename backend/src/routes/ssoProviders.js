@@ -57,7 +57,6 @@ router.post("/", async (req, res, next) => {
     });
     res.status(201).json(sanitize(created));
   } catch (err) {
-    if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
     next(err);
   }
 });
@@ -71,8 +70,6 @@ router.put("/:id", async (req, res, next) => {
     const updated = await prisma.ssoProvider.update({ where: { id: req.params.id }, data });
     res.json(sanitize(updated));
   } catch (err) {
-    if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
-    if (err.code === "P2025") return res.status(404).json({ error: "Not found" });
     next(err);
   }
 });
@@ -82,7 +79,6 @@ router.delete("/:id", async (req, res, next) => {
     await prisma.ssoProvider.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (err) {
-    if (err.code === "P2025") return res.status(404).json({ error: "Not found" });
     next(err);
   }
 });

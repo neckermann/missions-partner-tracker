@@ -42,14 +42,6 @@ const upload = multer({
   },
 });
 
-// Surfaces multer errors (bad file type, too large) as 400s instead of 500s.
-function handleUploadErrors(err, req, res, next) {
-  if (err instanceof multer.MulterError || err.status === 400) {
-    return res.status(400).json({ error: err.message });
-  }
-  next(err);
-}
-
 const addressSchema = z
   .object({
     addressLine1: z.string().optional().nullable(),
@@ -133,7 +125,6 @@ router.put("/", requireRole("admin"), async (req, res, next) => {
     });
     res.json(shapeSettings(updated));
   } catch (err) {
-    if (err.name === "ZodError") return res.status(400).json({ error: err.issues });
     next(err);
   }
 });
@@ -143,7 +134,6 @@ router.post(
   "/logo",
   requireRole("admin"),
   upload.single("image"),
-  handleUploadErrors,
   async (req, res, next) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No image file provided" });
