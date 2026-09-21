@@ -37,13 +37,12 @@ function SidebarLink({ to, label, end }) {
   );
 }
 
-// Manage Users, Branding, Enabled Features, Single Sign-On, About Church --
+// Manage Users, Branding, Enabled Features, About Church --
 // order as specified, not alphabetical or route order.
 const SITE_ADMIN_LINKS = [
   { to: "/admin/settings/users", label: "Manage Users" },
   { to: "/admin/settings/branding", label: "Branding" },
   { to: "/admin/settings/features", label: "Enabled Features" },
-  { to: "/admin/settings/sso", label: "Single Sign-On" },
   { to: "/admin/settings/about", label: "About Church" },
 ];
 

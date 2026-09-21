@@ -187,7 +187,7 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
 
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
     if (!user || user.authProvider !== "local" || !user.passwordHash) {
-      return res.status(400).json({ error: "Password changes aren't available for SSO accounts" });
+      return res.status(400).json({ error: "This account can't change its password here" });
     }
 
     const match = await bcrypt.compare(currentPassword, user.passwordHash);

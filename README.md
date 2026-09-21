@@ -18,7 +18,7 @@ organization partners.
   name, logo, brand color, and the term it uses for its partners (e.g. "Go
   Team Partners" instead of "Missionaries") — everything else in the app
   reads from that instead of hardcoded copy.
-- **Auth**: local username/password, plus optional SSO via any
+- **Auth**: email and password with optional two-factor (TOTP), via
   standards-compliant OIDC provider (Entra ID, Google Workspace, Okta,
   etc.) — configure providers entirely from the admin UI, no redeploy
   needed, and local login always keeps working alongside them. Sessions
@@ -50,7 +50,7 @@ task-oriented guides:
 
 | Guide | For | Covers |
 |---|---|---|
-| **[ADMIN_GUIDE.md](ADMIN_GUIDE.md)** | Whoever sets up and runs the instance | Full local setup, environment variables, SSO configuration, deployment, file storage, rate limiting, and ongoing operations (rotating secrets, upgrading a fork, troubleshooting) |
+| **[ADMIN_GUIDE.md](ADMIN_GUIDE.md)** | Whoever sets up and runs the instance | Full local setup, environment variables, deployment, file storage, rate limiting, and ongoing operations (rotating secrets, troubleshooting) |
 | **[USER_GUIDE.md](USER_GUIDE.md)** | Whoever uses the admin dashboard day-to-day | Roles & permissions, MFA, adding/editing partners field-by-field, support tracking, trip history vs. trip opportunities, newsletters, documents, the booklet export, restricted-partner privacy rules, and what the public site shows visitors |
 
 ## Project layout
@@ -69,7 +69,7 @@ task-oriented guides:
 | Backend | Node/Express, Prisma ORM | Serves the built frontend directly — one deployable origin, see [ADMIN_GUIDE.md § Deploying to production](ADMIN_GUIDE.md#deploying-to-production) |
 | Database | PostgreSQL (any host) | Prisma migrations in `backend/prisma/migrations`; also holds photo/newsletter/document files directly — no separate file storage to run |
 | Maps/geocoding | Leaflet + OpenStreetMap Nominatim | Free, no API key; geocodes to city-level only, never a street address |
-| Auth | httpOnly session cookie + bcrypt (local), `openid-client` (SSO, any OIDC provider), `otplib`/`qrcode` (MFA) | |
+| Auth | httpOnly session cookie + bcrypt, `otplib`/`qrcode` (two-factor) | |
 
 ## Quick start
 

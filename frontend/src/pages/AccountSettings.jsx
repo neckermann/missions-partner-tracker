@@ -61,14 +61,7 @@ export default function AccountSettings() {
           </p>
         )}
 
-        {!user ? null : user.authProvider !== "local" ? (
-          <div className="admin-section">
-            <p>
-              Your account signs in via single sign-on (Entra ID). Passwords for SSO accounts
-              are managed by your organization, not here.
-            </p>
-          </div>
-        ) : (
+        {!user ? null : (
           <div className="admin-section">
             <h3>Change Password</h3>
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>

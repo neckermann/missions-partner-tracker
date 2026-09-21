@@ -1,4 +1,4 @@
-// Creates (or updates) a local admin user so you can log in before SSO
+// Creates (or updates) an admin user so you can log in before
 // is configured. Run with:
 //   node prisma/createAdmin.js you@yourchurch.org "YourStrongPassword!"
 

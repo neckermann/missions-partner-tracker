@@ -36,7 +36,9 @@ export default function AdminUserForm() {
     setError("");
 
     const payload = { ...form };
-    if (!payload.password) delete payload.password; // create: not required if SSO; edit: keeps existing password unless resetting
+    // Only meaningful when editing: a blank field means "keep the current
+    // password". Creating requires one (enforced by the input and the API).
+    if (!payload.password) delete payload.password;
 
     try {
       if (isEdit) {
@@ -81,13 +83,6 @@ export default function AdminUserForm() {
                 <option value="viewer">Viewer</option>
               </select>
             </label>
-            <label>
-              Auth Provider
-              <select value={form.authProvider} onChange={(e) => update("authProvider", e.target.value)} disabled={isEdit}>
-                <option value="local">Local (username/password)</option>
-                <option value="sso">Single Sign-On (SSO)</option>
-              </select>
-            </label>
           </div>
 
           {isEdit && (
@@ -96,16 +91,14 @@ export default function AdminUserForm() {
                 <input type="checkbox" checked={form.active} onChange={(e) => update("active", e.target.checked)} />
                 Active
               </label>
-              {form.authProvider === "local" && (
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={form.mfaSetupRequired}
-                    onChange={(e) => update("mfaSetupRequired", e.target.checked)}
-                  />
-                  Require Two-Factor Authentication
-                </label>
-              )}
+              <label>
+                <input
+                  type="checkbox"
+                  checked={form.mfaSetupRequired}
+                  onChange={(e) => update("mfaSetupRequired", e.target.checked)}
+                />
+                Require Two-Factor Authentication
+              </label>
             </div>
           )}
           {form.mfaEnabled && (
@@ -115,18 +108,16 @@ export default function AdminUserForm() {
             </p>
           )}
 
-          {form.authProvider === "local" && (
-            <label style={{ marginTop: "1rem" }}>
-              {isEdit ? "Reset Password (leave blank to keep current)" : "Password"}
-              <input
-                type="password"
-                value={form.password}
-                onChange={(e) => update("password", e.target.value)}
-                required={!isEdit}
-                minLength={8}
-              />
-            </label>
-          )}
+          <label style={{ marginTop: "1rem" }}>
+            {isEdit ? "Reset Password (leave blank to keep current)" : "Password"}
+            <input
+              type="password"
+              value={form.password}
+              onChange={(e) => update("password", e.target.value)}
+              required={!isEdit}
+              minLength={8}
+            />
+          </label>
 
           {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
         </div>

@@ -52,7 +52,7 @@ an `httpOnly` cookie can't be read by JS at all).
    No frontend `.env` needed locally — Vite proxies `/api` to
    `http://localhost:4000` automatically (see `frontend/vite.config.js`).
 4. Visit `http://localhost:5173/login` and sign in with the account you
-   just created. Local login always works, whether or not SSO is also
+   just created.
    configured.
 
 ### Building for production
@@ -94,8 +94,7 @@ full file with inline comments):
 | `PORT` | No | Defaults to 4000 |
 | `NODE_ENV` | No | `development` or `production` |
 | `SESSION_SECRET` | Yes | Signs the session cookie (see [Authentication setup](#authentication-setup)). Generate a long random value, e.g. `openssl rand -base64 48`. See [Rotating SESSION_SECRET](#rotating-sessionsecret) below |
-| `FIELD_ENCRYPTION_KEY` | Yes | Encrypts secrets at rest (MFA secrets, SSO client secrets). Generate with `openssl rand -base64 32`. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
-| `APP_BASE_URL` | Only if using SSO, and only off Render or on a custom domain | This app's own public base URL, used to build the SSO callback URL — see [Single sign-on (SSO)](#single-sign-on-sso). On Render's own `onrender.com` URL, falls back to `RENDER_EXTERNAL_URL` automatically, so this is rarely needed there. |
+| `FIELD_ENCRYPTION_KEY` | Recommended | Encrypts two-factor (MFA) secrets at rest. Generate with `npm run generate-secrets`. Without it the app still runs, but MFA enrollment fails. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
 | `JOSHUA_PROJECT_API_KEY` | No | Enables country-level unreached-people-group stats; get a free key at [joshuaproject.net/api/request](https://joshuaproject.net/api/request) |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
@@ -142,95 +141,25 @@ route in `main.jsx`, not a restructure.
 
 ## Authentication setup
 
-Local username/password login is always available — nothing to configure
-for it beyond your first admin account (created at `/setup` on a fresh
-deploy, or with `createAdmin.js` — see
-[Deploying to production](#deploying-to-production)). Single sign-on is
-entirely optional and layered on top.
+Accounts are email and password, optionally with TOTP two-factor. There is
+nothing to configure beyond your first admin account, created at `/setup`
+on a fresh deploy or with `createAdmin.js` — see
+[Deploying to production](#deploying-to-production).
 
-### Single sign-on (SSO)
-
-One generic OIDC login flow (`backend/src/routes/sso.js`, via
-`openid-client`) serves any standards-compliant identity provider — Entra
-ID, Google Workspace, Okta, or anything else that publishes an OIDC
-discovery document. Unlike the rest of this table, **there are no env vars
-to set for SSO itself** — every provider (including its client secret) is
-configured entirely from **Admin → Site Administration → Single Sign-On**, and
-takes effect immediately with no redeploy. The only env vars SSO needs at
-all are `FIELD_ENCRYPTION_KEY` (encrypts the client secret at rest) and
-`APP_BASE_URL` (used to build the callback URL), both listed above.
-
-To add a provider:
-1. In your identity provider, register a new app/enterprise application
-   with the redirect/reply URL `${APP_BASE_URL}/api/auth/sso/callback` —
-   this exact URL is shared by every provider you configure; the app tells
-   them apart via the `state` parameter, not the URL.
-2. Note the app's **Client ID**, **Client Secret**, and **Issuer URL**
-   (the base URL its `/.well-known/openid-configuration` discovery
-   document lives under):
-   - **Entra ID**: Entra ID → App registrations → your app. Issuer URL is
-     `https://login.microsoftonline.com/<tenant-id>/v2.0`.
-   - **Google Workspace**: Google Cloud Console → APIs & Services →
-     Credentials → OAuth client ID. Issuer URL is
-     `https://accounts.google.com`.
-   - **Okta**: your Okta admin console → Applications → your app. Issuer
-     URL is your Okta domain, e.g. `https://your-org.okta.com`.
-   - Any other OIDC provider: check its docs for the issuer URL.
-3. In the app, go to **Admin → Site Administration → Single Sign-On → + Add
-   Provider**, fill in the button label, provider type (cosmetic — picks
-   the button icon), issuer URL, client ID, and client secret, and check
-   **Enabled**. Strongly consider setting the **allowed email domain**
-   field too — see the warning below before skipping it.
-4. Save. The login page immediately shows a "Sign in with ..." button for
-   it — no restart needed.
-
-**Gate access on the identity provider's side, not just here.** This app
-has exactly one optional filter on who can sign in via a given
-provider — the allowed-domain field from step 3 — and nothing else. It
-does not (and can't) know who at your organization should actually have
-access. Anyone who can complete a successful login against the IdP you
-configured gets an account here automatically (see below). Concretely:
-- **Entra ID / Okta**: don't leave the app registration open to "everyone
-  in the tenant" if that's broader than your admin team — assign the
-  app to a specific security group or a short list of named users in
-  the IdP itself, the same way you'd scope access to any other internal
-  tool.
-- **Google**: if you're using a Google Workspace account, set the OAuth
-  client's audience to your own internal organization, and still set the
-  allowed-domain field here as a second check. If you're tempted to add
-  plain consumer Google Sign-In (no Workspace, no domain restriction
-  possible), don't — that lets *any* Gmail user in the world authenticate
-  successfully and get an account.
-- Whatever the provider, if you can't restrict who's allowed to
-  authenticate on its side, at minimum set this app's allowed-domain
-  field so only your organization's email addresses can complete login.
-
-**Testing SSO in local dev**: the callback lands on the backend directly
-(`APP_BASE_URL`, e.g. `http://localhost:4000`), not the Vite dev server at
-`:5173`, since the identity provider redirects there regardless of Vite's
-proxy. Either run `cd frontend && npm run build` once first so the backend
-has something in `backend/public` to serve, or just navigate to
-`http://localhost:5173/admin` manually after the redirect lands — the
-session cookie is already set and is shared across ports on `localhost`,
-so it'll already be logged in.
-
-New users who sign in through any provider for the first time are
-auto-created with role `viewer` (read-only — no create/edit/delete access
-anywhere in the admin panel) precisely because this app can't vet who's
-on the other end of a successful IdP login beyond the allowed-domain
-check above. Promote someone to `editor` or `admin` directly in the
-**Manage Users** screen, the `User` table, or via Prisma Studio
-(`npm run prisma:studio`) once you've confirmed they should have write
-access. Disabling or deleting a provider doesn't touch
-the users who signed in through it — they just can't sign in that way
-again until it's re-added; local login (if their account has a password)
-or another provider still works.
+This app deliberately has no single sign-on. An earlier version supported
+OIDC, but it auto-provisioned an account for anyone who could authenticate
+at the configured identity provider, and in this app **any account can read
+every partner's full record** — including restricted partners' exact
+locations and contact details. Handing that out on the strength of "has a
+Google account" was the wrong trade for the data involved. Controlling who
+gets an account is the entire security boundary here, so accounts are
+created deliberately, by an admin.
 
 A few things worth knowing operationally:
 - `SESSION_SECRET` is what signs the session cookie — see
   [Rotating SESSION_SECRET](#rotating-sessionsecret) below before you
   ever need to do this in a hurry.
-- `FIELD_ENCRYPTION_KEY` encrypts SSO client secrets and MFA secrets in
+- `FIELD_ENCRYPTION_KEY` encrypts two-factor (MFA) secrets in
   the database — see
   [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below.
 - MFA (TOTP) is opt-in and self-service per user, or an admin can force
@@ -320,9 +249,6 @@ provision) in one step:
    see [Environment variables](#environment-variables)); leave them
    blank to skip those optional features for now. `SESSION_SECRET` and
    `FIELD_ENCRYPTION_KEY` are generated automatically, nothing to enter.
-   `APP_BASE_URL` (only load-bearing for SSO) doesn't need filling in
-   either — it falls back to Render's own `RENDER_EXTERNAL_URL`
-   automatically; only set it explicitly once you're on a custom domain.
 4. Apply the blueprint. Render builds, runs `prisma migrate deploy` as a
    pre-deploy step, and starts the app — no separate migration step to
    remember.
@@ -364,14 +290,9 @@ provider:
    account right in the browser — or, if you'd rather do it from a
    shell with `DATABASE_URL` set, `node prisma/createAdmin.js
    you@yourchurch.org "SomeStrongPassword!"` does the same thing.
-5. Set `APP_BASE_URL` to your real deployed URL (not needed on Render's
-   own `onrender.com` URL — see [Reference deployment](#reference-deployment-render)
-   above), and if using SSO,
-   update the reply/redirect URL registered with each identity provider
-   to match `${APP_BASE_URL}/api/auth/sso/callback`.
-6. Use HTTPS everywhere in production — required for SSO and for the
-   session cookie's `Secure` flag to actually work, and just generally
-   expected for a site handling admin logins.
+5. Use HTTPS everywhere in production — required for the session
+   cookie's `Secure` flag to actually work, and just generally expected
+   for a site handling admin logins.
 
 ### Before you deploy a fork, change these
 
@@ -480,17 +401,16 @@ There's no partial/soft rotation; it's all-or-nothing by design.
 
 ### Rotating FIELD_ENCRYPTION_KEY
 
-This encrypts MFA secrets and SSO client secrets at rest
+This encrypts two-factor (MFA) secrets at rest
 (`backend/src/utils/crypto.js`). Unlike `SESSION_SECRET`, rotating it is
 **not** a drop-in swap — every value already encrypted with the old key
-becomes unreadable the moment you change it, which breaks MFA logins and
-SSO for every provider until re-entered. If you need to rotate it: decrypt
-and re-encrypt every affected row under the old key before switching
-(there's no built-in script for this since it's rare enough not to warrant
-one — SSO client secrets can just be re-entered from Church Settings after
-switching, and MFA-enabled users can have their MFA reset from Manage
-Users and re-enroll). Only rotate this if you suspect it's actually
-leaked; otherwise leave it alone indefinitely.
+becomes unreadable the moment you change it, which breaks two-factor
+logins until re-enrolled. If you need to rotate it: decrypt and
+re-encrypt every affected row under the old key before switching (there's
+no built-in script for this since it's rare enough not to warrant one —
+MFA-enabled users can instead have their MFA reset from Manage Users and
+re-enroll). Only rotate this if you suspect it's actually leaked;
+otherwise leave it alone indefinitely.
 
 ### Restricted-country masking policy
 
@@ -520,11 +440,6 @@ you're relying on real partner data.
 - **`npm install` fails on Vite/plugin-react version mismatch**: Vite 8
   needs `@vitejs/plugin-react` 6.x — if you've pinned an older
   plugin-react version, bump it alongside Vite.
-- **SSO login redirects to `/login?error=sso`**: check the server log —
-  every SSO failure (unknown/disabled provider, expired state, discovery
-  failure, domain not allowed, disabled account) logs its specific reason
-  server-side before redirecting; the login page itself only ever shows a
-  generic message so it doesn't leak details to an unauthenticated caller.
 - **A restricted missionary/org doesn't show up on the public map**: they
   need a resolvable pin — see
   [USER_GUIDE.md § The public site](USER_GUIDE.md#the-public-site) for

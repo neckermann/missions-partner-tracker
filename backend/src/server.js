@@ -13,8 +13,6 @@ const rateLimit = require("express-rate-limit");
 const { errorHandler } = require("./middleware/errors");
 
 const authRoutes = require("./routes/auth");
-const ssoRoutes = require("./routes/sso");
-const ssoProviderRoutes = require("./routes/ssoProviders");
 const partnerRoutes = require("./routes/partners");
 const publicPartnerRoutes = require("./routes/publicPartners");
 const userRoutes = require("./routes/users");
@@ -98,8 +96,6 @@ app.use("/api/public", rateLimit({ windowMs: 60 * 1000, max: 120 }));
 
 // --- Routes ---
 app.use("/api/auth", authRoutes);
-app.use("/api/auth/sso", ssoRoutes); // open (login redirect + callback) — see routes/sso.js
-app.use("/api/sso-providers", ssoProviderRoutes); // protected (admin role only)
 app.use("/api/partners", partnerRoutes); // protected (admin) — session required
 app.use("/api/public/partners", publicPartnerRoutes); // open (public site)
 app.use("/api/users", userRoutes); // protected (admin role only)

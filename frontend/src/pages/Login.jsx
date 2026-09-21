@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   login,
   verifyMfaLogin,
   startForcedMfaSetup,
   confirmForcedMfaSetup,
-  fetchSsoProviders,
   fetchSetupStatus,
 } from "../api/client.js";
 
@@ -16,16 +15,10 @@ export default function Login() {
   const [mfaCode, setMfaCode] = useState("");
   const [setupToken, setSetupToken] = useState(null);
   const [setupData, setSetupData] = useState(null); // { secret, qrCode }
-  const [ssoProviders, setSsoProviders] = useState([]);
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    fetchSsoProviders().then(setSsoProviders).catch(() => setSsoProviders([]));
-    if (searchParams.get("error") === "sso") {
-      setError("Single sign-on failed. Try again, or use your email and password below.");
-    }
     // A fresh instance has no admin account yet — send it to account
     // creation instead of a login form nobody can use. Fails open (stays
     // on the login form) if the check itself errors.
@@ -34,7 +27,7 @@ export default function Login() {
         if (status.needed) navigate("/setup", { replace: true });
       })
       .catch(() => {});
-  }, [searchParams, navigate]);
+  }, [navigate]);
 
   async function handleLocalLogin(e) {
     e.preventDefault();
@@ -152,20 +145,6 @@ export default function Login() {
   return (
     <div className="admin-shell" style={{ maxWidth: 400 }}>
       <h2>Team Login</h2>
-
-      {ssoProviders.map((p) => (
-        <a
-          key={p.id}
-          href={`/api/auth/sso/${p.id}/login`}
-          className="btn"
-          style={{ display: "block", textAlign: "center", marginBottom: "0.75rem", textDecoration: "none" }}
-        >
-          Sign in with {p.displayName}
-        </a>
-      ))}
-      {ssoProviders.length > 0 && (
-        <div style={{ textAlign: "center", margin: "0.75rem 0", color: "#888" }}>— or —</div>
-      )}
 
       <form onSubmit={handleLocalLogin} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         <label>

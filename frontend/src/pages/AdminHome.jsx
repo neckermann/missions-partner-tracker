@@ -57,7 +57,7 @@ const ADMIN_ONLY_SECTIONS = [
   {
     to: "/admin/settings",
     title: "Site Administration",
-    description: "Manage users, branding, feature toggles, single sign-on, and church info.",
+    description: "Manage users, branding, feature toggles, and church info.",
   },
 ];
 

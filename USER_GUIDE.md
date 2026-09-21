@@ -12,7 +12,7 @@ only)** below — see [Understanding your role](#understanding-your-role).
 ## Logging in
 
 Go to `/login`. Email + password always works. If your church has
-single sign-on configured, you'll also see one "Sign in with ..." button
+your email address and password
 per provider they've enabled (e.g. Entra ID, Google Workspace, Okta) —
 use whichever your church set up for you.
 
@@ -378,12 +378,10 @@ at least one way back in.
 ## Your account settings
 
 **My Account** is where you manage your own login, regardless of role.
-Local accounts can change their password (current password required) and
+You can change your password (current password required) and
 enable/disable two-factor authentication — enabling walks you through
 scanning a QR code and confirming a code; disabling requires your current
-password. SSO accounts don't manage a password here — that's handled by
-your organization's identity provider (Entra ID, Google Workspace, etc.)
-instead.
+password.
 
 ## The public site
 

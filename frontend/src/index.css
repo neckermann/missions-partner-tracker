@@ -363,7 +363,7 @@ a { color: var(--brand-color, #2a5d3c); }
   color: #555;
 }
 
-/* Settings sub-nav (Church Settings > Theme/Features/SSO/...) -- an
+/* Settings sub-nav (Church Settings > Theme/Features/Users/...) -- an
    underline-tab row, not the dark sidebar's pill style, since this sits on
    the light content area as a second-level nav within one already-selected
    top-level section. Room to grow: more tabs just add to the row (wraps if

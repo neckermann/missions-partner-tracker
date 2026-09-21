@@ -4,8 +4,7 @@ const TOKEN_TTL = "8h";
 const TOKEN_TTL_MS = 8 * 60 * 60 * 1000;
 const SESSION_COOKIE_NAME = "session";
 
-// Shared by local login (routes/auth.js) and every SSO provider's callback
-// (routes/sso.js) so both end up issuing an identical session token.
+// Issued by login in routes/auth.js -- the one place a session is minted.
 function signToken(user) {
   return jwt.sign(
     {
@@ -20,7 +19,7 @@ function signToken(user) {
   );
 }
 
-// The one place the session cookie's flags are set — local login and SSO
+// The one place the session cookie's flags are set — login and logout
 // both call this so there's no risk of the two flows drifting apart.
 // httpOnly means client-side JS can never read (or steal, via XSS) the
 // token; sameSite: "lax" (not "strict") is deliberate — it's the

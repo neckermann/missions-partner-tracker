@@ -24,7 +24,7 @@ const emptyForm = {
 // else absent before it's ever been saved (see routes/settings.js), so
 // `s?.id` (not `!s`) is the actual "has this church configured anything
 // yet" check — same pattern as the other Site Administration pages. Only
-// pulls in the fields this page owns -- Branding/Features/SSO/Users are
+// pulls in the fields this page owns -- Branding/Features/Users are
 // separate pages under the sidebar's Site Administration group (see
 // AdminSidebar.jsx), each PUTting just its own slice, so saving here never
 // touches the others' fields.

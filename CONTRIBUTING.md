@@ -29,14 +29,13 @@ customize, add a field to Church Settings for it rather than hardcoding a
 value, even if you're only trying to fix it for your own church today.
 That's what keeps everyone's fork able to pull in your fix later.
 
-This extends to per-instance secrets, not just branding — `SsoProvider`
-(`backend/prisma/schema.prisma`) stores each configured identity
-provider's client secret in the database (encrypted at rest, see
-`backend/src/utils/crypto.js`), not as an env var. A church adding an SSO
-provider through the admin UI shouldn't need to touch their hosting
-platform's env config or redeploy at all; an env var would force that.
-Prefer the same for any future integration that needs its own
-per-instance credential.
+This extends to per-instance secrets, not just branding. Anything a church
+configures for itself belongs in the database (encrypted at rest where it's
+a secret — see `backend/src/utils/crypto.js`), not in an env var. Setting
+something up through the admin UI shouldn't require touching a hosting
+platform's env config or redeploying; an env var would force that. Prefer
+the same for any future integration that needs its own per-instance
+credential.
 
 ## Single-origin architecture — don't add cross-origin support
 
@@ -138,9 +137,7 @@ generate the actual SQL — don't hand-write a migration folder yourself,
 that's how the timestamp prefix and Prisma's own migration bookkeeping
 stay correct. If your change needs more than the schema diff (backfilling
 a new column, a one-time data transformation), hand-add that SQL to the
-generated file afterward — see
-`backend/prisma/migrations/20260901000000_add_sso_provider/migration.sql`
-for an example that does both. Mention in your PR that it needs
+generated file afterward. Mention in your PR that it needs
 `npx prisma migrate deploy` (or the equivalent for whoever's running it)
 — there's no CI step that applies migrations automatically.
 

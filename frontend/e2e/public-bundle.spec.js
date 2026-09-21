@@ -22,7 +22,7 @@ const ADMIN_ONLY_MARKERS = [
   "booklet-page", // the booklet's print stylesheet class
   "/api/support-entries", // admin-only endpoints
   "/api/prayer-requests",
-  "/api/sso-providers",
+  "/api/backup-check",
 ];
 
 async function scriptsLoadedOn(page, path) {

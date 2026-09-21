@@ -68,10 +68,6 @@ services:
         generateValue: true
       - key: FIELD_ENCRYPTION_KEY
         generateValue: true
-      # Optional. Only load-bearing if you configure SSO (see
-      # ADMIN_GUIDE.md § Single sign-on) -- leave blank otherwise.
-      - key: APP_BASE_URL
-        sync: false
       # Optional. Enables country-level unreached-people-group stats on
       # the public site -- free key at joshuaproject.net/api/request.
       # Leave blank and that feature just doesn't show.

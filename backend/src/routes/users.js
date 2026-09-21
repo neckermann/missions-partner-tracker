@@ -12,15 +12,12 @@ const createUserSchema = z
     email: z.string().email(),
     name: z.string().optional().nullable(),
     role: z.enum(["admin", "editor", "viewer"]).default("editor"),
-    // "sso" here is just a placeholder for pre-provisioning a user before
-    // their first SSO login — it gets overwritten with the actual
-    // provider's type (see routes/sso.js) once they actually sign in.
-    authProvider: z.enum(["local", "sso"]).default("local"),
-    password: z.string().min(8).optional(),
-  })
-  .refine((data) => data.authProvider !== "local" || !!data.password, {
-    message: "Password is required for local accounts",
-    path: ["password"],
+    // Every account is local now. The column stays (see the User model in
+    // schema.prisma) because auth.js still refuses to password-authenticate
+    // anything that isn't "local" -- cheap insurance against a passwordless
+    // row ever being created by some future path.
+    authProvider: z.literal("local").default("local"),
+    password: z.string().min(8),
   });
 
 const updateUserSchema = z.object({
@@ -70,7 +67,8 @@ router.get("/:id", async (req, res, next) => {
 router.post("/", async (req, res, next) => {
   try {
     const data = createUserSchema.parse(req.body);
-    const passwordHash = data.password ? await bcrypt.hash(data.password, 12) : null;
+    // Always present: the schema requires it now that every account is local.
+    const passwordHash = await bcrypt.hash(data.password, 12);
 
     const created = await prisma.user.create({
       data: {

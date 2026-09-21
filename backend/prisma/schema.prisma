@@ -505,26 +505,24 @@ model ChurchSettings {
 }
 
 // Users who can log into the admin backend.
-// authProvider is "local" (username/password) or an SsoProvider's `type`
-// (e.g. "entra", "google", "okta", "oidc") — set from whichever provider
-// the user last authenticated through; see SsoProvider below.
+//
+// authProvider is always "local" (email + password, optionally with TOTP
+// two-factor). It used to also carry an SSO provider's type; SSO was removed
+// in 3.1.0 because auto-provisioning handed an account to anyone at the
+// configured identity provider, and in this app any account can read every
+// partner's full record. The column stays so routes/auth.js can keep
+// refusing to password-authenticate anything that isn't "local" -- cheap
+// insurance if a passwordless row is ever created some other way.
 model User {
   id           String    @id @default(uuid())
   email        String    @unique
   name         String?
-  passwordHash String? // null for SSO-only accounts
+  passwordHash String? // nullable only for historical rows; every account created now is local
   authProvider String    @default("local")
   role         String    @default("editor") // "admin" | "editor" | "viewer"
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
-
-  // Which configured SsoProvider this user last signed in through, if any.
-  // Nullable and SetNull on delete — losing the link just means the app no
-  // longer knows which provider config to attribute future logins to; the
-  // user row and its history stay intact.
-  ssoProviderId String?
-  ssoProvider   SsoProvider? @relation(fields: [ssoProviderId], references: [id], onDelete: SetNull)
 
   // TOTP MFA — opt-in per user, self-service enroll/disable from Account
   // Settings; mfaSecret is only ever set once mfaEnabled flow starts, and
@@ -541,29 +539,3 @@ model User {
   mfaSetupRequired Boolean @default(false)
 }
 
-// One row per configured SSO identity provider (Entra ID, Google, Okta, or
-// any other standards-compliant OIDC provider). Configured entirely from
-// the admin Church Settings UI — no env vars or redeploy needed to add,
-// change, or disable one. `type` is a cosmetic hint for the admin UI/login
-// button only; the actual login flow is one generic OIDC code path
-// (backend/src/routes/sso.js, via `openid-client`) driven by discovery at
-// `${issuerUrl}/.well-known/openid-configuration`, so any OIDC-compliant
-// IdP works even when its type is just "oidc". clientSecret is encrypted
-// at rest (see backend/src/utils/crypto.js) — this is deliberately not
-// split between env vars and DB; see CONTRIBUTING.md.
-model SsoProvider {
-  id            String  @id @default(uuid())
-  type          String // "entra" | "google" | "okta" | "oidc" -- cosmetic only
-  enabled       Boolean @default(false)
-  displayName   String // shown on the login button, e.g. "Sign in with Entra ID"
-  issuerUrl     String // OIDC issuer; discovery fetched from {issuerUrl}/.well-known/openid-configuration
-  clientId      String
-  clientSecret  String // encrypted at rest
-  allowedDomain String? // optional: only allow logins from this email domain
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  updatedById String?
-
-  users User[]
-}

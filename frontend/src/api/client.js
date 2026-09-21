@@ -127,34 +127,6 @@ export async function fetchPublicSettings() {
   return data;
 }
 
-// --- SSO (Single Sign-On) ---
-
-// Public — powers the login page's dynamic "Sign in with ..." buttons.
-export async function fetchSsoProviders() {
-  const { data } = await api.get("/auth/sso/providers");
-  return data;
-}
-
-// Admin (Church Settings) — full CRUD, includes disabled providers.
-export async function fetchSsoProviderList() {
-  const { data } = await api.get("/sso-providers");
-  return data;
-}
-
-export async function createSsoProvider(payload) {
-  const { data } = await api.post("/sso-providers", payload);
-  return data;
-}
-
-export async function updateSsoProvider(id, payload) {
-  const { data } = await api.put(`/sso-providers/${id}`, payload);
-  return data;
-}
-
-export async function deleteSsoProvider(id) {
-  await api.delete(`/sso-providers/${id}`);
-}
-
 // Every collection fetcher below takes an optional { partnerId } to scope
 // it to one partner. The consolidated admin pages call them bare; the
 // sections on a partner's page pass the id. Either way it's one query,
