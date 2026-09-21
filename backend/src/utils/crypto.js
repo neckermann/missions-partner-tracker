@@ -43,12 +43,14 @@ function encryptField(plaintext) {
   ].join(":");
 }
 
-// Tolerates a legacy plaintext value (not yet run through the one-time
-// migration script) instead of throwing, so a not-yet-migrated mfaSecret
-// doesn't break login — see backend/scripts/encrypt-legacy-mfa-secrets.js.
+// Refuses anything that isn't in the stored ciphertext format. Accepting a
+// plaintext value would mean someone who can write to the database could
+// downgrade an encrypted secret to plaintext and have it silently honoured.
 function decryptField(stored) {
   if (stored == null) return null;
-  if (!isEncrypted(stored)) return stored;
+  if (!isEncrypted(stored)) {
+    throw new Error("Stored value is not in the encrypted format");
+  }
 
   const [, ivB64, authTagB64, ciphertextB64] = stored.split(":");
   const decipher = crypto.createDecipheriv(ALGORITHM, getKey(), Buffer.from(ivB64, "base64"));

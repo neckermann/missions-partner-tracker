@@ -34,8 +34,11 @@ describe("encryptField / decryptField", () => {
     assert.equal(isEncrypted("plain-legacy-value"), false);
   });
 
-  test("decryptField tolerates a legacy plaintext value instead of throwing", () => {
-    assert.equal(decryptField("plain-legacy-value"), "plain-legacy-value");
+  // Accepting plaintext would let anyone who can write to the database
+  // replace an encrypted secret with a chosen plaintext one and have it
+  // honoured silently.
+  test("decryptField refuses a plaintext value", () => {
+    assert.throws(() => decryptField("plain-not-encrypted-value"), /not in the encrypted format/);
   });
 
   test("tampered ciphertext fails to decrypt (GCM auth tag check)", () => {

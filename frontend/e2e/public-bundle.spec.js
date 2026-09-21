@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
 
-// Until v2.0.2 the app shipped as one bundle, so a visitor who only ever
-// looked at the public directory still downloaded every admin page --
-// including the printed-booklet templates and the settings screens. No
-// partner data was exposed (admin endpoints are behind requireAuth and the
-// public API runs through the masking serializer), but it handed an
-// anonymous visitor a readable map of the admin app and made them pay for
-// code they can't reach.
+// The admin app is split out of the entry bundle, so a visitor who only
+// looks at the public directory never downloads the admin pages -- the
+// printed-booklet templates, the settings screens, none of it. That isn't
+// a data boundary (admin endpoints are behind requireAuth and the public
+// API runs through the masking serializer); it's about not handing an
+// anonymous visitor a readable map of the admin app, or making them pay to
+// download code they can't reach.
 //
 // These assert on what the browser actually downloads, not on the build
 // output, so they'd catch a regression from any cause -- a stray top-level

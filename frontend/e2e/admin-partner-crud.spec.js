@@ -1,14 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { login } from "./helpers.js";
 
-// Missionaries and organizations were separate resources with near-identical
-// CRUD specs until v2.0.0. They're one Partner resource now, distinguished by
-// `kind`, so this covers both through the same flow -- which is the point of
-// the merge.
+// Missionaries and organizations are one Partner record distinguished by
+// `kind`, so both go through the same flow here.
 //
-// Since v2.0.2 there is no separate edit form: creating asks for the few
-// things you can't fill in later, and the partner page edits itself section
-// by section.
+// There is no separate edit form: creating asks for the few things you can't
+// fill in later, and the partner page edits itself section by section.
 
 // Every section on the partner page has its own Edit/Save pair, so a button
 // has to be scoped to the section it belongs to.
@@ -89,23 +86,5 @@ test.describe("Admin partner CRUD", () => {
     expect(archived.ok()).toBeTruthy();
     const del = await page.request.delete(`/api/partners/${partnerId}`);
     expect(del.ok()).toBeTruthy();
-  });
-
-  test("old missionary, organization and /edit URLs redirect to the merged partner page", async ({
-    page,
-  }) => {
-    await login(page);
-
-    const res = await page.request.get("/api/partners?kind=missionary");
-    const [target] = await res.json();
-
-    await page.goto(`/admin/missionaries/${target.id}`);
-    await expect(page).toHaveURL(`/admin/partners/${target.id}`);
-
-    await page.goto(`/admin/organizations/${target.id}`);
-    await expect(page).toHaveURL(`/admin/partners/${target.id}`);
-
-    await page.goto(`/admin/partners/${target.id}/edit`);
-    await expect(page).toHaveURL(`/admin/partners/${target.id}`);
   });
 });

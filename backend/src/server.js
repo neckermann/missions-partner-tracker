@@ -138,12 +138,10 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 // An unmatched /api/* path is a bug in the caller, not a page to render --
 // without this it falls through to the SPA catch-all below and comes back
-// as index.html with a 200, so a client calling a removed or misspelled
-// endpoint sees a confusing JSON parse error instead of a clear 404. (The
-// comment here used to claim mounting order alone prevented that. It
-// didn't; "after the API routes" is exactly what makes the catch-all
-// swallow them.) Caught after v2.0.0 removed /api/missionaries and
-// /api/organizations, when both started returning HTML.
+// as index.html with a 200, so a client calling a misspelled endpoint sees
+// a confusing JSON parse error instead of a clear 404. Note that mounting
+// order alone does NOT prevent this: being "after the API routes" is
+// exactly what lets the catch-all swallow them.
 app.use("/api", (req, res) => res.status(404).json({ error: "Not found" }));
 
 // --- Frontend ---

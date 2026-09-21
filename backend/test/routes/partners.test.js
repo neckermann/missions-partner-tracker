@@ -109,10 +109,10 @@ describe("partners: validation", () => {
     );
   });
 
-  // An unmatched /api path used to fall through to the SPA catch-all and
-  // come back as index.html with a 200 -- so a client calling a removed
-  // endpoint (say /api/missionaries after the v2.0.0 merge) got HTML and a
-  // confusing parse error rather than a clear 404.
+  // Without an explicit /api 404, an unmatched path falls through to the
+  // SPA catch-all and comes back as index.html with a 200 -- so a client
+  // calling a misspelled endpoint gets HTML and a confusing parse error
+  // rather than a clear 404.
   test("an unmatched /api path returns a JSON 404, not the SPA shell", async () => {
     const res = await admin("/api/missionaries");
     assert.equal(res.status, 404);

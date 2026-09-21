@@ -1,6 +1,6 @@
 import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import PublicDirectory from "./pages/PublicDirectory.jsx";
 import PublicPartnerDetail from "./pages/PublicPartnerDetail.jsx";
 import Login from "./pages/Login.jsx";
@@ -53,22 +53,6 @@ function RouteFallback() {
   return <p style={{ padding: "2rem" }}>Loading...</p>;
 }
 
-// Old /admin/missionaries/:id and /admin/organizations/:id URLs point at the
-// same record under /admin/partners/:id -- the merge kept every id, so this
-// is a straight path swap rather than a lookup. The old `/edit` paths land
-// on the same place: the partner page is the editor now, so there is
-// nowhere separate to send them.
-function LegacyPartnerRedirect() {
-  const { id } = useParams();
-  return <Navigate to={`/admin/partners/${id}`} replace />;
-}
-
-// Same for the public site, where the kind used to be in the path.
-function LegacyPublicPartnerRedirect() {
-  const { id } = useParams();
-  return <Navigate to={`/partners/${id}`} replace />;
-}
-
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <SettingsProvider>
@@ -104,7 +88,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   </RequirePublicSite>
                 }
               />
-              <Route path="/partners/:type/:id" element={<LegacyPublicPartnerRedirect />} />
               <Route path="/login" element={<Login />} />
               <Route path="/setup" element={<Setup />} />
 
@@ -124,24 +107,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 <Route path="partners" element={<AdminPartners />} />
                 <Route path="partners/new" element={<AdminPartnerForm />} />
                 <Route path="partners/:id" element={<AdminPartnerDetail />} />
-                {/* The partner page edits itself section by section, so there is
-                no separate edit form any more -- old links land on it. */}
-                <Route path="partners/:id/edit" element={<LegacyPartnerRedirect />} />
-                {/* Missionaries and organizations merged into one Partner
-                resource in v2.0.0. These keep old bookmarks and any links
-                sent round in email working -- the ids didn't change. */}
-                <Route
-                  path="missionaries/new"
-                  element={<Navigate to="/admin/partners/new?kind=missionary" replace />}
-                />
-                <Route
-                  path="organizations/new"
-                  element={<Navigate to="/admin/partners/new?kind=organization" replace />}
-                />
-                <Route path="missionaries/:id" element={<LegacyPartnerRedirect />} />
-                <Route path="missionaries/:id/edit" element={<LegacyPartnerRedirect />} />
-                <Route path="organizations/:id" element={<LegacyPartnerRedirect />} />
-                <Route path="organizations/:id/edit" element={<LegacyPartnerRedirect />} />
                 <Route
                   path="booklet"
                   element={

@@ -15,10 +15,9 @@ const {
 } = require("./helpers");
 
 // The six collections hanging off a partner (trips, support entries,
-// one-time needs, prayer requests, newsletters, documents). These are where
-// the v2.0.0 partnerId migration touched the most code, and each router is
-// now the *only* writer for its table -- the partner record's own PUT
-// refuses them -- so the gates here are the whole story for that data.
+// one-time needs, prayer requests, newsletters, documents). Each router is
+// the *only* writer for its table -- the partner record's own PUT refuses
+// them -- so the gates here are the whole story for that data.
 
 let admin;
 let editor;
