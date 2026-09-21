@@ -183,7 +183,11 @@ router.post("/mfa/login-verify", async (req, res, next) => {
 router.get("/me", requireAuth, async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-    if (!user) return res.status(401).json({ error: "Invalid or expired session" });
+    // active, not just existence -- a deactivated account was still being
+    // told who it was here, even though requireAuth now rejects it upstream.
+    if (!user || !user.active) {
+      return res.status(401).json({ error: "Invalid or expired session" });
+    }
     res.json({ user: sanitizeUser(user) });
   } catch (err) {
     next(err);

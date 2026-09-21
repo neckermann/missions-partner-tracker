@@ -8,6 +8,19 @@ process.env.SESSION_SECRET = "test-secret-not-for-production";
 
 const { requireAuth, requireRole, requireAuthOrMfaSetup } = require("../src/middleware/requireAuth");
 
+// These cover everything the middleware decides **before** it looks anything
+// up: a missing, malformed, expired, wrong-secret, or wrong-kind token is
+// rejected on the token alone. That is worth pinning on its own -- a
+// rejected request should never cost a database query.
+//
+// The accepting paths moved to test/routes/, because requireAuth now reads
+// the user on every request so that deactivating, deleting or demoting
+// someone takes effect immediately instead of at token expiry. A valid
+// token is no longer sufficient by itself, so "accepts a valid token"
+// cannot be asserted without a real row. See test/routes/revocation.test.js
+// for that side, including that req.user.role comes from the database
+// rather than the token's claims.
+
 function signToken(claims, opts = {}) {
   return jwt.sign(claims, process.env.SESSION_SECRET, opts);
 }
@@ -113,40 +126,9 @@ describe("requireAuth", () => {
     assert.equal(res.statusCode, 401);
     assert.equal(next.calls.length, 0);
   });
-
-  test("accepts a valid full session cookie and attaches req.user", () => {
-    const token = signToken({ id: "u1", role: "admin" });
-    const req = fakeReq(token);
-    const res = fakeRes();
-    const next = spyNext();
-    requireAuth(req, res, next);
-    assert.equal(next.calls.length, 1);
-    assert.equal(req.user.id, "u1");
-    assert.equal(req.user.role, "admin");
-    assert.equal(res.statusCode, null);
-  });
 });
 
 describe("requireRole", () => {
-  test("allows a user whose role is in the allowed list", () => {
-    const token = signToken({ id: "u1", role: "admin" });
-    const req = fakeReq(token);
-    const res = fakeRes();
-    const next = spyNext();
-    requireRole("admin", "editor")(req, res, next);
-    assert.equal(next.calls.length, 1);
-  });
-
-  test("rejects a user whose role is not in the allowed list", () => {
-    const token = signToken({ id: "u1", role: "viewer" });
-    const req = fakeReq(token);
-    const res = fakeRes();
-    const next = spyNext();
-    requireRole("admin")(req, res, next);
-    assert.equal(res.statusCode, 403);
-    assert.equal(next.calls.length, 0);
-  });
-
   test("still rejects unauthenticated requests before checking role", () => {
     const req = fakeReq(null);
     const res = fakeRes();
@@ -165,24 +147,5 @@ describe("requireAuthOrMfaSetup", () => {
     requireAuthOrMfaSetup(req, res, next);
     assert.equal(res.statusCode, 401);
     assert.equal(next.calls.length, 0);
-  });
-
-  test("accepts a forced-MFA-setup token via Authorization header — the one place bearer auth still exists, since there's no session cookie yet at this point in the flow", () => {
-    const token = signToken({ id: "u1", mfaSetup: true });
-    const req = fakeReqBearer(token);
-    const res = fakeRes();
-    const next = spyNext();
-    requireAuthOrMfaSetup(req, res, next);
-    assert.equal(next.calls.length, 1);
-    assert.equal(req.user.mfaSetup, true);
-  });
-
-  test("accepts a full session via the cookie", () => {
-    const token = signToken({ id: "u1", role: "editor" });
-    const req = fakeReq(token);
-    const res = fakeRes();
-    const next = spyNext();
-    requireAuthOrMfaSetup(req, res, next);
-    assert.equal(next.calls.length, 1);
   });
 });
