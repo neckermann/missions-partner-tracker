@@ -29,6 +29,26 @@ organization partners.
 
 ## Deploy
 
+> **Setting up your own church's instance? Don't use the button below.**
+> Its URL points at *this* repo and always will — a README button can't
+> know which copy you're reading it from, so clicking it from your own
+> copy deploys this project instead of yours, ignoring your `render.yaml`
+> and naming the services after this one. Instead, from your own copy:
+>
+> ```bash
+> npm run name-instance -- your-church-name
+> git commit -am "Name the Render services for this instance"
+> git push
+> ```
+>
+> then **Render Dashboard → New → Blueprint** and pick your repo. The name
+> you choose becomes the app's URL (`your-church-name.onrender.com`).
+> Render Blueprints can't prompt for it — the spec requires a static name
+> and has no variable interpolation — so it has to be set in the file
+> before you deploy.
+>
+> The button below is only for trying this project as-is.
+
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/neckermann/missions-partner-tracker)
 
 One web service plus one Postgres database (which also holds every
@@ -36,12 +56,6 @@ uploaded photo, newsletter, and document — no separate file storage to
 provision), about $13/mo on Render's cheapest paid tiers. See
 [`render.yaml`](render.yaml) and
 [ADMIN_GUIDE.md § Deploying anywhere else](ADMIN_GUIDE.md#deploying-anywhere-else).
-
-**If you're setting up your own church's instance**, fork this repo
-first, then use Render's Dashboard (**New → Blueprint**, pick your
-fork) instead of the button above — the button always deploys from
-*this* exact repo, not your fork, since that's just how GitHub-embedded
-buttons work.
 
 ## Guides
 

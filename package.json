@@ -6,7 +6,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "name-instance": "node scripts/name-instance.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
