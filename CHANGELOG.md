@@ -16,7 +16,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
-## [1.0.0] - 2026-09-21
+## [1.0.0] - 2026-09-22
 
 First release.
 
@@ -53,7 +53,14 @@ What's in it:
   that an admin can require per account.
 - **One-click deployment on [Render](https://render.com)** with a
   browser-based first-run setup, so standing up an instance needs no shell
-  or database access.
+  or database access. The blueprint asks for your service name and region
+  rather than guessing; `npm run name-instance -- <name> <region>` sets
+  both before you deploy. Pick the region deliberately — Render cannot
+  change it afterwards without rebuilding the service.
+
+If you're working on a fork, `npm run test:db up` builds a throwaway
+Postgres in Docker, migrates and seeds it, so the test suite never touches
+a database you care about. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Two things worth knowing before you run it:
 
