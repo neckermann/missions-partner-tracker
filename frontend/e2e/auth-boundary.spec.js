@@ -152,7 +152,19 @@ test.describe("two-factor authentication", () => {
 
       // The page prints the secret for anyone who cannot scan the QR code,
       // which is also how this test gets hold of it.
-      const secret = (await page.locator("code").first().innerText()).trim();
+      //
+      // Asserted before reading so a failure says what is wrong. Enrollment
+      // is the only thing that touches FIELD_ENCRYPTION_KEY, and when that
+      // key doesn't decode to 32 bytes the request 500s and no secret ever
+      // appears -- which otherwise shows up as an unexplained timeout two
+      // minutes later. CI shipped a 31-byte key for weeks on exactly this.
+      const secretEl = mfaSection(page).locator("code").first();
+      await expect(
+        secretEl,
+        "enrollment should show a secret -- if this times out, check FIELD_ENCRYPTION_KEY decodes to 32 bytes"
+      ).toBeVisible();
+
+      const secret = (await secretEl.innerText()).trim();
       expect(secret.length, "a TOTP secret is shown").toBeGreaterThan(10);
 
       const enrollCode = await generateTotp({ secret });

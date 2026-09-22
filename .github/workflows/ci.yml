@@ -126,7 +126,11 @@ jobs:
     env:
       DATABASE_URL: postgresql://e2e:e2e@localhost:5432/e2e
       SESSION_SECRET: e2e-only-not-a-real-secret-${{ github.run_id }}
-      FIELD_ENCRYPTION_KEY: nrDh8s5f9J4S3nEwF8s5f9J4S3nEwF8s5f9J4S3nEw=
+      # Must decode to exactly 32 bytes -- utils/crypto.js rejects anything
+      # else. The previous value here was 31 bytes, so every MFA operation
+      # threw, and nothing noticed for weeks because nothing tested MFA.
+      # e2e/auth-boundary.spec.js now does, so a bad key fails the build.
+      FIELD_ENCRYPTION_KEY: OZcy7VVp+6VxqdngsHi9OD2RqdRR1yjPbLqI6N01zmQ=
       APP_BASE_URL: http://localhost:4000
       NOMINATIM_CONTACT: e2e-ci@example.com
       NODE_ENV: test
