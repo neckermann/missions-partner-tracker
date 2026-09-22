@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchPartners, fetchTrips } from "../api/client.js";
 import { matchesSearch } from "../utils/search.js";
+import { formatDate } from "../utils/format.js";
 
 // Forward-looking capacity search — "who could host a trip like this" —
 // as opposed to /admin/trips, which is a log of trips that already
@@ -20,15 +21,6 @@ const emptyFilters = {
 function teamSizeLabel(min, max) {
   if (min == null && max == null) return "Not specified";
   return `${min ?? "?"} – ${max ?? "?"}`;
-}
-
-// Date-only fields are stored as UTC midnight — build the Date from raw
-// Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
-// off-by-one-day bug, matching the other trip pages' formatDate.
-function formatDate(value) {
-  if (!value) return null;
-  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
 }
 
 // The most recent trip (by startDate) out of an entity's trip list, plus

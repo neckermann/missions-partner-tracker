@@ -1,16 +1,6 @@
 import React, { useState } from "react";
 import { createPrayerRequest, updatePrayerRequest, deletePrayerRequest } from "../../api/client.js";
-
-// Date-only fields are stored as UTC midnight — build the Date from raw
-// Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
-// off-by-one-day bug, matching the other admin pages' formatDate.
-function formatDate(value) {
-  if (!value) return "—";
-  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
-}
-
-const todayInputValue = () => new Date().toISOString().slice(0, 10);
+import { formatDate, todayInputValue } from "../../utils/format.js";
 
 const emptyNewRequest = {
   category: "strategic",

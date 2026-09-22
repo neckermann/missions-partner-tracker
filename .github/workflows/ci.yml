@@ -86,10 +86,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Build
+      - name: Test and build
         run: |
           cd frontend
           npm ci
+          npm test
           npm run build
       # Written into backend/public (see frontend/vite.config.js) -- shared
       # with the e2e job below so the frontend is only built once per run.

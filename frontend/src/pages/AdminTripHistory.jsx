@@ -3,24 +3,9 @@ import { Link } from "react-router-dom";
 import { fetchTrips, fetchPartners, createTrip, updateTrip, deleteTrip } from "../api/client.js";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
-
-// Date-only fields are stored as UTC midnight — build the Date from raw
-// Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
-// off-by-one-day bug, matching the detail pages' formatDate.
-function formatDate(value) {
-  if (!value) return null;
-  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
-}
+import { formatDate, toDateInputValue } from "../utils/format.js";
 
 // The API returns full ISO datetime strings for date-only columns --
-// <input type="date"> needs exactly "YYYY-MM-DD". Same helper as
-// AdminMissionaryForm.jsx's toDateInputValue.
-function toDateInputValue(value) {
-  if (!value) return "";
-  return String(value).slice(0, 10);
-}
-
 function yearOf(value) {
   return value ? String(value).slice(0, 4) : null;
 }

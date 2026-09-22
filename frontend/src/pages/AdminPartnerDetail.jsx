@@ -22,22 +22,7 @@ import AddressFields from "../components/admin/AddressFields.jsx";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
-
-// Date-only fields are stored as UTC midnight (e.g. "1979-05-04T00:00:00.000Z").
-// Parsing that with `new Date(isoString)` re-interprets it in the browser's
-// timezone, shifting it back a day for anyone west of UTC. Building the Date
-// from raw Y/M/D components keeps it a plain calendar date.
-function formatDate(value) {
-  if (!value) return null;
-  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
-
-const toDateInput = (value) => (value ? String(value).slice(0, 10) : "");
+import { formatDateLong, toDateInputValue, todayInputValue } from "../utils/format.js";
 
 // A cleared <input type="date"> is "", which `z.coerce.date()` turns into an
 // Invalid Date and rejects -- "no date" has to travel as null.
@@ -220,7 +205,10 @@ export default function AdminPartnerDetail() {
       ...(type === "physical" ? { fipsCountryCode: draft.fipsCountryCode || null } : {}),
     });
 
-  const today = new Date().toISOString().slice(0, 10);
+  // The user's calendar date, not UTC's: comparing against the UTC date made
+  // a furlough starting tomorrow read as already active for the last hours
+  // of the day west of UTC.
+  const today = todayInputValue();
   const activeFurlough = (p.furloughs || []).find((f) => {
     const start = String(f.startDate).slice(0, 10);
     const end = f.endDate ? String(f.endDate).slice(0, 10) : null;
@@ -251,7 +239,7 @@ export default function AdminPartnerDetail() {
         {p.isRestricted && <span className="status-pill warn">Restricted-access</span>}
         {p.sentByOurChurch && <span className="status-pill good">Sent by {churchName || "our church"}</span>}
         {activeFurlough && <span className="status-pill warn">On Furlough</span>}
-        {p.archived && <span className="status-pill warn">Archived {formatDate(p.archivedAt)}</span>}
+        {p.archived && <span className="status-pill warn">Archived {formatDateLong(p.archivedAt)}</span>}
       </div>
 
       <div className="admin-form">
@@ -264,7 +252,7 @@ export default function AdminPartnerDetail() {
           value={{
             displayName: p.displayName,
             fieldDisplayName: p.fieldDisplayName || "",
-            supportingSince: toDateInput(p.supportingSince),
+            supportingSince: toDateInputValue(p.supportingSince),
             preferredContactMethod: p.preferredContactMethod || "",
             isPublic: p.isPublic,
             isRestricted: p.isRestricted,
@@ -280,7 +268,7 @@ export default function AdminPartnerDetail() {
               <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem" }}>
                 <Field label={isOrg ? "Organization Name" : "Display Name"} value={v.displayName} showEmpty />
                 <Field label="Field / Region" value={v.fieldDisplayName} showEmpty />
-                <Field label="Supporting Since" value={formatDate(p.supportingSince)} showEmpty />
+                <Field label="Supporting Since" value={formatDateLong(p.supportingSince)} showEmpty />
                 <Field label="Preferred Contact Method" value={v.preferredContactMethod} showEmpty />
               </div>
               {isOrg && (
@@ -554,20 +542,20 @@ export default function AdminPartnerDetail() {
               })
             }
             value={{
-              anniversary: toDateInput(p.anniversary),
-              adults: (p.adults || []).map((a) => ({ ...a, birthday: toDateInput(a.birthday) })),
-              children: (p.children || []).map((c) => ({ ...c, birthday: toDateInput(c.birthday) })),
+              anniversary: toDateInputValue(p.anniversary),
+              adults: (p.adults || []).map((a) => ({ ...a, birthday: toDateInputValue(a.birthday) })),
+              children: (p.children || []).map((c) => ({ ...c, birthday: toDateInputValue(c.birthday) })),
             }}
             view={() => (
               <>
                 <div style={{ marginBottom: "1rem" }}>
-                  <Field label="Wedding Anniversary" value={formatDate(p.anniversary)} showEmpty />
+                  <Field label="Wedding Anniversary" value={formatDateLong(p.anniversary)} showEmpty />
                 </div>
                 {p.adults?.map((a) => (
                   <div key={a.id} className="repeatable-row">
                     <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
                       <Field label="Name" value={a.name} />
-                      <Field label="Birthday" value={formatDate(a.birthday)} />
+                      <Field label="Birthday" value={formatDateLong(a.birthday)} />
                       <Field label="Phone 1" value={a.phone1} />
                       <Field label="Phone 2" value={a.phone2} />
                       <Field label="Email" value={a.email} />
@@ -579,7 +567,7 @@ export default function AdminPartnerDetail() {
                     <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", alignItems: "center" }}>
                       <span className="status-pill">Child</span>
                       <Field label="Name" value={c.name} />
-                      <Field label="Birthday" value={formatDate(c.birthday)} />
+                      <Field label="Birthday" value={formatDateLong(c.birthday)} />
                     </div>
                   </div>
                 ))}
@@ -857,8 +845,8 @@ export default function AdminPartnerDetail() {
             }
             value={{
               furloughs: (p.furloughs || []).map((f) => ({
-                startDate: toDateInput(f.startDate),
-                endDate: toDateInput(f.endDate),
+                startDate: toDateInputValue(f.startDate),
+                endDate: toDateInputValue(f.endDate),
                 notes: f.notes || "",
               })),
             }}
@@ -867,10 +855,10 @@ export default function AdminPartnerDetail() {
                 p.furloughs.map((f) => (
                   <div key={f.id} className="repeatable-row">
                     <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-                      <Field label="Start Date" value={formatDate(f.startDate)} showEmpty />
+                      <Field label="Start Date" value={formatDateLong(f.startDate)} showEmpty />
                       <Field
                         label="End Date"
-                        value={f.endDate ? formatDate(f.endDate) : "Ongoing"}
+                        value={f.endDate ? formatDateLong(f.endDate) : "Ongoing"}
                         showEmpty
                       />
                       <Field label="Notes" value={f.notes} />
@@ -927,7 +915,7 @@ export default function AdminPartnerDetail() {
           }
           value={{
             churchVisits: (p.churchVisits || []).map((v) => ({
-              visitDate: toDateInput(v.visitDate),
+              visitDate: toDateInputValue(v.visitDate),
               notes: v.notes || "",
             })),
           }}
@@ -936,7 +924,7 @@ export default function AdminPartnerDetail() {
               <div style={{ marginBottom: "1rem" }}>
                 <Field
                   label="Last Visit"
-                  value={p.churchVisits?.[0] ? formatDate(p.churchVisits[0].visitDate) : null}
+                  value={p.churchVisits?.[0] ? formatDateLong(p.churchVisits[0].visitDate) : null}
                   showEmpty
                 />
               </div>
@@ -944,7 +932,7 @@ export default function AdminPartnerDetail() {
                 p.churchVisits.map((v) => (
                   <div key={v.id} className="repeatable-row">
                     <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-                      <Field label="Visit Date" value={formatDate(v.visitDate)} showEmpty />
+                      <Field label="Visit Date" value={formatDateLong(v.visitDate)} showEmpty />
                       <Field label="Notes" value={v.notes} />
                     </div>
                   </div>

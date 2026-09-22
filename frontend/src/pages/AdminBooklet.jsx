@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { fetchPartners } from "../api/client.js";
 import bookletCssUrl from "../styles/booklet.css?url";
 import { useSettings } from "../context/SettingsContext.jsx";
+import { formatDateLong } from "../utils/format.js";
 
 // The polyfill build auto-paginates whatever's in <body> on load — used to
 // build a standalone printable document opened in its own tab, as opposed
@@ -33,15 +34,6 @@ function escapeHtml(value) {
 // Date-only fields are UTC-midnight ISO strings — build the Date from raw
 // Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
 // off-by-one-day bug, matching AdminMissionaryDetail.jsx's formatDate.
-function formatDate(value) {
-  if (!value) return "";
-  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
 
 function renderAddressBlock(label, address) {
   if (!address) return "";
@@ -65,7 +57,9 @@ function renderFamilyBlock(m, fields) {
   const rows = [];
   if (fields.showAdults) {
     if (m.anniversary)
-      rows.push(`<p><strong>Anniversary:</strong> ${escapeHtml(formatDate(m.anniversary))}</p>`);
+      rows.push(
+        `<p><strong>Anniversary:</strong> ${escapeHtml(formatDateLong(m.anniversary, { fallback: "" }))}</p>`
+      );
     if (m.preferredContactMethod) {
       rows.push(`<p><strong>Preferred Contact:</strong> ${escapeHtml(m.preferredContactMethod)}</p>`);
     }
@@ -77,7 +71,7 @@ function renderFamilyBlock(m, fields) {
   if (fields.showChildren) {
     (m.children || []).forEach((c) => {
       rows.push(
-        `<p><em>Child</em> — ${escapeHtml(c.name)}${c.birthday ? ` — ${escapeHtml(formatDate(c.birthday))}` : ""}</p>`
+        `<p><em>Child</em> — ${escapeHtml(c.name)}${c.birthday ? ` — ${escapeHtml(formatDateLong(c.birthday, { fallback: "" }))}` : ""}</p>`
       );
     });
   }
@@ -105,7 +99,7 @@ function renderPrayerRequestsBlock(entity, maxPerPartner) {
     .map((p) => {
       const answered =
         p.status === "answered"
-          ? `<p style="margin: 0.15rem 0 0; font-size: 9pt; color: #666;">✓ Answered${p.dateAnswered ? ` ${escapeHtml(formatDate(p.dateAnswered))}` : ""}${p.answeredNote ? ` — ${escapeHtml(p.answeredNote)}` : ""}</p>`
+          ? `<p style="margin: 0.15rem 0 0; font-size: 9pt; color: #666;">✓ Answered${p.dateAnswered ? ` ${escapeHtml(formatDateLong(p.dateAnswered, { fallback: "" }))}` : ""}${p.answeredNote ? ` — ${escapeHtml(p.answeredNote)}` : ""}</p>`
           : "";
       return `<p style="margin: 0 0 0.1in;">${escapeHtml(p.requestText)}</p>${answered}`;
     })
@@ -181,7 +175,7 @@ function buildOrganizationPageHtml(o, index, maxPrayerRequests) {
       <div class="booklet-shape shape-b"></div>
       <p class="booklet-eyebrow">${escapeHtml(eyebrow)}</p>
       <h2 class="booklet-name">${escapeHtml(o.displayName)}</h2>
-      ${o.supportingSince ? `<p style="font-family: Arial, sans-serif; font-size: 11pt; color: #555; margin: 0 0 0.15in;">Partnering since ${escapeHtml(formatDate(o.supportingSince))}</p>` : ""}
+      ${o.supportingSince ? `<p style="font-family: Arial, sans-serif; font-size: 11pt; color: #555; margin: 0 0 0.15in;">Partnering since ${escapeHtml(formatDateLong(o.supportingSince, { fallback: "" }))}</p>` : ""}
       ${renderOrgContactBlock(o)}
       ${o.overview ? `<div class="booklet-callout"><p>${escapeHtml(o.overview)}</p></div>` : ""}
       ${o.focusArea ? `<div class="booklet-block"><h3>Focus Area</h3><p>${escapeHtml(o.focusArea)}</p></div>` : ""}

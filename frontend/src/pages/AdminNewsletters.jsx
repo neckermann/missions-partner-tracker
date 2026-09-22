@@ -11,15 +11,7 @@ import {
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
-
-// Date-only fields are stored as UTC midnight — build the Date from raw
-// Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
-// off-by-one-day bug, matching the other admin pages' formatDate.
-function formatDate(value) {
-  if (!value) return "—";
-  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
-}
+import { formatDate, todayInputValue } from "../utils/format.js";
 
 function formatFileSize(bytes) {
   if (bytes == null) return "";
@@ -38,8 +30,6 @@ function entityFor(n) {
   }
   return { type: "—", name: "—", link: null };
 }
-
-const todayInputValue = () => new Date().toISOString().slice(0, 10);
 
 // Same set/reasoning as NewsletterSection.jsx (embedded on the missionary/org
 // detail pages) -- everything extractRequestsFromFile actually reads (see

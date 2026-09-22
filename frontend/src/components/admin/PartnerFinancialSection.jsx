@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { todayInputValue } from "../../utils/format.js";
+import { formatDate } from "../../utils/format.js";
 import {
   createSupportEntry,
   deleteSupportEntry,
@@ -19,13 +21,6 @@ function formatCurrency(amount) {
   return amount.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
-function formatDate(value) {
-  if (!value) return null;
-  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
-}
-
-const todayInputValue = () => new Date().toISOString().slice(0, 10);
 const emptyEntry = { amount: "", effectiveDate: todayInputValue(), notes: "" };
 const emptyNeed = { description: "", requestedAmount: "", requestDate: todayInputValue(), notes: "" };
 

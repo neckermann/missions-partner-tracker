@@ -3,18 +3,13 @@ import { Link, useParams } from "react-router-dom";
 import { fetchPublicPartner } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
+import { formatDate } from "../utils/format.js";
 
 // supportingSince is a full date under the hood but only the year is
 // meaningful to show publicly — matches PublicMap's formatYear.
 function formatYear(value) {
   if (!value) return null;
   return String(value).slice(0, 4);
-}
-
-function formatDate(value) {
-  if (!value) return "";
-  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
 }
 
 // Restricted partners simply won't have most of these keys in the API
@@ -172,7 +167,7 @@ export default function PublicPartnerDetail() {
                     in schema.prisma for why. */}
                 {p.status === "answered" && (
                   <p style={{ margin: "0.25rem 0 0", fontSize: "0.9rem", color: "#666" }}>
-                    ✓ Answered{p.dateAnswered ? ` ${formatDate(p.dateAnswered)}` : ""}
+                    ✓ Answered{p.dateAnswered ? ` ${formatDate(p.dateAnswered, { fallback: "" })}` : ""}
                     {p.answeredNote ? ` — ${p.answeredNote}` : ""}
                   </p>
                 )}

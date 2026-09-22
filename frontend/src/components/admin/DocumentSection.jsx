@@ -3,23 +3,13 @@ import { uploadDocument, updateDocument, deleteDocument, extractFromDocument } f
 import { DOCUMENT_CATEGORIES, documentCategoryLabel } from "../../utils/documentCategories.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
-
-// Date-only fields are stored as UTC midnight — build the Date from raw
-// Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
-// off-by-one-day bug, matching the other admin pages' formatDate.
-function formatDate(value) {
-  if (!value) return "—";
-  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
-}
+import { formatDate, todayInputValue } from "../../utils/format.js";
 
 function formatFileSize(bytes) {
   if (bytes == null) return "";
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
-
-const todayInputValue = () => new Date().toISOString().slice(0, 10);
 
 // Everything extractRequestsFromFile actually reads (see
 // backend/src/utils/extraction.js): PDF/JPEG/PNG by contentType, .eml by

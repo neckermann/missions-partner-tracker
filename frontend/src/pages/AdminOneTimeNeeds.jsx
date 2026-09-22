@@ -8,19 +8,11 @@ import {
   fetchPartners,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
+import { formatDate } from "../utils/format.js";
 
 function formatCurrency(amount) {
   if (amount == null) return "—";
   return amount.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-}
-
-// Date-only fields are stored as UTC midnight — build the Date from raw
-// Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
-// off-by-one-day bug, matching the detail pages' formatDate.
-function formatDate(value) {
-  if (!value) return "—";
-  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
 }
 
 function statusFor(need) {

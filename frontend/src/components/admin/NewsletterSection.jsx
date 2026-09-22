@@ -7,15 +7,7 @@ import {
 } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
-
-// Date-only fields are stored as UTC midnight — build the Date from raw
-// Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
-// off-by-one-day bug, matching the other admin pages' formatDate.
-function formatDate(value) {
-  if (!value) return "—";
-  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
-}
+import { formatDate, todayInputValue } from "../../utils/format.js";
 
 function formatFileSize(bytes) {
   if (bytes == null) return "";
@@ -30,8 +22,6 @@ function formatFileSize(bytes) {
 // Word/Excel don't get the Scan button rather than showing one that 400s.
 const SCANNABLE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 const isScannable = (n) => SCANNABLE_TYPES.has(n.contentType) || /\.eml$/i.test(n.fileName || "");
-
-const todayInputValue = () => new Date().toISOString().slice(0, 10);
 
 // Reused as-is (not duplicated) on both AdminMissionaryDetail.jsx and
 // AdminOrganizationDetail.jsx — unlike the small presentational Field/

@@ -1,21 +1,12 @@
 import React, { useState } from "react";
 import { createTrip, updateTrip, deleteTrip } from "../../api/client.js";
 import PresetOrCustomSelect from "./PresetOrCustomSelect.jsx";
+import { formatDate, toDateInputValue } from "../../utils/format.js";
 
 // Trips for one partner, on that partner's own page. Same records and same
 // endpoints as the consolidated Trip History page -- this is just the view
 // scoped to a single partner, the way prayer requests and newsletters
 // already worked.
-
-function formatDate(value) {
-  if (!value) return null;
-  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
-}
-
-function toDateInputValue(value) {
-  return value ? String(value).slice(0, 10) : "";
-}
 
 const TRIP_TYPE_PRESETS = [
   "Construction",

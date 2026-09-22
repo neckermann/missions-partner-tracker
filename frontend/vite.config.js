@@ -20,4 +20,10 @@ export default defineConfig({
     outDir: "../backend/public",
     emptyOutDir: true,
   },
+  test: {
+    // Unit tests only. Without this, vitest also collects e2e/*.spec.js --
+    // those are Playwright specs, which import a different `test` and fail
+    // immediately under a runner that isn't Playwright.
+    include: ["src/**/*.test.{js,jsx}"],
+  },
 });
