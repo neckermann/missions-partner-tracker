@@ -16,30 +16,29 @@
 # (30-60s cold start on the next request) and free Postgres instances
 # expire and get deleted after 90 days.
 #
-# Region is `ohio` (US East) rather than Render's own default (`oregon`,
-# US West), since most of this app's userbase is expected to be US
-# East-based. Valid values: oregon, ohio, virginia, frankfurt, singapore.
-# The database and web service must use the same region.
+# Region is `oregon`, which is also Render's own default -- so a Blueprint
+# deploy puts everything exactly where Render would have put it anyway, and
+# nobody gets a surprise. Valid values: oregon, ohio, virginia, frankfurt,
+# singapore. The database and web service must use the same region.
 #
-# Render's Blueprint UI has no picker for this — it only prompts for
-# `sync: false` env vars — so set it here before you deploy, most easily
-# with `npm run name-instance -- <name> <region>`.
+# To deploy elsewhere, set it before your first deploy:
+#   npm run name-instance -- <your-church-name> <region>
+# Render's Blueprint UI has no region picker -- it only prompts for
+# `sync: false` env vars -- so it has to be in this file beforehand.
 #
-# ⚠ Changing this on an instance that is ALREADY DEPLOYED does not move
-# anything. Render's spec: "You can't modify this value after creation."
-# What actually happens is that every subsequent Blueprint sync fails,
-# silently — the services keep running, so nothing looks broken, and you
-# find out weeks later. This project's own demo did exactly that: created
-# under Render's oregon default, then this line was added declaring ohio,
-# and sync was broken from that commit onward.
+# WARNING: changing this on an instance that is ALREADY DEPLOYED does not
+# move anything. Render's spec: "You can't modify this value after
+# creation." What actually happens is that every subsequent Blueprint sync
+# fails silently -- the services keep running, so nothing looks broken, and
+# you find out weeks later. This project's demo lost two weeks of blueprint
+# syncs to exactly that, after a well-meant change of this default.
 #
-# So: if you are already deployed, either leave this alone or accept that
-# moving region means destroying and recreating the service AND the
-# database.
+# Which is why the default is now the platform's own: a default that
+# matches what Render does anyway can't quietly break someone downstream.
 databases:
   - name: missions-partner-tracker-db
     plan: 0.1c-256mb
-    region: ohio
+    region: oregon
     databaseName: missions_partner_tracker
 
 services:
@@ -47,7 +46,7 @@ services:
     type: web
     runtime: node
     plan: starter
-    region: ohio
+    region: oregon
     # --include=dev on both installs: NODE_ENV is set below (needed at
     # runtime) and is visible during the build too, and npm's default
     # behavior is to silently skip devDependencies whenever

@@ -36,7 +36,7 @@ organization partners.
 > and naming the services after this one. Instead, from your own copy:
 >
 > ```bash
-> npm run name-instance -- your-church-name ohio
+> npm run name-instance -- your-church-name oregon
 > git commit -am "Name the Render services for this instance"
 > git push
 > ```

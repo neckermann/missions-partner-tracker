@@ -15,7 +15,7 @@
 // recreating every resource to fix it -- which is exactly how this
 // project's demo ended up with a Blueprint that could never sync.
 //
-// Usage:  npm run name-instance -- edgewood-missions-partners ohio
+// Usage:  npm run name-instance -- your-church-name oregon
 
 const fs = require("fs");
 const path = require("path");
@@ -34,7 +34,7 @@ if (!requested) {
       "Usage: npm run name-instance -- <instance-name>",
       "",
       "Example:",
-      "  npm run name-instance -- edgewood-missions-partners",
+      "  npm run name-instance -- your-church-name oregon",
       "",
       "Renames the web service and database in render.yaml. The web service",
       "name becomes the app's URL, so pick something that identifies your",
