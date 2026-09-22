@@ -16,14 +16,26 @@
 # (30-60s cold start on the next request) and free Postgres instances
 # expire and get deleted after 90 days.
 #
-# Region defaults to `ohio` (US East) rather than Render's own default
-# (`oregon`, US West) since most of this app's userbase is expected to
-# be US East-based. Region can't be changed after a service/database is
-# created, and Render's Blueprint deploy UI has no picker for it (it
-# only prompts for `sync: false` env vars below) — to deploy somewhere
-# else, fork this file and edit both values below before deploying.
-# Valid values: oregon, ohio, virginia, frankfurt, singapore. The
-# database and web service must use the same region.
+# Region is `ohio` (US East) rather than Render's own default (`oregon`,
+# US West), since most of this app's userbase is expected to be US
+# East-based. Valid values: oregon, ohio, virginia, frankfurt, singapore.
+# The database and web service must use the same region.
+#
+# Render's Blueprint UI has no picker for this — it only prompts for
+# `sync: false` env vars — so set it here before you deploy, most easily
+# with `npm run name-instance -- <name> <region>`.
+#
+# ⚠ Changing this on an instance that is ALREADY DEPLOYED does not move
+# anything. Render's spec: "You can't modify this value after creation."
+# What actually happens is that every subsequent Blueprint sync fails,
+# silently — the services keep running, so nothing looks broken, and you
+# find out weeks later. This project's own demo did exactly that: created
+# under Render's oregon default, then this line was added declaring ohio,
+# and sync was broken from that commit onward.
+#
+# So: if you are already deployed, either leave this alone or accept that
+# moving region means destroying and recreating the service AND the
+# database.
 databases:
   - name: missions-partner-tracker-db
     plan: 0.1c-256mb
