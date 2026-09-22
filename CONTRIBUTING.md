@@ -85,8 +85,32 @@ public-facing pages and the admin dashboard. This is what
 `main`, against a fresh Postgres service container it provisions
 itself — not your local or demo database.
 
-To run it locally, point it at any already-running instance of the app
-(local dev, or your own deployment) via env vars:
+**The quickest way to run everything locally** is a throwaway database in
+Docker — the same `postgres:16` image CI uses, on port 5433 so it can't
+collide with a Postgres you already have:
+
+```bash
+npm run test:db up          # starts it, migrates, seeds, creates an admin
+```
+
+It prints the `DATABASE_URL` to put in `backend/.env`. Then:
+
+```bash
+cd backend  && npm run test:routes                    # route tests
+cd backend  && NODE_ENV=test node src/server.js       # serve, in one terminal
+cd frontend && npx playwright test                    # e2e, in another
+npm run test:db down                                  # delete it and its data
+```
+
+Use this rather than pointing the suite at a database you care about. The
+tests create and delete real users and partners — including enrolling and
+disabling two-factor — so running them against a live instance is a bad
+afternoon. `NODE_ENV=test` also relaxes the login rate limiter, which a
+full run would otherwise trip.
+
+If you'd rather not use Docker, any Postgres 13+ works; nothing here is
+Docker-specific. You can also point the suite at an already-running
+instance via env vars:
 
 ```bash
 cd frontend
