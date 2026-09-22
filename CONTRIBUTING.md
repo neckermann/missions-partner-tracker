@@ -165,6 +165,57 @@ generated file afterward. Mention in your PR that it needs
 `npx prisma migrate deploy` (or the equivalent for whoever's running it)
 — there's no CI step that applies migrations automatically.
 
+## Dependencies
+
+Updates are applied by hand, by whoever is doing the work, rather than by a
+bot. There is no `dependabot.yml`, and that is deliberate — see below.
+
+**Downstream forks take updates by merging this repo, not by bumping their
+own packages.** A church's fork pulls in a release by merging upstream (see
+[UPGRADING.md](UPGRADING.md)). If that fork also runs its own dependency
+bot, the two sources fight over the same `package-lock.json` and every
+upstream merge becomes a conflict to resolve by hand — for a dependency the
+fork never chose and doesn't care about. Keeping the lockfile a
+single-writer file, written here, is what keeps those merges clean. This is
+the same principle as the fork rule above, applied to dependencies.
+
+That was also the practical problem with running a bot here: automated PRs
+each rewrite the lockfile, so merging one invalidates the next one's diff,
+and a batch of them turns into a merge-conflict cascade. Grouping them into
+one PR per ecosystem trades that for a different failure — one genuinely
+breaking major blocks everything grouped with it.
+
+To take updates, from `backend/` and `frontend/`:
+
+```
+npm outdated          # what has moved
+npm update            # in-range updates
+npm install pkg@x.y.z # a major, one at a time, with the changelog open
+```
+
+Then run the full suite (see [Running tests](#running-tests)) before
+committing. Majors get their own commit so a revert is a one-liner.
+
+### Two standing notes — please read before "fixing" either
+
+**`npm audit` reports 4 high-severity advisories in `mysql2`.** It reaches
+the tree through `@prisma/client` → `prisma` → `mysql2`. Both advisories
+require an open connection to a MySQL server; this app's datasource is
+`postgresql`, it connects through `@prisma/adapter-pg`, and `mysql2` is
+never loaded at runtime (verified: zero mysql modules in `require.cache`
+after booting the app). It ships but never executes.
+
+`npm audit fix --force` "resolves" it by **downgrading** prisma from 7.x to
+6.19.3 — a breaking change, backwards, to patch something unreachable.
+Don't run it. The real fix arrives with Prisma 8, a release candidate as of
+this writing; take it once it's stable.
+
+**There is deliberately no `npm audit` step in CI.** With the above standing
+permanently, it would be permanently red, and a check that's always red is
+one people stop reading. Watch GitHub's own Dependabot *alerts* instead —
+those report vulnerabilities without opening pull requests, which is the
+half of Dependabot that's useful to a project shaped like this one.
+
 ## Pull requests
 
 - Keep PRs focused — one feature or fix per PR.
