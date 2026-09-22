@@ -74,7 +74,16 @@ if (requestedRegion && !REGIONS.includes(requestedRegion)) {
 const dbName = requested.replace(/-/g, "_");
 
 const file = path.join(__dirname, "..", "render.yaml");
-let text = fs.readFileSync(file, "utf8");
+const raw = fs.readFileSync(file, "utf8");
+
+// Normalise line endings before matching. On Windows, git checks files out
+// with CRLF by default, and every pattern below anchors on a bare newline --
+// so on a fresh clone every match silently fails and this reports that
+// render.yaml has an unrecognised structure. Git re-applies the platform's
+// convention on commit, so writing LF back is correct either way.
+const usedCrlf = raw.includes("\r\n");
+const text0 = usedCrlf ? raw.replace(/\r\n/g, "\n") : raw;
+let text = text0;
 
 // Match whatever the names currently are rather than assuming the upstream
 // defaults, so this stays re-runnable.
@@ -106,7 +115,7 @@ if (text === before) {
   process.exit(0);
 }
 
-fs.writeFileSync(file, text);
+fs.writeFileSync(file, usedCrlf ? text.replace(/\n/g, "\r\n") : text);
 
 console.log(
   [
