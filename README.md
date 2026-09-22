@@ -36,16 +36,24 @@ organization partners.
 > and naming the services after this one. Instead, from your own copy:
 >
 > ```bash
-> npm run name-instance -- your-church-name
+> npm run name-instance -- your-church-name ohio
 > git commit -am "Name the Render services for this instance"
 > git push
 > ```
 >
-> then **Render Dashboard → New → Blueprint** and pick your repo. The name
-> you choose becomes the app's URL (`your-church-name.onrender.com`).
-> Render Blueprints can't prompt for it — the spec requires a static name
-> and has no variable interpolation — so it has to be set in the file
-> before you deploy.
+> then **Render Dashboard → New → Blueprint** and pick your repo.
+>
+> The name becomes the app's URL (`your-church-name.onrender.com`). The
+> second argument is the region — one of `oregon`, `ohio`, `virginia`,
+> `frankfurt`, `singapore` — and it is worth getting right the first
+> time, because Render's spec says *"You can't modify this value after
+> creation."* Moving later means destroying and recreating the service
+> and the database.
+>
+> Render Blueprints can't prompt for either: the spec requires static
+> values and has no variable interpolation, and only `sync: false`
+> environment variables are prompted at deploy time. Both have to be set
+> in the file beforehand.
 >
 > The button below is only for trying this project as-is.
 

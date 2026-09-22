@@ -9,12 +9,23 @@
 // this does, as one command rather than four hand-edits that all have to
 // agree with each other.
 //
-// Usage:  npm run name-instance -- edgewood-missions-partners
+// The same applies to `region`, and more sharply: it's optional, it
+// silently defaults to oregon, and Render's spec says "You can't modify
+// this value after creation." Getting it wrong means destroying and
+// recreating every resource to fix it -- which is exactly how this
+// project's demo ended up with a Blueprint that could never sync.
+//
+// Usage:  npm run name-instance -- edgewood-missions-partners ohio
 
 const fs = require("fs");
 const path = require("path");
 
 const requested = process.argv[2];
+const requestedRegion = process.argv[3];
+
+// From Render's Blueprint spec. Kept here so a typo fails now rather than
+// at deploy time, when the resource has already been created somewhere.
+const REGIONS = ["oregon", "ohio", "virginia", "frankfurt", "singapore"];
 
 if (!requested) {
   console.error(
@@ -30,6 +41,13 @@ if (!requested) {
       "church: edgewood-missions-partners gives",
       "edgewood-missions-partners.onrender.com",
       "",
+      "Optional second argument sets the region:",
+      "  " + REGIONS.join(", "),
+      "",
+      "Region cannot be changed after the resources are created -- moving",
+      "later means destroying and recreating them. Omit it to keep whatever",
+      "render.yaml already specifies.",
+      "",
     ].join("\n")
   );
   process.exit(1);
@@ -44,6 +62,11 @@ if (!/^[a-z0-9][a-z0-9-]{1,60}[a-z0-9]$/.test(requested)) {
       '" is not a usable Render service name.\n' +
       "Use lowercase letters, numbers and hyphens, starting and ending with a letter or number."
   );
+  process.exit(1);
+}
+
+if (requestedRegion && !REGIONS.includes(requestedRegion)) {
+  console.error('"' + requestedRegion + '" is not a Render region. Choose one of: ' + REGIONS.join(", "));
   process.exit(1);
 }
 
@@ -63,7 +86,15 @@ if (!currentService || !currentDb) {
   process.exit(1);
 }
 
+// Whatever the file currently says, so omitting the argument is a no-op
+// rather than a silent reset to Render's oregon default.
+const currentRegion = (text.match(/^ {4}region: (\S+)$/m) || [])[1] || "oregon (implied default)";
+const region = requestedRegion || currentRegion;
+
 const before = text;
+if (requestedRegion) {
+  text = text.replace(/^ {4}region: \S+$/gm, "    region: " + requestedRegion);
+}
 text = text
   .replace("  - name: " + currentDb + "\n", "  - name: " + requested + "-db\n")
   .replace(/^ {4}databaseName: \S+$/m, "    databaseName: " + dbName)
@@ -85,6 +116,11 @@ console.log(
     "  web service : " + currentService + "  ->  " + requested,
     "  database    : " + currentDb + "  ->  " + requested + "-db",
     "  db name     : " + dbName,
+    "  region      : " + region + (requestedRegion ? "" : "   (unchanged)"),
+    "",
+    "Region is permanent. Render's spec: \"You can't modify this value after",
+    'creation." Changing it later means destroying and recreating both the',
+    "service and the database. Check it now, not after the first deploy.",
     "",
     "Your app will deploy to https://" + requested + ".onrender.com",
     "(Render appends a suffix if that name is already taken in your account.)",
