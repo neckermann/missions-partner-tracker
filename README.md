@@ -87,10 +87,11 @@ task-oriented guides:
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Frontend | React 18 + Vite, React Router v6 | No CSS framework — plain CSS in `frontend/src/index.css` |
+| Frontend | React 19 + Vite, React Router v6 | No CSS framework — plain CSS in `frontend/src/index.css` |
 | Backend | Node/Express, Prisma ORM | Serves the built frontend directly — one deployable origin, see [ADMIN_GUIDE.md § Deploying to production](ADMIN_GUIDE.md#deploying-to-production) |
 | Database | PostgreSQL (any host) | Prisma migrations in `backend/prisma/migrations`; also holds photo/newsletter/document files directly — no separate file storage to run |
-| Maps/geocoding | Leaflet + OpenStreetMap Nominatim | Free, no API key; geocodes to city-level only, never a street address |
+| Maps | Leaflet, CARTO basemap tiles | Keyless, so a fork needs no tile account to deploy. Not OpenStreetMap's own tile servers — their usage policy forbids apps pointing users at them |
+| Geocoding | OpenStreetMap Nominatim | Free, no API key; server-side and only on save. Geocodes to city level, never a street address. Set `NOMINATIM_CONTACT` to your own email — their policy requires a reachable contact |
 | Auth | httpOnly session cookie + bcrypt, `otplib`/`qrcode` (two-factor) | |
 
 ## Quick start

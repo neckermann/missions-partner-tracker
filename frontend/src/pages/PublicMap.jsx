@@ -2,20 +2,68 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { fetchPublicPartners } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 
-// Default Leaflet marker icons don't load correctly with bundlers unless
-// pointed at the CDN explicitly.
+// Marker images come from the installed leaflet package, not a CDN. Vite
+// rewrites these imports to hashed files it serves itself.
+//
+// They used to point at unpkg.com, with a comment saying bundlers couldn't
+// resolve them otherwise. That is true of the *default* icon paths Leaflet
+// builds at runtime -- it guesses them from its own stylesheet URL, which a
+// bundler moves -- but it was never true of an explicit import, which is
+// the normal fix. The CDN version meant every pin on the public map, and
+// the Leaflet stylesheet in index.html, depended on a third party staying
+// reachable. See the tile comment below for what that costs.
+import markerIconUrl from "leaflet/dist/images/marker-icon.png";
+import markerIcon2xUrl from "leaflet/dist/images/marker-icon-2x.png";
+import markerShadowUrl from "leaflet/dist/images/marker-shadow.png";
+
+// A 1x1 transparent pixel, used for tiles that fail to load.
+//
+// Leaflet's default is to leave the failed response visible, so when a tile
+// provider refuses a request its error image tiles the whole viewport --
+// OpenStreetMap's is a yellow hazard-tape graphic reading "Access blocked",
+// repeated across the map. The pins stay correct underneath it, so a blank
+// background is both more honest and more usable than the provider's
+// complaint rendered five hundred times.
+const BLANK_TILE =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+// Basemap tiles.
+//
+// This pointed at {s}.tile.openstreetmap.org, which is not allowed. Those
+// are OpenStreetMap's volunteer-run servers, and their tile usage policy
+// forbids exactly this -- a deployed app pointing users at them -- so they
+// eventually answered with a 403 whose body says so. The {s} subdomain
+// trick made it worse: it exists to open more parallel connections than a
+// single host allows, which is the specific behaviour the policy calls out,
+// and OSM deprecated those subdomains besides.
+//
+// CARTO publishes these basemaps for public web use, keyless, asking only
+// for the attribution below -- which matters for this project, because a
+// church deploying its own instance cannot be made to go and register for
+// an API key first.
+//
+// Nothing here is free of someone else's terms, though, which is the real
+// lesson of the 403: a church that gets blocked, wants satellite imagery,
+// or has its own provider should be able to change this from the admin UI
+// rather than by editing this file. See CONTRIBUTING.md on why per-instance
+// choices belong in Church Settings.
+const TILE_URL = "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png";
+const TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
 const icon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconUrl: markerIconUrl,
+  shadowUrl: markerShadowUrl,
   iconSize: [25, 41],
   iconAnchor: [12, 41],
 });
 const restrictedIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconUrl: markerIcon2xUrl,
+  shadowUrl: markerShadowUrl,
   iconSize: [18, 30],
   iconAnchor: [9, 30],
   className: "restricted-marker",
@@ -24,8 +72,8 @@ const restrictedIcon = new L.Icon({
 // (see .org-marker in index.css) so organization pins are visually distinct
 // without needing a separate image asset.
 const orgIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconUrl: markerIconUrl,
+  shadowUrl: markerShadowUrl,
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   className: "org-marker",
@@ -147,6 +195,10 @@ export default function PublicMap() {
   const [partners, setPartners] = useState([]);
   const [activeIndex, setActiveIndex] = useState(null);
   const [activeOrg, setActiveOrg] = useState(null);
+  // Set when the tile provider refuses or drops a request. The pins are
+  // our own data and stay correct, so the map keeps working -- this only
+  // explains the blank background instead of leaving it a mystery.
+  const [tilesFailed, setTilesFailed] = useState(false);
   // ?tour=1 (or just ?tourSeconds=..., which implies tour=1) auto-starts the
   // tour on load, instead of requiring a click on "Start Tour".
   const [autoScroll, setAutoScroll] = useState(searchParams.has("tour") || searchParams.has("tourSeconds"));
@@ -306,6 +358,11 @@ export default function PublicMap() {
         )}
 
         <div className="map-container">
+          {tilesFailed && (
+            <p className="map-tile-warning" role="status">
+              The background map isn't loading right now. Locations below are still accurate.
+            </p>
+          )}
           <MapContainer
             center={[10, 20]}
             zoom={2}
@@ -313,8 +370,13 @@ export default function PublicMap() {
             scrollWheelZoom={true}
           >
             <TileLayer
-              attribution="&copy; OpenStreetMap contributors"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution={TILE_ATTRIBUTION}
+              url={TILE_URL}
+              errorTileUrl={BLANK_TILE}
+              eventHandlers={{
+                tileerror: () => setTilesFailed(true),
+                tileload: () => setTilesFailed(false),
+              }}
             />
             <FlyToController target={activeMissionary} />
             <FlyToController target={activeOrg} />

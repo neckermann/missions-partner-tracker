@@ -264,6 +264,31 @@ a {
 }
 .map-container {
   height: 100%;
+  position: relative;
+  /* Shows through wherever a tile is missing. Without it the container is
+     transparent and failed tiles read as holes in the page. */
+  background: #e8e6e1;
+}
+
+/* Shown when the tile provider refuses or drops requests. Sits over the
+   map rather than displacing it, because the pins underneath are still
+   correct and still the point of the page. */
+.map-tile-warning {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000; /* above Leaflet's panes, below its controls at 1000+ */
+  margin: 0;
+  max-width: calc(100% - 1.5rem);
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #d8d4cc;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  font-size: 0.85rem;
+  color: #444;
+  text-align: center;
 }
 
 /* Leaflet's own default attribution-control link ("Leaflet" ->
