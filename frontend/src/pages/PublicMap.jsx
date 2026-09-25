@@ -28,8 +28,7 @@ import markerShadowUrl from "leaflet/dist/images/marker-shadow.png";
 // repeated across the map. The pins stay correct underneath it, so a blank
 // background is both more honest and more usable than the provider's
 // complaint rendered five hundred times.
-const BLANK_TILE =
-  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+const BLANK_TILE = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
 // Basemap tiles.
 //
