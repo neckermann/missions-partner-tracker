@@ -44,18 +44,27 @@ const PORT = process.env.PORT || 4000;
 app.set("trust proxy", 1);
 
 // helmet()'s default CSP is `img-src 'self' data:`, which blocks the public
-// map's tiles (OpenStreetMap's own subdomained tile servers) and its default
-// marker pin/shadow icons (unpkg's CDN), both hardcoded in PublicMap.jsx's
-// TileLayer url and icon imports. Missionary/organization photos and the
-// church logo don't need a widened img-src at all — they're served from
-// this app's own origin (routes/photos.js, publicSettings.js), already
-// covered by 'self'.
+// map's basemap tiles. Missionary/organization photos and the church logo
+// need no widening — they come from this app's own origin (routes/photos.js,
+// publicSettings.js), already covered by 'self'. Marker pins don't either:
+// they're bundled as data: URIs (see PublicMap.jsx).
+//
+// This host MUST match TILE_URL in PublicMap.jsx. That coupling is the
+// trap: the tile URL lives in the frontend and its permission lives here,
+// nothing checks that the two agree, and when they disagree the browser
+// blocks every tile *silently* -- no server error, no failed request in
+// the app's own logs, just a blank map. Changing the tile provider without
+// changing this line produced exactly that, and it is why moving the tile
+// URL into Church Settings has to derive this directive from the
+// configured host rather than leaving a second place to remember.
+const TILE_HOST = "https://basemaps.cartocdn.com";
+
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        "img-src": ["'self'", "data:", "https://*.tile.openstreetmap.org", "https://unpkg.com"],
+        "img-src": ["'self'", "data:", TILE_HOST],
       },
     },
   })

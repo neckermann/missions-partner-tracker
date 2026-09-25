@@ -374,7 +374,15 @@ export default function PublicMap() {
               errorTileUrl={BLANK_TILE}
               eventHandlers={{
                 tileerror: () => setTilesFailed(true),
-                tileload: () => setTilesFailed(false),
+                // Only a tile that really arrived clears the warning. The
+                // naive version cleared it on any tileload, which never
+                // showed the notice at all: Leaflet swaps a failed tile's
+                // src to errorTileUrl, that blank data: URI loads fine,
+                // and its load event immediately undid the tileerror that
+                // had just fired.
+                tileload: (e) => {
+                  if (e.tile?.src && !e.tile.src.startsWith("data:")) setTilesFailed(false);
+                },
               }}
             />
             <FlyToController target={activeMissionary} />
