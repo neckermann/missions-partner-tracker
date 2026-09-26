@@ -57,7 +57,7 @@ app.set("trust proxy", 1);
 // changing this line produced exactly that, and it is why moving the tile
 // URL into Church Settings has to derive this directive from the
 // configured host rather than leaving a second place to remember.
-const TILE_HOST = "https://basemaps.cartocdn.com";
+const TILE_HOST = "https://tile.openstreetmap.org";
 
 app.use(
   helmet({

@@ -32,27 +32,30 @@ const BLANK_TILE = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALA
 
 // Basemap tiles.
 //
-// This pointed at {s}.tile.openstreetmap.org, which is not allowed. Those
-// are OpenStreetMap's volunteer-run servers, and their tile usage policy
-// forbids exactly this -- a deployed app pointing users at them -- so they
-// eventually answered with a 403 whose body says so. The {s} subdomain
-// trick made it worse: it exists to open more parallel connections than a
-// single host allows, which is the specific behaviour the policy calls out,
-// and OSM deprecated those subdomains besides.
+// Back on OpenStreetMap, but on the single canonical host rather than the
+// {s}.tile.openstreetmap.org pattern this used to use. That pattern is the
+// part that was actually against their rules: the subdomains are
+// deprecated, and their whole purpose is to open more parallel connections
+// than one host allows, which their tile usage policy calls out directly.
 //
-// CARTO publishes these basemaps for public web use, keyless, asking only
-// for the attribution below -- which matters for this project, because a
-// church deploying its own instance cannot be made to go and register for
-// an API key first.
+// The policy does not ban a site like this one. It bans *heavy* use of
+// donated infrastructure, and asks that requests identify themselves --
+// which a browser does on its own. One church with a few dozen pins is
+// light use by any reading. An earlier fix here moved to CARTO on the
+// grounds that OSM forbade this outright; that was an overstatement, and
+// CARTO has since started requiring an API key anyway, which a church
+// deploying its own instance should not have to go and get.
 //
-// Nothing here is free of someone else's terms, though, which is the real
-// lesson of the 403: a church that gets blocked, wants satellite imagery,
-// or has its own provider should be able to change this from the admin UI
-// rather than by editing this file. See CONTRIBUTING.md on why per-instance
-// choices belong in Church Settings.
-const TILE_URL = "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png";
+// If OSM does block this instance, the map degrades to blank tiles with a
+// notice rather than to their hazard-tape graphic, and switching provider
+// is this constant plus TILE_HOST in backend/src/server.js -- which a test
+// keeps in agreement. Verified working keyless alternatives, if needed:
+//   https://tile.opentopomap.org/{z}/{x}/{y}.png                (topographic)
+//   https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}
+// Note Esri's path order is {z}/{y}/{x}, not {z}/{x}/{y}.
+const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 const icon = new L.Icon({
   iconUrl: markerIconUrl,

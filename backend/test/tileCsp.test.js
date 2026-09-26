@@ -9,7 +9,8 @@ const path = require("node:path");
 // blocks every tile with no server-side symptom at all -- no error, no
 // failed request in the app's logs, just a blank map with the pins floating
 // on it. That is exactly what shipped when the tile provider changed and
-// this allowlist didn't, so the coupling gets a test.
+// this allowlist didn't -- twice in one afternoon -- so the coupling gets
+// a test.
 //
 // Reading the files as text is deliberate. The frontend is ESM/JSX and the
 // backend is CommonJS, so neither can import the other, and standing up an
@@ -93,14 +94,21 @@ describe("map tile host and CSP img-src", () => {
     );
   });
 
-  test("tiles do not come from OpenStreetMap's volunteer servers", () => {
-    // Their tile usage policy forbids a deployed app sending users there;
-    // they eventually answer 403 with a hazard-tape image that tiles the
-    // whole viewport. Whatever provider this points at, it must not be that.
+  test("the tile URL does not use rotating {s} subdomains", () => {
+    // This is the part that actually breaks OpenStreetMap's tile usage
+    // policy, and it is what this app used to do. The a/b/c subdomains are
+    // deprecated, and they exist to open more parallel connections than a
+    // single host allows -- which the policy names directly. Serving a
+    // whole viewport of tiles through them is how an instance gets a 403
+    // with their hazard-tape image in it.
+    //
+    // The policy does not ban a site of this size from using OSM at all;
+    // it bans heavy use of donated infrastructure. So the rule worth
+    // enforcing is this one, not "never OSM".
     assert.equal(
-      mapCode.includes("tile.openstreetmap.org"),
+      /\{s\}/.test(tileUrlMatch?.[1] ?? ""),
       false,
-      "tile.openstreetmap.org is not permitted for this use -- see the TILE_URL comment"
+      `TILE_URL must name one host, not a {s} subdomain pattern: ${tileUrlMatch?.[1]}`
     );
   });
 });
