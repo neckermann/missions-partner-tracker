@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./helpers.js";
+import { login, firstSelectablePartner } from "./helpers.js";
 
 test.describe("Monthly Support", () => {
   test("add a support entry, confirm it becomes current, then delete it from the History panel", async ({
@@ -7,9 +7,9 @@ test.describe("Monthly Support", () => {
   }) => {
     await login(page);
 
-    const missionariesRes = await page.request.get("/api/partners?kind=missionary");
-    const missionaries = await missionariesRes.json();
-    const target = missionaries[0];
+    // Must be one the Add form's partner dropdown will actually list --
+    // see firstSelectablePartner.
+    const target = await firstSelectablePartner(page);
 
     await page.goto("/admin/support/monthly");
     await page.waitForSelector("h2:has-text('Monthly Support')");

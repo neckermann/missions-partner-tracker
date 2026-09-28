@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./helpers.js";
+import { login, firstSelectablePartner } from "./helpers.js";
 
 test.describe("Trip History", () => {
   test("add a trip with a participant, edit it, and confirm it appears in the consolidated list", async ({
@@ -7,9 +7,9 @@ test.describe("Trip History", () => {
   }) => {
     await login(page);
 
-    const missionariesRes = await page.request.get("/api/partners?kind=missionary");
-    const missionaries = await missionariesRes.json();
-    const target = missionaries[0];
+    // Must be one the Add form's partner dropdown will actually list --
+    // see firstSelectablePartner.
+    const target = await firstSelectablePartner(page);
 
     await page.goto("/admin/trips");
     await page.waitForSelector("h2:has-text('Trip History')");

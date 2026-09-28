@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./helpers.js";
+import { login, firstSelectablePartner } from "./helpers.js";
 
 // A failed save must show a message. It must never blank the page.
 //
@@ -25,8 +25,9 @@ async function openAddSupportEntry(page) {
   await page.waitForSelector("h2:has-text('Monthly Support')");
   await page.click("button:has-text('+ Add Support Entry')");
 
-  const partners = await (await page.request.get("/api/partners?kind=missionary")).json();
-  await page.getByLabel("Partner").selectOption({ label: partners[0].displayName });
+  // Must be one the dropdown will actually list -- see firstSelectablePartner.
+  const target = await firstSelectablePartner(page);
+  await page.getByLabel("Partner").selectOption({ label: target.displayName });
   await page.getByLabel("Monthly Amount (USD)").fill("123");
   await page.getByLabel("Effective Date").fill("2099-01-01");
 }
