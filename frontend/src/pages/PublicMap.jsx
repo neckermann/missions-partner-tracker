@@ -30,32 +30,51 @@ import markerShadowUrl from "leaflet/dist/images/marker-shadow.png";
 // complaint rendered five hundred times.
 const BLANK_TILE = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
-// Basemap tiles.
+// Basemap tiles, in preference order.
 //
-// Back on OpenStreetMap, but on the single canonical host rather than the
-// {s}.tile.openstreetmap.org pattern this used to use. That pattern is the
-// part that was actually against their rules: the subdomains are
-// deprecated, and their whole purpose is to open more parallel connections
-// than one host allows, which their tile usage policy calls out directly.
+// Why a list and not one URL: OpenStreetMap blocks by network. Their tile
+// servers are donated infrastructure, and when they refuse a client they
+// refuse that IP -- so the same build serves a working map to one person
+// and a blank one to another on a different connection. That is exactly
+// what happened here: the tile URL and the CSP were byte-identical to a
+// build that had worked for weeks, tiles loaded fine from one network and
+// returned 403 from another, and no code change could have fixed it for
+// everyone because the code was never the variable.
 //
-// The policy does not ban a site like this one. It bans *heavy* use of
-// donated infrastructure, and asks that requests identify themselves --
-// which a browser does on its own. One church with a few dozen pins is
-// light use by any reading. An earlier fix here moved to CARTO on the
-// grounds that OSM forbade this outright; that was an overstatement, and
-// CARTO has since started requiring an API key anyway, which a church
-// deploying its own instance should not have to go and get.
+// So the map tries these in order and moves to the next when one fails
+// repeatedly, per visitor. Someone whose network OSM is happy with gets
+// OSM; someone whose network it blocks gets Esri, instead of a map with
+// no land on it.
 //
-// If OSM does block this instance, the map degrades to blank tiles with a
-// notice rather than to their hazard-tape graphic, and switching provider
-// is this constant plus TILE_HOST in backend/src/server.js -- which a test
-// keeps in agreement. Verified working keyless alternatives, if needed:
-//   https://tile.opentopomap.org/{z}/{x}/{y}.png                (topographic)
-//   https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}
+// Both are keyless, which is the constraint that matters for this project:
+// a church deploying its own instance cannot be made to register for a
+// tile account first. CARTO was tried and removed -- they now serve an
+// "API KEY REQUIRED" watermark, at a constant 2049 bytes per tile, with a
+// 200 status, so it looks fine to anything checking status codes alone.
+//
 // Note Esri's path order is {z}/{y}/{x}, not {z}/{x}/{y}.
-const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+//
+// Every host here must also be allowed by the CSP img-src in
+// backend/src/server.js, or the browser blocks it silently -- there is a
+// test pinning the two together.
+const TILE_SOURCES = [
+  {
+    name: "OpenStreetMap",
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  },
+  {
+    name: "Esri",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri",
+  },
+];
+
+// How many tile failures on one source before moving to the next. A world
+// view loads roughly a dozen tiles, so this is high enough that one flaky
+// request doesn't cause a switch and low enough to happen within the first
+// screenful.
+const TILE_FAILURES_BEFORE_FALLBACK = 4;
 
 const icon = new L.Icon({
   iconUrl: markerIconUrl,
@@ -197,8 +216,14 @@ export default function PublicMap() {
   const [partners, setPartners] = useState([]);
   const [activeIndex, setActiveIndex] = useState(null);
   const [activeOrg, setActiveOrg] = useState(null);
-  // Set when the tile provider refuses or drops a request. The pins are
-  // our own data and stay correct, so the map keeps working -- this only
+  // Which entry of TILE_SOURCES is in use, and how many tiles it has
+  // failed to deliver. A ref, not state, for the counter: it changes on
+  // every failed tile and nothing renders from it directly, so making it
+  // state would re-render the map a dozen times while a source is dying.
+  const [tileSourceIndex, setTileSourceIndex] = useState(0);
+  const tileFailures = useRef(0);
+  // True only once every source has been tried and failed. The pins are
+  // our own data and stay correct, so the map still works -- this just
   // explains the blank background instead of leaving it a mystery.
   const [tilesFailed, setTilesFailed] = useState(false);
   // ?tour=1 (or just ?tourSeconds=..., which implies tour=1) auto-starts the
@@ -208,6 +233,7 @@ export default function PublicMap() {
   const markerRefs = useRef({});
   const orgMarkerRefs = useRef({});
   const { logo, partnerTermPlural, publicTagline } = useSettings();
+  const tileSource = TILE_SOURCES[tileSourceIndex];
 
   // ?tourSeconds=15 slows down/speeds up the auto-tour; defaults to 30s.
   const tourSeconds = (() => {
@@ -372,19 +398,36 @@ export default function PublicMap() {
             scrollWheelZoom={true}
           >
             <TileLayer
-              attribution={TILE_ATTRIBUTION}
-              url={TILE_URL}
+              // Keyed so Leaflet tears the layer down and refetches when
+              // the source changes; without it the new URL is only used
+              // for tiles not already in its cache.
+              key={tileSource.url}
+              attribution={tileSource.attribution}
+              url={tileSource.url}
               errorTileUrl={BLANK_TILE}
               eventHandlers={{
-                tileerror: () => setTilesFailed(true),
-                // Only a tile that really arrived clears the warning. The
-                // naive version cleared it on any tileload, which never
-                // showed the notice at all: Leaflet swaps a failed tile's
+                tileerror: () => {
+                  tileFailures.current += 1;
+                  if (tileFailures.current < TILE_FAILURES_BEFORE_FALLBACK) return;
+                  tileFailures.current = 0;
+                  setTileSourceIndex((current) => {
+                    if (current + 1 < TILE_SOURCES.length) return current + 1;
+                    // Nothing left to try.
+                    setTilesFailed(true);
+                    return current;
+                  });
+                },
+                // Only a tile that really arrived counts as success. The
+                // naive version cleared the warning on any tileload, which
+                // never showed it at all: Leaflet swaps a failed tile's
                 // src to errorTileUrl, that blank data: URI loads fine,
                 // and its load event immediately undid the tileerror that
                 // had just fired.
                 tileload: (e) => {
-                  if (e.tile?.src && !e.tile.src.startsWith("data:")) setTilesFailed(false);
+                  if (e.tile?.src && !e.tile.src.startsWith("data:")) {
+                    tileFailures.current = 0;
+                    setTilesFailed(false);
+                  }
                 },
               }}
             />
