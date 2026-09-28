@@ -165,6 +165,41 @@ generated file afterward. Mention in your PR that it needs
 `npx prisma migrate deploy` (or the equivalent for whoever's running it)
 — there's no CI step that applies migrations automatically.
 
+## Map tiles and OpenStreetMap's usage policy
+
+The public map draws its basemap from OpenStreetMap's tile servers, which
+are donated infrastructure governed by a
+[tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
+Breaking it gets an instance blocked by IP, which looks like a map with no
+land on it and gives no error anywhere you'd think to look. These are the
+parts the code has to keep holding up:
+
+- **One host, never `{s}` subdomains.** `https://tile.openstreetmap.org/...`.
+  The rotating `a`/`b`/`c` subdomains are deprecated, and they exist to open
+  more parallel connections than one host allows — the policy names that
+  directly. This app used them for months.
+- **Don't strip the Referer.** A browser won't let a page set its own
+  User-Agent, so the Referer is the only thing telling OSM whose map this
+  is. `helmet`'s default `Referrer-Policy: no-referrer` makes every tile
+  request anonymous and is prohibited outright. `server.js` sets
+  `strict-origin-when-cross-origin`, which sends the site's origin and
+  never a path, so no partner ID leaks.
+- **Attribution stays visible.** "© OpenStreetMap contributors", on the map,
+  not behind a toggle. Leaflet's attribution control does this; don't hide it.
+- **Only fetch what someone is looking at.** No pre-seeding, no offline
+  archives, no walking zoom levels. The auto-tour is the one feature that
+  fetches tiles unattended, which is why `tourSeconds` has a floor.
+- **Let the browser cache.** Don't add no-cache headers to tile requests.
+
+`backend/test/tileCsp.test.js` pins the first two, plus the agreement
+between the tile hosts and the CSP `img-src` allowlist.
+
+**If OSM blocks your instance anyway**, the map falls through to the next
+entry in `TILE_SOURCES` per visitor rather than showing nothing — OSM
+blocks by network, so this is per-person, not per-deployment. A church
+expecting real traffic should point `TILE_SOURCES` at a provider it pays
+for, rather than leaning on donated capacity.
+
 ## Dependencies
 
 Updates are applied by hand, by whoever is doing the work, rather than by a

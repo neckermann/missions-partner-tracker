@@ -113,6 +113,26 @@ describe("map tile hosts and CSP img-src", () => {
     }
   });
 
+  test("the Referrer-Policy lets tile servers see who we are", () => {
+    // OpenStreetMap's tile usage policy forbids restrictive
+    // Referrer-Policy headers that stop the Referer reaching them, and a
+    // browser will not let a page set its own User-Agent -- so for a
+    // website the Referer is the only identification their servers get.
+    // helmet's default is `no-referrer`, which makes every tile request
+    // anonymous and is the likeliest reason this app started getting 403s
+    // from code that had worked for months.
+    const policy = serverSource.match(/referrerPolicy:\s*\{\s*policy:\s*["']([^"']+)["']/);
+    assert.ok(
+      policy,
+      "server.js should set an explicit helmet referrerPolicy -- the default, no-referrer, breaks OSM's tile policy"
+    );
+    assert.equal(
+      ["no-referrer", "same-origin"].includes(policy[1]),
+      false,
+      `Referrer-Policy "${policy[1]}" strips the Referer cross-origin, which OSM's tile usage policy prohibits`
+    );
+  });
+
   test("marker icons are bundled, not fetched from a CDN", () => {
     // They were loaded from unpkg, which put the pins -- the actual data on
     // the page -- behind a third party's availability, and needed its own

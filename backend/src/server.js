@@ -51,8 +51,8 @@ app.set("trust proxy", 1);
 //
 // These MUST cover every entry in TILE_SOURCES in PublicMap.jsx, which
 // the map falls through in order when a provider blocks a visitor. That
-// coupling is the
-// trap: the tile URL lives in the frontend and its permission lives here,
+// coupling is the trap: a tile URL lives in the frontend and its
+// permission lives here,
 // nothing checks that the two agree, and when they disagree the browser
 // blocks every tile *silently* -- no server error, no failed request in
 // the app's own logs, just a blank map. Changing the tile provider without
@@ -69,6 +69,25 @@ app.use(
         "img-src": ["'self'", "data:", ...TILE_HOSTS],
       },
     },
+    // helmet's default here is `no-referrer`, which OpenStreetMap's tile
+    // usage policy explicitly prohibits: it lists restrictive
+    // Referrer-Policy headers that stop the Referer reaching them as
+    // forbidden, and requires a website's tile requests to carry an
+    // accurate one.
+    //
+    // It matters more than it looks. A browser will not let a page set its
+    // own User-Agent, so for a website the Referer is the *only* thing
+    // identifying whose map this is. Under `no-referrer` every tile request
+    // this app made arrived anonymous -- indistinguishable from a scraper
+    // -- which is the likeliest reason a 403 appeared after months of the
+    // same code working.
+    //
+    // `strict-origin-when-cross-origin` is the modern browser default and
+    // gives up nothing that matters: cross-origin it sends the origin only,
+    // so a tile server learns the site's hostname and never a path like
+    // /partners/<uuid>. Same-origin requests still carry the full URL, and
+    // an HTTPS->HTTP downgrade still sends nothing.
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   })
 );
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));

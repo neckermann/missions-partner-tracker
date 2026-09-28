@@ -101,6 +101,8 @@ const orgIcon = new L.Icon({
 });
 
 const DEFAULT_TOUR_SECONDS = 30;
+// See the tourSeconds comment below for why there is a floor at all.
+const MIN_TOUR_SECONDS = 10;
 
 // supportingSince is a full date under the hood (see backend migration
 // notes) but only the year is meaningful to show publicly.
@@ -236,9 +238,19 @@ export default function PublicMap() {
   const tileSource = TILE_SOURCES[tileSourceIndex];
 
   // ?tourSeconds=15 slows down/speeds up the auto-tour; defaults to 30s.
+  //
+  // Floored, because the tour is the one thing here that fetches tiles
+  // without anyone touching the page: every hop flies the map to another
+  // continent, pulling tiles the whole way, and ?tour=1 on a lobby screen
+  // runs that indefinitely. OpenStreetMap's tile usage policy draws its
+  // line at heavy use of donated infrastructure, and an unattended display
+  // panning the world every second or two is the shape of thing it means.
+  // Any value below the floor is treated as the floor rather than
+  // rejected, so an old bookmark still works, just more politely.
   const tourSeconds = (() => {
     const raw = Number(searchParams.get("tourSeconds"));
-    return raw > 0 ? raw : DEFAULT_TOUR_SECONDS;
+    if (!(raw > 0)) return DEFAULT_TOUR_SECONDS;
+    return Math.max(raw, MIN_TOUR_SECONDS);
   })();
 
   useEffect(() => {
