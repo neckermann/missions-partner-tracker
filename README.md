@@ -141,7 +141,12 @@ context was deliberately kept for exactly this kind of future work.
 Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for
 local setup, running tests, extending the data model, and what a good pull
 request looks like, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for how we
-expect people to treat each other here. If you're not sure where to start,
+expect people to treat each other here.
+
+Work lands on `dev` and ships through a pull request into `main`, which is
+protected: the lint, test, build and end-to-end jobs all have to pass before
+it can merge. `main` is what Render deploys, so merging is releasing — see
+[CONTRIBUTING.md § Branches and releasing](CONTRIBUTING.md#branches-and-releasing). If you're not sure where to start,
 open an issue — bug reports and feature requests both have a template to
 guide you.
 
