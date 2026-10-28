@@ -1,27 +1,32 @@
 name: CI
 
-# Runs the test/build/e2e gate on every PR (so a bad change never even
-# reaches main) and on every push to main (so a direct push gets the
-# same protection). Deployment itself isn't handled here at all -- see
-# render.yaml and ADMIN_GUIDE.md § Deploying anywhere else. Render's own
-# git integration deploys automatically on push once a service is
-# connected to a repo, so there's no separate deploy job to gate.
+# Branches: work lands on `dev`, ships via a pull request into `main`.
+# `main` is production -- Render tracks the repo's default branch and
+# deploys on push, so a merge here is a release. See CONTRIBUTING.md
+# § Branches and releasing.
+#
+# `main` is protected: no direct pushes, and the four jobs below must pass
+# before a PR can merge. Deployment itself isn't handled here -- see
+# render.yaml and ADMIN_GUIDE.md § Deploying anywhere else.
+#
+# Note the asymmetry in the triggers below, which is deliberate:
+#
+#   push        -- filtered by path. A docs-only commit on dev shouldn't
+#                  spin up Postgres and a browser to prove that a Markdown
+#                  file still parses.
+#
+#   pull_request -- NOT filtered by path, on purpose. Required status
+#                  checks only pass when the check actually reports, and a
+#                  filtered-out workflow never reports at all. Keep the
+#                  paths filter here and a docs-only PR waits forever on a
+#                  check that will never run, with no way to merge it. The
+#                  few wasted minutes are worth strictly less than a
+#                  permanently stuck pull request.
 on:
   pull_request:
-    branches: [main]
-    paths:
-      - "backend/**"
-      - "frontend/**"
-      - ".github/workflows/ci.yml"
-      # Root tooling: without these, a change to the lint or format config
-      # wouldn't run CI, so a broken config could land unnoticed.
-      - "eslint.config.js"
-      - ".prettierrc"
-      - ".prettierignore"
-      - "package.json"
-      - "package-lock.json"
+    branches: [main, dev]
   push:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - "backend/**"
       - "frontend/**"

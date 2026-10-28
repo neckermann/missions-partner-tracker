@@ -165,6 +165,53 @@ generated file afterward. Mention in your PR that it needs
 `npx prisma migrate deploy` (or the equivalent for whoever's running it)
 — there's no CI step that applies migrations automatically.
 
+## Branches and releasing
+
+`main` is production. Render tracks this repo's default branch and deploys
+on push, so **a merge into `main` is a release**, not a checkpoint.
+
+Work therefore lands on `dev` and ships through a pull request:
+
+```
+git switch dev
+git pull
+# ... work, commit ...
+git push origin dev          # CI runs
+gh pr create --base main --head dev
+# four checks go green, then merge -> Render deploys
+```
+
+`main` is protected on this repo: no direct pushes, and `lint`,
+`backend-tests`, `frontend-build` and `e2e` must all pass before a PR can
+merge. No approving review is required — this is a one-maintainer project
+and GitHub won't let you approve your own PR, so demanding one would block
+every release.
+
+If you ever genuinely need to push straight to `main` — a hotfix while CI
+is broken, say — turn the rule off in Settings → Branches, push, and turn
+it back on. That is a deliberate, visible act rather than a silent bypass,
+which is the point.
+
+### Downstream instances
+
+A church's own fork takes releases by merging this repo (see
+[UPGRADING.md](UPGRADING.md)), and that merge should land on **its** `dev`
+first, not straight onto the branch its site deploys from:
+
+```
+git switch dev
+git fetch upstream
+git merge upstream/main
+git push origin dev          # CI runs against your instance
+gh pr create --base main --head dev
+```
+
+Branch protection needs a paid GitHub plan on a private repository, so a
+private instance can't *enforce* this. The flow still works and CI still
+runs on the pull request; nothing but discipline stops a direct push. The
+gate is worth keeping anyway — it is the last point where a bad upstream
+release can be caught before a congregation sees it.
+
 ## Map tiles and OpenStreetMap's usage policy
 
 The public map draws its basemap from OpenStreetMap's tile servers, which
@@ -253,6 +300,9 @@ half of Dependabot that's useful to a project shaped like this one.
 
 ## Pull requests
 
+- Base them on `main` and raise them from `dev` (see
+  [Branches and releasing](#branches-and-releasing)) — merging is what
+  deploys.
 - Keep PRs focused — one feature or fix per PR.
 - If your change affects `backend/.env.example`, update it in the same PR,
   including a comment explaining any new variable.
