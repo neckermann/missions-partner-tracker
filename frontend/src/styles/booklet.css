@@ -102,35 +102,30 @@ body {
   break-inside: avoid;
 }
 
-/* A dedicated full page of ruled, spaced lines for handwritten notes and
-   prayer requests, inserted as its own page immediately after an entry's
-   detail page (see buildNotesPageHtml) — the detail page's own layout is
-   untouched. The ruled-line mechanic itself is shared; heading style is
-   templated below. */
+/* A dedicated full page: the entry's current prayer requests up top (see
+   buildNotesPageHtml, and .booklet-block's own styling below for that),
+   then ruled, spaced lines for handwriting notes and any further requests
+   -- inserted as its own page immediately after an entry's detail page.
+   The detail page's own layout is untouched. The ruled-line mechanic
+   itself is shared; heading style is templated below. */
 .booklet-notes-page {
   display: flex;
   flex-direction: column;
 }
 .booklet-notes-lines {
-  /* A fixed height, not flex: 1. paged.js chunks content by measuring
-     intrinsic sizes before a page's final height is settled, and
-     .booklet-page (above) only sets min-height -- so flex: 1 here had
-     nothing definite to resolve against during that measurement pass.
-     That's a documented paged.js failure mode, and it was the actual
-     cause of the crash this file's own history records ("Cannot read
-     properties of null (reading 'getBoundingClientRect')", thrown deep in
-     paged.js's layout engine): with the Notes & Prayer page enabled
-     (the default), pagination aborted partway through every template,
-     silently dropping every page after that point -- including the back
-     cover.
-     7in leaves roughly 1.7in for the heading and subheading above it
+  /* A fixed height, not flex: 1 -- .booklet-page only sets min-height, not
+     height, and a flex child can't grow to fill a container whose own
+     size isn't definite, it just reverts to its content size (here,
+     nothing, since this div has none). 5in leaves roughly 3.7in above it
      within .booklet-page's ~8.7in usable height (9.2in min-height minus
-     0.25in padding top and bottom), comfortably clearing every template's
-     heading size. If a future template's heading runs unusually tall, the
-     established fallback elsewhere in this file is the same one already
-     accepted for an overlong entry: the page grows and the content spills
-     onto an extra physical page -- a layout nuisance, never a crash. */
-  height: 7in;
+     0.25in padding top and bottom) -- comfortably clearing the heading,
+     subheading, and a typical prayer-requests block (a handful of
+     short/medium requests). An entry with an unusually long one eats into
+     this space; the established fallback elsewhere in this file is the
+     same one already accepted for an overlong detail page: the page grows
+     and the content spills onto an extra physical page -- a layout
+     nuisance, never a crash. */
+  height: 5in;
   background-image: linear-gradient(
     to bottom,
     transparent calc(0.4in - 1px),
@@ -989,11 +984,12 @@ body {
      than the band is tall -- which pushed the top quarter of the circle
      above that boundary and clipped it clean off, visible as a flat-topped
      sliver poking out from under the band instead of a full circle
-     breaking out of it. Backed off from the exact tangent point (-0.9in)
-     by another tenth of an inch so the photo doesn't sit flush against the
-     clip edge, which asked for trouble from sub-pixel rounding differences
-     between paged.js's on-screen preview and an actual print render. */
-  margin: -0.8in auto 0.2in;
+     breaking out of it. This sits at the exact tangent point rather than
+     backed off from it: that backoff existed only to dodge sub-pixel
+     rounding differences between paged.js's separate on-screen preview
+     engine and the actual print engine -- with paged.js gone, screen and
+     print are the same render pass, so there's nothing left to dodge. */
+  margin: -0.9in auto 0.2in;
 }
 .tpl-friendly .booklet-eyebrow {
   text-align: center;
