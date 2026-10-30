@@ -799,7 +799,27 @@ a {
   .no-print {
     display: none !important;
   }
-  body * {
+  /* Hide everything, then reveal only the booklet.
+     
+     Scoped with :has() so it applies on a page that actually contains a
+     booklet preview. Unscoped -- as this was -- `body *` hides every
+     element on EVERY print in the app, and only .booklet-preview is ever
+     revealed again, so any other printable view comes out as a blank
+     page. The Reports print button did exactly that: correct styles, no
+     content, because visibility was still hidden from here.
+     
+     The :where() is load-bearing, not decoration. :has() contributes the
+     specificity of its argument, so a bare `body:has(.booklet-preview) *`
+     scores (0,1,1) and outranks the `.booklet-preview` reveal below at
+     (0,1,0) -- which hides the booklet too, on its own page. :where()
+     contributes nothing, so this stays (0,0,1), exactly what plain
+     `body *` was, and the reveal still wins.
+     
+     The pattern itself is a blunt one; it survives because the booklet
+     really does want the rest of the page gone. Anything else that needs
+     printing should style its own section (see the Reports block below)
+     rather than extend the reveal list here. */
+  body:where(:has(.booklet-preview)) * {
     visibility: hidden;
   }
   .booklet-preview,
