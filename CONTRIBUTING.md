@@ -176,10 +176,17 @@ Work therefore lands on `dev` and ships through a pull request:
 git switch dev
 git pull
 # ... work, commit ...
-git push origin dev          # CI runs
-gh pr create --base main --head dev
+git push origin dev
+gh pr create --base main --head dev    # CI runs here
 # four checks go green, then merge -> Render deploys
 ```
+
+CI runs on the **pull request**, and only there. Nothing runs on a plain
+push, so open the PR early — a draft still runs the checks — rather than
+pushing and waiting for a run that isn't coming. That single trigger is
+deliberate: see the comment at the top of
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) for why pushes to
+`dev` and `main` used to run too, and what each of those was duplicating.
 
 `main` is protected on this repo: no direct pushes, and `lint`,
 `backend-tests`, `frontend-build` and `e2e` must all pass before a PR can
@@ -202,8 +209,8 @@ first, not straight onto the branch its site deploys from:
 git switch dev
 git fetch upstream
 git merge upstream/main
-git push origin dev          # CI runs against your instance
-gh pr create --base main --head dev
+git push origin dev
+gh pr create --base main --head dev    # CI runs against your instance
 ```
 
 Branch protection needs a paid GitHub plan on a private repository, so a
