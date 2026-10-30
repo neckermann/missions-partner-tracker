@@ -15,7 +15,7 @@ import { login } from "./helpers.js";
 
 async function runBirthdayReport(page) {
   await page.goto("/admin/reports");
-  await page.getByLabel("Report").selectOption("upcoming-birthdays");
+  await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("upcoming-birthdays");
   await page.getByRole("button", { name: "Run report" }).click();
   await expect(page.locator(".report-output")).toBeVisible();
 }

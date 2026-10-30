@@ -12,6 +12,10 @@ const { z } = require("zod");
 // page about what "pending" means.
 module.exports = {
   id: "one-time-needs",
+  // A church that turned off One-Time Needs entirely shouldn't still be
+  // able to export it from Reports -- same reasoning as requireFeature on
+  // the resource route itself (supportNeeds.js).
+  requiresFeature: "oneTimeNeeds",
   label: "One-Time Needs",
   description:
     "One-time gift requests in a date range, showing requested and approved amounts and what is still pending.",

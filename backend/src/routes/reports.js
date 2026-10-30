@@ -2,6 +2,7 @@ const express = require("express");
 const prisma = require("../prismaClient");
 const { requireAuth } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
+const { isFeatureEnabled } = require("../utils/features");
 const { getReport, listReports } = require("../reports");
 const { toCsv, csvFilename } = require("../utils/csv");
 
@@ -17,8 +18,25 @@ router.use(requireFeature("reports"));
 
 // GET /api/reports -- the picker: what reports exist, their filter fields
 // and their columns. No data.
-router.get("/", (req, res) => {
-  res.json(listReports());
+//
+// Some reports mirror a resource that has its own feature toggle (Prayer
+// Requests, One-Time Needs, Trip History, Monthly Support) -- a church that
+// turned that feature off shouldn't still find it listed here as an export.
+// upcomingBirthdays has no such toggle and so has no requiresFeature; it
+// always lists.
+router.get("/", async (req, res, next) => {
+  try {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { enabledFeatures: true },
+    });
+    const reports = listReports().filter(
+      (r) => !r.requiresFeature || isFeatureEnabled(settings?.enabledFeatures, r.requiresFeature)
+    );
+    res.json(reports);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // GET /api/reports/:id?...params[&format=csv]
@@ -29,9 +47,20 @@ router.get("/", (req, res) => {
 router.get("/:id", async (req, res, next) => {
   try {
     const report = getReport(req.params.id);
-    // Matches requireFeature's reasoning: something that isn't a report
-    // should look like a URL that doesn't exist.
+    // Matches requireFeature's reasoning: something that isn't a report --
+    // or isn't reachable right now -- should look like a URL that doesn't
+    // exist, not like a permission error.
     if (!report) return res.status(404).json({ error: "Not found" });
+
+    if (report.requiresFeature) {
+      const settings = await prisma.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: { enabledFeatures: true },
+      });
+      if (!isFeatureEnabled(settings?.enabledFeatures, report.requiresFeature)) {
+        return res.status(404).json({ error: "Not found" });
+      }
+    }
 
     // Throws ZodError on bad input, which the central error middleware
     // turns into a 400 with a string `error` naming the field.

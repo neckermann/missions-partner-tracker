@@ -7,6 +7,32 @@ import { login } from "./helpers.js";
 // the picker renders a filter form from what the server declares, that
 // running one puts rows on screen, and that the page survives a report
 // returning nothing.
+//
+// The Report and Month <select> elements are looked up by role, not by
+// getByLabel, and that distinction is load-bearing. Every field here is
+// written as <label>{field.label}<select>{options}</select></label>
+// (AdminReports.jsx), and getByLabel's exact matching compares against
+// that <label>'s raw textContent -- which, for a <select>, DOM-level
+// textContent recursively includes every <option>'s text too, with no
+// separating whitespace. So the real exact text of the Report label is
+// "ReportUpcoming BirthdaysOne-Time Needs..." (every option concatenated),
+// never just "Report" -- getByLabel("Report", { exact: true }) always
+// matches nothing, not even the element it's named for. Confirmed
+// directly: a non-exact getByLabel("Report") matched 1 element (substring
+// luck, since "Report" is a prefix of that polluted string); the exact
+// variant matched 0; getByRole("combobox", { name: "Report", exact: true})
+// matched exactly 1, because getByRole reads the true computed ARIA
+// accessible name (confirmed against the page's own accessibility tree),
+// which correctly resolves to just "Report". That's also why this bit at
+// all: adding "Monthly Support" as a fifth report option made "Month" a
+// substring of the (already-polluted) Report label's text, so the old
+// non-exact getByLabel("Month") started ambiguously matching both
+// selects. getByRole sidesteps the whole class of bug rather than papering
+// over this one instance of it.
+//
+// getByLabel stays, unmodified, for the plain inputs and the checkbox --
+// those have no descendant option text to pollute their label's
+// textContent, so substring matching never collided and never will.
 
 const FAILING_IMPACTS = ["serious", "critical"];
 
@@ -43,11 +69,11 @@ test.describe("Reports", () => {
       await page.goto("/admin/reports");
       await expect(page.getByRole("heading", { name: "Reports" })).toBeVisible();
 
-      await page.getByLabel("Report").selectOption("upcoming-birthdays");
+      await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("upcoming-birthdays");
       // The month control is rendered from the server's field declaration,
       // not hardcoded here -- if the registry stops shipping `fields`, this
       // fails.
-      await page.getByLabel("Month").selectOption("3");
+      await page.getByRole("combobox", { name: "Month", exact: true }).selectOption("3");
       await page.getByRole("button", { name: "Run report" }).click();
 
       const adultRow = page.locator("tr", { hasText: `${marker} Adult` });
@@ -72,9 +98,9 @@ test.describe("Reports", () => {
     await login(page);
     await page.goto("/admin/reports");
 
-    await page.getByLabel("Report").selectOption("one-time-needs");
+    await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("one-time-needs");
     // A window that cannot contain anything.
-    await page.getByLabel("Requested on or after").fill("2099-01-01");
+    await page.getByLabel("Requested on or after", { exact: true }).fill("2099-01-01");
     await page.getByRole("button", { name: "Run report" }).click();
 
     await expect(page.getByText("Nothing matched those filters.")).toBeVisible();
@@ -84,20 +110,20 @@ test.describe("Reports", () => {
     await login(page);
     await page.goto("/admin/reports");
 
-    await page.getByLabel("Report").selectOption("upcoming-birthdays");
+    await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("upcoming-birthdays");
     await page.getByRole("button", { name: "Run report" }).click();
     await expect(page.locator("table.admin-table")).toBeVisible();
 
     // Rows from the old report under the new report's columns would be
     // nonsense, and worse, would look authoritative.
-    await page.getByLabel("Report").selectOption("one-time-needs");
+    await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("one-time-needs");
     await expect(page.locator("table.admin-table")).toHaveCount(0);
   });
 
   test("has no serious/critical accessibility violations once a report is rendered", async ({ page }) => {
     await login(page);
     await page.goto("/admin/reports");
-    await page.getByLabel("Report").selectOption("upcoming-birthdays");
+    await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("upcoming-birthdays");
     await page.getByRole("button", { name: "Run report" }).click();
     await expect(page.locator(".report-output")).toBeVisible();
 
@@ -105,4 +131,31 @@ test.describe("Reports", () => {
     const serious = results.violations.filter((v) => FAILING_IMPACTS.includes(v.impact));
     expect(serious, summarize(serious)).toEqual([]);
   });
+
+  // Smoke coverage for the three reports added alongside Upcoming Birthdays
+  // and One-Time Needs: each is reachable from the picker, renders its own
+  // filter fields, and produces rows against the seeded data. The shared
+  // mechanics (CSV, print, the shell's error states) are already covered
+  // above and in report-print.spec.js against upcoming-birthdays --
+  // exercising them a second time per report would test the shell again,
+  // not the report.
+  for (const { id, label, rowText } of [
+    { id: "prayer-requests", label: "Prayer Requests", rowText: "Category" },
+    { id: "trip-history", label: "Trip History", rowText: "Team Size" },
+    { id: "monthly-support", label: "Monthly Support", rowText: "Current Amount" },
+  ]) {
+    test(`${label} runs and shows its own columns`, async ({ page }) => {
+      await login(page);
+      await page.goto("/admin/reports");
+
+      await page.getByRole("combobox", { name: "Report", exact: true }).selectOption(id);
+      await page.getByRole("button", { name: "Run report" }).click();
+
+      await expect(page.getByRole("columnheader", { name: rowText })).toBeVisible();
+      // The seed produces plenty of rows for all three; a report that ran
+      // but found nothing would point at the query, not the UI, and
+      // deserves its own look rather than a green check here.
+      await expect(page.locator("table.admin-table tbody tr").first()).toBeVisible();
+    });
+  }
 });

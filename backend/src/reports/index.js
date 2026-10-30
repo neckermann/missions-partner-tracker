@@ -14,8 +14,11 @@
 
 const upcomingBirthdays = require("./upcomingBirthdays");
 const oneTimeNeeds = require("./oneTimeNeeds");
+const prayerRequests = require("./prayerRequests");
+const tripHistory = require("./tripHistory");
+const monthlySupport = require("./monthlySupport");
 
-const REPORTS = [upcomingBirthdays, oneTimeNeeds];
+const REPORTS = [upcomingBirthdays, oneTimeNeeds, prayerRequests, tripHistory, monthlySupport];
 
 const byId = new Map(REPORTS.map((r) => [r.id, r]));
 
@@ -24,7 +27,10 @@ function getReport(id) {
 }
 
 // What the picker needs: enough to render the list and build a filter form,
-// without shipping the queries themselves.
+// without shipping the queries themselves. `requiresFeature` travels too --
+// the route uses it to drop a report whose underlying feature is off; it's
+// an internal gating detail, not form metadata, but it's cheap to include
+// and the alternative is a second lookup back into REPORTS.
 //
 // `params` is described by hand rather than reflected out of the Zod schema.
 // Zod's internals are not a stable public shape to walk, and a form needs
@@ -38,6 +44,7 @@ function listReports() {
     description: r.description,
     columns: r.columns,
     fields: r.fields,
+    requiresFeature: r.requiresFeature || null,
   }));
 }
 

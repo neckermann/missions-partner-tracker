@@ -83,8 +83,12 @@ function describeFilters(report, values) {
     } else if (field.type === "select") {
       const option = (field.options || []).find((o) => o.value === value);
       parts.push(`${field.label}: ${option?.label ?? value}`);
-    } else {
+    } else if (field.type === "date") {
       parts.push(`${field.label}: ${formatDate(value, { fallback: value })}`);
+    } else {
+      // number, text, and anything else without special formatting --
+      // the raw value is already what a person typed.
+      parts.push(`${field.label}: ${value}`);
     }
   }
   return parts.length ? parts.join(" · ") : null;
@@ -258,6 +262,20 @@ export default function AdminReports() {
                 {field.type === "date" && (
                   <input
                     type="date"
+                    value={values[field.name] ?? ""}
+                    onChange={(e) => setValue(field.name, e.target.value)}
+                  />
+                )}
+                {field.type === "number" && (
+                  <input
+                    type="number"
+                    value={values[field.name] ?? ""}
+                    onChange={(e) => setValue(field.name, e.target.value)}
+                  />
+                )}
+                {field.type === "text" && (
+                  <input
+                    type="text"
                     value={values[field.name] ?? ""}
                     onChange={(e) => setValue(field.name, e.target.value)}
                   />
