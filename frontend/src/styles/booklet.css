@@ -51,8 +51,22 @@ body {
 .booklet-page {
   position: relative;
   min-height: 9.2in;
+  /* Not overflow: hidden. The only thing in this file that ever renders
+     outside a page's own normal-flow box is the Friendly template's
+     photo, pulled up via negative margin to tuck under its header band
+     (the only negative margin anywhere here) -- min-height alone never
+     causes clipped overflow, it just lets the box grow taller to fit
+     content, which is exactly the "an overlong entry spills onto an
+     extra physical page" behavior this file's comments describe
+     elsewhere as the accepted fallback. overflow: hidden would clip that
+     photo by geometry, not paint order -- it doesn't matter that the
+     photo is a child painted after the band's own border, overflow:
+     hidden cuts away anything outside the box regardless of stacking
+     order, which is exactly the bug this used to cause (half the photo,
+     hair and forehead, silently gone on every Friendly page). Leaving
+     overflow at its default lets the photo actually layer over the band
+     as a visible circle instead. */
   break-after: page;
-  overflow: hidden;
   padding: 0.25in;
 }
 
@@ -973,25 +987,19 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   float: none;
   display: block;
-  /* Pulled up to tuck the top of the photo under the bottom edge of the
-     0.9in header band above, badge-style. The negative margin is measured
-     from where the photo would otherwise sit in normal flow -- right at
-     the band's bottom edge, since padding-top is 0 -- and .booklet-page
-     clips at that same line (overflow: hidden, above padding-top: 0 means
-     the padding box starts exactly there). overflow: hidden clips by
-     geometry, not paint order: it doesn't matter that the photo is a
-     child painted after the band's own border, anything pulled above that
-     line is genuinely cut away, not merely drawn under the band. So the
-     margin's magnitude *is* how much of the photo gets clipped --
-     parity, not a coincidence.
-     A previous value here, -1.35in, clipped 1.35in of the photo's 1.8in
-     height -- a flat-topped quarter-circle sliver poking out from under
-     the band. A later value, -0.9in (this file's own prior history),
-     clipped exactly half the circle, hair and all -- a smaller mistake,
-     same kind. -0.3in clips a shallow 0.3in (under a sixth of the circle)
-     so only the very top of the photo tucks under the band and the rest
-     -- face, hair included -- reads as a normal portrait. */
-  margin: -0.3in auto 0.2in;
+  /* Pulled up to straddle the bottom edge of the 0.9in header band above,
+     so the photo reads as a badge layered on top of it -- see .booklet-
+     page's own comment for why that layering actually renders now
+     (overflow isn't hidden) instead of being clipped away. -0.9in puts
+     the photo's own top edge exactly at the page's top edge (0.9in border
+     minus 0.9in margin = 0), splitting the circle evenly: its top half
+     sits over the band, its bottom half below it. A previous value here,
+     -1.35in, pulled the photo up another 0.45in past that point -- with
+     overflow: hidden still active (the bug this was fixed alongside),
+     that pushed part of the circle above the page's own top edge and
+     clipped it clean off; it would just as cleanly slide off the top of
+     the printed sheet now instead, so that value stays retired. */
+  margin: -0.9in auto 0.2in;
 }
 .tpl-friendly .booklet-eyebrow {
   text-align: center;
