@@ -90,6 +90,16 @@ body {
 .booklet-index-list {
   list-style: none;
   padding: 0;
+  /* Two columns rather than one long list -- a church with enough
+     missionaries to fill a page one-at-a-time would otherwise push the
+     index itself to a second page, ahead of any actual content. */
+  column-count: 2;
+  column-gap: 0.4in;
+}
+.booklet-index-list li {
+  /* Without this, Chromium will split a single entry's name and field
+     across the column break rather than only breaking between entries. */
+  break-inside: avoid;
 }
 
 /* A dedicated full page of ruled, spaced lines for handwritten notes and
