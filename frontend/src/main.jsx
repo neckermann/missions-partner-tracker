@@ -26,6 +26,7 @@ import "./index.css";
 // The second is weight: the map pulls in Leaflet and the booklet pulls in
 // paged.js plus a 980-line print stylesheet, none of which a visitor
 // browsing the directory should pay for.
+const AdminReports = lazy(() => import("./pages/AdminReports.jsx"));
 const PublicMap = lazy(() => import("./pages/PublicMap.jsx"));
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout.jsx"));
 const AdminHome = lazy(() => import("./pages/AdminHome.jsx"));
@@ -112,6 +113,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   element={
                     <RequireAdminFeature feature="booklet">
                       <AdminBooklet />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
+                  path="reports"
+                  element={
+                    <RequireAdminFeature feature="reports">
+                      <AdminReports />
                     </RequireAdminFeature>
                   }
                 />

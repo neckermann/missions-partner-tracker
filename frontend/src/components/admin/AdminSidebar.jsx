@@ -26,6 +26,7 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
     enabledFeatures.newsletters && { to: "/admin/newsletters", label: "Newsletters" },
     enabledFeatures.documents && { to: "/admin/documents", label: "Documents" },
     enabledFeatures.booklet && { to: "/admin/booklet", label: "Print Booklet" },
+    enabledFeatures.reports && { to: "/admin/reports", label: "Reports" },
   ].filter(Boolean);
 }
 

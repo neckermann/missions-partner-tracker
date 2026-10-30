@@ -24,6 +24,7 @@ const tripRoutes = require("./routes/trips");
 const newsletterRoutes = require("./routes/newsletters");
 const documentRoutes = require("./routes/documents");
 const photoRoutes = require("./routes/photos");
+const reportsRoutes = require("./routes/reports");
 const settingsRoutes = require("./routes/settings");
 const publicSettingsRoutes = require("./routes/publicSettings");
 const versionRoutes = require("./routes/version");
@@ -150,6 +151,7 @@ app.use("/api/support-needs", supportNeedRoutes); // protected (admin) — sessi
 app.use("/api/support-entries", supportEntryRoutes); // protected (admin) — session required
 app.use("/api/prayer-requests", prayerRequestRoutes); // protected (admin) — session required
 app.use("/api/trips", tripRoutes); // protected (admin) — session required
+app.use("/api/reports", reportsRoutes); // protected — read-only exports, any signed-in role
 app.use("/api/newsletters", newsletterRoutes); // protected (admin) — session required
 app.use("/api/documents", documentRoutes); // protected (admin) — session required
 app.use("/api/photos", photoRoutes); // open (public — same as when these were S3 public-read objects)

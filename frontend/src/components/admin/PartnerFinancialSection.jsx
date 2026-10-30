@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { todayInputValue } from "../../utils/format.js";
-import { formatDate } from "../../utils/format.js";
+import { todayInputValue, formatDate, formatCurrency } from "../../utils/format.js";
 import {
   createSupportEntry,
   deleteSupportEntry,
@@ -15,11 +14,6 @@ import {
 // Support entries have no edit: an entry records what the amount was set to
 // as of a date, like a line in a ledger, so correcting one means deleting it
 // and adding another. The API has no update route for them at all.
-
-function formatCurrency(amount) {
-  if (amount == null) return null;
-  return amount.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-}
 
 const emptyEntry = { amount: "", effectiveDate: todayInputValue(), notes: "" };
 const emptyNeed = { description: "", requestedAmount: "", requestDate: todayInputValue(), notes: "" };

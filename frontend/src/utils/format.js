@@ -61,3 +61,35 @@ export function formatDateLong(value, { fallback = null } = {}) {
     ? date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
     : fallback;
 }
+
+// "$1,000" — amounts in this app are whole dollars (the columns are Int),
+// so no cents.
+//
+// This was defined three times with identical Intl options and only the
+// null fallback differing, which is what the `fallback` option is for —
+// same shape as formatDate above. Currency is a parameter because hardcoding
+// USD in a project other churches fork is the kind of assumption that is
+// annoying to unpick later; nothing passes it yet.
+export function formatCurrency(amount, { fallback = null, currency = "USD" } = {}) {
+  if (amount == null) return fallback;
+  return amount.toLocaleString(undefined, {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  });
+}
+
+// "5 November" from the month/day integers the reports API returns.
+//
+// Takes integers rather than a date string on purpose: a birthday is a
+// calendar day with no year attached once you are looking at it as "whose
+// birthday is this month", and turning it back into a Date to format it is
+// how the timezone bug gets reintroduced. 2001 is an arbitrary non-leap
+// year used only as a formatting vehicle; it never reaches the output.
+export function formatMonthDay(month, day, { locale = undefined } = {}) {
+  if (!Number.isFinite(month) || !Number.isFinite(day)) return null;
+  return new Date(2001, month - 1, day).toLocaleDateString(locale, {
+    month: "long",
+    day: "numeric",
+  });
+}
