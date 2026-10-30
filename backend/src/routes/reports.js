@@ -30,7 +30,7 @@ router.get("/", async (req, res, next) => {
       where: { id: "singleton" },
       select: { enabledFeatures: true },
     });
-    const reports = listReports().filter(
+    const reports = (await listReports(prisma)).filter(
       (r) => !r.requiresFeature || isFeatureEnabled(settings?.enabledFeatures, r.requiresFeature)
     );
     res.json(reports);

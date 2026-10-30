@@ -37,15 +37,26 @@ function getReport(id) {
 // things a validator doesn't carry anyway -- a label, a control type, an
 // order. Two small lists beat one clever introspection that breaks on a Zod
 // upgrade.
-function listReports() {
-  return REPORTS.map((r) => ({
-    id: r.id,
-    label: r.label,
-    description: r.description,
-    columns: r.columns,
-    fields: r.fields,
-    requiresFeature: r.requiresFeature || null,
-  }));
+//
+// `prisma` is a parameter here, not a require at the top of this file, on
+// purpose: this module stays DB-agnostic (it's a registry, not a query
+// runner), and the one thing that needs live data -- a report whose filter
+// options come from what's actually on file, like Trip History's trip
+// types and years -- gets it handed in by the route instead. A report
+// module opts into that by exporting `resolveFields(prisma)`, which returns
+// its `fields` with the dynamic ones filled in; a report with no such
+// method just uses its static `fields` unchanged, same as before.
+async function listReports(prisma) {
+  return Promise.all(
+    REPORTS.map(async (r) => ({
+      id: r.id,
+      label: r.label,
+      description: r.description,
+      columns: r.columns,
+      fields: r.resolveFields ? await r.resolveFields(prisma) : r.fields,
+      requiresFeature: r.requiresFeature || null,
+    }))
+  );
 }
 
 module.exports = { REPORTS, getReport, listReports };
