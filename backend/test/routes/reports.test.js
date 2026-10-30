@@ -14,6 +14,16 @@ const {
   FIXTURE_TAG,
 } = require("./helpers");
 
+// The CSV starts with a UTF-8 BOM so Excel reads it as UTF-8 (see
+// utils/csv.js). Stripped by code point rather than by a regex with an
+// escape in it: writing that escape into this file keeps coming back as a
+// literal BOM character, which is invisible in a diff and fails
+// eslint's no-irregular-whitespace.
+const BOM_CODE_POINT = 0xfeff;
+function stripBom(text) {
+  return text.charCodeAt(0) === BOM_CODE_POINT ? text.slice(1) : text;
+}
+
 // The Reports section is read-only, so the gate that matters here is the one
 // it DOESN'T have: no role check. Any account that can sign in already reads
 // every partner's full record (ADMIN_GUIDE.md § Who can see what), and roles
@@ -134,7 +144,9 @@ describe("CSV export", () => {
     assert.match(res.headers.get("content-type"), /text\/csv/);
     assert.match(res.headers.get("content-disposition"), /attachment; filename="upcoming-birthdays-/);
 
-    const body = res.body.replace(/^﻿/, "");
+    // Written as an escape, not the character itself: a literal BOM in the
+    // source is invisible in a diff and trips eslint's no-irregular-whitespace.
+    const body = stripBom(res.body);
     const [header] = body.split("\r\n");
     assert.equal(header, "Day,Name,Adult/Child,Turning,Partner,Field");
     assert.match(body, /Child Fixture/);
@@ -152,7 +164,7 @@ describe("CSV export", () => {
   test("one-time-needs exports too, with its own header", async () => {
     const res = await admin("/api/reports/one-time-needs?format=csv");
     assert.equal(res.status, 200);
-    const [header] = res.body.replace(/^﻿/, "").split("\r\n");
+    const [header] = stripBom(res.body).split("\r\n");
     assert.equal(header, "Requested,Partner,Need,Requested ($),Approved ($),Decided,Status");
   });
 });
