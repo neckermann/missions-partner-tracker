@@ -140,18 +140,22 @@ function renderOrgContactBlock(o) {
   return `<div class="booklet-block"><h3>Contact Info</h3>${rows.join("")}</div>`;
 }
 
-// A dedicated, full page of ruled, spaced lines for handwritten notes and
-// prayer requests — inserted immediately after an entry's detail page (see
-// buildBookletHtml) rather than squeezed alongside it, so the detail page's
-// own layout never changes and, once printed/bound, each entry gets its own
-// facing page for notes.
-function buildNotesPageHtml(name, accent) {
+// A dedicated facing page: the entry's current prayer requests up top (the
+// same block that used to sit on the detail page itself -- see
+// buildBookletHtml, which now only ever calls renderPrayerRequestsBlock
+// from here), then ruled, spaced lines for handwriting notes and any
+// further requests that come up during prayer. Inserted immediately after
+// an entry's detail page rather than squeezed alongside it, so the detail
+// page's own layout never changes and, once printed/bound, each entry gets
+// its own facing page for this.
+function buildNotesPageHtml(entity, accent, showPrayerRequests, maxPrayerRequests) {
   return `
     <section class="booklet-page booklet-notes-page" style="--accent:${accent}">
       <div class="booklet-shape shape-a"></div>
       <div class="booklet-shape shape-b"></div>
       <h2 class="booklet-notes-heading">Notes &amp; Prayer Requests</h2>
-      <p class="booklet-notes-subheading">${escapeHtml(name)}</p>
+      <p class="booklet-notes-subheading">${escapeHtml(entity.displayName)}</p>
+      ${showPrayerRequests ? renderPrayerRequestsBlock(entity, maxPrayerRequests) : ""}
       <div class="booklet-notes-lines"></div>
       ${pageNumberMarkup()}
     </section>`;
@@ -172,7 +176,7 @@ function buildBlankPageHtml() {
 // One page per organization — leaner than a missionary page (no family/trip
 // capacity), just the fields explicitly asked for: type/region, supporting
 // since, contact info, overview, and focus.
-function buildOrganizationPageHtml(o, index, maxPrayerRequests) {
+function buildOrganizationPageHtml(o, index) {
   const palette = PALETTE[index % PALETTE.length];
   const eyebrow = [o.orgType, o.fieldDisplayName].filter(Boolean).join(" · ");
 
@@ -186,7 +190,6 @@ function buildOrganizationPageHtml(o, index, maxPrayerRequests) {
       ${renderOrgContactBlock(o)}
       ${o.overview ? `<div class="booklet-callout"><p>${escapeHtml(o.overview)}</p></div>` : ""}
       ${o.focusArea ? `<div class="booklet-block"><h3>Focus Area</h3><p>${escapeHtml(o.focusArea)}</p></div>` : ""}
-      ${renderPrayerRequestsBlock(o, maxPrayerRequests)}
       <div class="booklet-footer">${escapeHtml(o.displayName)}</div>
       ${pageNumberMarkup()}
     </section>`;
@@ -245,7 +248,7 @@ function buildBackCoverHtml({ churchName, logo, address, phone, websiteLink, acc
     </section>`;
 }
 
-function buildMissionaryPageHtml(m, index, fields, maxPrayerRequests) {
+function buildMissionaryPageHtml(m, index, fields) {
   const palette = PALETTE[index % PALETTE.length];
   const physical = (m.addresses || []).find((a) => a.type === "physical");
   const mailing = (m.addresses || []).find((a) => a.type === "mailing");
@@ -262,7 +265,6 @@ function buildMissionaryPageHtml(m, index, fields, maxPrayerRequests) {
       ${fields.showMailing ? renderAddressBlock("Mailing & Contact Address", mailing) : ""}
       ${renderFamilyBlock(m, fields)}
       ${fields.showSendingParty ? renderSendingPartyBlock(m) : ""}
-      ${fields.showPrayerRequests ? renderPrayerRequestsBlock(m, maxPrayerRequests) : ""}
       <div class="booklet-footer">${escapeHtml(m.displayName)}</div>
       ${pageNumberMarkup()}
     </section>`;
@@ -365,7 +367,12 @@ function buildBookletHtml({
   // no way to guarantee fixed page heights in HTML/CSS without truncating
   // real data, so that's a residual edge case, not something padding fixes.
   let pageCount = 0;
-  const withNotes = !!fields.showNotesPage;
+  // Prayer requests only ever render on the notes page now (see
+  // buildNotesPageHtml) -- the UI forces showNotesPage on whenever
+  // showPrayerRequests is, but this guards the invariant here too, so a
+  // caller that only sets showPrayerRequests doesn't silently lose that
+  // content.
+  const withNotes = !!(fields.showNotesPage || fields.showPrayerRequests);
   function pad() {
     if (withNotes && pageCount % 2 === 0) {
       pageCount += 1;
@@ -384,11 +391,11 @@ function buildBookletHtml({
       .map((m, i) => {
         const palette = PALETTE[i % PALETTE.length];
         pageCount += 1;
-        const detailPage = buildMissionaryPageHtml(m, i, fields, maxPrayerRequests);
+        const detailPage = buildMissionaryPageHtml(m, i, fields);
         let notesPage = "";
         if (withNotes) {
           pageCount += 1;
-          notesPage = buildNotesPageHtml(m.displayName, palette.accent);
+          notesPage = buildNotesPageHtml(m, palette.accent, fields.showPrayerRequests, maxPrayerRequests);
         }
         return detailPage + notesPage;
       })
@@ -418,11 +425,11 @@ function buildBookletHtml({
         .map((o, i) => {
           const palette = PALETTE[i % PALETTE.length];
           pageCount += 1;
-          const detailPage = buildOrganizationPageHtml(o, i, maxPrayerRequests);
+          const detailPage = buildOrganizationPageHtml(o, i);
           let notesPage = "";
           if (withNotes) {
             pageCount += 1;
-            notesPage = buildNotesPageHtml(o.displayName, palette.accent);
+            notesPage = buildNotesPageHtml(o, palette.accent, fields.showPrayerRequests, maxPrayerRequests);
           }
           return detailPage + notesPage;
         })
@@ -471,7 +478,7 @@ const FIELD_OPTIONS = [
   [
     "showPrayerRequests",
     "Prayer Requests",
-    'Only strategic requests marked both "Show on public profile" and "Include in printed booklet" -- capped per partner below.',
+    'Printed at the top of each entry\'s Notes & Prayer page, which this turns on too. Only strategic requests marked both "Show on public profile" and "Include in printed booklet" -- capped per partner below.',
   ],
   ["showNotesPage", "Notes & Prayer Page (facing page per entry)"],
 ];
@@ -532,7 +539,16 @@ export default function AdminBooklet() {
   }, [settingsLoading, usePartnerTermInAdmin, partnerTermPlural]);
 
   function toggleField(key) {
-    setFields((f) => ({ ...f, [key]: !f[key] }));
+    setFields((f) => {
+      const next = { ...f, [key]: !f[key] };
+      // Prayer requests only ever print on the Notes & Prayer page now (see
+      // buildNotesPageHtml) -- there's nowhere else left for them to show
+      // up, so turning this on has to bring that page with it. The
+      // checkbox below is disabled while this is on, so there's no way
+      // back into the inconsistent state from that side either.
+      if (key === "showPrayerRequests" && next.showPrayerRequests) next.showNotesPage = true;
+      return next;
+    });
   }
 
   // Synchronous now that paged.js is gone -- building the HTML string is
@@ -659,12 +675,24 @@ export default function AdminBooklet() {
           <div className="admin-section">
             <h3>What Shows on Each Page</h3>
             <div className="admin-checkbox-row">
-              {FIELD_OPTIONS.map(([key, label, tooltip]) => (
-                <label key={key} title={tooltip}>
-                  <input type="checkbox" checked={fields[key]} onChange={() => toggleField(key)} />
-                  {label}
-                </label>
-              ))}
+              {FIELD_OPTIONS.map(([key, label, tooltip]) => {
+                // Prayer requests now print at the top of the Notes &
+                // Prayer page itself, so that page can't be turned off
+                // while they're showing -- there'd be nowhere left to
+                // print them.
+                const lockedOn = key === "showNotesPage" && fields.showPrayerRequests;
+                return (
+                  <label key={key} title={lockedOn ? "Required while Prayer Requests is on" : tooltip}>
+                    <input
+                      type="checkbox"
+                      checked={fields[key]}
+                      disabled={lockedOn}
+                      onChange={() => toggleField(key)}
+                    />
+                    {label}
+                  </label>
+                );
+              })}
             </div>
             {fields.showPrayerRequests && (
               <label

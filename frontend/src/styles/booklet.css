@@ -51,8 +51,22 @@ body {
 .booklet-page {
   position: relative;
   min-height: 9.2in;
+  /* Not overflow: hidden. The only thing in this file that ever renders
+     outside a page's own normal-flow box is the Friendly template's
+     photo, pulled up via negative margin to tuck under its header band
+     (the only negative margin anywhere here) -- min-height alone never
+     causes clipped overflow, it just lets the box grow taller to fit
+     content, which is exactly the "an overlong entry spills onto an
+     extra physical page" behavior this file's comments describe
+     elsewhere as the accepted fallback. overflow: hidden would clip that
+     photo by geometry, not paint order -- it doesn't matter that the
+     photo is a child painted after the band's own border, overflow:
+     hidden cuts away anything outside the box regardless of stacking
+     order, which is exactly the bug this used to cause (half the photo,
+     hair and forehead, silently gone on every Friendly page). Leaving
+     overflow at its default lets the photo actually layer over the band
+     as a visible circle instead. */
   break-after: page;
-  overflow: hidden;
   padding: 0.25in;
 }
 
@@ -102,35 +116,30 @@ body {
   break-inside: avoid;
 }
 
-/* A dedicated full page of ruled, spaced lines for handwritten notes and
-   prayer requests, inserted as its own page immediately after an entry's
-   detail page (see buildNotesPageHtml) — the detail page's own layout is
-   untouched. The ruled-line mechanic itself is shared; heading style is
-   templated below. */
+/* A dedicated full page: the entry's current prayer requests up top (see
+   buildNotesPageHtml, and .booklet-block's own styling below for that),
+   then ruled, spaced lines for handwriting notes and any further requests
+   -- inserted as its own page immediately after an entry's detail page.
+   The detail page's own layout is untouched. The ruled-line mechanic
+   itself is shared; heading style is templated below. */
 .booklet-notes-page {
   display: flex;
   flex-direction: column;
 }
 .booklet-notes-lines {
-  /* A fixed height, not flex: 1. paged.js chunks content by measuring
-     intrinsic sizes before a page's final height is settled, and
-     .booklet-page (above) only sets min-height -- so flex: 1 here had
-     nothing definite to resolve against during that measurement pass.
-     That's a documented paged.js failure mode, and it was the actual
-     cause of the crash this file's own history records ("Cannot read
-     properties of null (reading 'getBoundingClientRect')", thrown deep in
-     paged.js's layout engine): with the Notes & Prayer page enabled
-     (the default), pagination aborted partway through every template,
-     silently dropping every page after that point -- including the back
-     cover.
-     7in leaves roughly 1.7in for the heading and subheading above it
+  /* A fixed height, not flex: 1 -- .booklet-page only sets min-height, not
+     height, and a flex child can't grow to fill a container whose own
+     size isn't definite, it just reverts to its content size (here,
+     nothing, since this div has none). 5in leaves roughly 3.7in above it
      within .booklet-page's ~8.7in usable height (9.2in min-height minus
-     0.25in padding top and bottom), comfortably clearing every template's
-     heading size. If a future template's heading runs unusually tall, the
-     established fallback elsewhere in this file is the same one already
-     accepted for an overlong entry: the page grows and the content spills
-     onto an extra physical page -- a layout nuisance, never a crash. */
-  height: 7in;
+     0.25in padding top and bottom) -- comfortably clearing the heading,
+     subheading, and a typical prayer-requests block (a handful of
+     short/medium requests). An entry with an unusually long one eats into
+     this space; the established fallback elsewhere in this file is the
+     same one already accepted for an overlong detail page: the page grows
+     and the content spills onto an extra physical page -- a layout
+     nuisance, never a crash. */
+  height: 5in;
   background-image: linear-gradient(
     to bottom,
     transparent calc(0.4in - 1px),
@@ -978,22 +987,19 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   float: none;
   display: block;
-  /* Pulled up to straddle the bottom edge of the 0.9in header band above.
-     The negative margin is measured from where the photo would otherwise
-     sit in normal flow -- right at the band's bottom edge, since
-     padding-top is 0 -- so -0.9in puts the photo's own top edge exactly at
-     the page's top edge (0.9in border minus 0.9in margin = 0), and nothing
-     extends above it.
-     That boundary matters because .booklet-page clips at it (overflow:
-     hidden, above). The previous value here was -1.35in -- 0.45in more
-     than the band is tall -- which pushed the top quarter of the circle
-     above that boundary and clipped it clean off, visible as a flat-topped
-     sliver poking out from under the band instead of a full circle
-     breaking out of it. Backed off from the exact tangent point (-0.9in)
-     by another tenth of an inch so the photo doesn't sit flush against the
-     clip edge, which asked for trouble from sub-pixel rounding differences
-     between paged.js's on-screen preview and an actual print render. */
-  margin: -0.8in auto 0.2in;
+  /* Pulled up to straddle the bottom edge of the 0.9in header band above,
+     so the photo reads as a badge layered on top of it -- see .booklet-
+     page's own comment for why that layering actually renders now
+     (overflow isn't hidden) instead of being clipped away. -0.9in puts
+     the photo's own top edge exactly at the page's top edge (0.9in border
+     minus 0.9in margin = 0), splitting the circle evenly: its top half
+     sits over the band, its bottom half below it. A previous value here,
+     -1.35in, pulled the photo up another 0.45in past that point -- with
+     overflow: hidden still active (the bug this was fixed alongside),
+     that pushed part of the circle above the page's own top edge and
+     clipped it clean off; it would just as cleanly slide off the top of
+     the printed sheet now instead, so that value stays retired. */
+  margin: -0.9in auto 0.2in;
 }
 .tpl-friendly .booklet-eyebrow {
   text-align: center;
