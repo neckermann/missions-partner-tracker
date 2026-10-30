@@ -1,7 +1,9 @@
 /* Print-only visual system for the missionary booklet (AdminBooklet.jsx).
-   Loaded exclusively via paged.js's Previewer, never imported globally —
-   these @page rules are meant to apply only to this generated document,
-   not to printing the rest of the admin app.
+   A plain, route-level import — Vite code-splits it into the Booklet
+   route's own chunk, so it still only loads on navigation there, but it's
+   an ordinary stylesheet now rather than a URL handed to a pagination
+   polyfill. The @page rule below applies document-wide while this page
+   is open, same as the (identical) one in index.css for Reports.
 
    Six selectable templates share one HTML structure (built once in
    AdminBooklet.jsx's buildBookletHtml et al.) and differ only in how
@@ -19,13 +21,20 @@
   margin: 0.6in;
 }
 
-@page {
-  @bottom-right {
-    content: counter(page);
-    font-size: 9pt;
-    color: #888;
-    font-family: Arial, sans-serif;
-  }
+/* Page numbers used to be an @page margin box (@bottom-right { content:
+   counter(page) }) under paged.js's polyfill. Chromium's print/PDF engine
+   doesn't implement CSS Paged Media margin boxes at all -- that's the
+   actual reason paged.js existed -- so under native printing that rule
+   silently renders nothing. Real numbers are emitted straight into each
+   page's HTML instead (see PAGE_NUM / pageNumberMarkup in
+   AdminBooklet.jsx); this just positions them. */
+.booklet-page-number {
+  position: absolute;
+  right: 0.3in;
+  bottom: 0.3in;
+  font-size: 9pt;
+  color: #888;
+  font-family: Arial, sans-serif;
 }
 
 * {
@@ -49,6 +58,12 @@ body {
 
 .booklet-name {
   margin: 0 0 0.2in;
+}
+.booklet-supporting-since {
+  font-family: Arial, sans-serif;
+  font-size: 11pt;
+  color: #555;
+  margin: 0 0 0.15in;
 }
 .booklet-photo {
   width: 1.4in;
@@ -87,8 +102,25 @@ body {
   flex-direction: column;
 }
 .booklet-notes-lines {
-  flex: 1;
-  min-height: 5in;
+  /* A fixed height, not flex: 1. paged.js chunks content by measuring
+     intrinsic sizes before a page's final height is settled, and
+     .booklet-page (above) only sets min-height -- so flex: 1 here had
+     nothing definite to resolve against during that measurement pass.
+     That's a documented paged.js failure mode, and it was the actual
+     cause of the crash this file's own history records ("Cannot read
+     properties of null (reading 'getBoundingClientRect')", thrown deep in
+     paged.js's layout engine): with the Notes & Prayer page enabled
+     (the default), pagination aborted partway through every template,
+     silently dropping every page after that point -- including the back
+     cover.
+     7in leaves roughly 1.7in for the heading and subheading above it
+     within .booklet-page's ~8.7in usable height (9.2in min-height minus
+     0.25in padding top and bottom), comfortably clearing every template's
+     heading size. If a future template's heading runs unusually tall, the
+     established fallback elsewhere in this file is the same one already
+     accepted for an overlong entry: the page grows and the content spills
+     onto an extra physical page -- a layout nuisance, never a crash. */
+  height: 7in;
   background-image: linear-gradient(
     to bottom,
     transparent calc(0.4in - 1px),

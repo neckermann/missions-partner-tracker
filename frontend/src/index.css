@@ -876,13 +876,13 @@ a {
 }
 
 /* Printing a report.
-   
-   Plain CSS rather than the pagedjs the booklet uses. A report is a table,
-   and the browser already knows how to break one across pages and repeat
-   its header -- that is what thead does when printed. pagedjs exists for
-   the booklet's per-partner layout, it is loaded from a CDN, and script-src
-   is 'self', so it is a dependency and a CSP question this does not need.
-   
+
+   Plain CSS -- the same native @page/break-after approach the booklet now
+   uses too (see booklet.css). A report is a table, and the browser already
+   knows how to break one across pages and repeat its header -- that is what
+   thead does when printed. No pagination library, no CDN script, no CSP
+   question.
+
    The viewer's own print dialog handles "Save as PDF", which is why there
    is no PDF library here at all. */
 @page {

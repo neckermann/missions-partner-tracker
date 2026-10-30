@@ -20,11 +20,11 @@ import { test, expect } from "@playwright/test";
 const ADMIN_ONLY_MARKERS = [
   // The booklet used to pull its pagination library from a CDN at
   // runtime, which doubled as a marker here: a URL string that could only
-  // ever appear in admin code. It's gone now -- the booklet prints via the
-  // same bundled pagedjs Previewer the on-screen preview already uses (see
-  // AdminBooklet.jsx), not a second copy loaded from unpkg.com into a
-  // detached document -- so there's no longer a URL to check for. The
-  // class name below still marks the feature just as well.
+  // ever appear in admin code. It's gone now -- the booklet builds its own
+  // HTML string and prints it natively via window.print() (see
+  // AdminBooklet.jsx), no pagination library, bundled or CDN, at all -- so
+  // there's no longer a URL to check for. The class name below still marks
+  // the feature just as well.
   "booklet-page", // the booklet's print stylesheet class
   "/api/support-entries", // admin-only endpoints
   "/api/prayer-requests",
