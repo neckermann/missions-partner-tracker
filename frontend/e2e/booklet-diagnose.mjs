@@ -43,15 +43,13 @@ const TEMPLATE_LABELS = {
 };
 async function selectTemplate(tpl) {
   await page.getByText(TEMPLATE_LABELS[tpl], { exact: true }).click();
-  await page.getByRole("button", { name: "Update Preview" }).click();
-  await page.locator(".booklet-preview").waitFor({ timeout: 15000 });
-  await page.waitForTimeout(800); // paged.js pagination settles asynchronously
+  await page.locator(".booklet-preview").waitFor();
 }
 
 // --- 1. Friendly template: is the header-photo overlap still clipped? ---
 await selectTemplate("friendly");
 const friendlyPhotoPage = page
-  .locator(".booklet-preview .pagedjs_page")
+  .locator(".booklet-preview section")
   .filter({ has: page.locator(".booklet-photo") })
   .first();
 await friendlyPhotoPage.screenshot({ path: path.join(outDir, "1-friendly-header.png") });
@@ -86,7 +84,7 @@ await page.waitForTimeout(500);
 const printDiag = await page.evaluate(() => {
   const imgs = [...document.querySelectorAll(".booklet-preview img")];
   return {
-    pagedjsPageCount: document.querySelectorAll(".booklet-preview .pagedjs_page").length,
+    pageCount: document.querySelectorAll(".booklet-preview section").length,
     imgCount: imgs.length,
     imgsWithZeroWidth: imgs.filter((i) => i.complete && i.naturalWidth === 0).length,
     sidebarVisible: getComputedStyle(document.querySelector(".admin-sidebar") || document.body).visibility,
@@ -96,7 +94,7 @@ const printDiag = await page.evaluate(() => {
 console.log("[print media]", JSON.stringify(printDiag, null, 2));
 
 const printPhotoPage = page
-  .locator(".booklet-preview .pagedjs_page")
+  .locator(".booklet-preview section")
   .filter({ has: page.locator(".booklet-photo") })
   .first();
 if (await printPhotoPage.count()) {

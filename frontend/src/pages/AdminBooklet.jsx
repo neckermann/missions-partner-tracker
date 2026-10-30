@@ -1,8 +1,24 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { fetchPartners, fetchChurchSettings } from "../api/client.js";
-import bookletCssUrl from "../styles/booklet.css?url";
+import "../styles/booklet.css";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { formatDateLong } from "../utils/format.js";
+
+// Every page-producing template below ends with this exact placeholder.
+// buildBookletHtml does one pass over the fully-assembled document at the
+// very end, replacing each occurrence in document order with that page's
+// real number (see the comment there). A literal, unlikely-to-collide
+// token rather than a template parameter threaded through every builder
+// function and every call site -- the old pagedjs-based version tracked a
+// hand-maintained `pageCount` integer in parallel with the actual HTML
+// being built, across several branches (missionaries / local orgs /
+// national orgs / notes on or off), which is exactly the kind of
+// bookkeeping that's easy to get subtly wrong. Numbering driven by what
+// literally ends up in the final HTML can't drift from it.
+const PAGE_NUM = "@@BOOKLET_PAGE_NUM@@";
+function pageNumberMarkup() {
+  return `<div class="booklet-page-number">${PAGE_NUM}</div>`;
+}
 
 // Rotates per missionary page so the booklet doesn't look monotone —
 // easy to swap for real brand colors later.
@@ -137,6 +153,7 @@ function buildNotesPageHtml(name, accent) {
       <h2 class="booklet-notes-heading">Notes &amp; Prayer Requests</h2>
       <p class="booklet-notes-subheading">${escapeHtml(name)}</p>
       <div class="booklet-notes-lines"></div>
+      ${pageNumberMarkup()}
     </section>`;
 }
 
@@ -148,6 +165,7 @@ function buildBlankPageHtml() {
   return `
     <section class="booklet-page booklet-blank-page">
       <p>This page is intentionally left blank.</p>
+      ${pageNumberMarkup()}
     </section>`;
 }
 
@@ -164,12 +182,13 @@ function buildOrganizationPageHtml(o, index, maxPrayerRequests) {
       <div class="booklet-shape shape-b"></div>
       <p class="booklet-eyebrow">${escapeHtml(eyebrow)}</p>
       <h2 class="booklet-name">${escapeHtml(o.displayName)}</h2>
-      ${o.supportingSince ? `<p style="font-family: Arial, sans-serif; font-size: 11pt; color: #555; margin: 0 0 0.15in;">Partnering since ${escapeHtml(formatDateLong(o.supportingSince, { fallback: "" }))}</p>` : ""}
+      ${o.supportingSince ? `<p class="booklet-supporting-since">Partnering since ${escapeHtml(formatDateLong(o.supportingSince, { fallback: "" }))}</p>` : ""}
       ${renderOrgContactBlock(o)}
       ${o.overview ? `<div class="booklet-callout"><p>${escapeHtml(o.overview)}</p></div>` : ""}
       ${o.focusArea ? `<div class="booklet-block"><h3>Focus Area</h3><p>${escapeHtml(o.focusArea)}</p></div>` : ""}
       ${renderPrayerRequestsBlock(o, maxPrayerRequests)}
       <div class="booklet-footer">${escapeHtml(o.displayName)}</div>
+      ${pageNumberMarkup()}
     </section>`;
 }
 
@@ -181,6 +200,7 @@ function buildSectionDivider(title, accent) {
       <div class="booklet-shape shape-a"></div>
       <div class="booklet-shape shape-b"></div>
       <h1 class="booklet-cover-title" style="font-size: 36pt;">${escapeHtml(title)}</h1>
+      ${pageNumberMarkup()}
     </section>`;
 }
 
@@ -221,6 +241,7 @@ function buildBackCoverHtml({ churchName, logo, address, phone, websiteLink, acc
           ? `<p class="booklet-back-contact">${[phone, websiteLink].filter(Boolean).map(escapeHtml).join(" · ")}</p>`
           : ""
       }
+      ${pageNumberMarkup()}
     </section>`;
 }
 
@@ -243,6 +264,7 @@ function buildMissionaryPageHtml(m, index, fields, maxPrayerRequests) {
       ${fields.showSendingParty ? renderSendingPartyBlock(m) : ""}
       ${fields.showPrayerRequests ? renderPrayerRequestsBlock(m, maxPrayerRequests) : ""}
       <div class="booklet-footer">${escapeHtml(m.displayName)}</div>
+      ${pageNumberMarkup()}
     </section>`;
 }
 
@@ -312,6 +334,7 @@ function buildBookletHtml({
       <h1 class="booklet-cover-title">${escapeHtml(title)}</h1>
       <p class="booklet-cover-subtitle">${escapeHtml(subtitle)}</p>
       <p class="booklet-cover-date">${escapeHtml(generatedDate)}</p>
+      ${pageNumberMarkup()}
     </section>`;
 
   const index = `
@@ -325,6 +348,7 @@ function buildBookletHtml({
           )
           .join("")}
       </ul>
+      ${pageNumberMarkup()}
     </section>`;
 
   // Booklet/duplex printing folds sheets in half, so opened flat, only
@@ -384,6 +408,7 @@ function buildBookletHtml({
             .map((o) => `<li>${escapeHtml(o.displayName)} — ${escapeHtml(o.orgType)}</li>`)
             .join("")}
         </ul>
+        ${pageNumberMarkup()}
       </section>`;
     orgSection += orgIndex;
     pageCount += 1;
@@ -426,7 +451,13 @@ function buildBookletHtml({
     accent: PALETTE[0].accent,
   });
 
-  return `<div class="tpl-${template}">${cover}${index}${pages}${orgSection}${backCover}</div>`;
+  const assembled = `<div class="tpl-${template}">${cover}${index}${pages}${orgSection}${backCover}</div>`;
+
+  // One pass, numbering every PAGE_NUM placeholder in the order it
+  // actually appears in the document -- see the constant's own comment for
+  // why this replaces a hand-maintained running counter.
+  let pageNumber = 0;
+  return assembled.replaceAll(PAGE_NUM, () => String(++pageNumber));
 }
 
 const FIELD_OPTIONS = [
@@ -465,8 +496,6 @@ export default function AdminBooklet() {
   const [subtitle, setSubtitle] = useState("Prayer & Support Directory");
   const [maxPrayerRequests, setMaxPrayerRequests] = useState(4);
   const [template, setTemplate] = useState("classic");
-  const [rendering, setRendering] = useState(false);
-  const previewRef = useRef(null);
   const {
     partnerTermPlural,
     usePartnerTermInAdmin,
@@ -506,76 +535,55 @@ export default function AdminBooklet() {
     setFields((f) => ({ ...f, [key]: !f[key] }));
   }
 
-  async function updatePreview() {
-    setRendering(true);
-    try {
-      const filtered = missionaries.filter((m) => {
-        const archivedOk = !m.archived || includeArchived;
-        const restrictedOk = !m.isRestricted || includeRestricted;
-        return archivedOk && restrictedOk;
-      });
-      const includedOrgs = organizations.filter((o) => !o.archived || includeArchived);
-      const html = buildBookletHtml({
-        missionaries: filtered,
-        organizations: includedOrgs,
-        includeOrganizations,
-        title,
-        subtitle,
-        fields,
-        maxPrayerRequests,
-        template,
-        churchName,
-        logo,
-        ...churchContact,
-      });
+  // Synchronous now that paged.js is gone -- building the HTML string is
+  // just string concatenation, so there's no reason to gate it behind a
+  // button the way the old async pagedjs render was. Depends on
+  // churchContact (an object, replaced wholesale by its own effect above)
+  // rather than its individual fields, which is fine: it's never mutated
+  // in place, only ever replaced.
+  const previewHtml = useMemo(() => {
+    const filtered = missionaries.filter((m) => {
+      const archivedOk = !m.archived || includeArchived;
+      const restrictedOk = !m.isRestricted || includeRestricted;
+      return archivedOk && restrictedOk;
+    });
+    const includedOrgs = organizations.filter((o) => !o.archived || includeArchived);
+    return buildBookletHtml({
+      missionaries: filtered,
+      organizations: includedOrgs,
+      includeOrganizations,
+      title,
+      subtitle,
+      fields,
+      maxPrayerRequests,
+      template,
+      churchName,
+      logo,
+      ...churchContact,
+    });
+  }, [
+    missionaries,
+    organizations,
+    includeArchived,
+    includeRestricted,
+    includeOrganizations,
+    title,
+    subtitle,
+    fields,
+    maxPrayerRequests,
+    template,
+    churchName,
+    logo,
+    churchContact,
+  ]);
 
-      const { Previewer } = await import("pagedjs");
-      previewRef.current.innerHTML = "";
-      await new Previewer().preview(html, [bookletCssUrl], previewRef.current);
-    } finally {
-      setRendering(false);
-    }
-  }
-
-  // Render an initial preview as soon as data loads; after that the user
-  // drives content updates explicitly via the button (re-chunking with
-  // paged.js isn't cheap enough to re-run on every checkbox click) --
-  // template changes are the exception, re-rendering immediately, since
-  // comparing looks is the whole point of having more than one and a
-  // manual button press in between would just get in the way. Depends on
-  // both fetches since they resolve independently — without this, a
-  // preview rendered before organizations finish loading would just miss
-  // that section until "Update Preview" is clicked manually.
-  useEffect(() => {
-    if (missionaries.length > 0) updatePreview();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [missionaries, organizations, template, churchContact]);
-
-  // This used to build a second, separate document -- the booklet HTML
-  // re-paginated from scratch by a copy of paged.js loaded from a CDN --
-  // opened in a new tab via a blob: URL, specifically to avoid the admin
-  // chrome (sidebar, buttons) showing up in the print. That no longer
-  // works at all: a blob: document inherits this app's CSP, which is
-  // `script-src 'self'`, so the CDN script silently never runs (verified:
-  // window.PagedPolyfill was undefined in the opened tab, and zero
-  // .pagedjs_page elements existed -- no pagination happened). Separately,
-  // and independently of CSP, every <img src="/api/photos/..."> in that
-  // document failed too: root-relative URLs don't resolve against a blob:
-  // document's base URI the way they do against a real page (confirmed --
-  // img.src came back as the literal unresolved path, with no origin, so
-  // the browser had nothing to fetch).
-  //
-  // The fix is to stop duplicating the work. `.booklet-preview` below is
-  // already paginated by the real, bundled Previewer (see updatePreview) --
-  // same origin, same document, ordinary root-relative image URLs that
-  // resolve normally. Printing *that* is paged.js's actual intended
-  // workflow: the on-screen preview is built to be print-accurate, and its
-  // own bundled CSS already strips the screen-only scroll chrome (page
-  // gaps, drop shadows) under @media print. The admin-chrome concern the
-  // old comment raised is also already handled, in index.css: everything
-  // but .booklet-preview is hidden on print (the same rule Reports relies
-  // on), so this is an ordinary window.print() with nothing else on the
-  // page -- just without a second render pass or a third-party script.
+  // `.booklet-preview` below renders previewHtml directly -- same origin,
+  // same document, ordinary root-relative image URLs that resolve
+  // normally, native @page/break-after pagination instead of a polyfill.
+  // Printing it is an ordinary window.print() with nothing else on the
+  // page: index.css already hides everything but .booklet-preview on
+  // print (the same rule Reports relies on), so there's no second render
+  // pass and no third-party script in the loop at all.
   function handlePrint() {
     window.print();
   }
@@ -690,17 +698,14 @@ export default function AdminBooklet() {
           </div>
 
           <div style={{ display: "flex", gap: "0.75rem" }}>
-            <button className="btn" onClick={updatePreview} disabled={rendering}>
-              {rendering ? "Rendering..." : "Update Preview"}
-            </button>
-            <button className="btn secondary" onClick={handlePrint}>
+            <button className="btn" onClick={handlePrint}>
               Print Booklet
             </button>
           </div>
         </div>
       </div>
 
-      <div ref={previewRef} className="booklet-preview" />
+      <div className="booklet-preview" dangerouslySetInnerHTML={{ __html: previewHtml }} />
     </>
   );
 }
