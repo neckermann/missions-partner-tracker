@@ -289,9 +289,22 @@ export default function AdminReports() {
                 )}
               </label>
             ))}
-            <div style={{ gridColumn: "1 / -1" }}>
+            <div style={{ gridColumn: "1 / -1", display: "flex", gap: "0.5rem" }}>
               <button type="submit" className="btn" disabled={running}>
                 {running ? "Running…" : "Run report"}
+              </button>
+              {/* Matches the Reset Filters control the resource pages
+                  (AdminTripHistory.jsx and others) already have. Generic
+                  here rather than per-report: re-reads the defaults the
+                  same way the form did on first load, so a report with
+                  server-resolved options (Trip History's trip types and
+                  years) resets to the real "All", not a stale snapshot. */}
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => setValues(initialValues(selected))}
+              >
+                Reset Filters
               </button>
             </div>
           </form>
