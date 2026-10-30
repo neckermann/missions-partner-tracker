@@ -39,6 +39,18 @@
 
 * {
   box-sizing: border-box;
+  /* Chromium strips background colors and images by default when
+     printing, to save ink -- every decorative shape, tinted callout,
+     colored header band, and pill badge across all six templates is a
+     background, so without this they simply don't exist in a real
+     printed page or a browser's own "Save as PDF". This was invisible in
+     all of this feature's own testing because Playwright's page.pdf()
+     takes printBackground: true as a call argument, which bypasses the
+     browser's default and masks exactly this bug -- a real person
+     clicking Print Booklet and using their browser's print dialog has no
+     such override. */
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
 body {
