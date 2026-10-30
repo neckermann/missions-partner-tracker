@@ -973,23 +973,25 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   float: none;
   display: block;
-  /* Pulled up to straddle the bottom edge of the 0.9in header band above.
-     The negative margin is measured from where the photo would otherwise
-     sit in normal flow -- right at the band's bottom edge, since
-     padding-top is 0 -- so -0.9in puts the photo's own top edge exactly at
-     the page's top edge (0.9in border minus 0.9in margin = 0), and nothing
-     extends above it.
-     That boundary matters because .booklet-page clips at it (overflow:
-     hidden, above). The previous value here was -1.35in -- 0.45in more
-     than the band is tall -- which pushed the top quarter of the circle
-     above that boundary and clipped it clean off, visible as a flat-topped
-     sliver poking out from under the band instead of a full circle
-     breaking out of it. This sits at the exact tangent point rather than
-     backed off from it: that backoff existed only to dodge sub-pixel
-     rounding differences between paged.js's separate on-screen preview
-     engine and the actual print engine -- with paged.js gone, screen and
-     print are the same render pass, so there's nothing left to dodge. */
-  margin: -0.9in auto 0.2in;
+  /* Pulled up to tuck the top of the photo under the bottom edge of the
+     0.9in header band above, badge-style. The negative margin is measured
+     from where the photo would otherwise sit in normal flow -- right at
+     the band's bottom edge, since padding-top is 0 -- and .booklet-page
+     clips at that same line (overflow: hidden, above padding-top: 0 means
+     the padding box starts exactly there). overflow: hidden clips by
+     geometry, not paint order: it doesn't matter that the photo is a
+     child painted after the band's own border, anything pulled above that
+     line is genuinely cut away, not merely drawn under the band. So the
+     margin's magnitude *is* how much of the photo gets clipped --
+     parity, not a coincidence.
+     A previous value here, -1.35in, clipped 1.35in of the photo's 1.8in
+     height -- a flat-topped quarter-circle sliver poking out from under
+     the band. A later value, -0.9in (this file's own prior history),
+     clipped exactly half the circle, hair and all -- a smaller mistake,
+     same kind. -0.3in clips a shallow 0.3in (under a sixth of the circle)
+     so only the very top of the photo tucks under the band and the rest
+     -- face, hair included -- reads as a normal portrait. */
+  margin: -0.3in auto 0.2in;
 }
 .tpl-friendly .booklet-eyebrow {
   text-align: center;
