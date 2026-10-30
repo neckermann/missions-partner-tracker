@@ -14,12 +14,21 @@ router.use(requireFeature(["publicDirectory", "publicMap"]));
 // missionary-only relations (adults, children, sendingParties) come back
 // empty for an organization, so one include serves both kinds.
 //
-// adults/children are fetched but never themselves exposed -- they only
-// determine which generic household silhouette a *restricted* missionary
-// gets (see missionaryHouseholdCategory in utils/maskData.js).
+// adults/children are never themselves exposed -- they only determine
+// which generic household silhouette a *restricted* missionary gets, and
+// missionaryHouseholdCategory (utils/maskData.js) reads nothing but their
+// `.length`.
+//
+// So they select an id and nothing else. `adults: true` means "every
+// column", which on this route meant a spouse's phone number and email and
+// every child's name and birthday being loaded on an UNAUTHENTICATED
+// request, for a counting operation. None of it was serialized, so it was
+// never a leak -- but it sat one careless `...partner` spread away from
+// being one, on the one route that needs no login at all. The cheapest
+// data to protect is data that was never fetched.
 const publicInclude = {
-  adults: true,
-  children: true,
+  adults: { select: { id: true } },
+  children: { select: { id: true } },
   sendingParties: true,
   addresses: { where: { type: "physical" } }, // only the pin coordinates are ever surfaced publicly
   // Only strategic requests an admin explicitly marked public — see the

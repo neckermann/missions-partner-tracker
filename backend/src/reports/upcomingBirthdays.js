@@ -45,7 +45,7 @@ module.exports = {
     { key: "day", label: "Day", type: "monthDay" },
     { key: "name", label: "Name" },
     { key: "personTypeLabel", label: "Adult/Child" },
-    { key: "turning", label: "Turning" },
+    { key: "turning", label: "Turning", type: "number" },
     { key: "partnerName", label: "Partner" },
     { key: "field", label: "Field" },
   ],

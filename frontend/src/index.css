@@ -855,22 +855,46 @@ a {
   display: flex;
   gap: 0.5rem;
 }
+/* Numeric columns. Tabular figures keep the digits in a column even in a
+   proportional face, which is the difference between a table that looks
+   set and one that looks typed. */
+.admin-table th.num,
+.admin-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The report letterhead.
+   
+   Hidden on screen, where the sidebar already carries the church's branding
+   and the page has a heading above. On paper the sheet has to identify
+   itself: it gets photocopied, passed round a table, and found in a drawer
+   six weeks later. */
+.report-letterhead,
+.report-filters {
+  display: none;
+}
 
 /* Printing a report.
    
-   Deliberately plain CSS rather than the pagedjs the booklet uses. A report
-   is a table, and the browser already knows how to break a table across
-   pages and repeat its header -- that is what thead does when printed.
-   pagedjs exists for the booklet's per-partner page layout, it is loaded
-   from a CDN, and script-src is 'self', so it is a dependency and a CSP
-   question this does not need.
+   Plain CSS rather than the pagedjs the booklet uses. A report is a table,
+   and the browser already knows how to break one across pages and repeat
+   its header -- that is what thead does when printed. pagedjs exists for
+   the booklet's per-partner layout, it is loaded from a CDN, and script-src
+   is 'self', so it is a dependency and a CSP question this does not need.
    
-   The viewer's own print dialog handles "Save as PDF", which is why there is
-   no PDF library here at all. */
+   The viewer's own print dialog handles "Save as PDF", which is why there
+   is no PDF library here at all. */
+@page {
+  size: letter;
+  /* Generous and even. The earlier version zeroed .admin-shell's margin,
+     which also killed its `margin: auto` -- so the report printed jammed
+     against the left edge with an inch of nothing on the right. Let the
+     page box own the margins and the content simply fills it. */
+  margin: 0.6in;
+}
+
 @media print {
-  /* Chrome and Edge omit background colours by default, which turns a
-     styled header into invisible text. Everything below assumes ink on
-     white and avoids relying on fills. */
   .admin-sidebar,
   .admin-topbar,
   .no-print,
@@ -880,21 +904,96 @@ a {
     display: none !important;
   }
 
-  .admin-shell,
+  /* Screen chrome that reads as clutter on paper: the generic page heading
+     ("Reports") and the on-screen report header, both replaced by the
+     letterhead below. */
+  .admin-shell > h2,
+  .report-header {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #1a1a1a;
+    font-size: 10pt;
+    line-height: 1.4;
+  }
+
+  .admin-shell {
+    max-width: none;
+    margin: 0;
+    /* On top of the @page margin. The page box alone left the table
+       reading as if it began at the paper's edge; this is the difference
+       between a document and a data dump. Nothing vertical, so the
+       letterhead still sits at the top of the sheet. */
+    padding: 0 0.3in;
+  }
   .admin-section {
     margin: 0;
     padding: 0;
     border: none;
     box-shadow: none;
-    max-width: none;
+    background: none;
   }
 
-  body {
-    background: #fff;
-    color: #000;
-    font-size: 11pt;
+  .report-letterhead {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-bottom: 8pt;
+    margin-bottom: 10pt;
+    /* The church's own colour, from Church Settings -- so a fork's reports
+       come out in its branding without touching this file. Borders and
+       rules rather than large fills: colour-managed printers and
+       photocopiers treat a 2pt line kindly and a full-bleed panel badly,
+       and an unknown brand colour might be pale enough that text on it
+       would be unreadable. */
+    border-bottom: 2pt solid var(--brand-color, #2a5d3c);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .report-letterhead-logo {
+    height: 46pt;
+    width: auto;
+    object-fit: contain;
+  }
+  .report-letterhead-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .report-letterhead-church {
+    font-size: 9pt;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #555;
+  }
+  .report-letterhead-title {
+    font-size: 17pt;
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--brand-color, #2a5d3c);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .report-letterhead-meta {
+    text-align: right;
+    font-size: 8.5pt;
+    color: #555;
+    white-space: nowrap;
   }
 
+  .report-filters {
+    display: block;
+    margin: 0 0 10pt;
+    font-size: 8.5pt;
+    color: #555;
+  }
+
+  table.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
   /* The point of the exercise: a long report keeps its column headings on
      every page, and no row is split down the middle. */
   table.admin-table thead {
@@ -904,22 +1003,41 @@ a {
     break-inside: avoid;
     page-break-inside: avoid;
   }
-  table.admin-table {
-    width: 100%;
-    border-collapse: collapse;
+  table.admin-table th.num,
+  table.admin-table td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
   }
-  table.admin-table th,
-  table.admin-table td {
-    border: 1px solid #999;
-    padding: 4pt 6pt;
+  table.admin-table th {
     text-align: left;
+    font-size: 8pt;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #222;
+    /* A tint of the brand colour rather than the colour itself: whatever a
+       church picks, 10% of it against white stays light enough to read
+       near-black text on. The plain #f4f4f2 is the fallback for a browser
+       without color-mix. */
+    background: #f4f4f2;
+    background: color-mix(in srgb, var(--brand-color, #2a5d3c) 10%, white);
+    border-bottom: 1.5pt solid var(--brand-color, #2a5d3c);
+    padding: 5pt 6pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-
-  /* Keep the title and the generated-on line -- a report on a desk six
-     weeks later needs to say what it is and when it was true. */
-  .report-header,
-  .report-meta {
-    display: block;
+  table.admin-table td {
+    padding: 4pt 6pt;
+    border-bottom: 0.5pt solid #d4d4d4;
+    /* Screen link colouring reads as washed-out grey in print. */
+    color: #1a1a1a;
+  }
+  /* Zebra striping needs this or Chrome and Edge drop the fill entirely and
+     the rows lose their guide. Kept very light so it survives a photocopy
+     without turning into grey mud. */
+  table.admin-table tbody tr:nth-child(even) td {
+    background: #f4f4f2;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   /* Horizontal scroll containers must not clip in print. */
