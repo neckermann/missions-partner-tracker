@@ -5,39 +5,48 @@ name: CI
 # deploys on push, so a merge here is a release. See CONTRIBUTING.md
 # § Branches and releasing.
 #
-# `main` is protected: no direct pushes, and the four jobs below must pass
-# before a PR can merge. Deployment itself isn't handled here -- see
-# render.yaml and ADMIN_GUIDE.md § Deploying anywhere else.
+# `main` is protected upstream: no direct pushes, and the four jobs below
+# must pass before a PR can merge.
 #
-# Note the asymmetry in the triggers below, which is deliberate:
+# ONE trigger, deliberately. This used to run on pushes to main and dev as
+# well, which meant three runs per change:
 #
-#   push        -- filtered by path. A docs-only commit on dev shouldn't
-#                  spin up Postgres and a browser to prove that a Markdown
-#                  file still parses.
+#   1. push to dev          |  same commit, both fired, four checks
+#   2. pull_request opened  |  reported twice ("8 pass")
+#   3. push to main         |  after the merge
 #
-#   pull_request -- NOT filtered by path, on purpose. Required status
-#                  checks only pass when the check actually reports, and a
-#                  filtered-out workflow never reports at all. Keep the
-#                  paths filter here and a docs-only PR waits forever on a
-#                  check that will never run, with no way to merge it. The
-#                  few wasted minutes are worth strictly less than a
-#                  permanently stuck pull request.
+# None of the extras were earning their keep. GitHub checks out
+# `refs/pull/N/merge` for a pull_request event -- the *result* of merging
+# dev into main -- so by the time the gate is green, the exact tree that
+# becomes main has already been tested. Verified: PR run and post-merge
+# main run had the identical tree, 48510f6.
+#
+# The main run protected nothing either. render.yaml sets no autoDeploy, so
+# Render deploys the moment main moves, in parallel with that run. It was a
+# notification, not a gate.
+#
+# Not solved with a `concurrency` group, which was the obvious idea: a push
+# run and a PR run sharing a group means one cancels the other, and if the
+# loser is the PR run then a *required* check reports "cancelled" and the
+# pull request can never merge. A stuck gate is worse than a wasted minute.
+#
+# The cost: a branch with no pull request open gets no CI. Open the PR --
+# a draft is fine, it still runs -- which is where you'd be reading the
+# result anyway.
+#
+# No `paths` filter here, on purpose. A required status check only passes
+# when it actually reports, and a filtered-out workflow never reports at
+# all, so a docs-only PR would wait forever on a check that will never run.
 on:
   pull_request:
     branches: [main, dev]
-  push:
-    branches: [main, dev]
-    paths:
-      - "backend/**"
-      - "frontend/**"
-      - ".github/workflows/ci.yml"
-      # Root tooling: without these, a change to the lint or format config
-      # wouldn't run CI, so a broken config could land unnoticed.
-      - "eslint.config.js"
-      - ".prettierrc"
-      - ".prettierignore"
-      - "package.json"
-      - "package-lock.json"
+
+# Superseded runs on the same pull request are cancelled when you push
+# again. Keyed by PR number so this only ever cancels within one PR's own
+# stream -- never across the push/PR boundary, for the reason above.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Runs first and on its own: it needs no database and no build, so a style
