@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { listReports, runReport, reportCsvUrl } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
-import { formatCurrency, formatDate, formatMonthDay } from "../utils/format.js";
+import { formatCurrency, formatDate, formatDateLong, formatMonthDay } from "../utils/format.js";
 
 // The Reports shell.
 //
@@ -66,6 +66,37 @@ function toParams(values) {
   return params;
 }
 
+// Turns the filter values into something readable on paper: "Month:
+// October · Include archived partners: No". A printed report that doesn't
+// say what it was filtered by is a liability at a meeting -- someone will
+// ask "is this everyone?" and nobody will know.
+function describeFilters(report, values) {
+  if (!report?.fields?.length) return null;
+  const parts = [];
+  for (const field of report.fields) {
+    const value = values[field.name];
+    if (value === "" || value === null || value === undefined) continue;
+    if (field.type === "checkbox") {
+      parts.push(`${field.label}: ${value ? "Yes" : "No"}`);
+    } else if (field.type === "month") {
+      parts.push(`${field.label}: ${MONTHS[Number(value) - 1] ?? value}`);
+    } else if (field.type === "select") {
+      const option = (field.options || []).find((o) => o.value === value);
+      parts.push(`${field.label}: ${option?.label ?? value}`);
+    } else {
+      parts.push(`${field.label}: ${formatDate(value, { fallback: value })}`);
+    }
+  }
+  return parts.length ? parts.join(" · ") : null;
+}
+
+// Numbers right-align so their digits line up; everything else reads
+// better flush left. Applied to the header and the body from one place so
+// a column cannot end up with its heading over the wrong edge.
+function alignClass(column) {
+  return column.type === "currency" || column.type === "number" ? "num" : undefined;
+}
+
 function Cell({ column, row }) {
   const value = row[column.key];
   if (value === null || value === undefined || value === "") return <>—</>;
@@ -83,11 +114,14 @@ function Cell({ column, row }) {
 }
 
 export default function AdminReports() {
-  const { churchName } = useSettings();
+  const { churchName, logo } = useSettings();
   const [reports, setReports] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [values, setValues] = useState({});
   const [result, setResult] = useState(null);
+  // Captured when the report runs, not read from the form afterwards --
+  // the filters printed on the page must describe the rows on the page.
+  const [appliedFilters, setAppliedFilters] = useState(null);
   const [running, setRunning] = useState(false);
   // Separate from `error` for the report run: a failure to load the list of
   // reports at all is a different problem from one report failing, and
@@ -122,6 +156,7 @@ export default function AdminReports() {
     // columns, and leaving them on screen while the new one loads reads as
     // though they belong to it.
     setResult(null);
+    setAppliedFilters(null);
     setError(null);
   }
 
@@ -135,9 +170,12 @@ export default function AdminReports() {
     setRunning(true);
     setError(null);
     try {
-      setResult(await runReport(selected.id, toParams(values)));
+      const data = await runReport(selected.id, toParams(values));
+      setResult(data);
+      setAppliedFilters(describeFilters(selected, values));
     } catch (err) {
       setResult(null);
+      setAppliedFilters(null);
       setError(err.response?.data?.error || "Couldn't run that report.");
     } finally {
       setRunning(false);
@@ -250,12 +288,31 @@ export default function AdminReports() {
 
       {result && (
         <div className="admin-section report-output">
+          {/* Letterhead, print only.
+              
+              Screen already has the church's branding in the sidebar and the
+              page title above; on paper the sheet has to identify itself,
+              because it ends up photocopied, passed round a table and found
+              in a drawer six weeks later. Logo and name come from Church
+              Settings, so a fork gets its own without touching this file. */}
+          <div className="report-letterhead" aria-hidden="true">
+            {logo?.url && <img src={logo.url} alt="" className="report-letterhead-logo" />}
+            <div className="report-letterhead-text">
+              {churchName && <div className="report-letterhead-church">{churchName}</div>}
+              <div className="report-letterhead-title">{result.label}</div>
+            </div>
+            <div className="report-letterhead-meta">
+              <div>{formatDateLong(result.generatedAt, { fallback: "" })}</div>
+              <div>
+                {result.rows.length} {result.rows.length === 1 ? "row" : "rows"}
+              </div>
+            </div>
+          </div>
+          {appliedFilters && <p className="report-filters">{appliedFilters}</p>}
+
           <div className="report-header">
             <div>
               <h3>{result.label}</h3>
-              {/* Printed so a PDF on someone's desk says what it is and when
-                  it was true -- a report with no date on it is a liability at
-                  a meeting six weeks later. */}
               <p className="report-meta">
                 {churchName ? `${churchName} · ` : ""}
                 {result.rows.length} {result.rows.length === 1 ? "row" : "rows"} · generated{" "}
@@ -280,7 +337,9 @@ export default function AdminReports() {
                 <thead>
                   <tr>
                     {result.columns.map((c) => (
-                      <th key={c.key}>{c.label}</th>
+                      <th key={c.key} className={alignClass(c)}>
+                        {c.label}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -288,7 +347,7 @@ export default function AdminReports() {
                   {result.rows.map((row, i) => (
                     <tr key={row.id || i}>
                       {result.columns.map((c) => (
-                        <td key={c.key}>
+                        <td key={c.key} className={alignClass(c)}>
                           <Cell column={c} row={row} />
                         </td>
                       ))}
