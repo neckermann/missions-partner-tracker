@@ -89,8 +89,7 @@ const printDiag = await page.evaluate(() => {
     pagedjsPageCount: document.querySelectorAll(".booklet-preview .pagedjs_page").length,
     imgCount: imgs.length,
     imgsWithZeroWidth: imgs.filter((i) => i.complete && i.naturalWidth === 0).length,
-    sidebarVisible: getComputedStyle(document.querySelector(".admin-sidebar") || document.body)
-      .visibility,
+    sidebarVisible: getComputedStyle(document.querySelector(".admin-sidebar") || document.body).visibility,
     previewVisible: getComputedStyle(document.querySelector(".booklet-preview")).visibility,
   };
 });
@@ -103,9 +102,12 @@ const printPhotoPage = page
 if (await printPhotoPage.count()) {
   await printPhotoPage.screenshot({ path: path.join(outDir, "3-print-media-photopage.png") });
 }
-await page.locator(".booklet-preview .booklet-cover").first().screenshot({
-  path: path.join(outDir, "3-print-media-cover.png"),
-});
+await page
+  .locator(".booklet-preview .booklet-cover")
+  .first()
+  .screenshot({
+    path: path.join(outDir, "3-print-media-cover.png"),
+  });
 
 console.log("\nconsole errors seen during the whole run:");
 console.log(consoleErrors.join("\n") || "(none)");
