@@ -73,6 +73,18 @@ jobs:
       # `env("DATABASE_URL")` throws if the variable is unset at all,
       # even though `generate` itself never opens a connection.
       DATABASE_URL: postgresql://unused:unused@localhost:5432/unused
+      # Deliberately NOT UTC.
+      #
+      # GitHub runners default to UTC, which is the one timezone where this
+      # app's date bugs hide. `birthday` and the other date-only columns come
+      # back from Prisma as UTC midnight, so reading them with local getters
+      # is correct in UTC and off by a day everywhere west of it. Verified:
+      # reintroduce that bug and test/birthdays.test.js still passes under
+      # TZ=UTC, and fails under this one.
+      #
+      # Any US zone would do; this is the one the first such bug was found in
+      # (every date field pre-filling tomorrow after 5pm, fixed in 32aae84).
+      TZ: America/Los_Angeles
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

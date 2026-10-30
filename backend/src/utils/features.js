@@ -1,8 +1,9 @@
 // Canonical registry of gate-able optional features -- the single source of
 // truth for which `enabledFeatures` keys are valid (see the ChurchSettings
-// model comment in schema.prisma). The frontend keeps its own copy of the
-// label/description text for display (same pattern as the Document category
-// labels in routes/documents.js) -- keep the two in sync by hand.
+// model comment in schema.prisma). The label and description travel to the
+// frontend with the settings payload (routes/settings.js), so the Features
+// page renders whatever is written here -- there is no second copy to keep
+// in sync. Adding a feature is adding an entry here.
 //
 // `group` is "public" for the two toggles a logged-out visitor can actually
 // notice (the site disappearing/reappearing at "/" or "/map") and "admin"
@@ -73,6 +74,13 @@ const FEATURES = {
   booklet: {
     label: "Print booklet",
     description: "The printable prayer & support directory generator.",
+    defaultEnabled: true,
+    group: "admin",
+  },
+  reports: {
+    label: "Reports",
+    description:
+      "Read-only reports over existing data — birthdays, one-time needs — with CSV download and a print view.",
     defaultEnabled: true,
     group: "admin",
   },

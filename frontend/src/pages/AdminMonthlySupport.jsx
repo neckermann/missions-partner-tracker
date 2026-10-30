@@ -2,12 +2,12 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchPartners, fetchSupportEntries, createSupportEntry, deleteSupportEntry } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
-import { formatDate, todayInputValue } from "../utils/format.js";
+import { formatDate, todayInputValue, formatCurrency as formatMoney } from "../utils/format.js";
 
-function formatCurrency(amount) {
-  if (amount == null) return "—";
-  return amount.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-}
+// Thin binding so the call sites below stay unchanged; the formatting
+// itself lives in utils/format.js, which is also where the em-dash
+// convention for "no amount recorded" is documented.
+const formatCurrency = (amount) => formatMoney(amount, { fallback: "—" });
 
 const emptyNewEntry = { partnerId: "", amount: "", effectiveDate: todayInputValue(), notes: "" };
 

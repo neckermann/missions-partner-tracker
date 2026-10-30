@@ -32,9 +32,17 @@ async function setFeatures(patch) {
     where: { id: "singleton" },
     select: { enabledFeatures: true },
   });
-  await prisma.churchSettings.update({
+  // upsert, not update: prisma/seed.js deliberately does not create this
+  // row -- it appears the first time an admin saves settings. With update,
+  // this suite passes only because collections.test.js sorts earlier and
+  // happens to touch /api/settings first. Run it alone against a freshly
+  // seeded database and before() throws, which leaves the test server's
+  // handle open and the process hangs rather than failing.
+  const enabledFeatures = { ...(current?.enabledFeatures || {}), ...patch };
+  await prisma.churchSettings.upsert({
     where: { id: "singleton" },
-    data: { enabledFeatures: { ...(current?.enabledFeatures || {}), ...patch } },
+    update: { enabledFeatures },
+    create: { id: "singleton", enabledFeatures },
   });
 }
 

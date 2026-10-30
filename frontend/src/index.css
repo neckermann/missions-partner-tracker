@@ -814,3 +814,100 @@ a {
     width: 100%;
   }
 }
+
+/* ---------------------------------------------------------------------
+   Reports
+   --------------------------------------------------------------------- */
+
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.report-meta {
+  margin: 0.25rem 0 0;
+  color: #555;
+  font-size: 0.9rem;
+}
+.report-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Printing a report.
+   
+   Deliberately plain CSS rather than the pagedjs the booklet uses. A report
+   is a table, and the browser already knows how to break a table across
+   pages and repeat its header -- that is what thead does when printed.
+   pagedjs exists for the booklet's per-partner page layout, it is loaded
+   from a CDN, and script-src is 'self', so it is a dependency and a CSP
+   question this does not need.
+   
+   The viewer's own print dialog handles "Save as PDF", which is why there is
+   no PDF library here at all. */
+@media print {
+  /* Chrome and Edge omit background colours by default, which turns a
+     styled header into invisible text. Everything below assumes ink on
+     white and avoids relying on fills. */
+  .admin-sidebar,
+  .admin-topbar,
+  .no-print,
+  .report-actions,
+  nav,
+  button {
+    display: none !important;
+  }
+
+  .admin-shell,
+  .admin-section {
+    margin: 0;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    max-width: none;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+    font-size: 11pt;
+  }
+
+  /* The point of the exercise: a long report keeps its column headings on
+     every page, and no row is split down the middle. */
+  table.admin-table thead {
+    display: table-header-group;
+  }
+  table.admin-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  table.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  table.admin-table th,
+  table.admin-table td {
+    border: 1px solid #999;
+    padding: 4pt 6pt;
+    text-align: left;
+  }
+
+  /* Keep the title and the generated-on line -- a report on a desk six
+     weeks later needs to say what it is and when it was true. */
+  .report-header,
+  .report-meta {
+    display: block;
+  }
+
+  /* Horizontal scroll containers must not clip in print. */
+  .report-output div[style*="overflow"] {
+    overflow: visible !important;
+  }
+
+  a[href]::after {
+    content: "";
+  }
+}

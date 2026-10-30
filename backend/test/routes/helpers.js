@@ -96,7 +96,11 @@ async function client(role) {
     } catch {
       body = text;
     }
-    return { status: res.status, body };
+    // `headers` is here for the CSV export tests, which need to assert the
+    // Content-Type and the attachment filename -- the whole point of that
+    // endpoint is the response headers, not just the bytes. Additive: every
+    // existing caller destructures { status, body }.
+    return { status: res.status, body, headers: res.headers };
   };
 }
 

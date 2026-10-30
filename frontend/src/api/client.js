@@ -170,6 +170,27 @@ export async function deleteSupportEntry(id) {
 // Optional { partnerId, tripType, year } filters — the Trip History page
 // used to fetch every partner with all their relations and flatten the
 // trips out client-side; this is one query instead.
+// Reports. `listReports` returns the picker metadata (filter fields and
+// columns); `runReport` returns the rows for one. The CSV download is NOT
+// here -- it goes through a plain same-origin navigation so the browser
+// handles the file, the same approach as the document/newsletter downloads.
+export async function listReports() {
+  const { data } = await api.get("/reports");
+  return data;
+}
+
+export async function runReport(id, params = {}) {
+  const { data } = await api.get(`/reports/${id}`, { params });
+  return data;
+}
+
+// Builds the URL the Download CSV button navigates to. Same endpoint and
+// the same params as runReport, so the file matches what is on screen.
+export function reportCsvUrl(id, params = {}) {
+  const query = new URLSearchParams({ ...params, format: "csv" });
+  return `/api/reports/${id}?${query}`;
+}
+
 export async function fetchTrips(params = {}) {
   const { data } = await api.get("/trips", { params });
   return data;

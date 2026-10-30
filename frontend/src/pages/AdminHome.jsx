@@ -51,6 +51,11 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       title: "Print Booklet",
       description: "Generate a printable prayer & support directory.",
     },
+    enabledFeatures.reports && {
+      to: "/admin/reports",
+      title: "Reports",
+      description: "Birthdays, one-time needs and more — download as CSV or print for a meeting.",
+    },
   ].filter(Boolean);
 }
 

@@ -8,12 +8,12 @@ import {
   fetchPartners,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
-import { formatDate } from "../utils/format.js";
+import { formatDate, formatCurrency as formatMoney } from "../utils/format.js";
 
-function formatCurrency(amount) {
-  if (amount == null) return "—";
-  return amount.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-}
+// Thin binding so the call sites below stay unchanged; the formatting
+// itself lives in utils/format.js, which is also where the em-dash
+// convention for "no amount recorded" is documented.
+const formatCurrency = (amount) => formatMoney(amount, { fallback: "—" });
 
 function statusFor(need) {
   if (need.approvedAmount == null) return { label: "Pending Decision", tone: "warn" };
