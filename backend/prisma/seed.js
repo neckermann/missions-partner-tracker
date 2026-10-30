@@ -40,12 +40,40 @@ function randInt(min, max) {
 function chance(p) {
   return Math.random() < p;
 }
+// A date `years` ago, give or take a few months, on a random day of that
+// month.
+//
+// Two bugs lived in the old version, and both showed up the moment the
+// Upcoming Birthdays report started grouping by day:
+//
+//   d.setDate(1)  pinned EVERY seeded date -- birthdays, trip and furlough
+//                 dates, newsletter received dates, support effective dates,
+//                 prayer request dates -- to the first of the month. Demo
+//                 data had thirty-five missionaries all born on the 1st.
+//
+//   local time    these columns are @db.Date, so Prisma stores the UTC
+//                 calendar date. Building the date in local time and keeping
+//                 the current time of day meant that whenever the seed ran
+//                 after ~7pm US Eastern, the 1st was already the 2nd in UTC
+//                 and every date shifted together. Hence a demo where every
+//                 birthday read "October 2".
+//
+// Built in UTC throughout, so what goes in is what comes back out.
 function dateYearsAgo(years, monthsJitter = 6) {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - years);
-  d.setMonth(d.getMonth() - randInt(0, monthsJitter));
-  d.setDate(1);
-  return d;
+  const now = new Date();
+  const year = now.getUTCFullYear() - years;
+  // Date.UTC normalises a negative month by rolling the year back, so no
+  // wrap-around arithmetic is needed here.
+  const month = now.getUTCMonth() - randInt(0, monthsJitter);
+  // Day 0 of the following month is the last day of this one -- keeps
+  // February and the thirty-day months honest without a lookup table.
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month, randInt(1, daysInMonth)));
+}
+
+// `days` after `start`, same UTC-only discipline.
+function daysAfter(start, days) {
+  return new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
 }
 function dateBetween(startYearsAgo, endYearsAgo) {
   return dateYearsAgo(randInt(endYearsAgo, startYearsAgo));
@@ -1078,11 +1106,18 @@ async function main() {
                 endDate: null,
                 notes: "Currently stateside for home assignment.",
               }
-            : {
-                startDate: dateBetween(3, 1),
-                endDate: dateBetween(1, 0),
-                notes: "Completed home assignment, deputation, and medical checkups.",
-              },
+            : (() => {
+                // End derived from start, not drawn separately. The two were
+                // independent before and stayed in order only because every
+                // seeded date was the 1st of some month; once days vary, a
+                // start and end in the same month invert about half the time.
+                const startDate = dateBetween(3, 1);
+                return {
+                  startDate,
+                  endDate: daysAfter(startDate, randInt(90, 300)),
+                  notes: "Completed home assignment, deputation, and medical checkups.",
+                };
+              })(),
         ]
       : [];
 

@@ -50,6 +50,34 @@ before(async () => {
     },
   });
   fixturePartnerId = partner.body.id;
+
+  // One fixture each for the three reports added alongside birthdays and
+  // one-time-needs, all hung off the same fixture partner.
+  await admin("/api/prayer-requests", {
+    method: "POST",
+    body: {
+      partnerId: fixturePartnerId,
+      category: "strategic",
+      requestText: "Report fixture prayer request",
+      dateReceived: "2026-03-01",
+      status: "ongoing",
+    },
+  });
+  await admin("/api/trips", {
+    method: "POST",
+    body: {
+      partnerId: fixturePartnerId,
+      startDate: "2026-06-01",
+      endDate: "2026-06-10",
+      tripType: "Construction",
+      description: "Report fixture trip",
+      participants: [{ name: "Fixture Leader", isLeader: true }],
+    },
+  });
+  await admin("/api/support-entries", {
+    method: "POST",
+    body: { partnerId: fixturePartnerId, amount: 500, effectiveDate: "2026-01-01" },
+  });
 });
 
 after(async () => {
@@ -137,6 +165,72 @@ describe("GET /api/reports/:id", () => {
   });
 });
 
+describe("prayer-requests report", () => {
+  test("finds the fixture request, with a readable category and status", async () => {
+    const res = await admin("/api/reports/prayer-requests?category=strategic");
+    assert.equal(res.status, 200);
+    const row = res.body.rows.find((r) => r.requestText === "Report fixture prayer request");
+    assert.ok(row, "fixture prayer request should appear");
+    assert.equal(row.category, "Strategic");
+    assert.equal(row.status, "Ongoing");
+    assert.equal(row.partnerName, `${FIXTURE_TAG} Birthday Family`);
+  });
+
+  test("an invalid category 400s", async () => {
+    const res = await admin("/api/reports/prayer-requests?category=nonsense");
+    assert.equal(res.status, 400);
+  });
+});
+
+describe("trip-history report", () => {
+  test("finds the fixture trip, with team size and leader derived from participants", async () => {
+    const res = await admin("/api/reports/trip-history?year=2026");
+    assert.equal(res.status, 200);
+    const row = res.body.rows.find((r) => r.description === "Report fixture trip");
+    assert.ok(row, "fixture trip should appear");
+    assert.equal(row.partnerType, "Missionary");
+    assert.equal(row.teamSize, 1);
+    assert.equal(row.leaders, "Fixture Leader");
+  });
+
+  test("a year with nothing in it returns no rows, not an error", async () => {
+    const res = await admin("/api/reports/trip-history?year=1901");
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.rows, []);
+  });
+});
+
+describe("monthly-support report", () => {
+  test("shows the fixture partner's current amount", async () => {
+    const res = await admin("/api/reports/monthly-support");
+    assert.equal(res.status, 200);
+    const row = res.body.rows.find((r) => r.partnerId === fixturePartnerId);
+    assert.ok(row, "fixture partner should have a current support row");
+    assert.equal(row.amount, 500);
+  });
+
+  test("a partner with no support entry doesn't appear", async () => {
+    const bare = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} No Support` },
+    });
+    // No finally-block delete here: DELETE /api/partners/:id refuses an
+    // unarchived partner (archive-then-delete is deliberate, a safety
+    // step against one-click permanent removal), so a bare delete of a
+    // freshly created partner always 400s. That failure is silent if you
+    // don't check the response -- the partner leaks into the database on
+    // every run instead of being cleaned up. removeFixturePartners() in
+    // this file's own after() already deletes everything tagged
+    // FIXTURE_TAG directly via Prisma, bypassing that route entirely, so
+    // this fixture is already covered without fighting the route's rules.
+    const res = await admin("/api/reports/monthly-support");
+    assert.equal(
+      res.body.rows.some((r) => r.partnerId === bare.body.id),
+      false
+    );
+  });
+});
+
 describe("CSV export", () => {
   test("serves text/csv as an attachment with the report's columns as the header", async () => {
     const res = await admin("/api/reports/upcoming-birthdays?month=3&format=csv");
@@ -210,4 +304,34 @@ describe("feature gate", () => {
     assert.equal(list.status, 404);
     assert.equal(run.status, 404);
   });
+
+  // The four reports that mirror a resource with its own toggle --
+  // everything except upcoming-birthdays, which has no such resource.
+  // Turning that resource's feature off should also 404 its report and
+  // drop it from the picker, the same way disabling Reports itself does --
+  // a church that turned off Prayer Requests shouldn't still find it
+  // listed as something to export.
+  const resourceReports = [
+    { reportId: "one-time-needs", feature: "oneTimeNeeds" },
+    { reportId: "prayer-requests", feature: "prayerRequests" },
+    { reportId: "trip-history", feature: "trips" },
+    { reportId: "monthly-support", feature: "monthlySupport" },
+  ];
+
+  for (const { reportId, feature } of resourceReports) {
+    test(`turning off ${feature} 404s the ${reportId} report and drops it from the picker`, async () => {
+      await prisma.churchSettings.upsert({
+        where: { id: "singleton" },
+        update: { enabledFeatures: { ...original, [feature]: false } },
+        create: { id: "singleton", enabledFeatures: { ...original, [feature]: false } },
+      });
+
+      const [list, run] = await Promise.all([admin("/api/reports"), admin(`/api/reports/${reportId}`)]);
+      assert.equal(run.status, 404);
+      assert.equal(
+        list.body.some((r) => r.id === reportId),
+        false
+      );
+    });
+  }
 });

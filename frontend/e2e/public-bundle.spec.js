@@ -18,7 +18,13 @@ import { test, expect } from "@playwright/test";
 // Features" for their turn-it-back-on message, which is a nav hint, not a
 // leak of how the admin app works.
 const ADMIN_ONLY_MARKERS = [
-  "paged.polyfill", // the booklet's pagination library URL
+  // The booklet used to pull its pagination library from a CDN at
+  // runtime, which doubled as a marker here: a URL string that could only
+  // ever appear in admin code. It's gone now -- the booklet prints via the
+  // same bundled pagedjs Previewer the on-screen preview already uses (see
+  // AdminBooklet.jsx), not a second copy loaded from unpkg.com into a
+  // detached document -- so there's no longer a URL to check for. The
+  // class name below still marks the feature just as well.
   "booklet-page", // the booklet's print stylesheet class
   "/api/support-entries", // admin-only endpoints
   "/api/prayer-requests",

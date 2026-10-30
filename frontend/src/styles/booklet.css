@@ -245,12 +245,17 @@ body {
   font-weight: 700;
   margin: 0 0 0.15in;
 }
-.tpl-classic .booklet-back-message {
+.tpl-classic .booklet-back-address {
   font-family: Arial, sans-serif;
   font-size: 11pt;
   color: #555;
   max-width: 4in;
   margin: 0;
+}
+.tpl-classic .booklet-back-contact {
+  font-size: 10pt;
+  color: #777;
+  margin: 0.15in 0 0;
 }
 
 /* ==========================================================================
@@ -391,11 +396,24 @@ body {
   letter-spacing: 0.06em;
   margin: 0 0 0.15in;
 }
-.tpl-modern .booklet-back-message {
+.tpl-modern .booklet-back-address {
   font-size: 10.5pt;
   color: #555;
   max-width: 4.5in;
-  margin: 0 0 1in;
+  margin: 0;
+}
+.tpl-modern .booklet-back-contact {
+  font-size: 9.5pt;
+  color: #777;
+  /* The back cover is a flex column anchored to the bottom of the page
+     (justify-content: flex-end on .booklet-back-cover), so whichever
+     element is LAST determines how much blank space sits below the text --
+     a trailing margin on anything else just inserts a gap mid-content
+     instead. The 1in of breathing room belonged here, as the real last
+     child, not on .booklet-back-address above: that used to be fine only
+     because address (then called .booklet-back-message) WAS the last
+     element, before this contact line existed. */
+  margin: 0.15in 0 1in;
 }
 
 /* ==========================================================================
@@ -535,12 +553,17 @@ body {
   font-weight: 400;
   margin: 0 0 0.15in;
 }
-.tpl-traditional .booklet-back-message {
+.tpl-traditional .booklet-back-address {
   font-size: 11.5pt;
   font-style: italic;
   color: #555;
   max-width: 3.8in;
   margin: 0;
+}
+.tpl-traditional .booklet-back-contact {
+  font-size: 10pt;
+  color: #777;
+  margin: 0.15in 0 0;
 }
 
 /* ==========================================================================
@@ -685,11 +708,16 @@ body {
   font-style: italic;
   margin: 0 0 0.15in;
 }
-.tpl-keepsake .booklet-back-message {
+.tpl-keepsake .booklet-back-address {
   font-size: 11pt;
   color: #7a6a55;
   max-width: 4in;
   margin: 0;
+}
+.tpl-keepsake .booklet-back-contact {
+  font-size: 9.5pt;
+  color: #9a8a70;
+  margin: 0.15in 0 0;
 }
 
 /* ==========================================================================
@@ -831,11 +859,16 @@ body {
   letter-spacing: 0.1em;
   margin: 0 0 0.15in;
 }
-.tpl-portfolio .booklet-back-message {
+.tpl-portfolio .booklet-back-address {
   font-size: 10pt;
   color: #bbb;
   max-width: 4in;
   margin: 0;
+}
+.tpl-portfolio .booklet-back-contact {
+  font-size: 9pt;
+  color: #888;
+  margin: 0.15in 0 0;
 }
 
 /* ==========================================================================
@@ -891,6 +924,9 @@ body {
 .tpl-friendly .booklet-page {
   border-top: 0.9in solid var(--accent, #c97a3d);
   padding-top: 0;
+  /* .booklet-page (base rule, this file) sets overflow: hidden, to keep
+     content from one entry bleeding onto the next page -- see the photo
+     comment immediately below for why that matters here specifically. */
 }
 .tpl-friendly .booklet-photo {
   width: 1.8in;
@@ -900,7 +936,22 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   float: none;
   display: block;
-  margin: -1.35in auto 0.2in;
+  /* Pulled up to straddle the bottom edge of the 0.9in header band above.
+     The negative margin is measured from where the photo would otherwise
+     sit in normal flow -- right at the band's bottom edge, since
+     padding-top is 0 -- so -0.9in puts the photo's own top edge exactly at
+     the page's top edge (0.9in border minus 0.9in margin = 0), and nothing
+     extends above it.
+     That boundary matters because .booklet-page clips at it (overflow:
+     hidden, above). The previous value here was -1.35in -- 0.45in more
+     than the band is tall -- which pushed the top quarter of the circle
+     above that boundary and clipped it clean off, visible as a flat-topped
+     sliver poking out from under the band instead of a full circle
+     breaking out of it. Backed off from the exact tangent point (-0.9in)
+     by another tenth of an inch so the photo doesn't sit flush against the
+     clip edge, which asked for trouble from sub-pixel rounding differences
+     between paged.js's on-screen preview and an actual print render. */
+  margin: -0.8in auto 0.2in;
 }
 .tpl-friendly .booklet-eyebrow {
   text-align: center;
@@ -977,9 +1028,14 @@ body {
   font-weight: 800;
   margin: 0 0 0.15in;
 }
-.tpl-friendly .booklet-back-message {
+.tpl-friendly .booklet-back-address {
   font-size: 11pt;
   color: rgba(255, 255, 255, 0.85);
   max-width: 4in;
   margin: 0;
+}
+.tpl-friendly .booklet-back-contact {
+  font-size: 9.5pt;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0.15in 0 0;
 }
