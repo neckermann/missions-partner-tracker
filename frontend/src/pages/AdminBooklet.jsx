@@ -1,19 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { fetchPartners } from "../api/client.js";
+import { fetchPartners, fetchChurchSettings } from "../api/client.js";
 import bookletCssUrl from "../styles/booklet.css?url";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { formatDateLong } from "../utils/format.js";
-
-// The polyfill build auto-paginates whatever's in <body> on load — used to
-// build a standalone printable document opened in its own tab, as opposed
-// to the Previewer class used for the inline on-page preview below. Loaded
-// from a CDN rather than a local package import: pagedjs's package.json
-// doesn't expose "./dist/paged.polyfill.js" via its "exports" map, so
-// Vite's bundler refuses to resolve it as a deep import even though the
-// file exists on disk. A plain <script src="..."> string in HTML we build
-// at runtime never goes through Vite's resolver, so this sidesteps that
-// entirely. Version-pinned to match the installed pagedjs release.
-const PAGED_POLYFILL_URL = "https://unpkg.com/pagedjs@0.4.3/dist/paged.polyfill.js";
 
 // Rotates per missionary page so the booklet doesn't look monotone —
 // easy to swap for real brand colors later.
@@ -195,22 +184,43 @@ function buildSectionDivider(title, accent) {
     </section>`;
 }
 
+// Lines of a postal address, formatted the same way renderAddressBlock does
+// for a partner's own addresses -- street line(s), then city/state/zip,
+// then country -- but as plain strings rather than that function's
+// labelled <div>, since the back cover has no section heading to attach to.
+function formatAddressLines(address) {
+  if (!address) return [];
+  const lines = [address.addressLine1, address.addressLine2].filter(Boolean);
+  const cityLine = [address.city, address.stateProvinceRegion, address.postalCode].filter(Boolean).join(", ");
+  if (cityLine) lines.push(cityLine);
+  if (address.country) lines.push(address.country);
+  return lines;
+}
+
 // Closing page, always last — simpler than the front cover by design (every
 // reference booklet layout this template set drew from treats the back
-// cover as a plain sign-off, never a repeat of the front cover): church
-// logo/name if Church Settings has them, a short closing message, and the
-// generated date. Falls back to a generic thank-you if aboutText/
-// publicTagline are both unset, so an instance with no branding configured
-// still gets a real closing page instead of an empty one.
-function buildBackCoverHtml({ churchName, logo, aboutText, publicTagline, accent }) {
-  const message = aboutText || publicTagline || "Thank you for your prayers and support.";
+// cover as a plain sign-off, never a repeat of the front cover): the
+// church's logo, name, mailing address, phone and website -- contact
+// information for whoever wants to get in touch after reading, not a
+// restatement of the church's public tagline/about text (that's cover-page
+// or website material, and repeating it here read as filler). A church
+// with none of these configured gets a plain closing page with only the
+// decorative shapes, which is honest about there being nothing to put
+// there rather than inventing text.
+function buildBackCoverHtml({ churchName, logo, address, phone, websiteLink, accent }) {
+  const addressLines = formatAddressLines(address);
   return `
     <section class="booklet-cover booklet-back-cover" style="--accent:${accent}">
       <div class="booklet-shape shape-a"></div>
       <div class="booklet-shape shape-b"></div>
       ${logo?.url ? `<img class="booklet-back-logo" src="${escapeHtml(logo.url)}" alt="" />` : ""}
       ${churchName ? `<p class="booklet-back-church">${escapeHtml(churchName)}</p>` : ""}
-      <p class="booklet-back-message">${escapeHtml(message)}</p>
+      ${addressLines.length ? `<p class="booklet-back-address">${addressLines.map(escapeHtml).join("<br />")}</p>` : ""}
+      ${
+        phone || websiteLink
+          ? `<p class="booklet-back-contact">${[phone, websiteLink].filter(Boolean).map(escapeHtml).join(" · ")}</p>`
+          : ""
+      }
     </section>`;
 }
 
@@ -285,8 +295,9 @@ function buildBookletHtml({
   template = "classic",
   churchName,
   logo,
-  aboutText,
-  publicTagline,
+  address,
+  phone,
+  websiteLink,
 }) {
   const generatedDate = new Date().toLocaleDateString(undefined, {
     year: "numeric",
@@ -409,8 +420,9 @@ function buildBookletHtml({
   const backCover = buildBackCoverHtml({
     churchName,
     logo,
-    aboutText,
-    publicTagline,
+    address,
+    phone,
+    websiteLink,
     accent: PALETTE[0].accent,
   });
 
@@ -461,15 +473,21 @@ export default function AdminBooklet() {
     loading: settingsLoading,
     churchName,
     logo,
-    aboutText,
-    publicTagline,
   } = useSettings();
+  // address/phone/websiteLink are withheld from the shared public-settings
+  // payload on purpose (SettingsContext is read even by logged-out
+  // visitors) -- fetched here specifically for the back cover, which is
+  // only ever rendered on this admin-only page.
+  const [churchContact, setChurchContact] = useState({});
 
   // The booklet lays out each partner's family, addresses, sending party
   // and prayer requests, so this is the one page that asks for the full
   // record set rather than summary rows.
   useEffect(() => {
     fetchPartners({ include: "full" }).then(setPartners).catch(console.error);
+    fetchChurchSettings()
+      .then((s) => setChurchContact({ address: s.address, phone: s.phone, websiteLink: s.websiteLink }))
+      .catch(console.error);
   }, []);
 
   const missionaries = useMemo(() => partners.filter((p) => p.kind === "missionary"), [partners]);
@@ -508,8 +526,7 @@ export default function AdminBooklet() {
         template,
         churchName,
         logo,
-        aboutText,
-        publicTagline,
+        ...churchContact,
       });
 
       const { Previewer } = await import("pagedjs");
@@ -532,54 +549,35 @@ export default function AdminBooklet() {
   useEffect(() => {
     if (missionaries.length > 0) updatePreview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [missionaries, organizations, template]);
+  }, [missionaries, organizations, template, churchContact]);
 
-  // Calling window.print() directly on this page means the browser has to
-  // print-transform the admin form/controls out of the way via CSS tricks,
-  // which can flash/look off in the print preview. Opening a standalone
-  // document — just the booklet content, paginated by paged.js's polyfill
-  // — in its own tab avoids that entirely; printing from there is a normal
-  // single-document print with nothing else on the page.
-  function handleOpenPrintable() {
-    const filtered = missionaries.filter((m) => {
-      const archivedOk = !m.archived || includeArchived;
-      const restrictedOk = !m.isRestricted || includeRestricted;
-      return archivedOk && restrictedOk;
-    });
-    const includedOrgs = organizations.filter((o) => !o.archived || includeArchived);
-    const content = buildBookletHtml({
-      missionaries: filtered,
-      organizations: includedOrgs,
-      includeOrganizations,
-      title,
-      subtitle,
-      fields,
-      maxPrayerRequests,
-      template,
-      churchName,
-      logo,
-      aboutText,
-      publicTagline,
-    });
-    // paged.js's polyfill re-fetches each stylesheet's raw CSS text itself
-    // (via XHR) to read the @page rules — a root-relative href like
-    // "/assets/booklet-XXXX.css" doesn't resolve against a blob: document's
-    // base URI, so it must be absolute (with a real origin) here.
-    const absoluteCssUrl = new URL(bookletCssUrl, window.location.origin).href;
-    const doc = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8" />
-<title>${title}</title>
-<link rel="stylesheet" href="${absoluteCssUrl}" />
-</head>
-<body>
-${content}
-<script src="${PAGED_POLYFILL_URL}"></script>
-</body>
-</html>`;
-    const blobUrl = URL.createObjectURL(new Blob([doc], { type: "text/html" }));
-    window.open(blobUrl, "_blank");
+  // This used to build a second, separate document -- the booklet HTML
+  // re-paginated from scratch by a copy of paged.js loaded from a CDN --
+  // opened in a new tab via a blob: URL, specifically to avoid the admin
+  // chrome (sidebar, buttons) showing up in the print. That no longer
+  // works at all: a blob: document inherits this app's CSP, which is
+  // `script-src 'self'`, so the CDN script silently never runs (verified:
+  // window.PagedPolyfill was undefined in the opened tab, and zero
+  // .pagedjs_page elements existed -- no pagination happened). Separately,
+  // and independently of CSP, every <img src="/api/photos/..."> in that
+  // document failed too: root-relative URLs don't resolve against a blob:
+  // document's base URI the way they do against a real page (confirmed --
+  // img.src came back as the literal unresolved path, with no origin, so
+  // the browser had nothing to fetch).
+  //
+  // The fix is to stop duplicating the work. `.booklet-preview` below is
+  // already paginated by the real, bundled Previewer (see updatePreview) --
+  // same origin, same document, ordinary root-relative image URLs that
+  // resolve normally. Printing *that* is paged.js's actual intended
+  // workflow: the on-screen preview is built to be print-accurate, and its
+  // own bundled CSS already strips the screen-only scroll chrome (page
+  // gaps, drop shadows) under @media print. The admin-chrome concern the
+  // old comment raised is also already handled, in index.css: everything
+  // but .booklet-preview is hidden on print (the same rule Reports relies
+  // on), so this is an ordinary window.print() with nothing else on the
+  // page -- just without a second render pass or a third-party script.
+  function handlePrint() {
+    window.print();
   }
 
   return (
@@ -695,8 +693,8 @@ ${content}
             <button className="btn" onClick={updatePreview} disabled={rendering}>
               {rendering ? "Rendering..." : "Update Preview"}
             </button>
-            <button className="btn secondary" onClick={handleOpenPrintable}>
-              Open in New Tab to Print
+            <button className="btn secondary" onClick={handlePrint}>
+              Print Booklet
             </button>
           </div>
         </div>
