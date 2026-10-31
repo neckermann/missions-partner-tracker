@@ -491,6 +491,16 @@ model ChurchSettings {
   logoBytes       Bytes?
   logoContentType String?
 
+  // GroupMe integration (see backend/src/utils/groupme.js). The access
+  // token is encrypted at rest via utils/crypto.js's encryptField — the
+  // same AES-256-GCM helper User.mfaSecret uses below — and every route
+  // that touches this row outside routes/settings.js's dedicated
+  // /groupme sub-routes must omit it, so it never rides along in the
+  // general settings payload any logged-in role can read.
+  groupmeAccessToken String?
+  groupmeGroupId     String?
+  groupmeGroupName   String?
+
   // Per-church on/off switches for optional features -- keys are validated
   // against the registry in backend/src/utils/features.js (unknown keys
   // rejected), not modeled as their own columns, so adding a new gate-able
