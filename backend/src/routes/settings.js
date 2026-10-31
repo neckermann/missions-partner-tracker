@@ -5,7 +5,8 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { matchesFileSignature } = require("../utils/fileSignature");
 const { FEATURES, FEATURE_KEYS } = require("../utils/features");
-const { encryptField } = require("../utils/crypto");
+const { encryptField, decryptField } = require("../utils/crypto");
+const { listGroups, listTopics } = require("../utils/groupme");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -85,7 +86,7 @@ router.get("/", async (req, res, next) => {
   try {
     const settings = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      omit: { logoBytes: true, groupmeBotId: true },
+      omit: { logoBytes: true, groupmeAccessToken: true },
     });
     // Registry metadata (label/description/env-var status) travels with the
     // response instead of being duplicated in the frontend, since whether a
@@ -124,7 +125,7 @@ router.put("/", requireRole("admin"), async (req, res, next) => {
       where: { id: "singleton" },
       create: { id: "singleton", ...data, ...clearLogo, updatedById: req.user.id },
       update: { ...data, ...clearLogo, updatedById: req.user.id },
-      omit: { logoBytes: true, groupmeBotId: true },
+      omit: { logoBytes: true, groupmeAccessToken: true },
     });
     res.json(shapeSettings(updated));
   } catch (err) {
@@ -149,7 +150,7 @@ router.post("/logo", requireRole("admin"), upload.single("image"), async (req, r
         updatedById: req.user.id,
       },
       update: { logoBytes: req.file.buffer, logoContentType: req.file.mimetype, updatedById: req.user.id },
-      omit: { logoBytes: true, groupmeBotId: true },
+      omit: { logoBytes: true, groupmeAccessToken: true },
     });
 
     res.json(shapeSettings(updated));
@@ -158,15 +159,34 @@ router.post("/logo", requireRole("admin"), upload.single("image"), async (req, r
   }
 });
 
+const groupmeSettingsSelect = {
+  groupmeAccessToken: true,
+  groupmeGroupId: true,
+  groupmeGroupName: true,
+  groupmePrayerTopicId: true,
+  groupmePrayerTopicName: true,
+};
+function shapeGroupMeSettings(settings) {
+  return {
+    configured: Boolean(settings?.groupmeAccessToken),
+    groupId: settings?.groupmeGroupId || null,
+    groupName: settings?.groupmeGroupName || null,
+    prayerTopicId: settings?.groupmePrayerTopicId || null,
+    prayerTopicName: settings?.groupmePrayerTopicName || null,
+  };
+}
+
 const groupmeSchema = z.object({
-  // Omitted/blank leaves the stored bot_id untouched -- the same
+  // Omitted/blank leaves the stored token untouched -- the same
   // write-only-field UX as a password-change form, since there is no
-  // "current value" to show back and nothing to merge it against. The
-  // admin creates the group and the bot themselves directly in GroupMe
-  // (dev.groupme.com/bots) -- this is just where the resulting bot_id
-  // gets pasted in, never a value this app generates.
-  botId: z.string().trim().min(1).optional(),
+  // "current value" to show back and nothing to merge it against.
+  accessToken: z.string().trim().min(1).optional(),
+  // Set together from the admin's picks in the live GET /groupme/groups
+  // and GET /groupme/groups/:id/topics lists below, never hand-typed.
+  groupId: z.string().trim().optional().nullable(),
   groupName: z.string().trim().optional().nullable(),
+  prayerTopicId: z.string().trim().optional().nullable(),
+  prayerTopicName: z.string().trim().optional().nullable(),
 });
 
 // GET /api/settings/groupme (admin only -- not folded into GET /, which
@@ -176,34 +196,86 @@ router.get("/groupme", requireRole("admin"), async (req, res, next) => {
   try {
     const settings = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      select: { groupmeBotId: true, groupmeGroupName: true },
+      select: groupmeSettingsSelect,
     });
-    res.json({
-      configured: Boolean(settings?.groupmeBotId),
-      groupName: settings?.groupmeGroupName || null,
-    });
+    res.json(shapeGroupMeSettings(settings));
   } catch (err) {
     next(err);
   }
 });
 
-// PUT /api/settings/groupme (admin only)
+// PUT /api/settings/groupme (admin only) -- a plain partial update, same
+// shape as PUT / above: the frontend sends whichever fields it's
+// changing (just accessToken when first connecting; groupId/groupName
+// once a group's picked; prayerTopicId/prayerTopicName once a topic is).
 router.put("/groupme", requireRole("admin"), async (req, res, next) => {
   try {
-    const { botId, groupName } = groupmeSchema.parse(req.body);
-    const data = { groupmeGroupName: groupName };
-    if (botId) data.groupmeBotId = encryptField(botId);
+    const { accessToken, groupId, groupName, prayerTopicId, prayerTopicName } = groupmeSchema.parse(req.body);
+    const fields = {
+      groupmeGroupId: groupId,
+      groupmeGroupName: groupName,
+      groupmePrayerTopicId: prayerTopicId,
+      groupmePrayerTopicName: prayerTopicName,
+    };
+    if (accessToken) fields.groupmeAccessToken = encryptField(accessToken);
 
     const updated = await prisma.churchSettings.upsert({
       where: { id: "singleton" },
-      create: { id: "singleton", ...data, updatedById: req.user.id },
-      update: { ...data, updatedById: req.user.id },
-      select: { groupmeBotId: true, groupmeGroupName: true },
+      create: { id: "singleton", ...fields, updatedById: req.user.id },
+      update: { ...fields, updatedById: req.user.id },
+      select: groupmeSettingsSelect,
     });
-    res.json({
-      configured: Boolean(updated.groupmeBotId),
-      groupName: updated.groupmeGroupName || null,
+    res.json(shapeGroupMeSettings(updated));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/settings/groupme/groups (admin only) -- the admin's own
+// GroupMe groups, for the "which group" picker. Requires a token to
+// already be saved; this app only ever lists, never creates.
+router.get("/groupme/groups", requireRole("admin"), async (req, res, next) => {
+  try {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { groupmeAccessToken: true },
     });
+    if (!settings?.groupmeAccessToken) {
+      return res.status(400).json({ error: "Save a GroupMe access token first" });
+    }
+    try {
+      res.json(await listGroups(decryptField(settings.groupmeAccessToken)));
+    } catch (err) {
+      // A GroupMe-side failure (bad token, GroupMe down) is routine here
+      // -- this is exactly the call an admin makes to find out their
+      // token doesn't work. The generic error handler collapses
+      // unexpected errors to "Server error" on purpose (see
+      // middleware/errors.js); groupmeRequest's own message is already
+      // safe to show, so it's surfaced directly instead of being lost.
+      res.status(502).json({ error: err.message });
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/settings/groupme/groups/:groupId/topics (admin only) -- that
+// group's Topics, for the "which topic" picker.
+router.get("/groupme/groups/:groupId/topics", requireRole("admin"), async (req, res, next) => {
+  try {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { groupmeAccessToken: true },
+    });
+    if (!settings?.groupmeAccessToken) {
+      return res.status(400).json({ error: "Save a GroupMe access token first" });
+    }
+    try {
+      res.json(await listTopics(decryptField(settings.groupmeAccessToken), req.params.groupId));
+    } catch (err) {
+      // See the matching comment on GET /groupme/groups above.
+      res.status(502).json({ error: err.message });
+    }
   } catch (err) {
     next(err);
   }
