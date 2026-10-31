@@ -46,7 +46,12 @@ async function groupmeRequest(accessToken, method, path, body) {
 // admin's own GroupMe account realistically isn't in hundreds of groups.
 async function listGroups(accessToken) {
   const groups = await groupmeRequest(accessToken, "GET", "/groups?per_page=100");
-  return (groups || []).map((g) => ({ id: g.id, name: g.name }));
+  // GroupMe's own group ids are JSON strings, but a subgroup's (below)
+  // come back as JSON numbers -- coerced to string on both so whichever
+  // one the admin picks round-trips cleanly through the settings PUT,
+  // which (correctly) only accepts strings for an id that's otherwise
+  // opaque to this app.
+  return (groups || []).map((g) => ({ id: String(g.id), name: g.name }));
 }
 
 // Lists a group's Topics (subgroups). A topic's display name comes back
@@ -54,7 +59,7 @@ async function listGroups(accessToken) {
 // that created it -- both observed in practice, so both are checked.
 async function listTopics(accessToken, groupId) {
   const topics = await groupmeRequest(accessToken, "GET", `/groups/${encodeURIComponent(groupId)}/subgroups`);
-  return (topics || []).map((t) => ({ id: t.id, name: t.topic || t.name || "(untitled topic)" }));
+  return (topics || []).map((t) => ({ id: String(t.id), name: t.topic || t.name || "(untitled topic)" }));
 }
 
 async function postMessage(accessToken, targetId, text) {
