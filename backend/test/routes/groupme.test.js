@@ -172,13 +172,19 @@ describe("GET /api/settings/groupme/groups and /groups/:id/topics", () => {
     await admin("/api/settings/groupme", { method: "PUT", body: { accessToken: "test-token-abc" } });
   });
 
-  test("lists groups and topics through the mocked GroupMe API", async () => {
+  test("lists groups and topics through the mocked GroupMe API, coercing GroupMe's numeric subgroup ids to strings", async () => {
+    // GroupMe's own group ids come back as JSON strings, but a
+    // subgroup's (topic's) id comes back as a JSON *number* -- the
+    // actual bug this regression-tests: that number has to survive as
+    // a string through listTopics(), or picking it in the admin UI 400s
+    // on PUT /groupme (which only accepts strings for an id this app
+    // otherwise treats as opaque).
     mockGroupMe(async (url) => {
       if (String(url).endsWith("/groups?per_page=100")) {
         return groupmeJson(200, { response: [{ id: "g1", name: "Missions Team" }] });
       }
       if (String(url).endsWith("/groups/g1/subgroups")) {
-        return groupmeJson(200, { response: [{ id: "t1", topic: "Prayers" }] });
+        return groupmeJson(200, { response: [{ id: 123456789, topic: "Prayers" }] });
       }
       return groupmeJson(404, { meta: { code: 404, errors: ["not found"] } });
     });
@@ -189,7 +195,17 @@ describe("GET /api/settings/groupme/groups and /groups/:id/topics", () => {
 
       const topics = await admin("/api/settings/groupme/groups/g1/topics");
       assert.equal(topics.status, 200);
-      assert.deepEqual(topics.body, [{ id: "t1", name: "Prayers" }]);
+      assert.deepEqual(topics.body, [{ id: "123456789", name: "Prayers" }]);
+      assert.equal(typeof topics.body[0].id, "string", "a numeric GroupMe id must come back as a string");
+
+      // The actual failure path: picking that topic in the admin UI
+      // sends its id straight through to PUT /groupme.
+      const saved = await admin("/api/settings/groupme", {
+        method: "PUT",
+        body: { prayerTopicId: topics.body[0].id, prayerTopicName: "Prayers" },
+      });
+      assert.equal(saved.status, 200);
+      assert.equal(saved.body.prayerTopicId, "123456789");
     } finally {
       unmockGroupMe();
     }
@@ -208,10 +224,13 @@ describe("prayer request creation never fails because of GroupMe", () => {
 
     // Feature on, a topic configured, but GroupMe itself will reject the
     // post below -- this is the actual failure path the hook has to
-    // survive, not just an unconfigured no-op.
+    // survive, not just an unconfigured no-op. Set explicitly here
+    // rather than relying on what an earlier describe block happened to
+    // leave behind -- this block should pass on its own regardless of
+    // test order.
     await prisma.churchSettings.update({
       where: { id: "singleton" },
-      data: { enabledFeatures: { groupme: true } },
+      data: { enabledFeatures: { groupme: true }, groupmePrayerTopicId: "fake-topic-id" },
     });
   });
 
