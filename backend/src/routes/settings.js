@@ -5,6 +5,8 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { matchesFileSignature } = require("../utils/fileSignature");
 const { FEATURES, FEATURE_KEYS } = require("../utils/features");
+const { encryptField, decryptField } = require("../utils/crypto");
+const { createGroup } = require("../utils/groupme");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -84,7 +86,7 @@ router.get("/", async (req, res, next) => {
   try {
     const settings = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      omit: { logoBytes: true },
+      omit: { logoBytes: true, groupmeAccessToken: true },
     });
     // Registry metadata (label/description/env-var status) travels with the
     // response instead of being duplicated in the frontend, since whether a
@@ -123,7 +125,7 @@ router.put("/", requireRole("admin"), async (req, res, next) => {
       where: { id: "singleton" },
       create: { id: "singleton", ...data, ...clearLogo, updatedById: req.user.id },
       update: { ...data, ...clearLogo, updatedById: req.user.id },
-      omit: { logoBytes: true },
+      omit: { logoBytes: true, groupmeAccessToken: true },
     });
     res.json(shapeSettings(updated));
   } catch (err) {
@@ -148,10 +150,91 @@ router.post("/logo", requireRole("admin"), upload.single("image"), async (req, r
         updatedById: req.user.id,
       },
       update: { logoBytes: req.file.buffer, logoContentType: req.file.mimetype, updatedById: req.user.id },
-      omit: { logoBytes: true },
+      omit: { logoBytes: true, groupmeAccessToken: true },
     });
 
     res.json(shapeSettings(updated));
+  } catch (err) {
+    next(err);
+  }
+});
+
+const groupmeSchema = z.object({
+  // Omitted/blank leaves the stored token untouched -- the same
+  // write-only-field UX as a password-change form, since there is no
+  // "current value" to show back and nothing to merge it against.
+  accessToken: z.string().trim().min(1).optional(),
+  groupName: z.string().trim().optional().nullable(),
+});
+
+// GET /api/settings/groupme (admin only -- not folded into GET /, which
+// any logged-in role can read; this entire feature stays behind the
+// admin gate, not just its writes).
+router.get("/groupme", requireRole("admin"), async (req, res, next) => {
+  try {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { groupmeAccessToken: true, groupmeGroupId: true, groupmeGroupName: true },
+    });
+    res.json({
+      configured: Boolean(settings?.groupmeAccessToken),
+      groupName: settings?.groupmeGroupName || null,
+      groupId: settings?.groupmeGroupId || null,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/settings/groupme (admin only)
+router.put("/groupme", requireRole("admin"), async (req, res, next) => {
+  try {
+    const { accessToken, groupName } = groupmeSchema.parse(req.body);
+    const data = { groupmeGroupName: groupName };
+    if (accessToken) data.groupmeAccessToken = encryptField(accessToken);
+
+    const updated = await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      create: { id: "singleton", ...data, updatedById: req.user.id },
+      update: { ...data, updatedById: req.user.id },
+      select: { groupmeAccessToken: true, groupmeGroupId: true, groupmeGroupName: true },
+    });
+    res.json({
+      configured: Boolean(updated.groupmeAccessToken),
+      groupName: updated.groupmeGroupName || null,
+      groupId: updated.groupmeGroupId || null,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/settings/groupme/create-group (admin only) -- uses whatever
+// token/name are currently saved to actually create the GroupMe group,
+// a separate step from PUT so editing the name later doesn't imply
+// recreating the group.
+router.post("/groupme/create-group", requireRole("admin"), async (req, res, next) => {
+  try {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { groupmeAccessToken: true, groupmeGroupName: true },
+    });
+    if (!settings?.groupmeAccessToken) {
+      return res.status(400).json({ error: "Save a GroupMe access token first" });
+    }
+    if (!settings.groupmeGroupName) {
+      return res.status(400).json({ error: "Set a group name first" });
+    }
+
+    const accessToken = decryptField(settings.groupmeAccessToken);
+    const group = await createGroup(accessToken, settings.groupmeGroupName);
+
+    const updated = await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { groupmeGroupId: group.id, updatedById: req.user.id },
+      select: { groupmeGroupId: true },
+    });
+    res.json({ groupId: updated.groupmeGroupId, shareUrl: group.share_url || null });
   } catch (err) {
     next(err);
   }

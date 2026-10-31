@@ -84,6 +84,12 @@ const FEATURES = {
     defaultEnabled: true,
     group: "admin",
   },
+  groupme: {
+    label: "GroupMe notifications",
+    description: "Post new prayer requests to a configured GroupMe group as they're added.",
+    defaultEnabled: false,
+    group: "admin",
+  },
 };
 
 const FEATURE_KEYS = Object.keys(FEATURES);

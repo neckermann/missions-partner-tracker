@@ -45,6 +45,7 @@ const SITE_ADMIN_LINKS = [
   { to: "/admin/settings/branding", label: "Branding" },
   { to: "/admin/settings/features", label: "Enabled Features" },
   { to: "/admin/settings/about", label: "About Church" },
+  { to: "/admin/settings/groupme", label: "GroupMe" },
 ];
 
 export default function AdminSidebar() {
