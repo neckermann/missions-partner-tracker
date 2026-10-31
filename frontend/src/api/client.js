@@ -125,7 +125,7 @@ export async function uploadChurchLogo(file) {
 // GroupMe integration -- admin-only on the backend (see routes/settings.js),
 // so these only ever succeed from AdminSettingsGroupMe.jsx. The access
 // token itself never appears in any response; fetchGroupMeSettings()
-// returns { configured, groupName, groupId } only.
+// returns { configured, groupId, groupName, prayerTopicId, prayerTopicName }.
 export async function fetchGroupMeSettings() {
   const { data } = await api.get("/settings/groupme");
   return data;
@@ -136,8 +136,15 @@ export async function updateGroupMeSettings(payload) {
   return data;
 }
 
-export async function createGroupMeGroup() {
-  const { data } = await api.post("/settings/groupme/create-group");
+// Live lookups against GroupMe itself, for the group/topic pickers --
+// requires a token already saved (400s otherwise, see the backend route).
+export async function fetchGroupMeGroups() {
+  const { data } = await api.get("/settings/groupme/groups");
+  return data;
+}
+
+export async function fetchGroupMeTopics(groupId) {
+  const { data } = await api.get(`/settings/groupme/groups/${encodeURIComponent(groupId)}/topics`);
   return data;
 }
 

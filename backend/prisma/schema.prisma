@@ -491,15 +491,33 @@ model ChurchSettings {
   logoBytes       Bytes?
   logoContentType String?
 
-  // GroupMe integration (see backend/src/utils/groupme.js). The access
-  // token is encrypted at rest via utils/crypto.js's encryptField — the
-  // same AES-256-GCM helper User.mfaSecret uses below — and every route
-  // that touches this row outside routes/settings.js's dedicated
-  // /groupme sub-routes must omit it, so it never rides along in the
-  // general settings payload any logged-in role can read.
+  // GroupMe integration (see backend/src/utils/groupme.js). The user's
+  // own personal access token, not a bot -- GroupMe Topics (a group chat
+  // inside a group chat) are undocumented in the public API but real:
+  // each topic is a "subgroup" with its own id (GET
+  // /groups/:groupId/subgroups), and the ordinary messages endpoint
+  // (POST /groups/:id/messages) posts into it when pointed at that id
+  // instead of the parent group's. A bot can't reach any of that -- the
+  // Bots API has no subgroup awareness at all -- so this has to be the
+  // user's own token. Encrypted at rest via utils/crypto.js's
+  // encryptField (the same AES-256-GCM helper User.mfaSecret uses
+  // below). Every route that touches this row outside
+  // routes/settings.js's dedicated /groupme sub-routes must omit it, so
+  // it never rides along in the general settings payload any logged-in
+  // role can read.
   groupmeAccessToken String?
-  groupmeGroupId     String?
-  groupmeGroupName   String?
+  // The parent group the admin picked, and its topics -- both selected
+  // from live GroupMe API calls (GET /groups, GET /groups/:id/subgroups)
+  // in the admin UI, never hand-typed, so the *Name fields are just a
+  // cached label for display, not something this app invents.
+  groupmeGroupId         String?
+  groupmeGroupName       String?
+  // Phase 1 maps Prayer Requests only -- see the plan this shipped
+  // under. One-Time Needs and Newsletters get their own
+  // groupme*TopicId/Name pair in a later phase, not a single generic
+  // "topic" field that would need renaming once there's more than one.
+  groupmePrayerTopicId   String?
+  groupmePrayerTopicName String?
 
   // Per-church on/off switches for optional features -- keys are validated
   // against the registry in backend/src/utils/features.js (unknown keys
