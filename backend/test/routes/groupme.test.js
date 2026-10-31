@@ -45,12 +45,12 @@ before(async () => {
 
   originalSettings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { groupmeAccessToken: true, groupmeGroupId: true, groupmeGroupName: true, enabledFeatures: true },
+    select: { groupmeBotId: true, groupmeGroupName: true, enabledFeatures: true },
   });
   // Clean slate -- these tests assume nothing is configured yet.
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
-    update: { groupmeAccessToken: null, groupmeGroupId: null, groupmeGroupName: null },
+    update: { groupmeBotId: null, groupmeGroupName: null },
     create: { id: "singleton" },
   });
 
@@ -81,39 +81,35 @@ describe("GET/PUT /api/settings/groupme -- admin gate", () => {
     );
   });
 
-  test("admin sees unconfigured, with no token field in the response at all", async () => {
+  test("admin sees unconfigured, with no bot id field in the response at all", async () => {
     const res = await admin("/api/settings/groupme");
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { configured: false, groupName: null, groupId: null });
-    assert.ok(!("accessToken" in res.body) && !("groupmeAccessToken" in res.body));
+    assert.deepEqual(res.body, { configured: false, groupName: null });
+    assert.ok(!("botId" in res.body) && !("groupmeBotId" in res.body));
   });
 });
 
-describe("PUT /api/settings/groupme -- write-only token", () => {
-  test("saving a token and name never echoes the token back", async () => {
+describe("PUT /api/settings/groupme -- write-only bot id", () => {
+  test("saving a bot id and name never echoes the bot id back", async () => {
     const res = await admin("/api/settings/groupme", {
       method: "PUT",
-      body: { accessToken: "test-token-abc", groupName: `${FIXTURE_TAG} Prayer Requests` },
+      body: { botId: "test-bot-id-abc", groupName: `${FIXTURE_TAG} Prayer Requests` },
     });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, {
-      configured: true,
-      groupName: `${FIXTURE_TAG} Prayer Requests`,
-      groupId: null,
-    });
+    assert.deepEqual(res.body, { configured: true, groupName: `${FIXTURE_TAG} Prayer Requests` });
 
     const row = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      select: { groupmeAccessToken: true },
+      select: { groupmeBotId: true },
     });
-    assert.ok(row.groupmeAccessToken.startsWith("v1:"), "token is stored encrypted, not plaintext");
-    assert.notEqual(row.groupmeAccessToken, "test-token-abc");
+    assert.ok(row.groupmeBotId.startsWith("v1:"), "bot id is stored encrypted, not plaintext");
+    assert.notEqual(row.groupmeBotId, "test-bot-id-abc");
   });
 
-  test("a blank accessToken on a later save leaves the stored token untouched", async () => {
+  test("a blank botId on a later save leaves the stored bot id untouched", async () => {
     const before = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      select: { groupmeAccessToken: true },
+      select: { groupmeBotId: true },
     });
 
     const res = await admin("/api/settings/groupme", {
@@ -126,47 +122,9 @@ describe("PUT /api/settings/groupme -- write-only token", () => {
 
     const after = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      select: { groupmeAccessToken: true },
+      select: { groupmeBotId: true },
     });
-    assert.equal(after.groupmeAccessToken, before.groupmeAccessToken);
-  });
-});
-
-describe("POST /api/settings/groupme/create-group", () => {
-  test("400s when nothing is configured yet", async () => {
-    const original = await prisma.churchSettings.findUnique({
-      where: { id: "singleton" },
-      select: { groupmeAccessToken: true, groupmeGroupName: true },
-    });
-    await prisma.churchSettings.update({
-      where: { id: "singleton" },
-      data: { groupmeAccessToken: null, groupmeGroupName: null },
-    });
-
-    const res = await admin("/api/settings/groupme/create-group", { method: "POST" });
-    assert.equal(res.status, 400);
-
-    await prisma.churchSettings.update({ where: { id: "singleton" }, data: original });
-  });
-
-  test("creates the group through the mocked GroupMe API and stores the returned id", async () => {
-    mockGroupMe(async () =>
-      groupmeJson(200, { response: { id: "fake-group-id", share_url: "https://groupme.com/join_group/x/y" } })
-    );
-    try {
-      const res = await admin("/api/settings/groupme/create-group", { method: "POST" });
-      assert.equal(res.status, 200);
-      assert.equal(res.body.groupId, "fake-group-id");
-      assert.equal(res.body.shareUrl, "https://groupme.com/join_group/x/y");
-
-      const row = await prisma.churchSettings.findUnique({
-        where: { id: "singleton" },
-        select: { groupmeGroupId: true },
-      });
-      assert.equal(row.groupmeGroupId, "fake-group-id");
-    } finally {
-      unmockGroupMe();
-    }
+    assert.equal(after.groupmeBotId, before.groupmeBotId);
   });
 });
 
@@ -180,12 +138,12 @@ describe("prayer request creation never fails because of GroupMe", () => {
     });
     partnerId = partner.body.id;
 
-    // Feature on, a group configured, but GroupMe itself will reject the
+    // Feature on, a bot configured, but GroupMe itself will reject the
     // post below -- this is the actual failure path the hook has to
     // survive, not just an unconfigured no-op.
     await prisma.churchSettings.update({
       where: { id: "singleton" },
-      data: { enabledFeatures: { groupme: true }, groupmeGroupId: "fake-group-id" },
+      data: { enabledFeatures: { groupme: true } },
     });
   });
 
@@ -207,6 +165,31 @@ describe("prayer request creation never fails because of GroupMe", () => {
       });
       assert.equal(res.status, 201);
       assert.equal(res.body.requestText, `${FIXTURE_TAG} should still save`);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("a prayer request posts successfully through the mocked bot API", async () => {
+    let capturedBody = null;
+    mockGroupMe(async (url, options) => {
+      capturedBody = JSON.parse(options.body);
+      return groupmeJson(202, { response: null });
+    });
+    try {
+      const res = await admin("/api/prayer-requests", {
+        method: "POST",
+        body: {
+          partnerId,
+          category: "strategic",
+          requestText: `${FIXTURE_TAG} posts via the bot`,
+          dateReceived: "2026-01-01",
+        },
+      });
+      assert.equal(res.status, 201);
+      assert.ok(capturedBody, "the bot endpoint was actually called");
+      assert.equal(capturedBody.bot_id, "test-bot-id-abc");
+      assert.match(capturedBody.text, /posts via the bot/);
     } finally {
       unmockGroupMe();
     }

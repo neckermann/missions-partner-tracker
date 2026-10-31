@@ -1,35 +1,33 @@
 import React, { useEffect, useState } from "react";
-import { fetchGroupMeSettings, updateGroupMeSettings, createGroupMeGroup } from "../api/client.js";
+import { fetchGroupMeSettings, updateGroupMeSettings } from "../api/client.js";
 
-// Phase 1 of the GroupMe integration: Prayer Requests only (see the
-// plan this shipped under). GroupMe's public API has no "Topics"
-// concept to route to -- everything posts into one group's main
-// conversation, as the admin's own GroupMe identity (the Messages API,
-// not a named bot). One-Time Needs and Newsletters, and any per-category
-// routing, are future phases, not this page.
+// Phase 1 of the GroupMe integration: Prayer Requests only. Posts
+// through a GroupMe Bot -- the admin creates the group and the bot
+// themselves directly in GroupMe, then pastes the bot's ID here. This
+// app never talks to GroupMe's group/bot-creation endpoints, only
+// /bots/post. GroupMe's public API has no "Topics" concept to route to,
+// so everything posts into the bot's one group's main conversation.
+// One-Time Needs, Newsletters, and per-category routing are future
+// phases, not this page.
 //
-// The access token is write-only by design, same as a password field:
-// the backend never returns a stored value, only whether one exists
-// (`configured`). Typing a new one and saving replaces it; leaving the
-// field blank on save leaves the existing token untouched.
+// The bot ID is write-only by design, same as a password field: the
+// backend never returns a stored value, only whether one exists
+// (`configured`). Pasting a new one and saving replaces it; leaving the
+// field blank on save leaves the existing bot untouched.
 export default function AdminSettingsGroupMe() {
   const [configured, setConfigured] = useState(false);
   const [groupName, setGroupName] = useState("");
-  const [groupId, setGroupId] = useState(null);
-  const [accessToken, setAccessToken] = useState("");
+  const [botId, setBotId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  const [shareUrl, setShareUrl] = useState(null);
 
   useEffect(() => {
     fetchGroupMeSettings()
       .then((s) => {
         setConfigured(s.configured);
         setGroupName(s.groupName || "");
-        setGroupId(s.groupId);
       })
       .catch((err) => setError(err.response?.data?.error || "Couldn't load GroupMe settings."))
       .finally(() => setLoading(false));
@@ -42,38 +40,20 @@ export default function AdminSettingsGroupMe() {
     setError("");
     try {
       const payload = { groupName };
-      if (accessToken.trim()) payload.accessToken = accessToken.trim();
+      if (botId.trim()) payload.botId = botId.trim();
       const updated = await updateGroupMeSettings(payload);
       setConfigured(updated.configured);
       setGroupName(updated.groupName || "");
-      setGroupId(updated.groupId);
       // Never left sitting in the field once it's saved -- same
       // "clears after submit" behavior a browser's own password manager
       // relies on, and this is the one chance to not keep a secret in
       // React state longer than it has to be.
-      setAccessToken("");
+      setBotId("");
       setSuccess("Saved.");
     } catch (err) {
       setError(err.response?.data?.error || "Couldn't save GroupMe settings.");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleCreateGroup() {
-    setCreating(true);
-    setSuccess("");
-    setError("");
-    setShareUrl(null);
-    try {
-      const result = await createGroupMeGroup();
-      setGroupId(result.groupId);
-      setShareUrl(result.shareUrl);
-      setSuccess("GroupMe group created.");
-    } catch (err) {
-      setError(err.response?.data?.error || "Couldn't create the GroupMe group.");
-    } finally {
-      setCreating(false);
     }
   }
 
@@ -83,24 +63,35 @@ export default function AdminSettingsGroupMe() {
     <div className="admin-shell form-has-floating-actions">
       <h2>GroupMe</h2>
       <p style={{ color: "#555" }}>
-        Posts new prayer requests to a GroupMe group as they're added, using your own GroupMe account (not a
-        separate bot). Find your personal access token at{" "}
-        <a href="https://dev.groupme.com" target="_blank" rel="noreferrer">
-          dev.groupme.com
-        </a>
-        . Turn this on in <a href="/admin/settings/features">Enabled Features</a> once it's configured below.
+        Posts new prayer requests to a GroupMe group as they're added, through a GroupMe Bot. Turn this on in{" "}
+        <a href="/admin/settings/features">Enabled Features</a> once it's configured below.
       </p>
+
+      <div className="admin-section">
+        <h3>Setup</h3>
+        <ol style={{ color: "#555", paddingLeft: "1.2rem", margin: 0 }}>
+          <li>Create (or pick an existing) group in the GroupMe app.</li>
+          <li>
+            Go to{" "}
+            <a href="https://dev.groupme.com/bots" target="_blank" rel="noreferrer">
+              dev.groupme.com/bots
+            </a>{" "}
+            and create a new bot, pointed at that group.
+          </li>
+          <li>Copy the Bot ID it gives you and paste it below.</li>
+        </ol>
+      </div>
 
       <form onSubmit={handleSave} className="admin-form">
         <div className="admin-section">
           <h3>Connection</h3>
           <label>
-            Access Token
+            Bot ID
             <input
               type="password"
-              value={accessToken}
-              onChange={(e) => setAccessToken(e.target.value)}
-              placeholder={configured ? "Configured — leave blank to keep it" : "Paste your access token"}
+              value={botId}
+              onChange={(e) => setBotId(e.target.value)}
+              placeholder={configured ? "Configured — leave blank to keep it" : "Paste the bot's ID"}
               autoComplete="off"
             />
           </label>
@@ -112,6 +103,9 @@ export default function AdminSettingsGroupMe() {
               onChange={(e) => setGroupName(e.target.value)}
               placeholder="e.g. Missions Prayer Requests"
             />
+            <span style={{ fontSize: "0.85rem", color: "#666" }}>
+              Your own label for which group this is — not sent to GroupMe.
+            </span>
           </label>
         </div>
 
@@ -125,38 +119,9 @@ export default function AdminSettingsGroupMe() {
           <button type="submit" className="btn" disabled={saving}>
             {saving ? "Saving..." : "Save"}
           </button>
-          {success && !shareUrl && <span style={{ color: "#2a5d3c" }}>{success}</span>}
+          {success && <span style={{ color: "#2a5d3c" }}>{success}</span>}
         </div>
       </form>
-
-      <div className="admin-section">
-        <h3>GroupMe Group</h3>
-        {groupId ? (
-          <>
-            <p style={{ color: "#555" }}>Connected to GroupMe group ID {groupId}.</p>
-            {shareUrl && (
-              <p>
-                Share link:{" "}
-                <a href={shareUrl} target="_blank" rel="noreferrer">
-                  {shareUrl}
-                </a>
-              </p>
-            )}
-          </>
-        ) : (
-          <p style={{ color: "#555" }}>
-            No GroupMe group created yet. Save a token and group name above, then create it.
-          </p>
-        )}
-        <button
-          type="button"
-          className="btn secondary"
-          onClick={handleCreateGroup}
-          disabled={creating || !configured || !groupName.trim()}
-        >
-          {creating ? "Creating..." : groupId ? "Create a New Group" : "Create GroupMe Group"}
-        </button>
-      </div>
     </div>
   );
 }

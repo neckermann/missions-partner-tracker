@@ -491,15 +491,19 @@ model ChurchSettings {
   logoBytes       Bytes?
   logoContentType String?
 
-  // GroupMe integration (see backend/src/utils/groupme.js). The access
-  // token is encrypted at rest via utils/crypto.js's encryptField — the
-  // same AES-256-GCM helper User.mfaSecret uses below — and every route
+  // GroupMe integration (see backend/src/utils/groupme.js). A bot, not a
+  // user access token: the admin creates the group and the bot
+  // themselves in GroupMe directly (dev.groupme.com/bots), then pastes
+  // the resulting bot_id here -- this app never creates groups or bots
+  // via the API. bot_id is itself the whole credential for POST
+  // /bots/post (no separate access token needed to post), so it's
+  // encrypted at rest the same way, via utils/crypto.js's encryptField
+  // (the same AES-256-GCM helper User.mfaSecret uses below). Every route
   // that touches this row outside routes/settings.js's dedicated
   // /groupme sub-routes must omit it, so it never rides along in the
   // general settings payload any logged-in role can read.
-  groupmeAccessToken String?
-  groupmeGroupId     String?
-  groupmeGroupName   String?
+  groupmeBotId     String?
+  groupmeGroupName String? // admin's own label for which group this is -- display only, never sent to GroupMe
 
   // Per-church on/off switches for optional features -- keys are validated
   // against the registry in backend/src/utils/features.js (unknown keys
