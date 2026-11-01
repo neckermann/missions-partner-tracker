@@ -140,6 +140,17 @@ header.site-header nav a:hover {
   flex-direction: row-reverse;
 }
 
+/* A tall, full-page screenshot next to a short blurb reads better
+   top-aligned than vertically centered against its own height. */
+.feature.tall .wrap {
+  align-items: flex-start;
+}
+
+.feature.tall .feature-text {
+  position: sticky;
+  top: 2rem;
+}
+
 .feature-text {
   flex: 0 0 38%;
 }
@@ -231,6 +242,10 @@ footer.site-footer a {
 
   .feature-text {
     flex: none;
+  }
+
+  .feature.tall .feature-text {
+    position: static;
   }
 
   .feature-image.two-up {
