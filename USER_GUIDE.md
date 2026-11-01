@@ -223,11 +223,17 @@ deleted photo if you need it back.
 
 ### Archiving vs. deleting
 
-**Archive** (from the Edit form) removes a partner from the public site
-and zeros out their monthly support total, while keeping their full
-history — reversible any time via **Unarchive**. **Delete** is only
-available on an already-archived record, is permanent, and requires
-typing "confirm" to proceed. When in doubt, archive.
+**Archive** and **Delete** are row actions on the **Partners list**, not
+on the partner's own detail page. **Archive** removes a partner from the
+public site and zeros out their monthly support total (by adding a new
+$0 entry, not by touching existing history), while keeping their full
+history — reversible any time via **Unarchive**. Unarchiving only clears
+the archived flag, though: it does *not* automatically turn "Show on
+public site" back on or add a new support entry — those are deliberate
+decisions to make again once someone's actually back, from
+[Editing a partner](#editing-a-partner). **Delete** is only available on
+an already-archived record, is permanent, and requires typing "confirm"
+to proceed. When in doubt, archive.
 
 ### Understanding restricted-access partners
 
