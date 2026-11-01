@@ -114,6 +114,8 @@ never built. Grouped in the UI by what a toggle actually affects — Public
 site (the two toggles a logged-out visitor can notice at all) vs. Admin
 features (everything else, which only changes a logged-in admin's own nav).
 
+![The Enabled Features page, grouped into Public Site and Admin Features](docs/assets/screenshots/enabled-features.png)
+
 | Feature | Default | Notes |
 |---|---|---|
 | Public directory | On | The public list/search view at the site's root (`/`). Off shows a short "this isn't public" page there instead. |

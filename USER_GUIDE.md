@@ -68,6 +68,8 @@ sidebar, appears only for admins and holds **Manage Users**, **Branding**,
 footer has **My Account**, a link back to the public site, and **Log
 out**.
 
+![The Home dashboard's card grid, mirroring the sidebar](docs/assets/screenshots/admin-home.png)
+
 Missionaries and organizations share one combined **Partners** list —
 there's no separate nav entry for each; you pick which kind to add from
 the list page itself.
@@ -90,31 +92,61 @@ clears everything back to defaults.
 Click **+ Add Missionary** or **+ Add Organization** to create one; click
 any row to view that partner's detail page.
 
-### Adding/editing a missionary
+![The Partners list, filterable by type, public/restricted status, continent, and country](docs/assets/screenshots/admin-partners.png)
 
-The form is organized into sections:
+### Creating a missionary
 
-- **Photo** — headshot upload (JPEG/PNG/WebP) with a live preview and a
-  Received Date. Uploading here always adds a new photo rather than
-  replacing the current one — the previous photo becomes history instead
-  of being deleted. Only the current photo (whichever has the latest
-  Received Date) shows on the public site; view the full history or
-  delete an old photo from this missionary's **detail page** (see
-  [Photo history](#photo-history) below).
-- **Core Info** — Display Name (required), Field/Region, Supporting
-  Since, Preferred Contact Method, and three checkboxes: **Safe to
-  contact**, **Show on public site** (`isPublic`), and
-  **Restricted-access location** (`isRestricted` — see
-  [Understanding restricted-access partners](#understanding-restricted-access-partners)
-  below before checking this).
+**+ Add Missionary** opens a short form asking just for what can't be
+filled in later from the record itself: Display Name (required),
+Country, Field/Region Display Name, a Short Overview, and four
+checkboxes — **Safe to contact**, **Show on public site** (`isPublic`),
+**Restricted-access location** (`isRestricted` — see
+[Understanding restricted-access partners](#understanding-restricted-access-partners)
+below before checking this), and **Sent by {your church}**. **Create
+Partner** saves it and takes you straight to its detail page, where
+everything else — photo, financial support, ministry overview, serving
+location, family, trip history, and the rest — gets filled in section by
+section. See [Editing a partner](#editing-a-partner) below.
+
+### Creating an organization
+
+**+ Add Organization** is the same short form, with **Organization
+Name** and an **Organization Type** dropdown (Local/National) in place
+of Display Name, and no "Safe to contact" or "Sent by" checkboxes —
+those are person-specific.
+
+### Editing a partner
+
+There's no single "edit form" holding the whole record — each section on
+a partner's **detail page** edits in place. Click that section's own
+**Edit**, the fields become editable right there, **Save** (or
+**Cancel**) without leaving the page. Every section saves only its own
+fields, so fixing a typo in the overview never touches anything else on
+the record.
+
+![A section's inline edit state on the partner detail page](docs/assets/screenshots/partner-edit-inline.png)
+
+The sections, and what each holds:
+
+- **Photo** (missionary) / **Logo** (organization) — upload (JPEG/PNG/
+  WebP) with a live preview and a Received Date. Uploading here always
+  adds a new photo rather than replacing the current one — the previous
+  photo becomes history instead of being deleted. Only the current photo
+  (whichever has the latest Received Date) shows on the public site;
+  view the full history or delete an old photo from
+  [Photo history](#photo-history) below.
+- **Core Info** — Display Name, Field/Region, Supporting Since,
+  Preferred Contact Method (missionary), or Organization Name/Type
+  (organization).
 - **Financial Support** — repeatable Monthly Amount / Effective Date /
   Notes rows. The most recent effective date is what counts as the
   current amount everywhere else in the app. Never shown publicly.
 - **One-Time Needs** — repeatable Description / Requested Amount /
   Request Date / Approved Amount / Approved Date / Notes rows (you can
   also manage these from the dedicated **One-Time Needs** page).
-- **Ministry Overview** — Short Overview (used on directory cards), Full
-  Overview, and Ministry Focus.
+- **Ministry Overview** (missionary) / **Focus Area** (organization) —
+  Short Overview (used on directory cards), Full Overview, and Ministry
+  Focus.
 - **Serving Location** — a full address (country is a suggest-as-you-type
   field, not a hard dropdown — pick a suggestion or type your own if it's
   not in the list), plus GPS coordinates (leave blank to auto-geocode from
@@ -129,11 +161,14 @@ The form is organized into sections:
   GPS pin is, and only at all if `isPublic` is checked.
 - **Mailing & Contact Address** — a separate address, with "Receives mail
   here" / "Receives packages here" checkboxes.
-- **Adults** — Wedding Anniversary, then one row per adult in the
-  household (Name, Birthday, two phone numbers, Email).
-- **Children** — Name + Birthday per child.
-- **Emergency Contact** — Name, Phone, Email.
-- **Languages Spoken** — a free-text tag list.
+- **Contact Info** (organization only) — name, phone, email, website,
+  support link, newsletter signup, and social media, all in one section
+  (split across Core Info and Links for a missionary instead).
+- **Adults** (missionary only) — Wedding Anniversary, then one row per
+  adult in the household (Name, Birthday, two phone numbers, Email).
+- **Children** (missionary only) — Name + Birthday per child.
+- **Emergency Contact** (missionary only) — Name, Phone, Email.
+- **Languages Spoken** (missionary only) — a free-text tag list.
 - **Trip Capacity** — Team Size Min/Max, Trip Types Supported (pick from
   presets or type your own), season/duration notes, lodging/logistics
   notes. This is what powers the **Trip Opportunities** capacity search.
@@ -144,41 +179,33 @@ The form is organized into sections:
   furlough) and Notes.
 - **Church Visits** — Visit Date + Notes; the most recent becomes "last
   visit" everywhere it's shown.
-- **Sending Church** — has a **"Sent by {your church}"** checkbox: check
-  it to auto-fill the blank fields below from Church Settings (name,
-  contact, phone, website, mailing address) without overwriting anything
-  you've already typed. Unchecking it later never deletes data that's
-  already there.
-- **Sending Org** — same shape as Sending Church, no auto-fill checkbox.
-- **Links & Social Media** — Website, Support Link, Newsletter Signup,
-  Facebook, Twitter, Instagram, LinkedIn.
+- **Sending Church** (missionary only) — has a **"Sent by {your
+  church}"** checkbox: check it to auto-fill the blank fields below from
+  Church Settings (name, contact, phone, website, mailing address)
+  without overwriting anything you've already typed. Unchecking it later
+  never deletes data that's already there.
+- **Sending Org** (missionary only) — same shape as Sending Church, no
+  auto-fill checkbox.
+- **Links & Social Media** (missionary) / folded into **Contact Info**
+  (organization) — Website, Support Link, Newsletter Signup, Facebook,
+  Twitter, Instagram, LinkedIn.
 
 Blank repeatable rows (an empty adult, an empty trip, etc.) are silently
 dropped when you save — you don't need to manually remove unused rows.
 
-### Adding/editing an organization
-
-Same shape as the missionary form, with these differences: **Logo**
-instead of Photo; **Organization Name** + an **Organization Type**
-dropdown (Local/National) instead of Display Name; no "Safe to contact"
-checkbox; a single combined **Contact Info** section (name, phone, email,
-website, support link, newsletter signup, social media) instead of it
-being split across Core Info and Links; the overview section is labeled
-"Focus Area"; and there's no Adults, Children, Emergency Contact,
-Languages Spoken, Anniversary, Sending Church, or Sending Org — those are
-person-specific and don't apply to an organization.
-
 ### The partner detail page
 
-A read-only view of everything above — sections with no data are hidden
-entirely rather than shown empty. Status pills under Core Info summarize
-the flags at a glance (contact-safe, public/not, restricted, sent-by-us,
-on-furlough, archived). **Edit** takes you to the form; **Back to list**
-returns you to Partners. Newsletters, documents, and photos can be
-uploaded, viewed, and deleted directly from this page (see
+Shows every section described in [Editing a partner](#editing-a-partner)
+above — sections with no data are hidden entirely rather than shown
+empty. Status pills under Core Info summarize the flags at a glance
+(contact-safe, public/not, restricted, sent-by-us, on-furlough,
+archived). **Back to list** returns you to Partners. This page *is*
+where every edit happens — each section's own **Edit** button, not a
+separate form — including newsletters, documents, and photos (see
 [Newsletters](#newsletters), [Documents](#documents), and
-[Photo history](#photo-history) below) — but other edits (adding a trip,
-recording support) only happen through the Edit form.
+[Photo history](#photo-history) below).
+
+![The top of a partner detail page -- Photo History, Core Info, and Ministry Overview](docs/assets/screenshots/admin-partner-detail-preview.png)
 
 ### Photo history
 
@@ -244,12 +271,16 @@ no in-place edit here — a support entry is a point-in-time record, like a
 line in a ledger, so correcting one means deleting it and adding a new
 entry rather than rewriting history.
 
+![The Monthly Support page, with a running total and a History button per partner](docs/assets/screenshots/monthly-support.png)
+
 **One-Time Needs** lists every recorded need across all partners, with a
 status pill (Pending Decision / Fully Funded / Partially Funded /
 Declined) computed from the approved vs. requested amount. **+ Add Need**
 adds one without leaving the page; an undecided need gets a **Record
 Decision** button to fill in the approved amount/date once your church
 has made a call.
+
+![The One-Time Needs page, with status pills per need](docs/assets/screenshots/one-time-needs.png)
 
 ## Trip history & trip opportunities
 
@@ -267,6 +298,10 @@ These are two different things:
   region, and how recently a team last visited, reading the same Trip
   Capacity fields set on each partner's form.
 
+![Trip History, filterable by partner type, trip type, and year](docs/assets/screenshots/trip-history.png)
+
+![Trip Opportunities, a capacity search by team size and trip type](docs/assets/screenshots/trip-opportunities.png)
+
 ## Newsletters
 
 Upload from the central **Newsletters** page (**+ Upload Newsletter**:
@@ -278,6 +313,8 @@ received date, notes, and (from the central page only) which partner
 it's filed under; **Delete** removes it permanently. Newsletters are
 always private — never shown on the public site, regardless of the
 partner's `isPublic` flag.
+
+![The central Newsletters page, listing uploads across every partner](docs/assets/screenshots/newsletters.png)
 
 ## Documents
 
@@ -307,6 +344,8 @@ policy on file across all partners at once. **View** opens the file in a
 new tab; **Edit** lets you fix everything but the uploaded file itself —
 category, title, received date, notes, and (from the central page only)
 which partner it's filed under; **Delete** removes it permanently.
+
+![The central Documents page, filterable by category and partner](docs/assets/screenshots/documents.png)
 
 ## Prayer Requests
 
@@ -347,6 +386,8 @@ The central **Prayer Requests** page lists every request across every
 partner, filterable by category, with a running count of how many have
 been answered so far.
 
+![The central Prayer Requests page, newest first across every partner](docs/assets/screenshots/prayer-requests-list.png)
+
 ## Reports
 
 Read-only views over data already in the tracker, for anyone who needs
@@ -368,6 +409,8 @@ A report tied to a feature that's turned off (see
 [ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles))
 simply doesn't appear in the picker — Upcoming Birthdays is the one
 exception, since it has no feature of its own to tie to.
+
+![The Reports page, with the Prayer Requests report run](docs/assets/screenshots/reports-preview.png)
 
 ## Printable partner booklet
 
@@ -399,6 +442,10 @@ switch templates, but not on every checkbox (re-pagination is expensive)
 ready for your browser's print dialog — useful for printing a physical
 prayer/support directory for your congregation.
 
+![The Print Booklet generator, with six Look & Feel templates to choose from](docs/assets/screenshots/print-booklet-admin.png)
+
+![One page of the resulting booklet, in the Classic template](docs/assets/screenshots/booklet.png)
+
 ## Church Settings (Admin only)
 
 One record controls the whole instance's branding, split across two pages
@@ -411,6 +458,10 @@ everywhere, with no code changes needed:
 - **Branding** — Public Site (tagline, about text, brand color), Logo,
   and Partner Terminology (swap "Missionary" for whatever your church
   calls them, and optionally use that term in the admin nav too).
+
+![The About Church page, with Church Info and address fields](docs/assets/screenshots/about-church.png)
+
+![The Branding page, with Public Site, Logo, and Partner Terminology](docs/assets/screenshots/branding-settings.png)
 
 ## GroupMe notifications (Admin only)
 
@@ -433,9 +484,16 @@ each building on the last:
    real Topics, pick one, **Use This Topic**. Until a topic is picked,
    prayer requests post to the group's main conversation instead.
 
+![The GroupMe settings page, with all three steps configured](docs/assets/screenshots/groupme-settings.png)
+
 If GroupMe itself is unreachable or rejects a post, the prayer request
 still saves normally — the notification is best-effort and never blocks
 your own work.
+
+Once it's working, a new prayer request shows up in the configured Topic
+within the GroupMe app itself, same as any other message:
+
+![A new prayer request notification, as it actually appears in the GroupMe app](docs/assets/screenshots/groupme-notification.png)
 
 ## User management (Admin only)
 
@@ -448,6 +506,8 @@ user's two-factor setup so they can log back in with just their password
 and re-enroll. You can't delete your own account, and the app won't let
 you demote, deactivate, or delete the last active admin — there's always
 at least one way back in.
+
+![The Manage Users page, listing role, auth provider, and MFA status](docs/assets/screenshots/manage-users.png)
 
 ## Your account settings
 
@@ -464,20 +524,26 @@ entirely by what you check in the admin dashboard:
 - **Partner Directory** (`/`) — a searchable, filterable grid (same
   continent/country/type filters and robust search as the admin Partners
   list) of everyone with `isPublic` checked.
+
+  ![The public partner directory, with search and photo cards](docs/assets/screenshots/public-directory.jpg)
 - **Map** (`/map`) — the same partners plotted on an interactive Leaflet
   map. Restricted partners show at country-level precision only, if they
   show at all — see
   [Understanding restricted-access partners](#understanding-restricted-access-partners).
   Organizations aren't part of the auto-tour cycle described below, but
   their pins are still clickable any time.
+
+  ![The public map, with partner pins and a sidebar list](docs/assets/screenshots/public-map.jpg)
 - **Partner detail page** — the fuller write-up linked from both the
   directory and the map, masked the same way for restricted partners. A
   **Show Country Statistics** button (visible whenever the partner has a
   Country Code set) fetches live population, primary religion, percent
   evangelical, and how reached that country is, straight from the
   [Joshua Project](https://joshuaproject.net/) — the same lookup the
-  [Serving Location](#adding-editing-a-missionary) field offers on the
+  [Serving Location](#editing-a-partner) field offers on the
   admin side, here for visitors.
+
+  ![A public partner profile with Joshua Project country statistics expanded](docs/assets/screenshots/public-partner-detail.png)
 
 ### The public map's auto-tour
 

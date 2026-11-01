@@ -69,6 +69,24 @@ header.site-header nav a:hover {
   text-decoration: underline;
 }
 
+/* Visually separates "jump within this site" links from links that
+   leave it entirely (the live app, the repo) -- without this, "Admin"
+   sitting right next to "Live Demo" reads like it might also be a live
+   link rather than a scroll down this same page. */
+header.site-header nav .nav-external {
+  margin-left: 1.5rem;
+  padding-left: 1.5rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+header.site-header nav .nav-external a {
+  margin-left: 0;
+}
+
+header.site-header nav .nav-external a + a {
+  margin-left: 1.5rem;
+}
+
 /* Hero */
 .hero {
   background: linear-gradient(180deg, var(--green-dark) 0%, var(--green) 100%);
@@ -330,6 +348,21 @@ footer.site-footer a {
   }
 
   header.site-header nav a {
+    margin: 0 0.6rem;
+  }
+
+  /* The border-left divider assumes a single row; at this width nav
+     items wrap onto their own centered lines, where a vertical rule
+     would land in the wrong place. */
+  header.site-header nav .nav-external {
+    margin: 0;
+    padding: 0;
+    border-left: none;
+    display: inline;
+  }
+
+  header.site-header nav .nav-external a,
+  header.site-header nav .nav-external a + a {
     margin: 0 0.6rem;
   }
 }
