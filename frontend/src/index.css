@@ -303,6 +303,15 @@ a {
   text-decoration: underline;
 }
 
+/* Same root cause as the attribution-link fix above: Leaflet's own
+   `.leaflet-container a { color: #0078A8 }` outranks the plain `.btn`
+   class on specificity, so a "View Full Profile" link inside a map popup
+   rendered that medium blue instead of .btn's white -- on the gray
+   .btn.secondary background, that combination is barely readable. */
+.leaflet-popup-content .btn {
+  color: white;
+}
+
 /* An inline caution under a form field -- used where a value is published
    more widely than the field's label suggests, so the warning has to sit
    with the input rather than in documentation nobody opens. */
