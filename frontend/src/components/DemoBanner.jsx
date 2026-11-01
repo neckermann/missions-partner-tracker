@@ -17,8 +17,11 @@ export default function DemoBanner() {
       </p>
       {demoLoginEmail && demoLoginPassword && (
         <p>
-          Try the admin dashboard at <a href="/login">/login</a> with <code>{demoLoginEmail}</code> /{" "}
-          <code>{demoLoginPassword}</code>.
+          Try the admin dashboard at{" "}
+          <a href="/login" target="_blank" rel="noreferrer">
+            /login
+          </a>{" "}
+          with <code>{demoLoginEmail}</code> / <code>{demoLoginPassword}</code>.
         </p>
       )}
       <p>
