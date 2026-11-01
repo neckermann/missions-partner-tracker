@@ -16,6 +16,8 @@ single sign-on — see
 [ADMIN_GUIDE.md § Authentication setup](ADMIN_GUIDE.md#authentication-setup)
 for why.
 
+![The login page](docs/assets/screenshots/login-page.png)
+
 If your account has two-factor authentication enabled, you'll be prompted
 for a 6-digit code from your authenticator app after your password. If an
 admin has *required* MFA on your account but you haven't set it up yet,
@@ -268,6 +270,8 @@ only ever applies to the public site. The masking rules themselves live
 in one place in the code (`backend/src/utils/maskData.js`) — worth a
 periodic team review, since you know which details are genuinely safe to
 show for your specific restricted-access partners.
+
+![A restricted-access missionary's public page -- initials, a silhouette, a country-level pin, and a generic overview](docs/assets/screenshots/restricted-partner-masked.png)
 
 ## Financial support & one-time needs
 
@@ -532,6 +536,8 @@ You can change your password (current password required) and
 enable/disable two-factor authentication — enabling walks you through
 scanning a QR code and confirming a code; disabling requires your current
 password.
+
+![Account settings, mid-enrollment: the QR code step of enabling two-factor authentication](docs/assets/screenshots/mfa-enrollment.png)
 
 ## The public site
 
