@@ -82,12 +82,12 @@ Filter by Type (missionary/organization), Public (yes/no), Restricted
 (yes/no), Continent, and Country — the continent/country dropdowns only
 show what's actually represented in your data, and picking a continent
 narrows the country list to match. There's also a free-text search box
-that matches across name, field/region, focus area, overview text,
-sending church/org name, and country — it's diacritic-insensitive (a
-search for "sao tome" matches "São Tomé") and multi-word (typing two
-words requires both to match somewhere, not as one exact phrase). A
-"Show archived" checkbox reveals archived records, and **Reset filters**
-clears everything back to defaults.
+that matches across name, field/region, focus area, short overview, and
+country — it's diacritic-insensitive (a search for "sao tome" matches
+"São Tomé") and multi-word (typing two words requires both to match
+somewhere, not as one exact phrase). A "Show archived" checkbox reveals
+archived records, and **Reset filters** clears everything back to
+defaults.
 
 Click **+ Add Missionary** or **+ Add Organization** to create one; click
 any row to view that partner's detail page.
@@ -497,15 +497,15 @@ within the GroupMe app itself, same as any other message:
 
 ## User management (Admin only)
 
-**Manage Users** lists everyone with access — email, role, auth provider,
-active status, MFA status, last login. **+ Add User** creates one
-(email + role + auth provider; a password is required for local
-accounts). Editing lets you change role, deactivate, force MFA
-enrollment, or reset a local password. **Reset MFA** clears a locked-out
-user's two-factor setup so they can log back in with just their password
-and re-enroll. You can't delete your own account, and the app won't let
-you demote, deactivate, or delete the last active admin — there's always
-at least one way back in.
+**Manage Users** lists everyone with access — email, role, active status,
+MFA status, last login. **+ Add User** creates one: email, role, and a
+password (every account is email + password, per
+[Logging in](#logging-in) above). Editing lets you change role,
+deactivate, force MFA enrollment, or reset a password. **Reset MFA**
+clears a locked-out user's two-factor setup so they can log back in with
+just their password and re-enroll. You can't delete your own account,
+and the app won't let you demote, deactivate, or delete the last active
+admin — there's always at least one way back in.
 
 ![The Manage Users page, listing role, auth provider, and MFA status](docs/assets/screenshots/manage-users.png)
 
@@ -522,8 +522,11 @@ password.
 Worth understanding what visitors actually see, since it's driven
 entirely by what you check in the admin dashboard:
 - **Partner Directory** (`/`) — a searchable, filterable grid (same
-  continent/country/type filters and robust search as the admin Partners
-  list) of everyone with `isPublic` checked.
+  continent/country/type filters as the admin Partners list) of everyone
+  with `isPublic` checked. Search also matches the same way (diacritic-
+  insensitive, multi-word) across name, field/region, focus area, short
+  overview, country, and — unlike the admin Partners list — sending
+  church/org name.
 
   ![The public partner directory, with search and photo cards](docs/assets/screenshots/public-directory.jpg)
 - **Map** (`/map`) — the same partners plotted on an interactive Leaflet
