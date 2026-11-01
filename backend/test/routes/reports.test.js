@@ -109,7 +109,7 @@ describe("GET /api/reports", () => {
 
 describe("GET /api/reports/:id", () => {
   test("runs a report and returns rows with its own columns", async () => {
-    const res = await admin("/api/reports/upcoming-birthdays?month=3");
+    const res = await admin("/api/reports/upcoming-birthdays?view=month&month=3");
     assert.equal(res.status, 200);
     assert.equal(res.body.id, "upcoming-birthdays");
     assert.ok(Array.isArray(res.body.columns));
@@ -123,14 +123,14 @@ describe("GET /api/reports/:id", () => {
   test("returns the calendar day that was stored, not one either side of it", async () => {
     // The whole reason utils/birthdays.js uses UTC getters. A @db.Date comes
     // back as UTC midnight; read locally it is the previous day west of UTC.
-    const res = await admin("/api/reports/upcoming-birthdays?month=3");
+    const res = await admin("/api/reports/upcoming-birthdays?view=month&month=3");
     const child = res.body.rows.find((r) => r.name === "Child Fixture");
     assert.equal(child.day, 2);
     assert.equal(child.personTypeLabel, "Child");
   });
 
   test("a viewer can run reports -- reads are not role-gated", async () => {
-    const res = await viewer("/api/reports/upcoming-birthdays?month=3");
+    const res = await viewer("/api/reports/upcoming-birthdays?view=month&month=3");
     assert.equal(
       res.status,
       200,
@@ -139,7 +139,7 @@ describe("GET /api/reports/:id", () => {
   });
 
   test("requires a session", async () => {
-    const res = await client().then((c) => c("/api/reports/upcoming-birthdays?month=3"));
+    const res = await client().then((c) => c("/api/reports/upcoming-birthdays?view=month&month=3"));
     assert.equal(res.status, 401);
   });
 
@@ -153,15 +153,37 @@ describe("GET /api/reports/:id", () => {
     // month 13 fails the report's own Zod schema; the central error
     // middleware guarantees `error` is a string, which every frontend call
     // site depends on (an array here used to blank the page).
-    const res = await admin("/api/reports/upcoming-birthdays?month=13");
+    const res = await admin("/api/reports/upcoming-birthdays?view=month&month=13");
     assert.equal(res.status, 400);
     assert.equal(typeof res.body.error, "string");
     assert.match(res.body.error, /month/i);
   });
 
-  test("a missing required param 400s rather than running on a default", async () => {
-    const res = await admin("/api/reports/upcoming-birthdays");
+  test("month view with no month picked 400s rather than running on a default", async () => {
+    const res = await admin("/api/reports/upcoming-birthdays?view=month");
     assert.equal(res.status, 400);
+    assert.match(res.body.error, /month/i);
+  });
+});
+
+describe("upcoming-birthdays report: year view", () => {
+  test("defaults to the full-year view with no params at all", async () => {
+    const res = await admin("/api/reports/upcoming-birthdays");
+    assert.equal(res.status, 200);
+    const child = res.body.rows.find((r) => r.name === "Child Fixture");
+    assert.ok(child, "the fixture child's birthday should appear in the year view");
+    assert.equal(child.month, 3);
+    assert.equal(child.monthLabel, "March");
+  });
+
+  test("explicit view=year returns rows sorted month-then-day, never regressing to an earlier month", async () => {
+    const res = await admin("/api/reports/upcoming-birthdays?view=year");
+    assert.equal(res.status, 200);
+    assert.ok(res.body.rows.length > 0, "the fixture partner's birthdays should appear");
+    const months = res.body.rows.map((r) => r.month);
+    for (let i = 1; i < months.length; i++) {
+      assert.ok(months[i] >= months[i - 1], "rows should never regress to an earlier month");
+    }
   });
 });
 
@@ -231,9 +253,83 @@ describe("monthly-support report", () => {
   });
 });
 
+describe("furlough report", () => {
+  test("a current furlough (no end date) appears as Current", async () => {
+    const p = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "missionary",
+        displayName: `${FIXTURE_TAG} Current Furlough`,
+        furloughs: [{ startDate: "2026-01-01", notes: "Report fixture furlough" }],
+      },
+    });
+    const res = await admin("/api/reports/furlough");
+    assert.equal(res.status, 200);
+    const row = res.body.rows.find((r) => r.partnerId === p.body.id);
+    assert.ok(row, "current furlough should appear");
+    assert.equal(row.status, "Current");
+    assert.equal(row.endDate, null);
+  });
+
+  test("an upcoming furlough (future start date) appears as Upcoming", async () => {
+    const p = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "missionary",
+        displayName: `${FIXTURE_TAG} Upcoming Furlough`,
+        furloughs: [{ startDate: "2099-01-01", endDate: "2099-06-01" }],
+      },
+    });
+    const res = await admin("/api/reports/furlough");
+    const row = res.body.rows.find((r) => r.partnerId === p.body.id);
+    assert.ok(row, "upcoming furlough should appear");
+    assert.equal(row.status, "Upcoming");
+  });
+
+  test("a past furlough (ended already) does not appear", async () => {
+    const p = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "missionary",
+        displayName: `${FIXTURE_TAG} Past Furlough`,
+        furloughs: [{ startDate: "2020-01-01", endDate: "2020-06-01" }],
+      },
+    });
+    const res = await admin("/api/reports/furlough");
+    assert.equal(
+      res.body.rows.some((r) => r.partnerId === p.body.id),
+      false
+    );
+  });
+
+  test("an archived partner is excluded by default, included with includeArchived", async () => {
+    const p = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "missionary",
+        displayName: `${FIXTURE_TAG} Archived Furlough`,
+        furloughs: [{ startDate: "2026-01-01" }],
+      },
+    });
+    await admin(`/api/partners/${p.body.id}/archive`, { method: "POST" });
+
+    const excluded = await admin("/api/reports/furlough");
+    assert.equal(
+      excluded.body.rows.some((r) => r.partnerId === p.body.id),
+      false
+    );
+
+    const included = await admin("/api/reports/furlough?includeArchived=true");
+    assert.equal(
+      included.body.rows.some((r) => r.partnerId === p.body.id),
+      true
+    );
+  });
+});
+
 describe("CSV export", () => {
   test("serves text/csv as an attachment with the report's columns as the header", async () => {
-    const res = await admin("/api/reports/upcoming-birthdays?month=3&format=csv");
+    const res = await admin("/api/reports/upcoming-birthdays?view=month&month=3&format=csv");
     assert.equal(res.status, 200);
     assert.match(res.headers.get("content-type"), /text\/csv/);
     assert.match(res.headers.get("content-disposition"), /attachment; filename="upcoming-birthdays-/);
@@ -242,7 +338,7 @@ describe("CSV export", () => {
     // source is invisible in a diff and trips eslint's no-irregular-whitespace.
     const body = stripBom(res.body);
     const [header] = body.split("\r\n");
-    assert.equal(header, "Day,Name,Adult/Child,Turning,Partner,Field");
+    assert.equal(header, "Month,Day,Name,Adult/Child,Turning,Partner,Field");
     assert.match(body, /Child Fixture/);
   });
 

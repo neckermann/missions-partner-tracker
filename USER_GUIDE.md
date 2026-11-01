@@ -414,16 +414,17 @@ or **Print** (a clean paginated layout for handing to a meeting).
 
 | Report | Shows |
 |---|---|
-| Upcoming Birthdays | Adults and children with a birthday in a selected calendar month, with the partner they belong to. No feature toggle gates this one — it's always available. |
+| Upcoming Birthdays | Adults and children with a birthday, with the partner they belong to. Defaults to a full-year view (every month, in order); switch its **View** filter to **One month** for a single calendar month instead. No feature toggle gates this one — it's always available. |
 | Monthly Support | Every partner's current monthly support amount, as of its most recent entry — the same number [Monthly Support](#financial-support--one-time-needs) shows. |
 | One-Time Needs | One-time gift requests in a date range, with what was requested, what was approved, and what's still pending a decision. |
 | Prayer Requests | Prayer requests across every partner, filterable by category, status, and date range. |
 | Trip History | Mission trips across every missionary and organization, with dates, type, and team size — the same filters as [Trip History](#trip-history--trip-opportunities)'s own page. |
+| Furlough | Missionaries currently on furlough or with an upcoming furlough on file, with start/end dates and notes. No feature toggle gates this one — furlough tracking is always available. |
 
 A report tied to a feature that's turned off (see
 [ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles))
-simply doesn't appear in the picker — Upcoming Birthdays is the one
-exception, since it has no feature of its own to tie to.
+simply doesn't appear in the picker — Upcoming Birthdays and Furlough are
+the two exceptions, since neither has a feature of its own to tie to.
 
 ![The Reports page, with the Prayer Requests report run](docs/assets/screenshots/reports-preview.png)
 

@@ -70,6 +70,10 @@ test.describe("Reports", () => {
       await expect(page.getByRole("heading", { name: "Reports" })).toBeVisible();
 
       await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("upcoming-birthdays");
+      // Upcoming Birthdays defaults to the full-year view, where the Month
+      // control is hidden (showWhen in the report's own field declaration --
+      // see AdminReports.jsx). Switching View to "One month" reveals it.
+      await page.getByRole("combobox", { name: "View", exact: true }).selectOption("month");
       // The month control is rendered from the server's field declaration,
       // not hardcoded here -- if the registry stops shipping `fields`, this
       // fails.
