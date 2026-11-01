@@ -11,10 +11,10 @@ only)** below — see [Understanding your role](#understanding-your-role).
 
 ## Logging in
 
-Go to `/login`. Email + password always works. If your church has
-your email address and password
-per provider they've enabled (e.g. Entra ID, Google Workspace, Okta) —
-use whichever your church set up for you.
+Go to `/login` and sign in with your email and password. There's no
+single sign-on — see
+[ADMIN_GUIDE.md § Authentication setup](ADMIN_GUIDE.md#authentication-setup)
+for why.
 
 If your account has two-factor authentication enabled, you'll be prompted
 for a 6-digit code from your authenticator app after your password. If an
@@ -55,10 +55,16 @@ at your church.
 
 The sidebar (and the Home page's card grid, which mirrors it) lists:
 **Home**, **Partners** (or your church's custom term, e.g. "Go Team
-Partners," if enabled in Church Settings), **Monthly Support**,
-**One-Time Needs**, **Trip History**, **Trip Opportunities**,
-**Newsletters**, **Documents**, **Print Booklet** — visible to everyone.
-**Manage Users** and **Church Settings** appear only for admins. The
+Partners," if enabled in Branding), **Monthly Support**, **One-Time
+Needs**, **Prayer Requests**, **Trip History**, **Trip Opportunities**,
+**Newsletters**, **Documents**, **Print Booklet**, **Reports** — visible
+to everyone, each one only if its
+[feature toggle](ADMIN_GUIDE.md#feature-toggles) is on. **Site
+Administration**, an expandable group at the bottom of the
+sidebar, appears only for admins and holds **Manage Users**, **Branding**,
+**Enabled Features**, **About Church**, and **GroupMe** — see
+[Church Settings](#church-settings-admin-only) and
+[GroupMe notifications](#groupme-notifications-admin-only) below. The
 footer has **My Account**, a link back to the public site, and **Log
 out**.
 
@@ -371,12 +377,41 @@ prayer/support directory for your congregation.
 
 ## Church Settings (Admin only)
 
-One record controls the whole instance's branding: Church Info (name,
-phone, contact, website, address — also what auto-fills "Sent by our
-church" on the missionary form), Partner Terminology (swap "Missionary"
-for whatever your church calls them, and optionally use that term in the
-admin nav too), Public Site (tagline, about text, brand color), and Logo.
-Changes take effect immediately, everywhere, with no code changes needed.
+One record controls the whole instance's branding, split across two pages
+under Site Administration — changes on either take effect immediately,
+everywhere, with no code changes needed:
+
+- **About Church** — Church Info: name, phone, contact name/email,
+  website, and address. This is also what auto-fills "Sent by our church"
+  on the missionary form.
+- **Branding** — Public Site (tagline, about text, brand color), Logo,
+  and Partner Terminology (swap "Missionary" for whatever your church
+  calls them, and optionally use that term in the admin nav too).
+
+## GroupMe notifications (Admin only)
+
+Posts new prayer requests to a GroupMe group as they're added, so a
+prayer team sees them the moment they're added without checking the
+admin dashboard. Off by default — turn it on in
+[Enabled Features](ADMIN_GUIDE.md#feature-toggles) once it's set up here.
+
+Setup, on the **GroupMe** page under Site Administration, is three steps,
+each building on the last:
+
+1. **Access Token** — paste a personal access token from
+   [dev.groupme.com](https://dev.groupme.com). Messages post under that
+   account's own GroupMe identity, not a bot — write-only once saved,
+   same as a password field; leave it blank on a later save to keep the
+   existing one.
+2. **Group** — click **Load My Groups** to pull the token's actual
+   GroupMe groups, pick one, **Use This Group**.
+3. **Prayer Requests Topic** — click **Load Topics** to pull that group's
+   real Topics, pick one, **Use This Topic**. Until a topic is picked,
+   prayer requests post to the group's main conversation instead.
+
+If GroupMe itself is unreachable or rejects a post, the prayer request
+still saves normally — the notification is best-effort and never blocks
+your own work.
 
 ## User management (Admin only)
 
@@ -411,6 +446,14 @@ entirely by what you check in the admin dashboard:
   [Understanding restricted-access partners](#understanding-restricted-access-partners).
   Organizations aren't part of the auto-tour cycle described below, but
   their pins are still clickable any time.
+- **Partner detail page** — the fuller write-up linked from both the
+  directory and the map, masked the same way for restricted partners. A
+  **Show Country Statistics** button (visible whenever the partner has a
+  Country Code set) fetches live population, primary religion, percent
+  evangelical, and how reached that country is, straight from the
+  [Joshua Project](https://joshuaproject.net/) — the same lookup the
+  [Serving Location](#adding-editing-a-missionary) field offers on the
+  admin side, here for visitors.
 
 ### The public map's auto-tour
 
@@ -430,8 +473,6 @@ lobby kiosk) as well as regular visitors:
 - Only missionaries with a resolvable pin are included in the cycle — see
   [ADMIN_GUIDE.md § Troubleshooting](ADMIN_GUIDE.md#troubleshooting) if a
   restricted partner isn't showing up.
-- **Partner detail page** — the fuller write-up linked from both the
-  directory and the map, masked the same way for restricted partners.
 
 Nothing on the public site is editable — it's a read-only mirror of
 whatever's marked public in the admin dashboard.
