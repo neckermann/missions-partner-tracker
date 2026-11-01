@@ -1,0 +1,178 @@
+/* Rendered-Markdown typography for the guide pages. Scoped under
+   .guide-content so it never leaks into the rest of the site. */
+
+.guide-page {
+  padding: 2.5rem 0 5rem;
+}
+
+.guide-back {
+  display: inline-block;
+  margin-bottom: 1.5rem;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.guide-back:hover {
+  color: var(--green-dark);
+}
+
+.guide-switch {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+}
+
+.guide-switch a {
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  text-decoration: none;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.guide-switch a.active {
+  background: var(--green-dark);
+  border-color: var(--green-dark);
+  color: #fff;
+}
+
+.guide-source {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: -1rem;
+  margin-bottom: 2.5rem;
+}
+
+.guide-content {
+  max-width: 760px;
+}
+
+.guide-content h1 {
+  font-size: 2rem;
+  color: var(--green-dark);
+  margin: 0 0 1rem;
+}
+
+.guide-content h2 {
+  font-size: 1.4rem;
+  color: var(--green-dark);
+  margin: 2.5rem 0 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.guide-content h2:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.guide-content h3 {
+  font-size: 1.1rem;
+  color: var(--green-dark);
+  margin: 1.75rem 0 0.75rem;
+}
+
+.guide-content p,
+.guide-content li {
+  color: var(--text);
+}
+
+.guide-content p {
+  margin: 0 0 1rem;
+}
+
+.guide-content ul,
+.guide-content ol {
+  margin: 0 0 1rem;
+  padding-left: 1.4rem;
+}
+
+.guide-content li {
+  margin-bottom: 0.4rem;
+}
+
+.guide-content a {
+  color: var(--green);
+}
+
+.guide-content code {
+  background: var(--green-light);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.88em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.guide-content pre {
+  background: var(--green-dark);
+  color: #eef3ea;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0 0 1.25rem;
+}
+
+.guide-content pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.guide-content blockquote {
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 1.25rem;
+  border-left: 3px solid var(--green);
+  background: var(--green-light);
+  color: var(--muted);
+}
+
+.guide-content blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.guide-content table {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.5rem;
+  font-size: 0.92rem;
+}
+
+.guide-content th,
+.guide-content td {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.guide-content th {
+  background: var(--green-light);
+  color: var(--green-dark);
+}
+
+.guide-content tr:nth-child(even) td {
+  background: #fcfbf7;
+}
+
+.guide-content img {
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 10px rgba(31, 61, 43, 0.1);
+  margin: 0 0 1.25rem;
+}
+
+.guide-content hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2rem 0;
+}
+
+.guide-loading,
+.guide-error {
+  color: var(--muted);
+}
