@@ -74,6 +74,11 @@ function describeFilters(report, values) {
   if (!report?.fields?.length) return null;
   const parts = [];
   for (const field of report.fields) {
+    // A field hidden by showWhen (e.g. Month while View is Full year)
+    // wasn't actually part of this run, even though it still carries
+    // whatever value it last held -- leaving it out of the printed
+    // summary keeps "what this report was filtered by" honest.
+    if (field.showWhen && values[field.showWhen.field] !== field.showWhen.equals) continue;
     const value = values[field.name];
     if (value === "" || value === null || value === undefined) continue;
     if (field.type === "checkbox") {
@@ -232,63 +237,65 @@ export default function AdminReports() {
 
         {selected && (
           <form onSubmit={run} className="form-grid" style={{ marginTop: "1rem" }}>
-            {(selected.fields || []).map((field) => (
-              <label key={field.name}>
-                {field.label}
-                {field.type === "month" && (
-                  <select
-                    value={values[field.name] ?? ""}
-                    onChange={(e) => setValue(field.name, Number(e.target.value))}
-                  >
-                    {MONTHS.map((label, i) => (
-                      <option key={label} value={i + 1}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {field.type === "select" && (
-                  <select
-                    value={values[field.name] ?? ""}
-                    onChange={(e) => setValue(field.name, e.target.value)}
-                  >
-                    {(field.options || []).map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {field.type === "date" && (
-                  <input
-                    type="date"
-                    value={values[field.name] ?? ""}
-                    onChange={(e) => setValue(field.name, e.target.value)}
-                  />
-                )}
-                {field.type === "number" && (
-                  <input
-                    type="number"
-                    value={values[field.name] ?? ""}
-                    onChange={(e) => setValue(field.name, e.target.value)}
-                  />
-                )}
-                {field.type === "text" && (
-                  <input
-                    type="text"
-                    value={values[field.name] ?? ""}
-                    onChange={(e) => setValue(field.name, e.target.value)}
-                  />
-                )}
-                {field.type === "checkbox" && (
-                  <input
-                    type="checkbox"
-                    checked={Boolean(values[field.name])}
-                    onChange={(e) => setValue(field.name, e.target.checked)}
-                  />
-                )}
-              </label>
-            ))}
+            {(selected.fields || [])
+              .filter((field) => !field.showWhen || values[field.showWhen.field] === field.showWhen.equals)
+              .map((field) => (
+                <label key={field.name}>
+                  {field.label}
+                  {field.type === "month" && (
+                    <select
+                      value={values[field.name] ?? ""}
+                      onChange={(e) => setValue(field.name, Number(e.target.value))}
+                    >
+                      {MONTHS.map((label, i) => (
+                        <option key={label} value={i + 1}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {field.type === "select" && (
+                    <select
+                      value={values[field.name] ?? ""}
+                      onChange={(e) => setValue(field.name, e.target.value)}
+                    >
+                      {(field.options || []).map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {field.type === "date" && (
+                    <input
+                      type="date"
+                      value={values[field.name] ?? ""}
+                      onChange={(e) => setValue(field.name, e.target.value)}
+                    />
+                  )}
+                  {field.type === "number" && (
+                    <input
+                      type="number"
+                      value={values[field.name] ?? ""}
+                      onChange={(e) => setValue(field.name, e.target.value)}
+                    />
+                  )}
+                  {field.type === "text" && (
+                    <input
+                      type="text"
+                      value={values[field.name] ?? ""}
+                      onChange={(e) => setValue(field.name, e.target.value)}
+                    />
+                  )}
+                  {field.type === "checkbox" && (
+                    <input
+                      type="checkbox"
+                      checked={Boolean(values[field.name])}
+                      onChange={(e) => setValue(field.name, e.target.checked)}
+                    />
+                  )}
+                </label>
+              ))}
             <div style={{ gridColumn: "1 / -1", display: "flex", gap: "0.5rem" }}>
               <button type="submit" className="btn" disabled={running}>
                 {running ? "Running…" : "Run report"}

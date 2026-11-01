@@ -17,8 +17,9 @@ const oneTimeNeeds = require("./oneTimeNeeds");
 const prayerRequests = require("./prayerRequests");
 const tripHistory = require("./tripHistory");
 const monthlySupport = require("./monthlySupport");
+const furlough = require("./furlough");
 
-const REPORTS = [upcomingBirthdays, oneTimeNeeds, prayerRequests, tripHistory, monthlySupport];
+const REPORTS = [upcomingBirthdays, oneTimeNeeds, prayerRequests, tripHistory, monthlySupport, furlough];
 
 const byId = new Map(REPORTS.map((r) => [r.id, r]));
 
