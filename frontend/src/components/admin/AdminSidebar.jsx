@@ -21,7 +21,7 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
     enabledFeatures.monthlySupport && { to: "/admin/support/monthly", label: "Monthly Support" },
     enabledFeatures.oneTimeNeeds && { to: "/admin/support/needs", label: "One-Time Needs" },
     enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
-    enabledFeatures.trips && { to: "/admin/trips", label: "Trip History" },
+    enabledFeatures.trips && { to: "/admin/trips", label: "Trip History", end: true },
     enabledFeatures.trips && { to: "/admin/trips/opportunities", label: "Trip Opportunities" },
     enabledFeatures.newsletters && { to: "/admin/newsletters", label: "Newsletters" },
     enabledFeatures.documents && { to: "/admin/documents", label: "Documents" },
