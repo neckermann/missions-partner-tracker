@@ -27,6 +27,18 @@ router.get("/", async (req, res, next) => {
       usePartnerTermInAdmin: settings?.usePartnerTermInAdmin || false,
       publicTagline: settings?.publicTagline || null,
       aboutText: settings?.aboutText || null,
+      // Demo-mode banner, kept entirely separate from the real About
+      // Church content above -- DEMO_RESET_TOKEN existing is already what
+      // decides whether POST /api/demo/reset is even mounted (see
+      // server.js), so it's reused here rather than adding a second
+      // signal. The login credentials are the ones reset-demo-data.js
+      // just (re)created, published on purpose: the whole point of a
+      // public demo is letting a visitor actually try the admin
+      // dashboard. Never set on a real deployment, since DEMO_RESET_TOKEN
+      // never is.
+      isDemo: Boolean(process.env.DEMO_RESET_TOKEN),
+      demoLoginEmail: process.env.DEMO_RESET_TOKEN ? process.env.DEMO_ADMIN_EMAIL || null : null,
+      demoLoginPassword: process.env.DEMO_RESET_TOKEN ? process.env.DEMO_ADMIN_PASSWORD || null : null,
       // Resolved (not raw) per-feature booleans -- reflects the registry
       // default and any requiresEnvVar check, not just what's stored. Not
       // sensitive (whether a feature is on isn't a secret), and this is the

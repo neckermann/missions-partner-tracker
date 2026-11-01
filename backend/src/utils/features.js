@@ -80,7 +80,7 @@ const FEATURES = {
   reports: {
     label: "Reports",
     description:
-      "Read-only reports over existing data — birthdays, one-time needs — with CSV download and a print view.",
+      "Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history — with CSV download and a print view.",
     defaultEnabled: true,
     group: "admin",
   },

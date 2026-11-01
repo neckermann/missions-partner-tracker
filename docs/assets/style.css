@@ -171,10 +171,20 @@ header.site-header nav a:hover {
   min-width: 0;
 }
 
+.feature-image a {
+  display: block;
+}
+
 .feature-image img {
   border-radius: 8px;
   border: 1px solid var(--border);
   box-shadow: 0 4px 18px rgba(31, 61, 43, 0.12);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.feature-image img:hover {
+  opacity: 0.9;
 }
 
 .feature-image.two-up {
@@ -182,9 +192,13 @@ header.site-header nav a:hover {
   gap: 1rem;
 }
 
-.feature-image.two-up img {
+.feature-image.two-up a {
   flex: 1;
   min-width: 0;
+}
+
+.feature-image.two-up img {
+  width: 100%;
 }
 
 /* "Everything else" gallery */

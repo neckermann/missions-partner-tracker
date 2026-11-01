@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchPublicPartners } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
+import DemoBanner from "../components/DemoBanner.jsx";
 import { getContinent } from "../utils/countryContinents.js";
 import { matchesSearch } from "../utils/search.js";
 
@@ -113,6 +114,7 @@ export default function PublicDirectory() {
         </Link>
       </header>
 
+      <DemoBanner />
       {aboutText && <p className="public-about-text">{aboutText}</p>}
 
       <div className="partner-filter-bar">

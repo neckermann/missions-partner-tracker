@@ -17,9 +17,17 @@ const DEFAULTS = {
   usePartnerTermInAdmin: false,
   publicTagline: null,
   aboutText: null,
+  // Demo-mode banner fields -- see the comment on these in
+  // routes/publicSettings.js. null/false here (not just omitted) so
+  // DemoBanner.jsx's `if (!isDemo) return null` is correct even before
+  // the first fetch resolves, same reasoning as the rest of this object.
+  isDemo: false,
+  demoLoginEmail: null,
+  demoLoginPassword: null,
   // Resolved booleans (env-var checks already applied server-side, see
   // routes/publicSettings.js) -- every key defaults to true here so a page
-  // never flashes "disabled" while this first fetch is still in flight.
+  // never flashes "disabled" while this first fetch is still in flight,
+  // except aiExtraction and groupme, whose real registry default is off.
   enabledFeatures: {
     newsletters: true,
     documents: true,
@@ -31,6 +39,8 @@ const DEFAULTS = {
     monthlySupport: true,
     trips: true,
     booklet: true,
+    reports: true,
+    groupme: false,
   },
 };
 
