@@ -1,5 +1,6 @@
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
+const prisma = require("../../src/prismaClient");
 const {
   client,
   stopServer,
@@ -14,6 +15,8 @@ let editor;
 let viewer;
 let anon;
 
+let originalSettings;
+
 before(async () => {
   await ensureTestUsers();
   [admin, editor, viewer, anon] = await Promise.all([
@@ -23,10 +26,17 @@ before(async () => {
     client(null),
   ]);
   await removeFixturePartners();
+  originalSettings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { churchName: true, contactName: true, contactEmail: true, phone: true, websiteLink: true, address: true },
+  });
 });
 
 after(async () => {
   await removeFixturePartners();
+  if (originalSettings) {
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: originalSettings });
+  }
   await removeTestUsers();
   await stopServer();
 });
@@ -250,5 +260,73 @@ describe("partners: archive before delete", () => {
 
     assert.equal((await admin(`/api/partners/${p.id}`, { method: "DELETE" })).status, 204);
     assert.equal((await admin(`/api/partners/${p.id}`)).status, 404);
+  });
+});
+
+describe("partners: Sent by our church auto-fills Sending Church", () => {
+  before(async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: {
+        churchName: `${FIXTURE_TAG} Hillside Community Church`,
+        contactName: "Amy Draycott",
+        contactEmail: "missions@example.org",
+        phone: "555-0100",
+        websiteLink: "https://example.org",
+        address: { addressLine1: "1 Main St", city: "Rock Island", country: "USA" },
+      },
+    });
+  });
+
+  test("checking it at creation fills every blank Sending Church field", async () => {
+    const p = await createPartner({ sentByOurChurch: true });
+    assert.equal(p.sendingChurch.name, `${FIXTURE_TAG} Hillside Community Church`);
+    assert.equal(p.sendingChurch.contactName, "Amy Draycott");
+    assert.equal(p.sendingChurch.contactEmail, "missions@example.org");
+    assert.equal(p.sendingChurch.phone, "555-0100");
+    assert.equal(p.sendingChurch.websiteLink, "https://example.org");
+    assert.equal(p.sendingChurch.mailingAddress.city, "Rock Island");
+  });
+
+  test("checking it later (PUT) fills blanks without touching anything already typed", async () => {
+    const p = await createPartner({
+      sentByOurChurch: false,
+      sendingChurch: { name: "Already Typed Name" },
+    });
+    assert.equal(p.sendingChurch.name, "Already Typed Name");
+
+    const res = await admin(`/api/partners/${p.id}`, {
+      method: "PUT",
+      body: { sentByOurChurch: true },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.sendingChurch.name, "Already Typed Name", "an already-typed field is never overwritten");
+    assert.equal(res.body.sendingChurch.contactName, "Amy Draycott", "a blank field still gets filled in");
+  });
+
+  test("a save that sends its own sendingChurch payload is never overridden by the auto-fill", async () => {
+    const p = await createPartner({
+      sentByOurChurch: true,
+      sendingChurch: { name: "Explicit Name", contactName: "Explicit Contact" },
+    });
+    assert.equal(p.sendingChurch.name, "Explicit Name");
+    assert.equal(p.sendingChurch.contactName, "Explicit Contact");
+  });
+
+  test("unchecking it never clears anything already filled in", async () => {
+    const p = await createPartner({ sentByOurChurch: true });
+    assert.equal(p.sendingChurch.name, `${FIXTURE_TAG} Hillside Community Church`);
+
+    const res = await admin(`/api/partners/${p.id}`, {
+      method: "PUT",
+      body: { sentByOurChurch: false },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.sentByOurChurch, false);
+    assert.equal(
+      res.body.sendingChurch.name,
+      `${FIXTURE_TAG} Hillside Community Church`,
+      "unchecking is a one-way fill, not a sync -- it never clears what was filled in"
+    );
   });
 });

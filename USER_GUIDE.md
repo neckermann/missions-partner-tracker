@@ -137,7 +137,9 @@ The sections, and what each holds:
   [Photo history](#photo-history) below.
 - **Core Info** — Display Name, Field/Region, Supporting Since,
   Preferred Contact Method (missionary), or Organization Name/Type
-  (organization).
+  (organization), plus a missionary-only **"Sent by {your church}"**
+  checkbox — see the **Sending Church** bullet below for what checking
+  it does.
 - **Financial Support** — repeatable Monthly Amount / Effective Date /
   Notes rows. The most recent effective date is what counts as the
   current amount everywhere else in the app. Never shown publicly.
@@ -179,11 +181,14 @@ The sections, and what each holds:
   furlough) and Notes.
 - **Church Visits** — Visit Date + Notes; the most recent becomes "last
   visit" everywhere it's shown.
-- **Sending Church** (missionary only) — has a **"Sent by {your
-  church}"** checkbox: check it to auto-fill the blank fields below from
-  Church Settings (name, contact, phone, website, mailing address)
-  without overwriting anything you've already typed. Unchecking it later
-  never deletes data that's already there.
+- **Sending Church** (missionary only) — name, contact, phone, website,
+  mailing address. Checking **Core Info**'s "Sent by {your church}"
+  checkbox auto-fills whichever of these fields are still blank straight
+  from Church Settings, without overwriting anything you've already
+  typed, whether you check it when first creating the partner or later.
+  Unchecking it never deletes data that's already there — it's a
+  one-way convenience fill, not an ongoing sync, so a later change to
+  Church Settings doesn't retroactively update an already-filled field.
 - **Sending Org** (missionary only) — same shape as Sending Church, no
   auto-fill checkbox.
 - **Links & Social Media** (missionary) / folded into **Contact Info**
