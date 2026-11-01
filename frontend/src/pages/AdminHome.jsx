@@ -59,11 +59,34 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
   ].filter(Boolean);
 }
 
-const ADMIN_ONLY_SECTIONS = [
+// Mirrors AdminSidebar.jsx's SITE_ADMIN_LINKS -- same pages, same order,
+// just as tiles instead of a nav submenu, so an admin coming from Home
+// can jump straight to one without going through the sidebar at all.
+const SITE_ADMIN_SECTIONS = [
   {
-    to: "/admin/settings",
-    title: "Site Administration",
-    description: "Manage users, branding, feature toggles, and church info.",
+    to: "/admin/settings/users",
+    title: "Manage Users",
+    description: "Who has access, their role, and their two-factor status.",
+  },
+  {
+    to: "/admin/settings/branding",
+    title: "Branding",
+    description: "Public-site tagline, about text, brand color, logo, and partner terminology.",
+  },
+  {
+    to: "/admin/settings/features",
+    title: "Enabled Features",
+    description: "Turn off anything this church isn't using.",
+  },
+  {
+    to: "/admin/settings/about",
+    title: "About Church",
+    description: "Church name, contact info, and address.",
+  },
+  {
+    to: "/admin/settings/groupme",
+    title: "GroupMe",
+    description: "Post new prayer requests to a GroupMe group automatically.",
   },
 ];
 
@@ -87,14 +110,22 @@ export default function AdminHome() {
             <p>{s.description}</p>
           </Link>
         ))}
-        {currentUser?.role === "admin" &&
-          ADMIN_ONLY_SECTIONS.map((s) => (
-            <Link key={s.to} to={s.to} className="admin-card">
-              <h3>{s.title}</h3>
-              <p>{s.description}</p>
-            </Link>
-          ))}
       </div>
+
+      {currentUser?.role === "admin" && (
+        <>
+          <h2 style={{ marginTop: "2rem" }}>Site Administration</h2>
+          <p style={{ color: "#555" }}>Church-wide settings — admin only.</p>
+          <div className="admin-card-grid">
+            {SITE_ADMIN_SECTIONS.map((s) => (
+              <Link key={s.to} to={s.to} className="admin-card">
+                <h3>{s.title}</h3>
+                <p>{s.description}</p>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
