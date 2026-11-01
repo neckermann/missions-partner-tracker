@@ -45,8 +45,13 @@ async function resetDemoData() {
   run("node", ["prisma/seed.js"]);
   run("node", ["prisma/createAdmin.js", email, password]);
 
-  const demoNotice = `This is a live public demo of Missions Partner Tracker, running against fake data. It resets automatically on a schedule — nothing you do here is permanent. Sign in at /login with ${email} / ${password} to try the admin dashboard. Full app details and usage docs: https://github.com/neckermann/missions-partner-tracker`;
-
+  // The "this is a live demo, here's how to log in" message is no longer
+  // stuffed into aboutText -- it's rendered by DemoBanner.jsx instead,
+  // from DEMO_RESET_TOKEN/DEMO_ADMIN_EMAIL/DEMO_ADMIN_PASSWORD directly
+  // (see routes/publicSettings.js), so churchName/publicTagline/aboutText
+  // stay free to demonstrate what a real church's own branding looks
+  // like, same as everywhere else in the seeded data.
+  //
   // migrate reset above drops and recreates the schema, so ChurchSettings
   // starts empty every time -- every registry feature (see
   // src/utils/features.js) needs to be explicitly turned back on here,
@@ -59,15 +64,17 @@ async function resetDemoData() {
     where: { id: "singleton" },
     create: {
       id: "singleton",
-      churchName: "Demo Church",
-      publicTagline: "Live public demo — resets automatically",
-      aboutText: demoNotice,
+      churchName: "Missions Partner Tracker Demo",
+      publicTagline: "Supporting our missionary and organization partners around the world",
+      aboutText:
+        "We partner with missionaries and organizations serving around the world, supporting them in prayer, finances, and care.",
       enabledFeatures: allFeaturesOn,
     },
     update: {
-      churchName: "Demo Church",
-      publicTagline: "Live public demo — resets automatically",
-      aboutText: demoNotice,
+      churchName: "Missions Partner Tracker Demo",
+      publicTagline: "Supporting our missionary and organization partners around the world",
+      aboutText:
+        "We partner with missionaries and organizations serving around the world, supporting them in prayer, finances, and care.",
       enabledFeatures: allFeaturesOn,
     },
   });
