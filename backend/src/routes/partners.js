@@ -260,6 +260,63 @@ async function buildAddressRows(addresses) {
   return rows;
 }
 
+// Checking "Sent by {church}" (Core Info) copies this church's own About
+// Church info into the Sending Church section, one field at a time --
+// only filling in blanks, never overwriting anything already entered.
+// Unchecking never clears anything; this is a one-way convenience fill,
+// not a sync. Server-side (not client-side) because Core Info and Sending
+// Church are now independent EditableSection saves (see that component's
+// comment) with no shared form state to cross-update from one checkbox --
+// this runs whenever a save turns sentByOurChurch on and doesn't itself
+// also touch sendingChurch, regardless of which section triggered it.
+// ChurchSettings.address is deliberately the same shape as SendingParty's
+// address columns (see that comment in schema.prisma) for exactly this
+// direct a copy.
+async function autoFillSendingChurch(tx, partnerId) {
+  const [existing, settings] = await Promise.all([
+    tx.sendingParty.findUnique({ where: { partnerId_type: { partnerId, type: "church" } } }),
+    tx.churchSettings.findUnique({ where: { id: "singleton" } }),
+  ]);
+  if (!settings) return;
+
+  const address = settings.address || {};
+  const existingAddress = existing
+    ? {
+        addressLine1: existing.addressLine1,
+        addressLine2: existing.addressLine2,
+        city: existing.city,
+        stateProvinceRegion: existing.stateProvinceRegion,
+        postalCode: existing.postalCode,
+        country: existing.country,
+      }
+    : {};
+  const hasExistingAddress = Object.values(existingAddress).some(Boolean);
+
+  const filled = {
+    name: existing?.name || settings.churchName || null,
+    contactName: existing?.contactName || settings.contactName || null,
+    contactEmail: existing?.contactEmail || settings.contactEmail || null,
+    phone: existing?.phone || settings.phone || null,
+    websiteLink: existing?.websiteLink || settings.websiteLink || null,
+    ...(hasExistingAddress
+      ? existingAddress
+      : {
+          addressLine1: address.addressLine1 || null,
+          addressLine2: address.addressLine2 || null,
+          city: address.city || null,
+          stateProvinceRegion: address.stateProvinceRegion || null,
+          postalCode: address.postalCode || null,
+          country: address.country || null,
+        }),
+  };
+
+  await tx.sendingParty.upsert({
+    where: { partnerId_type: { partnerId, type: "church" } },
+    create: { partnerId, type: "church", ...filled },
+    update: filled,
+  });
+}
+
 // GET /api/partners  (list — summary rows only)
 // Optional ?kind=missionary|organization, ?archived=true|false (omit for
 // both), ?q= name/field search.
@@ -348,7 +405,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
       ...(sendingOrg ? [flattenSendingParty(sendingOrg, "org")] : []),
     ];
 
-    const created = await prisma.partner.create({
+    let created = await prisma.partner.create({
       data: {
         ...scalarData,
         createdById: req.user.id,
@@ -362,6 +419,12 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
       },
       include: partnerRecordInclude,
     });
+
+    // Same one-way convenience fill as PUT /:id -- see autoFillSendingChurch.
+    if (scalarData.sentByOurChurch === true && !sendingChurch) {
+      await autoFillSendingChurch(prisma, created.id);
+      created = await prisma.partner.findUnique({ where: { id: created.id }, include: partnerRecordInclude });
+    }
 
     res.status(201).json(shapePartner(created));
   } catch (err) {
@@ -466,7 +529,7 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
         ...(sendingOrg ? [flattenSendingParty(sendingOrg, "org")] : []),
       ];
 
-      return tx.partner.update({
+      const result = await tx.partner.update({
         where: { id: req.params.id },
         data: {
           ...scalarData,
@@ -480,6 +543,14 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
         },
         include: partnerRecordInclude,
       });
+
+      // Only when this save itself didn't already touch Sending Church --
+      // that save's own data wins, nothing here should override it.
+      if (scalarData.sentByOurChurch === true && !sendingChurch) {
+        await autoFillSendingChurch(tx, req.params.id);
+        return tx.partner.findUnique({ where: { id: req.params.id }, include: partnerRecordInclude });
+      }
+      return result;
     });
 
     res.json(shapePartner(updated));
