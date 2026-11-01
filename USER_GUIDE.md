@@ -29,7 +29,7 @@ Every user has one of three roles:
 | Role | Can change |
 |---|---|
 | `viewer` | Nothing. Read-only. |
-| `editor` | Create and edit partners and support entries, and upload newsletters and documents. |
+| `editor` | Create, edit, and archive/unarchive partners; add support entries, one-time needs, trips, and prayer requests; upload newsletters and documents. Can't delete anything, manage users, or change Church Settings. |
 | `admin` | Everything above, plus delete records, manage users, and edit Church Settings. |
 
 **Roles control what you can change, not what you can see.** Every account,
@@ -220,8 +220,10 @@ site can see, independently of each other:
   recognized — see
   [ADMIN_GUIDE.md § Troubleshooting](ADMIN_GUIDE.md#troubleshooting)),
   replaces the overview with a generic security-conscious blurb, and
-  strips all contact info, sending church/org, and children's
-  names/birthdays entirely.
+  strips all contact info, sending church/org, children's
+  names/birthdays, and prayer requests entirely — even a strategic
+  request marked Show on public profile never appears for a restricted
+  partner.
 
 Neither flag affects what you see in the admin dashboard — the masking
 only ever applies to the public site. The masking rules themselves live
@@ -344,6 +346,28 @@ request itself).
 The central **Prayer Requests** page lists every request across every
 partner, filterable by category, with a running count of how many have
 been answered so far.
+
+## Reports
+
+Read-only views over data already in the tracker, for anyone who needs
+numbers rather than a record-by-record browse. Pick a report, set its
+filters, and click **Run report**; **Reset Filters** clears everything
+back to that report's defaults. Every report's results can be exported
+as **Download CSV** (a spreadsheet, same rows and columns as the screen)
+or **Print** (a clean paginated layout for handing to a meeting).
+
+| Report | Shows |
+|---|---|
+| Upcoming Birthdays | Adults and children with a birthday in a selected calendar month, with the partner they belong to. No feature toggle gates this one — it's always available. |
+| Monthly Support | Every partner's current monthly support amount, as of its most recent entry — the same number [Monthly Support](#financial-support--one-time-needs) shows. |
+| One-Time Needs | One-time gift requests in a date range, with what was requested, what was approved, and what's still pending a decision. |
+| Prayer Requests | Prayer requests across every partner, filterable by category, status, and date range. |
+| Trip History | Mission trips across every missionary and organization, with dates, type, and team size — the same filters as [Trip History](#trip-history--trip-opportunities)'s own page. |
+
+A report tied to a feature that's turned off (see
+[ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles))
+simply doesn't appear in the picker — Upcoming Birthdays is the one
+exception, since it has no feature of its own to tie to.
 
 ## Printable partner booklet
 
