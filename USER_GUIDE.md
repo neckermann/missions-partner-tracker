@@ -184,7 +184,7 @@ uploaded, viewed, and deleted directly from this page (see
 [Photo history](#photo-history) below) — but other edits (adding a trip,
 recording support) only happen through the Edit form.
 
-![A full partner detail page, showing every section from Photo History down to Sending Church/Org](docs/assets/screenshots/admin-partner-detail.png)
+![The top of a partner detail page -- Photo History, Core Info, and Ministry Overview](docs/assets/screenshots/admin-partner-detail-preview.png)
 
 ### Photo history
 
@@ -389,7 +389,7 @@ A report tied to a feature that's turned off (see
 simply doesn't appear in the picker — Upcoming Birthdays is the one
 exception, since it has no feature of its own to tie to.
 
-![The Prayer Requests report, filtered and run across every partner](docs/assets/screenshots/reports.png)
+![The Reports page, with the Prayer Requests report run](docs/assets/screenshots/reports-preview.png)
 
 ## Printable partner booklet
 
