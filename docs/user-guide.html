@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>User Guide — Missions Partner Tracker</title>
+    <meta
+      name="description"
+      content="Day-to-day guide to using Missions Partner Tracker's admin dashboard — read live from the project's own repo."
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/favicon-192.png" />
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+    <link rel="stylesheet" href="assets/style.css" />
+    <link rel="stylesheet" href="assets/guide.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href="index.html">Missions Partner Tracker</a>
+        <nav>
+          <a href="index.html#public-site">Public Site</a>
+          <a href="index.html#admin">Admin</a>
+          <a href="https://demo.missionspartnertracker.com" target="_blank" rel="noreferrer">Live Demo</a>
+          <a href="https://github.com/neckermann/missions-partner-tracker" target="_blank" rel="noreferrer"
+            >GitHub</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <section class="guide-page">
+      <div class="wrap">
+        <a class="guide-back" href="index.html">← Back to site</a>
+        <div class="guide-switch">
+          <a href="admin-guide.html">Admin Guide</a>
+          <a href="user-guide.html" class="active">User Guide</a>
+        </div>
+        <p class="guide-source">
+          Read live from
+          <a
+            href="https://github.com/neckermann/missions-partner-tracker/blob/main/USER_GUIDE.md"
+            target="_blank"
+            rel="noreferrer"
+            >USER_GUIDE.md</a
+          >
+          in the repo — always current with the code.
+        </p>
+        <div id="guide-content" class="guide-content">
+          <p class="guide-loading">Loading…</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <p>
+          <a href="https://github.com/neckermann/missions-partner-tracker" target="_blank" rel="noreferrer"
+            >missions-partner-tracker</a
+          >
+          — MIT licensed.
+        </p>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="assets/guide.js"></script>
+    <script>
+      loadGuide("USER_GUIDE.md", "guide-content");
+    </script>
+  </body>
+</html>
