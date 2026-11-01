@@ -88,6 +88,11 @@ const SITE_ADMIN_SECTIONS = [
     title: "GroupMe",
     description: "Post new prayer requests to a GroupMe group automatically.",
   },
+  {
+    to: "/admin/settings/joshua-project",
+    title: "Joshua Project",
+    description: "API key for country-level unreached-people-group statistics.",
+  },
 ];
 
 export default function AdminHome() {

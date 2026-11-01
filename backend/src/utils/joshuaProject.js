@@ -1,6 +1,9 @@
 // Server-side proxy for the Joshua Project API so the API key never reaches
 // the browser. Country-level stats only for now (population, primary
 // religion, % Christian/Evangelical, JP Scale).
+const prisma = require("../prismaClient");
+const { decryptField } = require("./crypto");
+
 const DOMAIN = "https://api.joshuaproject.net";
 
 // Country demographic stats barely change and several missionaries often
@@ -26,8 +29,14 @@ async function getCountryInfo(countryCode) {
     cache.delete(cache.keys().next().value);
   }
 
-  const apiKey = process.env.JOSHUA_PROJECT_API_KEY;
-  if (!apiKey) return null;
+  // Admin-managed in ChurchSettings -- see the field's own comment in
+  // schema.prisma. Encrypted at rest the same way groupmeAccessToken is.
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { joshuaProjectApiKey: true },
+  });
+  if (!settings?.joshuaProjectApiKey) return null;
+  const apiKey = decryptField(settings.joshuaProjectApiKey);
 
   try {
     const res = await fetch(

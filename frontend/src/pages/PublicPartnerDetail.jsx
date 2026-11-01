@@ -43,6 +43,7 @@ function PublicHeader() {
 
 export default function PublicPartnerDetail() {
   const { id } = useParams();
+  const { enabledFeatures } = useSettings();
   const [partner, setPartner] = useState(null);
   const [notFound, setNotFound] = useState(false);
 
@@ -176,7 +177,7 @@ export default function PublicPartnerDetail() {
           </div>
         )}
 
-        {partner.fipsCountryCode && (
+        {enabledFeatures.joshuaProject && partner.fipsCountryCode && (
           <div style={{ marginTop: "1.5rem" }}>
             <CountryStats countryCode={partner.fipsCountryCode} />
           </div>

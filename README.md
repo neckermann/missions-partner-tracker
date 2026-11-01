@@ -21,10 +21,11 @@ organization partners.
 - **GroupMe notifications**: connect a GroupMe group and pick a Topic, and
   every new prayer request posts there automatically — off by default, no
   code changes to turn on.
-- **Unreached-people-group data**: each partner's public page can pull live
-  country statistics from the [Joshua Project](https://joshuaproject.net/)
-  — population, primary religion, percent evangelical, how reached the
-  country is.
+- **Unreached-people-group data**: a partner's page can pull live country
+  statistics from the [Joshua Project](https://joshuaproject.net/) —
+  population, primary religion, percent evangelical, how reached the
+  country is. Off by default; add a free API key and turn it on, no code
+  changes.
 - **Auth**: email and password, with optional TOTP two-factor that an admin
   can require per account. Deliberately no single sign-on — see
   [ADMIN_GUIDE.md § Authentication setup](ADMIN_GUIDE.md#authentication-setup)

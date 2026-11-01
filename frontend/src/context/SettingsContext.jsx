@@ -27,7 +27,8 @@ const DEFAULTS = {
   // Resolved booleans (env-var checks already applied server-side, see
   // routes/publicSettings.js) -- every key defaults to true here so a page
   // never flashes "disabled" while this first fetch is still in flight,
-  // except aiExtraction and groupme, whose real registry default is off.
+  // except aiExtraction, groupme, and joshuaProject, whose real registry
+  // default is off.
   enabledFeatures: {
     newsletters: true,
     documents: true,
@@ -41,6 +42,7 @@ const DEFAULTS = {
     booklet: true,
     reports: true,
     groupme: false,
+    joshuaProject: false,
   },
 };
 

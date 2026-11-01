@@ -86,7 +86,7 @@ router.get("/", async (req, res, next) => {
   try {
     const settings = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      omit: { logoBytes: true, groupmeAccessToken: true },
+      omit: { logoBytes: true, groupmeAccessToken: true, joshuaProjectApiKey: true },
     });
     // Registry metadata (label/description/env-var status) travels with the
     // response instead of being duplicated in the frontend, since whether a
@@ -125,7 +125,7 @@ router.put("/", requireRole("admin"), async (req, res, next) => {
       where: { id: "singleton" },
       create: { id: "singleton", ...data, ...clearLogo, updatedById: req.user.id },
       update: { ...data, ...clearLogo, updatedById: req.user.id },
-      omit: { logoBytes: true, groupmeAccessToken: true },
+      omit: { logoBytes: true, groupmeAccessToken: true, joshuaProjectApiKey: true },
     });
     res.json(shapeSettings(updated));
   } catch (err) {
@@ -150,7 +150,7 @@ router.post("/logo", requireRole("admin"), upload.single("image"), async (req, r
         updatedById: req.user.id,
       },
       update: { logoBytes: req.file.buffer, logoContentType: req.file.mimetype, updatedById: req.user.id },
-      omit: { logoBytes: true, groupmeAccessToken: true },
+      omit: { logoBytes: true, groupmeAccessToken: true, joshuaProjectApiKey: true },
     });
 
     res.json(shapeSettings(updated));
@@ -276,6 +276,49 @@ router.get("/groupme/groups/:groupId/topics", requireRole("admin"), async (req, 
       // See the matching comment on GET /groupme/groups above.
       res.status(502).json({ error: err.message });
     }
+  } catch (err) {
+    next(err);
+  }
+});
+
+const joshuaProjectSettingsSelect = { joshuaProjectApiKey: true };
+function shapeJoshuaProjectSettings(settings) {
+  return { configured: Boolean(settings?.joshuaProjectApiKey) };
+}
+
+const joshuaProjectSchema = z.object({
+  // Omitted/blank leaves the stored key untouched -- same write-only-field
+  // UX as groupme's accessToken above.
+  apiKey: z.string().trim().min(1).optional(),
+});
+
+// GET /api/settings/joshua-project (admin only, same reasoning as
+// GET /groupme above).
+router.get("/joshua-project", requireRole("admin"), async (req, res, next) => {
+  try {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: joshuaProjectSettingsSelect,
+    });
+    res.json(shapeJoshuaProjectSettings(settings));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/settings/joshua-project (admin only).
+router.put("/joshua-project", requireRole("admin"), async (req, res, next) => {
+  try {
+    const { apiKey } = joshuaProjectSchema.parse(req.body);
+    const fields = apiKey ? { joshuaProjectApiKey: encryptField(apiKey) } : {};
+
+    const updated = await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      create: { id: "singleton", ...fields, updatedById: req.user.id },
+      update: { ...fields, updatedById: req.user.id },
+      select: joshuaProjectSettingsSelect,
+    });
+    res.json(shapeJoshuaProjectSettings(updated));
   } catch (err) {
     next(err);
   }

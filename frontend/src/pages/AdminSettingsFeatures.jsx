@@ -64,8 +64,8 @@ export default function AdminSettingsFeatures() {
   // Grouped by what a toggle actually affects (see the `group` field's
   // comment in backend/src/utils/features.js): "public" is the couple of
   // toggles a logged-out visitor can notice at all (the site disappearing
-  // at "/" or "/map"); "admin" is everything else, which only ever changes
-  // a logged-in admin's own nav.
+  // at "/" or "/map"); "admin" is everything else, which only ever
+  // changes a logged-in admin's own nav.
   const publicFeatures = featureRegistry.filter((f) => f.group === "public");
   const adminFeatures = featureRegistry.filter((f) => f.group !== "public");
 

@@ -79,11 +79,6 @@ services:
         generateValue: true
       - key: FIELD_ENCRYPTION_KEY
         generateValue: true
-      # Optional. Enables country-level unreached-people-group stats on
-      # the public site -- free key at joshuaproject.net/api/request.
-      # Leave blank and that feature just doesn't show.
-      - key: JOSHUA_PROJECT_API_KEY
-        sync: false
       # Optional. Powers the "AI request scanning" feature (see ADMIN_GUIDE.md
       # § Feature toggles) -- key at console.anthropic.com. Leave blank and
       # that feature stays unavailable regardless of its Church Settings

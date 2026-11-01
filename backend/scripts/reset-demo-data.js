@@ -1,13 +1,17 @@
 // Wipes and reseeds the database with fresh fake data, for a public demo
 // deployment that resets on a schedule (see ADMIN_GUIDE.md § Demo mode).
 // Requires DEMO_ADMIN_EMAIL/DEMO_ADMIN_PASSWORD so a misconfigured demo
-// can't reset into a state nobody can log into. Safe to run manually
-// (`npm run demo:reset`) or via the opt-in POST /api/demo/reset route.
+// can't reset into a state nobody can log into. Also reads
+// JOSHUA_PROJECT_API_KEY if set (optional) to restore that integration
+// after the reset wipes ChurchSettings -- see the comment below. Safe to
+// run manually (`npm run demo:reset`) or via the opt-in POST
+// /api/demo/reset route.
 require("dotenv").config({ quiet: true });
 const path = require("path");
 const { execFileSync } = require("child_process");
 const prisma = require("../src/prismaClient");
 const { FEATURE_KEYS } = require("../src/utils/features");
+const { encryptField } = require("../src/utils/crypto");
 
 const BACKEND_DIR = path.join(__dirname, "..");
 
@@ -60,6 +64,18 @@ async function resetDemoData() {
   // not accidentally find half of it toggled off.
   const allFeaturesOn = Object.fromEntries(FEATURE_KEYS.map((key) => [key, true]));
 
+  // Same reasoning as DEMO_ADMIN_EMAIL/PASSWORD above: Joshua Project's
+  // API key lives in ChurchSettings now (admin-managed, not an env var --
+  // see that field's comment in schema.prisma), which `migrate reset`
+  // above wipes along with everything else. Optional, not required like
+  // the admin credentials are: a demo without it just shows the feature
+  // toggled on but no stats, same as any other instance with the feature
+  // on and no key saved yet -- nothing breaks either way, this just keeps
+  // this one demo's own key (set directly on its Render service, never
+  // committed here) surviving a reset instead of having to be re-entered
+  // through the UI every time.
+  const joshuaProjectApiKey = process.env.JOSHUA_PROJECT_API_KEY;
+
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
     create: {
@@ -69,6 +85,7 @@ async function resetDemoData() {
       aboutText:
         "We partner with missionaries and organizations serving around the world, supporting them in prayer, finances, and care.",
       enabledFeatures: allFeaturesOn,
+      ...(joshuaProjectApiKey ? { joshuaProjectApiKey: encryptField(joshuaProjectApiKey) } : {}),
     },
     update: {
       churchName: "Missions Partner Tracker Demo",
@@ -76,6 +93,7 @@ async function resetDemoData() {
       aboutText:
         "We partner with missionaries and organizations serving around the world, supporting them in prayer, finances, and care.",
       enabledFeatures: allFeaturesOn,
+      ...(joshuaProjectApiKey ? { joshuaProjectApiKey: encryptField(joshuaProjectApiKey) } : {}),
     },
   });
 }

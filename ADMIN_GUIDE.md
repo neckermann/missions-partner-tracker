@@ -95,7 +95,6 @@ full file with inline comments):
 | `NODE_ENV` | No | `development` or `production` |
 | `SESSION_SECRET` | Yes | Signs the session cookie (see [Authentication setup](#authentication-setup)). Generate a long random value, e.g. `openssl rand -base64 48`. See [Rotating SESSION_SECRET](#rotating-sessionsecret) below |
 | `FIELD_ENCRYPTION_KEY` | Recommended | Encrypts two-factor (MFA) secrets at rest. Generate with `npm run generate-secrets`. Without it the app still runs, but MFA enrollment fails. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
-| `JOSHUA_PROJECT_API_KEY` | No | Enables country-level unreached-people-group stats; get a free key at [joshuaproject.net/api/request](https://joshuaproject.net/api/request) |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
 | `ANTHROPIC_API_KEY` | No | Powers the "AI request scanning" feature — see [Feature toggles](#feature-toggles) below. Get a key at [console.anthropic.com](https://console.anthropic.com/settings/keys). Pay-per-scan (a few cents/month at typical volume), not a flat fee. |
@@ -129,6 +128,7 @@ features (everything else, which only changes a logged-in admin's own nav).
 | Print booklet | On | The printable prayer & support directory generator. |
 | Reports | On | Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history — with CSV download and a print view. |
 | GroupMe notifications | **Off** | Posts new prayer requests to a configured GroupMe group/Topic as they're added. Configured entirely in the UI (Site Administration → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only). |
+| Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Site Administration → Joshua Project ([free key](https://joshuaproject.net/api/request)). |
 | AI request scanning | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires `ANTHROPIC_API_KEY` to be set (see above); the toggle stays off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 
 The registry backing this list lives in `backend/src/utils/features.js` —
@@ -138,8 +138,8 @@ check on the relevant route(s), not a database migration.
 All of this lives under **Site Administration**, an expandable group in
 the admin sidebar itself (not a separate page with its own tab bar) —
 click it to reveal Manage Users, Branding, Enabled Features, About
-Church, and GroupMe. User Management moved here from its own top-level
-nav link. Adding a new settings category later is a new entry in
+Church, GroupMe, and Joshua Project. User Management moved here from its
+own top-level nav link. Adding a new settings category later is a new entry in
 `SITE_ADMIN_LINKS` (`components/admin/AdminSidebar.jsx`) plus a new child
 route in `main.jsx`, not a restructure.
 
@@ -263,9 +263,9 @@ provision) in one step:
    authorized on that repo (Dashboard → Account Settings → GitHub →
    Configure) — a one-time step.
 3. Render prompts for the handful of optional variables `render.yaml`
-   marks `sync: false` (`JOSHUA_PROJECT_API_KEY`, `MFA_ISSUER`, etc. —
-   see [Environment variables](#environment-variables)); leave them
-   blank to skip those optional features for now. `SESSION_SECRET` and
+   marks `sync: false` (`MFA_ISSUER`, `ANTHROPIC_API_KEY`, etc. — see
+   [Environment variables](#environment-variables)); leave them blank
+   to skip those optional features for now. `SESSION_SECRET` and
    `FIELD_ENCRYPTION_KEY` are generated automatically, nothing to enter.
 4. Apply the blueprint. Render builds, runs `prisma migrate deploy` as a
    pre-deploy step, and starts the app — no separate migration step to

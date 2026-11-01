@@ -148,6 +148,19 @@ export async function fetchGroupMeTopics(groupId) {
   return data;
 }
 
+// Joshua Project integration -- admin-only on the backend, same pattern as
+// GroupMe above. fetchJoshuaProjectSettings() returns { configured }; the
+// API key itself never appears in any response.
+export async function fetchJoshuaProjectSettings() {
+  const { data } = await api.get("/settings/joshua-project");
+  return data;
+}
+
+export async function updateJoshuaProjectSettings(payload) {
+  const { data } = await api.put("/settings/joshua-project", payload);
+  return data;
+}
+
 export async function fetchPublicSettings() {
   const { data } = await api.get("/public/settings");
   return data;

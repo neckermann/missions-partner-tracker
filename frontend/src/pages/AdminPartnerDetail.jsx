@@ -475,7 +475,7 @@ export default function AdminPartnerDetail() {
               <div style={{ marginTop: "0.75rem" }}>
                 <Field label="Country Code" value={p.fipsCountryCode} showEmpty />
               </div>
-              {p.fipsCountryCode && (
+              {enabledFeatures.joshuaProject && p.fipsCountryCode && (
                 <div style={{ marginTop: "0.75rem" }}>
                   <CountryStats countryCode={p.fipsCountryCode} />
                 </div>
