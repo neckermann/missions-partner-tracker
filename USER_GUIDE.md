@@ -422,17 +422,22 @@ Keepsake (a polaroid-framed, slightly tilted photo, a handwritten-note
 callout), Portfolio (a large photo-led layout, high-contrast dark
 header), or Friendly (a bold color-block header, a large circular photo,
 rounded pill-style info rows) — choose who's included (archived,
-restricted-access, organizations), what
-shows on each page (photo, overview, location, address, family info,
-sending church/org, that partner's public [prayer
-requests](#prayer-requests) marked **Include in printed booklet** — an
-"answered" one includes its note, an open one doesn't call out its status
-at all, same as everywhere else in the app — and an optional facing
-"Notes & Prayer Page" with ruled lines for the reader's own handwritten
-notes). If Prayer Requests is on, a **Max prayer requests per partner**
-field caps how many print for any one partner (most recent first) so a
-partner with a long history doesn't crowd out the rest of their page.
-Set a cover title/subtitle. Every booklet also
+restricted-access, organizations), and what shows on each page (photo,
+overview, location, address, family info, sending church/org, and an
+optional facing **Notes & Prayer Page** with ruled lines for the
+reader's own handwritten notes). Turning on **Prayer Requests** also
+turns on, and locks on, that facing page — a partner's public
+[prayer requests](#prayer-requests) marked **Include in printed
+booklet** print at the top of it, not on the main page itself (an
+"answered" one includes its note, an open one doesn't call out its
+status at all, same as everywhere else in the app), with the ruled
+lines below them; the Notes & Prayer Page can still be turned on by
+itself, with no prayer requests, for a facing page that's just that
+partner's name and blank ruled lines. With Prayer Requests on, a
+**Max prayer requests per partner** field caps how many print for any
+one partner (most recent first) so a partner with a long history
+doesn't crowd out the rest of their page. Set a cover title/subtitle.
+Every booklet also
 ends with a closing back cover — your church's logo and name (from
 [Church Settings](#church-settings-admin-only)) plus your About Text or
 Public Tagline as a closing message, or a generic thank-you if neither is
