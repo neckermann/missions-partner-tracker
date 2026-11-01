@@ -8,22 +8,28 @@ organization partners.
   `isRestricted` are automatically shown with initials only, no contact
   info, no precise location, and a generic security-conscious description —
   safe to publish even for partners serving in access-sensitive countries.
-- **Admin dashboard**: CRUD screens for missionaries and organizations
-  (combined into one filterable, searchable list), support tracking, trip
-  history & capacity search, furlough/church-visit scheduling, private
-  newsletter and document uploads (surveys, signed policies, other
-  correspondence), a printable partner booklet export, and user
-  management with role-based permissions.
-- **White-labeling**: a single Church Settings screen controls the church's
-  name, logo, brand color, and the term it uses for its partners (e.g. "Go
-  Team Partners" instead of "Missionaries") — everything else in the app
-  reads from that instead of hardcoded copy.
-- **Auth**: email and password with optional two-factor (TOTP), via
-  standards-compliant OIDC provider (Entra ID, Google Workspace, Okta,
-  etc.) — configure providers entirely from the admin UI, no redeploy
-  needed, and local login always keeps working alongside them. Sessions
-  are secured with an `httpOnly` cookie, never exposed to client-side
-  JavaScript. Optional TOTP-based MFA for local accounts.
+- **Admin dashboard**: add, edit, and manage every missionary and
+  organization (combined into one filterable, searchable list), support
+  tracking, trip history & capacity search, furlough/church-visit
+  scheduling, private newsletter and document uploads (surveys, signed
+  policies, other correspondence), a printable partner booklet export, and
+  user management with role-based permissions.
+- **White-labeling**: Branding and About Church screens control the
+  church's name, logo, brand color, and the term it uses for its partners
+  (e.g. "Go Team Partners" instead of "Missionaries") — everything else in
+  the app reads from that instead of hardcoded copy.
+- **GroupMe notifications**: connect a GroupMe group and pick a Topic, and
+  every new prayer request posts there automatically — off by default, no
+  code changes to turn on.
+- **Unreached-people-group data**: each partner's public page can pull live
+  country statistics from the [Joshua Project](https://joshuaproject.net/)
+  — population, primary religion, percent evangelical, how reached the
+  country is.
+- **Auth**: email and password, with optional TOTP two-factor that an admin
+  can require per account. Deliberately no single sign-on — see
+  [ADMIN_GUIDE.md § Authentication setup](ADMIN_GUIDE.md#authentication-setup)
+  for why. Sessions are secured with an `httpOnly` cookie, never exposed to
+  client-side JavaScript.
 - **Database**: PostgreSQL via Prisma ORM. Works with any Postgres — this
   project's reference deployment uses [Neon](https://neon.tech).
 

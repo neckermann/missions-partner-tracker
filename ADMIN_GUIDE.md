@@ -125,6 +125,8 @@ features (everything else, which only changes a logged-in admin's own nav).
 | Monthly support | On | The Monthly Support report page. |
 | Mission trips | On | The Trip History and Trip Opportunities pages. |
 | Print booklet | On | The printable prayer & support directory generator. |
+| Reports | On | Read-only reports over existing data — birthdays, one-time needs — with CSV download and a print view. |
+| GroupMe notifications | **Off** | Posts new prayer requests to a configured GroupMe group/Topic as they're added. Configured entirely in the UI (Site Administration → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only). |
 | AI request scanning | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires `ANTHROPIC_API_KEY` to be set (see above); the toggle stays off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 
 The registry backing this list lives in `backend/src/utils/features.js` —
@@ -133,9 +135,9 @@ check on the relevant route(s), not a database migration.
 
 All of this lives under **Site Administration**, an expandable group in
 the admin sidebar itself (not a separate page with its own tab bar) —
-click it to reveal Manage Users, Branding, Enabled Features, Single
-Sign-On, and About Church. User Management moved here from its own
-top-level nav link. Adding a new settings category later is a new entry in
+click it to reveal Manage Users, Branding, Enabled Features, About
+Church, and GroupMe. User Management moved here from its own top-level
+nav link. Adding a new settings category later is a new entry in
 `SITE_ADMIN_LINKS` (`components/admin/AdminSidebar.jsx`) plus a new child
 route in `main.jsx`, not a restructure.
 

@@ -1,8 +1,9 @@
 const crypto = require("crypto");
 
 // AES-256-GCM field-level encryption for secrets that must be stored
-// reversibly (TOTP verification and OIDC token exchanges both need the raw
-// value back, so hashing isn't an option). This is the same right-sized
+// reversibly (TOTP verification and the GroupMe access token both need the
+// raw value back -- to check a 6-digit code and to call the GroupMe API,
+// respectively -- so hashing isn't an option). This is the same right-sized
 // pattern Rails (ActiveRecord::Encryption) and Django
 // (django-cryptography/Fernet) use for single-tenant apps — a full KMS/
 // envelope-encryption setup is disproportionate infrastructure here.

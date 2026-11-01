@@ -22,11 +22,12 @@ function signToken(user) {
 // The one place the session cookie's flags are set — login and logout
 // both call this so there's no risk of the two flows drifting apart.
 // httpOnly means client-side JS can never read (or steal, via XSS) the
-// token; sameSite: "lax" (not "strict") is deliberate — it's the
-// well-established choice for a cookie that has to survive an OAuth/OIDC
-// external-redirect-then-land flow, and still blocks the cookie from being
-// sent on any cross-site POST/PUT/DELETE, which is all the CSRF defense
-// this app needs since every state-changing route uses one of those verbs.
+// token; sameSite: "lax" (not "strict") is deliberate — "strict" wouldn't
+// send the cookie on a plain top-level navigation arriving from outside
+// the app (a bookmark, a link in an email), forcing a needless re-login,
+// while "lax" still blocks the cookie from being sent on any cross-site
+// POST/PUT/DELETE, which is all the CSRF defense this app needs since
+// every state-changing route uses one of those verbs.
 function setSessionCookie(res, user) {
   res.cookie(SESSION_COOKIE_NAME, signToken(user), {
     httpOnly: true,
