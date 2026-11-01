@@ -28,7 +28,14 @@ before(async () => {
   await removeFixturePartners();
   originalSettings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { churchName: true, contactName: true, contactEmail: true, phone: true, websiteLink: true, address: true },
+    select: {
+      churchName: true,
+      contactName: true,
+      contactEmail: true,
+      phone: true,
+      websiteLink: true,
+      address: true,
+    },
   });
 });
 
@@ -300,7 +307,11 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
       body: { sentByOurChurch: true },
     });
     assert.equal(res.status, 200);
-    assert.equal(res.body.sendingChurch.name, "Already Typed Name", "an already-typed field is never overwritten");
+    assert.equal(
+      res.body.sendingChurch.name,
+      "Already Typed Name",
+      "an already-typed field is never overwritten"
+    );
     assert.equal(res.body.sendingChurch.contactName, "Amy Draycott", "a blank field still gets filled in");
   });
 
