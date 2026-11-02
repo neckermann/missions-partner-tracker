@@ -79,13 +79,14 @@ const FEATURES = {
   reports: {
     label: "Reports",
     description:
-      "Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history — with CSV download and a print view.",
+      "Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history, furlough — with CSV download and a print view.",
     defaultEnabled: true,
     group: "admin",
   },
   groupme: {
     label: "GroupMe notifications",
-    description: "Post new prayer requests to a configured GroupMe group as they're added.",
+    description:
+      "Post new prayer requests, one-time needs, and newsletters to their own configured GroupMe Topics as they're added.",
     defaultEnabled: false,
     group: "admin",
   },
