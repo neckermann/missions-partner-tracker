@@ -525,10 +525,15 @@ appears once `APP_BASE_URL` is set, or automatically on Render (see
 Whoever clicks it needs to be logged into the admin dashboard, same as
 any other admin link.
 
-Once it's working, a new prayer request shows up in the configured Topic
-within the GroupMe app itself, same as any other message:
+Once it's working, a new prayer request, one-time need, or newsletter
+shows up in its own configured Topic within the GroupMe app itself, same
+as any other message:
 
 ![A new prayer request notification, as it actually appears in the GroupMe app](docs/assets/screenshots/groupme-notification.png)
+
+![A new one-time need notification, with the prayer/meeting-prep note above the need itself](docs/assets/screenshots/groupme-notification-need.png)
+
+![A new newsletter notification, with a direct link to the letter](docs/assets/screenshots/groupme-notification-newsletter.png)
 
 ## Joshua Project (Admin only)
 
