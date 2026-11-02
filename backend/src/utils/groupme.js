@@ -115,7 +115,10 @@ async function notifySupportNeedCreated(supportNeed) {
   const partnerName = supportNeed.partner?.displayName || "A partner";
   await notifyGroupMe(
     "groupmeOneTimeNeedTopicId",
-    () => `🎁 New one-time need from ${partnerName}:\n${supportNeed.description}`
+    () =>
+      `🎁 New one-time need from ${partnerName}:\n` +
+      `Be praying about this opportunity — we'll talk about it more at our next meeting.\n\n` +
+      `${supportNeed.description}`
   );
 }
 
