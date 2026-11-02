@@ -325,6 +325,45 @@ describe("furlough report", () => {
       true
     );
   });
+
+  test("status=current and status=upcoming each show only their own rows", async () => {
+    const current = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "missionary",
+        displayName: `${FIXTURE_TAG} Status Filter Current`,
+        furloughs: [{ startDate: "2026-01-01" }],
+      },
+    });
+    const upcoming = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "missionary",
+        displayName: `${FIXTURE_TAG} Status Filter Upcoming`,
+        furloughs: [{ startDate: "2099-01-01", endDate: "2099-06-01" }],
+      },
+    });
+
+    const currentOnly = await admin("/api/reports/furlough?status=current");
+    assert.equal(
+      currentOnly.body.rows.some((r) => r.partnerId === current.body.id),
+      true
+    );
+    assert.equal(
+      currentOnly.body.rows.some((r) => r.partnerId === upcoming.body.id),
+      false
+    );
+
+    const upcomingOnly = await admin("/api/reports/furlough?status=upcoming");
+    assert.equal(
+      upcomingOnly.body.rows.some((r) => r.partnerId === upcoming.body.id),
+      true
+    );
+    assert.equal(
+      upcomingOnly.body.rows.some((r) => r.partnerId === current.body.id),
+      false
+    );
+  });
 });
 
 describe("CSV export", () => {
