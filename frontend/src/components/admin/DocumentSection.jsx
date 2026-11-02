@@ -4,6 +4,7 @@ import { DOCUMENT_CATEGORIES, documentCategoryLabel } from "../../utils/document
 import { useSettings } from "../../context/SettingsContext.jsx";
 import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
 import { formatDate, todayInputValue } from "../../utils/format.js";
+import useLoadMore from "../../hooks/useLoadMore.js";
 
 function formatFileSize(bytes) {
   if (bytes == null) return "";
@@ -44,6 +45,7 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
     receivedDate: "",
     notes: "",
   });
+  const { visible, hasMore, remaining, showMore } = useLoadMore(documents);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -210,7 +212,7 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
 
       <div style={{ marginTop: "1rem" }}>
         {documents?.length > 0 ? (
-          documents.map((d) => (
+          visible.map((d) => (
             <div key={d.id} className="repeatable-row">
               <div
                 style={{
@@ -314,6 +316,16 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
           ))
         ) : (
           <p style={{ color: "#888" }}>No documents on file.</p>
+        )}
+        {hasMore && (
+          <button
+            type="button"
+            className="btn secondary small"
+            onClick={showMore}
+            style={{ marginTop: "0.5rem" }}
+          >
+            Load More ({remaining} remaining)
+          </button>
         )}
       </div>
 

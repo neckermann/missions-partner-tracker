@@ -40,7 +40,11 @@ router.get("/", async (req, res, next) => {
     const records = await prisma.prayerRequest.findMany({
       where,
       include: prayerRequestInclude,
-      orderBy: { dateReceived: "desc" },
+      // createdAt as a tiebreaker: the admin partner page now shows only
+      // the first few of these by default (see useLoadMore.js), so two
+      // requests received on the same date need a deterministic order --
+      // otherwise which one lands in the visible slice isn't guaranteed.
+      orderBy: [{ dateReceived: "desc" }, { createdAt: "desc" }],
     });
     res.json(records);
   } catch (err) {

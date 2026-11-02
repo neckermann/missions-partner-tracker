@@ -39,7 +39,8 @@ router.get("/", async (req, res, next) => {
     const records = await prisma.supportNeed.findMany({
       where,
       include: supportNeedInclude,
-      orderBy: { requestDate: "desc" },
+      // createdAt as a tiebreaker -- see the same comment in prayerRequests.js.
+      orderBy: [{ requestDate: "desc" }, { createdAt: "desc" }],
     });
     res.json(records);
   } catch (err) {

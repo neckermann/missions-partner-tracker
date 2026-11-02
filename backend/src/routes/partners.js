@@ -53,7 +53,8 @@ const partnerRecordInclude = {
   sendingParties: true,
   addresses: true,
   furloughs: { orderBy: { startDate: "desc" } },
-  churchVisits: { orderBy: { visitDate: "desc" } },
+  // createdAt as a tiebreaker -- see the same comment in prayerRequests.js.
+  churchVisits: { orderBy: [{ visitDate: "desc" }, { createdAt: "desc" }] },
   // Full history, newest-received first — photos[0] is "current". Bytes are
   // never wanted here; the image comes from routes/photos.js.
   photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], omit: { bytes: true } },
@@ -260,13 +261,13 @@ async function buildAddressRows(addresses) {
   return rows;
 }
 
-// Checking "Sent by {church}" (Core Info) copies this church's own About
-// Church info into the Sending Church section, one field at a time --
-// only filling in blanks, never overwriting anything already entered.
-// Unchecking never clears anything; this is a one-way convenience fill,
-// not a sync. Server-side (not client-side) because Core Info and Sending
-// Church are now independent EditableSection saves (see that component's
-// comment) with no shared form state to cross-update from one checkbox --
+// Checking "Sent by {church}" (in the Sending Church box itself) copies this
+// church's own About Church info into that same section, one field at a
+// time -- only filling in blanks, never overwriting anything already
+// entered. Unchecking never clears anything; this is a one-way convenience
+// fill, not a sync. Server-side (not client-side) because the checkbox and
+// the fields it fills are still independent EditableSection saves (see that
+// component's comment) with no shared form state to cross-update from --
 // this runs whenever a save turns sentByOurChurch on and doesn't itself
 // also touch sendingChurch, regardless of which section triggered it.
 // ChurchSettings.address is deliberately the same shape as SendingParty's

@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { todayInputValue, formatDate, formatCurrency } from "../../utils/format.js";
+import {
+  todayInputValue,
+  toDateInputValue,
+  formatDate,
+  formatDateLong,
+  formatCurrency,
+} from "../../utils/format.js";
 import {
   createSupportEntry,
   deleteSupportEntry,
@@ -7,6 +13,8 @@ import {
   updateSupportNeed,
   deleteSupportNeed,
 } from "../../api/client.js";
+import EditableSection from "./EditableSection.jsx";
+import useLoadMore from "../../hooks/useLoadMore.js";
 
 // Monthly support and one-time needs for one partner, editable here rather
 // than only from the consolidated admin pages. Same endpoints either way.
@@ -31,6 +39,8 @@ export default function PartnerFinancialSection({
   needRequests,
   showMonthlySupport,
   showOneTimeNeeds,
+  supportingSince,
+  onSaveSupportingSince,
   onChange,
 }) {
   const [addingEntry, setAddingEntry] = useState(false);
@@ -43,6 +53,8 @@ export default function PartnerFinancialSection({
   const [saving, setSaving] = useState(false);
 
   const current = supportEntries?.[0];
+  const entriesLoadMore = useLoadMore(supportEntries);
+  const needsLoadMore = useLoadMore(needRequests);
 
   function fail(err, fallback) {
     setError(err.response?.data?.error?.[0]?.message || err.response?.data?.error || fallback);
@@ -125,6 +137,25 @@ export default function PartnerFinancialSection({
 
   return (
     <>
+      <EditableSection
+        title="Supporting Since"
+        onSaved={onChange}
+        onSave={(d) => onSaveSupportingSince(d.supportingSince || null)}
+        value={{ supportingSince: toDateInputValue(supportingSince) }}
+        view={() => (
+          <p>{formatDateLong(supportingSince) || <span style={{ color: "#888" }}>Not set.</span>}</p>
+        )}
+        edit={(d, set) => (
+          <label style={{ maxWidth: "220px" }}>
+            Supporting Since
+            <input
+              type="date"
+              value={d.supportingSince}
+              onChange={(e) => set("supportingSince", e.target.value)}
+            />
+          </label>
+        )}
+      />
       {showMonthlySupport && (
         <div className="admin-section">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -186,7 +217,7 @@ export default function PartnerFinancialSection({
           )}
 
           {supportEntries?.length > 0 ? (
-            supportEntries.map((row) => (
+            entriesLoadMore.visible.map((row) => (
               <div key={row.id} className="repeatable-row">
                 <div
                   style={{
@@ -211,6 +242,16 @@ export default function PartnerFinancialSection({
             ))
           ) : (
             <p style={{ color: "#888" }}>No support history on file.</p>
+          )}
+          {entriesLoadMore.hasMore && (
+            <button
+              type="button"
+              className="btn secondary small"
+              onClick={entriesLoadMore.showMore}
+              style={{ marginTop: "0.5rem" }}
+            >
+              Load More ({entriesLoadMore.remaining} remaining)
+            </button>
           )}
         </div>
       )}
@@ -269,7 +310,7 @@ export default function PartnerFinancialSection({
           )}
 
           {needRequests?.length > 0 ? (
-            needRequests.map((row) => {
+            needsLoadMore.visible.map((row) => {
               const status = needStatus(row);
               return (
                 <div key={row.id} className="repeatable-row">
@@ -352,6 +393,16 @@ export default function PartnerFinancialSection({
             })
           ) : (
             <p style={{ color: "#888" }}>No needs on file.</p>
+          )}
+          {needsLoadMore.hasMore && (
+            <button
+              type="button"
+              className="btn secondary small"
+              onClick={needsLoadMore.showMore}
+              style={{ marginTop: "0.5rem" }}
+            >
+              Load More ({needsLoadMore.remaining} remaining)
+            </button>
           )}
         </div>
       )}
