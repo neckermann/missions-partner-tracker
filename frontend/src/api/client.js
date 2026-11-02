@@ -78,6 +78,18 @@ export async function unarchivePartner(id) {
   return data;
 }
 
+// Overwrites every partner marked "Sent by our church" with Church
+// Settings' current info -- the deliberate counterpart to the automatic
+// blanks-only fill that runs when a partner's own checkbox is first
+// checked. Surfaced on the About Church page, not per-partner, since the
+// goal is keeping every sent-by-us partner in sync together, not
+// maintaining individual partner-by-partner sync state. Returns
+// { updatedCount }.
+export async function syncAllSendingChurch() {
+  const { data } = await api.post("/partners/sync-sending-church");
+  return data;
+}
+
 export async function uploadPartnerImage(id, file, receivedDate) {
   const formData = new FormData();
   formData.append("image", file);

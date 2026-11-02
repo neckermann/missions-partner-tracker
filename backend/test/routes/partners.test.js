@@ -324,6 +324,76 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
     assert.equal(p.sendingChurch.contactName, "Explicit Contact");
   });
 
+  // Regression test: the real admin UI's Sending Church box saves
+  // sentByOurChurch and sendingChurch together in one PUT, even when every
+  // Sending Church field is still blank (see AdminPartnerDetail.jsx's
+  // Sending Church loop). The trigger used to key off "did this payload
+  // include its own sendingChurch at all," which made this exact, entirely
+  // realistic save shape silently skip the auto-fill -- the fill only ever
+  // worked for a hand-crafted API call with no sendingChurch key present,
+  // which nothing in the real frontend actually sends.
+  test("checking it via a save that bundles blank sendingChurch fields still fills in from Church Settings", async () => {
+    const p = await createPartner({ sentByOurChurch: false });
+
+    const res = await admin(`/api/partners/${p.id}`, {
+      method: "PUT",
+      body: {
+        sentByOurChurch: true,
+        sendingChurch: {
+          name: "",
+          contactName: "",
+          contactEmail: "",
+          phone: "",
+          websiteLink: "",
+          mailingAddress: {
+            addressLine1: "",
+            addressLine2: "",
+            city: "",
+            stateProvinceRegion: "",
+            postalCode: "",
+            country: "",
+          },
+        },
+      },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.sendingChurch.name, `${FIXTURE_TAG} Hillside Community Church`);
+    assert.equal(res.body.sendingChurch.contactName, "Amy Draycott");
+  });
+
+  // The real Sending Church box always saves its full draft object (see the
+  // "bundles blank fields" test above), so a deliberate edit sends every
+  // field back, not just the one the user touched. This confirms that shape
+  // specifically: contactName etc. are resent unchanged alongside the
+  // cleared name, and since sentByOurChurch was already true going in (no
+  // false->true transition), the fill must not re-run and undo the clear.
+  test("re-saving while already checked doesn't re-run the fill and clobber a field just cleared", async () => {
+    const p = await createPartner({ sentByOurChurch: true });
+    assert.equal(p.sendingChurch.name, `${FIXTURE_TAG} Hillside Community Church`);
+
+    const res = await admin(`/api/partners/${p.id}`, {
+      method: "PUT",
+      body: {
+        sentByOurChurch: true,
+        sendingChurch: {
+          name: "",
+          contactName: p.sendingChurch.contactName,
+          contactEmail: p.sendingChurch.contactEmail,
+          phone: p.sendingChurch.phone,
+          websiteLink: p.sendingChurch.websiteLink,
+          mailingAddress: p.sendingChurch.mailingAddress,
+        },
+      },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.sendingChurch.name, "", "a deliberate clear isn't silently refilled");
+    assert.equal(
+      res.body.sendingChurch.contactName,
+      "Amy Draycott",
+      "fields resent unchanged in the same save survive"
+    );
+  });
+
   test("unchecking it never clears anything already filled in", async () => {
     const p = await createPartner({ sentByOurChurch: true });
     assert.equal(p.sendingChurch.name, `${FIXTURE_TAG} Hillside Community Church`);
@@ -339,5 +409,67 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
       `${FIXTURE_TAG} Hillside Community Church`,
       "unchecking is a one-way fill, not a sync -- it never clears what was filled in"
     );
+  });
+});
+
+describe("partners: bulk Sending Church sync (POST /sync-sending-church)", () => {
+  before(async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: {
+        churchName: `${FIXTURE_TAG} Hillside Community Church`,
+        contactName: "Amy Draycott",
+        contactEmail: "missions@example.org",
+        phone: "555-0100",
+        websiteLink: "https://example.org",
+        address: { addressLine1: "1 Main St", city: "Rock Island", country: "USA" },
+      },
+    });
+  });
+
+  test("unauthenticated and non-admin requests are rejected", async () => {
+    assert.equal((await anon("/api/partners/sync-sending-church", { method: "POST" })).status, 401);
+    assert.equal((await viewer("/api/partners/sync-sending-church", { method: "POST" })).status, 403);
+    assert.equal((await editor("/api/partners/sync-sending-church", { method: "POST" })).status, 403);
+  });
+
+  test("overwrites every sent-by-us partner's Sending Church with current Church Settings, leaves others alone", async () => {
+    const stale = await createPartner({
+      sentByOurChurch: true,
+      sendingChurch: { name: "Stale Name", contactName: "Old Contact" },
+    });
+    const alsoStale = await createPartner({
+      sentByOurChurch: true,
+      sendingChurch: { name: "Another Stale Name" },
+    });
+    const notSentByUs = await createPartner({
+      sentByOurChurch: false,
+      sendingChurch: { name: "Untouched Name" },
+    });
+
+    const res = await admin("/api/partners/sync-sending-church", { method: "POST" });
+    assert.equal(res.status, 200);
+    assert.ok(res.body.updatedCount >= 2, `expected at least 2 updated, got ${res.body.updatedCount}`);
+
+    const [staleAfter, alsoStaleAfter, untouchedAfter] = await Promise.all([
+      admin(`/api/partners/${stale.id}`),
+      admin(`/api/partners/${alsoStale.id}`),
+      admin(`/api/partners/${notSentByUs.id}`),
+    ]);
+    assert.equal(staleAfter.body.sendingChurch.name, `${FIXTURE_TAG} Hillside Community Church`);
+    assert.equal(staleAfter.body.sendingChurch.contactName, "Amy Draycott");
+    assert.equal(alsoStaleAfter.body.sendingChurch.name, `${FIXTURE_TAG} Hillside Community Church`);
+    assert.equal(
+      untouchedAfter.body.sendingChurch.name,
+      "Untouched Name",
+      "a partner not marked sent-by-us is never touched by the bulk sync"
+    );
+  });
+
+  test("GET /api/settings reports how many partners are marked sent-by-us", async () => {
+    const before = (await admin("/api/settings")).body.sentByOurChurchCount;
+    await createPartner({ sentByOurChurch: true });
+    const after = (await admin("/api/settings")).body.sentByOurChurchCount;
+    assert.equal(after, before + 1);
   });
 });

@@ -193,8 +193,13 @@ not just what topic they fall under:
     creating the partner or later. Unchecking it never deletes data
     that's already there — it's a one-way convenience fill, not an
     ongoing sync, so a later change to Church Settings doesn't
-    retroactively update an already-filled field. The status pill at the
-    top of the page shows this at a glance, but editing it happens here.
+    retroactively update an already-filled field on its own. The status
+    pill at the top of the page shows this at a glance, but editing it
+    happens here. To push a Church Settings change out to every partner
+    marked "Sent by our church" at once, use the bulk update on the
+    **About Church** page (below) — that's an explicit, deliberate
+    overwrite of every field for every such partner, not something that
+    happens automatically on every Church Settings save.
   - **Sending Org** (missionary only) — same shape as Sending Church, no
     auto-fill checkbox.
   - **Links & Social Media** — Website, Support Link, Newsletter Signup,
@@ -509,7 +514,13 @@ everywhere, with no code changes needed:
 
 - **About Church** — Church Info: name, phone, contact name/email,
   website, and address. This is also what auto-fills "Sent by our church"
-  on the missionary form.
+  on the missionary form. Right after saving a change here, if any
+  partners are marked "Sent by our church," a prompt appears showing how
+  many and offering to **update them all with this info** — a one-click
+  bulk overwrite of every such partner's Sending Church section, for
+  keeping everyone in sync after an address or contact change. It's
+  deliberate, not automatic: saving About Church alone never touches any
+  partner on its own.
 - **Branding** — Public Site (tagline, about text, brand color), Logo,
   and Partner Terminology (swap "Missionary" for whatever your church
   calls them, and optionally use that term in the admin nav too).
