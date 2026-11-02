@@ -47,6 +47,7 @@ const SITE_ADMIN_LINKS = [
   { to: "/admin/settings/about", label: "About Church" },
   { to: "/admin/settings/groupme", label: "GroupMe" },
   { to: "/admin/settings/joshua-project", label: "Joshua Project" },
+  { to: "/admin/settings/ai-extraction", label: "AI Request Scanning" },
 ];
 
 export default function AdminSidebar() {

@@ -93,6 +93,11 @@ const SITE_ADMIN_SECTIONS = [
     title: "Joshua Project",
     description: "API key for country-level unreached-people-group statistics.",
   },
+  {
+    to: "/admin/settings/ai-extraction",
+    title: "AI Request Scanning",
+    description: "API key for scanning newsletters and documents for prayer requests and needs.",
+  },
 ];
 
 export default function AdminHome() {

@@ -1,4 +1,4 @@
-const { test, describe, beforeEach, afterEach } = require("node:test");
+const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
 const { isFeatureEnabled } = require("../src/utils/features");
 
@@ -20,28 +20,16 @@ describe("isFeatureEnabled", () => {
     assert.equal(isFeatureEnabled({ notReal: true }, "notReal"), false);
   });
 
-  describe("aiExtraction (defaults to off, requires ANTHROPIC_API_KEY)", () => {
-    let originalKey;
-    beforeEach(() => {
-      originalKey = process.env.ANTHROPIC_API_KEY;
-      delete process.env.ANTHROPIC_API_KEY;
-    });
-    afterEach(() => {
-      if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;
-      else process.env.ANTHROPIC_API_KEY = originalKey;
-    });
-
-    test("stays off with no stored value, even with the env var set", () => {
-      process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+  describe("aiExtraction (defaults to off, same as any other opt-in feature)", () => {
+    // Used to also require ANTHROPIC_API_KEY to be set as an env var --
+    // the key is admin-managed in ChurchSettings now (see
+    // test/routes/aiExtraction.test.js for that), so this is a plain
+    // toggle like groupme/joshuaProject, with no second gate here.
+    test("stays off with no stored value", () => {
       assert.equal(isFeatureEnabled({}, "aiExtraction"), false);
     });
 
-    test("stays off when toggled on but the env var is missing", () => {
-      assert.equal(isFeatureEnabled({ aiExtraction: true }, "aiExtraction"), false);
-    });
-
-    test("turns on only when both toggled on and the env var is set", () => {
-      process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    test("an explicit true turns it on", () => {
       assert.equal(isFeatureEnabled({ aiExtraction: true }, "aiExtraction"), true);
     });
   });

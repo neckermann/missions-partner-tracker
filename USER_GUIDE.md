@@ -539,6 +539,30 @@ A key alone doesn't show anything — turn on **Joshua Project stats** in
 it shows up everywhere it always has: a partner's admin page and public
 page, wherever a Country Code is on file.
 
+## AI Request Scanning (Admin only)
+
+Adds a **Scan for requests** button on each newsletter/document that's
+PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one
+file to Claude (Anthropic's API) to look for prayer requests and
+one-time financial needs, then shows them for review — nothing is added
+until you explicitly accept a suggestion. Off by default, even once
+configured, since it's the one feature here that sends data to a third
+party.
+
+Setup, on the **AI Request Scanning** page under Site Administration, is
+one step: paste an API key from
+[console.anthropic.com](https://console.anthropic.com/settings/keys) and
+**Save API Key** — write-only once saved, same as a password field;
+leave it blank on a later save to keep the existing one. Usage is
+pay-per-scan on the key owner's Anthropic account — a few cents/month at
+typical volume, not a flat fee.
+
+![The AI Request Scanning settings page, with an API key saved](docs/assets/screenshots/ai-extraction-settings.png)
+
+A key alone doesn't turn anything on — turn on **AI request scanning**
+in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) to actually show
+the Scan for requests button.
+
 ## User management (Admin only)
 
 **Manage Users** lists everyone with access — email, role, active status,

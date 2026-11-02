@@ -86,22 +86,16 @@ router.get("/", async (req, res, next) => {
   try {
     const settings = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      omit: { logoBytes: true, groupmeAccessToken: true, joshuaProjectApiKey: true },
+      omit: { logoBytes: true, groupmeAccessToken: true, joshuaProjectApiKey: true, anthropicApiKey: true },
     });
-    // Registry metadata (label/description/env-var status) travels with the
-    // response instead of being duplicated in the frontend, since whether a
-    // feature's requiresEnvVar is actually set is a server-side fact the
-    // frontend has no way to know on its own.
+    // Registry metadata (label/description) travels with the response
+    // instead of being duplicated in the frontend.
     const featureRegistry = FEATURE_KEYS.map((key) => ({
       key,
       label: FEATURES[key].label,
       description: FEATURES[key].description,
       defaultEnabled: FEATURES[key].defaultEnabled,
       group: FEATURES[key].group,
-      requiresEnvVar: FEATURES[key].requiresEnvVar || null,
-      envVarSatisfied: FEATURES[key].requiresEnvVar
-        ? Boolean(process.env[FEATURES[key].requiresEnvVar])
-        : true,
     }));
     res.json({ ...shapeSettings(settings), featureRegistry });
   } catch (err) {
@@ -125,7 +119,7 @@ router.put("/", requireRole("admin"), async (req, res, next) => {
       where: { id: "singleton" },
       create: { id: "singleton", ...data, ...clearLogo, updatedById: req.user.id },
       update: { ...data, ...clearLogo, updatedById: req.user.id },
-      omit: { logoBytes: true, groupmeAccessToken: true, joshuaProjectApiKey: true },
+      omit: { logoBytes: true, groupmeAccessToken: true, joshuaProjectApiKey: true, anthropicApiKey: true },
     });
     res.json(shapeSettings(updated));
   } catch (err) {
@@ -150,7 +144,7 @@ router.post("/logo", requireRole("admin"), upload.single("image"), async (req, r
         updatedById: req.user.id,
       },
       update: { logoBytes: req.file.buffer, logoContentType: req.file.mimetype, updatedById: req.user.id },
-      omit: { logoBytes: true, groupmeAccessToken: true, joshuaProjectApiKey: true },
+      omit: { logoBytes: true, groupmeAccessToken: true, joshuaProjectApiKey: true, anthropicApiKey: true },
     });
 
     res.json(shapeSettings(updated));
@@ -319,6 +313,49 @@ router.put("/joshua-project", requireRole("admin"), async (req, res, next) => {
       select: joshuaProjectSettingsSelect,
     });
     res.json(shapeJoshuaProjectSettings(updated));
+  } catch (err) {
+    next(err);
+  }
+});
+
+const anthropicSettingsSelect = { anthropicApiKey: true };
+function shapeAnthropicSettings(settings) {
+  return { configured: Boolean(settings?.anthropicApiKey) };
+}
+
+const anthropicSchema = z.object({
+  // Omitted/blank leaves the stored key untouched -- same write-only-field
+  // UX as groupme's accessToken / joshua-project's apiKey above.
+  apiKey: z.string().trim().min(1).optional(),
+});
+
+// GET /api/settings/ai-extraction (admin only, same reasoning as
+// GET /groupme above).
+router.get("/ai-extraction", requireRole("admin"), async (req, res, next) => {
+  try {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: anthropicSettingsSelect,
+    });
+    res.json(shapeAnthropicSettings(settings));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/settings/ai-extraction (admin only).
+router.put("/ai-extraction", requireRole("admin"), async (req, res, next) => {
+  try {
+    const { apiKey } = anthropicSchema.parse(req.body);
+    const fields = apiKey ? { anthropicApiKey: encryptField(apiKey) } : {};
+
+    const updated = await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      create: { id: "singleton", ...fields, updatedById: req.user.id },
+      update: { ...fields, updatedById: req.user.id },
+      select: anthropicSettingsSelect,
+    });
+    res.json(shapeAnthropicSettings(updated));
   } catch (err) {
     next(err);
   }

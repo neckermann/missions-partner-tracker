@@ -40,10 +40,10 @@ router.get("/", async (req, res, next) => {
       demoLoginEmail: process.env.DEMO_RESET_TOKEN ? process.env.DEMO_ADMIN_EMAIL || null : null,
       demoLoginPassword: process.env.DEMO_RESET_TOKEN ? process.env.DEMO_ADMIN_PASSWORD || null : null,
       // Resolved (not raw) per-feature booleans -- reflects the registry
-      // default and any requiresEnvVar check, not just what's stored. Not
-      // sensitive (whether a feature is on isn't a secret), and this is the
-      // one settings endpoint the frontend always has access to (see
-      // context/SettingsContext.jsx), so it's the natural place for it.
+      // default, not just what's stored. Not sensitive (whether a feature
+      // is on isn't a secret), and this is the one settings endpoint the
+      // frontend always has access to (see context/SettingsContext.jsx),
+      // so it's the natural place for it.
       enabledFeatures: Object.fromEntries(
         FEATURE_KEYS.map((key) => [key, isFeatureEnabled(settings?.enabledFeatures, key)])
       ),
