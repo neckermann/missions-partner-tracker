@@ -495,6 +495,8 @@ export default function AdminDocuments() {
           scan={() => extractFromDocument(scanning.id)}
           partnerId={scanning.partner?.id}
           defaultDate={scanning.receivedDate}
+          sourceDocumentId={scanning.id}
+          onChange={reload}
           onClose={() => setScanning(null)}
         />
       )}
