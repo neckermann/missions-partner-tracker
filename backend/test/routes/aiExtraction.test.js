@@ -2,7 +2,15 @@ const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
-const { client, stopServer, ensureTestUsers, removeTestUsers } = require("./helpers");
+const {
+  client,
+  stopServer,
+  ensureTestUsers,
+  removeTestUsers,
+  removeFixturePartners,
+  FIXTURE_TAG,
+} = require("./helpers");
+const { stripFootnoteArtifacts } = require("../../src/utils/extraction");
 
 let admin;
 let editor;
@@ -161,5 +169,155 @@ describe("AI request scanning route is gated by the feature flag", () => {
       method: "POST",
     });
     assert.equal(res.status, 404);
+  });
+});
+
+// Pure function, no API call -- the real footnote/name-changed artifacts
+// seen in a live test run against the Hartwell fixture (issue #94), not
+// hypothetical inputs.
+describe("stripFootnoteArtifacts", () => {
+  test("drops a footnote asterisk before a capitalized name", () => {
+    assert.equal(
+      stripFootnoteArtifacts("*Rani is the chief editor and *Deeva is the senior editor."),
+      "Rani is the chief editor and Deeva is the senior editor."
+    );
+  });
+
+  test("drops a footnote asterisk right after a word, at end of sentence", () => {
+    assert.equal(stripFootnoteArtifacts("Pray for Peace*"), "Pray for Peace");
+  });
+
+  test("drops a parenthetical name-changed note", () => {
+    assert.equal(
+      stripFootnoteArtifacts("Pray for John (name changed) as he travels."),
+      "Pray for John as he travels."
+    );
+    assert.equal(
+      stripFootnoteArtifacts("Pray for John (names have been changed) as he travels."),
+      "Pray for John as he travels."
+    );
+  });
+
+  test("leaves a mid-sentence asterisk (e.g. multiplication, not a footnote) alone", () => {
+    assert.equal(stripFootnoteArtifacts("5 * 3 is fifteen."), "5 * 3 is fifteen.");
+  });
+
+  test("passes through null/empty unchanged", () => {
+    assert.equal(stripFootnoteArtifacts(null), null);
+    assert.equal(stripFootnoteArtifacts(""), "");
+  });
+});
+
+// Source-linking (issue #94 part 2): a request/need created from the scan
+// modal can carry sourceNewsletterId/sourceDocumentId back to the file it
+// came from. No API call needed -- this is DB/route plumbing, exercised
+// directly against the create routes and a fixture Newsletter/Document.
+describe("prayer request / one-time need source linking", () => {
+  let partnerId;
+  let newsletterId;
+  let documentId;
+
+  before(async () => {
+    const partner = await prisma.partner.create({
+      data: { kind: "missionary", displayName: `${FIXTURE_TAG} Source Link Fixture` },
+    });
+    partnerId = partner.id;
+    const newsletter = await prisma.newsletter.create({
+      data: {
+        partnerId,
+        title: "Spring Update",
+        receivedDate: new Date("2026-03-01"),
+        bytes: Buffer.from("fixture"),
+        fileName: "spring-update.pdf",
+        contentType: "application/pdf",
+      },
+    });
+    newsletterId = newsletter.id;
+    const document = await prisma.document.create({
+      data: {
+        partnerId,
+        category: "other",
+        title: "Prayer Letter",
+        receivedDate: new Date("2026-04-01"),
+        bytes: Buffer.from("fixture"),
+        fileName: "prayer-letter.pdf",
+        contentType: "application/pdf",
+      },
+    });
+    documentId = document.id;
+  });
+
+  after(async () => {
+    await removeFixturePartners();
+  });
+
+  test("a prayer request created with sourceNewsletterId returns the newsletter's title/date on GET", async () => {
+    const created = await admin("/api/prayer-requests", {
+      method: "POST",
+      body: {
+        partnerId,
+        category: "situational",
+        requestText: "Pray for safe travel.",
+        dateReceived: "2026-03-01",
+        sourceNewsletterId: newsletterId,
+      },
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.sourceNewsletter.title, "Spring Update");
+    assert.equal(created.body.sourceDocument, null);
+
+    const fetched = await admin(`/api/prayer-requests?partnerId=${partnerId}`);
+    const row = fetched.body.find((r) => r.id === created.body.id);
+    assert.equal(row.sourceNewsletter.title, "Spring Update");
+  });
+
+  test("a one-time need created with sourceDocumentId returns the document's title/date on GET", async () => {
+    const created = await admin("/api/support-needs", {
+      method: "POST",
+      body: {
+        partnerId,
+        description: "Need $500 for a vehicle repair.",
+        requestedAmount: 500,
+        requestDate: "2026-04-01",
+        sourceDocumentId: documentId,
+      },
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.sourceDocument.title, "Prayer Letter");
+    assert.equal(created.body.sourceNewsletter, null);
+  });
+
+  test("a request/need added by hand (no source) has both source fields null", async () => {
+    const created = await admin("/api/prayer-requests", {
+      method: "POST",
+      body: {
+        partnerId,
+        category: "situational",
+        requestText: "Pray for wisdom.",
+        dateReceived: "2026-05-01",
+      },
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.sourceNewsletter, null);
+    assert.equal(created.body.sourceDocument, null);
+  });
+
+  test("deleting the source newsletter sets sourceNewsletterId to null, not the request itself", async () => {
+    const created = await admin("/api/prayer-requests", {
+      method: "POST",
+      body: {
+        partnerId,
+        category: "situational",
+        requestText: "Pray for the trip.",
+        dateReceived: "2026-03-01",
+        sourceNewsletterId: newsletterId,
+      },
+    });
+    await prisma.newsletter.delete({ where: { id: newsletterId } });
+
+    const fetched = await admin(`/api/prayer-requests?partnerId=${partnerId}`);
+    const row = fetched.body.find((r) => r.id === created.body.id);
+    assert.ok(row, "the prayer request itself must survive its source newsletter being deleted");
+    assert.equal(row.sourceNewsletter, null);
   });
 });

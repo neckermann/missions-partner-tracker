@@ -13,6 +13,7 @@
     "seed": "node prisma/seed.js",
     "demo:reset": "node scripts/reset-demo-data.js",
     "backup:restore": "node scripts/restore-backup.js",
+    "check:extraction": "node scripts/check-extraction.js",
     "test": "node --test test/*.test.js",
     "test:routes": "node --test --test-concurrency=1 test/routes/*.test.js",
     "generate-secrets": "node scripts/generate-secrets.js"

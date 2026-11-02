@@ -24,10 +24,19 @@ const supportNeedSchema = z.object({
   approvedAmount: z.coerce.number().int().nonnegative().optional().nullable(),
   approvedDate: z.coerce.date().optional().nullable(),
   notes: z.string().optional().nullable(),
+  // Set only by ExtractionReviewModal.jsx's scan flow -- see the comment on
+  // these columns in schema.prisma. At most one of the two is ever sent.
+  sourceNewsletterId: z.string().optional().nullable(),
+  sourceDocumentId: z.string().optional().nullable(),
 });
 
 const supportNeedInclude = {
   partner: { select: { id: true, kind: true, displayName: true } },
+  // Just enough for the "From: <title>, <date>" admin card link -- never
+  // the file bytes themselves, same omit discipline as every other
+  // Newsletter/Document list query.
+  sourceNewsletter: { select: { id: true, title: true, fileName: true, receivedDate: true } },
+  sourceDocument: { select: { id: true, title: true, fileName: true, receivedDate: true } },
 };
 
 // GET /api/support-needs?partnerId=  (all partners combined, newest request first)

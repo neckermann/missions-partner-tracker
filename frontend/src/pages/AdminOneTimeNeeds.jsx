@@ -6,8 +6,12 @@ import {
   updateSupportNeed,
   deleteSupportNeed,
   fetchPartners,
+  fetchNewsletters,
+  fetchDocuments,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
+import ScanSourceLink from "../components/admin/ScanSourceLink.jsx";
+import SourcePicker from "../components/admin/SourcePicker.jsx";
 import { formatDate, formatCurrency as formatMoney } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
 import useLoadMore from "../hooks/useLoadMore.js";
@@ -40,6 +44,8 @@ const emptyNewNeed = {
   requestedAmount: "",
   requestDate: "",
   notes: "",
+  sourceNewsletterId: null,
+  sourceDocumentId: null,
 };
 
 export default function AdminOneTimeNeeds() {
@@ -55,9 +61,22 @@ export default function AdminOneTimeNeeds() {
   const [decision, setDecision] = useState({ approvedAmount: "", approvedDate: "" });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
+  // Scoped to whichever partner is selected in the add form, or whichever
+  // need is being edited -- see the same state in AdminPrayerRequests.jsx.
+  const [sourceFiles, setSourceFiles] = useState({ newsletters: [], documents: [] });
 
   function reload() {
     fetchSupportNeeds().then(setNeeds).catch(console.error);
+  }
+
+  function loadSourceFiles(partnerId) {
+    if (!partnerId) {
+      setSourceFiles({ newsletters: [], documents: [] });
+      return;
+    }
+    Promise.all([fetchNewsletters({ partnerId }), fetchDocuments({ partnerId })])
+      .then(([newsletters, documents]) => setSourceFiles({ newsletters, documents }))
+      .catch(console.error);
   }
 
   useEffect(() => {
@@ -95,8 +114,11 @@ export default function AdminOneTimeNeeds() {
         requestedAmount: Number(newNeed.requestedAmount),
         requestDate: newNeed.requestDate,
         notes: newNeed.notes || null,
+        sourceNewsletterId: newNeed.sourceNewsletterId,
+        sourceDocumentId: newNeed.sourceDocumentId,
       });
       setNewNeed(emptyNewNeed);
+      setSourceFiles({ newsletters: [], documents: [] });
       setShowAddForm(false);
       reload();
     } catch (err) {
@@ -134,7 +156,10 @@ export default function AdminOneTimeNeeds() {
       requestedAmount: String(need.requestedAmount),
       requestDate: String(need.requestDate).slice(0, 10),
       notes: need.notes || "",
+      sourceNewsletterId: need.sourceNewsletter?.id || null,
+      sourceDocumentId: need.sourceDocument?.id || null,
     });
+    loadSourceFiles(need.partner?.id);
   }
 
   async function submitEdit(id) {
@@ -144,6 +169,8 @@ export default function AdminOneTimeNeeds() {
         requestedAmount: Number(editForm.requestedAmount),
         requestDate: editForm.requestDate,
         notes: editForm.notes || null,
+        sourceNewsletterId: editForm.sourceNewsletterId,
+        sourceDocumentId: editForm.sourceDocumentId,
       });
       setEditingId(null);
       setEditForm(null);
@@ -177,7 +204,10 @@ export default function AdminOneTimeNeeds() {
               <PartnerSelect
                 partners={partners}
                 value={newNeed.partnerId}
-                onChange={(partnerId) => setNewNeed((f) => ({ ...f, partnerId }))}
+                onChange={(partnerId) => {
+                  setNewNeed((f) => ({ ...f, partnerId, sourceNewsletterId: null, sourceDocumentId: null }));
+                  loadSourceFiles(partnerId);
+                }}
                 required
               />
             </label>
@@ -209,6 +239,13 @@ export default function AdminOneTimeNeeds() {
                 required
               />
             </label>
+            <SourcePicker
+              newsletters={sourceFiles.newsletters}
+              documents={sourceFiles.documents}
+              sourceNewsletterId={newNeed.sourceNewsletterId}
+              sourceDocumentId={newNeed.sourceDocumentId}
+              onChange={(source) => setNewNeed((f) => ({ ...f, ...source }))}
+            />
             <label style={{ gridColumn: "1 / -1" }}>
               Notes
               <input
@@ -328,6 +365,13 @@ export default function AdminOneTimeNeeds() {
                     required
                   />
                 </label>
+                <SourcePicker
+                  newsletters={sourceFiles.newsletters}
+                  documents={sourceFiles.documents}
+                  sourceNewsletterId={editForm.sourceNewsletterId}
+                  sourceDocumentId={editForm.sourceDocumentId}
+                  onChange={(source) => setEditForm((f) => ({ ...f, ...source }))}
+                />
                 <label style={{ gridColumn: "1 / -1" }}>
                   Notes
                   <input
@@ -383,6 +427,10 @@ export default function AdminOneTimeNeeds() {
                     </div>
                   )}
                 </div>
+                <ScanSourceLink
+                  sourceNewsletter={need.sourceNewsletter}
+                  sourceDocument={need.sourceDocument}
+                />
               </>
             )}
 

@@ -9,8 +9,31 @@ import { useSettings } from "../../context/SettingsContext.jsx";
 // know which kind of file it's reviewing) -- runs once on mount. Nothing is
 // written until the admin explicitly clicks Add on a given card; closing
 // the modal without adding just discards the rest of the suggestions
-// (re-runnable any time from the same button).
-export default function ExtractionReviewModal({ scan, partnerId, defaultDate, onClose }) {
+// (re-runnable any time from the same button). sourceNewsletterId/
+// sourceDocumentId (at most one set, matching which section rendered this)
+// ride along on save so the created row can link back to this file -- see
+// that column's comment in schema.prisma.
+
+// Seeds a card's single editable textarea as the background followed by
+// the verbatim request/need, so the admin edits one readable block instead
+// of two disconnected fields -- see extraction.js's ExtractionSchema
+// comment for why the server keeps them separate up to this point.
+// Whatever ends up in the textarea after this is what gets saved as
+// requestText/description; background itself is never persisted.
+function joinBackground(background, verbatim) {
+  const b = (background || "").trim();
+  const v = (verbatim || "").trim();
+  return b ? `${b} ${v}` : v;
+}
+
+export default function ExtractionReviewModal({
+  scan,
+  partnerId,
+  defaultDate,
+  sourceNewsletterId,
+  sourceDocumentId,
+  onClose,
+}) {
   const { enabledFeatures } = useSettings();
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [error, setError] = useState("");
@@ -25,12 +48,20 @@ export default function ExtractionReviewModal({ scan, partnerId, defaultDate, on
         // requireFeature("prayerRequests"/"oneTimeNeeds") on the backend).
         setPrayerRequests(
           enabledFeatures.prayerRequests
-            ? (result.prayerRequests || []).map((r) => ({ ...r, state: "pending" }))
+            ? (result.prayerRequests || []).map((r) => ({
+                ...r,
+                requestText: joinBackground(r.background, r.requestText),
+                state: "pending",
+              }))
             : []
         );
         setOneTimeNeeds(
           enabledFeatures.oneTimeNeeds
-            ? (result.oneTimeNeeds || []).map((n) => ({ ...n, state: "pending" }))
+            ? (result.oneTimeNeeds || []).map((n) => ({
+                ...n,
+                description: joinBackground(n.background, n.description),
+                state: "pending",
+              }))
             : []
         );
         setStatus("ready");
@@ -58,6 +89,8 @@ export default function ExtractionReviewModal({ scan, partnerId, defaultDate, on
         category: r.category,
         requestText: r.requestText,
         dateReceived: defaultDate,
+        sourceNewsletterId,
+        sourceDocumentId,
       });
       setPrayerRequests((list) => list.map((x, idx) => (idx === i ? { ...x, state: "added" } : x)));
     } catch (err) {
@@ -79,6 +112,8 @@ export default function ExtractionReviewModal({ scan, partnerId, defaultDate, on
         description: n.description,
         requestedAmount: n.requestedAmount,
         requestDate: defaultDate,
+        sourceNewsletterId,
+        sourceDocumentId,
       });
       setOneTimeNeeds((list) => list.map((x, idx) => (idx === i ? { ...x, state: "added" } : x)));
     } catch (err) {
@@ -126,7 +161,7 @@ export default function ExtractionReviewModal({ scan, partnerId, defaultDate, on
                 value={r.requestText}
                 disabled={r.state !== "pending"}
                 onChange={(e) => updatePrayerRequest(i, "requestText", e.target.value)}
-                rows={2}
+                rows={4}
                 style={{ width: "100%" }}
               />
               <div className="table-actions" style={{ marginTop: "0.5rem" }}>
@@ -157,7 +192,7 @@ export default function ExtractionReviewModal({ scan, partnerId, defaultDate, on
                 value={n.description}
                 disabled={n.state !== "pending"}
                 onChange={(e) => updateNeed(i, "description", e.target.value)}
-                rows={2}
+                rows={4}
                 style={{ width: "100%" }}
               />
               <label style={{ display: "block", marginTop: "0.5rem", fontWeight: "normal" }}>

@@ -263,6 +263,7 @@ export default function NewsletterSection({ partnerId, newsletters, onChange }) 
           scan={() => extractFromNewsletter(scanning.id)}
           partnerId={partnerId}
           defaultDate={scanning.receivedDate}
+          sourceNewsletterId={scanning.id}
           onClose={() => setScanning(null)}
         />
       )}
