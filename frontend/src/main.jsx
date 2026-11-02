@@ -41,6 +41,7 @@ const AdminSettingsAbout = lazy(() => import("./pages/AdminSettingsAbout.jsx"));
 const AdminSettingsBranding = lazy(() => import("./pages/AdminSettingsBranding.jsx"));
 const AdminSettingsFeatures = lazy(() => import("./pages/AdminSettingsFeatures.jsx"));
 const AdminSettingsGroupMe = lazy(() => import("./pages/AdminSettingsGroupMe.jsx"));
+const AdminSettingsJoshuaProject = lazy(() => import("./pages/AdminSettingsJoshuaProject.jsx"));
 const AdminMonthlySupport = lazy(() => import("./pages/AdminMonthlySupport.jsx"));
 const AdminOneTimeNeeds = lazy(() => import("./pages/AdminOneTimeNeeds.jsx"));
 const AdminPrayerRequests = lazy(() => import("./pages/AdminPrayerRequests.jsx"));
@@ -188,6 +189,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   <Route path="branding" element={<AdminSettingsBranding />} />
                   <Route path="features" element={<AdminSettingsFeatures />} />
                   <Route path="groupme" element={<AdminSettingsGroupMe />} />
+                  <Route path="joshua-project" element={<AdminSettingsJoshuaProject />} />
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="users/new" element={<AdminUserForm />} />
                   <Route path="users/:id" element={<AdminUserForm />} />

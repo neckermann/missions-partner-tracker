@@ -155,7 +155,10 @@ The sections, and what each holds:
   field, not a hard dropdown — pick a suggestion or type your own if it's
   not in the list), plus GPS coordinates (leave blank to auto-geocode from
   the address on save, or enter manually) and a Country Code, which drives
-  a live Joshua Project stats lookup on the form itself. That code
+  a live Joshua Project stats lookup on the form itself (if that feature
+  is turned on — see
+  [ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles)).
+  That code
   auto-fills from the address's country the first time it resolves to a
   recognized name, but only while the field is still blank — enter it
   yourself and it's never overwritten. It's a FIPS code specifically,
@@ -516,6 +519,26 @@ within the GroupMe app itself, same as any other message:
 
 ![A new prayer request notification, as it actually appears in the GroupMe app](docs/assets/screenshots/groupme-notification.png)
 
+## Joshua Project (Admin only)
+
+Shows country-level unreached-people-group statistics — population,
+primary religion, percent evangelical, how reached the country is — on a
+partner's page, pulled live from the [Joshua
+Project](https://joshuaproject.net/). Off by default.
+
+Setup, on the **Joshua Project** page under Site Administration, is one
+step: paste an API key from
+[joshuaproject.net/api/request](https://joshuaproject.net/api/request)
+(free) and **Save API Key** — write-only once saved, same as a password
+field; leave it blank on a later save to keep the existing one.
+
+![The Joshua Project settings page, with an API key saved](docs/assets/screenshots/joshua-project-settings.png)
+
+A key alone doesn't show anything — turn on **Joshua Project stats** in
+[Enabled Features](ADMIN_GUIDE.md#feature-toggles). Once both are done,
+it shows up everywhere it always has: a partner's admin page and public
+page, wherever a Country Code is on file.
+
 ## User management (Admin only)
 
 **Manage Users** lists everyone with access — email, role, active status,
@@ -561,7 +584,9 @@ entirely by what you check in the admin dashboard:
 
   ![The public map, with partner pins and a sidebar list](docs/assets/screenshots/public-map.jpg)
 - **Partner detail page** — the fuller write-up linked from both the
-  directory and the map, masked the same way for restricted partners. A
+  directory and the map, masked the same way for restricted partners. If
+  the Joshua Project stats feature is turned on (see
+  [ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles)), a
   **Show Country Statistics** button (visible whenever the partner has a
   Country Code set) fetches live population, primary religion, percent
   evangelical, and how reached that country is, straight from the

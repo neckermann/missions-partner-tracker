@@ -90,6 +90,18 @@ const FEATURES = {
     defaultEnabled: false,
     group: "admin",
   },
+  // One switch for the integration as a whole, same as groupme above --
+  // *where* it then shows (public partner pages, admin partner pages, or
+  // both) is a plain setting on the Joshua Project settings page itself,
+  // not a second/third feature-registry entry, since it's display
+  // placement rather than something with its own nav/page to hide. Off by
+  // default until an API key is configured, same reasoning as groupme.
+  joshuaProject: {
+    label: "Joshua Project stats",
+    description: "Show country-level unreached-people-group statistics on a partner's page.",
+    defaultEnabled: false,
+    group: "admin",
+  },
 };
 
 const FEATURE_KEYS = Object.keys(FEATURES);
