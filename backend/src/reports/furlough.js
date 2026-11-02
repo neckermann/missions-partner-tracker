@@ -16,13 +16,30 @@ module.exports = {
   description: "Missionaries currently on furlough or with an upcoming furlough on file.",
 
   params: z.object({
+    // Not a date-range filter (see below) -- "current" and "upcoming" are
+    // already the only two states a row here can be in (the query itself
+    // excludes anything fully in the past), so this just lets that
+    // existing split be filtered on instead of only displayed.
+    status: z.enum(["all", "current", "upcoming"]).default("all"),
     includeArchived: z
       .union([z.boolean(), z.literal("true"), z.literal("false")])
       .transform((v) => v === true || v === "true")
       .default(false),
   }),
 
-  fields: [{ name: "includeArchived", label: "Include archived partners", type: "checkbox" }],
+  fields: [
+    {
+      name: "status",
+      label: "Status",
+      type: "select",
+      options: [
+        { value: "all", label: "All" },
+        { value: "current", label: "Current" },
+        { value: "upcoming", label: "Upcoming" },
+      ],
+    },
+    { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
+  ],
 
   columns: [
     { key: "partnerName", label: "Partner" },
@@ -53,17 +70,19 @@ module.exports = {
       },
     });
 
-    return partners.flatMap((p) =>
-      p.furloughs.map((f) => ({
-        id: f.id,
-        partnerId: p.id,
-        partnerName: p.displayName,
-        field: p.fieldDisplayName,
-        status: new Date(f.startDate) <= today ? "Current" : "Upcoming",
-        startDate: f.startDate,
-        endDate: f.endDate,
-        notes: f.notes,
-      }))
-    );
+    return partners
+      .flatMap((p) =>
+        p.furloughs.map((f) => ({
+          id: f.id,
+          partnerId: p.id,
+          partnerName: p.displayName,
+          field: p.fieldDisplayName,
+          status: new Date(f.startDate) <= today ? "Current" : "Upcoming",
+          startDate: f.startDate,
+          endDate: f.endDate,
+          notes: f.notes,
+        }))
+      )
+      .filter((f) => params.status === "all" || f.status.toLowerCase() === params.status);
   },
 };
