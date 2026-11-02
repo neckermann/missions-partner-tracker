@@ -386,6 +386,8 @@ export default function AdminNewsletters() {
           scan={() => extractFromNewsletter(scanning.id)}
           partnerId={scanning.partner?.id}
           defaultDate={scanning.receivedDate}
+          sourceNewsletterId={scanning.id}
+          onChange={reload}
           onClose={() => setScanning(null)}
         />
       )}
