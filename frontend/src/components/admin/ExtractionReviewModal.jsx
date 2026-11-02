@@ -12,7 +12,13 @@ import { useSettings } from "../../context/SettingsContext.jsx";
 // (re-runnable any time from the same button). sourceNewsletterId/
 // sourceDocumentId (at most one set, matching which section rendered this)
 // ride along on save so the created row can link back to this file -- see
-// that column's comment in schema.prisma.
+// that column's comment in schema.prisma. `onChange` (the same reload
+// callback NewsletterSection/DocumentSection already get from the partner
+// page) fires after each successful Add, so the partner's Prayer
+// Requests/One-Time Needs sections -- rendered elsewhere on that same
+// page, already mounted with their own stale data from before this modal
+// opened -- pick up the new row (and its source link) without the admin
+// having to reload the page to see what they just added.
 
 // Seeds a card's single editable textarea as the background followed by
 // the verbatim request/need, so the admin edits one readable block instead
@@ -32,6 +38,7 @@ export default function ExtractionReviewModal({
   defaultDate,
   sourceNewsletterId,
   sourceDocumentId,
+  onChange,
   onClose,
 }) {
   const { enabledFeatures } = useSettings();
@@ -93,6 +100,7 @@ export default function ExtractionReviewModal({
         sourceDocumentId,
       });
       setPrayerRequests((list) => list.map((x, idx) => (idx === i ? { ...x, state: "added" } : x)));
+      onChange?.();
     } catch (err) {
       setPrayerRequests((list) => list.map((x, idx) => (idx === i ? { ...x, state: "pending" } : x)));
       alert(err.response?.data?.error || "Failed to add this prayer request");
@@ -116,6 +124,7 @@ export default function ExtractionReviewModal({
         sourceDocumentId,
       });
       setOneTimeNeeds((list) => list.map((x, idx) => (idx === i ? { ...x, state: "added" } : x)));
+      onChange?.();
     } catch (err) {
       setOneTimeNeeds((list) => list.map((x, idx) => (idx === i ? { ...x, state: "pending" } : x)));
       alert(err.response?.data?.error || "Failed to add this one-time need");

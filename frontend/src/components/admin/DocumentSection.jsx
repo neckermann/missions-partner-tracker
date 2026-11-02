@@ -335,6 +335,7 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
           partnerId={partnerId}
           defaultDate={scanning.receivedDate}
           sourceDocumentId={scanning.id}
+          onChange={onChange}
           onClose={() => setScanning(null)}
         />
       )}
