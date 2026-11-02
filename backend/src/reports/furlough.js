@@ -33,17 +33,11 @@ module.exports = {
       .default(false),
   }),
 
+  // Quick Range/from/to lead the list, not Status -- the filter form
+  // renders in a 3-column grid (see AdminReports.jsx), so keeping this
+  // trio first keeps them on one row rather than splitting across rows.
+  // Same ordering convention on prayerRequests.js and oneTimeNeeds.js.
   fields: [
-    {
-      name: "status",
-      label: "Status",
-      type: "select",
-      options: [
-        { value: "all", label: "All" },
-        { value: "current", label: "Current" },
-        { value: "upcoming", label: "Upcoming" },
-      ],
-    },
     {
       // Looks forward, not back -- "when's the next person leaving"
       // matters more here than a past month/year, so this offers This
@@ -61,6 +55,16 @@ module.exports = {
     },
     { name: "from", label: "Starting on or after", type: "date" },
     { name: "to", label: "Starting on or before", type: "date" },
+    {
+      name: "status",
+      label: "Status",
+      type: "select",
+      options: [
+        { value: "all", label: "All" },
+        { value: "current", label: "Current" },
+        { value: "upcoming", label: "Upcoming" },
+      ],
+    },
     { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
   ],
 

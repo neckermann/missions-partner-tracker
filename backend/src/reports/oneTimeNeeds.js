@@ -32,6 +32,10 @@ module.exports = {
       .default(false),
   }),
 
+  // Quick Range/from/to lead the list -- the filter form renders in a
+  // 3-column grid (see AdminReports.jsx), so keeping this trio first
+  // keeps them on one row rather than splitting across rows. Same
+  // ordering convention on prayerRequests.js and furlough.js.
   fields: [
     {
       name: "quickRange",

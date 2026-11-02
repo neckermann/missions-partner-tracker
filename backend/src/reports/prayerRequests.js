@@ -20,7 +20,26 @@ module.exports = {
       .default(false),
   }),
 
+  // Quick Range/from/to lead the list, not status/category -- the filter
+  // form renders in a 3-column grid (see AdminReports.jsx), so keeping
+  // this trio first keeps them on one row instead of splitting across
+  // rows depending on how many fields happen to come before them. Same
+  // ordering convention on oneTimeNeeds.js and furlough.js.
   fields: [
+    {
+      name: "quickRange",
+      label: "Quick Range",
+      type: "dateRangePreset",
+      appliesTo: { from: "from", to: "to" },
+      options: [
+        { value: "all", label: "All Time" },
+        { value: "month", label: "This Month" },
+        { value: "year", label: "This Year" },
+        { value: "lastYear", label: "Last Year" },
+      ],
+    },
+    { name: "from", label: "Received on or after", type: "date" },
+    { name: "to", label: "Received on or before", type: "date" },
     {
       name: "category",
       label: "Category",
@@ -42,20 +61,6 @@ module.exports = {
         { value: "untracked", label: "Untracked" },
       ],
     },
-    {
-      name: "quickRange",
-      label: "Quick Range",
-      type: "dateRangePreset",
-      appliesTo: { from: "from", to: "to" },
-      options: [
-        { value: "all", label: "All Time" },
-        { value: "month", label: "This Month" },
-        { value: "year", label: "This Year" },
-        { value: "lastYear", label: "Last Year" },
-      ],
-    },
-    { name: "from", label: "Received on or after", type: "date" },
-    { name: "to", label: "Received on or before", type: "date" },
     { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
   ],
 
