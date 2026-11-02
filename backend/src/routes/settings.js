@@ -159,6 +159,10 @@ const groupmeSettingsSelect = {
   groupmeGroupName: true,
   groupmePrayerTopicId: true,
   groupmePrayerTopicName: true,
+  groupmeOneTimeNeedTopicId: true,
+  groupmeOneTimeNeedTopicName: true,
+  groupmeNewsletterTopicId: true,
+  groupmeNewsletterTopicName: true,
 };
 function shapeGroupMeSettings(settings) {
   return {
@@ -167,6 +171,10 @@ function shapeGroupMeSettings(settings) {
     groupName: settings?.groupmeGroupName || null,
     prayerTopicId: settings?.groupmePrayerTopicId || null,
     prayerTopicName: settings?.groupmePrayerTopicName || null,
+    oneTimeNeedTopicId: settings?.groupmeOneTimeNeedTopicId || null,
+    oneTimeNeedTopicName: settings?.groupmeOneTimeNeedTopicName || null,
+    newsletterTopicId: settings?.groupmeNewsletterTopicId || null,
+    newsletterTopicName: settings?.groupmeNewsletterTopicName || null,
   };
 }
 
@@ -181,6 +189,10 @@ const groupmeSchema = z.object({
   groupName: z.string().trim().optional().nullable(),
   prayerTopicId: z.string().trim().optional().nullable(),
   prayerTopicName: z.string().trim().optional().nullable(),
+  oneTimeNeedTopicId: z.string().trim().optional().nullable(),
+  oneTimeNeedTopicName: z.string().trim().optional().nullable(),
+  newsletterTopicId: z.string().trim().optional().nullable(),
+  newsletterTopicName: z.string().trim().optional().nullable(),
 });
 
 // GET /api/settings/groupme (admin only -- not folded into GET /, which
@@ -201,15 +213,30 @@ router.get("/groupme", requireRole("admin"), async (req, res, next) => {
 // PUT /api/settings/groupme (admin only) -- a plain partial update, same
 // shape as PUT / above: the frontend sends whichever fields it's
 // changing (just accessToken when first connecting; groupId/groupName
-// once a group's picked; prayerTopicId/prayerTopicName once a topic is).
+// once a group's picked; *TopicId/*TopicName once a topic is, one
+// notification type at a time).
 router.put("/groupme", requireRole("admin"), async (req, res, next) => {
   try {
-    const { accessToken, groupId, groupName, prayerTopicId, prayerTopicName } = groupmeSchema.parse(req.body);
+    const {
+      accessToken,
+      groupId,
+      groupName,
+      prayerTopicId,
+      prayerTopicName,
+      oneTimeNeedTopicId,
+      oneTimeNeedTopicName,
+      newsletterTopicId,
+      newsletterTopicName,
+    } = groupmeSchema.parse(req.body);
     const fields = {
       groupmeGroupId: groupId,
       groupmeGroupName: groupName,
       groupmePrayerTopicId: prayerTopicId,
       groupmePrayerTopicName: prayerTopicName,
+      groupmeOneTimeNeedTopicId: oneTimeNeedTopicId,
+      groupmeOneTimeNeedTopicName: oneTimeNeedTopicName,
+      groupmeNewsletterTopicId: newsletterTopicId,
+      groupmeNewsletterTopicName: newsletterTopicName,
     };
     if (accessToken) fields.groupmeAccessToken = encryptField(accessToken);
 

@@ -489,13 +489,13 @@ everywhere, with no code changes needed:
 
 ## GroupMe notifications (Admin only)
 
-Posts new prayer requests to a GroupMe group as they're added, so a
-prayer team sees them the moment they're added without checking the
-admin dashboard. Off by default — turn it on in
+Posts new prayer requests, one-time needs, and newsletters to GroupMe as
+they're added, so a team sees them the moment they're added without
+checking the admin dashboard. Off by default — turn it on in
 [Enabled Features](ADMIN_GUIDE.md#feature-toggles) once it's set up here.
 
-Setup, on the **GroupMe** page under Site Administration, is three steps,
-each building on the last:
+Setup, on the **GroupMe** page under Site Administration, builds up in
+steps:
 
 1. **Access Token** — paste a personal access token from
    [dev.groupme.com](https://dev.groupme.com). Messages post under that
@@ -504,15 +504,26 @@ each building on the last:
    existing one.
 2. **Group** — click **Load My Groups** to pull the token's actual
    GroupMe groups, pick one, **Use This Group**.
-3. **Prayer Requests Topic** — click **Load Topics** to pull that group's
-   real Topics, pick one, **Use This Topic**. Until a topic is picked,
-   prayer requests post to the group's main conversation instead.
+3. **Topics** — click **Load Topics** once to pull that group's real
+   Topics. The three sections below (**Prayer Requests Topic**,
+   **One-Time Needs Topic**, **Newsletters Topic**) all share that same
+   list — pick a topic and **Use This Topic** for whichever notification
+   types you want; skip any you don't. Until a topic is picked for a
+   given type, that notification posts to the group's main conversation
+   instead.
 
-![The GroupMe settings page, with all three steps configured](docs/assets/screenshots/groupme-settings.png)
+![The GroupMe settings page, with all steps configured](docs/assets/screenshots/groupme-settings.png)
 
-If GroupMe itself is unreachable or rejects a post, the prayer request
-still saves normally — the notification is best-effort and never blocks
-your own work.
+If GroupMe itself is unreachable or rejects a post, the prayer
+request/need/newsletter still saves normally — the notification is
+best-effort and never blocks your own work.
+
+The newsletter notification includes a direct link to the letter (the
+same link **View** opens on the newsletter's own page) — this only
+appears once `APP_BASE_URL` is set, or automatically on Render (see
+[ADMIN_GUIDE.md § Environment variables](ADMIN_GUIDE.md#environment-variables)).
+Whoever clicks it needs to be logged into the admin dashboard, same as
+any other admin link.
 
 Once it's working, a new prayer request shows up in the configured Topic
 within the GroupMe app itself, same as any other message:
