@@ -35,8 +35,8 @@ datasource db {
 // organization has no children -- application code simply never creates
 // them, the same way it already handles every other "kind"-specific rule.
 model Partner {
-  id           String @id @default(uuid())
-  kind         String // "missionary" | "organization"
+  id   String @id @default(uuid())
+  kind String // "missionary" | "organization"
 
   // --- Visibility controls ---
   isPublic     Boolean @default(false) // show on public site at all
@@ -81,10 +81,10 @@ model Partner {
   contactEmail           String?
 
   // --- Kind-specific profile fields ---
-  orgType         String?   // organization-only: "Local" | "National"
-  anniversary     DateTime? @db.Date // missionary-only
-  languagesSpoken String[]  @default([]) // missionary-only
-  emergencyContact Json?    // missionary-only: { name, phone, email }
+  orgType          String? // organization-only: "Local" | "National"
+  anniversary      DateTime? @db.Date // missionary-only
+  languagesSpoken  String[]  @default([]) // missionary-only
+  emergencyContact Json? // missionary-only: { name, phone, email }
 
   // --- Mission trip capacity: what kind of team this partner can host ---
   tripTeamSizeMin    Int?
@@ -174,9 +174,9 @@ model Child {
 // public map pin (gpsLat/gpsLng). "mailing" is the US-side contact/support-
 // mail address and has no coordinates.
 model Address {
-  id                  String  @id @default(uuid())
+  id                  String   @id @default(uuid())
   partnerId           String
-  partner             Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner             Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   type                String // "physical" | "mailing"
   addressLine1        String?
   addressLine2        String?
@@ -479,9 +479,9 @@ model ChurchSettings {
   // editing) unless a church opts into using its own term there too.
   usePartnerTermInAdmin Boolean @default(false)
 
-  publicTagline String? // short subtitle under the public map/directory header
-  aboutText     String? @db.Text // optional blurb shown on the public directory
-  primaryColor  String? // hex, overrides the site's --brand-color CSS variable
+  publicTagline   String? // short subtitle under the public map/directory header
+  aboutText       String? @db.Text // optional blurb shown on the public directory
+  primaryColor    String? // hex, overrides the site's --brand-color CSS variable
   // The site logo, stored right in this row — see the comment on the
   // Newsletter model for why this app keeps file bytes in Postgres
   // instead of an object store. Public, served unauthenticated at
@@ -505,19 +505,23 @@ model ChurchSettings {
   // routes/settings.js's dedicated /groupme sub-routes must omit it, so
   // it never rides along in the general settings payload any logged-in
   // role can read.
-  groupmeAccessToken String?
+  groupmeAccessToken          String?
   // The parent group the admin picked, and its topics -- both selected
   // from live GroupMe API calls (GET /groups, GET /groups/:id/subgroups)
   // in the admin UI, never hand-typed, so the *Name fields are just a
   // cached label for display, not something this app invents.
-  groupmeGroupId         String?
-  groupmeGroupName       String?
-  // Phase 1 maps Prayer Requests only -- see the plan this shipped
-  // under. One-Time Needs and Newsletters get their own
-  // groupme*TopicId/Name pair in a later phase, not a single generic
-  // "topic" field that would need renaming once there's more than one.
-  groupmePrayerTopicId   String?
-  groupmePrayerTopicName String?
+  groupmeGroupId              String?
+  groupmeGroupName            String?
+  // Phase 1 mapped Prayer Requests only -- this is that later phase.
+  // One-Time Needs and Newsletters each get their own groupme*TopicId/
+  // Name pair, not a single generic "topic" field that would need
+  // renaming once there's more than one notification type.
+  groupmePrayerTopicId        String?
+  groupmePrayerTopicName      String?
+  groupmeOneTimeNeedTopicId   String?
+  groupmeOneTimeNeedTopicName String?
+  groupmeNewsletterTopicId    String?
+  groupmeNewsletterTopicName  String?
 
   // Joshua Project API key (see backend/src/utils/joshuaProject.js) --
   // country-level unreached-people-group stats shown on a partner's page,
@@ -578,18 +582,17 @@ model User {
   // Encrypted at rest (see backend/src/utils/crypto.js) — TOTP verification
   // needs the raw secret back, so this can't be a one-way hash like a
   // password.
-  mfaEnabled Boolean @default(false)
-  mfaSecret  String?
+  mfaEnabled       Boolean @default(false)
+  mfaSecret        String?
   // The last TOTP time step accepted for this user, so the same code can't
   // be used twice. A TOTP code stays valid for its whole 30-second window,
   // which means one shoulder-surfed or phished code is replayable until it
   // expires; otplib rejects a repeat when the accepted step is passed back
   // as `afterTimeStep`. Null until their first successful code.
-  mfaLastTimeStep Int?
+  mfaLastTimeStep  Int?
   // Admin-set per-user policy flag: forces enrollment at next login when
   // true and mfaEnabled is still false. Independent of mfaEnabled so an
   // admin can mandate MFA for an account without knowing/setting the
   // secret themselves — the user still does the actual QR scan.
   mfaSetupRequired Boolean @default(false)
 }
-

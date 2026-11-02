@@ -51,6 +51,10 @@ before(async () => {
       groupmeGroupName: true,
       groupmePrayerTopicId: true,
       groupmePrayerTopicName: true,
+      groupmeOneTimeNeedTopicId: true,
+      groupmeOneTimeNeedTopicName: true,
+      groupmeNewsletterTopicId: true,
+      groupmeNewsletterTopicName: true,
       enabledFeatures: true,
     },
   });
@@ -63,6 +67,10 @@ before(async () => {
       groupmeGroupName: null,
       groupmePrayerTopicId: null,
       groupmePrayerTopicName: null,
+      groupmeOneTimeNeedTopicId: null,
+      groupmeOneTimeNeedTopicName: null,
+      groupmeNewsletterTopicId: null,
+      groupmeNewsletterTopicName: null,
     },
     create: { id: "singleton" },
   });
@@ -104,6 +112,10 @@ describe("GET/PUT /api/settings/groupme -- admin gate", () => {
       groupName: null,
       prayerTopicId: null,
       prayerTopicName: null,
+      oneTimeNeedTopicId: null,
+      oneTimeNeedTopicName: null,
+      newsletterTopicId: null,
+      newsletterTopicName: null,
     });
     assert.ok(!("accessToken" in res.body) && !("groupmeAccessToken" in res.body));
   });
@@ -157,6 +169,29 @@ describe("PUT /api/settings/groupme -- write-only token, partial updates", () =>
     assert.equal(res.body.prayerTopicName, "Prayers");
     // Earlier saves (group) survive an update scoped to just the topic.
     assert.equal(res.body.groupId, "fake-group-id");
+  });
+
+  test("saving a one-time-need topic leaves the prayer topic untouched", async () => {
+    const res = await admin("/api/settings/groupme", {
+      method: "PUT",
+      body: { oneTimeNeedTopicId: "fake-need-topic-id", oneTimeNeedTopicName: "Needs" },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.oneTimeNeedTopicId, "fake-need-topic-id");
+    assert.equal(res.body.oneTimeNeedTopicName, "Needs");
+    assert.equal(res.body.prayerTopicId, "fake-topic-id", "the earlier prayer topic save must survive");
+  });
+
+  test("saving a newsletter topic leaves the other two topics untouched", async () => {
+    const res = await admin("/api/settings/groupme", {
+      method: "PUT",
+      body: { newsletterTopicId: "fake-newsletter-topic-id", newsletterTopicName: "Newsletters" },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.newsletterTopicId, "fake-newsletter-topic-id");
+    assert.equal(res.body.newsletterTopicName, "Newsletters");
+    assert.equal(res.body.prayerTopicId, "fake-topic-id");
+    assert.equal(res.body.oneTimeNeedTopicId, "fake-need-topic-id");
   });
 });
 
@@ -278,6 +313,162 @@ describe("prayer request creation never fails because of GroupMe", () => {
       assert.ok(capturedUrl?.includes("/groups/fake-topic-id/messages"), capturedUrl);
     } finally {
       unmockGroupMe();
+    }
+  });
+});
+
+describe("support need creation never fails because of GroupMe", () => {
+  let partnerId;
+
+  before(async () => {
+    const partner = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} GroupMe need target` },
+    });
+    partnerId = partner.body.id;
+
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { groupme: true }, groupmeOneTimeNeedTopicId: "fake-need-topic-id" },
+    });
+  });
+
+  after(async () => {
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+  });
+
+  test("a one-time need still saves (201) when the GroupMe post itself fails", async () => {
+    mockGroupMe(async () => groupmeJson(500, { meta: { code: 500, errors: ["boom"] } }));
+    try {
+      const res = await admin("/api/support-needs", {
+        method: "POST",
+        body: {
+          partnerId,
+          description: `${FIXTURE_TAG} should still save`,
+          requestedAmount: 500,
+          requestDate: "2026-01-01",
+        },
+      });
+      assert.equal(res.status, 201);
+      assert.equal(res.body.description, `${FIXTURE_TAG} should still save`);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("a one-time need posts into the configured topic, not the main group", async () => {
+    let capturedUrl = null;
+    mockGroupMe(async (url, options) => {
+      capturedUrl = String(url);
+      JSON.parse(options.body);
+      return groupmeJson(202, { response: null });
+    });
+    try {
+      const res = await admin("/api/support-needs", {
+        method: "POST",
+        body: {
+          partnerId,
+          description: `${FIXTURE_TAG} posts to the needs topic`,
+          requestedAmount: 1000,
+          requestDate: "2026-01-01",
+        },
+      });
+      assert.equal(res.status, 201);
+      assert.ok(capturedUrl?.includes("/groups/fake-need-topic-id/messages"), capturedUrl);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+});
+
+describe("newsletter creation never fails because of GroupMe", () => {
+  let partnerId;
+  let originalAppBaseUrl;
+
+  function uploadForm(fields) {
+    const form = new FormData();
+    form.set("file", new Blob([Buffer.from("%PDF-1.4 test")], { type: "application/pdf" }), "t.pdf");
+    for (const [k, v] of Object.entries(fields)) form.set(k, v);
+    return form;
+  }
+
+  before(async () => {
+    const partner = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} GroupMe newsletter target` },
+    });
+    partnerId = partner.body.id;
+
+    originalAppBaseUrl = process.env.APP_BASE_URL;
+    process.env.APP_BASE_URL = "https://church.example.org";
+
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { groupme: true }, groupmeNewsletterTopicId: "fake-newsletter-topic-id" },
+    });
+  });
+
+  after(async () => {
+    if (originalAppBaseUrl === undefined) delete process.env.APP_BASE_URL;
+    else process.env.APP_BASE_URL = originalAppBaseUrl;
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+  });
+
+  test("a newsletter still saves (201) when the GroupMe post itself fails", async () => {
+    mockGroupMe(async () => groupmeJson(500, { meta: { code: 500, errors: ["boom"] } }));
+    try {
+      const res = await admin("/api/newsletters", {
+        method: "POST",
+        body: uploadForm({ partnerId, receivedDate: "2026-01-01" }),
+      });
+      assert.equal(res.status, 201);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("a newsletter posts into the configured topic with a direct download link", async () => {
+    let capturedUrl = null;
+    let capturedText = null;
+    mockGroupMe(async (url, options) => {
+      capturedUrl = String(url);
+      capturedText = JSON.parse(options.body).message.text;
+      return groupmeJson(202, { response: null });
+    });
+    try {
+      const created = await admin("/api/newsletters", {
+        method: "POST",
+        body: uploadForm({ partnerId, receivedDate: "2026-01-01" }),
+      });
+      assert.equal(created.status, 201);
+      assert.ok(capturedUrl?.includes("/groups/fake-newsletter-topic-id/messages"), capturedUrl);
+      assert.ok(
+        capturedText?.includes(`https://church.example.org/api/newsletters/${created.body.id}/download`),
+        capturedText
+      );
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("no APP_BASE_URL (and no RENDER_EXTERNAL_URL) means no notification at all -- no broken link ever gets sent", async () => {
+    delete process.env.APP_BASE_URL;
+    delete process.env.RENDER_EXTERNAL_URL;
+    let called = false;
+    mockGroupMe(async () => {
+      called = true;
+      return groupmeJson(202, { response: null });
+    });
+    try {
+      const res = await admin("/api/newsletters", {
+        method: "POST",
+        body: uploadForm({ partnerId, receivedDate: "2026-01-01" }),
+      });
+      assert.equal(res.status, 201);
+      assert.equal(called, false, "GroupMe should never be called with no base URL to build a link from");
+    } finally {
+      unmockGroupMe();
+      process.env.APP_BASE_URL = "https://church.example.org";
     }
   });
 });

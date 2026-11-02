@@ -3,6 +3,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
+const { notifySupportNeedCreated } = require("../utils/groupme");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -51,6 +52,16 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const data = supportNeedSchema.parse(req.body);
     const created = await prisma.supportNeed.create({ data, include: supportNeedInclude });
+
+    // Best-effort: a GroupMe outage or bad token must never block saving
+    // the need itself -- same reasoning and second-layer catch as
+    // routes/prayerRequests.js.
+    try {
+      await notifySupportNeedCreated(created);
+    } catch (err) {
+      console.error("GroupMe notification failed:", err);
+    }
+
     res.status(201).json(created);
   } catch (err) {
     next(err);
