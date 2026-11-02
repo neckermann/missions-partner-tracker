@@ -4,8 +4,13 @@ import { createPartner } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
 import { COUNTRY_CONTINENTS } from "../utils/countryContinents.js";
+import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 
 const COUNTRY_NAMES = Object.keys(COUNTRY_CONTINENTS).sort();
+// Same presets as the detail page's own Preferred Contact Method field
+// (see AdminPartnerDetail.jsx) -- an editable combo, not a closed list,
+// so nothing here forces that field to only ever offer these four.
+const CONTACT_METHOD_PRESETS = ["Email", "Phone", "WhatsApp", "Signal"];
 
 // Creating a partner asks for the few things you can't fill in later from
 // the record itself: which kind it is, what to call it, and where it is.
@@ -29,6 +34,8 @@ export default function AdminPartnerForm() {
     isRestricted: false,
     contactSafe: true,
     sentByOurChurch: false,
+    preferredContactMethod: "",
+    supportingSince: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -49,6 +56,8 @@ export default function AdminPartnerForm() {
         overviewShort: form.overviewShort.trim() || null,
         isPublic: form.isPublic,
         isRestricted: form.isRestricted,
+        preferredContactMethod: form.preferredContactMethod.trim() || null,
+        supportingSince: form.supportingSince || null,
         fipsCountryCode: getFipsCode(country) || null,
         addresses: country ? { physical: { country } } : undefined,
         ...(isOrg
@@ -113,12 +122,29 @@ export default function AdminPartnerForm() {
                 ))}
               </datalist>
             </label>
-            <label>
+            <label title="Shown publicly even if this partner is restricted-access, since it doesn't reveal their exact location -- e.g. 'West Africa' rather than the specific country.">
               Field / Region Display Name
               <input
                 value={form.fieldDisplayName}
                 onChange={(e) => set("fieldDisplayName", e.target.value)}
                 placeholder="e.g. West Africa"
+              />
+            </label>
+            <label title="How this partner prefers to be reached. Shown on their page; doesn't affect anything else.">
+              Preferred Contact Method
+              <PresetOrCustomSelect
+                value={form.preferredContactMethod}
+                onChange={(v) => set("preferredContactMethod", v)}
+                presets={CONTACT_METHOD_PRESETS}
+                placeholder="e.g. Telegram"
+              />
+            </label>
+            <label title="When this partner's support began. Leave it blank if you're not sure yet -- it's easy to set later.">
+              Supporting Since
+              <input
+                type="date"
+                value={form.supportingSince}
+                onChange={(e) => set("supportingSince", e.target.value)}
               />
             </label>
           </div>
@@ -134,7 +160,7 @@ export default function AdminPartnerForm() {
 
           <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
             {!isOrg && (
-              <label>
+              <label title="A reminder for staff, not a public setting -- whether reaching out to this missionary directly is safe (e.g. in a sensitive location). Shown as a status pill on their page.">
                 <input
                   type="checkbox"
                   checked={form.contactSafe}
@@ -143,7 +169,7 @@ export default function AdminPartnerForm() {
                 Safe to contact
               </label>
             )}
-            <label>
+            <label title="Whether this partner appears in the public directory and map at all. Leave off for a partner you're not ready to list yet.">
               <input
                 type="checkbox"
                 checked={form.isPublic}
@@ -160,7 +186,7 @@ export default function AdminPartnerForm() {
               Restricted-access location
             </label>
             {!isOrg && (
-              <label>
+              <label title="Fills in the Sending Church section on this partner's page from this church's own info, overwriting anything typed there later. Set up Sending Church details afterward on their page.">
                 <input
                   type="checkbox"
                   checked={form.sentByOurChurch}

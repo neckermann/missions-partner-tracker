@@ -96,25 +96,34 @@ async function resetDemoData() {
     ...(anthropicApiKey ? { anthropicApiKey: encryptField(anthropicApiKey) } : {}),
   };
 
+  // Filled in beyond just churchName -- this is also what the Sending
+  // Church auto-fill/sync (see routes/partners.js's syncSendingChurch)
+  // copies into every seeded "sent by us" missionary below, so leaving
+  // phone/contactName/contactEmail/websiteLink/address blank here meant
+  // every one of those demo partners showed a Sending Church box that was
+  // mostly empty too.
+  const churchDetails = {
+    churchName: "Missions Partner Tracker Demo",
+    contactName: "Alex Morgan",
+    contactEmail: "missions@example.org",
+    phone: "(309) 555-0100",
+    websiteLink: "https://missions.example.org",
+    address: {
+      addressLine1: "100 Fellowship Way",
+      city: "Rock Island",
+      stateProvinceRegion: "IL",
+      postalCode: "61201",
+      country: "USA",
+    },
+    publicTagline: "Supporting our missionary and organization partners around the world",
+    aboutText:
+      "We partner with missionaries and organizations serving around the world, supporting them in prayer, finances, and care.",
+  };
+
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
-    create: {
-      id: "singleton",
-      churchName: "Missions Partner Tracker Demo",
-      publicTagline: "Supporting our missionary and organization partners around the world",
-      aboutText:
-        "We partner with missionaries and organizations serving around the world, supporting them in prayer, finances, and care.",
-      enabledFeatures,
-      ...integrationKeys,
-    },
-    update: {
-      churchName: "Missions Partner Tracker Demo",
-      publicTagline: "Supporting our missionary and organization partners around the world",
-      aboutText:
-        "We partner with missionaries and organizations serving around the world, supporting them in prayer, finances, and care.",
-      enabledFeatures,
-      ...integrationKeys,
-    },
+    create: { id: "singleton", ...churchDetails, enabledFeatures, ...integrationKeys },
+    update: { ...churchDetails, enabledFeatures, ...integrationKeys },
   });
 
   // Seeded last, now that both the admin and Church Settings above exist
