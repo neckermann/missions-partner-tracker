@@ -62,23 +62,27 @@ async function resetDemoData() {
   // not just left to its own default, since aiExtraction's default is off.
   // A visitor exploring the public demo should see the whole app working,
   // not accidentally find half of it toggled off.
-  const allFeaturesOn = Object.fromEntries(FEATURE_KEYS.map((key) => [key, true]));
-
-  // Same reasoning as DEMO_ADMIN_EMAIL/PASSWORD above: Joshua Project's
-  // API key lives in ChurchSettings now (admin-managed, not an env var --
-  // see that field's comment in schema.prisma), which `migrate reset`
-  // above wipes along with everything else. Optional, not required like
-  // the admin credentials are: a demo without it just shows the feature
-  // toggled on but no stats, same as any other instance with the feature
-  // on and no key saved yet -- nothing breaks either way, this just keeps
-  // this one demo's own key (set directly on its Render service, never
-  // committed here) surviving a reset instead of having to be re-entered
-  // through the UI every time.
-  const joshuaProjectApiKey = process.env.JOSHUA_PROJECT_API_KEY;
-  // Same reasoning as joshuaProjectApiKey immediately above -- the
-  // Anthropic key is this demo's own (real, billable) key, set directly
+  //
+  // Same reasoning as DEMO_ADMIN_EMAIL/PASSWORD above: these two
+  // integrations' API keys live in ChurchSettings now (admin-managed,
+  // not env vars -- see each field's own comment in schema.prisma),
+  // which `migrate reset` above wipes along with everything else. Both
+  // env vars here are this demo's own real, billable keys, set directly
   // on the Render service and never committed anywhere in this repo.
+  //
+  // Their *feature* toggles are turned on only when the matching key is
+  // actually present -- unlike every other feature above, which has no
+  // key to be missing in the first place, flipping one of these two on
+  // with no key saved would show a toggle that does nothing (Joshua
+  // Project) or errors on click (AI scanning), which is worse than just
+  // leaving it off until the key shows up on a later reset.
+  const joshuaProjectApiKey = process.env.JOSHUA_PROJECT_API_KEY;
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+  const enabledFeatures = {
+    ...Object.fromEntries(FEATURE_KEYS.map((key) => [key, true])),
+    joshuaProject: Boolean(joshuaProjectApiKey),
+    aiExtraction: Boolean(anthropicApiKey),
+  };
   const integrationKeys = {
     ...(joshuaProjectApiKey ? { joshuaProjectApiKey: encryptField(joshuaProjectApiKey) } : {}),
     ...(anthropicApiKey ? { anthropicApiKey: encryptField(anthropicApiKey) } : {}),
@@ -92,7 +96,7 @@ async function resetDemoData() {
       publicTagline: "Supporting our missionary and organization partners around the world",
       aboutText:
         "We partner with missionaries and organizations serving around the world, supporting them in prayer, finances, and care.",
-      enabledFeatures: allFeaturesOn,
+      enabledFeatures,
       ...integrationKeys,
     },
     update: {
@@ -100,7 +104,7 @@ async function resetDemoData() {
       publicTagline: "Supporting our missionary and organization partners around the world",
       aboutText:
         "We partner with missionaries and organizations serving around the world, supporting them in prayer, finances, and care.",
-      enabledFeatures: allFeaturesOn,
+      enabledFeatures,
       ...integrationKeys,
     },
   });
