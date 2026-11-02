@@ -551,6 +551,15 @@ model ChurchSettings {
   // file for the one exception (aiExtraction defaults to off).
   enabledFeatures Json @default("{}")
 
+  // Deliberate, explicit opt-out of BackupReminder.jsx's periodic nudge --
+  // distinct from that component's own dismiss-for-30-days (stored in
+  // localStorage, per-browser, temporary). This is server-side and
+  // permanent until an admin turns it back on, for a church that's
+  // confirmed its database provider's own backups are actually working.
+  // Default false: the reminder is on until someone deliberately says
+  // otherwise, not silently opted out by a missing value.
+  backupReminderDisabled Boolean @default(false)
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   updatedById String?

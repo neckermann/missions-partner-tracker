@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { fetchBackupCheck } from "../../api/client.js";
 
 const DISMISSED_KEY = "missions-tracker-backup-reminder-dismissed-at";
-const REMIND_AGAIN_AFTER_MS = 90 * 24 * 60 * 60 * 1000; // ~90 days
+const REMIND_AGAIN_AFTER_MS = 30 * 24 * 60 * 60 * 1000; // ~30 days
 
 const PROVIDER_MESSAGES = {
   neon: "You're on Neon — confirm your plan includes point-in-time recovery (Neon console → your project → Backup/Restore).",
@@ -17,16 +17,24 @@ const PROVIDER_MESSAGES = {
 // backs up the database itself -- see ADMIN_GUIDE.md § Database backups.
 // Aimed at churches without a technical volunteer who might otherwise
 // never think to check their provider's own backup settings. Re-shows
-// itself ~90 days after being dismissed, since "did we ever actually
+// itself ~30 days after being dismissed, since "did we ever actually
 // check this" is worth revisiting periodically, not just once.
+//
+// That per-browser dismiss is separate from backupReminderDisabled, a
+// server-side, permanent opt-out set on the Backups settings page
+// (AdminSettingsBackups.jsx) for a church that's confirmed its backups are
+// genuinely handled another way -- when that's on, this never renders at
+// all, regardless of the dismiss timer.
 export default function BackupReminder() {
   const [provider, setProvider] = useState(null);
+  const [reminderDisabled, setReminderDisabled] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     fetchBackupCheck()
       .then((data) => {
         setProvider(data?.provider || "other");
+        setReminderDisabled(Boolean(data?.backupReminderDisabled));
         const dismissedAt = Number(localStorage.getItem(DISMISSED_KEY) || 0);
         setDismissed(Date.now() - dismissedAt < REMIND_AGAIN_AFTER_MS);
       })
@@ -35,7 +43,7 @@ export default function BackupReminder() {
       });
   }, []);
 
-  if (!provider || dismissed) return null;
+  if (!provider || reminderDisabled || dismissed) return null;
 
   function dismiss() {
     localStorage.setItem(DISMISSED_KEY, String(Date.now()));
@@ -57,13 +65,14 @@ export default function BackupReminder() {
       }}
     >
       <span>
-        {PROVIDER_MESSAGES[provider]}{" "}
+        {PROVIDER_MESSAGES[provider]} Already covered another way?{" "}
+        <a href="/admin/settings/backups">Turn this off for good</a>, or{" "}
         <a
           href="https://github.com/neckermann/missions-partner-tracker/blob/main/ADMIN_GUIDE.md#database-backups"
           target="_blank"
           rel="noreferrer"
         >
-          Learn more
+          learn more
         </a>
         .
       </span>

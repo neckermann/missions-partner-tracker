@@ -504,11 +504,92 @@ gets masked: [USER_GUIDE.md § Understanding restricted-access partners](USER_GU
 
 ### Database backups
 
-Nothing in this app manages backups for you — that's your Postgres
-provider's job (most managed providers, including Neon, offer
-point-in-time recovery out of the box). Confirm your provider's backup
-retention matches how much data loss your church would tolerate before
-you're relying on real partner data.
+Your Postgres provider's own backups are still the first line of defense
+— most managed providers, including Neon, offer point-in-time recovery
+out of the box. Confirm your provider's backup retention matches how much
+data loss your church would tolerate before you're relying on real
+partner data.
+
+On top of that, **Site Administration → Backups** gives any admin a
+self-service way to download a full backup on demand — every partner,
+user, and uploaded file, as a single gzipped file — without connecting a
+storage provider or setting anything up first. Nothing about this is
+scheduled or automatic, and nothing is kept server-side: downloading is
+the only copy that exists, so store it somewhere safe immediately (a
+password manager's file storage, an encrypted drive — somewhere only
+trusted people can reach).
+
+![The Backups page: a Back up now button and the opt-out for the periodic reminder](docs/assets/screenshots/backups-settings.png)
+
+**This file is the most sensitive thing this app can produce.** It
+contains unmasked data for every partner, including restricted ones
+(real names, exact locations), and every user's password hash and
+encrypted two-factor secret. Treat it accordingly, and if one is ever
+exposed, rotate [`SESSION_SECRET`](#rotating-sessionsecret) immediately.
+
+A periodic banner also reminds every admin to confirm their provider's
+own backup settings (dismissible for ~30 days at a time, per browser). If
+your provider's backups are already tested and working, the same Backups
+page has an explicit, permanent opt-out for that reminder — it requires
+deliberately checking a box and saving, not a casual dismiss, since
+turning it off removes the only in-app nudge that backups are happening
+at all.
+
+#### Restoring a backup
+
+Restoring is deliberately **CLI-only** — there's no "restore" button in
+the UI. An untested restore path makes the backup button theater, and a
+one-click restore is also a one-click way to destroy a production
+database, so this stays a deliberate, typed command rather than a click
+an admin could fire by accident.
+
+**On Render** (the documented deployment path — see
+[Getting your church running](#getting-your-church-running-render)):
+
+1. Render Dashboard → your web service → **Shell** tab. This is available
+   on every paid web service (the documented minimum tier already), opens
+   a real terminal on your running instance, and needs no SSH keys or
+   local setup.
+2. Upload the backup file somewhere the Shell can reach it — the
+   simplest path is a temporary, unlisted file host, or `scp`/SFTP if
+   you've set up SSH access instead of the dashboard Shell (see
+   [Render's SSH docs](https://render.com/docs/ssh)). Download it onto
+   the instance, e.g. `curl -o backup.ndjson.gz "<url>"`.
+3. From the Shell, in the `backend` directory:
+   ```bash
+   npm run backup:restore -- backup.ndjson.gz
+   ```
+4. Delete the uploaded file from wherever you staged it in step 2 once
+   the restore succeeds — it's as sensitive as the original download.
+
+**Anywhere else** (self-hosted, another platform): run the same command
+from a machine with `DATABASE_URL` set to the target database and this
+repo checked out:
+```bash
+cd backend
+npm run backup:restore -- /path/to/backup.ndjson.gz
+```
+
+Either way, the script itself:
+- Verifies the file's checksum first — a corrupted or hand-edited backup
+  is refused before anything is touched, not partway through.
+- Refuses if the backup's recorded migration doesn't match the code
+  you're running it from (restoring into a schema the backup wasn't made
+  for is how you corrupt a database, not recover one).
+- Refuses against a database that isn't empty (this is a full replace,
+  not a merge).
+- Both refusals can be overridden with `--force` if you're certain —
+  the checksum check cannot be.
+
+**One caveat worth knowing before you ever need this**: GroupMe/Joshua
+Project/Anthropic API keys and every user's MFA secret are encrypted
+with `FIELD_ENCRYPTION_KEY` ([see above](#environment-variables)).
+Restoring a backup onto an environment with a *different*
+`FIELD_ENCRYPTION_KEY` than the one it was made under leaves those
+specific values undecryptable — those integrations will need their keys
+re-entered, and affected users will need MFA reset and re-enrolled from
+Manage Users. Nothing else is affected, and password hashes aren't tied
+to `FIELD_ENCRYPTION_KEY` at all, so normal login is unaffected.
 
 ## Troubleshooting
 
