@@ -46,7 +46,15 @@ async function resetDemoData() {
     shell: process.platform === "win32",
   });
 
-  run("node", ["prisma/seed.js"]);
+  // Admin and Church Settings are created *before* the seed step below --
+  // seed.js reads both (an existing admin for created/updatedBy
+  // attribution, an existing ChurchSettings row to decide which seeded
+  // missionaries are marked "sent by our church") and silently treats
+  // either as absent if they don't exist yet. They used to be created
+  // after seeding, which meant every demo reset seeded with no admin
+  // attribution and a 0% chance of any "sent by us" missionary, no matter
+  // what seed.js's own odds said -- ChurchSettings didn't exist until the
+  // very last step.
   run("node", ["prisma/createAdmin.js", email, password]);
 
   // The "this is a live demo, here's how to log in" message is no longer
@@ -108,6 +116,10 @@ async function resetDemoData() {
       ...integrationKeys,
     },
   });
+
+  // Seeded last, now that both the admin and Church Settings above exist
+  // for it to read.
+  run("node", ["prisma/seed.js"]);
 }
 
 if (require.main === module) {

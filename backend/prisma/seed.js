@@ -18,9 +18,13 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 // Overridable via env for deployments that want a different amount of
-// seed data (e.g. a public demo) without forking this file.
-const MISSIONARY_COUNT = Number(process.env.SEED_MISSIONARY_COUNT) || 35;
-const ORGANIZATION_COUNT = Number(process.env.SEED_ORGANIZATION_COUNT) || 12;
+// seed data (e.g. a public demo) without forking this file. `||` would
+// treat an explicit 0 as "unset" and silently fall back to the default,
+// so this checks presence first.
+const MISSIONARY_COUNT = process.env.SEED_MISSIONARY_COUNT ? Number(process.env.SEED_MISSIONARY_COUNT) : 35;
+const ORGANIZATION_COUNT = process.env.SEED_ORGANIZATION_COUNT
+  ? Number(process.env.SEED_ORGANIZATION_COUNT)
+  : 12;
 
 // --- tiny random helpers ---
 function pick(arr) {

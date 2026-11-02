@@ -187,19 +187,17 @@ not just what topic they fall under:
     "Receives mail here" / "Receives packages here" checkboxes.
   - **Sending Church** (missionary only) — name, contact, phone,
     website, mailing address, plus a **"Sent by {your church}"**
-    checkbox. Checking it auto-fills whichever of this section's fields
-    are still blank straight from Church Settings, without overwriting
-    anything you've already typed, whether you check it when first
-    creating the partner or later. Unchecking it never deletes data
-    that's already there — it's a one-way convenience fill, not an
-    ongoing sync, so a later change to Church Settings doesn't
-    retroactively update an already-filled field on its own. The status
+    checkbox. Checking it means this section IS your church, so it
+    replaces every field here with Church Settings' current values —
+    whatever was typed before gets overwritten, whether you check it
+    when first creating the partner or later. Unchecking it never
+    deletes data that's already there. A later change to Church Settings
+    doesn't retroactively update an already-checked partner on its
+    own — to push that out, use the bulk update on the **About Church**
+    page (below), which re-applies current Church Settings to every
+    partner already marked "Sent by our church" in one click. The status
     pill at the top of the page shows this at a glance, but editing it
-    happens here. To push a Church Settings change out to every partner
-    marked "Sent by our church" at once, use the bulk update on the
-    **About Church** page (below) — that's an explicit, deliberate
-    overwrite of every field for every such partner, not something that
-    happens automatically on every Church Settings save.
+    happens here.
   - **Sending Org** (missionary only) — same shape as Sending Church, no
     auto-fill checkbox.
   - **Links & Social Media** — Website, Support Link, Newsletter Signup,

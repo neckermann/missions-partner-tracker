@@ -261,40 +261,27 @@ async function buildAddressRows(addresses) {
   return rows;
 }
 
-// Checking "Sent by {church}" (in the Sending Church box itself) copies this
-// church's own About Church info into that same section -- by default,
-// one field at a time, only filling in blanks, never overwriting anything
-// already entered (the one-way convenience fill run when the checkbox is
-// first turned on; see the trigger on PUT /:id below). Unchecking never
-// clears anything. Pass { overwrite: true } for the deliberate opposite --
-// every field replaced with Church Settings' current value, no matter
-// what's already there -- used by the explicit "Sync from Church Settings"
-// bulk action (POST /sync-sending-church) below, which exists precisely
-// because the default fill has no way to push an update to data that's
-// already been filled in once.
+// Checking "Sent by {church}" (in the Sending Church box itself) means this
+// partner's Sending Church IS this church -- so every field is replaced
+// with Church Settings' current value, no matter what's already there. The
+// same function backs the explicit "Update them all with this info" bulk
+// action (POST /sync-sending-church) below, for pushing a later Church
+// Settings change out to every partner already marked sent-by-us.
+// Unchecking never clears anything; this only ever runs on the way in.
 // ChurchSettings.address is deliberately the same shape as SendingParty's
 // address columns (see that comment in schema.prisma) for exactly this
 // direct a copy.
-async function fillSendingChurch(client, partnerId, { overwrite = false } = {}) {
-  const [existing, settings] = await Promise.all([
-    client.sendingParty.findUnique({ where: { partnerId_type: { partnerId, type: "church" } } }),
-    client.churchSettings.findUnique({ where: { id: "singleton" } }),
-  ]);
+async function syncSendingChurch(client, partnerId) {
+  const settings = await client.churchSettings.findUnique({ where: { id: "singleton" } });
   if (!settings) return;
 
   const address = settings.address || {};
-  const existingAddress = existing
-    ? {
-        addressLine1: existing.addressLine1,
-        addressLine2: existing.addressLine2,
-        city: existing.city,
-        stateProvinceRegion: existing.stateProvinceRegion,
-        postalCode: existing.postalCode,
-        country: existing.country,
-      }
-    : {};
-  const hasExistingAddress = Object.values(existingAddress).some(Boolean);
-  const settingsAddress = {
+  const filled = {
+    name: settings.churchName || null,
+    contactName: settings.contactName || null,
+    contactEmail: settings.contactEmail || null,
+    phone: settings.phone || null,
+    websiteLink: settings.websiteLink || null,
     addressLine1: address.addressLine1 || null,
     addressLine2: address.addressLine2 || null,
     city: address.city || null,
@@ -302,24 +289,6 @@ async function fillSendingChurch(client, partnerId, { overwrite = false } = {}) 
     postalCode: address.postalCode || null,
     country: address.country || null,
   };
-
-  const filled = overwrite
-    ? {
-        name: settings.churchName || null,
-        contactName: settings.contactName || null,
-        contactEmail: settings.contactEmail || null,
-        phone: settings.phone || null,
-        websiteLink: settings.websiteLink || null,
-        ...settingsAddress,
-      }
-    : {
-        name: existing?.name || settings.churchName || null,
-        contactName: existing?.contactName || settings.contactName || null,
-        contactEmail: existing?.contactEmail || settings.contactEmail || null,
-        phone: existing?.phone || settings.phone || null,
-        websiteLink: existing?.websiteLink || settings.websiteLink || null,
-        ...(hasExistingAddress ? existingAddress : settingsAddress),
-      };
 
   await client.sendingParty.upsert({
     where: { partnerId_type: { partnerId, type: "church" } },
@@ -431,11 +400,11 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
       include: partnerRecordInclude,
     });
 
-    // Same one-way convenience fill as PUT /:id -- see fillSendingChurch.
-    // No "was it already true" comparison needed here, unlike PUT below --
-    // a brand-new partner has no prior value to compare against.
-    if (scalarData.sentByOurChurch === true && !sendingChurch) {
-      await fillSendingChurch(prisma, created.id);
+    // Same sync as PUT /:id -- see syncSendingChurch. Always runs when
+    // checked, even if this same create also sent its own sendingChurch
+    // data -- checking the box means Church Settings wins, full stop.
+    if (scalarData.sentByOurChurch === true) {
+      await syncSendingChurch(prisma, created.id);
       created = await prisma.partner.findUnique({ where: { id: created.id }, include: partnerRecordInclude });
     }
 
@@ -572,12 +541,12 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
       // checkbox lives inside the Sending Church box itself now (see that
       // component's comment in AdminPartnerDetail.jsx), so every real save
       // from there sends both together -- the old check meant this never
-      // fired at all for an existing partner. This version still can't
-      // clobber explicit values from the same save: fillSendingChurch
-      // reads `existing` *after* the update above has already written
-      // them, so its own blanks-only merge leaves them alone regardless.
+      // fired at all for an existing partner. This always wins over
+      // whatever this same save's own sendingChurch payload contained --
+      // checking the box means Church Settings' current values win, full
+      // stop, not a merge.
       if (scalarData.sentByOurChurch === true && !before.sentByOurChurch) {
-        await fillSendingChurch(tx, req.params.id);
+        await syncSendingChurch(tx, req.params.id);
         return tx.partner.findUnique({ where: { id: req.params.id }, include: partnerRecordInclude });
       }
       return result;
@@ -589,20 +558,20 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   }
 });
 
-// POST /api/partners/sync-sending-church (admin only) — the explicit,
-// deliberate counterpart to the automatic one-way fill above: overwrites
-// every Sending Church field, for every partner marked "Sent by our
-// church," with Church Settings' current info, no matter what's already
-// there. Surfaced on the About Church page as one bulk action rather than
-// a per-partner button -- the goal is keeping every sent-by-us partner in
-// sync together, not maintaining individual partner-by-partner sync
-// state, so there's no single-partner version of this. Admin-only (not
-// editor, unlike the routes above) since it rewrites every such partner
-// in one action, the same blast radius as other site-wide settings
-// actions. Deliberately not wrapped in one $transaction covering every
-// partner -- each partner's fill is independently atomic already, this is
-// idempotent and re-runnable, and a church with many partners could
-// otherwise exceed Prisma's default transaction timeout.
+// POST /api/partners/sync-sending-church (admin only) — the explicit bulk
+// counterpart to the automatic per-partner sync above: re-pulls Church
+// Settings' current info into every Sending Church field, for every
+// partner marked "Sent by our church." Surfaced on the About Church page
+// as one bulk action rather than a per-partner button -- the goal is
+// keeping every sent-by-us partner in sync together, not maintaining
+// individual partner-by-partner sync state, so there's no single-partner
+// version of this. Admin-only (not editor, unlike the routes above) since
+// it rewrites every such partner in one action, the same blast radius as
+// other site-wide settings actions. Deliberately not wrapped in one
+// $transaction covering every partner -- each partner's sync is
+// independently atomic already, this is idempotent and re-runnable, and a
+// church with many partners could otherwise exceed Prisma's default
+// transaction timeout.
 router.post("/sync-sending-church", requireRole("admin"), async (req, res, next) => {
   try {
     const partners = await prisma.partner.findMany({
@@ -610,7 +579,7 @@ router.post("/sync-sending-church", requireRole("admin"), async (req, res, next)
       select: { id: true },
     });
     for (const p of partners) {
-      await fillSendingChurch(prisma, p.id, { overwrite: true });
+      await syncSendingChurch(prisma, p.id);
     }
     res.json({ updatedCount: partners.length });
   } catch (err) {
