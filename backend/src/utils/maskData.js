@@ -353,14 +353,16 @@ function toPublicPartner(p) {
     orgType: p.orgType ?? null, // organization-only; null for a missionary
     fieldDisplayName: p.fieldDisplayName,
     supportingSince: p.supportingSince,
-    // Country code (not name) for looking up Joshua Project stats. Fine to
-    // expose even when restricted — it's the same country-level granularity
-    // already shown via the masked `country` field below.
+    // Country code (not name) for looking up Joshua Project stats, and
+    // nothing else -- deliberately not a fallback for `country` below. A
+    // partner with no address country on file shows as uncategorized on
+    // the public directory's filters rather than silently inheriting
+    // whatever FIPS code happens to still be on the record.
     fipsCountryCode: p.fipsCountryCode || null,
     // Same country-level value in both branches (already considered safe to
     // expose when restricted) — needed for the country/continent filters and
     // search on the public directory, not just for restricted records.
-    country: physical?.country || p.fipsCountryCode || null,
+    country: physical?.country || null,
   };
 
   if (p.isRestricted) {

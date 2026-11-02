@@ -574,7 +574,9 @@ export default function AdminPartnerDetail() {
               <>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem" }}>
                   <Field label="Field / Region" value={v.fieldDisplayName} showEmpty />
-                  <Field label="Country Code" value={p.fipsCountryCode} showEmpty />
+                  {enabledFeatures.joshuaProject && (
+                    <Field label="Country Code" value={p.fipsCountryCode} showEmpty />
+                  )}
                 </div>
                 <div style={{ marginTop: "0.75rem" }}>
                   <AddressSummary address={physical} />
@@ -610,13 +612,15 @@ export default function AdminPartnerDetail() {
                       </span>
                     )}
                   </label>
-                  <label title="Drives the public directory's country/continent filters and search, the fallback public location for restricted partners, and (if that feature is on) the Joshua Project stats lookup -- matters even with Joshua Project off. Auto-fills from the country entered below, but Joshua Project uses the older FIPS codes, not ISO -- they disagree for some countries, so correct it here if the stats below look wrong.">
-                    Country Code (FIPS/ISO)
-                    <input
-                      value={d.fipsCountryCode}
-                      onChange={(e) => set("fipsCountryCode", e.target.value)}
-                    />
-                  </label>
+                  {enabledFeatures.joshuaProject && (
+                    <label title="Looks up Joshua Project's country statistics for this field/region -- nothing else uses this field. Auto-fills from the country entered below, but Joshua Project uses the older FIPS codes, not ISO -- they disagree for some countries, so correct it here if the stats below look wrong.">
+                      Country Code (FIPS/ISO)
+                      <input
+                        value={d.fipsCountryCode}
+                        onChange={(e) => set("fipsCountryCode", e.target.value)}
+                      />
+                    </label>
+                  )}
                 </div>
                 <AddressFields
                   idPrefix="physical"

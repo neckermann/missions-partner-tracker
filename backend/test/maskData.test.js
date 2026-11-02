@@ -120,11 +120,16 @@ describe("toPublicPartner — missionary", () => {
     assert.equal(result.country, "Thailand");
   });
 
-  test("public, non-restricted: falls back to the FIPS code when the address has no country", () => {
+  // fipsCountryCode is for Joshua Project lookups only, deliberately not a
+  // fallback for this field -- a record with no address country shows as
+  // uncategorized on the public directory's filters rather than silently
+  // inheriting whatever FIPS code happens to still be on the record (e.g.
+  // left over from before the address country was cleared).
+  test("public, non-restricted: country is null when the address has no country, even with a FIPS code on file", () => {
     const result = toPublicPartner(
       baseMissionary({ addresses: [{ type: "physical", gpsLat: 13.75, gpsLng: 100.5 }] })
     );
-    assert.equal(result.country, "TH");
+    assert.equal(result.country, null);
   });
 
   // Regression coverage for the photo-history feature: only the current

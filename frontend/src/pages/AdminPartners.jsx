@@ -5,13 +5,14 @@ import { useSettings } from "../context/SettingsContext.jsx";
 import { getContinent } from "../utils/countryContinents.js";
 import { matchesSearch } from "../utils/search.js";
 
-// Same resolution order as backend/src/utils/maskData.js's public country
-// field: the physical address's country, falling back to the FIPS code if
-// that's blank -- so "which country is this partner in" means the same
-// thing here as it does on the public site/map.
+// Same field as backend/src/utils/maskData.js's public `country` -- the
+// physical address's country, nothing else. fipsCountryCode is for Joshua
+// Project lookups only, deliberately not a fallback here either, so "which
+// country is this partner in" means the same thing here as it does on the
+// public site/map.
 function resolveCountry(record) {
   const physical = (record.addresses || []).find((a) => a.type === "physical");
-  return physical?.country || record.fipsCountryCode || null;
+  return physical?.country || null;
 }
 
 // The API orders supportEntries by effectiveDate descending, so the first
