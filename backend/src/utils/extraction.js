@@ -2,6 +2,8 @@ const Anthropic = require("@anthropic-ai/sdk");
 const { zodOutputFormat } = require("@anthropic-ai/sdk/helpers/zod");
 const { z } = require("zod");
 const { simpleParser } = require("mailparser");
+const prisma = require("../prismaClient");
+const { decryptField } = require("./crypto");
 
 // Matches the fields PrayerRequest/SupportNeed actually need on create (see
 // schema.prisma) -- dateReceived/requestDate aren't extracted, the caller
@@ -38,8 +40,25 @@ Prayer requests are often indirect ("please keep lifting up my mother's health,"
 
 requestText and description must be VERBATIM -- copy the exact sentence(s) stating the request/need character-for-character from the source, including the original person/pronouns ("I"/"we"/"our", never rewritten to "they"/"their"). Do not paraphrase, summarize, rephrase, or otherwise change the wording. The only edit you may make is trimming: cut down to just the sentence(s) that state the request/need itself rather than including the whole surrounding paragraph, and you may join two non-adjacent sentences with " ... " if both are needed for the request to make sense on its own -- but every word you do include must be copied exactly as written, not reworded.`;
 
-function client() {
-  return new Anthropic();
+// Admin-managed in ChurchSettings -- see that field's own comment in
+// schema.prisma. No implicit env-var fallback: the Anthropic SDK reads
+// ANTHROPIC_API_KEY from the environment by default when constructed with
+// no options, which this deliberately avoids by always passing an
+// explicit apiKey, so an old env var left behind on a host can't quietly
+// come back into play once the key is meant to be admin-managed.
+async function client() {
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { anthropicApiKey: true },
+  });
+  if (!settings?.anthropicApiKey) {
+    const err = new Error(
+      "AI request scanning isn't configured -- add an API key under Site Administration → AI Request Scanning"
+    );
+    err.status = 400;
+    throw err;
+  }
+  return new Anthropic({ apiKey: decryptField(settings.anthropicApiKey) });
 }
 
 // .eml's browser-reported contentType is unreliable (often
@@ -91,8 +110,9 @@ async function buildFileBlock({ bytes, contentType, fileName }) {
 
 async function extractRequestsFromFile(record) {
   const fileBlock = await buildFileBlock(record);
+  const anthropic = await client();
 
-  const response = await client().messages.parse({
+  const response = await anthropic.messages.parse({
     model: "claude-opus-5",
     max_tokens: 4096,
     system: SYSTEM_PROMPT,

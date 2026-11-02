@@ -2,10 +2,10 @@
 // deployment that resets on a schedule (see ADMIN_GUIDE.md § Demo mode).
 // Requires DEMO_ADMIN_EMAIL/DEMO_ADMIN_PASSWORD so a misconfigured demo
 // can't reset into a state nobody can log into. Also reads
-// JOSHUA_PROJECT_API_KEY if set (optional) to restore that integration
-// after the reset wipes ChurchSettings -- see the comment below. Safe to
-// run manually (`npm run demo:reset`) or via the opt-in POST
-// /api/demo/reset route.
+// JOSHUA_PROJECT_API_KEY and ANTHROPIC_API_KEY if set (both optional) to
+// restore those integrations after the reset wipes ChurchSettings -- see
+// the comment below. Safe to run manually (`npm run demo:reset`) or via
+// the opt-in POST /api/demo/reset route.
 require("dotenv").config({ quiet: true });
 const path = require("path");
 const { execFileSync } = require("child_process");
@@ -75,6 +75,14 @@ async function resetDemoData() {
   // committed here) surviving a reset instead of having to be re-entered
   // through the UI every time.
   const joshuaProjectApiKey = process.env.JOSHUA_PROJECT_API_KEY;
+  // Same reasoning as joshuaProjectApiKey immediately above -- the
+  // Anthropic key is this demo's own (real, billable) key, set directly
+  // on the Render service and never committed anywhere in this repo.
+  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+  const integrationKeys = {
+    ...(joshuaProjectApiKey ? { joshuaProjectApiKey: encryptField(joshuaProjectApiKey) } : {}),
+    ...(anthropicApiKey ? { anthropicApiKey: encryptField(anthropicApiKey) } : {}),
+  };
 
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
@@ -85,7 +93,7 @@ async function resetDemoData() {
       aboutText:
         "We partner with missionaries and organizations serving around the world, supporting them in prayer, finances, and care.",
       enabledFeatures: allFeaturesOn,
-      ...(joshuaProjectApiKey ? { joshuaProjectApiKey: encryptField(joshuaProjectApiKey) } : {}),
+      ...integrationKeys,
     },
     update: {
       churchName: "Missions Partner Tracker Demo",
@@ -93,7 +101,7 @@ async function resetDemoData() {
       aboutText:
         "We partner with missionaries and organizations serving around the world, supporting them in prayer, finances, and care.",
       enabledFeatures: allFeaturesOn,
-      ...(joshuaProjectApiKey ? { joshuaProjectApiKey: encryptField(joshuaProjectApiKey) } : {}),
+      ...integrationKeys,
     },
   });
 }

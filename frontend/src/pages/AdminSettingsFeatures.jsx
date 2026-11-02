@@ -7,23 +7,12 @@ import { fetchChurchSettings, updateChurchSettings } from "../api/client.js";
 // renders as a pill switch via CSS alone (see index.css) -- same
 // input[type="checkbox"] every other form in this app uses.
 function FeatureToggleRow({ feature, checked, onToggle }) {
-  const blockedByEnvVar = feature.requiresEnvVar && !feature.envVarSatisfied;
   return (
     <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", marginTop: "0.9rem" }}>
-      <input
-        type="checkbox"
-        checked={checked && !blockedByEnvVar}
-        disabled={blockedByEnvVar}
-        onChange={onToggle}
-      />
+      <input type="checkbox" checked={checked} onChange={onToggle} />
       <div>
         <strong>{feature.label}</strong>
         <div style={{ fontSize: "0.85rem", color: "#666" }}>{feature.description}</div>
-        {blockedByEnvVar && (
-          <div style={{ fontSize: "0.85rem", color: "#b91c1c" }}>
-            Requires {feature.requiresEnvVar} to be configured on the server first.
-          </div>
-        )}
       </div>
     </div>
   );

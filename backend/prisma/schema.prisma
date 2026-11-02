@@ -528,6 +528,17 @@ model ChurchSettings {
   // /joshua-project sub-routes must omit it.
   joshuaProjectApiKey String?
 
+  // Anthropic API key (see backend/src/utils/extraction.js) -- powers "AI
+  // request scanning," admin-managed on its own settings page like every
+  // other optional integration. Encrypted at rest the same way as
+  // groupmeAccessToken/joshuaProjectApiKey above, for the same reason --
+  // every route that touches this row outside routes/settings.js's
+  // dedicated /ai-extraction sub-routes must omit it. This is real money
+  // (pay-per-scan usage on the key owner's Anthropic account), so treat
+  // "never leaks into a response" here as load-bearing, not a nice-to-have
+  // -- see the dedicated leak-check tests in test/routes/aiExtraction.test.js.
+  anthropicApiKey String?
+
   // Per-church on/off switches for optional features -- keys are validated
   // against the registry in backend/src/utils/features.js (unknown keys
   // rejected), not modeled as their own columns, so adding a new gate-able

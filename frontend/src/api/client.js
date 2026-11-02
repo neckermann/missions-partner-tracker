@@ -161,6 +161,20 @@ export async function updateJoshuaProjectSettings(payload) {
   return data;
 }
 
+// AI request scanning (Anthropic) -- admin-only on the backend, same
+// pattern as GroupMe/Joshua Project above. fetchAiExtractionSettings()
+// returns { configured }; the API key itself never appears in any
+// response.
+export async function fetchAiExtractionSettings() {
+  const { data } = await api.get("/settings/ai-extraction");
+  return data;
+}
+
+export async function updateAiExtractionSettings(payload) {
+  const { data } = await api.put("/settings/ai-extraction", payload);
+  return data;
+}
+
 export async function fetchPublicSettings() {
   const { data } = await api.get("/public/settings");
   return data;

@@ -40,9 +40,8 @@ const FEATURES = {
   aiExtraction: {
     label: "AI request scanning",
     description:
-      "Scan uploaded newsletters and email documents for prayer requests and one-time needs using Claude. Requires ANTHROPIC_API_KEY to be configured.",
+      "Scan uploaded newsletters and email documents for prayer requests and one-time needs using Claude.",
     defaultEnabled: false,
-    requiresEnvVar: "ANTHROPIC_API_KEY",
     group: "admin",
   },
   prayerRequests: {
@@ -115,9 +114,7 @@ function isFeatureEnabled(enabledFeatures, key) {
   if (!feature) return false;
   const stored = enabledFeatures?.[key];
   const on = typeof stored === "boolean" ? stored : feature.defaultEnabled;
-  if (!on) return false;
-  if (feature.requiresEnvVar && !process.env[feature.requiresEnvVar]) return false;
-  return true;
+  return on;
 }
 
 // The public missionary/organization data routes back both the directory
