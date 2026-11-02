@@ -33,6 +33,18 @@ module.exports = {
   }),
 
   fields: [
+    {
+      name: "quickRange",
+      label: "Quick Range",
+      type: "dateRangePreset",
+      appliesTo: { from: "from", to: "to" },
+      options: [
+        { value: "all", label: "All Time" },
+        { value: "month", label: "This Month" },
+        { value: "year", label: "This Year" },
+        { value: "lastYear", label: "Last Year" },
+      ],
+    },
     { name: "from", label: "Requested on or after", type: "date" },
     { name: "to", label: "Requested on or before", type: "date" },
     {

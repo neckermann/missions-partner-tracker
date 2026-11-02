@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { listReports, runReport, reportCsvUrl } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { formatCurrency, formatDate, formatDateLong, formatMonthDay } from "../utils/format.js";
+import { resolveQuickRangeDates } from "../utils/dateRange.js";
 
 // The Reports shell.
 //
@@ -44,7 +45,7 @@ function initialValues(report, now = new Date()) {
       values.year = now.getFullYear();
     } else if (field.type === "checkbox") {
       values[field.name] = false;
-    } else if (field.type === "select") {
+    } else if (field.type === "select" || field.type === "dateRangePreset") {
       values[field.name] = field.options?.[0]?.value ?? "";
     } else {
       values[field.name] = "";
@@ -53,12 +54,22 @@ function initialValues(report, now = new Date()) {
   return values;
 }
 
+// A dateRangePreset field (see the "Quick Range" fields on a few reports)
+// is never itself a server param -- it only exists to fill the from/to
+// fields it names in appliesTo. Left out here so it can't reach the
+// server as a stray, unrecognized key.
+function presetFieldNames(report) {
+  return new Set((report?.fields || []).filter((f) => f.type === "dateRangePreset").map((f) => f.name));
+}
+
 // Blank filters are omitted rather than sent empty: `from=` would reach the
 // server as "" and z.coerce.date() rejects that with a 400, which is the
 // same sharp edge that bit the partner date fields.
-function toParams(values) {
+function toParams(report, values) {
+  const skip = presetFieldNames(report);
   const params = {};
   for (const [key, value] of Object.entries(values)) {
+    if (skip.has(key)) continue;
     if (value === "" || value === null || value === undefined) continue;
     if (value === false) continue;
     params[key] = value;
@@ -74,6 +85,9 @@ function describeFilters(report, values) {
   if (!report?.fields?.length) return null;
   const parts = [];
   for (const field of report.fields) {
+    // The preset itself isn't a filter the server saw -- the from/to
+    // fields it filled in are, and they already get their own line below.
+    if (field.type === "dateRangePreset") continue;
     // A field hidden by showWhen (e.g. Month while View is Full year)
     // wasn't actually part of this run, even though it still carries
     // whatever value it last held -- leaving it out of the printed
@@ -173,13 +187,26 @@ export default function AdminReports() {
     setValues((v) => ({ ...v, [name]: value }));
   }
 
+  // Fills a Quick Range field's own value plus the from/to fields it names
+  // in appliesTo -- picking "This Year" sets all three at once, the same
+  // as if the person had typed the boundary dates in by hand.
+  function setQuickRange(field, preset) {
+    const { from, to } = resolveQuickRangeDates(preset);
+    setValues((v) => ({
+      ...v,
+      [field.name]: preset,
+      [field.appliesTo.from]: from,
+      [field.appliesTo.to]: to,
+    }));
+  }
+
   async function run(event) {
     event?.preventDefault();
     if (!selected) return;
     setRunning(true);
     setError(null);
     try {
-      const data = await runReport(selected.id, toParams(values));
+      const data = await runReport(selected.id, toParams(selected, values));
       setResult(data);
       setAppliedFilters(describeFilters(selected, values));
     } catch (err) {
@@ -195,7 +222,7 @@ export default function AdminReports() {
     // A plain same-origin navigation so the browser handles the file and the
     // session cookie rides along -- the same approach as the document and
     // newsletter downloads.
-    window.open(reportCsvUrl(selected.id, toParams(values)), "_blank");
+    window.open(reportCsvUrl(selected.id, toParams(selected, values)), "_blank");
   }
 
   if (loadError) {
@@ -258,6 +285,18 @@ export default function AdminReports() {
                     <select
                       value={values[field.name] ?? ""}
                       onChange={(e) => setValue(field.name, e.target.value)}
+                    >
+                      {(field.options || []).map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {field.type === "dateRangePreset" && (
+                    <select
+                      value={values[field.name] ?? ""}
+                      onChange={(e) => setQuickRange(field, e.target.value)}
                     >
                       {(field.options || []).map((o) => (
                         <option key={o.value} value={o.value}>

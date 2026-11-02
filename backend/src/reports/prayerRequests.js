@@ -42,6 +42,18 @@ module.exports = {
         { value: "untracked", label: "Untracked" },
       ],
     },
+    {
+      name: "quickRange",
+      label: "Quick Range",
+      type: "dateRangePreset",
+      appliesTo: { from: "from", to: "to" },
+      options: [
+        { value: "all", label: "All Time" },
+        { value: "month", label: "This Month" },
+        { value: "year", label: "This Year" },
+        { value: "lastYear", label: "Last Year" },
+      ],
+    },
     { name: "from", label: "Received on or after", type: "date" },
     { name: "to", label: "Received on or before", type: "date" },
     { name: "includeArchived", label: "Include archived partners", type: "checkbox" },

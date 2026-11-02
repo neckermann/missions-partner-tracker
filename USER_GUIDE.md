@@ -449,6 +449,13 @@ back to that report's defaults. Every report's results can be exported
 as **Download CSV** (a spreadsheet, same rows and columns as the screen)
 or **Print** (a clean paginated layout for handing to a meeting).
 
+Prayer Requests, One-Time Needs, and Furlough each add a **Quick Range**
+dropdown next to their From/To date fields — pick **This Month**/**This
+Year**/**Last Year** (or, for Furlough, **This Year**/**Next Year**, since
+a furlough you're tracking is as likely to be upcoming as past) to fill
+in the date range in one click, or set From/To by hand for anything more
+specific.
+
 | Report | Shows |
 |---|---|
 | Upcoming Birthdays | Adults and children with a birthday, with the partner they belong to. Defaults to a full-year view (every month, in order); switch its **View** filter to **One month** for a single calendar month instead. No feature toggle gates this one — it's always available. |
@@ -456,7 +463,7 @@ or **Print** (a clean paginated layout for handing to a meeting).
 | One-Time Needs | One-time gift requests in a date range, with what was requested, what was approved, and what's still pending a decision. |
 | Prayer Requests | Prayer requests across every partner, filterable by category, status, and date range. |
 | Trip History | Mission trips across every missionary and organization, with dates, type, and team size — the same filters as [Trip History](#trip-history--trip-opportunities)'s own page. |
-| Furlough | Missionaries currently on furlough or with an upcoming furlough on file, with start/end dates and notes. No feature toggle gates this one — furlough tracking is always available. |
+| Furlough | Missionaries currently on furlough or with an upcoming furlough on file, filterable by status (current/upcoming) and when the furlough starts. No feature toggle gates this one — furlough tracking is always available. |
 
 A report tied to a feature that's turned off (see
 [ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles))

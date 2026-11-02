@@ -364,6 +364,35 @@ describe("furlough report", () => {
       false
     );
   });
+
+  test("from/to filter on startDate, for the Quick Range field", async () => {
+    const thisYear = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "missionary",
+        displayName: `${FIXTURE_TAG} Furlough From-To This Year`,
+        furloughs: [{ startDate: "2026-06-01" }],
+      },
+    });
+    const nextYear = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "missionary",
+        displayName: `${FIXTURE_TAG} Furlough From-To Next Year`,
+        furloughs: [{ startDate: "2027-06-01" }],
+      },
+    });
+
+    const res = await admin("/api/reports/furlough?from=2026-01-01&to=2026-12-31");
+    assert.equal(
+      res.body.rows.some((r) => r.partnerId === thisYear.body.id),
+      true
+    );
+    assert.equal(
+      res.body.rows.some((r) => r.partnerId === nextYear.body.id),
+      false
+    );
+  });
 });
 
 describe("CSV export", () => {
