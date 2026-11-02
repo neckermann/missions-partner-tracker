@@ -39,6 +39,36 @@ function rewriteImageSrc(src) {
   return `${RAW_BASE}${src}`;
 }
 
+// GitHub's own heading-slug algorithm (lowercase, strip this punctuation
+// set, spaces -> hyphens), reimplemented here because marked no longer
+// assigns heading ids by default (it used to, when this page was first
+// written -- a CDN build loaded unpinned, see the script tag in this
+// page, picked up that change with no code here changing at all). Without
+// this, every #anchor link either from inside the guide itself or from
+// outside pointing at a specific section would silently land at the top
+// of the page instead.
+function slugify(text) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[ -⁯⸀-⹿\\'!"#$%&()*+,./:;<=>?@[\]^`{|}~]/g, "")
+    .replace(/\s/g, "-");
+}
+
+// Mirrors github-slugger's own duplicate handling: a second "Setup"
+// heading becomes "setup-1", not a second element silently sharing the
+// first one's id (which would make every link to it land on the wrong
+// one).
+function assignHeadingIds(container) {
+  const seen = new Map();
+  container.querySelectorAll("h1, h2, h3, h4, h5, h6").forEach((heading) => {
+    const base = slugify(heading.textContent);
+    const count = seen.get(base) || 0;
+    seen.set(base, count + 1);
+    heading.id = count === 0 ? base : `${base}-${count}`;
+  });
+}
+
 async function loadGuide(fileName, containerId) {
   const container = document.getElementById(containerId);
   try {
@@ -46,6 +76,7 @@ async function loadGuide(fileName, containerId) {
     if (!res.ok) throw new Error(`${res.status}`);
     const markdown = await res.text();
     container.innerHTML = marked.parse(markdown);
+    assignHeadingIds(container);
     container.querySelectorAll("a[href]").forEach((a) => {
       a.setAttribute("href", rewriteLink(a.getAttribute("href")));
     });

@@ -264,6 +264,7 @@ export default function NewsletterSection({ partnerId, newsletters, onChange }) 
           partnerId={partnerId}
           defaultDate={scanning.receivedDate}
           sourceNewsletterId={scanning.id}
+          onChange={onChange}
           onClose={() => setScanning(null)}
         />
       )}

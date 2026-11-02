@@ -56,15 +56,22 @@ at your church.
 ## Dashboard overview
 
 The sidebar (and the Home page's card grid, which mirrors it) lists:
-**Home**, **Partners** (or your church's custom term, e.g. "Go Team
-Partners," if enabled in Branding), **Monthly Support**, **One-Time
-Needs**, **Prayer Requests**, **Trip History**, **Trip Opportunities**,
-**Newsletters**, **Documents**, **Print Booklet**, **Reports** — visible
-to everyone, each one only if its
+**Home**, [**Partners**](#the-partners-list) (or your church's custom
+term, e.g. "Go Team Partners," if enabled in Branding),
+[**Monthly Support**](#financial-support--one-time-needs),
+[**One-Time Needs**](#financial-support--one-time-needs),
+[**Prayer Requests**](#prayer-requests),
+[**Trip History**](#trip-history--trip-opportunities),
+[**Trip Opportunities**](#trip-history--trip-opportunities),
+[**Newsletters**](#newsletters), [**Documents**](#documents),
+[**Print Booklet**](#printable-partner-booklet), [**Reports**](#reports)
+— visible to everyone, each one only if its
 [feature toggle](ADMIN_GUIDE.md#feature-toggles) is on. **Site
 Administration**, an expandable group at the bottom of the
-sidebar, appears only for admins and holds **Manage Users**, **Branding**,
-**Enabled Features**, **About Church**, **Backups**, and **GroupMe** —
+sidebar, appears only for admins and holds
+[**Manage Users**](#user-management-admin-only), **Branding**,
+[**Enabled Features**](ADMIN_GUIDE.md#feature-toggles),
+**About Church**, **Backups**, and **GroupMe** —
 see [Church Settings](#church-settings-admin-only),
 [Database Backups](#database-backups-admin-only), and
 [GroupMe notifications](#groupme-notifications-admin-only) below. The
@@ -215,18 +222,20 @@ not just what topic they fall under:
     current amount everywhere else in the app. Never shown publicly.
   - **One-Time Needs** — repeatable Description / Requested Amount /
     Request Date / Approved Amount / Approved Date / Notes rows (you can
-    also manage these from the dedicated **One-Time Needs** page).
+    also manage these from the dedicated
+    [One-Time Needs](#financial-support--one-time-needs) page).
 - **Mission Trips**:
   - **Trip History** — past trips, each with dates, type, description,
     notes, and a nested list of participants (Name, Role, Phone, Email,
     "Trip Leader" checkbox).
   - **Trip Capacity** — Team Size Min/Max, Trip Types Supported (pick
     from presets or type your own), season/duration notes,
-    lodging/logistics notes. This is what powers the **Trip
-    Opportunities** capacity search.
+    lodging/logistics notes. This is what powers the
+    [Trip Opportunities](#trip-history--trip-opportunities) capacity
+    search.
 - **Communication**:
-  - **Prayer Requests**, **Newsletters**, **Documents** — see their own
-    sections below.
+  - [**Prayer Requests**](#prayer-requests), [**Newsletters**](#newsletters),
+    [**Documents**](#documents) — see their own sections below.
   - **Church Visits** — Visit Date + Notes; the most recent becomes
     "last visit" everywhere it's shown.
   - **Furlough** (missionary only) — Start/End Date (leave End Date
@@ -336,9 +345,14 @@ status pill (Pending Decision / Fully Funded / Partially Funded /
 Declined) computed from the approved vs. requested amount. **+ Add Need**
 adds one without leaving the page; an undecided need gets a **Record
 Decision** button to fill in the approved amount/date once your church
-has made a call.
+has made a call. A need added from a scan, or pointed at a newsletter/
+document by hand via its **Source** dropdown, shows a "From: ..." link
+back to that file — see [AI Request Scanning](#ai-request-scanning-admin-only)
+below.
 
 ![The One-Time Needs page, with status pills per need](docs/assets/screenshots/one-time-needs.png)
+
+![A one-time need showing its "From: ..." source link](docs/assets/screenshots/support-need-source-link.png)
 
 ## Trip history & trip opportunities
 
@@ -423,7 +437,7 @@ request itself).
   partner can build up more public strategic requests over time than
   would ever fit on a printed page. Only requests checked both ways ever
   appear in the booklet, and even then only up to the per-partner cap set
-  on the [Booklet](#booklet) page (a handful, most recent first) — the
+  on the [Booklet](#printable-partner-booklet) page (a handful, most recent first) — the
   rest still show on the public profile, just not in print. See
   [Printable partner booklet](#printable-partner-booklet) below.
 - An open request just sits there — there's no "pending" or "unanswered"
@@ -442,9 +456,14 @@ request itself).
 
 The central **Prayer Requests** page lists every request across every
 partner, filterable by category, with a running count of how many have
-been answered so far.
+been answered so far. A request added from a scan, or pointed at a
+newsletter/document by hand via its **Source** dropdown, shows a
+"From: ..." link back to that file — see
+[AI Request Scanning](#ai-request-scanning-admin-only) below.
 
 ![The central Prayer Requests page, newest first across every partner](docs/assets/screenshots/prayer-requests-list.png)
+
+![A prayer request showing its "From: ..." source link](docs/assets/screenshots/prayer-request-source-link.png)
 
 ## Reports
 
@@ -625,6 +644,8 @@ rather than a bare, context-free sentence — edit it freely before
 accepting. Once accepted, the request or need shows a "From: ..." link
 back to the newsletter or document it came from, visible only here in
 the admin view.
+
+![Scan results, with each suggestion's background sentence joined ahead of the verbatim request](docs/assets/screenshots/ai-scan-results.png)
 
 You don't need this feature turned on to use that link, though — every
 **+ Add Prayer Request**/**+ Add Need** form (and their Edit forms) has
