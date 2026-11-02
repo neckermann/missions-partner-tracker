@@ -8,15 +8,24 @@ const { decryptField } = require("./crypto");
 // Matches the fields PrayerRequest/SupportNeed actually need on create (see
 // schema.prisma) -- dateReceived/requestDate aren't extracted, the caller
 // defaults those to the source newsletter/document's own receivedDate.
+// background is NOT a PrayerRequest/SupportNeed column -- it only exists so
+// ExtractionReviewModal.jsx can join it with requestText/description into
+// one editable block before either ever reaches the database (see that
+// component's comment). Keeping it a separate model-output field here, not
+// pre-joined, is what lets the verbatim rule below stay checkable: a
+// reviewer can see exactly which words came from the letter and which are
+// Claude's own summary.
 const ExtractionSchema = z.object({
   prayerRequests: z.array(
     z.object({
       category: z.enum(["strategic", "situational"]),
+      background: z.string(),
       requestText: z.string(),
     })
   ),
   oneTimeNeeds: z.array(
     z.object({
+      background: z.string(),
       description: z.string(),
       // null when a specific dollar figure isn't stated -- the review UI
       // leaves that field blank rather than guessing a number.
@@ -24,6 +33,23 @@ const ExtractionSchema = z.object({
     })
   ),
 });
+
+// Strips artifacts that show up verbatim in extracted text because they're
+// verbatim in the letter -- a footnote marker (bare asterisk right before
+// or after the name it annotates) and the "(name changed)" parenthetical
+// the footnote itself usually explains. The prompt also asks Claude not to
+// copy these, but doing it here too means a prompt miss can't leak one
+// through -- this runs on every request/need/background string before any
+// of them reach the review modal.
+function stripFootnoteArtifacts(text) {
+  if (!text) return text;
+  return text
+    .replace(/\*(?=[A-Z])/g, "")
+    .replace(/(\S)\*(?=[\s.,;:!?]|$)/g, "$1")
+    .replace(/\s*\(names?\s+(?:has |have )?been\s+changed\)/gi, "")
+    .replace(/\s*\(names?\s+changed\)/gi, "")
+    .trim();
+}
 
 const SUPPORTED_CONTENT_TYPES = {
   "application/pdf": "document",
@@ -34,11 +60,13 @@ const SUPPORTED_CONTENT_TYPES = {
 const SYSTEM_PROMPT = `You read newsletters and letters from missionaries/organizations sent to their supporting church, looking for two specific things:
 
 1. Prayer requests -- anything the writer is asking people to pray for. Mark "strategic" when it ties to the ministry's long-term vision or calling -- church planting progress, discipleship/training programs, language learning tied to ministry effectiveness, funding or partnership development, outreach campaigns, relational bridge-building with a people group. Mark "situational" for whatever came up that isn't necessarily tied to ministry vision -- illness or injury, travel safety, family needs back home, visa/paperwork issues, housing or logistics problems, a sudden personal hardship.
-2. One-time financial needs -- a specific, named ask for money (not their regular monthly support), e.g. "we need $1,000 to replace our vehicle" or "please help us cover $500 in medical bills." Only include ones with an actual ask, not general statements about being low on funds. If a dollar amount is stated, extract it as a plain integer number of dollars; if the need is described without a specific figure, leave requestedAmount null rather than guessing.
+2. One-time financial needs -- a specific, named ask for money (not their regular monthly support), e.g. "we need $1,000 to replace our vehicle" or "please help us cover $500 in medical bills." Only include ones with an actual ask, not general statements about being low on funds. If a dollar amount is stated, extract it as a plain integer number of dollars; if the need is described without a specific figure, leave requestedAmount null rather than guessing -- but if the letter states a deadline for the need (a date, "before we leave," "by end of month"), always capture that in the background field below, even when no dollar figure is given.
 
-Prayer requests are often indirect ("please keep lifting up my mother's health," "pray for wisdom as we plan next steps") -- read for the actual meaning, not just explicit phrases like "prayer request." Return empty arrays for either category if nothing genuinely fits -- don't force a match.
+Prayer requests are often indirect ("please keep lifting up my mother's health," "pray for wisdom as we plan next steps") -- read for the actual meaning, not just explicit phrases like "prayer request." A thank-you or answered-prayer note -- something already resolved, something to be grateful for -- is NOT a prayer request or a need, even if it mentions a difficult situation; only extract things still being asked for. When two or more requests are really about the same underlying situation, merge them into one request rather than returning near-duplicates. Return empty arrays for either category if nothing genuinely fits -- don't force a match.
 
-requestText and description must be VERBATIM -- copy the exact sentence(s) stating the request/need character-for-character from the source, including the original person/pronouns ("I"/"we"/"our", never rewritten to "they"/"their"). Do not paraphrase, summarize, rephrase, or otherwise change the wording. The only edit you may make is trimming: cut down to just the sentence(s) that state the request/need itself rather than including the whole surrounding paragraph, and you may join two non-adjacent sentences with " ... " if both are needed for the request to make sense on its own -- but every word you do include must be copied exactly as written, not reworded.`;
+requestText and description must be VERBATIM -- copy the exact sentence(s) stating the request/need character-for-character from the source, including the original person/pronouns ("I"/"we"/"our", never rewritten to "they"/"their"). Do not paraphrase, summarize, rephrase, or otherwise change the wording. The only edits you may make: trim down to just the sentence(s) that state the request/need itself rather than including the whole surrounding paragraph; join two non-adjacent sentences with " ... " if both are needed for the request to make sense on its own; drop a leading connector that only makes sense attached to the previous sentence ("First,", "Also,", "Finally,", "Pray too that" -> "That..."); and drop a footnote marker (a bare asterisk right before or after a name) or a "(name changed)" note. Every other word must be copied exactly as written, not reworded.
+
+background is a SEPARATE field, 1-2 sentences, a neutral third-person summary of the situation or event behind the request/need -- written in your own words, not verbatim. Use only what the letter itself says, drawn from anywhere in it, not outside knowledge. Resolve vague references ("the teenager we mentioned," "his mother," "the application") to what they actually refer to. If multiple requests share the same underlying situation, reuse the same background for each rather than writing it once and leaving the others without context.`;
 
 // Admin-managed in ChurchSettings -- see that field's own comment in
 // schema.prisma. No implicit env-var fallback: the Anthropic SDK reads
@@ -114,7 +142,10 @@ async function extractRequestsFromFile(record) {
 
   const response = await anthropic.messages.parse({
     model: "claude-opus-5",
-    max_tokens: 4096,
+    // Was 4096 -- too tight once background joined requestText/description
+    // as a third field per item, long enough to truncate mid-output on a
+    // letter with several requests and cause the max_tokens case below.
+    max_tokens: 8192,
     system: SYSTEM_PROMPT,
     messages: [
       {
@@ -137,9 +168,35 @@ async function extractRequestsFromFile(record) {
     throw err;
   }
 
-  // parsed_output is null if parsing failed (shouldn't happen with a
-  // schema this simple, but structured output isn't a hard guarantee).
-  return response.parsed_output || { prayerRequests: [], oneTimeNeeds: [] };
+  // A truncated or unparseable response used to fall through to an empty
+  // result, indistinguishable from "scanned fine, found nothing" -- both
+  // are real possibilities (a long letter can still run out of output
+  // budget even at the higher limit above; structured output isn't a hard
+  // guarantee), so both are now a visible error instead of a silent empty
+  // list.
+  if (response.stop_reason === "max_tokens") {
+    const err = new Error("This file is too long to scan in one pass -- try a shorter excerpt");
+    err.status = 422;
+    throw err;
+  }
+  if (!response.parsed_output) {
+    const err = new Error("The scan didn't return a readable result -- try again");
+    err.status = 422;
+    throw err;
+  }
+
+  return {
+    prayerRequests: response.parsed_output.prayerRequests.map((r) => ({
+      ...r,
+      background: stripFootnoteArtifacts(r.background),
+      requestText: stripFootnoteArtifacts(r.requestText),
+    })),
+    oneTimeNeeds: response.parsed_output.oneTimeNeeds.map((n) => ({
+      ...n,
+      background: stripFootnoteArtifacts(n.background),
+      description: stripFootnoteArtifacts(n.description),
+    })),
+  };
 }
 
-module.exports = { extractRequestsFromFile, isEml, ExtractionSchema };
+module.exports = { extractRequestsFromFile, isEml, ExtractionSchema, stripFootnoteArtifacts };

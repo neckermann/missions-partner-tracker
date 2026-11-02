@@ -618,6 +618,23 @@ until you explicitly accept a suggestion. Off by default, even once
 configured, since it's the one feature here that sends data to a third
 party.
 
+Each suggestion's text box starts with a short background sentence
+(resolving things like "the teenager we mentioned" to who that actually
+is) ahead of the request itself, so you're editing one readable block
+rather than a bare, context-free sentence — edit it freely before
+accepting. Once accepted, the request or need shows a "From: ..." link
+back to the newsletter or document it came from, visible only here in
+the admin view.
+
+You don't need this feature turned on to use that link, though — every
+**+ Add Prayer Request**/**+ Add Need** form (and their Edit forms) has
+its own **Source (optional)** dropdown, listing that partner's
+newsletters and documents, so a request you read yourself and typed in
+by hand can point back to its file too. Picking "None" (the default)
+leaves it unlinked, same as today.
+
+![The Source (optional) dropdown on the Add Prayer Request form, listing this partner's newsletters and documents](docs/assets/screenshots/source-picker.png)
+
 Setup, on the **AI Request Scanning** page under Site Administration, is
 one step: paste an API key from
 [console.anthropic.com](https://console.anthropic.com/settings/keys) and

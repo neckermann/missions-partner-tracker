@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { createPrayerRequest, updatePrayerRequest, deletePrayerRequest } from "../../api/client.js";
 import { formatDate, todayInputValue } from "../../utils/format.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
+import ScanSourceLink from "./ScanSourceLink.jsx";
+import SourcePicker from "./SourcePicker.jsx";
 
 const emptyNewRequest = {
   category: "strategic",
@@ -11,6 +13,8 @@ const emptyNewRequest = {
   includeInBooklet: false,
   untracked: false,
   notes: "",
+  sourceNewsletterId: null,
+  sourceDocumentId: null,
 };
 
 // Reused as-is on both AdminMissionaryDetail.jsx and
@@ -22,7 +26,13 @@ const emptyNewRequest = {
 // why: an open request isn't a problem to flag, it's just still open.
 // The only status this UI calls out at all is "answered", as a quiet
 // note, not a checklist item being marked off.
-export default function PrayerRequestSection({ partnerId, prayerRequests, onChange }) {
+export default function PrayerRequestSection({
+  partnerId,
+  prayerRequests,
+  newsletters,
+  documents,
+  onChange,
+}) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
   const [saving, setSaving] = useState(false);
@@ -48,6 +58,8 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
         includeInBooklet: isStrategic && newRequest.isPublic ? newRequest.includeInBooklet : false,
         status: newRequest.untracked ? "untracked" : "ongoing",
         notes: newRequest.notes || null,
+        sourceNewsletterId: newRequest.sourceNewsletterId,
+        sourceDocumentId: newRequest.sourceDocumentId,
       });
       setNewRequest(emptyNewRequest);
       setShowAddForm(false);
@@ -96,6 +108,8 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
       isPublic: request.isPublic,
       includeInBooklet: request.includeInBooklet,
       notes: request.notes || "",
+      sourceNewsletterId: request.sourceNewsletter?.id || null,
+      sourceDocumentId: request.sourceDocument?.id || null,
     });
   }
 
@@ -109,6 +123,8 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
         isPublic: isStrategic ? editForm.isPublic : false,
         includeInBooklet: isStrategic && editForm.isPublic ? editForm.includeInBooklet : false,
         notes: editForm.notes || null,
+        sourceNewsletterId: editForm.sourceNewsletterId,
+        sourceDocumentId: editForm.sourceDocumentId,
       });
       setEditingId(null);
       setEditForm(null);
@@ -200,6 +216,13 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
                 Not tracking this one for a specific answer
               </label>
             </div>
+            <SourcePicker
+              newsletters={newsletters}
+              documents={documents}
+              sourceNewsletterId={newRequest.sourceNewsletterId}
+              sourceDocumentId={newRequest.sourceDocumentId}
+              onChange={(source) => setNewRequest((f) => ({ ...f, ...source }))}
+            />
             <label style={{ gridColumn: "1 / -1" }}>
               Admin Notes (optional, never shown publicly)
               <input
@@ -294,6 +317,13 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
                         )}
                       </div>
                     )}
+                    <SourcePicker
+                      newsletters={newsletters}
+                      documents={documents}
+                      sourceNewsletterId={editForm.sourceNewsletterId}
+                      sourceDocumentId={editForm.sourceDocumentId}
+                      onChange={(source) => setEditForm((f) => ({ ...f, ...source }))}
+                    />
                     <label style={{ gridColumn: "1 / -1" }}>
                       Admin Notes (optional, never shown publicly)
                       <input
@@ -326,6 +356,7 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
                       {p.category === "strategic" && p.isPublic && " · Public"}
                       {p.category === "strategic" && p.isPublic && p.includeInBooklet && " · In booklet"}
                     </div>
+                    <ScanSourceLink sourceNewsletter={p.sourceNewsletter} sourceDocument={p.sourceDocument} />
                     {/* The only status ever called out here is "answered" -- an
                         "ongoing" or "untracked" request just shows nothing
                         extra, matching this feature's whole design intent. */}

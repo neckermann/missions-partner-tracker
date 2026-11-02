@@ -906,6 +906,8 @@ export default function AdminPartnerDetail() {
               partnerId={p.id}
               supportEntries={collections.supportEntries}
               needRequests={collections.needRequests}
+              newsletters={collections.newsletters}
+              documents={collections.documents}
               showMonthlySupport={enabledFeatures.monthlySupport}
               showOneTimeNeeds={enabledFeatures.oneTimeNeeds}
               supportingSince={p.supportingSince}
@@ -1036,6 +1038,8 @@ export default function AdminPartnerDetail() {
             <PrayerRequestSection
               partnerId={p.id}
               prayerRequests={collections.prayerRequests}
+              newsletters={collections.newsletters}
+              documents={collections.documents}
               onChange={reload}
             />
           )}

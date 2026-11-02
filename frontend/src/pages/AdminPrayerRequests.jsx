@@ -6,8 +6,12 @@ import {
   updatePrayerRequest,
   deletePrayerRequest,
   fetchPartners,
+  fetchNewsletters,
+  fetchDocuments,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
+import ScanSourceLink from "../components/admin/ScanSourceLink.jsx";
+import SourcePicker from "../components/admin/SourcePicker.jsx";
 import { formatDate, todayInputValue } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
 import useLoadMore from "../hooks/useLoadMore.js";
@@ -31,6 +35,8 @@ const emptyNewRequest = {
   includeInBooklet: false,
   untracked: false,
   notes: "",
+  sourceNewsletterId: null,
+  sourceDocumentId: null,
 };
 
 // Same shape as AdminOneTimeNeeds.jsx, but deliberately without that
@@ -51,9 +57,25 @@ export default function AdminPrayerRequests() {
   const [answer, setAnswer] = useState({ dateAnswered: todayInputValue(), answeredNote: "" });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
+  // Scoped to whichever partner is selected in the add form, or whichever
+  // request is being edited -- these pages span every partner, unlike
+  // PrayerRequestSection.jsx's per-partner version, which already has its
+  // one partner's files loaded. Re-fetched on demand (see loadSourceFiles
+  // below) rather than loading every partner's files up front.
+  const [sourceFiles, setSourceFiles] = useState({ newsletters: [], documents: [] });
 
   function reload() {
     fetchPrayerRequests().then(setRequests).catch(console.error);
+  }
+
+  function loadSourceFiles(partnerId) {
+    if (!partnerId) {
+      setSourceFiles({ newsletters: [], documents: [] });
+      return;
+    }
+    Promise.all([fetchNewsletters({ partnerId }), fetchDocuments({ partnerId })])
+      .then(([newsletters, documents]) => setSourceFiles({ newsletters, documents }))
+      .catch(console.error);
   }
 
   useEffect(() => {
@@ -96,8 +118,11 @@ export default function AdminPrayerRequests() {
         includeInBooklet: isStrategic && newRequest.isPublic ? newRequest.includeInBooklet : false,
         status: newRequest.untracked ? "untracked" : "ongoing",
         notes: newRequest.notes || null,
+        sourceNewsletterId: newRequest.sourceNewsletterId,
+        sourceDocumentId: newRequest.sourceDocumentId,
       });
       setNewRequest(emptyNewRequest);
+      setSourceFiles({ newsletters: [], documents: [] });
       setShowAddForm(false);
       reload();
     } catch (err) {
@@ -141,7 +166,10 @@ export default function AdminPrayerRequests() {
       isPublic: request.isPublic,
       includeInBooklet: request.includeInBooklet,
       notes: request.notes || "",
+      sourceNewsletterId: request.sourceNewsletter?.id || null,
+      sourceDocumentId: request.sourceDocument?.id || null,
     });
+    loadSourceFiles(request.partner?.id);
   }
 
   async function submitEdit(id) {
@@ -154,6 +182,8 @@ export default function AdminPrayerRequests() {
         isPublic: isStrategic ? editForm.isPublic : false,
         includeInBooklet: isStrategic && editForm.isPublic ? editForm.includeInBooklet : false,
         notes: editForm.notes || null,
+        sourceNewsletterId: editForm.sourceNewsletterId,
+        sourceDocumentId: editForm.sourceDocumentId,
       });
       setEditingId(null);
       setEditForm(null);
@@ -190,7 +220,15 @@ export default function AdminPrayerRequests() {
               <PartnerSelect
                 partners={partners}
                 value={newRequest.partnerId}
-                onChange={(partnerId) => setNewRequest((f) => ({ ...f, partnerId }))}
+                onChange={(partnerId) => {
+                  setNewRequest((f) => ({
+                    ...f,
+                    partnerId,
+                    sourceNewsletterId: null,
+                    sourceDocumentId: null,
+                  }));
+                  loadSourceFiles(partnerId);
+                }}
                 required
               />
             </label>
@@ -264,6 +302,13 @@ export default function AdminPrayerRequests() {
                 Not tracking this one for a specific answer
               </label>
             </div>
+            <SourcePicker
+              newsletters={sourceFiles.newsletters}
+              documents={sourceFiles.documents}
+              sourceNewsletterId={newRequest.sourceNewsletterId}
+              sourceDocumentId={newRequest.sourceDocumentId}
+              onChange={(source) => setNewRequest((f) => ({ ...f, ...source }))}
+            />
             <label style={{ gridColumn: "1 / -1" }}>
               Admin Notes (optional, never shown publicly)
               <input
@@ -417,6 +462,13 @@ export default function AdminPrayerRequests() {
                     )}
                   </div>
                 )}
+                <SourcePicker
+                  newsletters={sourceFiles.newsletters}
+                  documents={sourceFiles.documents}
+                  sourceNewsletterId={editForm.sourceNewsletterId}
+                  sourceDocumentId={editForm.sourceDocumentId}
+                  onChange={(source) => setEditForm((f) => ({ ...f, ...source }))}
+                />
                 <label style={{ gridColumn: "1 / -1" }}>
                   Admin Notes (optional, never shown publicly)
                   <input
@@ -477,6 +529,10 @@ export default function AdminPrayerRequests() {
                 </div>
               )}
             </div>
+            <ScanSourceLink
+              sourceNewsletter={request.sourceNewsletter}
+              sourceDocument={request.sourceDocument}
+            />
 
             {answeringId === request.id && (
               <div

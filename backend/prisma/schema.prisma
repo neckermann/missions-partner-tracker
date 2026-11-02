@@ -317,6 +317,13 @@ model SupportNeed {
   notes           String?   @db.Text
   createdAt       DateTime  @default(now())
 
+  // Same source-link as PrayerRequest.sourceNewsletterId/sourceDocumentId
+  // above -- see that comment for the full reasoning.
+  sourceNewsletterId String?
+  sourceNewsletter   Newsletter? @relation(fields: [sourceNewsletterId], references: [id], onDelete: SetNull)
+  sourceDocumentId   String?
+  sourceDocument     Document?   @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+
   @@index([partnerId])
 }
 
@@ -364,6 +371,19 @@ model PrayerRequest {
   notes     String?  @db.Text
   createdAt DateTime @default(now())
 
+  // Set when this request was added from ExtractionReviewModal.jsx's "Scan
+  // for requests" flow, so the admin can get back to the original letter
+  // later -- at most one of the two is ever set, since the modal is shown
+  // either from NewsletterSection or DocumentSection, never both. Both
+  // onDelete: SetNull, not Cascade -- deleting the source file a request
+  // came from shouldn't delete the request itself, just its back-link. Null
+  // for every request added by hand (the normal case, unaffected by this).
+  // Never surfaced on the public site or in the booklet.
+  sourceNewsletterId String?
+  sourceNewsletter   Newsletter? @relation(fields: [sourceNewsletterId], references: [id], onDelete: SetNull)
+  sourceDocumentId   String?
+  sourceDocument     Document?   @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+
   @@index([partnerId])
   @@index([category])
   @@index([status])
@@ -395,6 +415,12 @@ model Newsletter {
 
   createdAt DateTime @default(now())
 
+  // Back-relations for PrayerRequest/SupportNeed.sourceNewsletterId above --
+  // not read directly (requests/needs are fetched by partner, not by
+  // source), but Prisma requires both sides of a relation declared.
+  sourcedPrayerRequests PrayerRequest[]
+  sourcedSupportNeeds   SupportNeed[]
+
   @@index([partnerId])
 }
 
@@ -422,6 +448,11 @@ model Document {
   notes          String?  @db.Text
 
   createdAt DateTime @default(now())
+
+  // Back-relations for PrayerRequest/SupportNeed.sourceDocumentId above --
+  // see the same comment on Newsletter's back-relations.
+  sourcedPrayerRequests PrayerRequest[]
+  sourcedSupportNeeds   SupportNeed[]
 
   @@index([partnerId])
   @@index([category])

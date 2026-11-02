@@ -15,6 +15,8 @@ import {
 } from "../../api/client.js";
 import EditableSection from "./EditableSection.jsx";
 import useLoadMore from "../../hooks/useLoadMore.js";
+import ScanSourceLink from "./ScanSourceLink.jsx";
+import SourcePicker from "./SourcePicker.jsx";
 
 // Monthly support and one-time needs for one partner, editable here rather
 // than only from the consolidated admin pages. Same endpoints either way.
@@ -24,7 +26,14 @@ import useLoadMore from "../../hooks/useLoadMore.js";
 // and adding another. The API has no update route for them at all.
 
 const emptyEntry = { amount: "", effectiveDate: todayInputValue(), notes: "" };
-const emptyNeed = { description: "", requestedAmount: "", requestDate: todayInputValue(), notes: "" };
+const emptyNeed = {
+  description: "",
+  requestedAmount: "",
+  requestDate: todayInputValue(),
+  notes: "",
+  sourceNewsletterId: null,
+  sourceDocumentId: null,
+};
 
 function needStatus(need) {
   if (need.approvedAmount == null) return { label: "Pending Decision", tone: "warn" };
@@ -37,6 +46,8 @@ export default function PartnerFinancialSection({
   partnerId,
   supportEntries,
   needRequests,
+  newsletters,
+  documents,
   showMonthlySupport,
   showOneTimeNeeds,
   supportingSince,
@@ -101,6 +112,8 @@ export default function PartnerFinancialSection({
         requestedAmount: Number(need.requestedAmount),
         requestDate: need.requestDate,
         notes: need.notes || null,
+        sourceNewsletterId: need.sourceNewsletterId,
+        sourceDocumentId: need.sourceDocumentId,
       });
       setNeed(emptyNeed);
       setAddingNeed(false);
@@ -295,6 +308,13 @@ export default function PartnerFinancialSection({
                     required
                   />
                 </label>
+                <SourcePicker
+                  newsletters={newsletters}
+                  documents={documents}
+                  sourceNewsletterId={need.sourceNewsletterId}
+                  sourceDocumentId={need.sourceDocumentId}
+                  onChange={(source) => setNeed((f) => ({ ...f, ...source }))}
+                />
                 <label style={{ gridColumn: "1 / -1" }}>
                   Notes
                   <input
@@ -332,6 +352,10 @@ export default function PartnerFinancialSection({
                             row.approvedDate ? ` on ${formatDate(row.approvedDate)}` : ""
                           }`}
                       </div>
+                      <ScanSourceLink
+                        sourceNewsletter={row.sourceNewsletter}
+                        sourceDocument={row.sourceDocument}
+                      />
                       {row.notes && (
                         <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
                           {row.notes}
