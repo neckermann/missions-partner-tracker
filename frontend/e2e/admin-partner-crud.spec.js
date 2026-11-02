@@ -39,18 +39,19 @@ test.describe("Admin partner CRUD", () => {
     const location = section(page, "Serving Location");
     await expect(location).toContainText("RP");
 
-    // Edit in place: change the name from the Core Info section and confirm
-    // it round-trips without leaving the page.
-    const core = section(page, "Core Info");
-    await core.getByRole("button", { name: "Edit" }).click();
+    // Edit in place: change the name from the Mailing & Contact Address
+    // section (Display Name lives there now) and confirm it round-trips
+    // without leaving the page.
+    const mailing = section(page, "Mailing & Contact Address");
+    await mailing.getByRole("button", { name: "Edit" }).click();
     const updatedName = `${uniqueName} (edited)`;
-    await core.getByLabel("Display Name", { exact: true }).fill(updatedName);
-    await core.getByRole("button", { name: "Save" }).click();
+    await mailing.getByLabel("Display Name", { exact: true }).fill(updatedName);
+    await mailing.getByRole("button", { name: "Save" }).click();
     await expect(page.locator("h2").first()).toHaveText(updatedName);
 
     // Editing one section must not disturb another: the physical address is
-    // replaced wholesale on the server, so a Core Info save that carried a
-    // stale address payload would show up here.
+    // replaced wholesale on the server, so a Mailing & Contact Address save
+    // that carried a stale physical-address payload would show up here.
     await expect(section(page, "Serving Location")).toContainText("RP");
 
     // Cleanup via the API directly (same authenticated browser context --

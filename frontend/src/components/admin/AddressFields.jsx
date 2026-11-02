@@ -18,7 +18,7 @@ export default function AddressFields({
     <div className="form-grid">
       {showGps && (
         <>
-          <label>
+          <label title="Places this partner's pin on the public map. Leave both blank and saving will auto-fill them from the city/state/country below (via OpenStreetMap) -- that lands on the city, not an exact address. Enter coordinates here yourself for more precise placement.">
             GPS Latitude
             <input
               type="number"
@@ -27,7 +27,7 @@ export default function AddressFields({
               onChange={(e) => update("gpsLat", e.target.value === "" ? null : e.target.value)}
             />
           </label>
-          <label>
+          <label title="Places this partner's pin on the public map. Leave both blank and saving will auto-fill them from the city/state/country below (via OpenStreetMap) -- that lands on the city, not an exact address. Enter coordinates here yourself for more precise placement.">
             GPS Longitude
             <input
               type="number"

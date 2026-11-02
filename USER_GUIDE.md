@@ -128,7 +128,8 @@ the record.
 
 ![A section's inline edit state on the partner detail page](docs/assets/screenshots/partner-edit-inline.png)
 
-The sections, and what each holds:
+The page groups its sections to match what you'd actually open it to do,
+not just what topic they fall under:
 
 - **Photo** (missionary) / **Logo** (organization) — upload (JPEG/PNG/
   WebP) with a live preview and a Received Date. Uploading here always
@@ -137,85 +138,110 @@ The sections, and what each holds:
   (whichever has the latest Received Date) shows on the public site;
   view the full history or delete an old photo from
   [Photo history](#photo-history) below.
-- **Core Info** — Display Name, Field/Region, Supporting Since,
-  Preferred Contact Method (missionary), or Organization Name/Type
-  (organization), plus a missionary-only **"Sent by {your church}"**
-  checkbox — see the **Sending Church** bullet below for what checking
-  it does.
-- **Financial Support** — repeatable Monthly Amount / Effective Date /
-  Notes rows. The most recent effective date is what counts as the
-  current amount everywhere else in the app. Never shown publicly.
-- **One-Time Needs** — repeatable Description / Requested Amount /
-  Request Date / Approved Amount / Approved Date / Notes rows (you can
-  also manage these from the dedicated **One-Time Needs** page).
+- **Status & Visibility** — the three quick toggles, kept together in
+  their own box right under the header pills rather than buried inside a
+  content section: **Show on public site** (`isPublic`), **Restricted-
+  access location** (`isRestricted`, masks the name to initials and
+  coarsens the map pin to a country centroid publicly), and, missionary
+  only, **Safe to contact** (`contactSafe`).
 - **Ministry Overview** (missionary) / **Focus Area** (organization) —
   Short Overview (used on directory cards), Full Overview, and Ministry
   Focus.
-- **Serving Location** — a full address (country is a suggest-as-you-type
-  field, not a hard dropdown — pick a suggestion or type your own if it's
-  not in the list), plus GPS coordinates (leave blank to auto-geocode from
-  the address on save, or enter manually) and a Country Code, which drives
-  a live Joshua Project stats lookup on the form itself (if that feature
-  is turned on — see
-  [ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles)).
-  That code
-  auto-fills from the address's country the first time it resolves to a
-  recognized name, but only while the field is still blank — enter it
-  yourself and it's never overwritten. It's a FIPS code specifically,
-  which for many countries differs from the more familiar ISO code (e.g.
-  the Philippines is `RP`, not `PH`) — that mismatch is exactly why the
-  auto-fill exists. This exact address is never shown publicly — only the
-  GPS pin is, and only at all if `isPublic` is checked.
-- **Mailing & Contact Address** — a separate address, with "Receives mail
-  here" / "Receives packages here" checkboxes.
-- **Contact Info** (organization only) — name, phone, email, website,
-  support link, newsletter signup, and social media, all in one section
-  (split across Core Info and Links for a missionary instead).
-- **Adults** (missionary only) — Wedding Anniversary, then one row per
-  adult in the household (Name, Birthday, two phone numbers, Email).
-- **Children** (missionary only) — Name + Birthday per child.
-- **Emergency Contact** (missionary only) — Name, Phone, Email.
-- **Languages Spoken** (missionary only) — a free-text tag list.
-- **Trip Capacity** — Team Size Min/Max, Trip Types Supported (pick from
-  presets or type your own), season/duration notes, lodging/logistics
-  notes. This is what powers the **Trip Opportunities** capacity search.
-- **Trip History** — past trips, each with dates, type, description,
-  notes, and a nested list of participants (Name, Role, Phone, Email,
-  "Trip Leader" checkbox).
-- **Furlough** — Start/End Date (leave End Date blank for an ongoing
-  furlough) and Notes.
-- **Church Visits** — Visit Date + Notes; the most recent becomes "last
-  visit" everywhere it's shown.
-- **Sending Church** (missionary only) — name, contact, phone, website,
-  mailing address. Checking **Core Info**'s "Sent by {your church}"
-  checkbox auto-fills whichever of these fields are still blank straight
-  from Church Settings, without overwriting anything you've already
-  typed, whether you check it when first creating the partner or later.
-  Unchecking it never deletes data that's already there — it's a
-  one-way convenience fill, not an ongoing sync, so a later change to
-  Church Settings doesn't retroactively update an already-filled field.
-- **Sending Org** (missionary only) — same shape as Sending Church, no
-  auto-fill checkbox.
-- **Links & Social Media** (missionary) / folded into **Contact Info**
-  (organization) — Website, Support Link, Newsletter Signup, Facebook,
-  Twitter, Instagram, LinkedIn.
+- **Family & Personal** (missionary only):
+  - **Family** — Wedding Anniversary, then one row per adult in the
+    household (Name, Birthday, two phone numbers, Email) and one per
+    child (Name, Birthday).
+  - **Languages Spoken** — a free-text tag list.
+  - **Emergency Contact** — Name, Phone, Email.
+- **Location & Contact**:
+  - **Serving Location** — Field/Region Display Name (shown publicly
+    even for a restricted partner, so keep it broad — "East Africa," not
+    a city, or it undoes the restriction above), a full address (country
+    is a suggest-as-you-type field, not a hard dropdown — pick a
+    suggestion or type your own if it's not listed), GPS coordinates, and
+    a Country Code. Leave both GPS fields blank and saving auto-fills
+    them from the city/state/country (via OpenStreetMap) — that lands on
+    the city, not an exact address, so enter coordinates yourself for
+    more precise placement. The Country Code drives a live Joshua
+    Project stats lookup on the form itself (if that feature is turned
+    on — see
+    [ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles)):
+    it auto-fills from the address's country the first time it resolves
+    to a recognized name, but only while the field is still blank — enter
+    it yourself and it's never overwritten. It's a FIPS code
+    specifically, which for many countries differs from the more
+    familiar ISO code (e.g. the Philippines is `RP`, not `PH`) — that
+    mismatch is exactly why the auto-fill, and the manual override, both
+    exist. This exact address is never shown publicly — only the GPS pin
+    is, and only at all if **Show on public site** is checked.
+  - **Mailing & Contact Address** — Display Name (missionary) or
+    Organization Name/Type (organization) — this is the public display
+    name shown on the directory, map, and booklet — Preferred Contact
+    Method, missionary-only **Safe to contact**, organization-only
+    Contact Name/Phone/Email, and a separate mailing address with
+    "Receives mail here" / "Receives packages here" checkboxes.
+  - **Sending Church** (missionary only) — name, contact, phone,
+    website, mailing address, plus a **"Sent by {your church}"**
+    checkbox. Checking it auto-fills whichever of this section's fields
+    are still blank straight from Church Settings, without overwriting
+    anything you've already typed, whether you check it when first
+    creating the partner or later. Unchecking it never deletes data
+    that's already there — it's a one-way convenience fill, not an
+    ongoing sync, so a later change to Church Settings doesn't
+    retroactively update an already-filled field. The status pill at the
+    top of the page shows this at a glance, but editing it happens here.
+  - **Sending Org** (missionary only) — same shape as Sending Church, no
+    auto-fill checkbox.
+  - **Links & Social Media** — Website, Support Link, Newsletter Signup,
+    Facebook, Twitter, Instagram, LinkedIn.
+- **Financial**:
+  - **Supporting Since** — a single date.
+  - **Financial Support** — repeatable Monthly Amount / Effective Date /
+    Notes rows. The most recent effective date is what counts as the
+    current amount everywhere else in the app. Never shown publicly.
+  - **One-Time Needs** — repeatable Description / Requested Amount /
+    Request Date / Approved Amount / Approved Date / Notes rows (you can
+    also manage these from the dedicated **One-Time Needs** page).
+- **Mission Trips**:
+  - **Trip History** — past trips, each with dates, type, description,
+    notes, and a nested list of participants (Name, Role, Phone, Email,
+    "Trip Leader" checkbox).
+  - **Trip Capacity** — Team Size Min/Max, Trip Types Supported (pick
+    from presets or type your own), season/duration notes,
+    lodging/logistics notes. This is what powers the **Trip
+    Opportunities** capacity search.
+- **Communication**:
+  - **Prayer Requests**, **Newsletters**, **Documents** — see their own
+    sections below.
+  - **Church Visits** — Visit Date + Notes; the most recent becomes
+    "last visit" everywhere it's shown.
+  - **Furlough** (missionary only) — Start/End Date (leave End Date
+    blank for an ongoing furlough) and Notes.
 
 Blank repeatable rows (an empty adult, an empty trip, etc.) are silently
 dropped when you save — you don't need to manually remove unused rows.
 
+Any list that can grow long over the years — Financial Support, One-Time
+Needs, Trip History, Prayer Requests, Newsletters, Documents, Church
+Visits, Furlough — shows only its 3 most recent entries by default, with
+a **Load More** button (showing how many more there are) to reveal the
+rest. Nothing is hidden permanently; it's just not all rendered at once.
+
 ### The partner detail page
 
 Shows every section described in [Editing a partner](#editing-a-partner)
-above — sections with no data are hidden entirely rather than shown
-empty. Status pills under Core Info summarize the flags at a glance
-(contact-safe, public/not, restricted, sent-by-us, on-furlough,
-archived). **Back to list** returns you to Partners. This page *is*
-where every edit happens — each section's own **Edit** button, not a
-separate form — including newsletters, documents, and photos (see
+above, grouped as listed there — sections with no data are hidden
+entirely rather than shown empty. Status pills under the header
+summarize the flags at a glance (contact-safe, public/not, restricted,
+sent-by-us, on-furlough, archived) and hovering one that lives in a
+specific section (like "Sent by {your church}") says where to go edit
+it. **Back to list** returns you to Partners. This page *is* where every
+edit happens — each section's own **Edit** button, not a separate form
+— including newsletters, documents, and photos (see
 [Newsletters](#newsletters), [Documents](#documents), and
 [Photo history](#photo-history) below).
 
-![The top of a partner detail page -- Photo History, Core Info, and Ministry Overview](docs/assets/screenshots/admin-partner-detail-preview.png)
+![The top of a partner detail page -- Photo History, Status & Visibility, and Ministry Overview](docs/assets/screenshots/admin-partner-detail-preview.png)
 
 ### Photo history
 

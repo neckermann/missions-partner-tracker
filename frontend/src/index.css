@@ -613,6 +613,23 @@ a {
   border-radius: 6px;
   padding: 1.25rem 1.5rem;
 }
+
+/* Groups several related .admin-section cards (e.g. "Financial") under one
+   label, without nesting them in another bordered box -- it's a divider
+   within .admin-form's flex column, not a container. */
+.admin-section-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.admin-group-heading {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .admin-section h3 {
   margin: 0 0 1rem;
   font-size: 1rem;

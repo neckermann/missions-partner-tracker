@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { createTrip, updateTrip, deleteTrip } from "../../api/client.js";
 import PresetOrCustomSelect from "./PresetOrCustomSelect.jsx";
 import { formatDate, toDateInputValue } from "../../utils/format.js";
+import useLoadMore from "../../hooks/useLoadMore.js";
 
 // Trips for one partner, on that partner's own page. Same records and same
 // endpoints as the consolidated Trip History page -- this is just the view
@@ -30,6 +31,7 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const { visible, hasMore, remaining, showMore } = useLoadMore(trips);
 
   function resetForm() {
     setForm(emptyForm);
@@ -214,7 +216,7 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
 
       <div style={{ marginTop: "1rem" }}>
         {trips?.length > 0 ? (
-          trips.map((t) => {
+          visible.map((t) => {
             const leaders = (t.participants || []).filter((p) => p.isLeader).map((p) => p.name);
             return (
               <div key={t.id} className="repeatable-row">
@@ -257,6 +259,16 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
           })
         ) : (
           <p style={{ color: "#888" }}>No trips on file.</p>
+        )}
+        {hasMore && (
+          <button
+            type="button"
+            className="btn secondary small"
+            onClick={showMore}
+            style={{ marginTop: "0.5rem" }}
+          >
+            Load More ({remaining} remaining)
+          </button>
         )}
       </div>
     </div>

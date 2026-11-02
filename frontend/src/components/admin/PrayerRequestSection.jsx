@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { createPrayerRequest, updatePrayerRequest, deletePrayerRequest } from "../../api/client.js";
 import { formatDate, todayInputValue } from "../../utils/format.js";
+import useLoadMore from "../../hooks/useLoadMore.js";
 
 const emptyNewRequest = {
   category: "strategic",
@@ -30,6 +31,7 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
   const [answer, setAnswer] = useState({ dateAnswered: todayInputValue(), answeredNote: "" });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
+  const { visible, hasMore, remaining, showMore } = useLoadMore(prayerRequests);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -217,7 +219,7 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
 
       <div style={{ marginTop: "1rem" }}>
         {prayerRequests?.length > 0 ? (
-          prayerRequests.map((p) => (
+          visible.map((p) => (
             <div key={p.id} className="repeatable-row">
               <div
                 style={{
@@ -393,6 +395,16 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, onChan
           ))
         ) : (
           <p style={{ color: "#888" }}>No prayer requests on file.</p>
+        )}
+        {hasMore && (
+          <button
+            type="button"
+            className="btn secondary small"
+            onClick={showMore}
+            style={{ marginTop: "0.5rem" }}
+          >
+            Load More ({remaining} remaining)
+          </button>
         )}
       </div>
     </div>

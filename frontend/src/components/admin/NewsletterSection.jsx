@@ -8,6 +8,7 @@ import {
 import { useSettings } from "../../context/SettingsContext.jsx";
 import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
 import { formatDate, todayInputValue } from "../../utils/format.js";
+import useLoadMore from "../../hooks/useLoadMore.js";
 
 function formatFileSize(bytes) {
   if (bytes == null) return "";
@@ -41,6 +42,7 @@ export default function NewsletterSection({ partnerId, newsletters, onChange }) 
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ title: "", receivedDate: "", notes: "" });
+  const { visible, hasMore, remaining, showMore } = useLoadMore(newsletters);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -164,7 +166,7 @@ export default function NewsletterSection({ partnerId, newsletters, onChange }) 
 
       <div style={{ marginTop: "1rem" }}>
         {newsletters?.length > 0 ? (
-          newsletters.map((n) => (
+          visible.map((n) => (
             <div key={n.id} className="repeatable-row">
               <div
                 style={{
@@ -243,6 +245,16 @@ export default function NewsletterSection({ partnerId, newsletters, onChange }) 
           ))
         ) : (
           <p style={{ color: "#888" }}>No newsletters on file.</p>
+        )}
+        {hasMore && (
+          <button
+            type="button"
+            className="btn secondary small"
+            onClick={showMore}
+            style={{ marginTop: "0.5rem" }}
+          >
+            Load More ({remaining} remaining)
+          </button>
         )}
       </div>
 

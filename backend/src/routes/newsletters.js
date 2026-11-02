@@ -65,7 +65,8 @@ router.get("/", async (req, res, next) => {
       where,
       include: newsletterInclude,
       omit: { bytes: true }, // file content only ever comes back via GET /:id/download
-      orderBy: { receivedDate: "desc" },
+      // createdAt as a tiebreaker -- see the same comment in prayerRequests.js.
+      orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }],
     });
     res.json(records);
   } catch (err) {
