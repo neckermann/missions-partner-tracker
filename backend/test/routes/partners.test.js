@@ -285,7 +285,7 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
     });
   });
 
-  test("checking it at creation fills every blank Sending Church field", async () => {
+  test("checking it at creation fills every Sending Church field from Church Settings", async () => {
     const p = await createPartner({ sentByOurChurch: true });
     assert.equal(p.sendingChurch.name, `${FIXTURE_TAG} Hillside Community Church`);
     assert.equal(p.sendingChurch.contactName, "Amy Draycott");
@@ -295,7 +295,7 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
     assert.equal(p.sendingChurch.mailingAddress.city, "Rock Island");
   });
 
-  test("checking it later (PUT) fills blanks without touching anything already typed", async () => {
+  test("checking it later (PUT) overwrites anything already typed with current Church Settings", async () => {
     const p = await createPartner({
       sentByOurChurch: false,
       sendingChurch: { name: "Already Typed Name" },
@@ -309,19 +309,23 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
     assert.equal(res.status, 200);
     assert.equal(
       res.body.sendingChurch.name,
-      "Already Typed Name",
-      "an already-typed field is never overwritten"
+      `${FIXTURE_TAG} Hillside Community Church`,
+      "checking it pulls the current Church Settings value, not what was already typed"
     );
-    assert.equal(res.body.sendingChurch.contactName, "Amy Draycott", "a blank field still gets filled in");
+    assert.equal(res.body.sendingChurch.contactName, "Amy Draycott");
   });
 
-  test("a save that sends its own sendingChurch payload is never overridden by the auto-fill", async () => {
+  test("checking it is never overridden by this same save's own sendingChurch payload -- Church Settings always wins", async () => {
     const p = await createPartner({
       sentByOurChurch: true,
       sendingChurch: { name: "Explicit Name", contactName: "Explicit Contact" },
     });
-    assert.equal(p.sendingChurch.name, "Explicit Name");
-    assert.equal(p.sendingChurch.contactName, "Explicit Contact");
+    assert.equal(
+      p.sendingChurch.name,
+      `${FIXTURE_TAG} Hillside Community Church`,
+      "checking the box means this partner's Sending Church IS the church, not a custom value"
+    );
+    assert.equal(p.sendingChurch.contactName, "Amy Draycott");
   });
 
   // Regression test: the real admin UI's Sending Church box saves
