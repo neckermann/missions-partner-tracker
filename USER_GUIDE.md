@@ -158,22 +158,26 @@ not just what topic they fall under:
     even for a restricted partner, so keep it broad — "East Africa," not
     a city, or it undoes the restriction above), a full address (country
     is a suggest-as-you-type field, not a hard dropdown — pick a
-    suggestion or type your own if it's not listed), GPS coordinates, and
-    a Country Code. Leave both GPS fields blank and saving auto-fills
-    them from the city/state/country (via OpenStreetMap) — that lands on
-    the city, not an exact address, so enter coordinates yourself for
-    more precise placement. The Country Code drives a live Joshua
-    Project stats lookup on the form itself (if that feature is turned
-    on — see
-    [ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles)):
-    it auto-fills from the address's country the first time it resolves
-    to a recognized name, but only while the field is still blank — enter
-    it yourself and it's never overwritten. It's a FIPS code
-    specifically, which for many countries differs from the more
-    familiar ISO code (e.g. the Philippines is `RP`, not `PH`) — that
-    mismatch is exactly why the auto-fill, and the manual override, both
-    exist. This exact address is never shown publicly — only the GPS pin
-    is, and only at all if **Show on public site** is checked.
+    suggestion or type your own if it's not listed), and GPS coordinates.
+    Leave both GPS fields blank and saving auto-fills them from the
+    city/state/country (via OpenStreetMap) — that lands on the city, not
+    an exact address, so enter coordinates yourself for more precise
+    placement. This exact address is never shown publicly — only the GPS
+    pin is, and only at all if **Show on public site** is checked.
+    If [Joshua Project stats](ADMIN_GUIDE.md#feature-toggles) is turned
+    on, a **Country Code** field also appears here, used only to look up
+    that country's Joshua Project stats right on this page — nothing
+    else reads it. It auto-fills from the address's country the first
+    time it resolves to a recognized name, but only while the field is
+    still blank — enter it yourself and it's never overwritten. It's a
+    FIPS code specifically, which for many countries differs from the
+    more familiar ISO code (e.g. the Philippines is `RP`, not `PH`) —
+    that mismatch is exactly why the auto-fill, and the manual override,
+    both exist. **Turning Joshua Project on after partners already
+    exist?** The field only appears once the feature is on, so existing
+    partners won't have a code yet — open each one's Serving Location
+    and either type the code in directly, or clear the Country field and
+    re-enter it to trigger the auto-lookup.
   - **Mailing & Contact Address** — Display Name (missionary) or
     Organization Name/Type (organization) — this is the public display
     name shown on the directory, map, and booklet — Preferred Contact

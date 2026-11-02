@@ -98,7 +98,8 @@ const FEATURES = {
   // default until an API key is configured, same reasoning as groupme.
   joshuaProject: {
     label: "Joshua Project stats",
-    description: "Show country-level unreached-people-group statistics on a partner's page.",
+    description:
+      "Show country-level unreached-people-group statistics on a partner's page. Turning this on after partners already exist? The Country Code (FIPS) field on Serving Location only appears once this is on, so existing partners won't have a code yet -- open each one's Serving Location and either enter it manually or clear and re-enter the Country field to trigger the auto-lookup.",
     defaultEnabled: false,
     group: "admin",
   },

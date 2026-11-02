@@ -36,8 +36,14 @@ test.describe("Admin partner CRUD", () => {
 
     const partnerId = page.url().split("/").pop();
 
+    // The FIPS field itself only shows when Joshua Project is on (off by
+    // default here), so the auto-fill is checked via the API rather than
+    // the UI -- it still runs in the background regardless of visibility.
+    const afterCreate = await (await page.request.get(`/api/partners/${partnerId}`)).json();
+    expect(afterCreate.fipsCountryCode).toBe("RP");
+
     const location = section(page, "Serving Location");
-    await expect(location).toContainText("RP");
+    await expect(location).toContainText("Philippines");
 
     // Edit in place: change the name from the Mailing & Contact Address
     // section (Display Name lives there now) and confirm it round-trips
@@ -52,7 +58,9 @@ test.describe("Admin partner CRUD", () => {
     // Editing one section must not disturb another: the physical address is
     // replaced wholesale on the server, so a Mailing & Contact Address save
     // that carried a stale physical-address payload would show up here.
-    await expect(section(page, "Serving Location")).toContainText("RP");
+    await expect(section(page, "Serving Location")).toContainText("Philippines");
+    const afterEdit = await (await page.request.get(`/api/partners/${partnerId}`)).json();
+    expect(afterEdit.fipsCountryCode).toBe("RP");
 
     // Cleanup via the API directly (same authenticated browser context --
     // Playwright's page.request shares cookies with the page) rather than
@@ -75,14 +83,20 @@ test.describe("Admin partner CRUD", () => {
     await page.click('button[type="submit"]:has-text("Create Partner")');
     await page.waitForURL(/\/admin\/partners\/[a-zA-Z0-9-]+$/);
     await expect(page.locator("h2").first()).toHaveText(uniqueName);
-    await expect(section(page, "Serving Location")).toContainText("BL");
+    await expect(section(page, "Serving Location")).toContainText("Bolivia");
+
+    const partnerId = page.url().split("/").pop();
+    // The FIPS field itself only shows when Joshua Project is on (off by
+    // default here), so the auto-fill is checked via the API rather than
+    // the UI -- it still runs in the background regardless of visibility.
+    const created = await (await page.request.get(`/api/partners/${partnerId}`)).json();
+    expect(created.fipsCountryCode).toBe("BL");
 
     // The org has no Family or Languages sections -- those are
     // missionary-only, and the merged page hides them by kind rather than
     // rendering empty boxes.
     await expect(page.getByRole("heading", { name: "Family", exact: true })).toHaveCount(0);
 
-    const partnerId = page.url().split("/").pop();
     const archived = await page.request.post(`/api/partners/${partnerId}/archive`);
     expect(archived.ok()).toBeTruthy();
     const del = await page.request.delete(`/api/partners/${partnerId}`);
