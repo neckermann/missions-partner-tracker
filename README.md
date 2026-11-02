@@ -70,7 +70,7 @@ One web service plus one Postgres database (which also holds every
 uploaded photo, newsletter, and document — no separate file storage to
 provision), about $13/mo on Render's cheapest paid tiers. See
 [`render.yaml`](render.yaml) and
-[ADMIN_GUIDE.md § Deploying anywhere else](ADMIN_GUIDE.md#deploying-anywhere-else).
+[ADMIN_GUIDE.md § Getting your church running (Render)](ADMIN_GUIDE.md#getting-your-church-running-render).
 
 ## Guides
 
