@@ -9,6 +9,8 @@ import {
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { formatDate, formatCurrency as formatMoney } from "../utils/format.js";
+import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
+import useLoadMore from "../hooks/useLoadMore.js";
 
 // Thin binding so the call sites below stay unchanged; the formatting
 // itself lives in utils/format.js, which is also where the em-dash
@@ -44,6 +46,7 @@ export default function AdminOneTimeNeeds() {
   const [needs, setNeeds] = useState([]);
   const [partners, setPartners] = useState([]);
   const [statusFilter, setStatusFilter] = useState("all"); // all | pending | decided
+  const [dateRangeFilter, setDateRangeFilter] = useState("all");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newNeed, setNewNeed] = useState(emptyNewNeed);
   const [saving, setSaving] = useState(false);
@@ -63,9 +66,18 @@ export default function AdminOneTimeNeeds() {
   }, []);
 
   const filteredNeeds = needs.filter((need) => {
-    if (statusFilter === "pending") return need.approvedAmount == null;
-    if (statusFilter === "decided") return need.approvedAmount != null;
-    return true;
+    if (statusFilter === "pending" && need.approvedAmount != null) return false;
+    if (statusFilter === "decided" && need.approvedAmount == null) return false;
+    return inDateRange(need.requestDate, dateRangeFilter);
+  });
+  const {
+    visible: visibleNeeds,
+    hasMore,
+    remaining,
+    showMore,
+  } = useLoadMore(filteredNeeds, {
+    initialCount: 25,
+    step: 25,
   });
 
   async function handleAddSubmit(e) {
@@ -231,9 +243,27 @@ export default function AdminOneTimeNeeds() {
           <option value="pending">Pending decision</option>
           <option value="decided">Decided</option>
         </select>
+        <label
+          htmlFor="needs-date-range-filter"
+          style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}
+        >
+          Requested:
+        </label>
+        <select
+          id="needs-date-range-filter"
+          value={dateRangeFilter}
+          onChange={(e) => setDateRangeFilter(e.target.value)}
+          style={{ width: "auto" }}
+        >
+          {DATE_RANGE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {filteredNeeds.map((need) => {
+      {visibleNeeds.map((need) => {
         const entity = entityFor(need);
         const status = statusFor(need);
         return (
@@ -400,6 +430,11 @@ export default function AdminOneTimeNeeds() {
         );
       })}
       {filteredNeeds.length === 0 && <p style={{ color: "#888", marginTop: "1rem" }}>No needs on file.</p>}
+      {hasMore && (
+        <button type="button" className="btn secondary" style={{ marginTop: "1rem" }} onClick={showMore}>
+          Load More ({remaining} remaining)
+        </button>
+      )}
     </div>
   );
 }

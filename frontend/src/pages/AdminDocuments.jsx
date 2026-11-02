@@ -13,6 +13,8 @@ import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
 import { formatDate, todayInputValue } from "../utils/format.js";
+import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
+import useLoadMore from "../hooks/useLoadMore.js";
 
 function formatFileSize(bytes) {
   if (bytes == null) return "";
@@ -59,6 +61,7 @@ export default function AdminDocuments() {
   const [error, setError] = useState("");
   const [entityFilter, setEntityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [dateRangeFilter, setDateRangeFilter] = useState("all");
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({
     partnerId: "",
@@ -175,8 +178,18 @@ export default function AdminDocuments() {
   const filtered = documents.filter(
     (d) =>
       (entityFilter === "all" || entityFor(d).type === entityFilter) &&
-      (categoryFilter === "all" || d.category === categoryFilter)
+      (categoryFilter === "all" || d.category === categoryFilter) &&
+      inDateRange(d.receivedDate, dateRangeFilter)
   );
+  const {
+    visible: visibleDocuments,
+    hasMore,
+    remaining,
+    showMore,
+  } = useLoadMore(filtered, {
+    initialCount: 25,
+    step: 25,
+  });
 
   return (
     <div className="admin-shell">
@@ -307,6 +320,23 @@ export default function AdminDocuments() {
             ))}
           </select>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <label htmlFor="documents-date-range-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>
+            Received:
+          </label>
+          <select
+            id="documents-date-range-filter"
+            value={dateRangeFilter}
+            onChange={(e) => setDateRangeFilter(e.target.value)}
+            style={{ width: "auto" }}
+          >
+            {DATE_RANGE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <table className="admin-table" style={{ marginTop: "1rem" }}>
@@ -323,7 +353,7 @@ export default function AdminDocuments() {
           </tr>
         </thead>
         <tbody>
-          {filtered.map((d) => {
+          {visibleDocuments.map((d) => {
             const entity = entityFor(d);
             return (
               <React.Fragment key={d.id}>
@@ -454,6 +484,11 @@ export default function AdminDocuments() {
           )}
         </tbody>
       </table>
+      {hasMore && (
+        <button type="button" className="btn secondary" style={{ marginTop: "1rem" }} onClick={showMore}>
+          Load More ({remaining} remaining)
+        </button>
+      )}
 
       {scanning && (
         <ExtractionReviewModal

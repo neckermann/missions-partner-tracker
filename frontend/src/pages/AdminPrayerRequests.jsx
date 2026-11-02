@@ -9,6 +9,8 @@ import {
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { formatDate, todayInputValue } from "../utils/format.js";
+import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
+import useLoadMore from "../hooks/useLoadMore.js";
 
 function entityFor(request) {
   const p = request.partner;
@@ -40,6 +42,7 @@ export default function AdminPrayerRequests() {
   const [requests, setRequests] = useState([]);
   const [partners, setPartners] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState("all"); // all | strategic | situational
+  const [dateRangeFilter, setDateRangeFilter] = useState("all");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
   const [saving, setSaving] = useState(false);
@@ -58,8 +61,21 @@ export default function AdminPrayerRequests() {
     fetchPartners().then(setPartners).catch(console.error);
   }, []);
 
-  const filteredRequests = requests.filter((r) => categoryFilter === "all" || r.category === categoryFilter);
+  const filteredRequests = requests.filter(
+    (r) =>
+      (categoryFilter === "all" || r.category === categoryFilter) &&
+      inDateRange(r.dateReceived, dateRangeFilter)
+  );
   const answeredCount = requests.filter((r) => r.status === "answered").length;
+  const {
+    visible: visibleRequests,
+    hasMore,
+    remaining,
+    showMore,
+  } = useLoadMore(filteredRequests, {
+    initialCount: 25,
+    step: 25,
+  });
 
   async function handleAddSubmit(e) {
     e.preventDefault();
@@ -282,9 +298,27 @@ export default function AdminPrayerRequests() {
           <option value="strategic">Strategic</option>
           <option value="situational">Situational</option>
         </select>
+        <label
+          htmlFor="prayer-date-range-filter"
+          style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}
+        >
+          Received:
+        </label>
+        <select
+          id="prayer-date-range-filter"
+          value={dateRangeFilter}
+          onChange={(e) => setDateRangeFilter(e.target.value)}
+          style={{ width: "auto" }}
+        >
+          {DATE_RANGE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {filteredRequests.map((request) => {
+      {visibleRequests.map((request) => {
         const entity = entityFor(request);
         return (
           <div key={request.id} className="repeatable-row" style={{ marginTop: "1rem" }}>
@@ -483,6 +517,11 @@ export default function AdminPrayerRequests() {
       })}
       {filteredRequests.length === 0 && (
         <p style={{ color: "#888", marginTop: "1rem" }}>No prayer requests on file.</p>
+      )}
+      {hasMore && (
+        <button type="button" className="btn secondary" style={{ marginTop: "1rem" }} onClick={showMore}>
+          Load More ({remaining} remaining)
+        </button>
       )}
     </div>
   );

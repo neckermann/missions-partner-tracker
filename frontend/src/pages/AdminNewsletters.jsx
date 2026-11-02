@@ -12,6 +12,8 @@ import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
 import { formatDate, todayInputValue } from "../utils/format.js";
+import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
+import useLoadMore from "../hooks/useLoadMore.js";
 
 function formatFileSize(bytes) {
   if (bytes == null) return "";
@@ -56,6 +58,7 @@ export default function AdminNewsletters() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [entityFilter, setEntityFilter] = useState("all");
+  const [dateRangeFilter, setDateRangeFilter] = useState("all");
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ partnerId: "", title: "", receivedDate: "", notes: "" });
 
@@ -146,7 +149,20 @@ export default function AdminNewsletters() {
     }
   }
 
-  const filtered = newsletters.filter((n) => entityFilter === "all" || entityFor(n).type === entityFilter);
+  const filtered = newsletters.filter(
+    (n) =>
+      (entityFilter === "all" || entityFor(n).type === entityFilter) &&
+      inDateRange(n.receivedDate, dateRangeFilter)
+  );
+  const {
+    visible: visibleNewsletters,
+    hasMore,
+    remaining,
+    showMore,
+  } = useLoadMore(filtered, {
+    initialCount: 25,
+    step: 25,
+  });
 
   return (
     <div className="admin-shell">
@@ -230,6 +246,21 @@ export default function AdminNewsletters() {
           <option value="Missionary">Missionaries</option>
           <option value="Organization">Organizations</option>
         </select>
+        <label htmlFor="newsletters-date-range-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>
+          Received:
+        </label>
+        <select
+          id="newsletters-date-range-filter"
+          value={dateRangeFilter}
+          onChange={(e) => setDateRangeFilter(e.target.value)}
+          style={{ width: "auto" }}
+        >
+          {DATE_RANGE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <table className="admin-table" style={{ marginTop: "1rem" }}>
@@ -244,7 +275,7 @@ export default function AdminNewsletters() {
           </tr>
         </thead>
         <tbody>
-          {filtered.map((n) => {
+          {visibleNewsletters.map((n) => {
             const entity = entityFor(n);
             return (
               <React.Fragment key={n.id}>
@@ -344,6 +375,11 @@ export default function AdminNewsletters() {
           )}
         </tbody>
       </table>
+      {hasMore && (
+        <button type="button" className="btn secondary" style={{ marginTop: "1rem" }} onClick={showMore}>
+          Load More ({remaining} remaining)
+        </button>
+      )}
 
       {scanning && (
         <ExtractionReviewModal

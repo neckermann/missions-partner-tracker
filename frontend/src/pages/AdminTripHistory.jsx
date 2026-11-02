@@ -4,6 +4,7 @@ import { fetchTrips, fetchPartners, createTrip, updateTrip, deleteTrip } from ".
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { formatDate, toDateInputValue } from "../utils/format.js";
+import useLoadMore from "../hooks/useLoadMore.js";
 
 // The API returns full ISO datetime strings for date-only columns --
 function yearOf(value) {
@@ -108,6 +109,12 @@ export default function AdminTripHistory() {
   });
 
   const totalParticipants = filteredTrips.reduce((sum, t) => sum + t.size, 0);
+  const {
+    visible: visibleTrips,
+    hasMore,
+    remaining,
+    showMore,
+  } = useLoadMore(filteredTrips, { initialCount: 25, step: 25 });
 
   function addParticipant(which) {
     const setter = which === "new" ? setNewTrip : setEditForm;
@@ -430,7 +437,7 @@ export default function AdminTripHistory() {
           </tr>
         </thead>
         <tbody>
-          {filteredTrips.map((trip) => {
+          {visibleTrips.map((trip) => {
             const leaders = (trip.participants || []).filter((p) => p.isLeader).map((p) => p.name);
             return (
               <React.Fragment key={trip.id}>
@@ -529,6 +536,11 @@ export default function AdminTripHistory() {
           )}
         </tbody>
       </table>
+      {hasMore && (
+        <button type="button" className="btn secondary" style={{ marginTop: "1rem" }} onClick={showMore}>
+          Load More ({remaining} remaining)
+        </button>
+      )}
     </div>
   );
 }
