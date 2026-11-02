@@ -610,7 +610,7 @@ export default function AdminPartnerDetail() {
                       </span>
                     )}
                   </label>
-                  <label title="Looks up Joshua Project's country statistics for this field/region. Auto-fills from the country entered below, but Joshua Project uses the older FIPS codes, not ISO -- they disagree for some countries, so correct it here if the stats below look wrong.">
+                  <label title="Drives the public directory's country/continent filters and search, the fallback public location for restricted partners, and (if that feature is on) the Joshua Project stats lookup -- matters even with Joshua Project off. Auto-fills from the country entered below, but Joshua Project uses the older FIPS codes, not ISO -- they disagree for some countries, so correct it here if the stats below look wrong.">
                     Country Code (FIPS/ISO)
                     <input
                       value={d.fipsCountryCode}
