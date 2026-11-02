@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { fetchChurchSettings, updateChurchSettings } from "../api/client.js";
+import { fetchChurchSettings, updateChurchSettings, syncAllSendingChurch } from "../api/client.js";
 import AddressFields from "../components/admin/AddressFields.jsx";
 
 const emptyAddress = {
@@ -39,28 +39,51 @@ function mergeFetchedRecord(s) {
 
 export default function AdminSettingsAbout() {
   const [form, setForm] = useState(emptyForm);
+  const [sentByOurChurchCount, setSentByOurChurchCount] = useState(0);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncSuccess, setSyncSuccess] = useState("");
 
   useEffect(() => {
-    fetchChurchSettings().then((s) => setForm(mergeFetchedRecord(s)));
+    fetchChurchSettings().then((s) => {
+      setForm(mergeFetchedRecord(s));
+      setSentByOurChurchCount(s?.sentByOurChurchCount || 0);
+    });
   }, []);
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
     setSuccess("");
+    setSyncSuccess("");
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
     setSuccess("");
+    setSyncSuccess("");
     try {
       const updated = await updateChurchSettings(form);
       setForm(mergeFetchedRecord(updated));
       setSuccess("Saved.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Only offered right after a save, next to "Saved." -- the moment this
+  // info just changed is exactly when it's worth asking "push that out to
+  // everyone sent by us?", rather than a button sitting there permanently
+  // regardless of whether anything's actually out of date.
+  async function handleSyncAll() {
+    setSyncing(true);
+    setSyncSuccess("");
+    try {
+      const { updatedCount } = await syncAllSendingChurch();
+      setSyncSuccess(`Updated ${updatedCount} partner${updatedCount === 1 ? "" : "s"}.`);
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -109,6 +132,23 @@ export default function AdminSettingsAbout() {
             {saving ? "Saving..." : "Save"}
           </button>
           {success && <span style={{ color: "#2a5d3c" }}>{success}</span>}
+          {success && sentByOurChurchCount > 0 && (
+            <>
+              <span style={{ color: "#555" }}>
+                {sentByOurChurchCount} partner{sentByOurChurchCount === 1 ? "" : "s"} marked &ldquo;Sent by
+                our church.&rdquo;
+              </span>
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={handleSyncAll}
+                disabled={syncing}
+              >
+                {syncing ? "Updating..." : "Update them all with this info"}
+              </button>
+            </>
+          )}
+          {syncSuccess && <span style={{ color: "#2a5d3c" }}>{syncSuccess}</span>}
         </div>
       </form>
     </div>

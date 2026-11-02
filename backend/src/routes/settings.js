@@ -88,10 +88,16 @@ const settingsSchema = z.object({
 // GET /api/settings (any logged-in role) — null if never configured yet.
 router.get("/", async (req, res, next) => {
   try {
-    const settings = await prisma.churchSettings.findUnique({
-      where: { id: "singleton" },
-      omit: { logoBytes: true, groupmeAccessToken: true, joshuaProjectApiKey: true, anthropicApiKey: true },
-    });
+    const [settings, sentByOurChurchCount] = await Promise.all([
+      prisma.churchSettings.findUnique({
+        where: { id: "singleton" },
+        omit: { logoBytes: true, groupmeAccessToken: true, joshuaProjectApiKey: true, anthropicApiKey: true },
+      }),
+      // Backs the bulk "Sync from Church Settings" action on the About
+      // Church page (AdminSettingsAbout.jsx) -- cheap enough to include on
+      // every settings fetch rather than a dedicated endpoint.
+      prisma.partner.count({ where: { sentByOurChurch: true } }),
+    ]);
     // Registry metadata (label/description) travels with the response
     // instead of being duplicated in the frontend.
     const featureRegistry = FEATURE_KEYS.map((key) => ({
@@ -101,7 +107,7 @@ router.get("/", async (req, res, next) => {
       defaultEnabled: FEATURES[key].defaultEnabled,
       group: FEATURES[key].group,
     }));
-    res.json({ ...shapeSettings(settings), featureRegistry });
+    res.json({ ...shapeSettings(settings), featureRegistry, sentByOurChurchCount });
   } catch (err) {
     next(err);
   }
