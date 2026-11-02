@@ -39,16 +39,22 @@ function SidebarLink({ to, label, end }) {
 }
 
 // Manage Users, Branding, Enabled Features, About Church --
-// order as specified, not alphabetical or route order.
-const SITE_ADMIN_LINKS = [
-  { to: "/admin/settings/users", label: "Manage Users" },
-  { to: "/admin/settings/branding", label: "Branding" },
-  { to: "/admin/settings/features", label: "Enabled Features" },
-  { to: "/admin/settings/about", label: "About Church" },
-  { to: "/admin/settings/groupme", label: "GroupMe" },
-  { to: "/admin/settings/joshua-project", label: "Joshua Project" },
-  { to: "/admin/settings/ai-extraction", label: "AI Request Scanning" },
-];
+// order as specified, not alphabetical or route order. The last three are
+// settings pages for features that can be toggled off (see
+// AdminSettingsFeatures.jsx) -- same reasoning as buildLinks() above:
+// no point linking to a settings page for a feature that's off everywhere
+// else in the app.
+function buildSiteAdminLinks(enabledFeatures) {
+  return [
+    { to: "/admin/settings/users", label: "Manage Users" },
+    { to: "/admin/settings/branding", label: "Branding" },
+    { to: "/admin/settings/features", label: "Enabled Features" },
+    { to: "/admin/settings/about", label: "About Church" },
+    enabledFeatures.groupme && { to: "/admin/settings/groupme", label: "GroupMe" },
+    enabledFeatures.joshuaProject && { to: "/admin/settings/joshua-project", label: "Joshua Project" },
+    enabledFeatures.aiExtraction && { to: "/admin/settings/ai-extraction", label: "AI Request Scanning" },
+  ].filter(Boolean);
+}
 
 export default function AdminSidebar() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -61,6 +67,7 @@ export default function AdminSidebar() {
   const location = useLocation();
   const { churchName, partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const links = buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures);
+  const siteAdminLinks = buildSiteAdminLinks(enabledFeatures);
   const title = churchName ? `${churchName} Admin` : "Missions Team Admin";
   const inSiteAdmin = location.pathname.startsWith("/admin/settings");
   const showSiteAdmin = expanded || inSiteAdmin;
@@ -90,7 +97,7 @@ export default function AdminSidebar() {
             </button>
             {showSiteAdmin && (
               <div className="admin-sidebar-subnav">
-                {SITE_ADMIN_LINKS.map((link) => (
+                {siteAdminLinks.map((link) => (
                   <SidebarLink key={link.to} {...link} />
                 ))}
               </div>
