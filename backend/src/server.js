@@ -29,6 +29,7 @@ const settingsRoutes = require("./routes/settings");
 const publicSettingsRoutes = require("./routes/publicSettings");
 const versionRoutes = require("./routes/version");
 const backupCheckRoutes = require("./routes/backupCheck");
+const backupsRoutes = require("./routes/backups");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -141,6 +142,13 @@ app.use("/api/auth/change-password", sensitiveAuthLimiter);
 // endpoints, not to throttle normal browsing.
 app.use("/api/public", rateLimit({ windowMs: 60 * 1000, max: 120 }));
 
+// Building the whole database as a file is the heaviest single request
+// this app serves, and the result is the most sensitive file it can
+// produce (see routes/backups.js) — already behind requireRole("admin"),
+// this just keeps a compromised or careless admin session from being
+// used to pull it on a loop.
+app.use("/api/backups", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }));
+
 // --- Routes ---
 app.use("/api/auth", authRoutes);
 app.use("/api/partners", partnerRoutes); // protected (admin) — session required
@@ -159,6 +167,7 @@ app.use("/api/settings", settingsRoutes); // protected (admin for write, any rol
 app.use("/api/public/settings", publicSettingsRoutes); // open (public site + admin nav branding)
 app.use("/api/version-check", versionRoutes); // protected (admin role only)
 app.use("/api/backup-check", backupCheckRoutes); // protected (admin role only)
+app.use("/api/backups", backupsRoutes); // protected (admin role only)
 
 // Only exists at all if DEMO_RESET_TOKEN is configured — absent in every
 // normal deployment. See ADMIN_GUIDE.md § Demo mode.

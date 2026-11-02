@@ -38,18 +38,21 @@ function SidebarLink({ to, label, end }) {
   );
 }
 
-// Manage Users, Branding, Enabled Features, About Church --
-// order as specified, not alphabetical or route order. The last three are
-// settings pages for features that can be toggled off (see
-// AdminSettingsFeatures.jsx) -- same reasoning as buildLinks() above:
-// no point linking to a settings page for a feature that's off everywhere
-// else in the app.
+// Manage Users, Branding, Enabled Features, About Church, Backups --
+// order as specified, not alphabetical or route order. Backups sits with
+// these four (not the optional-integration links below it) since every
+// church needs it regardless of which features are on -- not gated by a
+// feature toggle for the same reason. The last three below it ARE settings
+// pages for features that can be toggled off (see AdminSettingsFeatures.jsx)
+// -- same reasoning as buildLinks() above: no point linking to a settings
+// page for a feature that's off everywhere else in the app.
 function buildSiteAdminLinks(enabledFeatures) {
   return [
     { to: "/admin/settings/users", label: "Manage Users" },
     { to: "/admin/settings/branding", label: "Branding" },
     { to: "/admin/settings/features", label: "Enabled Features" },
     { to: "/admin/settings/about", label: "About Church" },
+    { to: "/admin/settings/backups", label: "Backups" },
     enabledFeatures.groupme && { to: "/admin/settings/groupme", label: "GroupMe" },
     enabledFeatures.joshuaProject && { to: "/admin/settings/joshua-project", label: "Joshua Project" },
     enabledFeatures.aiExtraction && { to: "/admin/settings/ai-extraction", label: "AI Request Scanning" },

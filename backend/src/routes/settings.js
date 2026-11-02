@@ -79,6 +79,10 @@ const settingsSchema = z.object({
   // 4 requires every enum key present, rejecting a sparse map like
   // { aiExtraction: true } with the other three keys just absent.
   enabledFeatures: z.partialRecord(z.enum(FEATURE_KEYS), z.boolean()).optional(),
+  // See the field's comment in schema.prisma -- a deliberate, permanent
+  // opt-out of BackupReminder.jsx, distinct from that component's own
+  // dismiss-for-30-days.
+  backupReminderDisabled: z.boolean().optional(),
 });
 
 // GET /api/settings (any logged-in role) — null if never configured yet.

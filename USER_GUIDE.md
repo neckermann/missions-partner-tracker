@@ -64,8 +64,9 @@ to everyone, each one only if its
 [feature toggle](ADMIN_GUIDE.md#feature-toggles) is on. **Site
 Administration**, an expandable group at the bottom of the
 sidebar, appears only for admins and holds **Manage Users**, **Branding**,
-**Enabled Features**, **About Church**, and **GroupMe** — see
-[Church Settings](#church-settings-admin-only) and
+**Enabled Features**, **About Church**, **Backups**, and **GroupMe** —
+see [Church Settings](#church-settings-admin-only),
+[Database Backups](#database-backups-admin-only), and
 [GroupMe notifications](#groupme-notifications-admin-only) below. The
 footer has **My Account**, a link back to the public site, and **Log
 out**.
@@ -622,6 +623,26 @@ and the app won't let you demote, deactivate, or delete the last active
 admin — there's always at least one way back in.
 
 ![The Manage Users page, listing role, auth provider, and MFA status](docs/assets/screenshots/manage-users.png)
+
+## Database Backups (Admin only)
+
+**Backups**, under Site Administration, lets any admin download a full
+backup of everything in the database — every partner, user, and uploaded
+file — as a single file, on demand, with no setup required. Nothing is
+kept server-side; the download is the only copy, so save it somewhere
+safe right away. The file is unmasked and highly sensitive (restricted
+partners' real data, password hashes, encrypted two-factor secrets) —
+treat it accordingly. Restoring one is a deliberate command-line step,
+not a button — see
+[ADMIN_GUIDE.md § Database backups](ADMIN_GUIDE.md#database-backups) for
+the full runbook.
+
+The same page also has a periodic reminder banner (asking you to confirm
+your database provider's own backups are working) with an explicit,
+permanent opt-out for a church that's already confirmed that elsewhere —
+checking that box requires a deliberate save, not just a casual dismiss.
+
+![The Backups page: a Back up now button and the opt-out for the periodic reminder](docs/assets/screenshots/backups-settings.png)
 
 ## Your account settings
 
