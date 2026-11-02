@@ -97,6 +97,28 @@ async function notifyGroupMe(topicId, buildText) {
   }
 }
 
+// Links straight at GET /:id/download, same URL NewsletterSection.jsx's/
+// DocumentSection.jsx's own "View" button opens, and the same URL the
+// "From: ..." link on an admin card opens (see ScanSourceLink.jsx) --
+// despite the route name, that's an inline view for PDF/JPEG/PNG
+// (utils/fileResponse.js sets Content-Disposition: inline for those,
+// forces an actual download only for .eml, which can't safely render
+// inline -- see that file's comment), so this is a genuine direct link
+// to the file's content, not just to the partner's page. Still
+// requireAuth'd (no public route for either), so whoever clicks it needs
+// to be logged in already, same as any other admin link shared outside
+// the app. Resolves to "" (not built into the message at all) whenever
+// appBaseUrl() can't resolve, or the record has no source set -- a
+// promised link that then doesn't work would be worse than no link.
+function sourceLinkLine(record) {
+  const base = appBaseUrl();
+  if (!base) return "";
+  if (record.sourceNewsletter)
+    return `\n\nFrom: ${base}/api/newsletters/${record.sourceNewsletter.id}/download`;
+  if (record.sourceDocument) return `\n\nFrom: ${base}/api/documents/${record.sourceDocument.id}/download`;
+  return "";
+}
+
 // Fire-and-log, not fire-and-throw: a church's GroupMe setup being broken
 // or GroupMe being down should never block saving a prayer request. The
 // caller (routes/prayerRequests.js) still wraps this in its own
@@ -106,7 +128,8 @@ async function notifyPrayerRequestCreated(prayerRequest) {
   const partnerName = prayerRequest.partner?.displayName || "A partner";
   await notifyGroupMe(
     "groupmePrayerTopicId",
-    () => `🙏 New prayer request from ${partnerName}:\n${prayerRequest.requestText}`
+    () =>
+      `🙏 New prayer request from ${partnerName}:\n${prayerRequest.requestText}${sourceLinkLine(prayerRequest)}`
   );
 }
 
@@ -118,23 +141,13 @@ async function notifySupportNeedCreated(supportNeed) {
     () =>
       `🎁 New one-time need from ${partnerName}:\n` +
       `Be praying about this opportunity — we'll talk about it more at our next meeting.\n\n` +
-      `${supportNeed.description}`
+      `${supportNeed.description}${sourceLinkLine(supportNeed)}`
   );
 }
 
-// Same fire-and-log reasoning as above -- caller is routes/newsletters.js.
-// Links straight at GET /:id/download, same URL NewsletterSection.jsx's
-// own "View" button opens -- despite the route name, that's an inline
-// view for PDF/JPEG/PNG (utils/fileResponse.js sets Content-Disposition:
-// inline for those, forces an actual download only for .eml, which can't
-// safely render inline -- see that file's comment), so this is a genuine
-// direct link to the letter's content, not just to the partner's page.
-// Still requireAuth'd (newsletters have no public route at all), so
-// whoever clicks it needs to be logged in already, same as any other
-// admin link shared outside the app. The link only gets built (and the
-// notification only posts) when appBaseUrl() resolves to something -- a
-// message promising a link that then doesn't work would be worse than no
-// notification at all.
+// appBaseUrl() builds the direct-link URL the newsletter notification
+// (and sourceLinkLine above) both need -- the link only gets built (and
+// the notification only posts) when it resolves to something.
 function appBaseUrl() {
   // APP_BASE_URL is the explicit override (required for any host other
   // than Render, since nothing else exposes its own public URL to the

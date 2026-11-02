@@ -315,6 +315,63 @@ describe("prayer request creation never fails because of GroupMe", () => {
       unmockGroupMe();
     }
   });
+
+  test("a prayer request with a source newsletter includes a direct link to it", async () => {
+    const form = new FormData();
+    form.set("file", new Blob([Buffer.from("%PDF-1.4 test")], { type: "application/pdf" }), "t.pdf");
+    form.set("partnerId", partnerId);
+    form.set("receivedDate", "2026-01-01");
+    const newsletter = await admin("/api/newsletters", { method: "POST", body: form });
+    assert.equal(newsletter.status, 201);
+
+    let capturedText = null;
+    mockGroupMe(async (url, options) => {
+      capturedText = JSON.parse(options.body).message.text;
+      return groupmeJson(202, { response: null });
+    });
+    try {
+      const res = await admin("/api/prayer-requests", {
+        method: "POST",
+        body: {
+          partnerId,
+          category: "situational",
+          requestText: `${FIXTURE_TAG} scanned from a newsletter`,
+          dateReceived: "2026-01-01",
+          sourceNewsletterId: newsletter.body.id,
+        },
+      });
+      assert.equal(res.status, 201);
+      assert.ok(
+        capturedText?.includes(`From: http://localhost:4000/api/newsletters/${newsletter.body.id}/download`),
+        capturedText
+      );
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("a prayer request with no source carries no 'From:' line at all", async () => {
+    let capturedText = null;
+    mockGroupMe(async (url, options) => {
+      capturedText = JSON.parse(options.body).message.text;
+      return groupmeJson(202, { response: null });
+    });
+    try {
+      const res = await admin("/api/prayer-requests", {
+        method: "POST",
+        body: {
+          partnerId,
+          category: "situational",
+          requestText: `${FIXTURE_TAG} no source here`,
+          dateReceived: "2026-01-01",
+        },
+      });
+      assert.equal(res.status, 201);
+      assert.ok(!capturedText?.includes("From:"), capturedText);
+    } finally {
+      unmockGroupMe();
+    }
+  });
 });
 
 describe("support need creation never fails because of GroupMe", () => {
@@ -375,6 +432,41 @@ describe("support need creation never fails because of GroupMe", () => {
       });
       assert.equal(res.status, 201);
       assert.ok(capturedUrl?.includes("/groups/fake-need-topic-id/messages"), capturedUrl);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("a one-time need with a source document includes a direct link to it", async () => {
+    const form = new FormData();
+    form.set("file", new Blob([Buffer.from("%PDF-1.4 test")], { type: "application/pdf" }), "t.pdf");
+    form.set("partnerId", partnerId);
+    form.set("category", "office_document");
+    form.set("receivedDate", "2026-01-01");
+    const document = await admin("/api/documents", { method: "POST", body: form });
+    assert.equal(document.status, 201);
+
+    let capturedText = null;
+    mockGroupMe(async (url, options) => {
+      capturedText = JSON.parse(options.body).message.text;
+      return groupmeJson(202, { response: null });
+    });
+    try {
+      const res = await admin("/api/support-needs", {
+        method: "POST",
+        body: {
+          partnerId,
+          description: `${FIXTURE_TAG} scanned from a document`,
+          requestedAmount: 250,
+          requestDate: "2026-01-01",
+          sourceDocumentId: document.body.id,
+        },
+      });
+      assert.equal(res.status, 201);
+      assert.ok(
+        capturedText?.includes(`From: http://localhost:4000/api/documents/${document.body.id}/download`),
+        capturedText
+      );
     } finally {
       unmockGroupMe();
     }
