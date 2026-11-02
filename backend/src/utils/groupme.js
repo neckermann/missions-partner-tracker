@@ -113,7 +113,8 @@ async function notifyGroupMe(topicId, buildText) {
 function sourceLinkLine(record) {
   const base = appBaseUrl();
   if (!base) return "";
-  if (record.sourceNewsletter) return `\n\nFrom: ${base}/api/newsletters/${record.sourceNewsletter.id}/download`;
+  if (record.sourceNewsletter)
+    return `\n\nFrom: ${base}/api/newsletters/${record.sourceNewsletter.id}/download`;
   if (record.sourceDocument) return `\n\nFrom: ${base}/api/documents/${record.sourceDocument.id}/download`;
   return "";
 }
@@ -127,7 +128,8 @@ async function notifyPrayerRequestCreated(prayerRequest) {
   const partnerName = prayerRequest.partner?.displayName || "A partner";
   await notifyGroupMe(
     "groupmePrayerTopicId",
-    () => `🙏 New prayer request from ${partnerName}:\n${prayerRequest.requestText}${sourceLinkLine(prayerRequest)}`
+    () =>
+      `🙏 New prayer request from ${partnerName}:\n${prayerRequest.requestText}${sourceLinkLine(prayerRequest)}`
   );
 }
 
