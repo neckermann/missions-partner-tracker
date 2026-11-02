@@ -100,16 +100,22 @@ any row to view that partner's detail page.
 ### Creating a missionary
 
 **+ Add Missionary** opens a short form asking just for what can't be
-filled in later from the record itself: Display Name (required),
-Country, Field/Region Display Name, a Short Overview, and four
-checkboxes — **Safe to contact**, **Show on public site** (`isPublic`),
-**Restricted-access location** (`isRestricted` — see
+filled in later from the record itself, plus a couple of fields that are
+usually already known the moment you're adding someone and don't need
+their own detail-page trip: Display Name (required), Country,
+Field/Region Display Name, a Short Overview, **Preferred Contact
+Method**, **Supporting Since**, and four checkboxes — **Safe to
+contact**, **Show on public site** (`isPublic`), **Restricted-access
+location** (`isRestricted` — see
 [Understanding restricted-access partners](#understanding-restricted-access-partners)
 below before checking this), and **Sent by {your church}**. **Create
 Partner** saves it and takes you straight to its detail page, where
 everything else — photo, financial support, ministry overview, serving
 location, family, trip history, and the rest — gets filled in section by
-section. See [Editing a partner](#editing-a-partner) below.
+section. See [Editing a partner](#editing-a-partner) below. Hover any
+field's label for a tip on what it means and how it's used.
+
+![The New Partner form, with Preferred Contact Method and Supporting Since alongside the basics](docs/assets/screenshots/new-partner-form.png)
 
 ### Creating an organization
 

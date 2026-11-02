@@ -801,7 +801,7 @@ export default function AdminPartnerDetail() {
                   <>
                     {key === "sendingChurch" && (
                       <div className="admin-checkbox-row" style={{ marginBottom: "1rem" }}>
-                        <label title="Fills in the blank fields below from this church's own settings -- it only fills blanks, never overwrites anything already entered, and unchecking won't clear anything.">
+                        <label title="Fills in the Sending Church section below from this church's own info, overwriting anything already there. A later Church Settings change doesn't update this on its own -- use the bulk update on the About Church page for that. Unchecking never clears what's there.">
                           <input
                             type="checkbox"
                             checked={d.sentByOurChurch}
