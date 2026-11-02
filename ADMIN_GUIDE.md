@@ -25,63 +25,78 @@ around, and a cookie is safer than a token sitting in `localStorage`
 (which any JS running on the page — including via an XSS bug — can read;
 an `httpOnly` cookie can't be read by JS at all).
 
-## Local development setup
+## Getting your church running (Render)
 
-1. **Prerequisites**: Node.js 20.19+ or 22.12+ (required by Vite 8), and a
-   Postgres database (local, Docker, or a free cloud instance like
-   [Neon](https://neon.tech) or [Supabase](https://supabase.com)). Photos,
-   newsletters, and documents are stored in that same database — no
-   separate file storage to set up, see [File storage](#file-storage)
-   below.
-2. **Backend**:
+**This is the path almost every church should start with.** You don't
+need to know how to code, run a database, or use a command-line tool
+beyond the one short command below — Render hosts the database and the
+app for you, and keeps it updated automatically. If you're planning to
+contribute code to this project instead of running it for your own
+church, see [Local development setup](#local-development-setup)
+further down.
+
+This repo doesn't run a live deployment itself — it's the open-source
+upstream that your church's own fork deploys from (see
+[Upgrading a fork](#upgrading-a-fork) for how your copy keeps getting
+updates later). The deployment itself goes through
+[Render](https://render.com), via [`render.yaml`](../render.yaml) at the
+repo root — a Blueprint that provisions the web service and Postgres
+database (which also holds every uploaded photo, newsletter, and
+document — see [File storage](#file-storage) below, nothing extra to
+provision) in one step:
+
+1. Make your own copy of this repo, then name it and pick a region:
+
    ```bash
-   cd backend
-   cp .env.example .env       # fill in DATABASE_URL, SESSION_SECRET, etc. — see reference below
-   npm install
-   npm run prisma:migrate     # creates tables
-   npm run seed                # optional: ~35 fake partners for demoing the UI
-   node prisma/createAdmin.js you@yourchurch.org "SomeStrongPassword!"
-   npm run dev                  # http://localhost:4000
+   npm run name-instance -- your-church-name oregon
    ```
-3. **Frontend**:
-   ```bash
-   cd frontend
-   npm install
-   npm run dev                  # http://localhost:5173
-   ```
-   No frontend `.env` needed locally — Vite proxies `/api` to
-   `http://localhost:4000` automatically (see `frontend/vite.config.js`).
-4. Visit `http://localhost:5173/login` and sign in with the account you
-   just created.
-   configured.
 
-### Building for production
+   The name becomes your URL (`your-church-name.onrender.com`); the
+   region defaults to `oregon` (valid: `oregon`, `ohio`, `virginia`,
+   `frankfurt`, `singapore` — the database and web service must match).
+   Render's Blueprint deploy has no picker for either, so both have to
+   be set in `render.yaml` before you deploy.
 
-```bash
-cd frontend
-npm run build      # writes into backend/public — see vite.config.js
-```
-The build writes directly into `backend/public` (not `frontend/dist`) so
-the backend can serve it as a plain sibling directory — see
-`backend/src/server.js`'s static-file serving. No env var to set: the
-frontend always calls `/api` on its own origin, since the backend is
-always what serves it.
+   **Choose the region carefully: it cannot be changed afterwards.**
+   Render won't move an existing service, and editing this later just
+   makes every Blueprint sync fail silently while the site keeps
+   running. Getting it wrong means destroying and recreating both the
+   service and the database.
+2. Render Dashboard → **New → Blueprint** → pick your fork. The first
+   time you do this with a private fork, Render needs its GitHub App
+   authorized on that repo (Dashboard → Account Settings → GitHub →
+   Configure) — a one-time step.
+3. Render prompts for the handful of optional variables `render.yaml`
+   marks `sync: false` (`MFA_ISSUER`, etc. — see
+   [Environment variables](#environment-variables) below); leave them
+   blank to skip those optional features for now. `SESSION_SECRET` and
+   `FIELD_ENCRYPTION_KEY` are generated automatically, nothing to enter.
+4. Apply the blueprint. Render builds, runs `prisma migrate deploy` as a
+   pre-deploy step, and starts the app — no separate migration step to
+   remember.
+5. Visit your new site and go to `/setup` (or just `/login` — a fresh
+   instance redirects there automatically) to create your first admin
+   account, right in the browser. No shell access, no
+   `DATABASE_URL`/`createAdmin.js` needed — the point of a one-click
+   deploy is defeated if the very first login still requires a terminal.
 
-The backend itself has no build step beyond that — `npm run start` runs
-`src/server.js` directly, and it'll serve whatever's currently in
-`backend/public`. Deploying the app means deploying `backend/` *after*
-running the frontend build, so `backend/public` is populated — see
-[Deploying to production](#deploying-to-production).
+Costs about $13/mo on Render's cheapest paid tiers — free tier exists
+but isn't viable for anything long-lived (the web service sleeps after
+15min idle, and the database gets deleted after 90 days). Every push to
+your fork's `main` redeploys automatically; `.github/workflows/ci.yml`
+runs the test suite and a real end-to-end Playwright pass on every PR
+and push, independent of deployment.
 
-### Running tests
+Once you're up and running, [Environment variables](#environment-variables)
+and [Feature toggles](#feature-toggles) below cover what to configure
+next, and [Before you deploy a fork, change these](#before-you-deploy-a-fork-change-these)
+lists the couple of values worth double-checking before you tell anyone
+the URL.
 
-```bash
-cd backend
-npm test
-```
-Covers the public/restricted data-masking rules and the auth middleware —
-see [CONTRIBUTING.md § Running tests](CONTRIBUTING.md#running-tests) for
-what is and isn't covered yet. There's no frontend test suite currently.
+Not using Render, or want to run it yourself on other infrastructure
+instead? See [Deploying to production](#deploying-to-production) further
+down — same app, same steps in spirit, just without Render's one-click
+Blueprint doing the provisioning for you.
 
 ## Environment variables
 
@@ -149,7 +164,7 @@ route in `main.jsx`, not a restructure.
 Accounts are email and password, optionally with TOTP two-factor. There is
 nothing to configure beyond your first admin account, created at `/setup`
 on a fresh deploy or with `createAdmin.js` — see
-[Deploying to production](#deploying-to-production).
+[Getting your church running](#getting-your-church-running-render) above.
 
 This app deliberately has no single sign-on. An earlier version supported
 OIDC, but it auto-provisioned an account for anyone who could authenticate
@@ -224,65 +239,79 @@ These aren't env-configurable — if your instance needs different limits
 a `429` response; that's a sign the limit needs raising for your traffic,
 not a bug to work around.
 
+## Local development setup
+
+**This section is for contributing code to the project itself.** If you
+just want to run this app for your own church, you don't need any of
+this — see [Getting your church running](#getting-your-church-running-render)
+above instead.
+
+1. **Prerequisites**: Node.js 20.19+ or 22.12+ (required by Vite 8), and a
+   Postgres database (local, Docker, or a free cloud instance like
+   [Neon](https://neon.tech) or [Supabase](https://supabase.com)). Photos,
+   newsletters, and documents are stored in that same database — no
+   separate file storage to set up, see [File storage](#file-storage)
+   above.
+2. **Backend**:
+   ```bash
+   cd backend
+   cp .env.example .env       # fill in DATABASE_URL, SESSION_SECRET, etc. — see reference above
+   npm install
+   npm run prisma:migrate     # creates tables
+   npm run seed                # optional: ~35 fake partners for demoing the UI
+   node prisma/createAdmin.js you@yourchurch.org "SomeStrongPassword!"
+   npm run dev                  # http://localhost:4000
+   ```
+3. **Frontend**:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev                  # http://localhost:5173
+   ```
+   No frontend `.env` needed locally — Vite proxies `/api` to
+   `http://localhost:4000` automatically (see `frontend/vite.config.js`).
+4. Visit `http://localhost:5173/login` and sign in with the account you
+   just created.
+
+### Building for production
+
+```bash
+cd frontend
+npm run build      # writes into backend/public — see vite.config.js
+```
+The build writes directly into `backend/public` (not `frontend/dist`) so
+the backend can serve it as a plain sibling directory — see
+`backend/src/server.js`'s static-file serving. No env var to set: the
+frontend always calls `/api` on its own origin, since the backend is
+always what serves it.
+
+The backend itself has no build step beyond that — `npm run start` runs
+`src/server.js` directly, and it'll serve whatever's currently in
+`backend/public`. Deploying the app means deploying `backend/` *after*
+running the frontend build, so `backend/public` is populated — see
+[Deploying to production](#deploying-to-production) below.
+
+### Running tests
+
+```bash
+cd backend
+npm test
+```
+Covers the public/restricted data-masking rules and the auth middleware —
+see [CONTRIBUTING.md § Running tests](CONTRIBUTING.md#running-tests) for
+what is and isn't covered yet. There's no frontend test suite currently.
+
 ## Deploying to production
+
+**Already using Render?** See
+[Getting your church running](#getting-your-church-running-render) above
+— it covers the one-click path end to end. This section is for running
+the app yourself on other infrastructure instead.
 
 The app is two pieces: a Postgres database, and the app itself — one
 Node/Express process that serves both the API and the built frontend.
 There's no separate frontend host to configure or keep in sync; deploying
 the backend *is* deploying the whole app.
-
-### Reference deployment (Render)
-
-This repo doesn't run a live deployment itself — it's the open-source
-upstream that a church's own fork deploys from (see
-[Upgrading a fork](#upgrading-a-fork)). The reference deployment is
-[Render](https://render.com), via [`render.yaml`](../render.yaml) at the
-repo root — a Blueprint that provisions the web service and Postgres
-database (which also holds every uploaded photo, newsletter, and
-document — see [File storage](#file-storage) above, nothing extra to
-provision) in one step:
-
-1. Make your own copy of this repo, then name it and pick a region:
-
-   ```bash
-   npm run name-instance -- your-church-name oregon
-   ```
-
-   The name becomes your URL (`your-church-name.onrender.com`); the
-   region defaults to `oregon` (valid: `oregon`, `ohio`, `virginia`,
-   `frankfurt`, `singapore` — the database and web service must match).
-   Render's Blueprint deploy has no picker for either, so both have to
-   be set in `render.yaml` before you deploy.
-
-   **Choose the region carefully: it cannot be changed afterwards.**
-   Render won't move an existing service, and editing this later just
-   makes every Blueprint sync fail silently while the site keeps
-   running. Getting it wrong means destroying and recreating both the
-   service and the database.
-2. Render Dashboard → **New → Blueprint** → pick your fork. The first
-   time you do this with a private fork, Render needs its GitHub App
-   authorized on that repo (Dashboard → Account Settings → GitHub →
-   Configure) — a one-time step.
-3. Render prompts for the handful of optional variables `render.yaml`
-   marks `sync: false` (`MFA_ISSUER`, etc. — see
-   [Environment variables](#environment-variables)); leave them blank
-   to skip those optional features for now. `SESSION_SECRET` and
-   `FIELD_ENCRYPTION_KEY` are generated automatically, nothing to enter.
-4. Apply the blueprint. Render builds, runs `prisma migrate deploy` as a
-   pre-deploy step, and starts the app — no separate migration step to
-   remember.
-5. Visit your new site and go to `/setup` (or just `/login` — a fresh
-   instance redirects there automatically) to create your first admin
-   account, right in the browser. No shell access, no
-   `DATABASE_URL`/`createAdmin.js` needed — the point of a one-click
-   deploy is defeated if the very first login still requires a terminal.
-
-Costs about $13/mo on Render's cheapest paid tiers — free tier exists
-but isn't viable for anything long-lived (the web service sleeps after
-15min idle, and the database gets deleted after 90 days). Every push to
-your fork's `main` redeploys automatically; `.github/workflows/ci.yml`
-runs the test suite and a real end-to-end Playwright pass on every PR
-and push, independent of deployment.
 
 ### Deploying anywhere else
 
