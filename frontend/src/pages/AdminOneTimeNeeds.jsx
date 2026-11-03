@@ -435,10 +435,7 @@ export default function AdminOneTimeNeeds() {
                     </div>
                   )}
                 </div>
-                <SourceLink
-                  sourceNewsletter={need.sourceNewsletter}
-                  sourceDocument={need.sourceDocument}
-                />
+                <SourceLink sourceNewsletter={need.sourceNewsletter} sourceDocument={need.sourceDocument} />
               </>
             )}
 

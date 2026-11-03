@@ -539,10 +539,7 @@ export default function AdminPrayerRequests() {
                 </div>
               )}
             </div>
-            <SourceLink
-              sourceNewsletter={request.sourceNewsletter}
-              sourceDocument={request.sourceDocument}
-            />
+            <SourceLink sourceNewsletter={request.sourceNewsletter} sourceDocument={request.sourceDocument} />
 
             {answeringId === request.id && (
               <div

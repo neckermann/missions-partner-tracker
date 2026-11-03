@@ -347,11 +347,12 @@ status pill (Pending Decision / Fully Funded / Partially Funded /
 Declined) computed from the approved vs. requested amount. **+ Add Need**
 adds one without leaving the page; an undecided need gets a **Record
 Decision** button to fill in the approved amount/date once your church
-has made a call. A need added from a scan, or pointed at a newsletter/
-document by hand via its **Source** dropdown, shows a "From: ..." link
-back to that file — see
-[Linking a request or need to its source document](#linking-a-request-or-need-to-its-source-document)
-below.
+has made a call. Both **+ Add Need** and its Edit form have a **Source
+(optional)** dropdown listing that partner's newsletters and documents —
+pick one if you read it yourself and typed the need in, or leave it as
+"None." A need pointed at a source this way, or added automatically by
+[AI Request Scanning](#ai-request-scanning-admin-only), shows a
+"From: ..." link back to that file, rendered the same either way.
 
 ![The One-Time Needs page, with status pills per need](docs/assets/screenshots/one-time-needs.png)
 
@@ -427,30 +428,17 @@ which partner it's filed under; **Delete** removes it permanently.
 
 ![The central Documents page, filterable by category and partner](docs/assets/screenshots/documents.png)
 
-## Linking a request or need to its source document
-
-A prayer request or one-time need can point back to the newsletter or
-document it came from, shown as a "From: ..." link on its card, admin-only.
-Two independent ways to set it:
-
-- **By hand**: every **+ Add Prayer Request**/**+ Add Need** form (and
-  their Edit forms) has a **Source (optional)** dropdown, listing that
-  partner's newsletters and documents — pick one if you read it yourself
-  and typed the request in. Picking "None" (the default) leaves it
-  unlinked.
-- **Automatically**: accepting a suggestion from
-  [AI Request Scanning](#ai-request-scanning-admin-only) sets it for you.
-
-Both produce the same link, rendered identically regardless of which one set it.
-
-![The Source (optional) dropdown on the Add Prayer Request form, listing this partner's newsletters and documents](docs/assets/screenshots/source-picker.png)
-
 ## Prayer Requests
 
 Meant as a long-term record of what's been prayed for and how it was
 answered — not a checklist. Add one from a partner's detail page or the
 central **Prayer Requests** page (pick the partner, category, and the
-request itself).
+request itself). **+ Add Prayer Request** and its Edit form also have a
+**Source (optional)** dropdown listing that partner's newsletters and
+documents — pick one if you read it yourself and typed the request in,
+or leave it as "None."
+
+![The Source (optional) dropdown on the Add Prayer Request form, listing this partner's newsletters and documents](docs/assets/screenshots/source-picker.png)
 
 - **Category** is **Strategic** (tied to the ministry's long-term vision
   or calling — church planting, discipleship, language study, funding —
@@ -482,11 +470,9 @@ request itself).
 
 The central **Prayer Requests** page lists every request across every
 partner, filterable by category, with a running count of how many have
-been answered so far. A request added from a scan, or pointed at a
-newsletter/document by hand via its **Source** dropdown, shows a
-"From: ..." link back to that file — see
-[Linking a request or need to its source document](#linking-a-request-or-need-to-its-source-document)
-above.
+been answered so far. A request pointed at a source this way, or added
+automatically by [AI Request Scanning](#ai-request-scanning-admin-only),
+shows a "From: ..." link back to that file, rendered the same either way.
 
 ![The central Prayer Requests page, newest first across every partner](docs/assets/screenshots/prayer-requests-list.png)
 
@@ -674,10 +660,11 @@ the admin view.
 
 ![Scan results, with each suggestion's background sentence joined ahead of the verbatim request](docs/assets/screenshots/ai-scan-results.png)
 
-That "From: ..." link isn't specific to this feature — see
-[Linking a request or need to its source document](#linking-a-request-or-need-to-its-source-document)
-above for the by-hand equivalent, which works whether this is turned on
-or not.
+That source link is set automatically here — accepting a suggestion sets
+it for you. The same link can also be set by hand, whether or not this
+feature is turned on, via the **Source** dropdown on each request/need's
+Add or Edit form — see [Prayer Requests](#prayer-requests) and
+[Financial support & one-time needs](#financial-support--one-time-needs).
 
 Setup, on the **AI Request Scanning** page under Site Administration, is
 one step: paste an API key from
