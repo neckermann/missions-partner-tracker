@@ -40,7 +40,7 @@ const supportNeedSchema = z.object({
 // silently lose the recorded amount on the report, with no error telling
 // anyone why.
 function approvedPairGiven(data) {
-  return ("approvedAmount" in data) === ("approvedDate" in data);
+  return "approvedAmount" in data === "approvedDate" in data;
 }
 const APPROVED_PAIR_ISSUE = {
   message: "approvedAmount and approvedDate must be set together",

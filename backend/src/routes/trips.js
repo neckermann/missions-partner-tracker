@@ -114,7 +114,10 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 // them loses.
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const { participants, ...data } = tripSchema.partial().refine(datesInOrder, DATE_ORDER_ISSUE).parse(req.body);
+    const { participants, ...data } = tripSchema
+      .partial()
+      .refine(datesInOrder, DATE_ORDER_ISSUE)
+      .parse(req.body);
 
     const existing = await prisma.trip.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: "Not found" });
