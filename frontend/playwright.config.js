@@ -12,6 +12,17 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  // Tried bumping this to 3-4 (ubuntu-latest has 4 vCPUs) chasing more
+  // speed after #162 -- real flakiness both times, empirically verified
+  // across several runs: at 4 workers, public-directory-listing specs
+  // raced each other (different specs creating/listing partners
+  // concurrently); at 3 workers, the TOTP test in auth-boundary.spec.js
+  // (inherently timing-sensitive -- it waits for a real 30-second
+  // time-step boundary, see that file's own comment) outright failed once,
+  // apparently from CPU contention skewing its timing. Not worth it -- a
+  // flaky/failing CI run costs far more than the few seconds saved, and in
+  // the TOTP case genuinely cost more (one run took 6.2 minutes retrying).
+  // 2 stays.
   workers: process.env.CI ? 2 : undefined,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
