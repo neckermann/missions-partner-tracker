@@ -14,6 +14,10 @@
 // admin picks the parent group and each notification type's topic from
 // live API calls in the settings UI (routes/settings.js), never
 // hand-typed.
+//
+// Nothing outside this file calls the notify* functions below directly --
+// every route goes through utils/notifications.js's channel-neutral entry
+// points, which today just forward to these. See that file's own comment.
 const crypto = require("crypto");
 const prisma = require("../prismaClient");
 const { decryptField } = require("./crypto");
@@ -145,6 +149,53 @@ async function notifySupportNeedCreated(supportNeed) {
   );
 }
 
+// Outcome notifications (#127): the people who saw the original ask never
+// hear how it turned out unless they happen to check the app, so these
+// fire when a prayer request gets its answer recorded, or a one-time need
+// gets a funding decision. This is GroupMe's own implementation of each
+// event -- the channel-neutral entry point routes actually call is
+// utils/notifications.js, which today just forwards to these two, but is
+// where a future channel (email, etc.) would hook in without touching
+// routes/prayerRequests.js or routes/supportNeeds.js again. The callers of
+// *that* dispatch layer are responsible for only firing on a genuine
+// transition into the outcome state, not on every PUT that happens to
+// touch an already-decided record -- see the comment at each route's call
+// site.
+
+async function notifyPrayerRequestAnswered(prayerRequest) {
+  const partnerName = prayerRequest.partner?.displayName || "A partner";
+  const note = prayerRequest.answeredNote?.trim() || "(no note added)";
+  await notifyGroupMe(
+    "groupmePrayerTopicId",
+    () =>
+      `🙏 Prayer request answered, from ${partnerName}:\n` +
+      `"${prayerRequest.requestText}"\n\n` +
+      `${note}${sourceLinkLine(prayerRequest)}`
+  );
+}
+
+// Same labels/thresholds as statusFor() in AdminOneTimeNeeds.jsx and
+// needStatus() in PartnerFinancialSection.jsx, so the GroupMe message
+// matches what the admin UI calls the same decision.
+function supportNeedOutcomeLabel(supportNeed) {
+  if (supportNeed.approvedAmount === 0) return "Declined";
+  if (supportNeed.approvedAmount < supportNeed.requestedAmount) return "Partially Funded";
+  return "Fully Funded";
+}
+
+async function notifySupportNeedDecided(supportNeed) {
+  const partnerName = supportNeed.partner?.displayName || "A partner";
+  const label = supportNeedOutcomeLabel(supportNeed);
+  const amount = `$${Number(supportNeed.approvedAmount).toLocaleString()}`;
+  await notifyGroupMe(
+    "groupmeOneTimeNeedTopicId",
+    () =>
+      `🎁 One-time need decided (${label}), from ${partnerName}:\n` +
+      `"${supportNeed.description}"\n\n` +
+      `Approved: ${amount}${sourceLinkLine(supportNeed)}`
+  );
+}
+
 // appBaseUrl() builds the direct-link URL the newsletter notification
 // (and sourceLinkLine above) both need -- the link only gets built (and
 // the notification only posts) when it resolves to something.
@@ -171,6 +222,8 @@ module.exports = {
   listTopics,
   postMessage,
   notifyPrayerRequestCreated,
+  notifyPrayerRequestAnswered,
   notifySupportNeedCreated,
+  notifySupportNeedDecided,
   notifyNewsletterCreated,
 };

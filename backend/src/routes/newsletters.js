@@ -7,7 +7,7 @@ const { requireFeature } = require("../middleware/requireFeature");
 const { matchesFileSignature } = require("../utils/fileSignature");
 const { sendStoredFile } = require("../utils/fileResponse");
 const { extractRequestsFromFile } = require("../utils/extraction");
-const { notifyNewsletterCreated } = require("../utils/groupme");
+const { notifyNewsletterCreated } = require("../utils/notifications");
 
 const router = express.Router();
 router.use(requireAuth); // admin-only for now — no public routes for this yet
@@ -100,13 +100,13 @@ router.post("/", requireRole("admin", "editor"), upload.single("file"), async (r
       omit: { bytes: true },
     });
 
-    // Best-effort: a GroupMe outage or bad token must never block saving
+    // Best-effort: a broken notification channel must never block saving
     // the newsletter itself -- same reasoning and second-layer catch as
     // routes/prayerRequests.js.
     try {
       await notifyNewsletterCreated(created);
     } catch (err) {
-      console.error("GroupMe notification failed:", err);
+      console.error("Newsletter created notification failed:", err);
     }
 
     res.status(201).json(created);

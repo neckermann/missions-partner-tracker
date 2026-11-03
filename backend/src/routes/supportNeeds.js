@@ -3,7 +3,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
-const { notifySupportNeedCreated } = require("../utils/groupme");
+const { notifySupportNeedCreated, notifySupportNeedDecided } = require("../utils/notifications");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -80,13 +80,13 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
     const data = supportNeedSchema.refine(approvedPairGiven, APPROVED_PAIR_ISSUE).parse(req.body);
     const created = await prisma.supportNeed.create({ data, include: supportNeedInclude });
 
-    // Best-effort: a GroupMe outage or bad token must never block saving
+    // Best-effort: a broken notification channel must never block saving
     // the need itself -- same reasoning and second-layer catch as
     // routes/prayerRequests.js.
     try {
       await notifySupportNeedCreated(created);
     } catch (err) {
-      console.error("GroupMe notification failed:", err);
+      console.error("Support need created notification failed:", err);
     }
 
     res.status(201).json(created);
@@ -103,11 +103,40 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const data = supportNeedSchema.partial().refine(approvedPairGiven, APPROVED_PAIR_ISSUE).parse(req.body);
+
+    // Only notify on a genuine transition into having a decision recorded
+    // (see #127) -- approvedPairGiven already guarantees approvedDate is
+    // only ever sent alongside approvedAmount, so checking approvedDate
+    // here covers both. A PUT that doesn't touch the pair never fetches
+    // `before`; one that resends the same decision (before.approvedDate
+    // already set) is caught by the before?.approvedDate check rather
+    // than re-notifying; one that clears a decision (both sent as null)
+    // is excluded by data.approvedDate != null.
+    const before =
+      "approvedDate" in data
+        ? await prisma.supportNeed.findUnique({
+            where: { id: req.params.id },
+            select: { approvedDate: true },
+          })
+        : null;
+
     const updated = await prisma.supportNeed.update({
       where: { id: req.params.id },
       data,
       include: supportNeedInclude,
     });
+
+    if (data.approvedDate != null && before?.approvedDate == null) {
+      // Same best-effort reasoning as the POST route above -- a broken
+      // channel (today GroupMe, maybe others later) must never block
+      // recording the decision itself.
+      try {
+        await notifySupportNeedDecided(updated);
+      } catch (err) {
+        console.error("Support need decided notification failed:", err);
+      }
+    }
+
     res.json(updated);
   } catch (err) {
     next(err);

@@ -3,7 +3,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
-const { notifyPrayerRequestCreated } = require("../utils/groupme");
+const { notifyPrayerRequestCreated, notifyPrayerRequestAnswered } = require("../utils/notifications");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -88,15 +88,16 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
       include: prayerRequestInclude,
     });
 
-    // Best-effort: a GroupMe outage or bad token must never block saving
-    // the request itself. notifyPrayerRequestCreated already catches its
-    // own network/API errors and logs them; this is a second layer in
-    // case something else in there throws (e.g. a malformed stored
-    // token failing decryptField).
+    // Best-effort: a broken notification channel (today GroupMe, maybe
+    // others later) must never block saving the request itself.
+    // notifyPrayerRequestCreated already catches its own network/API
+    // errors and logs them; this is a second layer in case something
+    // else in there throws (e.g. a malformed stored token failing
+    // decryptField).
     try {
       await notifyPrayerRequestCreated(created);
     } catch (err) {
-      console.error("GroupMe notification failed:", err);
+      console.error("Prayer request created notification failed:", err);
     }
 
     res.status(201).json(created);
@@ -113,11 +114,34 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const data = prayerRequestSchema.partial().refine(answeredDateGiven, ANSWERED_DATE_ISSUE).parse(req.body);
+
+    // Only notify on a genuine transition into "answered" (see #127) -- a
+    // PUT that doesn't touch status at all never fetches `before`, and one
+    // that sets status: "answered" while it's already "answered" (e.g. a
+    // typo fix to answeredNote re-sending the same status) is caught by
+    // the before?.status check below rather than re-notifying.
+    const before =
+      data.status === "answered"
+        ? await prisma.prayerRequest.findUnique({ where: { id: req.params.id }, select: { status: true } })
+        : null;
+
     const updated = await prisma.prayerRequest.update({
       where: { id: req.params.id },
       data,
       include: prayerRequestInclude,
     });
+
+    if (data.status === "answered" && before?.status !== "answered") {
+      // Same best-effort reasoning as the POST route above -- a broken
+      // channel (today GroupMe, maybe others later) must never block
+      // recording the answer itself.
+      try {
+        await notifyPrayerRequestAnswered(updated);
+      } catch (err) {
+        console.error("Prayer request answered notification failed:", err);
+      }
+    }
+
     res.json(updated);
   } catch (err) {
     next(err);
