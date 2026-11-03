@@ -737,8 +737,27 @@ a {
   background: #fafaf8;
   font-size: 0.85rem;
 }
-.country-stats-panel p {
-  margin: 0.25rem 0;
+.country-stats-title {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+.country-stats-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 0.75rem;
+  margin: 0;
+}
+.country-stats-grid dt {
+  color: #666;
+  font-weight: 500;
+}
+.country-stats-grid dd {
+  margin: 0;
+}
+.country-stats-source {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: #888;
 }
 
 .status-pill {

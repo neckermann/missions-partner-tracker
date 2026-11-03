@@ -40,16 +40,46 @@ export default function CountryStats({ countryCode }) {
           {failed && <p>Country statistics unavailable.</p>}
           {info && (
             <>
-              <p style={{ marginTop: 0 }}>Joshua Project Statistics for Country:</p>
-              {info.Ctry && <p>Country: {info.Ctry}</p>}
-              {info.ReligionPrimary && <p>Primary Religion: {info.ReligionPrimary}</p>}
-              {info.Population != null && <p>Population: {info.Population.toLocaleString()}</p>}
-              {info.PercentChristianity != null && (
-                <p>Christianity: {info.PercentChristianity.toFixed(2)}%</p>
-              )}
-              {info.PercentEvangelical != null && <p>Evangelical: {info.PercentEvangelical.toFixed(2)}%</p>}
-              {info.JPScaleText && <p>JP Scale: {info.JPScaleText}</p>}
-              <p style={{ fontSize: "0.75rem", color: "#888", marginBottom: 0 }}>
+              <p className="country-stats-title">Joshua Project Statistics</p>
+              <dl className="country-stats-grid">
+                {info.Ctry && (
+                  <>
+                    <dt>Country</dt>
+                    <dd>{info.Ctry}</dd>
+                  </>
+                )}
+                {info.ReligionPrimary && (
+                  <>
+                    <dt>Primary Religion</dt>
+                    <dd>{info.ReligionPrimary}</dd>
+                  </>
+                )}
+                {info.Population != null && (
+                  <>
+                    <dt>Population</dt>
+                    <dd>{info.Population.toLocaleString()}</dd>
+                  </>
+                )}
+                {info.PercentChristianity != null && (
+                  <>
+                    <dt>Christianity</dt>
+                    <dd>{info.PercentChristianity.toFixed(2)}%</dd>
+                  </>
+                )}
+                {info.PercentEvangelical != null && (
+                  <>
+                    <dt>Evangelical</dt>
+                    <dd>{info.PercentEvangelical.toFixed(2)}%</dd>
+                  </>
+                )}
+                {info.JPScaleText && (
+                  <>
+                    <dt>JP Scale</dt>
+                    <dd>{info.JPScaleText}</dd>
+                  </>
+                )}
+              </dl>
+              <p className="country-stats-source">
                 Source:{" "}
                 <a href="https://www.joshuaproject.net/" target="_blank" rel="noreferrer">
                   joshuaproject.net
