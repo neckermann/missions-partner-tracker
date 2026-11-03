@@ -754,6 +754,79 @@ a {
 .country-stats-grid dd {
   margin: 0;
 }
+
+/* Joshua Project's own progress-scale colors (#157), tiers 1 (least
+   reached) through 5 (most reached) -- see CountryStats.jsx's jpScaleTier. */
+.jp-scale-pill {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.55rem;
+  border-radius: 10px;
+}
+.jp-scale-1 {
+  background: #c0392b;
+  color: white;
+}
+.jp-scale-2 {
+  background: #d35400;
+  color: white;
+}
+.jp-scale-3 {
+  background: #d4a017;
+  color: #3a2e00;
+}
+.jp-scale-4 {
+  background: #7cb342;
+  color: white;
+}
+.jp-scale-5 {
+  background: #2e7d32;
+  color: white;
+}
+
+/* The gauge reuses .jp-scale-1..5 above as bare background-color segments
+   (no text inside them, so their `color` rule is simply unused there). */
+.jp-scale-gauge {
+  width: 120px;
+  margin-top: 0.4rem;
+}
+.jp-scale-gauge-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: #888;
+  margin-bottom: 0.2rem;
+}
+.jp-scale-gauge-track {
+  position: relative;
+  display: flex;
+  width: 120px;
+  height: 8px;
+}
+.jp-scale-gauge-track > span:not(.jp-scale-gauge-marker) {
+  flex: 1;
+}
+.jp-scale-gauge-track > span:first-child {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+.jp-scale-gauge-track > span:nth-child(5) {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+.jp-scale-gauge-marker {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #222;
+  box-sizing: border-box;
+  transform: translate(-50%, -50%);
+}
+
 .country-stats-source {
   margin: 0.5rem 0 0;
   font-size: 0.75rem;

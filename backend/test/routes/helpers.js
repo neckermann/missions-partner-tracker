@@ -33,10 +33,21 @@ function startServer() {
   return startPromise;
 }
 
+// Disconnecting here, not just closing the HTTP server, matters a lot more
+// than it looks: pg's connection pool (the adapter prismaClient.js hands
+// Prisma) defaults to a 10-second idleTimeoutMillis before it lets Node's
+// event loop drain on its own. Every route-test *file* is its own process
+// (see the file-level comment above), so without this, each one's process
+// doesn't actually exit for ~10s after its tests finish -- not test time,
+// just an open idle connection nobody closed. Measured directly: a bare
+// script that queries once and exits naturally takes ~10.3s; the same
+// script calling prisma.$disconnect() first takes ~0.3s. With ~15 route
+// test files, that's most of npm run test:routes's runtime (#162).
 async function stopServer() {
   if (server) await new Promise((resolve) => server.close(resolve));
   server = null;
   startPromise = null;
+  await prisma.$disconnect();
 }
 
 // Creates the three role-fixture users once, so each test can log in as

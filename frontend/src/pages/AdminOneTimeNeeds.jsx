@@ -10,7 +10,7 @@ import {
   fetchDocuments,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
-import ScanSourceLink from "../components/admin/ScanSourceLink.jsx";
+import SourceLink from "../components/admin/SourceLink.jsx";
 import SourcePicker from "../components/admin/SourcePicker.jsx";
 import { formatDate, formatCurrency as formatMoney } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
@@ -435,10 +435,7 @@ export default function AdminOneTimeNeeds() {
                     </div>
                   )}
                 </div>
-                <ScanSourceLink
-                  sourceNewsletter={need.sourceNewsletter}
-                  sourceDocument={need.sourceDocument}
-                />
+                <SourceLink sourceNewsletter={need.sourceNewsletter} sourceDocument={need.sourceDocument} />
               </>
             )}
 

@@ -99,7 +99,7 @@ async function notifyGroupMe(topicId, buildText) {
 
 // Links straight at GET /:id/download, same URL NewsletterSection.jsx's/
 // DocumentSection.jsx's own "View" button opens, and the same URL the
-// "From: ..." link on an admin card opens (see ScanSourceLink.jsx) --
+// "From: ..." link on an admin card opens (see SourceLink.jsx) --
 // despite the route name, that's an inline view for PDF/JPEG/PNG
 // (utils/fileResponse.js sets Content-Disposition: inline for those,
 // forces an actual download only for .eml, which can't safely render

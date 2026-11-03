@@ -305,6 +305,55 @@ one people stop reading. Watch GitHub's own Dependabot *alerts* instead —
 those report vulnerabilities without opening pull requests, which is the
 half of Dependabot that's useful to a project shaped like this one.
 
+## Documentation screenshots
+
+`docs/index.html` (the public marketing/docs site), `USER_GUIDE.md`, and
+`ADMIN_GUIDE.md` all embed real screenshots from `docs/assets/screenshots/`.
+They need to look like one continuous product, not a patchwork of
+differently-seeded test runs — so there's a fixed identity to capture
+against, established by the existing screenshots (see
+`admin-partner-detail.png`) and never deviated from:
+
+- **Church name: `Hillside Community Church`.** Set it on `ChurchSettings`
+  (`churchName`) before capturing anything with the admin sidebar/header
+  visible. This is a documentation-only fixture identity — distinct from
+  the separate live public demo site's own branding (`churchName:
+  "Missions Partner Tracker Demo"`), which exists for visitors trying the
+  app, not for screenshots.
+- **Real seeded partners, never bare throwaway fixtures.** Run
+  `cd backend && npm run seed` first (pulls real stock photos from Pexels
+  for every missionary/org) and capture against partners that already
+  exist in that seed, rather than creating a new minimally-filled
+  `POST /api/partners` fixture with no photo for a one-off screenshot — a
+  gray silhouette placeholder and an obviously-synthetic name
+  ("Screenshot Fixture Partner") don't belong in shipped documentation.
+  Where a screenshot needs a specific supporting fact the random seed
+  might not produce (a particular country for a Joshua Project panel, a
+  trip with specific dates), query for a seeded partner that already
+  fits, or add data (a trip, a prayer request) to an existing seeded
+  partner rather than inventing a new one.
+- **Never capture against the live production demo site.** It's for
+  visitors, not a documentation scratch pad — don't leave test trips,
+  partners, or settings changes on it.
+- **Mock external APIs the same way the test suite does**, not a real key
+  — see `test/routes/joshuaProject.test.js`'s `mockJoshuaProject` pattern
+  for the technique (monkey-patch `global.fetch` before requiring
+  `src/server.js`, matching only requests to the external host).
+- **Restore afterward.** Any `ChurchSettings` field you changed
+  (`churchName`, `enabledFeatures`, a dummy API key), any trip/prayer
+  request/etc. you added to a seeded partner, and any throwaway admin
+  account created for the capture — all of it gets cleaned up in the same
+  script, the same way the existing test suites restore their own
+  fixtures. The capture script itself is throwaway (`*.tmp.mjs` in
+  `frontend/e2e/`, matching the ad hoc verification scripts used
+  elsewhere in this repo) — run it, verify the output, delete it; it's
+  not meant to be committed.
+- **Update every surface that's stale, not just one.** A UI change
+  touching a screenshot shared across `docs/index.html`, `USER_GUIDE.md`,
+  and/or `ADMIN_GUIDE.md` means recapturing it once and confirming every
+  reference to that file still matches, as part of the same PR that
+  changed the UI — not a follow-up to get to later.
+
 ## Pull requests
 
 - Base them on `main` and raise them from `dev` (see

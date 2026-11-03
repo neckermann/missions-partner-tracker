@@ -226,8 +226,10 @@ not just what topic they fall under:
     [One-Time Needs](#financial-support--one-time-needs) page).
 - **Mission Trips**:
   - **Trip History** — past trips, each with dates, type, description,
-    notes, and a nested list of participants (Name, Role, Phone, Email,
-    "Trip Leader" checkbox).
+    notes, a Photo/Video Album link (optional — Google Photos, iCloud
+    Shared Album, or another provider; admin-only, never shown on the
+    public site), and a nested list of participants (Name, Role, Phone,
+    Email, "Trip Leader" checkbox).
   - **Trip Capacity** — Team Size Min/Max, Trip Types Supported (pick
     from presets or type your own), season/duration notes,
     lodging/logistics notes. This is what powers the
@@ -345,10 +347,12 @@ status pill (Pending Decision / Fully Funded / Partially Funded /
 Declined) computed from the approved vs. requested amount. **+ Add Need**
 adds one without leaving the page; an undecided need gets a **Record
 Decision** button to fill in the approved amount/date once your church
-has made a call. A need added from a scan, or pointed at a newsletter/
-document by hand via its **Source** dropdown, shows a "From: ..." link
-back to that file — see [AI Request Scanning](#ai-request-scanning-admin-only)
-below.
+has made a call. Both **+ Add Need** and its Edit form have a **Source
+(optional)** dropdown listing that partner's newsletters and documents —
+pick one if you read it yourself and typed the need in, or leave it as
+"None." A need pointed at a source this way, or added automatically by
+[AI Request Scanning](#ai-request-scanning-admin-only), shows a
+"From: ..." link back to that file, rendered the same either way.
 
 ![The One-Time Needs page, with status pills per need](docs/assets/screenshots/one-time-needs.png)
 
@@ -360,11 +364,16 @@ These are two different things:
 - **Trip History** is a filterable log of trips that already happened,
   flattened across every partner — filter by type, year, team size. **+
   Add Trip** logs one (pick the partner, dates, trip type, description,
-  and participants) without leaving the page; each row has its own
-  **Edit** (everything except which partner it's under — delete and
-  re-add to move a trip to a different partner) and **Delete**. Trips can
-  still be added/edited from a partner's own Edit form too, same as
-  before — both write to the same records.
+  a Photo/Video Album link, and participants) without leaving the page;
+  each row has its own **Edit** (everything except which partner it's
+  under — delete and re-add to move a trip to a different partner) and
+  **Delete**. Trips can still be added/edited from a partner's own Edit
+  form too, same as before — both write to the same records.
+  - The **Album** link points to wherever you already host the trip's
+    photos/videos — a Google Photos shared album, an iCloud Shared Album,
+    or another provider you choose "Other" for. This app never stores the
+    photos/videos themselves, just the link, and it's admin-only — it
+    never appears on the public site.
 - **Trip Opportunities** is a forward-looking capacity search — "who
   could host a trip like this" — filtering by team size, trip type,
   region, and how recently a team last visited, reading the same Trip
@@ -424,7 +433,12 @@ which partner it's filed under; **Delete** removes it permanently.
 Meant as a long-term record of what's been prayed for and how it was
 answered — not a checklist. Add one from a partner's detail page or the
 central **Prayer Requests** page (pick the partner, category, and the
-request itself).
+request itself). **+ Add Prayer Request** and its Edit form also have a
+**Source (optional)** dropdown listing that partner's newsletters and
+documents — pick one if you read it yourself and typed the request in,
+or leave it as "None."
+
+![The Source (optional) dropdown on the Add Prayer Request form, listing this partner's newsletters and documents](docs/assets/screenshots/source-picker.png)
 
 - **Category** is **Strategic** (tied to the ministry's long-term vision
   or calling — church planting, discipleship, language study, funding —
@@ -456,10 +470,9 @@ request itself).
 
 The central **Prayer Requests** page lists every request across every
 partner, filterable by category, with a running count of how many have
-been answered so far. A request added from a scan, or pointed at a
-newsletter/document by hand via its **Source** dropdown, shows a
-"From: ..." link back to that file — see
-[AI Request Scanning](#ai-request-scanning-admin-only) below.
+been answered so far. A request pointed at a source this way, or added
+automatically by [AI Request Scanning](#ai-request-scanning-admin-only),
+shows a "From: ..." link back to that file, rendered the same either way.
 
 ![The central Prayer Requests page, newest first across every partner](docs/assets/screenshots/prayer-requests-list.png)
 
@@ -647,14 +660,11 @@ the admin view.
 
 ![Scan results, with each suggestion's background sentence joined ahead of the verbatim request](docs/assets/screenshots/ai-scan-results.png)
 
-You don't need this feature turned on to use that link, though — every
-**+ Add Prayer Request**/**+ Add Need** form (and their Edit forms) has
-its own **Source (optional)** dropdown, listing that partner's
-newsletters and documents, so a request you read yourself and typed in
-by hand can point back to its file too. Picking "None" (the default)
-leaves it unlinked, same as today.
-
-![The Source (optional) dropdown on the Add Prayer Request form, listing this partner's newsletters and documents](docs/assets/screenshots/source-picker.png)
+That source link is set automatically here — accepting a suggestion sets
+it for you. The same link can also be set by hand, whether or not this
+feature is turned on, via the **Source** dropdown on each request/need's
+Add or Edit form — see [Prayer Requests](#prayer-requests) and
+[Financial support & one-time needs](#financial-support--one-time-needs).
 
 Setup, on the **AI Request Scanning** page under Site Administration, is
 one step: paste an API key from

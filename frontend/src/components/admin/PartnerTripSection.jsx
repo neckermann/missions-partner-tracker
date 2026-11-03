@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { createTrip, updateTrip, deleteTrip } from "../../api/client.js";
 import PresetOrCustomSelect from "./PresetOrCustomSelect.jsx";
+import AlbumLinkField from "./AlbumLinkField.jsx";
 import { formatDate, toDateInputValue } from "../../utils/format.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
 
@@ -23,7 +24,16 @@ const TRIP_TYPE_PRESETS = [
 ];
 
 const emptyParticipant = { name: "", role: "", isLeader: false, phone: "", email: "" };
-const emptyForm = { startDate: "", endDate: "", tripType: "", description: "", notes: "", participants: [] };
+const emptyForm = {
+  startDate: "",
+  endDate: "",
+  tripType: "",
+  description: "",
+  notes: "",
+  albumProvider: null,
+  albumUrl: null,
+  participants: [],
+};
 
 export default function PartnerTripSection({ partnerId, trips, onChange }) {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -68,6 +78,8 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
       tripType: trip.tripType || "",
       description: trip.description || "",
       notes: trip.notes || "",
+      albumProvider: trip.albumProvider || null,
+      albumUrl: trip.albumUrl || null,
       participants: (trip.participants || []).map((p) => ({ ...p })),
     });
   }
@@ -82,6 +94,8 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
       tripType: form.tripType || null,
       description: form.description || null,
       notes: form.notes || null,
+      albumProvider: form.albumProvider || null,
+      albumUrl: form.albumUrl || null,
       participants: form.participants.map((p) => ({ ...p, name: p.name.trim() })).filter((p) => p.name),
     };
     try {
@@ -105,7 +119,7 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
   const formOpen = showAddForm || editingId;
 
   return (
-    <div className="admin-section">
+    <div className={`admin-section ${formOpen ? "form-has-floating-actions" : ""}`}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h3 style={{ flex: 1, marginBottom: 0 }}>Trips</h3>
         <button
@@ -149,6 +163,14 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
           <label style={{ marginTop: "0.75rem" }}>
             Notes
             <textarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} />
+          </label>
+          <label style={{ marginTop: "0.75rem" }}>
+            Photo/Video Album
+            <AlbumLinkField
+              provider={form.albumProvider}
+              url={form.albumUrl}
+              onChange={(provider, url) => setForm((f) => ({ ...f, albumProvider: provider, albumUrl: url }))}
+            />
           </label>
 
           <h4 style={{ marginTop: "1rem" }}>Participants</h4>
@@ -205,11 +227,15 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
             + Add Participant
           </button>
 
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-          <div style={{ marginTop: "1rem" }}>
+          <div className="form-save-bar">
             <button type="submit" className="btn" disabled={saving}>
               {saving ? "Saving..." : editingId ? "Save Trip" : "Add Trip"}
             </button>
+            {error && (
+              <span style={{ color: "#b91c1c" }} role="alert">
+                {error}
+              </span>
+            )}
           </div>
         </form>
       )}
@@ -242,6 +268,13 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
                     {t.description && (
                       <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
                         {t.description}
+                      </div>
+                    )}
+                    {t.albumUrl && (
+                      <div style={{ fontSize: "0.85rem", marginTop: "0.25rem" }}>
+                        <a href={t.albumUrl} target="_blank" rel="noreferrer">
+                          View Album
+                        </a>
                       </div>
                     )}
                   </div>
