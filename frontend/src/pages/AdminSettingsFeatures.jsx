@@ -23,28 +23,35 @@ export default function AdminSettingsFeatures() {
   const [featureRegistry, setFeatureRegistry] = useState([]);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchChurchSettings().then((s) => {
-      setEnabledFeatures(s?.enabledFeatures || {});
-      setFeatureRegistry(s?.featureRegistry || []);
-    });
+    fetchChurchSettings()
+      .then((s) => {
+        setEnabledFeatures(s?.enabledFeatures || {});
+        setFeatureRegistry(s?.featureRegistry || []);
+      })
+      .catch(() => setError("Couldn't load feature settings."));
   }, []);
 
   function toggleFeature(key) {
     const current = enabledFeatures[key] ?? featureRegistry.find((f) => f.key === key)?.defaultEnabled;
     setEnabledFeatures((f) => ({ ...f, [key]: !current }));
     setSuccess("");
+    setError("");
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
     setSuccess("");
+    setError("");
     try {
       const updated = await updateChurchSettings({ enabledFeatures });
       setEnabledFeatures(updated.enabledFeatures || {});
       setSuccess("Saved.");
+    } catch (err) {
+      setError(err.response?.data?.error || "Couldn't save feature settings.");
     } finally {
       setSaving(false);
     }
@@ -99,6 +106,11 @@ export default function AdminSettingsFeatures() {
           <button type="submit" className="btn" disabled={saving}>
             {saving ? "Saving..." : "Save"}
           </button>
+          {error && (
+            <span style={{ color: "#b91c1c" }} role="alert">
+              {error}
+            </span>
+          )}
           {success && <span style={{ color: "#2a5d3c" }}>{success}</span>}
         </div>
       </form>

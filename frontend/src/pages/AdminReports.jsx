@@ -160,6 +160,11 @@ export default function AdminReports() {
   // Captured when the report runs, not read from the form afterwards --
   // the filters printed on the page must describe the rows on the page.
   const [appliedFilters, setAppliedFilters] = useState(null);
+  // Same reasoning, same moment -- downloadCsv() used to rebuild this from
+  // live `values` instead of using this snapshot, so changing a filter
+  // after running (without re-running) made Download silently fetch
+  // different rows than what was on screen.
+  const [appliedParams, setAppliedParams] = useState(null);
   const [running, setRunning] = useState(false);
   // Separate from `error` for the report run: a failure to load the list of
   // reports at all is a different problem from one report failing, and
@@ -195,6 +200,7 @@ export default function AdminReports() {
     // though they belong to it.
     setResult(null);
     setAppliedFilters(null);
+    setAppliedParams(null);
     setError(null);
   }
 
@@ -220,13 +226,16 @@ export default function AdminReports() {
     if (!selected) return;
     setRunning(true);
     setError(null);
+    const params = toParams(selected, values);
     try {
-      const data = await runReport(selected.id, toParams(selected, values));
+      const data = await runReport(selected.id, params);
       setResult(data);
       setAppliedFilters(describeFilters(selected, values));
+      setAppliedParams(params);
     } catch (err) {
       setResult(null);
       setAppliedFilters(null);
+      setAppliedParams(null);
       setError(err.response?.data?.error || "Couldn't run that report.");
     } finally {
       setRunning(false);
@@ -234,10 +243,11 @@ export default function AdminReports() {
   }
 
   function downloadCsv() {
-    // A plain same-origin navigation so the browser handles the file and the
-    // session cookie rides along -- the same approach as the document and
-    // newsletter downloads.
-    window.open(reportCsvUrl(selected.id, toParams(selected, values)), "_blank");
+    // appliedParams, not toParams(selected, values) -- the same snapshot
+    // appliedFilters uses. Rebuilding from live `values` here meant
+    // changing a filter after running (without re-running) silently
+    // downloaded different rows than whatever was actually on screen.
+    window.open(reportCsvUrl(selected.id, appliedParams), "_blank");
   }
 
   if (loadError) {

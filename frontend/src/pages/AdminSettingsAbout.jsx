@@ -44,18 +44,22 @@ export default function AdminSettingsAbout() {
   const [success, setSuccess] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchChurchSettings().then((s) => {
-      setForm(mergeFetchedRecord(s));
-      setSentByOurChurchCount(s?.sentByOurChurchCount || 0);
-    });
+    fetchChurchSettings()
+      .then((s) => {
+        setForm(mergeFetchedRecord(s));
+        setSentByOurChurchCount(s?.sentByOurChurchCount || 0);
+      })
+      .catch(() => setError("Couldn't load church settings."));
   }, []);
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
     setSuccess("");
     setSyncSuccess("");
+    setError("");
   }
 
   async function handleSubmit(e) {
@@ -63,10 +67,13 @@ export default function AdminSettingsAbout() {
     setSaving(true);
     setSuccess("");
     setSyncSuccess("");
+    setError("");
     try {
       const updated = await updateChurchSettings(form);
       setForm(mergeFetchedRecord(updated));
       setSuccess("Saved.");
+    } catch (err) {
+      setError(err.response?.data?.error || "Couldn't save church settings.");
     } finally {
       setSaving(false);
     }
@@ -79,9 +86,12 @@ export default function AdminSettingsAbout() {
   async function handleSyncAll() {
     setSyncing(true);
     setSyncSuccess("");
+    setError("");
     try {
       const { updatedCount } = await syncAllSendingChurch();
       setSyncSuccess(`Updated ${updatedCount} partner${updatedCount === 1 ? "" : "s"}.`);
+    } catch (err) {
+      setError(err.response?.data?.error || "Couldn't update partners with this info.");
     } finally {
       setSyncing(false);
     }
@@ -131,6 +141,11 @@ export default function AdminSettingsAbout() {
           <button type="submit" className="btn" disabled={saving}>
             {saving ? "Saving..." : "Save"}
           </button>
+          {error && (
+            <span style={{ color: "#b91c1c" }} role="alert">
+              {error}
+            </span>
+          )}
           {success && <span style={{ color: "#2a5d3c" }}>{success}</span>}
           {success && sentByOurChurchCount > 0 && (
             <>

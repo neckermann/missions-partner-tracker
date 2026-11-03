@@ -19,10 +19,23 @@ export default function AdminUserForm() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Only meaningful in edit mode -- create mode has nothing to fetch, so
+  // starts false there. Guards two real risks of a slow/failed edit-mode
+  // fetch: clicking Save before it resolves would submit the still-blank
+  // emptyForm defaults over the real user's name/role/active/MFA flags,
+  // and a failed fetch with no .catch left the form silently showing (and
+  // submittable with) those same blank defaults.
+  const [loading, setLoading] = useState(isEdit);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     if (isEdit) {
-      fetchUser(id).then((u) => setForm({ ...emptyForm, ...u, password: "" }));
+      setLoading(true);
+      setLoadError("");
+      fetchUser(id)
+        .then((u) => setForm({ ...emptyForm, ...u, password: "" }))
+        .catch(() => setLoadError("Couldn't load this user."))
+        .finally(() => setLoading(false));
     }
   }, [id]);
 
@@ -53,6 +66,25 @@ export default function AdminUserForm() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (loading) return <p className="admin-shell">Loading…</p>;
+
+  // No form at all on a failed load -- rendering it anyway, even
+  // disabled, risks the blank emptyForm defaults reaching handleSubmit
+  // some other way later. An error with a way back is the safe option.
+  if (loadError) {
+    return (
+      <div className="admin-shell">
+        <h2>Edit User</h2>
+        <p style={{ color: "#b91c1c" }} role="alert">
+          {loadError}
+        </p>
+        <button type="button" className="btn secondary" onClick={() => navigate("/admin/settings/users")}>
+          Back to Users
+        </button>
+      </div>
+    );
   }
 
   return (
