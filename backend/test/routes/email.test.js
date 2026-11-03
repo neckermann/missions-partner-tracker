@@ -46,13 +46,16 @@ before(async () => {
 
   originalSettings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { postmarkServerToken: true, emailFromAddress: true },
+    select: { postmarkServerToken: true, emailFromAddress: true, enabledFeatures: true },
   });
-  // Clean slate -- these tests assume nothing is configured yet.
+  // Clean slate -- these tests assume nothing is configured yet. email: true
+  // since most of these tests exercise what happens once the feature is on
+  // -- the "gated by the feature flag" describe block below turns it off
+  // deliberately for its own cases.
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
-    update: { postmarkServerToken: null, emailFromAddress: null },
-    create: { id: "singleton" },
+    update: { postmarkServerToken: null, emailFromAddress: null, enabledFeatures: { email: true } },
+    create: { id: "singleton", enabledFeatures: { email: true } },
   });
 });
 
@@ -230,5 +233,33 @@ describe("POST /api/settings/email/test", () => {
     const res = await admin("/api/settings/email/test", { method: "POST" });
     assert.equal(res.status, 400);
     assert.ok(res.body.error.includes("Email isn't configured"));
+  });
+});
+
+// Unlike GroupMe/Joshua Project/AI Extraction (whose settings routes stay
+// reachable while their feature is off, so an admin can configure them
+// before flipping the switch), Email's settings routes are gated by the
+// feature flag the same way a real content feature's routes are -- see
+// the same reasoning in routes/settings.js's comment on GET /email.
+describe("email settings routes are gated by the feature flag", () => {
+  test("all three routes 404 when the feature is off (a 404 from requireFeature, not a 401/403 from the role check)", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { email: false } },
+    });
+    try {
+      assert.equal((await admin("/api/settings/email")).status, 404);
+      assert.equal(
+        (await admin("/api/settings/email", { method: "PUT", body: { fromAddress: "a@example.org" } }))
+          .status,
+        404
+      );
+      assert.equal((await admin("/api/settings/email/test", { method: "POST" })).status, 404);
+    } finally {
+      await prisma.churchSettings.update({
+        where: { id: "singleton" },
+        data: { enabledFeatures: { email: true } },
+      });
+    }
   });
 });
