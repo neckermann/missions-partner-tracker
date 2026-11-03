@@ -31,8 +31,13 @@ function signToken(claims, opts = {}) {
 // header — except fakeReqBearer, for the one remaining bearer-token case
 // (the forced-MFA-setup token, passed explicitly since there's no session
 // cookie yet at that point in the flow).
-function fakeReq(token) {
-  return { cookies: token ? { session: token } : {}, headers: {} };
+function fakeReq(token, opts = {}) {
+  return {
+    cookies: token ? { session: token } : {},
+    headers: opts.headers || {},
+    method: opts.method || "GET",
+    originalUrl: opts.originalUrl || "/api/example",
+  };
 }
 
 function fakeReqBearer(token) {
@@ -40,13 +45,17 @@ function fakeReqBearer(token) {
 }
 
 function fakeRes() {
-  const res = { statusCode: null, body: null };
+  const res = { statusCode: null, body: null, redirectedTo: null };
   res.status = (code) => {
     res.statusCode = code;
     return res;
   };
   res.json = (body) => {
     res.body = body;
+    return res;
+  };
+  res.redirect = (url) => {
+    res.redirectedTo = url;
     return res;
   };
   return res;
@@ -128,6 +137,74 @@ describe("requireAuth", () => {
   });
 });
 
+// #124: a real browser clicking a direct link to a requireAuth-gated route
+// (a GroupMe notification, etc.) with no session should land on a login
+// form, not bare JSON -- but every existing SPA/API caller above must keep
+// getting plain JSON, since nothing in the frontend expects a redirect.
+describe("requireAuth — browser navigation redirects", () => {
+  test("no cookie, a real browser's Accept header -- redirects to /login with the original URL preserved", () => {
+    const req = fakeReq(null, {
+      headers: { accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" },
+      originalUrl: "/api/newsletters/42/download",
+    });
+    const res = fakeRes();
+    const next = spyNext();
+    requireAuth(req, res, next);
+    assert.equal(res.redirectedTo, "/login?next=%2Fapi%2Fnewsletters%2F42%2Fdownload");
+    assert.equal(res.statusCode, null, "the JSON path must not also have run");
+    assert.equal(next.calls.length, 0);
+  });
+
+  // The regression guard for the ambiguous-negotiation risk: a bare "*/*"
+  // (the default Accept header for many non-browser HTTP clients) must NOT
+  // be treated as "wants html" -- only an Accept header that literally
+  // contains text/html does.
+  test("no cookie, a bare */* Accept header -- stays plain JSON", () => {
+    const req = fakeReq(null, { headers: { accept: "*/*" } });
+    const res = fakeRes();
+    const next = spyNext();
+    requireAuth(req, res, next);
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.body.error, "Authentication required");
+    assert.equal(res.redirectedTo, null);
+  });
+
+  test("no cookie, no Accept header at all -- stays plain JSON (today's existing callers)", () => {
+    const req = fakeReq(null);
+    const res = fakeRes();
+    const next = spyNext();
+    requireAuth(req, res, next);
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.redirectedTo, null);
+  });
+
+  test("invalid/expired token, browser GET -- also redirects", () => {
+    const req = fakeReq("not-a-real-token", { headers: { accept: "text/html" } });
+    const res = fakeRes();
+    const next = spyNext();
+    requireAuth(req, res, next);
+    assert.ok(res.redirectedTo?.startsWith("/login?next="));
+  });
+
+  test("pending-MFA token, browser GET -- also redirects (no special-casing to the TOTP step)", () => {
+    const token = signToken({ id: "u1", mfaPending: true });
+    const req = fakeReq(token, { headers: { accept: "text/html" } });
+    const res = fakeRes();
+    const next = spyNext();
+    requireAuth(req, res, next);
+    assert.ok(res.redirectedTo?.startsWith("/login?next="));
+  });
+
+  test("browser Accept header but a POST request -- stays plain JSON, never redirects a write", () => {
+    const req = fakeReq(null, { method: "POST", headers: { accept: "text/html" } });
+    const res = fakeRes();
+    const next = spyNext();
+    requireAuth(req, res, next);
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.redirectedTo, null);
+  });
+});
+
 describe("requireRole", () => {
   test("still rejects unauthenticated requests before checking role", () => {
     const req = fakeReq(null);
@@ -135,6 +212,21 @@ describe("requireRole", () => {
     const next = spyNext();
     requireRole("admin")(req, res, next);
     assert.equal(res.statusCode, 401);
+  });
+
+  // #124: requireRole wraps requireAuth, so a role-gated route (e.g.
+  // backups.js's requireRole("admin")) inherits the browser-redirect
+  // behavior for the "no session at all" case with zero code change of
+  // its own.
+  test("no cookie, browser GET through a role-gated route -- redirects the same as requireAuth alone", async () => {
+    const req = fakeReq(null, {
+      headers: { accept: "text/html" },
+      originalUrl: "/api/backups/download",
+    });
+    const res = fakeRes();
+    const next = spyNext();
+    await requireRole("admin")(req, res, next);
+    assert.equal(res.redirectedTo, "/login?next=%2Fapi%2Fbackups%2Fdownload");
   });
 });
 
