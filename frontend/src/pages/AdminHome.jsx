@@ -62,48 +62,64 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
 // Mirrors AdminSidebar.jsx's SITE_ADMIN_LINKS -- same pages, same order,
 // just as tiles instead of a nav submenu, so an admin coming from Home
 // can jump straight to one without going through the sidebar at all.
-const SITE_ADMIN_SECTIONS = [
-  {
-    to: "/admin/settings/users",
-    title: "Manage Users",
-    description: "Who has access, their role, and their two-factor status.",
-  },
-  {
-    to: "/admin/settings/branding",
-    title: "Branding",
-    description: "Public-site tagline, about text, brand color, logo, and partner terminology.",
-  },
-  {
-    to: "/admin/settings/features",
-    title: "Enabled Features",
-    description: "Turn off anything this church isn't using.",
-  },
-  {
-    to: "/admin/settings/about",
-    title: "About Church",
-    description: "Church name, contact info, and address.",
-  },
-  {
-    to: "/admin/settings/groupme",
-    title: "GroupMe",
-    description: "Post new prayer requests to a GroupMe group automatically.",
-  },
-  {
-    to: "/admin/settings/joshua-project",
-    title: "Joshua Project",
-    description: "API key for country-level unreached-people-group statistics.",
-  },
-  {
-    to: "/admin/settings/ai-extraction",
-    title: "AI Request Scanning",
-    description: "API key for scanning newsletters and documents for prayer requests and needs.",
-  },
-];
+//
+// GroupMe/Joshua Project/AI Extraction tiles always show regardless of
+// their own feature flag -- deliberate, so an admin can configure them
+// before turning them on (see each's settings route in routes/settings.js,
+// none of which are requireFeature-gated). Email is gated like a real
+// content feature instead (see #174/that route's own comment for why),
+// so its tile only shows once the feature is actually on -- matching
+// AdminSidebar.jsx's own enabledFeatures.email && check for the same link.
+function buildSiteAdminSections(enabledFeatures) {
+  return [
+    {
+      to: "/admin/settings/users",
+      title: "Manage Users",
+      description: "Who has access, their role, and their two-factor status.",
+    },
+    {
+      to: "/admin/settings/branding",
+      title: "Branding",
+      description: "Public-site tagline, about text, brand color, logo, and partner terminology.",
+    },
+    {
+      to: "/admin/settings/features",
+      title: "Enabled Features",
+      description: "Turn off anything this church isn't using.",
+    },
+    {
+      to: "/admin/settings/about",
+      title: "About Church",
+      description: "Church name, contact info, and address.",
+    },
+    {
+      to: "/admin/settings/groupme",
+      title: "GroupMe",
+      description: "Post new prayer requests to a GroupMe group automatically.",
+    },
+    {
+      to: "/admin/settings/joshua-project",
+      title: "Joshua Project",
+      description: "API key for country-level unreached-people-group statistics.",
+    },
+    {
+      to: "/admin/settings/ai-extraction",
+      title: "AI Request Scanning",
+      description: "API key for scanning newsletters and documents for prayer requests and needs.",
+    },
+    enabledFeatures.email && {
+      to: "/admin/settings/email",
+      title: "Email",
+      description: "Send email through a configured Postmark account.",
+    },
+  ].filter(Boolean);
+}
 
 export default function AdminHome() {
   const [currentUser, setCurrentUser] = useState(null);
   const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const sections = buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures);
+  const siteAdminSections = buildSiteAdminSections(enabledFeatures);
 
   useEffect(() => {
     fetchCurrentUser().then(setCurrentUser);
@@ -127,7 +143,7 @@ export default function AdminHome() {
           <h2 style={{ marginTop: "2rem" }}>Site Administration</h2>
           <p style={{ color: "#555" }}>Church-wide settings — admin only.</p>
           <div className="admin-card-grid">
-            {SITE_ADMIN_SECTIONS.map((s) => (
+            {siteAdminSections.map((s) => (
               <Link key={s.to} to={s.to} className="admin-card">
                 <h3>{s.title}</h3>
                 <p>{s.description}</p>

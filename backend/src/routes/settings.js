@@ -2,6 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireFeature } = require("../middleware/requireFeature");
 const { matchesFileSignature } = require("../utils/fileSignature");
 const { FEATURES, FEATURE_KEYS } = require("../utils/features");
 const { encryptField, decryptField } = require("../utils/crypto");
@@ -340,8 +341,15 @@ const emailSchema = z.object({
   fromAddress: z.string().trim().email().optional().nullable(),
 });
 
-// GET /api/settings/email (admin only, same reasoning as GET /groupme above).
-router.get("/email", requireRole("admin"), async (req, res, next) => {
+// GET /api/settings/email -- unlike GroupMe/Joshua Project/AI Extraction
+// (whose settings stay reachable while off, so an admin can configure
+// them before flipping the switch), Email's settings routes are gated by
+// the feature flag the same way a real content feature's routes are
+// (see routes/newsletters.js's router.use(requireFeature(...))) -- off
+// means genuinely not reachable, not just hidden from nav. Turn the
+// feature on first (from Enabled Features, which is never gated), then
+// configure.
+router.get("/email", requireFeature("email"), requireRole("admin"), async (req, res, next) => {
   try {
     const settings = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
@@ -353,8 +361,8 @@ router.get("/email", requireRole("admin"), async (req, res, next) => {
   }
 });
 
-// PUT /api/settings/email (admin only).
-router.put("/email", requireRole("admin"), async (req, res, next) => {
+// PUT /api/settings/email -- see the same gating comment on GET above.
+router.put("/email", requireFeature("email"), requireRole("admin"), async (req, res, next) => {
   try {
     const { serverToken, fromAddress } = emailSchema.parse(req.body);
     const fields = {};
@@ -373,11 +381,11 @@ router.put("/email", requireRole("admin"), async (req, res, next) => {
   }
 });
 
-// POST /api/settings/email/test (admin only) -- sends a real email to the
-// caller's own account address, so a bad token/from-address is caught here
-// rather than at the first real send (same reasoning as GroupMe's "Load My
-// Groups" live check).
-router.post("/email/test", requireRole("admin"), async (req, res, next) => {
+// POST /api/settings/email/test -- see the same gating comment on GET
+// above. Sends a real email to the caller's own account address, so a
+// bad token/from-address is caught here rather than at the first real
+// send.
+router.post("/email/test", requireFeature("email"), requireRole("admin"), async (req, res, next) => {
   try {
     await sendEmail({
       to: req.user.email,
