@@ -692,9 +692,14 @@ password (every account is email + password, per
 [Logging in](#logging-in) above). Editing lets you change role,
 deactivate, force MFA enrollment, or reset a password. **Reset MFA**
 clears a locked-out user's two-factor setup so they can log back in with
-just their password and re-enroll. You can't delete your own account,
-and the app won't let you demote, deactivate, or delete the last active
-admin — there's always at least one way back in.
+just their password and re-enroll — for your own account, use **Disable
+Two-Factor Authentication** on [Your account settings](#your-account-settings)
+instead, which requires your current password; **Reset MFA** on your own
+row is blocked here, since skipping that password check is exactly how a
+hijacked session could silently strip your own two-factor protection.
+You can't delete your own account, and the app won't let you demote,
+deactivate, or delete the last active admin — there's always at least
+one way back in.
 
 ![The Manage Users page, listing role, auth provider, and MFA status](docs/assets/screenshots/manage-users.png)
 
