@@ -64,6 +64,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
       - name: Install lint tooling
         run: npm ci
       - name: Lint
@@ -99,6 +101,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
       - name: Install and test
         run: |
           cd backend
@@ -112,6 +116,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - name: Test and build
         run: |
           cd frontend
@@ -169,6 +175,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
 
       - uses: actions/download-artifact@v8
         with:
@@ -211,6 +221,20 @@ jobs:
           done
           echo "App never became healthy."
           exit 1
+
+      # #133: the browser binary download (not the --with-deps system
+      # packages, which the runner never retains between jobs regardless)
+      # was most of this job's uncached setup cost. Keyed on the frontend
+      # lockfile hash, same as `cache: npm` above, so a Playwright version
+      # bump invalidates it automatically. `playwright install` itself
+      # already skips re-downloading a browser it finds present, so no
+      # change needed to the command below -- just restoring the cache
+      # ahead of it.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
 
       - name: Install Playwright browsers
         run: cd frontend && npx playwright install --with-deps chromium
