@@ -576,7 +576,10 @@ everywhere, with no code changes needed:
 
 Posts new prayer requests, one-time needs, and newsletters to GroupMe as
 they're added, so a team sees them the moment they're added without
-checking the admin dashboard. Off by default — turn it on in
+checking the admin dashboard. A prayer request getting **Record Answer**ed
+or a one-time need getting **Record Decision**ed posts too — the original
+ask alongside the outcome, into that same type's topic, no separate setup.
+Off by default — turn it on in
 [Enabled Features](ADMIN_GUIDE.md#feature-toggles) once it's set up here.
 
 Setup, on the **GroupMe** page under Site Administration, builds up in
@@ -599,9 +602,10 @@ steps:
 
 ![The GroupMe settings page, with all steps configured](docs/assets/screenshots/groupme-settings.png)
 
-If GroupMe itself is unreachable or rejects a post, the prayer
-request/need/newsletter still saves normally — the notification is
-best-effort and never blocks your own work.
+If GroupMe itself is unreachable or rejects a post, whatever you were
+saving — a prayer request, a one-time need, a newsletter, an answer, a
+decision — still saves normally. The notification is best-effort and
+never blocks your own work.
 
 The newsletter notification includes a direct link to the letter (the
 same link **View** opens on the newsletter's own page) — this only

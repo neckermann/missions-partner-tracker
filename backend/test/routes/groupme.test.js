@@ -473,6 +473,288 @@ describe("support need creation never fails because of GroupMe", () => {
   });
 });
 
+// #127: notifications on answering a prayer request / deciding a one-time
+// need. Routed through utils/notifications.js's channel-neutral dispatch,
+// but GroupMe is the only channel wired up today, so these tests exercise
+// it the same way the creation tests above do -- intercepting the real
+// api.groupme.com call.
+describe("recording a prayer request's answer notifies GroupMe", () => {
+  let partnerId;
+
+  before(async () => {
+    const partner = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} GroupMe answered target` },
+    });
+    partnerId = partner.body.id;
+
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { groupme: true }, groupmePrayerTopicId: "fake-topic-id" },
+    });
+  });
+
+  after(async () => {
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+  });
+
+  async function createOngoing(requestText) {
+    const res = await admin("/api/prayer-requests", {
+      method: "POST",
+      body: { partnerId, category: "situational", requestText, dateReceived: "2026-01-01" },
+    });
+    assert.equal(res.status, 201);
+    return res.body.id;
+  }
+
+  test("transitioning status to answered posts the request and answer note to the prayer topic", async () => {
+    const id = await createOngoing(`${FIXTURE_TAG} please pray for travel safety`);
+
+    let capturedUrl = null;
+    let capturedText = null;
+    mockGroupMe(async (url, options) => {
+      capturedUrl = String(url);
+      capturedText = JSON.parse(options.body).message.text;
+      return groupmeJson(202, { response: null });
+    });
+    try {
+      const res = await admin(`/api/prayer-requests/${id}`, {
+        method: "PUT",
+        body: { status: "answered", dateAnswered: "2026-02-01", answeredNote: "Arrived home safely." },
+      });
+      assert.equal(res.status, 200);
+      assert.ok(capturedUrl?.includes("/groups/fake-topic-id/messages"), capturedUrl);
+      assert.ok(capturedText?.includes("please pray for travel safety"), capturedText);
+      assert.ok(capturedText?.includes("Arrived home safely."), capturedText);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("a PUT that doesn't touch status never posts to GroupMe", async () => {
+    const id = await createOngoing(`${FIXTURE_TAG} unrelated field edit`);
+
+    let called = false;
+    mockGroupMe(async () => {
+      called = true;
+      return groupmeJson(202, { response: null });
+    });
+    try {
+      const res = await admin(`/api/prayer-requests/${id}`, {
+        method: "PUT",
+        body: { notes: "internal note" },
+      });
+      assert.equal(res.status, 200);
+      assert.equal(called, false);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("re-saving an already-answered request (e.g. fixing a typo) doesn't re-notify", async () => {
+    const id = await createOngoing(`${FIXTURE_TAG} already answered, editing note`);
+    mockGroupMe(async () => groupmeJson(202, { response: null }));
+    try {
+      const first = await admin(`/api/prayer-requests/${id}`, {
+        method: "PUT",
+        body: { status: "answered", dateAnswered: "2026-02-01", answeredNote: "Original note." },
+      });
+      assert.equal(first.status, 200);
+
+      let called = false;
+      mockGroupMe(async () => {
+        called = true;
+        return groupmeJson(202, { response: null });
+      });
+      const second = await admin(`/api/prayer-requests/${id}`, {
+        method: "PUT",
+        body: { status: "answered", answeredNote: "Fixed a typo in the note." },
+      });
+      assert.equal(second.status, 200);
+      assert.equal(called, false);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("a prayer request still saves (200) when the GroupMe post itself fails", async () => {
+    const id = await createOngoing(`${FIXTURE_TAG} answer still saves on GroupMe failure`);
+    mockGroupMe(async () => groupmeJson(500, { meta: { code: 500, errors: ["boom"] } }));
+    try {
+      const res = await admin(`/api/prayer-requests/${id}`, {
+        method: "PUT",
+        body: { status: "answered", dateAnswered: "2026-02-01", answeredNote: "Still saved." },
+      });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.status, "answered");
+    } finally {
+      unmockGroupMe();
+    }
+  });
+});
+
+describe("recording a one-time need's decision notifies GroupMe", () => {
+  let partnerId;
+
+  before(async () => {
+    const partner = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} GroupMe decided target` },
+    });
+    partnerId = partner.body.id;
+
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { groupme: true }, groupmeOneTimeNeedTopicId: "fake-need-topic-id" },
+    });
+  });
+
+  after(async () => {
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+  });
+
+  async function createUndecided(description, requestedAmount) {
+    const res = await admin("/api/support-needs", {
+      method: "POST",
+      body: { partnerId, description, requestedAmount, requestDate: "2026-01-01" },
+    });
+    assert.equal(res.status, 201);
+    return res.body.id;
+  }
+
+  test("recording full funding posts the need and amount to the needs topic", async () => {
+    const id = await createUndecided(`${FIXTURE_TAG} vehicle replacement`, 1000);
+
+    let capturedUrl = null;
+    let capturedText = null;
+    mockGroupMe(async (url, options) => {
+      capturedUrl = String(url);
+      capturedText = JSON.parse(options.body).message.text;
+      return groupmeJson(202, { response: null });
+    });
+    try {
+      const res = await admin(`/api/support-needs/${id}`, {
+        method: "PUT",
+        body: { approvedAmount: 1000, approvedDate: "2026-02-01" },
+      });
+      assert.equal(res.status, 200);
+      assert.ok(capturedUrl?.includes("/groups/fake-need-topic-id/messages"), capturedUrl);
+      assert.ok(capturedText?.includes("vehicle replacement"), capturedText);
+      assert.ok(capturedText?.includes("Fully Funded"), capturedText);
+      assert.ok(capturedText?.includes("$1,000"), capturedText);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("declining a need (approvedAmount: 0) labels it Declined", async () => {
+    const id = await createUndecided(`${FIXTURE_TAG} declined need`, 500);
+
+    let capturedText = null;
+    mockGroupMe(async (url, options) => {
+      capturedText = JSON.parse(options.body).message.text;
+      return groupmeJson(202, { response: null });
+    });
+    try {
+      const res = await admin(`/api/support-needs/${id}`, {
+        method: "PUT",
+        body: { approvedAmount: 0, approvedDate: "2026-02-01" },
+      });
+      assert.equal(res.status, 200);
+      assert.ok(capturedText?.includes("Declined"), capturedText);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("a PUT that doesn't touch the decision pair never posts to GroupMe", async () => {
+    const id = await createUndecided(`${FIXTURE_TAG} unrelated edit`, 500);
+
+    let called = false;
+    mockGroupMe(async () => {
+      called = true;
+      return groupmeJson(202, { response: null });
+    });
+    try {
+      const res = await admin(`/api/support-needs/${id}`, {
+        method: "PUT",
+        body: { notes: "internal note" },
+      });
+      assert.equal(res.status, 200);
+      assert.equal(called, false);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("re-saving an already-decided need doesn't re-notify", async () => {
+    const id = await createUndecided(`${FIXTURE_TAG} already decided`, 500);
+    mockGroupMe(async () => groupmeJson(202, { response: null }));
+    try {
+      const first = await admin(`/api/support-needs/${id}`, {
+        method: "PUT",
+        body: { approvedAmount: 500, approvedDate: "2026-02-01" },
+      });
+      assert.equal(first.status, 200);
+
+      let called = false;
+      mockGroupMe(async () => {
+        called = true;
+        return groupmeJson(202, { response: null });
+      });
+      const second = await admin(`/api/support-needs/${id}`, {
+        method: "PUT",
+        body: { approvedAmount: 500, approvedDate: "2026-02-01" },
+      });
+      assert.equal(second.status, 200);
+      assert.equal(called, false);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("clearing a decision (both fields nulled) doesn't notify", async () => {
+    const id = await createUndecided(`${FIXTURE_TAG} clearing a decision`, 500);
+    mockGroupMe(async () => groupmeJson(202, { response: null }));
+    try {
+      const first = await admin(`/api/support-needs/${id}`, {
+        method: "PUT",
+        body: { approvedAmount: 500, approvedDate: "2026-02-01" },
+      });
+      assert.equal(first.status, 200);
+
+      let called = false;
+      mockGroupMe(async () => {
+        called = true;
+        return groupmeJson(202, { response: null });
+      });
+      const second = await admin(`/api/support-needs/${id}`, {
+        method: "PUT",
+        body: { approvedAmount: null, approvedDate: null },
+      });
+      assert.equal(second.status, 200);
+      assert.equal(called, false);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("a support need still saves (200) when the GroupMe post itself fails", async () => {
+    const id = await createUndecided(`${FIXTURE_TAG} decision still saves on GroupMe failure`, 500);
+    mockGroupMe(async () => groupmeJson(500, { meta: { code: 500, errors: ["boom"] } }));
+    try {
+      const res = await admin(`/api/support-needs/${id}`, {
+        method: "PUT",
+        body: { approvedAmount: 500, approvedDate: "2026-02-01" },
+      });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.approvedAmount, 500);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+});
+
 describe("newsletter creation never fails because of GroupMe", () => {
   let partnerId;
   let originalAppBaseUrl;
