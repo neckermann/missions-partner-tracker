@@ -459,11 +459,9 @@ router.post("/:id/image", requireRole("admin", "editor"), upload.single("image")
       try {
         bytes = await heicConvert({ buffer: req.file.buffer, format: "JPEG", quality: 0.9 });
       } catch {
-        return res
-          .status(400)
-          .json({
-            error: "Couldn't read this HEIC file — it may be corrupted or use an unsupported variant",
-          });
+        return res.status(400).json({
+          error: "Couldn't read this HEIC file — it may be corrupted or use an unsupported variant",
+        });
       }
       contentType = "image/jpeg";
       fileSize = bytes.length;
