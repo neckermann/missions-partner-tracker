@@ -568,7 +568,10 @@ describe("recording a prayer request's answer notifies GroupMe", () => {
       });
       const second = await admin(`/api/prayer-requests/${id}`, {
         method: "PUT",
-        body: { status: "answered", answeredNote: "Fixed a typo in the note." },
+        // dateAnswered has to be resent -- answeredDateGiven requires it
+        // alongside status: "answered" in the same request (see the
+        // schema's own refine), same as a real edit form would.
+        body: { status: "answered", dateAnswered: "2026-02-01", answeredNote: "Fixed a typo in the note." },
       });
       assert.equal(second.status, 200);
       assert.equal(called, false);
