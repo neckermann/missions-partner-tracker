@@ -145,6 +145,7 @@ features (everything else, which only changes a logged-in admin's own nav).
 | GroupMe notifications | **Off** | Posts new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — to their own configured GroupMe Topics as they happen. Configured entirely in the UI (Site Administration → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only). |
 | Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Site Administration → Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
 | AI request scanning | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Site Administration → AI Request Scanning ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
+| Email | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Site Administration → Email. Nothing in the app sends an email yet as of this writing — this toggle and its settings page exist so the sending capability can be configured and tested ahead of the features that will use it. See [§ Email (Postmark)](#email-postmark) below for why a third-party sender rather than this church's own Gmail/Microsoft account. |
 
 The registry backing this list lives in `backend/src/utils/features.js` —
 adding a new toggle later is a one-line entry there plus a `requireFeature("key")`
@@ -153,7 +154,7 @@ check on the relevant route(s), not a database migration.
 All of this lives under **Site Administration**, an expandable group in
 the admin sidebar itself (not a separate page with its own tab bar) —
 click it to reveal Manage Users, Branding, Enabled Features, About
-Church, GroupMe, Joshua Project, and AI Request Scanning. User Management
+Church, GroupMe, Joshua Project, AI Request Scanning, and Email. User Management
 moved here from its own top-level nav link. Adding a new settings category
 later is a new entry in
 `SITE_ADMIN_LINKS` (`components/admin/AdminSidebar.jsx`) plus a new child
@@ -502,6 +503,51 @@ genuinely safe to show for your specific restricted-access partners. This
 file is the single place to adjust that policy. Full explanation of what
 gets masked: [USER_GUIDE.md § Understanding restricted-access partners](USER_GUIDE.md#understanding-restricted-access-partners).
 
+### Email (Postmark)
+
+Outbound email (see Site Administration → Email) goes through
+[Postmark](https://postmarkapp.com), a dedicated transactional email
+provider — not SMTP against this church's own Gmail/Microsoft mailbox,
+and not this app sending mail directly. Both alternatives were
+deliberately ruled out:
+
+- **This church's own mailbox (SMTP)**: Microsoft has confirmed it's
+  turning off SMTP AUTH basic authentication — the exact mechanism an app
+  would use to send through a Microsoft 365/Exchange Online account — by
+  default for every existing tenant at the end of 2026. Building this
+  app's primary sending path around that would mean it breaks for any
+  Microsoft-hosted church within the year. Gmail has moved the same
+  direction for its own SMTP access. Neither provider's own mailbox is a
+  stable foundation for an app to send through.
+- **Sending directly from this app**: this app's hosting (Render, by
+  default) doesn't give you a dedicated outbound IP without an add-on
+  cost, and even a dedicated IP starts with zero sending reputation —
+  Gmail/Microsoft/Yahoo spam-filter unfamiliar senders aggressively
+  regardless of correct SPF/DKIM records. A dedicated email provider
+  already has that reputation built and actively maintained; this app
+  doesn't need to rebuild it from zero.
+
+Postmark's own HTTP API needs only a single server token — no OAuth app
+to register and maintain, no exposure to either provider's auth
+deprecation above. Setup: create a free Postmark account, verify a
+sending domain (adds SPF/DKIM records to that domain's DNS — a one-time
+step with whoever manages it), then paste the **Server API Token** and a
+**From Address** on that domain into Site Administration → Email. **Send
+Test Email** confirms it actually works before anything depends on it.
+Free tier is 100 emails/month with no card required; a small church's
+outbound volume plausibly fits inside that indefinitely.
+
+**Data exposure**, same honesty this guide already applies to GroupMe and
+AI Request Scanning: an email sent this way passes through Postmark's
+infrastructure in transit. Postmark's data centers carry SOC 2 Type II /
+ISO 27017/27018 / PCI DSS Level 1 compliance, with TLS in transit and
+encryption at rest; Postmark itself (distinct from its data centers)
+hasn't undergone its own independent SOC audit. As of this writing,
+nothing in this app actually sends an email yet — this section documents
+the sending capability and its setup; what a future feature chooses to
+put in an email body is that feature's own data-exposure call to
+document when it ships.
+
 ### Database backups
 
 Your Postgres provider's own backups are still the first line of defense
@@ -582,8 +628,8 @@ Either way, the script itself:
   the checksum check cannot be.
 
 **One caveat worth knowing before you ever need this**: GroupMe/Joshua
-Project/Anthropic API keys and every user's MFA secret are encrypted
-with `FIELD_ENCRYPTION_KEY` ([see above](#environment-variables)).
+Project/Anthropic/Postmark API keys and every user's MFA secret are
+encrypted with `FIELD_ENCRYPTION_KEY` ([see above](#environment-variables)).
 Restoring a backup onto an environment with a *different*
 `FIELD_ENCRYPTION_KEY` than the one it was made under leaves those
 specific values undecryptable — those integrations will need their keys

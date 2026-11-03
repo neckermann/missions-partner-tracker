@@ -188,6 +188,26 @@ export async function updateAiExtractionSettings(payload) {
   return data;
 }
 
+// Email (Postmark) -- admin-only on the backend, same pattern as GroupMe/
+// Joshua Project/AI Extraction above. fetchEmailSettings() returns
+// { configured, fromAddress }; the server token itself never appears in
+// any response. sendTestEmail() sends a real email to the caller's own
+// account address.
+export async function fetchEmailSettings() {
+  const { data } = await api.get("/settings/email");
+  return data;
+}
+
+export async function updateEmailSettings(payload) {
+  const { data } = await api.put("/settings/email", payload);
+  return data;
+}
+
+export async function sendTestEmail() {
+  const { data } = await api.post("/settings/email/test");
+  return data;
+}
+
 export async function fetchPublicSettings() {
   const { data } = await api.get("/public/settings");
   return data;
