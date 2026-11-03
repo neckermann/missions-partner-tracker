@@ -14,6 +14,10 @@
 // admin picks the parent group and each notification type's topic from
 // live API calls in the settings UI (routes/settings.js), never
 // hand-typed.
+//
+// Nothing outside this file calls the notify* functions below directly --
+// every route goes through utils/notifications.js's channel-neutral entry
+// points, which today just forward to these. See that file's own comment.
 const crypto = require("crypto");
 const prisma = require("../prismaClient");
 const { decryptField } = require("./crypto");
