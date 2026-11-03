@@ -21,6 +21,26 @@ describe("matchesFileSignature", () => {
     assert.equal(matchesFileSignature(Buffer.from("%PDF-1.4\n..."), "application/pdf"), true);
   });
 
+  test("accepts a real HEIC signature, under either MIME type a browser might report", () => {
+    // ftyp box at byte 4, "heic" major brand -- the overwhelming majority
+    // of real iPhone photos.
+    const heic = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypheic"), Buffer.from([0, 0])]);
+    assert.equal(matchesFileSignature(heic, "image/heic"), true);
+    assert.equal(matchesFileSignature(heic, "image/heif"), true);
+  });
+
+  test("accepts the less common HEIC/HEIF brand codes", () => {
+    for (const brand of ["heix", "heim", "heis", "hevc", "hevx", "mif1", "msf1"]) {
+      const buf = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from(`ftyp${brand}`)]);
+      assert.equal(matchesFileSignature(buf, "image/heic"), true, brand);
+    }
+  });
+
+  test("rejects an MP4 (same ftyp box, unrelated brand) declared as HEIC", () => {
+    const mp4 = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypisom")]);
+    assert.equal(matchesFileSignature(mp4, "image/heic"), false);
+  });
+
   test("rejects content that doesn't match its declared type", () => {
     const notAnImage = Buffer.from("<script>alert(1)</script>");
     assert.equal(matchesFileSignature(notAnImage, "image/jpeg"), false);

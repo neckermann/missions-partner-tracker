@@ -7,6 +7,7 @@ const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { withPhotoUrls } = require("../utils/photoUrls");
 const { geocodeAddress } = require("../utils/geocode");
 const { matchesFileSignature } = require("../utils/fileSignature");
+const heicConvert = require("heic-convert");
 const { flattenSendingParty, shapeSendingParties } = require("../utils/sendingParty");
 
 const router = express.Router();
@@ -23,14 +24,27 @@ const IMAGE_MIME_TO_EXT = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
+  "image/heic": "heic",
+  "image/heif": "heic",
 };
+
+// HEIC/HEIF (the default photo format on every iPhone since iOS 11) has no
+// reliable browser-reported MIME type -- Windows in particular has no
+// built-in HEIC registration, so Chrome/Edge there often report
+// application/octet-stream or leave it blank. Recognized by extension as a
+// fallback, same approach as .eml in routes/newsletters.js/documents.js.
+function resolveImageExt(file) {
+  if (IMAGE_MIME_TO_EXT[file.mimetype]) return IMAGE_MIME_TO_EXT[file.mimetype];
+  if (/\.hei[cf]$/i.test(file.originalname)) return "heic";
+  return null;
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!IMAGE_MIME_TO_EXT[file.mimetype]) {
-      const err = new Error("Only JPEG, PNG, or WebP images are allowed");
+    if (!resolveImageExt(file)) {
+      const err = new Error("Only JPEG, PNG, WebP, or HEIC/HEIF images are allowed");
       err.status = 400;
       return cb(err);
     }
@@ -421,8 +435,38 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 router.post("/:id/image", requireRole("admin", "editor"), upload.single("image"), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No image file provided" });
-    if (!matchesFileSignature(req.file.buffer, req.file.mimetype)) {
+
+    const ext = resolveImageExt(req.file);
+    // Verified against the canonical type for the resolved extension, not
+    // req.file.mimetype directly -- a HEIC upload's own Content-Type can't
+    // be trusted (see resolveImageExt's comment), so the signature check
+    // needs to know what it's actually supposed to be.
+    const signatureMime = ext === "heic" ? "image/heic" : req.file.mimetype;
+    if (!matchesFileSignature(req.file.buffer, signatureMime)) {
       return res.status(400).json({ error: "File content doesn't match its declared image type" });
+    }
+
+    let bytes = req.file.buffer;
+    let contentType = req.file.mimetype;
+    let fileSize = req.file.size;
+
+    // HEIC doesn't render in an <img> tag in most browsers outside Safari
+    // (Chrome/Firefox/Edge on Windows and Android can't display it), so
+    // it's transcoded to JPEG here rather than stored as-is -- nothing
+    // downstream (display, the public site, VERIFIED_INLINE_TYPES in
+    // utils/fileResponse.js) ever needs to know a HEIC file was involved.
+    if (ext === "heic") {
+      try {
+        bytes = await heicConvert({ buffer: req.file.buffer, format: "JPEG", quality: 0.9 });
+      } catch {
+        return res
+          .status(400)
+          .json({
+            error: "Couldn't read this HEIC file — it may be corrupted or use an unsupported variant",
+          });
+      }
+      contentType = "image/jpeg";
+      fileSize = bytes.length;
     }
 
     const existing = await prisma.partner.findUnique({ where: { id: req.params.id } });
@@ -442,10 +486,10 @@ router.post("/:id/image", requireRole("admin", "editor"), upload.single("image")
     await prisma.photo.create({
       data: {
         partnerId: req.params.id,
-        bytes: req.file.buffer,
+        bytes,
         receivedDate,
-        contentType: req.file.mimetype,
-        fileSize: req.file.size,
+        contentType,
+        fileSize,
       },
     });
 
