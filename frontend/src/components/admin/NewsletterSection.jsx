@@ -7,7 +7,7 @@ import {
 } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
-import { formatDate, todayInputValue } from "../../utils/format.js";
+import { formatDate, todayInputValue, toDateInputValue } from "../../utils/format.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
 
 function formatFileSize(bytes) {
@@ -97,7 +97,7 @@ export default function NewsletterSection({ partnerId, newsletters, onChange }) 
     setEditingId(n.id);
     setEditForm({
       title: n.title || "",
-      receivedDate: String(n.receivedDate).slice(0, 10),
+      receivedDate: toDateInputValue(n.receivedDate),
       notes: n.notes || "",
     });
   }

@@ -3,7 +3,7 @@ import { uploadDocument, updateDocument, deleteDocument, extractFromDocument } f
 import { DOCUMENT_CATEGORIES, documentCategoryLabel } from "../../utils/documentCategories.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
-import { formatDate, todayInputValue } from "../../utils/format.js";
+import { formatDate, todayInputValue, toDateInputValue } from "../../utils/format.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
 
 function formatFileSize(bytes) {
@@ -111,7 +111,7 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
       category: d.category,
       customCategory: d.customCategory || "",
       title: d.title || "",
-      receivedDate: String(d.receivedDate).slice(0, 10),
+      receivedDate: toDateInputValue(d.receivedDate),
       notes: d.notes || "",
     });
   }

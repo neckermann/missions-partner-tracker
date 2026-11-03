@@ -11,6 +11,15 @@
 // Reports are read-only. Editing still happens on the resource pages --
 // you answer a prayer request on /admin/prayer-requests and export one from
 // here. Same data, different job.
+//
+// A report's `run(params, prisma, today)` always receives a third argument:
+// the browser's own calendar day (resolved once in routes/reports.js from
+// the `today` query param the frontend always sends, falling back to the
+// server clock only for a direct API call that omits it). No church
+// timezone is stored anywhere, so the browser is the only thing that knows
+// what day it is where the viewer is standing -- a report that needs
+// "today" (furlough's Current/Upcoming split, a year default) should use
+// this rather than calling `new Date()` itself. Most reports ignore it.
 
 const upcomingBirthdays = require("./upcomingBirthdays");
 const oneTimeNeeds = require("./oneTimeNeeds");

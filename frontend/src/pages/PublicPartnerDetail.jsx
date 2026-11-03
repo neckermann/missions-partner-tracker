@@ -3,14 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { fetchPublicPartner } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
-import { formatDate } from "../utils/format.js";
-
-// supportingSince is a full date under the hood but only the year is
-// meaningful to show publicly — matches PublicMap's formatYear.
-function formatYear(value) {
-  if (!value) return null;
-  return String(value).slice(0, 4);
-}
+import { formatDate, formatYear } from "../utils/format.js";
 
 // Restricted partners simply won't have most of these keys in the API
 // response at all (see toPublicPartner in maskData.js), so the

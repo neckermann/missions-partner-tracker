@@ -430,7 +430,14 @@ router.post("/:id/image", requireRole("admin", "editor"), upload.single("image")
 
     // Defaults to today, same as the newsletter upload's receivedDate —
     // lets an admin backfill an older photo with its real date instead.
-    const receivedDate = req.body.receivedDate ? new Date(req.body.receivedDate) : new Date();
+    // Same z.coerce.date() mechanism every other date-only write in this
+    // app uses, even though this route isn't otherwise Zod-validated (it's
+    // multer/multipart, not a JSON body schema).
+    const receivedDate = z.coerce
+      .date()
+      .optional()
+      .default(() => new Date())
+      .parse(req.body.receivedDate);
 
     await prisma.photo.create({
       data: {

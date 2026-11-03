@@ -96,7 +96,7 @@ module.exports = {
     { key: "field", label: "Field" },
   ],
 
-  async run(params, prisma) {
+  async run(params, prisma, today) {
     const partners = await prisma.partner.findMany({
       where: params.includeArchived ? {} : { archived: false },
       select: {
@@ -112,7 +112,12 @@ module.exports = {
       },
     });
 
-    const inYear = params.year ?? new Date().getFullYear();
+    // getUTCFullYear, not getFullYear: `today` is the browser's calendar
+    // day encoded as UTC midnight (see reports/index.js's header comment),
+    // same shape as any other date-only value -- reading it with a local
+    // getter here would be the exact bug this app keeps fixing, just
+    // relocated to this file instead of eliminated.
+    const inYear = params.year ?? today.getUTCFullYear();
     // Looping months 1-12 and concatenating in order, rather than a
     // separate "whole year" query, keeps birthdaysInMonth as the one place
     // that does the month/day extraction -- a year view is just every

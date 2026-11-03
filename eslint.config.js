@@ -126,6 +126,37 @@ module.exports = [
       eqeqeq: ["error", "always", { null: "ignore" }],
       "no-var": "error",
       "prefer-const": "warn",
+
+      // This app's date-only API fields (a birthday, a newsletter's
+      // received date) arrive as UTC-midnight ISO strings. These four
+      // getters read a Date's *local* components, which silently
+      // misreads that value as the previous calendar day for anyone west
+      // of UTC -- the same bug, independently, three separate times
+      // (dateRange.js's inDateRange, AdminReports.jsx's month default,
+      // and the backend's furlough.js). format.js exists specifically to
+      // be the one place that touches these safely; this makes that
+      // enforced, not just a comment to remember.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            'CallExpression[callee.type="MemberExpression"][callee.property.name=/^(getFullYear|getMonth|getDate|getDay)$/]',
+          message:
+            "Reading a Date's local getters can silently misread a UTC-midnight date-only API value. Use frontend/src/utils/format.js's helpers (dateOnlyParts, nowParts, formatDate/formatDateLong, toDateInputValue) instead.",
+        },
+      ],
+    },
+  },
+
+  // format.js is the one place allowed to touch the getters banned above --
+  // it's the designated chokepoint that rule exists to funnel everything
+  // else through. format.test.js deliberately constructs the unsafe
+  // pattern once, as the "old implementation" control case the fix is
+  // tested against.
+  {
+    files: ["frontend/src/utils/format.js", "frontend/src/utils/format.test.js"],
+    rules: {
+      "no-restricted-syntax": "off",
     },
   },
 

@@ -4,6 +4,7 @@ import { fetchPartners, archivePartner, unarchivePartner, deletePartner } from "
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getContinent } from "../utils/countryContinents.js";
 import { matchesSearch } from "../utils/search.js";
+import { formatCurrency, formatDate } from "../utils/format.js";
 
 // Same field as backend/src/utils/maskData.js's public `country` -- the
 // physical address's country, nothing else. fipsCountryCode is for Joshua
@@ -18,20 +19,13 @@ function resolveCountry(record) {
 // The API orders supportEntries by effectiveDate descending, so the first
 // entry (if any) is always the current amount.
 function currentSupport(supportEntries) {
-  const amount = supportEntries?.[0]?.amount;
-  if (amount == null) return "—";
-  return amount.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  return formatCurrency(supportEntries?.[0]?.amount, { fallback: "—" });
 }
 
 // The API orders churchVisits by visitDate descending, so the first entry
-// (if any) is the last visit. Date-only fields are stored as UTC midnight —
-// build the Date from raw Y/M/D components (not new Date(isoString)) to
-// avoid a timezone-shift off-by-one-day bug, matching the detail pages.
+// (if any) is the last visit.
 function lastVisit(churchVisits) {
-  const value = churchVisits?.[0]?.visitDate;
-  if (!value) return "—";
-  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
+  return formatDate(churchVisits?.[0]?.visitDate, { fallback: "—" });
 }
 
 // Missionaries and organizations used to have separate list pages, each

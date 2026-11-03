@@ -62,14 +62,30 @@ router.get("/:id", async (req, res, next) => {
       }
     }
 
+    // "Today" as the browser's own calendar sees it, not the server's --
+    // same reasoning as upcomingBirthdays' month/year (see that file's
+    // comment): no church timezone is stored anywhere, so the browser is
+    // the only thing here that knows what day it is where the viewer is
+    // standing. The frontend sends this on every report run (AdminReports.jsx);
+    // the server-clock fallback only matters for a direct API call that
+    // omits it. Resolved once, here, and threaded into everything below
+    // that needs "today" -- a report's own logic (furlough.js) and the CSV
+    // filename stamp both use this same value rather than each
+    // independently asking the server clock and risking disagreeing with
+    // each other.
+    const today = req.query.today ? new Date(req.query.today) : new Date();
+
     // Throws ZodError on bad input, which the central error middleware
     // turns into a 400 with a string `error` naming the field.
     const params = report.params.parse(req.query);
-    const rows = await report.run(params, prisma);
+    const rows = await report.run(params, prisma, today);
 
     if (req.query.format === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
-      res.setHeader("Content-Disposition", `attachment; filename="${csvFilename(report.label)}"`);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${csvFilename(report.label, { now: today })}"`
+      );
       // Not cacheable: the same URL returns different rows as the data
       // changes, and this one ends up in a downloads folder.
       res.setHeader("Cache-Control", "no-store");

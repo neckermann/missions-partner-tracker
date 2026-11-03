@@ -1,5 +1,14 @@
 import { describe, test, expect, vi, afterEach } from "vitest";
-import { todayInputValue, toDateInputValue, formatDate, formatDateLong } from "./format.js";
+import {
+  todayInputValue,
+  toDateInputValue,
+  formatDate,
+  formatDateLong,
+  formatYear,
+  dateOnlyParts,
+  nowParts,
+  lastDayOfMonth,
+} from "./format.js";
 
 // These pin the two timezone traps this module exists to avoid. Both had
 // shipped: one for months across ten copies of the same helper, the other
@@ -93,5 +102,46 @@ describe("formatDateLong", () => {
   test("handles missing and malformed values the same way", () => {
     expect(formatDateLong(null)).toBeNull();
     expect(formatDateLong("nonsense")).toBeNull();
+  });
+});
+
+describe("formatYear", () => {
+  test("slices the year out of a full date string", () => {
+    expect(formatYear("1979-05-04T00:00:00.000Z")).toBe("1979");
+  });
+
+  test("returns null for a missing value", () => {
+    expect(formatYear(null)).toBeNull();
+    expect(formatYear(undefined)).toBeNull();
+  });
+});
+
+describe("dateOnlyParts", () => {
+  test("returns the Y/M/D the API meant, with no Date ever constructed", () => {
+    expect(dateOnlyParts("1979-05-04T00:00:00.000Z")).toEqual({ year: 1979, month: 5, day: 4 });
+  });
+
+  test("returns null for missing or malformed values", () => {
+    expect(dateOnlyParts(null)).toBeNull();
+    expect(dateOnlyParts("")).toBeNull();
+    expect(dateOnlyParts("not-a-date")).toBeNull();
+  });
+});
+
+describe("nowParts", () => {
+  test("reads the local calendar day off a live Date, not the UTC one", () => {
+    // Same boundary todayInputValue is tested against: 22:30 on 2026-09-22
+    // in California is already 2026-09-23 in UTC.
+    const local = new Date(2026, 8, 22, 22, 30);
+    expect(nowParts(local)).toEqual({ year: 2026, month: 9, day: 22 });
+  });
+});
+
+describe("lastDayOfMonth", () => {
+  test("handles a 31-day, 30-day, and leap-year February correctly", () => {
+    expect(lastDayOfMonth(2026, 1)).toBe(31); // January
+    expect(lastDayOfMonth(2026, 4)).toBe(30); // April
+    expect(lastDayOfMonth(2024, 2)).toBe(29); // leap year
+    expect(lastDayOfMonth(2026, 2)).toBe(28); // non-leap year
   });
 });

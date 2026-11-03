@@ -77,9 +77,7 @@ module.exports = {
     { key: "notes", label: "Notes" },
   ],
 
-  async run(params, prisma) {
-    const today = new Date(new Date().toISOString().slice(0, 10));
-
+  async run(params, prisma, today) {
     const partners = await prisma.partner.findMany({
       where: {
         kind: "missionary",

@@ -1,7 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { listReports, runReport, reportCsvUrl } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
-import { formatCurrency, formatDate, formatDateLong, formatMonthDay } from "../utils/format.js";
+import {
+  formatCurrency,
+  formatDate,
+  formatDateLong,
+  formatMonthDay,
+  nowParts,
+  todayInputValue,
+} from "../utils/format.js";
 import { resolveQuickRangeDates } from "../utils/dateRange.js";
 
 // The Reports shell.
@@ -41,8 +48,9 @@ function initialValues(report, now = new Date()) {
   const values = {};
   for (const field of report.fields || []) {
     if (field.type === "month") {
-      values[field.name] = now.getMonth() + 1;
-      values.year = now.getFullYear();
+      const { year, month } = nowParts(now);
+      values[field.name] = month;
+      values.year = year;
     } else if (field.type === "checkbox") {
       values[field.name] = false;
     } else if (field.type === "select" || field.type === "dateRangePreset") {
@@ -51,6 +59,13 @@ function initialValues(report, now = new Date()) {
       values[field.name] = "";
     }
   }
+  // Rides along on every report run, used or not -- report schemas use
+  // plain z.object() with no .strict(), so a report that doesn't declare
+  // `today` just silently drops it. Lets any report (furlough's Current/
+  // Upcoming split, a future one) compare against the browser's own
+  // calendar day without re-deriving it, instead of each one asking the
+  // server's clock independently and risking disagreement with the others.
+  values.today = todayInputValue(now);
   return values;
 }
 
