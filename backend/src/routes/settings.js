@@ -6,6 +6,7 @@ const { matchesFileSignature } = require("../utils/fileSignature");
 const { FEATURES, FEATURE_KEYS } = require("../utils/features");
 const { encryptField, decryptField } = require("../utils/crypto");
 const { listGroups, listTopics } = require("../utils/groupme");
+const { sendEmail } = require("../utils/email");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 
 const router = express.Router();
@@ -85,7 +86,13 @@ router.get("/", async (req, res, next) => {
     const [settings, sentByOurChurchCount] = await Promise.all([
       prisma.churchSettings.findUnique({
         where: { id: "singleton" },
-        omit: { logoBytes: true, groupmeAccessToken: true, joshuaProjectApiKey: true, anthropicApiKey: true },
+        omit: {
+          logoBytes: true,
+          groupmeAccessToken: true,
+          joshuaProjectApiKey: true,
+          anthropicApiKey: true,
+          postmarkServerToken: true,
+        },
       }),
       // Backs the bulk "Sync from Church Settings" action on the About
       // Church page (AdminSettingsAbout.jsx) -- cheap enough to include on
@@ -123,7 +130,13 @@ router.put("/", requireRole("admin"), async (req, res, next) => {
       where: { id: "singleton" },
       create: { id: "singleton", ...data, ...clearLogo, updatedById: req.user.id },
       update: { ...data, ...clearLogo, updatedById: req.user.id },
-      omit: { logoBytes: true, groupmeAccessToken: true, joshuaProjectApiKey: true, anthropicApiKey: true },
+      omit: {
+        logoBytes: true,
+        groupmeAccessToken: true,
+        joshuaProjectApiKey: true,
+        anthropicApiKey: true,
+        postmarkServerToken: true,
+      },
     });
     res.json(shapeSettings(updated));
   } catch (err) {
@@ -148,7 +161,13 @@ router.post("/logo", requireRole("admin"), upload.single("image"), async (req, r
         updatedById: req.user.id,
       },
       update: { logoBytes: req.file.buffer, logoContentType: req.file.mimetype, updatedById: req.user.id },
-      omit: { logoBytes: true, groupmeAccessToken: true, joshuaProjectApiKey: true, anthropicApiKey: true },
+      omit: {
+        logoBytes: true,
+        groupmeAccessToken: true,
+        joshuaProjectApiKey: true,
+        anthropicApiKey: true,
+        postmarkServerToken: true,
+      },
     });
 
     res.json(shapeSettings(updated));
@@ -303,6 +322,74 @@ router.get("/groupme/groups/:groupId/topics", requireRole("admin"), async (req, 
     }
   } catch (err) {
     next(err);
+  }
+});
+
+const emailSettingsSelect = { postmarkServerToken: true, emailFromAddress: true };
+function shapeEmailSettings(settings) {
+  return {
+    configured: Boolean(settings?.postmarkServerToken && settings?.emailFromAddress),
+    fromAddress: settings?.emailFromAddress || null,
+  };
+}
+
+const emailSchema = z.object({
+  // Omitted/blank leaves the stored token untouched -- same write-only-field
+  // UX as groupme's accessToken above.
+  serverToken: z.string().trim().min(1).optional(),
+  fromAddress: z.string().trim().email().optional().nullable(),
+});
+
+// GET /api/settings/email (admin only, same reasoning as GET /groupme above).
+router.get("/email", requireRole("admin"), async (req, res, next) => {
+  try {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: emailSettingsSelect,
+    });
+    res.json(shapeEmailSettings(settings));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/settings/email (admin only).
+router.put("/email", requireRole("admin"), async (req, res, next) => {
+  try {
+    const { serverToken, fromAddress } = emailSchema.parse(req.body);
+    const fields = {};
+    if (serverToken) fields.postmarkServerToken = encryptField(serverToken);
+    if (fromAddress !== undefined) fields.emailFromAddress = fromAddress;
+
+    const updated = await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      create: { id: "singleton", ...fields, updatedById: req.user.id },
+      update: { ...fields, updatedById: req.user.id },
+      select: emailSettingsSelect,
+    });
+    res.json(shapeEmailSettings(updated));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/settings/email/test (admin only) -- sends a real email to the
+// caller's own account address, so a bad token/from-address is caught here
+// rather than at the first real send (same reasoning as GroupMe's "Load My
+// Groups" live check).
+router.post("/email/test", requireRole("admin"), async (req, res, next) => {
+  try {
+    await sendEmail({
+      to: req.user.email,
+      subject: "Test email from missions-partner-tracker",
+      text: "If you're reading this, your email settings are working.",
+    });
+    res.json({ sent: true });
+  } catch (err) {
+    // A bad token/from-address/Postmark-side failure is routine here --
+    // this is exactly the call an admin makes to find out their settings
+    // don't work. Same reasoning as GroupMe's live-check routes above.
+    res.status(err.status === 400 ? 400 : 502).json({ error: err.message });
   }
 });
 

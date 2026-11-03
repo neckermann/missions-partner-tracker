@@ -56,6 +56,7 @@ function buildSiteAdminLinks(enabledFeatures) {
     enabledFeatures.groupme && { to: "/admin/settings/groupme", label: "GroupMe" },
     enabledFeatures.joshuaProject && { to: "/admin/settings/joshua-project", label: "Joshua Project" },
     enabledFeatures.aiExtraction && { to: "/admin/settings/ai-extraction", label: "AI Request Scanning" },
+    enabledFeatures.email && { to: "/admin/settings/email", label: "Email" },
   ].filter(Boolean);
 }
 

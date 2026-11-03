@@ -71,10 +71,11 @@ Administration**, an expandable group at the bottom of the
 sidebar, appears only for admins and holds
 [**Manage Users**](#user-management-admin-only), **Branding**,
 [**Enabled Features**](ADMIN_GUIDE.md#feature-toggles),
-**About Church**, **Backups**, and **GroupMe** —
+**About Church**, **Backups**, **GroupMe**, and **Email** —
 see [Church Settings](#church-settings-admin-only),
-[Database Backups](#database-backups-admin-only), and
-[GroupMe notifications](#groupme-notifications-admin-only) below. The
+[Database Backups](#database-backups-admin-only),
+[GroupMe notifications](#groupme-notifications-admin-only), and
+[Email (Admin only)](#email-admin-only) below. The
 footer has **My Account**, a link back to the public site, and **Log
 out**.
 
@@ -683,6 +684,41 @@ typical volume, not a flat fee.
 A key alone doesn't turn anything on — turn on **AI request scanning**
 in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) to actually show
 the Scan for requests button.
+
+## Email (Admin only)
+
+Outbound email, sent through [Postmark](https://postmarkapp.com), a
+dedicated email delivery service — not through this church's own Gmail or
+Microsoft account. See
+[ADMIN_GUIDE.md § Email (Postmark)](ADMIN_GUIDE.md#email-postmark) for
+why. As of this writing, nothing in the app actually sends an email yet —
+this page configures and tests the capability ahead of the features that
+will use it.
+
+Setup, on the **Email** page under Site Administration, builds up in
+steps:
+
+1. Create a free account at [postmarkapp.com](https://postmarkapp.com),
+   verify a sending domain there (adds SPF/DKIM records to that domain's
+   DNS — a one-time step with whoever manages it), then copy the
+   **Server API Token** from your server's API Tokens tab.
+2. **Server API Token** — paste it below. Write-only once saved, same as
+   a password field; leave it blank on a later save to keep the existing
+   one.
+3. **From Address** — the address recipients see mail arrive from, e.g.
+   `updates@yourchurch.org` — must be on the domain verified in step 1.
+4. **Send Test Email** — sends a real email to your own account address,
+   confirming it actually works before anything depends on it.
+
+To check the connection itself works before setting up a real domain,
+paste the literal text `POSTMARK_API_TEST` as the Server API Token (no
+Postmark account needed at all) and any address as From Address, then
+**Send Test Email** — Postmark accepts and validates the request without
+actually delivering anything or requiring a verified domain, confirming
+the settings/token/API call path works. Swap in a real token once you
+have a verified domain to actually receive mail.
+
+![The Email settings page, configured and tested](docs/assets/screenshots/email-settings.png)
 
 ## User management (Admin only)
 

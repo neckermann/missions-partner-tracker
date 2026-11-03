@@ -103,6 +103,15 @@ const FEATURES = {
     defaultEnabled: false,
     group: "admin",
   },
+  // Just the sending capability + its settings page (see #71) -- nothing
+  // in the app sends an email yet, same "off until it does something"
+  // reasoning as every other integration here.
+  email: {
+    label: "Email",
+    description: "Send email through a configured Postmark account.",
+    defaultEnabled: false,
+    group: "admin",
+  },
 };
 
 const FEATURE_KEYS = Object.keys(FEATURES);
