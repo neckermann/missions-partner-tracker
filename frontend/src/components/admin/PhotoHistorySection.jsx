@@ -45,7 +45,11 @@ export default function PhotoHistorySection({ partnerId, photos, onChange }) {
     <div className="admin-section">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h3 style={{ flex: 1, marginBottom: 0 }}>Photo History</h3>
-        <button type="button" className="btn secondary small" onClick={() => setShowAddForm((v) => !v)}>
+        <button
+          type="button"
+          className="btn secondary small"
+          onClick={() => (setShowAddForm((v) => !v), setError(""))}
+        >
           {showAddForm ? "Cancel" : "+ Add Photo"}
         </button>
       </div>

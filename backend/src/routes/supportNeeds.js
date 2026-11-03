@@ -30,6 +30,23 @@ const supportNeedSchema = z.object({
   sourceDocumentId: z.string().optional().nullable(),
 });
 
+// Checks presence in *this request*, not null-ness -- PUT uses .partial(),
+// where an omitted key means "leave whatever's already stored," not
+// "clear it." A request touching neither field (editing something else
+// entirely) is fine; one touching only one of the pair is the actual bug
+// this guards against: reports/oneTimeNeeds.js reads `approvedDate` as
+// its "has this been decided" signal and nulls `approvedAmount` out when
+// it's missing, so a request that set the amount but not the date would
+// silently lose the recorded amount on the report, with no error telling
+// anyone why.
+function approvedPairGiven(data) {
+  return "approvedAmount" in data === "approvedDate" in data;
+}
+const APPROVED_PAIR_ISSUE = {
+  message: "approvedAmount and approvedDate must be set together",
+  path: ["approvedDate"],
+};
+
 const supportNeedInclude = {
   partner: { select: { id: true, kind: true, displayName: true } },
   // Just enough for the "From: <title>, <date>" admin card link -- never
@@ -60,7 +77,7 @@ router.get("/", async (req, res, next) => {
 // POST /api/support-needs  (create — editor or admin)
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = supportNeedSchema.parse(req.body);
+    const data = supportNeedSchema.refine(approvedPairGiven, APPROVED_PAIR_ISSUE).parse(req.body);
     const created = await prisma.supportNeed.create({ data, include: supportNeedInclude });
 
     // Best-effort: a GroupMe outage or bad token must never block saving
@@ -85,7 +102,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 // so needs no special handling.
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = supportNeedSchema.partial().parse(req.body);
+    const data = supportNeedSchema.partial().refine(approvedPairGiven, APPROVED_PAIR_ISSUE).parse(req.body);
     const updated = await prisma.supportNeed.update({
       where: { id: req.params.id },
       data,

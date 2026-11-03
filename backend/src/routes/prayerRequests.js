@@ -31,6 +31,24 @@ const prayerRequestSchema = z.object({
   sourceNewsletterId: z.string().optional().nullable(),
   sourceDocumentId: z.string().optional().nullable(),
 });
+
+// Only fires when a request transitions to "answered" *in this request* --
+// the schema.prisma model comment pairs status/dateAnswered/answeredNote
+// deliberately ("this is what lets a church look back... and see how
+// prayers were actually answered"), but nothing enforced it. Doesn't look
+// at what's already stored, so a partial PUT touching some other field
+// while status happens to already be "answered" from an earlier save is
+// unaffected -- this only catches a request that sets status to
+// "answered" without also providing a real date in that same request.
+function answeredDateGiven(data) {
+  if (data.status !== "answered") return true;
+  return data.dateAnswered != null;
+}
+const ANSWERED_DATE_ISSUE = {
+  message: 'dateAnswered is required when status is "answered"',
+  path: ["dateAnswered"],
+};
+
 const prayerRequestInclude = {
   partner: { select: { id: true, kind: true, displayName: true } },
   // Just enough for the "From: <title>, <date>" admin card link -- never
@@ -64,7 +82,7 @@ router.get("/", async (req, res, next) => {
 // POST /api/prayer-requests  (create — editor or admin)
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = prayerRequestSchema.parse(req.body);
+    const data = prayerRequestSchema.refine(answeredDateGiven, ANSWERED_DATE_ISSUE).parse(req.body);
     const created = await prisma.prayerRequest.create({
       data,
       include: prayerRequestInclude,
@@ -94,7 +112,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 // needs no special handling.
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = prayerRequestSchema.partial().parse(req.body);
+    const data = prayerRequestSchema.partial().refine(answeredDateGiven, ANSWERED_DATE_ISSUE).parse(req.body);
     const updated = await prisma.prayerRequest.update({
       where: { id: req.params.id },
       data,

@@ -103,7 +103,6 @@ module.exports = {
         id: true,
         displayName: true,
         fieldDisplayName: true,
-        archived: true,
         // Names and birthdays only. No phone or email: the report has no use
         // for them and there is no reason to carry contact details through a
         // path that ends in a downloadable file.

@@ -166,6 +166,112 @@ describe("collections: CRUD and partner scoping", () => {
   }
 });
 
+describe("collections: paired-field validation", () => {
+  test("support-needs: approvedAmount without approvedDate is rejected, on create and on a partial update", async () => {
+    const createRes = await admin("/api/support-needs", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        description: "A need",
+        requestedAmount: 500,
+        requestDate: "2026-01-01",
+        approvedAmount: 250,
+      },
+    });
+    assert.equal(createRes.status, 400);
+
+    const created = await admin("/api/support-needs", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        description: "A need",
+        requestedAmount: 500,
+        requestDate: "2026-01-01",
+      },
+    });
+    const patchRes = await admin(`/api/support-needs/${created.body.id}`, {
+      method: "PUT",
+      body: { approvedDate: "2026-02-01" },
+    });
+    assert.equal(patchRes.status, 400);
+
+    // A partial update touching neither field must still be allowed.
+    const untouched = await admin(`/api/support-needs/${created.body.id}`, {
+      method: "PUT",
+      body: { description: "edited" },
+    });
+    assert.equal(untouched.status, 200);
+
+    await admin(`/api/support-needs/${created.body.id}`, { method: "DELETE" });
+  });
+
+  test("prayer-requests: status 'answered' without dateAnswered is rejected, on create and on a partial update", async () => {
+    const createRes = await admin("/api/prayer-requests", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        category: "situational",
+        requestText: "A request",
+        dateReceived: "2026-01-01",
+        status: "answered",
+      },
+    });
+    assert.equal(createRes.status, 400);
+
+    const created = await admin("/api/prayer-requests", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        category: "situational",
+        requestText: "A request",
+        dateReceived: "2026-01-01",
+      },
+    });
+    const patchRes = await admin(`/api/prayer-requests/${created.body.id}`, {
+      method: "PUT",
+      body: { status: "answered" },
+    });
+    assert.equal(patchRes.status, 400);
+
+    const untouched = await admin(`/api/prayer-requests/${created.body.id}`, {
+      method: "PUT",
+      body: { requestText: "edited" },
+    });
+    assert.equal(untouched.status, 200);
+
+    await admin(`/api/prayer-requests/${created.body.id}`, { method: "DELETE" });
+  });
+
+  test("trips: endDate before startDate is rejected, on create and on a partial update", async () => {
+    const createRes = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, startDate: "2026-06-01", endDate: "2026-05-01" },
+    });
+    assert.equal(createRes.status, 400);
+
+    const created = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, startDate: "2026-01-01", endDate: "2026-02-01" },
+    });
+    // The refine only sees fields present in this request, same as the
+    // approved/answered pairs above -- so the bad order has to be sent
+    // together to be caught; a partial update touching only one side isn't
+    // checked against the stored value.
+    const patchRes = await admin(`/api/trips/${created.body.id}`, {
+      method: "PUT",
+      body: { startDate: "2026-06-01", endDate: "2026-05-01" },
+    });
+    assert.equal(patchRes.status, 400);
+
+    await admin(`/api/trips/${created.body.id}`, { method: "DELETE" });
+  });
+
+  test("trips: a non-numeric year query param 400s instead of silently dropping the filter", async () => {
+    const res = await admin("/api/trips?year=notanumber");
+    assert.equal(res.status, 400);
+  });
+});
+
 describe("trips: participants", () => {
   test("participants are created with the trip and replaced wholesale on update", async () => {
     const created = await admin("/api/trips", {

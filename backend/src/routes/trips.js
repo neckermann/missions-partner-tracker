@@ -33,6 +33,28 @@ const tripSchema = z.object({
   participants: z.array(participantSchema).optional(),
 });
 
+// Same "presence in this request, not null-ness" reasoning as the
+// approved-pair/answered-date checks in supportNeeds.js/prayerRequests.js
+// -- a partial PUT that only touches one of the two dates (correcting just
+// the end date, say) is left alone; this only catches a request that
+// supplies both and gets their order backwards.
+function datesInOrder(data) {
+  if (!data.startDate || !data.endDate) return true;
+  return data.endDate >= data.startDate;
+}
+const DATE_ORDER_ISSUE = { message: "endDate cannot be before startDate", path: ["endDate"] };
+
+// GET /api/trips's own ?year= filter -- z.coerce.number().int() so an
+// invalid value 400s instead of silently being dropped (Number(bad) is
+// NaN, and the old `if (Number.isInteger(year))` guard just skipped
+// filtering on it with no error), same coercion discipline
+// reports/tripHistory.js already uses for the same concept.
+const tripQuerySchema = z.object({
+  partnerId: z.string().optional(),
+  tripType: z.string().optional(),
+  year: z.coerce.number().int().optional(),
+});
+
 const tripInclude = {
   partner: { select: { id: true, kind: true, displayName: true } },
   participants: true,
@@ -44,14 +66,15 @@ const tripInclude = {
 // the result in the browser; this replaces that with one query.
 router.get("/", async (req, res, next) => {
   try {
+    const query = tripQuerySchema.parse(req.query);
     const where = {};
-    if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
-    if (req.query.tripType) where.tripType = String(req.query.tripType);
-    if (req.query.year) {
-      const year = Number(req.query.year);
-      if (Number.isInteger(year)) {
-        where.startDate = { gte: new Date(Date.UTC(year, 0, 1)), lt: new Date(Date.UTC(year + 1, 0, 1)) };
-      }
+    if (query.partnerId) where.partnerId = query.partnerId;
+    if (query.tripType) where.tripType = query.tripType;
+    if (query.year) {
+      where.startDate = {
+        gte: new Date(Date.UTC(query.year, 0, 1)),
+        lt: new Date(Date.UTC(query.year + 1, 0, 1)),
+      };
     }
 
     const records = await prisma.trip.findMany({
@@ -68,7 +91,7 @@ router.get("/", async (req, res, next) => {
 // POST /api/trips  (create — editor or admin)
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const { participants, ...data } = tripSchema.parse(req.body);
+    const { participants, ...data } = tripSchema.refine(datesInOrder, DATE_ORDER_ISSUE).parse(req.body);
     const created = await prisma.trip.create({
       data: {
         ...data,
@@ -91,7 +114,10 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 // them loses.
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const { participants, ...data } = tripSchema.partial().parse(req.body);
+    const { participants, ...data } = tripSchema
+      .partial()
+      .refine(datesInOrder, DATE_ORDER_ISSUE)
+      .parse(req.body);
 
     const existing = await prisma.trip.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: "Not found" });

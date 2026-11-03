@@ -47,6 +47,12 @@ async function getCountryInfo(countryCode) {
     // The API returns an array (e.g. [{ Ctry, Population, ... }]), not a
     // bare object — grab the single country record out of it.
     const data = Array.isArray(results) ? results[0] || null : results;
+    // A misconfigured/expired API key can come back as a 200 with an
+    // error body (e.g. {"error": "Invalid API key"}) rather than a real
+    // HTTP failure -- caching that as if it were country data would mask
+    // the misconfiguration for a full 24h instead of surfacing it. Every
+    // genuine country record has at least a country name.
+    if (!data || typeof data.Ctry !== "string") return null;
     cache.set(countryCode, { data, expiresAt: Date.now() + CACHE_TTL_MS });
     return data;
   } catch (err) {

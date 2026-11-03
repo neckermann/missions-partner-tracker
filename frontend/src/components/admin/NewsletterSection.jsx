@@ -116,7 +116,11 @@ export default function NewsletterSection({ partnerId, newsletters, onChange }) 
     <div className="admin-section">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h3 style={{ flex: 1, marginBottom: 0 }}>Newsletters</h3>
-        <button type="button" className="btn secondary small" onClick={() => setShowAddForm((v) => !v)}>
+        <button
+          type="button"
+          className="btn secondary small"
+          onClick={() => (setShowAddForm((v) => !v), setError(""))}
+        >
           {showAddForm ? "Cancel" : "+ Add Newsletter"}
         </button>
       </div>

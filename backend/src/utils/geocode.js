@@ -28,7 +28,13 @@ async function geocodeAddress({ city, stateProvinceRegion, country } = {}) {
     if (!res.ok) return null;
     const results = await res.json();
     if (!results.length) return null;
-    return { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) };
+    const lat = parseFloat(results[0].lat);
+    const lng = parseFloat(results[0].lon);
+    // A malformed upstream result (missing/non-numeric lat or lon) should
+    // leave gpsLat/gpsLng null, same as "found nothing" -- not persist
+    // NaN, which the caller has no reason to expect or guard against.
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng };
   } catch (err) {
     console.error("Geocoding failed:", err);
     return null;

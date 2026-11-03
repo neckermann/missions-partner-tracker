@@ -70,7 +70,6 @@ describe("birthdaysInMonth", () => {
       id: "p1",
       displayName: "Frank and Lori Wexford",
       fieldDisplayName: "Catalonia",
-      archived: false,
       adults: [
         { id: "a1", name: "Frank Wexford", birthday: new Date("1980-11-20T00:00:00.000Z") },
         { id: "a2", name: "Lori Wexford", birthday: new Date("1982-03-02T00:00:00.000Z") },
@@ -81,7 +80,6 @@ describe("birthdaysInMonth", () => {
       id: "p2",
       displayName: "Grace Tillman",
       fieldDisplayName: "Kathmandu Valley",
-      archived: true,
       adults: [{ id: "a3", name: "Grace Tillman", birthday: new Date("1990-11-02T00:00:00.000Z") }],
       children: [],
     },
@@ -89,7 +87,6 @@ describe("birthdaysInMonth", () => {
       id: "p3",
       displayName: "No Birthdays Here",
       fieldDisplayName: null,
-      archived: false,
       adults: [{ id: "a4", name: "Unknown Birthday", birthday: null }],
       children: [],
     },
@@ -125,12 +122,11 @@ describe("birthdaysInMonth", () => {
     assert.equal(frank.turning, null, "a wrong age for an adult is worse than no age");
   });
 
-  test("carries partner context and the archived flag through", () => {
+  test("carries partner context through", () => {
     const rows = birthdaysInMonth(partners, 11, { inYear: 2026 });
     const grace = rows.find((r) => r.name === "Grace Tillman");
     assert.equal(grace.partnerName, "Grace Tillman");
     assert.equal(grace.field, "Kathmandu Valley");
-    assert.equal(grace.archived, true, "filtering archived rows is the caller's decision");
   });
 
   test("drops people with no birthday instead of inventing one", () => {

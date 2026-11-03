@@ -1,7 +1,16 @@
 const jwt = require("jsonwebtoken");
 
-const TOKEN_TTL = "8h";
-const TOKEN_TTL_MS = 8 * 60 * 60 * 1000;
+// One number, not two independently-maintained durations -- TOKEN_TTL
+// (the jwt.sign expiresIn string) and TOKEN_TTL_MS (the cookie's maxAge)
+// used to be separate literals that could drift out of sync if one was
+// ever changed without the other. Drifting either direction is bad: the
+// cookie outliving the token means the browser keeps sending an
+// already-expired token, which just gets rejected -- a confusing
+// shorter-than-expected session; the token outliving the cookie forces an
+// unnecessary re-login before the token itself was actually due to expire.
+const TOKEN_TTL_HOURS = 8;
+const TOKEN_TTL = `${TOKEN_TTL_HOURS}h`;
+const TOKEN_TTL_MS = TOKEN_TTL_HOURS * 60 * 60 * 1000;
 const SESSION_COOKIE_NAME = "session";
 
 // Issued by login in routes/auth.js -- the one place a session is minted.

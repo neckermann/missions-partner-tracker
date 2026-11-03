@@ -77,7 +77,6 @@ function birthdaysInMonth(partners, month, { inYear = new Date().getFullYear() }
         partnerId: partner.id,
         partnerName: partner.displayName,
         field: partner.fieldDisplayName || null,
-        archived: Boolean(partner.archived),
       });
     }
   }

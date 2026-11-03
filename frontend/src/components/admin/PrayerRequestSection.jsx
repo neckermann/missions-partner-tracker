@@ -138,7 +138,11 @@ export default function PrayerRequestSection({
     <div className="admin-section">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h3 style={{ flex: 1, marginBottom: 0 }}>Prayer Requests</h3>
-        <button type="button" className="btn secondary small" onClick={() => setShowAddForm((v) => !v)}>
+        <button
+          type="button"
+          className="btn secondary small"
+          onClick={() => (setShowAddForm((v) => !v), setError(""))}
+        >
           {showAddForm ? "Cancel" : "+ Add Prayer Request"}
         </button>
       </div>

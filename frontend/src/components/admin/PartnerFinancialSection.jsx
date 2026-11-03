@@ -176,7 +176,7 @@ export default function PartnerFinancialSection({
             <button
               type="button"
               className="btn secondary small"
-              onClick={() => setAddingEntry((v) => !v)}
+              onClick={() => (setAddingEntry((v) => !v), setError(""))}
               title="A new amount takes effect as of its date -- earlier entries stay on file as history."
             >
               {addingEntry ? "Cancel" : "+ Add Support Entry"}
@@ -273,7 +273,11 @@ export default function PartnerFinancialSection({
         <div className="admin-section">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 style={{ flex: 1, marginBottom: 0 }}>One-Time Needs</h3>
-            <button type="button" className="btn secondary small" onClick={() => setAddingNeed((v) => !v)}>
+            <button
+              type="button"
+              className="btn secondary small"
+              onClick={() => (setAddingNeed((v) => !v), setError(""))}
+            >
               {addingNeed ? "Cancel" : "+ Add Need"}
             </button>
           </div>
@@ -370,6 +374,7 @@ export default function PartnerFinancialSection({
                           onClick={() => {
                             setDecidingId(decidingId === row.id ? null : row.id);
                             setDecision({ approvedAmount: "", approvedDate: todayInputValue() });
+                            setError("");
                           }}
                         >
                           {decidingId === row.id ? "Cancel" : "Record Decision"}
