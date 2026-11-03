@@ -3,6 +3,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
+const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -83,7 +84,7 @@ const tripQuerySchema = z.object({
 });
 
 const tripInclude = {
-  partner: { select: { id: true, kind: true, displayName: true } },
+  partner: partnerRefSelect,
   participants: true,
 };
 

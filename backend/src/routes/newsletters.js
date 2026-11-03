@@ -1,13 +1,14 @@
 const express = require("express");
-const multer = require("multer");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { matchesFileSignature } = require("../utils/fileSignature");
 const { sendStoredFile } = require("../utils/fileResponse");
-const { extractRequestsFromFile } = require("../utils/extraction");
+const { extractRequestsFromFile, isEml } = require("../utils/extraction");
 const { notifyNewsletterCreated } = require("../utils/notifications");
+const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
+const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
 router.use(requireAuth); // admin-only for now — no public routes for this yet
@@ -22,30 +23,18 @@ const MIME_TO_EXT = {
 // .eml files don't have a reliable MIME type across browsers/OSes (often
 // reported as application/octet-stream or blank), so they're recognized by
 // extension instead.
-function resolveExt(file) {
-  if (MIME_TO_EXT[file.mimetype]) return MIME_TO_EXT[file.mimetype];
-  if (/\.eml$/i.test(file.originalname)) return "eml";
-  return null;
-}
+const resolveExt = makeExtResolver(MIME_TO_EXT, { test: isEml, ext: "eml" });
 
-const upload = multer({
-  storage: multer.memoryStorage(),
+const upload = uploadFilteredBy(resolveExt, {
   // Files live directly in Postgres (see the Newsletter model comment
   // in schema.prisma) -- 10MB is the size past which the usual guidance
   // shifts from "just use the database" to "use object storage instead."
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (!resolveExt(file)) {
-      const err = new Error("Only PDF, .eml, JPEG, or PNG files are allowed");
-      err.status = 400;
-      return cb(err);
-    }
-    cb(null, true);
-  },
+  maxFileSize: 10 * 1024 * 1024,
+  message: "Only PDF, .eml, JPEG, or PNG files are allowed",
 });
 
 const newsletterInclude = {
-  partner: { select: { id: true, kind: true, displayName: true } },
+  partner: partnerRefSelect,
 };
 
 const metaSchema = z.object({
@@ -82,7 +71,7 @@ router.post("/", requireRole("admin", "editor"), upload.single("file"), async (r
     // .eml has no reliable magic bytes across mail clients (see
     // resolveExt above), so it's exempt -- everything else this route
     // accepts (pdf/jpeg/png) does have one and gets verified.
-    if (!/\.eml$/i.test(req.file.originalname) && !matchesFileSignature(req.file.buffer, req.file.mimetype)) {
+    if (!isEml(req.file.originalname) && !matchesFileSignature(req.file.buffer, req.file.mimetype)) {
       return res.status(400).json({ error: "File content doesn't match its declared type" });
     }
 

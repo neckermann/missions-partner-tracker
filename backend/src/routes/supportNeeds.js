@@ -4,6 +4,7 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { notifySupportNeedCreated, notifySupportNeedDecided } = require("../utils/notifications");
+const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -48,7 +49,7 @@ const APPROVED_PAIR_ISSUE = {
 };
 
 const supportNeedInclude = {
-  partner: { select: { id: true, kind: true, displayName: true } },
+  partner: partnerRefSelect,
   // Just enough for the "From: <title>, <date>" admin card link -- never
   // the file bytes themselves, same omit discipline as every other
   // Newsletter/Document list query.

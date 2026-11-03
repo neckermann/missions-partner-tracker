@@ -3,6 +3,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
+const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -27,7 +28,7 @@ const supportEntrySchema = z.object({
 });
 
 const supportEntryInclude = {
-  partner: { select: { id: true, kind: true, displayName: true } },
+  partner: partnerRefSelect,
 };
 
 // GET /api/support-entries?partnerId=  (all partners combined, newest
