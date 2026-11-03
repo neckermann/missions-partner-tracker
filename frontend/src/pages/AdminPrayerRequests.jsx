@@ -10,7 +10,7 @@ import {
   fetchDocuments,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
-import ScanSourceLink from "../components/admin/ScanSourceLink.jsx";
+import SourceLink from "../components/admin/SourceLink.jsx";
 import SourcePicker from "../components/admin/SourcePicker.jsx";
 import { formatDate, todayInputValue } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
@@ -539,10 +539,7 @@ export default function AdminPrayerRequests() {
                 </div>
               )}
             </div>
-            <ScanSourceLink
-              sourceNewsletter={request.sourceNewsletter}
-              sourceDocument={request.sourceDocument}
-            />
+            <SourceLink sourceNewsletter={request.sourceNewsletter} sourceDocument={request.sourceDocument} />
 
             {answeringId === request.id && (
               <div

@@ -5,8 +5,9 @@ import { documentCategoryLabel } from "../../utils/documentCategories.js";
 // Optional "which file did this come from" dropdown for a manually-added
 // prayer request or one-time need -- the explicit counterpart to the
 // automatic link a "Scan for requests" suggestion gets (see
-// ScanSourceLink.jsx), for the case where someone read a newsletter
-// themselves and typed the request in rather than running the scan.
+// SourceLink.jsx, which renders identically either way), for the case
+// where someone read a newsletter themselves and typed the request in
+// rather than running the scan.
 // newsletters/documents are whatever the caller has already loaded for the
 // relevant partner; at most one of sourceNewsletterId/sourceDocumentId is
 // ever set, matching that column pair in schema.prisma. Renders nothing if
