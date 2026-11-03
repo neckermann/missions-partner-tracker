@@ -30,6 +30,8 @@ const tripSchema = z.object({
   tripType: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  albumProvider: z.enum(["google_photos", "icloud", "other"]).optional().nullable(),
+  albumUrl: z.string().optional().nullable(),
   participants: z.array(participantSchema).optional(),
 });
 
@@ -43,6 +45,31 @@ function datesInOrder(data) {
   return data.endDate >= data.startDate;
 }
 const DATE_ORDER_ISSUE = { message: "endDate cannot be before startDate", path: ["endDate"] };
+
+// A link to an album the admin already maintains elsewhere (Google Photos,
+// iCloud Shared Album, etc.) -- never in-app file storage, see #130.
+// Deliberately lenient per-provider shape checks, not strict URL parsing --
+// matches this app's existing "light validation" stance on every other
+// link field (websiteLink, supportLink, ... have none at all); this is a
+// scoped exception for this one field, not a precedent to retrofit
+// elsewhere. Unlike datesInOrder, a half-filled pair (provider with no
+// url, or url with no provider) is never valid on its own -- only "both
+// absent" passes through, which is what keeps this safe for a partial PUT
+// that doesn't touch either field (both come through as undefined/falsy).
+const ALBUM_URL_PATTERNS = {
+  google_photos: /^https:\/\/photos\.(app\.goo\.gl|google\.com)\//i,
+  icloud: /^https:\/\/(www\.)?icloud\.com\/(sharedalbum|photos)\//i,
+  other: /^https?:\/\/.+\..+/, // deliberately permissive
+};
+function albumLinkValid(data) {
+  if (!data.albumProvider && !data.albumUrl) return true;
+  if (!data.albumProvider || !data.albumUrl) return false;
+  return ALBUM_URL_PATTERNS[data.albumProvider].test(data.albumUrl.trim());
+}
+const ALBUM_LINK_ISSUE = {
+  message: "Enter a valid album link for the selected provider",
+  path: ["albumUrl"],
+};
 
 // GET /api/trips's own ?year= filter -- z.coerce.number().int() so an
 // invalid value 400s instead of silently being dropped (Number(bad) is
@@ -91,7 +118,10 @@ router.get("/", async (req, res, next) => {
 // POST /api/trips  (create — editor or admin)
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const { participants, ...data } = tripSchema.refine(datesInOrder, DATE_ORDER_ISSUE).parse(req.body);
+    const { participants, ...data } = tripSchema
+      .refine(datesInOrder, DATE_ORDER_ISSUE)
+      .refine(albumLinkValid, ALBUM_LINK_ISSUE)
+      .parse(req.body);
     const created = await prisma.trip.create({
       data: {
         ...data,
@@ -117,6 +147,7 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     const { participants, ...data } = tripSchema
       .partial()
       .refine(datesInOrder, DATE_ORDER_ISSUE)
+      .refine(albumLinkValid, ALBUM_LINK_ISSUE)
       .parse(req.body);
 
     const existing = await prisma.trip.findUnique({ where: { id: req.params.id } });

@@ -270,6 +270,93 @@ describe("collections: paired-field validation", () => {
     const res = await admin("/api/trips?year=notanumber");
     assert.equal(res.status, 400);
   });
+
+  test("trips: album link -- valid Google Photos URL is accepted", async () => {
+    const res = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        albumProvider: "google_photos",
+        albumUrl: "https://photos.app.goo.gl/abc123",
+      },
+    });
+    assert.equal(res.status, 201);
+    assert.equal(res.body.albumProvider, "google_photos");
+    assert.equal(res.body.albumUrl, "https://photos.app.goo.gl/abc123");
+    await admin(`/api/trips/${res.body.id}`, { method: "DELETE" });
+  });
+
+  test("trips: album link -- valid iCloud shared album URL is accepted", async () => {
+    const res = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        albumProvider: "icloud",
+        albumUrl: "https://www.icloud.com/sharedalbum/#B1aB2cD3e",
+      },
+    });
+    assert.equal(res.status, 201);
+    await admin(`/api/trips/${res.body.id}`, { method: "DELETE" });
+  });
+
+  test("trips: album link -- 'other' provider accepts a generic URL", async () => {
+    const res = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, albumProvider: "other", albumUrl: "https://dropbox.com/some/album" },
+    });
+    assert.equal(res.status, 201);
+    await admin(`/api/trips/${res.body.id}`, { method: "DELETE" });
+  });
+
+  test("trips: album link -- a URL that doesn't match the chosen provider is rejected", async () => {
+    const res = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        albumProvider: "google_photos",
+        albumUrl: "https://example.com/not-photos",
+      },
+    });
+    assert.equal(res.status, 400);
+  });
+
+  test("trips: album link -- a provider with no URL is rejected", async () => {
+    const res = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, albumProvider: "icloud" },
+    });
+    assert.equal(res.status, 400);
+  });
+
+  test("trips: album link -- a URL with no provider is rejected", async () => {
+    const res = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, albumUrl: "https://photos.app.goo.gl/abc123" },
+    });
+    assert.equal(res.status, 400);
+  });
+
+  test("trips: album link -- a partial update touching neither field is unaffected", async () => {
+    const created = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id } });
+    const res = await admin(`/api/trips/${created.body.id}`, { method: "PUT", body: { notes: "updated" } });
+    assert.equal(res.status, 200);
+    await admin(`/api/trips/${created.body.id}`, { method: "DELETE" });
+  });
+
+  test("trips: album link -- clearing both fields together on update is allowed", async () => {
+    const created = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, albumProvider: "other", albumUrl: "https://example.com/album" },
+    });
+    const res = await admin(`/api/trips/${created.body.id}`, {
+      method: "PUT",
+      body: { albumProvider: null, albumUrl: null },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.albumProvider, null);
+    assert.equal(res.body.albumUrl, null);
+    await admin(`/api/trips/${created.body.id}`, { method: "DELETE" });
+  });
 });
 
 describe("trips: participants", () => {

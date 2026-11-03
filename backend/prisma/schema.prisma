@@ -195,15 +195,20 @@ model Address {
 // A past team trip to visit this partner — history for reference, not a
 // capacity/preference profile (that lives on Partner.tripTypesSupported etc).
 model Trip {
-  id           String            @id @default(uuid())
-  partnerId    String
-  partner      Partner           @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  startDate    DateTime?         @db.Date
-  endDate      DateTime?         @db.Date
-  tripType     String? // e.g. "Construction", "Medical/Dental" — preset or custom
-  description  String?           @db.Text // what the team did
-  notes        String?           @db.Text
-  participants TripParticipant[]
+  id            String            @id @default(uuid())
+  partnerId     String
+  partner       Partner           @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  startDate     DateTime?         @db.Date
+  endDate       DateTime?         @db.Date
+  tripType      String? // e.g. "Construction", "Medical/Dental" — preset or custom
+  description   String?           @db.Text // what the team did
+  notes         String?           @db.Text
+  // External album link only -- never in-app file storage (see #130).
+  // albumProvider is app-validated in trips.js, not a DB enum, matching
+  // every other String-typed preset field in this schema (tripType etc).
+  albumProvider String? // "google_photos" | "icloud" | "other"
+  albumUrl      String?
+  participants  TripParticipant[]
 
   @@index([partnerId])
 }

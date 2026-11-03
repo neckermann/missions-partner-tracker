@@ -61,4 +61,49 @@ test.describe("Trip History", () => {
     const del = await page.request.delete(`/api/trips/${created.id}`);
     expect(del.ok()).toBeTruthy();
   });
+
+  // #130: a Google Photos/iCloud/Other link to an album the admin already
+  // maintains elsewhere -- never in-app file storage. Covers both the
+  // happy path and the invalid-link rejection, the latter specifically
+  // because the rejection hint used to shift the Save button's position
+  // right as a click landed on it (fixed by reserving its space), so this
+  // guards against that regressing rather than just checking a 400 fires.
+  test("photo/video album link: a valid link round-trips, an invalid one is rejected without saving", async ({
+    page,
+  }) => {
+    await login(page);
+    const target = await firstSelectablePartner(page);
+
+    await page.goto("/admin/trips");
+    await page.waitForSelector("h2:has-text('Trip History')");
+
+    const addForm = page.locator("form");
+    await page.click("button:has-text('+ Add Trip')");
+    await addForm.getByLabel("Partner").selectOption({ label: target.displayName });
+
+    const albumField = addForm.locator("label", { hasText: "Photo/Video Album" });
+    await albumField.locator("select").selectOption("google_photos");
+    await albumField.locator("input").fill("https://example.com/not-a-real-photos-link");
+    await addForm.getByRole("button", { name: "Save Trip" }).click();
+    await expect(page.getByText(/Enter a valid album link/i)).toBeVisible();
+
+    await albumField.locator("input").fill("https://photos.app.goo.gl/e2eTestAlbum");
+    await addForm.getByRole("button", { name: "Save Trip" }).click();
+    await page.waitForSelector('table.admin-table a:has-text("View")');
+
+    const link = page.locator('table.admin-table a:has-text("View")').first();
+    await expect(link).toHaveAttribute("href", "https://photos.app.goo.gl/e2eTestAlbum");
+
+    let created;
+    await expect
+      .poll(async () => {
+        const refreshed = await page.request.get(`/api/trips?partnerId=${target.id}`);
+        const trips = await refreshed.json();
+        created = trips.find((t) => t.albumUrl === "https://photos.app.goo.gl/e2eTestAlbum");
+        return Boolean(created);
+      })
+      .toBeTruthy();
+    const del = await page.request.delete(`/api/trips/${created.id}`);
+    expect(del.ok()).toBeTruthy();
+  });
 });

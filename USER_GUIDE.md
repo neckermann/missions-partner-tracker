@@ -226,8 +226,10 @@ not just what topic they fall under:
     [One-Time Needs](#financial-support--one-time-needs) page).
 - **Mission Trips**:
   - **Trip History** — past trips, each with dates, type, description,
-    notes, and a nested list of participants (Name, Role, Phone, Email,
-    "Trip Leader" checkbox).
+    notes, a Photo/Video Album link (optional — Google Photos, iCloud
+    Shared Album, or another provider; admin-only, never shown on the
+    public site), and a nested list of participants (Name, Role, Phone,
+    Email, "Trip Leader" checkbox).
   - **Trip Capacity** — Team Size Min/Max, Trip Types Supported (pick
     from presets or type your own), season/duration notes,
     lodging/logistics notes. This is what powers the
@@ -360,11 +362,16 @@ These are two different things:
 - **Trip History** is a filterable log of trips that already happened,
   flattened across every partner — filter by type, year, team size. **+
   Add Trip** logs one (pick the partner, dates, trip type, description,
-  and participants) without leaving the page; each row has its own
-  **Edit** (everything except which partner it's under — delete and
-  re-add to move a trip to a different partner) and **Delete**. Trips can
-  still be added/edited from a partner's own Edit form too, same as
-  before — both write to the same records.
+  a Photo/Video Album link, and participants) without leaving the page;
+  each row has its own **Edit** (everything except which partner it's
+  under — delete and re-add to move a trip to a different partner) and
+  **Delete**. Trips can still be added/edited from a partner's own Edit
+  form too, same as before — both write to the same records.
+  - The **Album** link points to wherever you already host the trip's
+    photos/videos — a Google Photos shared album, an iCloud Shared Album,
+    or another provider you choose "Other" for. This app never stores the
+    photos/videos themselves, just the link, and it's admin-only — it
+    never appears on the public site.
 - **Trip Opportunities** is a forward-looking capacity search — "who
   could host a trip like this" — filtering by team size, trip type,
   region, and how recently a team last visited, reading the same Trip
