@@ -12,23 +12,30 @@ afterEach(() => {
 });
 
 describe("inDateRange", () => {
-  test("a record received on the 1st still counts as 'This Month' from a UTC-negative zone", () => {
-    // 22:30 on 2026-09-22 in California is already 2026-09-23 in UTC -- the
-    // same boundary format.test.js pins todayInputValue against.
+  // vi.setSystemTime takes an absolute instant -- faking it with a UTC ISO
+  // string (as an earlier version of this test did) bakes in a specific
+  // real-world offset, so the local day inDateRange reads back for "now"
+  // depends on whatever timezone the machine running the test happens to be
+  // configured in. The local multi-arg Date constructor avoids that: it's
+  // self-consistent regardless of the runner's offset, since both the fake
+  // "now" and inDateRange's own reading of it resolve through the same
+  // local frame of reference. Same reasoning as the `local` fixture in
+  // format.test.js's todayInputValue tests.
+  test("a date-only API value for the 1st of the viewer's own current month counts as 'This Month'", () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-23T05:30:00.000Z")); // 22:30 UTC-7, local date is Sept 22
+    vi.setSystemTime(new Date(2026, 8, 22)); // local: 22 Sept 2026
 
-    // A date-only API value for the 1st of the viewer's own current month,
-    // stored as UTC midnight.
+    // The exact shape that used to misread as the previous calendar day:
+    // a date-only value stored as UTC midnight.
     expect(inDateRange("2026-09-01T00:00:00.000Z", "month")).toBe(true);
   });
 
-  test("a record received on the 1st still counts as 'This Year' from a UTC-negative zone", () => {
+  test("a date-only API value for the 1st of the viewer's own current year counts as 'This Year', not 'Last Year'", () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-01-01T05:30:00.000Z")); // 22:30 UTC-7 on Dec 31, local date
+    vi.setSystemTime(new Date(2026, 0, 15)); // local: 15 Jan 2026
 
-    expect(inDateRange("2025-12-01T00:00:00.000Z", "year")).toBe(true);
-    expect(inDateRange("2025-12-01T00:00:00.000Z", "lastYear")).toBe(false);
+    expect(inDateRange("2026-01-01T00:00:00.000Z", "year")).toBe(true);
+    expect(inDateRange("2026-01-01T00:00:00.000Z", "lastYear")).toBe(false);
   });
 
   test("'all' and a missing value always match", () => {
