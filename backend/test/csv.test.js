@@ -119,18 +119,32 @@ describe("toCsv", () => {
 });
 
 describe("csvFilename", () => {
-  test("slugs the label and stamps the local date", () => {
-    const name = csvFilename("Upcoming Birthdays", { now: new Date(2026, 9, 28) });
+  // UTC getters, deliberately -- `now` isn't always a fresh server instant;
+  // routes/reports.js can pass the request's own "today" here, which is a
+  // browser-supplied calendar day encoded as UTC midnight (same shape as
+  // any other date-only API value). Reading that with *local* getters
+  // would misstamp the filename depending on what timezone the server
+  // process happens to run in -- the exact bug class this app keeps
+  // fixing. Fixtures below are built with Date.UTC to match that real
+  // shape, not the local 3-arg constructor, so the test doesn't quietly
+  // depend on the runner's own timezone either.
+  test("slugs the label and stamps the date", () => {
+    const name = csvFilename("Upcoming Birthdays", { now: new Date(Date.UTC(2026, 9, 28)) });
     assert.equal(name, "upcoming-birthdays-2026-10-28.csv");
   });
 
   test("strips characters that have no business in a filename", () => {
-    const name = csvFilename("One-Time Needs ($)", { now: new Date(2026, 0, 5) });
+    const name = csvFilename("One-Time Needs ($)", { now: new Date(Date.UTC(2026, 0, 5)) });
     assert.equal(name, "one-time-needs-2026-01-05.csv");
   });
 
   test("falls back rather than producing a bare extension", () => {
-    const name = csvFilename("!!!", { now: new Date(2026, 0, 5) });
+    const name = csvFilename("!!!", { now: new Date(Date.UTC(2026, 0, 5)) });
     assert.equal(name, "report-2026-01-05.csv");
+  });
+
+  test("a browser-supplied today (UTC-midnight date string) stamps correctly regardless of server timezone", () => {
+    const name = csvFilename("Furlough", { now: new Date("2026-03-01T00:00:00.000Z") });
+    assert.equal(name, "furlough-2026-03-01.csv");
   });
 });

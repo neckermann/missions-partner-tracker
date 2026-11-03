@@ -185,6 +185,26 @@ describe("upcoming-birthdays report: year view", () => {
       assert.ok(months[i] >= months[i - 1], "rows should never regress to an earlier month");
     }
   });
+
+  test("with no year param, 'turning' is computed from the request's own today, not the server clock", async () => {
+    // Child Fixture is born 2015-03-02 (turning is only ever computed for
+    // children -- see birthdaysInMonth's own comment on why adults get
+    // null). No `year` param here -- the route resolves `today` once from
+    // the query string and threads it in as run()'s third argument;
+    // upcomingBirthdays.js falls back to `today.getUTCFullYear()`, not its
+    // own `new Date()`. Two different explicit `today` values on the same
+    // fixture must produce two different, deterministic ages -- that's
+    // only possible if the threaded value is actually what's driving this,
+    // not server wall time.
+    const [early, late] = await Promise.all([
+      admin("/api/reports/upcoming-birthdays?view=month&month=3&today=2020-01-01"),
+      admin("/api/reports/upcoming-birthdays?view=month&month=3&today=2030-06-01"),
+    ]);
+    const earlyChild = early.body.rows.find((r) => r.name === "Child Fixture");
+    const lateChild = late.body.rows.find((r) => r.name === "Child Fixture");
+    assert.equal(earlyChild.turning, 5);
+    assert.equal(lateChild.turning, 15);
+  });
 });
 
 describe("prayer-requests report", () => {
@@ -365,6 +385,53 @@ describe("furlough report", () => {
     );
   });
 
+  test("Current/Upcoming status is driven by the request's own today, not the server clock", async () => {
+    // A single furlough starting 2026-06-15, checked against two different
+    // explicit `today` values -- this is only possible to get right both
+    // ways if `today` (run()'s third argument, resolved once in
+    // routes/reports.js from the query string) is actually what furlough.js
+    // compares against, not its own `new Date()`.
+    const p = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "missionary",
+        displayName: `${FIXTURE_TAG} Today-Threaded Furlough`,
+        furloughs: [{ startDate: "2026-06-15" }],
+      },
+    });
+
+    const before = await admin("/api/reports/furlough?today=2026-06-01");
+    assert.equal(before.body.rows.find((r) => r.partnerId === p.body.id).status, "Upcoming");
+
+    const after = await admin("/api/reports/furlough?today=2026-07-01");
+    assert.equal(after.body.rows.find((r) => r.partnerId === p.body.id).status, "Current");
+  });
+
+  test("a furlough that ended before the request's today is excluded, even if it hasn't ended by the server clock", async () => {
+    const p = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "missionary",
+        displayName: `${FIXTURE_TAG} Today-Threaded Ended Furlough`,
+        furloughs: [{ startDate: "2026-01-01", endDate: "2026-03-01" }],
+      },
+    });
+
+    const stillOpen = await admin("/api/reports/furlough?today=2026-02-01");
+    assert.equal(
+      stillOpen.body.rows.some((r) => r.partnerId === p.body.id),
+      true,
+      "today is before endDate, so this furlough hasn't ended yet from the request's own point of view"
+    );
+
+    const nowPast = await admin("/api/reports/furlough?today=2026-04-01");
+    assert.equal(
+      nowPast.body.rows.some((r) => r.partnerId === p.body.id),
+      false,
+      "today is after endDate, so this furlough has ended from the request's own point of view"
+    );
+  });
+
   test("from/to filter on startDate, for the Quick Range field", async () => {
     const thisYear = await admin("/api/partners", {
       method: "POST",
@@ -424,6 +491,14 @@ describe("CSV export", () => {
     assert.equal(res.status, 200);
     const [header] = stripBom(res.body).split("\r\n");
     assert.equal(header, "Requested,Partner,Need,Requested ($),Approved ($),Decided,Status");
+  });
+
+  test("the filename's date stamp reflects the request's own today, not the server clock", async () => {
+    // routes/reports.js resolves `today` once and passes the same value to
+    // both the report's own logic and csvFilename -- this is the one place
+    // that's directly observable from an HTTP response.
+    const res = await admin("/api/reports/upcoming-birthdays?month=3&format=csv&today=2026-03-01");
+    assert.match(res.headers.get("content-disposition"), /filename="upcoming-birthdays-2026-03-01\.csv"/);
   });
 });
 

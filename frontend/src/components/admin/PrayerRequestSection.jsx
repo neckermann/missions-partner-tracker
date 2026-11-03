@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { createPrayerRequest, updatePrayerRequest, deletePrayerRequest } from "../../api/client.js";
-import { formatDate, todayInputValue } from "../../utils/format.js";
+import { formatDate, todayInputValue, toDateInputValue } from "../../utils/format.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
 import ScanSourceLink from "./ScanSourceLink.jsx";
 import SourcePicker from "./SourcePicker.jsx";
@@ -104,7 +104,7 @@ export default function PrayerRequestSection({
     setEditForm({
       category: request.category,
       requestText: request.requestText,
-      dateReceived: String(request.dateReceived).slice(0, 10),
+      dateReceived: toDateInputValue(request.dateReceived),
       isPublic: request.isPublic,
       includeInBooklet: request.includeInBooklet,
       notes: request.notes || "",

@@ -35,6 +35,46 @@ export function toDateInputValue(value) {
   return value ? String(value).slice(0, 10) : "";
 }
 
+// supportingSince is a full date under the hood but only the year is ever
+// meaningful to show publicly (the public directory and map both use this).
+// A plain string slice, same as toDateInputValue -- there's no local-vs-UTC
+// trap here since nothing downstream of this reads the result as a Date.
+export function formatYear(value) {
+  return value ? String(value).slice(0, 4) : null;
+}
+
+// Same string-slice discipline as toDateInputValue, but returning the raw
+// {year, month, day} integers instead of a formatted string -- for a caller
+// that needs to compare or bucket a calendar date (a report's date-range
+// filter, a "same month" check) without ever constructing a Date at all.
+// Comparing integers sidesteps the trap entirely rather than requiring the
+// caller to remember not to read one back with a local getter. month is
+// 1-indexed. Returns null for an empty/invalid value.
+export function dateOnlyParts(value) {
+  if (!value) return null;
+  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return { year, month, day };
+}
+
+// The same decomposition for "now" -- so a caller comparing an API date
+// against today never has its own local getter call to get wrong either.
+// Safe to read now.getFullYear()/getMonth()/getDate() directly here (and
+// nowhere else in this app outside this file): now is a live Date
+// representing the current instant, not a reconstructed date-only value,
+// so there is no UTC-midnight-reinterpreted-locally trap to fall into.
+export function nowParts(now = new Date()) {
+  return { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
+}
+
+// The last calendar day of a given month (1-indexed) -- the "day 0 of next
+// month" trick. Lives here, not at each call site, for the same reason as
+// the rest of this file: this is the one place allowed to construct a Date
+// from local components and read a local getter off it.
+export function lastDayOfMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+
 // The same trap in the other direction. Date-only columns come back as UTC
 // midnight, so `new Date(isoString).toLocaleDateString()` renders the
 // previous day for anyone west of UTC. Splitting the Y/M/D out and handing

@@ -67,6 +67,17 @@ function toCsv(rows, columns, { bom = true } = {}) {
 
 // Turns a report label into something safe to put in a Content-Disposition
 // filename and sane to find later in a downloads folder.
+//
+// UTC getters, not local ones, on purpose: `now` isn't always a fresh
+// server instant any more -- routes/reports.js passes the request's own
+// "today" (the browser's calendar day, encoded as UTC midnight) here so the
+// filename matches the report's own date logic. Reading that back with
+// *local* getters would be the exact bug this app has hit repeatedly
+// (misreading a UTC-midnight value through whatever zone the reading code
+// happens to run in) -- UTC getters are correct for both cases: a browser's
+// "today" reads back as the exact day meant, and a plain `new Date()`
+// instant just gets stamped with its UTC calendar day instead of the
+// server process's local one, which is a more deterministic choice anyway.
 function csvFilename(label, { now = new Date() } = {}) {
   const slug =
     String(label)
@@ -74,9 +85,9 @@ function csvFilename(label, { now = new Date() } = {}) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "") || "report";
   const stamp = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
+    now.getUTCFullYear(),
+    String(now.getUTCMonth() + 1).padStart(2, "0"),
+    String(now.getUTCDate()).padStart(2, "0"),
   ].join("-");
   return `${slug}-${stamp}.csv`;
 }

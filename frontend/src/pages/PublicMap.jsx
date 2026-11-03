@@ -5,6 +5,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchPublicPartners } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
+import { formatYear } from "../utils/format.js";
 
 // Marker images come from the installed leaflet package, not a CDN. Vite
 // rewrites these imports to hashed files it serves itself.
@@ -103,13 +104,6 @@ const orgIcon = new L.Icon({
 const DEFAULT_TOUR_SECONDS = 30;
 // See the tourSeconds comment below for why there is a floor at all.
 const MIN_TOUR_SECONDS = 10;
-
-// supportingSince is a full date under the hood (see backend migration
-// notes) but only the year is meaningful to show publicly.
-function formatYear(value) {
-  if (!value) return null;
-  return String(value).slice(0, 4);
-}
 
 // Handles flying the map to a given lat/lng whenever `target` changes.
 function FlyToController({ target }) {
