@@ -277,7 +277,7 @@ export default function AdminTripHistory() {
   }
 
   return (
-    <div className="admin-shell">
+    <div className={`admin-shell ${showAddForm || editingId ? "form-has-floating-actions" : ""}`}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Trip History</h2>
         <button
@@ -356,11 +356,15 @@ export default function AdminTripHistory() {
             />
           </label>
           {renderParticipantsEditor("new", newTrip)}
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-          <div style={{ marginTop: "1rem" }}>
+          <div className="form-save-bar">
             <button type="submit" className="btn" disabled={saving}>
               {saving ? "Saving..." : "Save Trip"}
             </button>
+            {error && (
+              <span style={{ color: "#b91c1c" }} role="alert">
+                {error}
+              </span>
+            )}
           </div>
         </form>
       )}
@@ -554,11 +558,15 @@ export default function AdminTripHistory() {
                         />
                       </label>
                       {renderParticipantsEditor("edit", editForm)}
-                      {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-                      <div style={{ marginTop: "0.5rem" }}>
+                      <div className="form-save-bar">
                         <button type="button" className="btn small" onClick={() => submitEdit(trip.id)}>
                           Save
                         </button>
+                        {error && (
+                          <span style={{ color: "#b91c1c" }} role="alert">
+                            {error}
+                          </span>
+                        )}
                       </div>
                     </td>
                   </tr>
