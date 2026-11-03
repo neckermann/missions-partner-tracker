@@ -65,8 +65,8 @@ export default function BackupReminder() {
       }}
     >
       <span>
-        {PROVIDER_MESSAGES[provider]} Already covered another way?{" "}
-        <a href="/admin/settings/backups">Turn this off for good</a>, or{" "}
+        {PROVIDER_MESSAGES[provider]} Want a backup right now, or already covered another way?{" "}
+        <a href="/admin/settings/backups">Download a backup, or turn this off for good</a>, or{" "}
         <a
           href="https://github.com/neckermann/missions-partner-tracker/blob/main/ADMIN_GUIDE.md#database-backups"
           target="_blank"
