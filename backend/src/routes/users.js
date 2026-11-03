@@ -108,8 +108,21 @@ router.put("/:id", async (req, res, next) => {
 // MFA so they can log in with just their password and re-enroll from
 // Account Settings. Admins can't see or set the secret itself, only force
 // it off.
+//
+// Refuses to target the caller's own account, same guard as DELETE /:id
+// below. auth.js's self-service /mfa/disable deliberately requires
+// re-entering the current password first, specifically so a hijacked
+// browser tab can't silently strip MFA off the account -- this route had
+// no such check, so an admin (or a hijacked admin session) could reach
+// the same end state through this one instead, with no password at all.
+// This route's own purpose is recovering someone *else's* account, so
+// disallowing self-target doesn't remove any real capability; it just
+// closes the path that bypassed the protection.
 router.post("/:id/mfa/reset", async (req, res, next) => {
   try {
+    if (req.params.id === req.user.id) {
+      return res.status(400).json({ error: "Use Account Settings to disable your own MFA" });
+    }
     const updated = await prisma.user.update({
       where: { id: req.params.id },
       data: { mfaEnabled: false, mfaSecret: null },
