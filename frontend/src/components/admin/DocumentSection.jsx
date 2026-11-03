@@ -6,6 +6,7 @@ import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
 import { formatDate, todayInputValue, toDateInputValue, formatFileSize } from "../../utils/format.js";
 import { isScannable } from "../../utils/scannable.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
+import LoadMoreButton from "../LoadMoreButton.jsx";
 
 // Same shared-vs-duplicated reasoning as NewsletterSection: reused as-is on
 // both AdminMissionaryDetail.jsx and AdminOrganizationDetail.jsx. Pass
@@ -307,16 +308,7 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
         ) : (
           <p style={{ color: "#888" }}>No documents on file.</p>
         )}
-        {hasMore && (
-          <button
-            type="button"
-            className="btn secondary small"
-            onClick={showMore}
-            style={{ marginTop: "0.5rem" }}
-          >
-            Load More ({remaining} remaining)
-          </button>
-        )}
+        <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} size="small" />
       </div>
 
       {scanning && (

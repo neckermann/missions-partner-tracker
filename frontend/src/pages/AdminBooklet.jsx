@@ -3,6 +3,7 @@ import { fetchPartners, fetchChurchSettings } from "../api/client.js";
 import "../styles/booklet.css";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { formatDateLong } from "../utils/format.js";
+import { addressByType } from "../utils/addresses.js";
 
 // Every page-producing template below ends with this exact placeholder.
 // buildBookletHtml does one pass over the fully-assembled document at the
@@ -250,8 +251,8 @@ function buildBackCoverHtml({ churchName, logo, address, phone, websiteLink, acc
 
 function buildMissionaryPageHtml(m, index, fields) {
   const palette = PALETTE[index % PALETTE.length];
-  const physical = (m.addresses || []).find((a) => a.type === "physical");
-  const mailing = (m.addresses || []).find((a) => a.type === "mailing");
+  const physical = addressByType(m.addresses, "physical");
+  const mailing = addressByType(m.addresses, "mailing");
 
   return `
     <section class="booklet-page" style="--accent:${palette.accent};--tint:${palette.tint}">

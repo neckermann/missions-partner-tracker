@@ -1,5 +1,4 @@
 const express = require("express");
-const multer = require("multer");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("../utils/features");
@@ -9,6 +8,7 @@ const { geocodeAddress } = require("../utils/geocode");
 const { matchesFileSignature } = require("../utils/fileSignature");
 const heicConvert = require("heic-convert");
 const { flattenSendingParty, shapeSendingParties } = require("../utils/sendingParty");
+const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -33,23 +33,14 @@ const IMAGE_MIME_TO_EXT = {
 // built-in HEIC registration, so Chrome/Edge there often report
 // application/octet-stream or leave it blank. Recognized by extension as a
 // fallback, same approach as .eml in routes/newsletters.js/documents.js.
-function resolveImageExt(file) {
-  if (IMAGE_MIME_TO_EXT[file.mimetype]) return IMAGE_MIME_TO_EXT[file.mimetype];
-  if (/\.hei[cf]$/i.test(file.originalname)) return "heic";
-  return null;
-}
+const resolveImageExt = makeExtResolver(IMAGE_MIME_TO_EXT, {
+  test: (name) => /\.hei[cf]$/i.test(name),
+  ext: "heic",
+});
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (!resolveImageExt(file)) {
-      const err = new Error("Only JPEG, PNG, WebP, or HEIC/HEIF images are allowed");
-      err.status = 400;
-      return cb(err);
-    }
-    cb(null, true);
-  },
+const upload = uploadFilteredBy(resolveImageExt, {
+  maxFileSize: 5 * 1024 * 1024,
+  message: "Only JPEG, PNG, WebP, or HEIC/HEIF images are allowed",
 });
 
 // What GET /:id returns: the partner record itself plus the small

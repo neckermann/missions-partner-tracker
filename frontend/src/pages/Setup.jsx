@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchSetupStatus, completeSetup } from "../api/client.js";
+import { passwordsMatch } from "../utils/password.js";
 
 // First-run account creation — only ever reachable (and only ever
 // succeeds) before this instance has its first admin account. Once one
@@ -30,7 +31,7 @@ export default function Setup() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-    if (password !== confirmPassword) {
+    if (!passwordsMatch(password, confirmPassword)) {
       setError("Passwords don't match");
       return;
     }

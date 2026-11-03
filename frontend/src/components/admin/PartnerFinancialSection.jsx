@@ -15,6 +15,7 @@ import {
 } from "../../api/client.js";
 import EditableSection from "./EditableSection.jsx";
 import useLoadMore from "../../hooks/useLoadMore.js";
+import LoadMoreButton from "../LoadMoreButton.jsx";
 import SourceLink from "./SourceLink.jsx";
 import SourcePicker from "./SourcePicker.jsx";
 import { supportNeedStatus as needStatus } from "../../utils/supportNeedStatus.js";
@@ -250,16 +251,12 @@ export default function PartnerFinancialSection({
           ) : (
             <p style={{ color: "#888" }}>No support history on file.</p>
           )}
-          {entriesLoadMore.hasMore && (
-            <button
-              type="button"
-              className="btn secondary small"
-              onClick={entriesLoadMore.showMore}
-              style={{ marginTop: "0.5rem" }}
-            >
-              Load More ({entriesLoadMore.remaining} remaining)
-            </button>
-          )}
+          <LoadMoreButton
+            hasMore={entriesLoadMore.hasMore}
+            remaining={entriesLoadMore.remaining}
+            onClick={entriesLoadMore.showMore}
+            size="small"
+          />
         </div>
       )}
 
@@ -417,16 +414,12 @@ export default function PartnerFinancialSection({
           ) : (
             <p style={{ color: "#888" }}>No needs on file.</p>
           )}
-          {needsLoadMore.hasMore && (
-            <button
-              type="button"
-              className="btn secondary small"
-              onClick={needsLoadMore.showMore}
-              style={{ marginTop: "0.5rem" }}
-            >
-              Load More ({needsLoadMore.remaining} remaining)
-            </button>
-          )}
+          <LoadMoreButton
+            hasMore={needsLoadMore.hasMore}
+            remaining={needsLoadMore.remaining}
+            onClick={needsLoadMore.showMore}
+            size="small"
+          />
         </div>
       )}
 

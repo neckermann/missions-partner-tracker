@@ -5,7 +5,9 @@ import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import AlbumLinkField from "../components/admin/AlbumLinkField.jsx";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { formatDate, toDateInputValue } from "../utils/format.js";
+import { partnerKindLabel } from "../utils/partnerEntity.js";
 import useLoadMore from "../hooks/useLoadMore.js";
+import LoadMoreButton from "../components/LoadMoreButton.jsx";
 
 // The API returns full ISO datetime strings for date-only columns --
 function yearOf(value) {
@@ -82,7 +84,7 @@ export default function AdminTripHistory() {
     () =>
       records.map((t) => ({
         ...t,
-        entityType: t.partner?.kind === "organization" ? "Organization" : "Missionary",
+        entityType: partnerKindLabel(t.partner?.kind),
         entityName: t.partner?.displayName || "—",
         entityLink: t.partner ? `/admin/partners/${t.partner.id}` : null,
         size: (t.participants || []).length,
@@ -583,11 +585,7 @@ export default function AdminTripHistory() {
           )}
         </tbody>
       </table>
-      {hasMore && (
-        <button type="button" className="btn secondary" style={{ marginTop: "1rem" }} onClick={showMore}>
-          Load More ({remaining} remaining)
-        </button>
-      )}
+      <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { fetchPartners, fetchTrips } from "../api/client.js";
 import { matchesSearch } from "../utils/search.js";
 import { formatDate } from "../utils/format.js";
+import { partnerKindLabel } from "../utils/partnerEntity.js";
 
 // Forward-looking capacity search — "who could host a trip like this" —
 // as opposed to /admin/trips, which is a log of trips that already
@@ -113,7 +114,7 @@ export default function AdminTripOpportunities() {
       partners
         .map((p) => ({
           id: p.id,
-          entityType: p.kind === "organization" ? "Organization" : "Missionary",
+          entityType: partnerKindLabel(p.kind),
           name: p.displayName,
           link: `/admin/partners/${p.id}`,
           field: p.fieldDisplayName,

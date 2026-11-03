@@ -1,5 +1,4 @@
 const express = require("express");
-const multer = require("multer");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
@@ -7,6 +6,7 @@ const { matchesFileSignature } = require("../utils/fileSignature");
 const { FEATURES, FEATURE_KEYS } = require("../utils/features");
 const { encryptField, decryptField } = require("../utils/crypto");
 const { listGroups, listTopics } = require("../utils/groupme");
+const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -31,17 +31,11 @@ const IMAGE_MIME_TO_EXT = {
   "image/webp": "webp",
 };
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (!IMAGE_MIME_TO_EXT[file.mimetype]) {
-      const err = new Error("Only JPEG, PNG, or WebP images are allowed");
-      err.status = 400;
-      return cb(err);
-    }
-    cb(null, true);
-  },
+const resolveImageExt = makeExtResolver(IMAGE_MIME_TO_EXT);
+
+const upload = uploadFilteredBy(resolveImageExt, {
+  maxFileSize: 5 * 1024 * 1024,
+  message: "Only JPEG, PNG, or WebP images are allowed",
 });
 
 const addressSchema = z
@@ -312,90 +306,54 @@ router.get("/groupme/groups/:groupId/topics", requireRole("admin"), async (req, 
   }
 });
 
-const joshuaProjectSettingsSelect = { joshuaProjectApiKey: true };
-function shapeJoshuaProjectSettings(settings) {
-  return { configured: Boolean(settings?.joshuaProjectApiKey) };
+// A write-only "one API key, admin-only, GET returns { configured }"
+// settings sub-resource -- the exact same shape Joshua Project and AI
+// Request Scanning each need below, differing only in which ChurchSettings
+// column holds the key (see #135). Registers GET/PUT /api/settings/:path
+// on this router. GroupMe above stays hand-written -- it has several
+// fields (token, group, three topic ids), not one key, so this shape
+// doesn't fit it.
+function registerApiKeySetting(path, field) {
+  const select = { [field]: true };
+  function shape(settings) {
+    return { configured: Boolean(settings?.[field]) };
+  }
+  const schema = z.object({
+    // Omitted/blank leaves the stored key untouched -- same write-only-field
+    // UX as groupme's accessToken above.
+    apiKey: z.string().trim().min(1).optional(),
+  });
+
+  // GET (admin only, same reasoning as GET /groupme above).
+  router.get(`/${path}`, requireRole("admin"), async (req, res, next) => {
+    try {
+      const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" }, select });
+      res.json(shape(settings));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // PUT (admin only).
+  router.put(`/${path}`, requireRole("admin"), async (req, res, next) => {
+    try {
+      const { apiKey } = schema.parse(req.body);
+      const fields = apiKey ? { [field]: encryptField(apiKey) } : {};
+
+      const updated = await prisma.churchSettings.upsert({
+        where: { id: "singleton" },
+        create: { id: "singleton", ...fields, updatedById: req.user.id },
+        update: { ...fields, updatedById: req.user.id },
+        select,
+      });
+      res.json(shape(updated));
+    } catch (err) {
+      next(err);
+    }
+  });
 }
 
-const joshuaProjectSchema = z.object({
-  // Omitted/blank leaves the stored key untouched -- same write-only-field
-  // UX as groupme's accessToken above.
-  apiKey: z.string().trim().min(1).optional(),
-});
-
-// GET /api/settings/joshua-project (admin only, same reasoning as
-// GET /groupme above).
-router.get("/joshua-project", requireRole("admin"), async (req, res, next) => {
-  try {
-    const settings = await prisma.churchSettings.findUnique({
-      where: { id: "singleton" },
-      select: joshuaProjectSettingsSelect,
-    });
-    res.json(shapeJoshuaProjectSettings(settings));
-  } catch (err) {
-    next(err);
-  }
-});
-
-// PUT /api/settings/joshua-project (admin only).
-router.put("/joshua-project", requireRole("admin"), async (req, res, next) => {
-  try {
-    const { apiKey } = joshuaProjectSchema.parse(req.body);
-    const fields = apiKey ? { joshuaProjectApiKey: encryptField(apiKey) } : {};
-
-    const updated = await prisma.churchSettings.upsert({
-      where: { id: "singleton" },
-      create: { id: "singleton", ...fields, updatedById: req.user.id },
-      update: { ...fields, updatedById: req.user.id },
-      select: joshuaProjectSettingsSelect,
-    });
-    res.json(shapeJoshuaProjectSettings(updated));
-  } catch (err) {
-    next(err);
-  }
-});
-
-const anthropicSettingsSelect = { anthropicApiKey: true };
-function shapeAnthropicSettings(settings) {
-  return { configured: Boolean(settings?.anthropicApiKey) };
-}
-
-const anthropicSchema = z.object({
-  // Omitted/blank leaves the stored key untouched -- same write-only-field
-  // UX as groupme's accessToken / joshua-project's apiKey above.
-  apiKey: z.string().trim().min(1).optional(),
-});
-
-// GET /api/settings/ai-extraction (admin only, same reasoning as
-// GET /groupme above).
-router.get("/ai-extraction", requireRole("admin"), async (req, res, next) => {
-  try {
-    const settings = await prisma.churchSettings.findUnique({
-      where: { id: "singleton" },
-      select: anthropicSettingsSelect,
-    });
-    res.json(shapeAnthropicSettings(settings));
-  } catch (err) {
-    next(err);
-  }
-});
-
-// PUT /api/settings/ai-extraction (admin only).
-router.put("/ai-extraction", requireRole("admin"), async (req, res, next) => {
-  try {
-    const { apiKey } = anthropicSchema.parse(req.body);
-    const fields = apiKey ? { anthropicApiKey: encryptField(apiKey) } : {};
-
-    const updated = await prisma.churchSettings.upsert({
-      where: { id: "singleton" },
-      create: { id: "singleton", ...fields, updatedById: req.user.id },
-      update: { ...fields, updatedById: req.user.id },
-      select: anthropicSettingsSelect,
-    });
-    res.json(shapeAnthropicSettings(updated));
-  } catch (err) {
-    next(err);
-  }
-});
+registerApiKeySetting("joshua-project", "joshuaProjectApiKey");
+registerApiKeySetting("ai-extraction", "anthropicApiKey");
 
 module.exports = router;

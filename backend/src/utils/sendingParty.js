@@ -51,4 +51,4 @@ function shapeSendingParties(record) {
   };
 }
 
-module.exports = { flattenSendingParty, nestSendingParty, shapeSendingParties };
+module.exports = { flattenSendingParty, shapeSendingParties };

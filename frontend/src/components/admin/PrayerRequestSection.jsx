@@ -4,6 +4,7 @@ import { formatDate, todayInputValue, toDateInputValue } from "../../utils/forma
 import useLoadMore from "../../hooks/useLoadMore.js";
 import SourceLink from "./SourceLink.jsx";
 import SourcePicker from "./SourcePicker.jsx";
+import LoadMoreButton from "../LoadMoreButton.jsx";
 
 const emptyNewRequest = {
   category: "strategic",
@@ -431,16 +432,7 @@ export default function PrayerRequestSection({
         ) : (
           <p style={{ color: "#888" }}>No prayer requests on file.</p>
         )}
-        {hasMore && (
-          <button
-            type="button"
-            className="btn secondary small"
-            onClick={showMore}
-            style={{ marginTop: "0.5rem" }}
-          >
-            Load More ({remaining} remaining)
-          </button>
-        )}
+        <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} size="small" />
       </div>
     </div>
   );

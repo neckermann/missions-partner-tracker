@@ -10,6 +10,7 @@ import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
 import { formatDate, todayInputValue, toDateInputValue, formatFileSize } from "../../utils/format.js";
 import { isScannable } from "../../utils/scannable.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
+import LoadMoreButton from "../LoadMoreButton.jsx";
 
 // Reused as-is (not duplicated) on both AdminMissionaryDetail.jsx and
 // AdminOrganizationDetail.jsx — unlike the small presentational Field/
@@ -237,16 +238,7 @@ export default function NewsletterSection({ partnerId, newsletters, onChange }) 
         ) : (
           <p style={{ color: "#888" }}>No newsletters on file.</p>
         )}
-        {hasMore && (
-          <button
-            type="button"
-            className="btn secondary small"
-            onClick={showMore}
-            style={{ marginTop: "0.5rem" }}
-          >
-            Load More ({remaining} remaining)
-          </button>
-        )}
+        <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} size="small" />
       </div>
 
       {scanning && (

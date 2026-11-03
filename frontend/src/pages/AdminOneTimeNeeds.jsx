@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   fetchSupportNeeds,
@@ -6,8 +6,6 @@ import {
   updateSupportNeed,
   deleteSupportNeed,
   fetchPartners,
-  fetchNewsletters,
-  fetchDocuments,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import SourceLink from "../components/admin/SourceLink.jsx";
@@ -17,6 +15,8 @@ import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
 import { entityFor } from "../utils/partnerEntity.js";
 import { supportNeedStatus as statusFor } from "../utils/supportNeedStatus.js";
 import useLoadMore from "../hooks/useLoadMore.js";
+import useSourceFiles from "../hooks/useSourceFiles.js";
+import LoadMoreButton from "../components/LoadMoreButton.jsx";
 
 // Thin binding so the call sites below stay unchanged; the formatting
 // itself lives in utils/format.js, which is also where the em-dash
@@ -47,29 +47,11 @@ export default function AdminOneTimeNeeds() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   // Scoped to whichever partner is selected in the add form, or whichever
-  // need is being edited -- see the same state in AdminPrayerRequests.jsx.
-  const [sourceFiles, setSourceFiles] = useState({ newsletters: [], documents: [] });
-  // See the same ref in AdminPrayerRequests.jsx -- switching the selected
-  // partner before a slower loadSourceFiles() call resolves would
-  // otherwise let a previous partner's files land after the current
-  // partner's already did.
-  const sourceFilesForRef = useRef(null);
+  // need is being edited -- see the same hook used in AdminPrayerRequests.jsx.
+  const { sourceFiles, loadSourceFiles } = useSourceFiles();
 
   function reload() {
     fetchSupportNeeds().then(setNeeds).catch(console.error);
-  }
-
-  function loadSourceFiles(partnerId) {
-    sourceFilesForRef.current = partnerId || null;
-    if (!partnerId) {
-      setSourceFiles({ newsletters: [], documents: [] });
-      return;
-    }
-    Promise.all([fetchNewsletters({ partnerId }), fetchDocuments({ partnerId })])
-      .then(([newsletters, documents]) => {
-        if (sourceFilesForRef.current === partnerId) setSourceFiles({ newsletters, documents });
-      })
-      .catch(console.error);
   }
 
   useEffect(() => {
@@ -111,7 +93,7 @@ export default function AdminOneTimeNeeds() {
         sourceDocumentId: newNeed.sourceDocumentId,
       });
       setNewNeed(emptyNewNeed);
-      setSourceFiles({ newsletters: [], documents: [] });
+      loadSourceFiles(null);
       setShowAddForm(false);
       reload();
     } catch (err) {
@@ -468,11 +450,7 @@ export default function AdminOneTimeNeeds() {
         );
       })}
       {filteredNeeds.length === 0 && <p style={{ color: "#888", marginTop: "1rem" }}>No needs on file.</p>}
-      {hasMore && (
-        <button type="button" className="btn secondary" style={{ marginTop: "1rem" }} onClick={showMore}>
-          Load More ({remaining} remaining)
-        </button>
-      )}
+      <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
     </div>
   );
 }
