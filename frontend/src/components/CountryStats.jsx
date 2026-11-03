@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { fetchCountryInfo } from "../api/client.js";
 
-// Joshua Project's own progress-scale tiers (#157) -- matched by substring
-// rather than an exact string, since JPScaleText's precise wording isn't
-// contractually documented and this degrades gracefully (plain text, no
-// color) for any value that doesn't match rather than risk showing a wrong
-// color for an unexpected one. "frontier" is checked before the bare
-// "unreached" it's a more specific variant of.
-const JP_SCALE_TIERS = [
+// Joshua Project's own progress-scale tiers (#157). JPScaleCtry is the
+// authoritative numeric 1-5 tier (confirmed against a real API response --
+// Spain returns JPScaleCtry: 3 alongside JPScaleText: "Superficially
+// Reached"); the substring match against JPScaleText is only a fallback
+// for the rare case JPScaleCtry is absent, since JPScaleText's exact
+// wording isn't contractually documented and this degrades gracefully
+// (plain text, no color) rather than risk showing a wrong color. "frontier"
+// is checked before the bare "unreached" it's a more specific variant of.
+const JP_SCALE_TEXT_TIERS = [
   { match: /frontier/i, tier: 1 },
   { match: /unreached/i, tier: 1 },
   { match: /minimally/i, tier: 2 },
@@ -16,8 +18,11 @@ const JP_SCALE_TIERS = [
   { match: /significantly/i, tier: 5 },
 ];
 
-function jpScaleTier(text) {
-  const hit = JP_SCALE_TIERS.find((t) => t.match.test(text));
+function jpScaleTier(info) {
+  if (typeof info.JPScaleCtry === "number" && info.JPScaleCtry >= 1 && info.JPScaleCtry <= 5) {
+    return info.JPScaleCtry;
+  }
+  const hit = info.JPScaleText && JP_SCALE_TEXT_TIERS.find((t) => t.match.test(info.JPScaleText));
   return hit ? hit.tier : null;
 }
 
@@ -86,7 +91,7 @@ export default function CountryStats({ countryCode }) {
                 )}
                 {info.JPScaleText &&
                   (() => {
-                    const tier = jpScaleTier(info.JPScaleText);
+                    const tier = jpScaleTier(info);
                     const title =
                       "Joshua Project's Progress Scale: how reached this country's peoples are, from Unreached (1) to Significantly reached (5).";
                     return (
