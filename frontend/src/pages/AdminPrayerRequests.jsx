@@ -14,17 +14,8 @@ import SourceLink from "../components/admin/SourceLink.jsx";
 import SourcePicker from "../components/admin/SourcePicker.jsx";
 import { formatDate, todayInputValue } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
+import { entityFor } from "../utils/partnerEntity.js";
 import useLoadMore from "../hooks/useLoadMore.js";
-
-function entityFor(request) {
-  const p = request.partner;
-  if (!p) return { type: "—", name: "—", link: null };
-  return {
-    type: p.kind === "organization" ? "Organization" : "Missionary",
-    name: p.displayName,
-    link: `/admin/partners/${p.id}`,
-  };
-}
 
 const emptyNewRequest = {
   partnerId: "",

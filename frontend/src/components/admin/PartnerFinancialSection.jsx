@@ -17,6 +17,7 @@ import EditableSection from "./EditableSection.jsx";
 import useLoadMore from "../../hooks/useLoadMore.js";
 import SourceLink from "./SourceLink.jsx";
 import SourcePicker from "./SourcePicker.jsx";
+import { supportNeedStatus as needStatus } from "../../utils/supportNeedStatus.js";
 
 // Monthly support and one-time needs for one partner, editable here rather
 // than only from the consolidated admin pages. Same endpoints either way.
@@ -34,13 +35,6 @@ const emptyNeed = {
   sourceNewsletterId: null,
   sourceDocumentId: null,
 };
-
-function needStatus(need) {
-  if (need.approvedAmount == null) return { label: "Pending Decision", tone: "warn" };
-  if (need.approvedAmount === 0) return { label: "Declined", tone: "warn" };
-  if (need.approvedAmount < need.requestedAmount) return { label: "Partially Funded", tone: "good" };
-  return { label: "Fully Funded", tone: "good" };
-}
 
 export default function PartnerFinancialSection({
   partnerId,

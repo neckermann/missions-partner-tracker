@@ -1,4 +1,5 @@
 const { silhouetteFor } = require("./silhouette");
+const { withPhotoUrl } = require("./photoUrls");
 
 /**
  * Turns a name into initials, e.g. "Jordan Rivera" -> "J.R."
@@ -407,7 +408,7 @@ function toPublicPartner(p) {
     // Only the current photo (see the Photo model / publicPartners.js's
     // `take: 1` include) is ever surfaced publicly — never the upload
     // history, and never at all for a restricted record (see above).
-    photo: p.photos?.[0] ? `/api/photos/${p.photos[0].id}/raw` : null,
+    photo: p.photos?.[0] ? withPhotoUrl(p.photos[0]).url : null,
     prayerRequests: toPublicPrayerRequests(p.prayerRequests),
     // --- Missionary-only below ---
     ...(isOrg

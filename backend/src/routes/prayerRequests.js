@@ -88,17 +88,10 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
       include: prayerRequestInclude,
     });
 
-    // Best-effort: a broken notification channel (today GroupMe, maybe
-    // others later) must never block saving the request itself.
-    // notifyPrayerRequestCreated already catches its own network/API
-    // errors and logs them; this is a second layer in case something
-    // else in there throws (e.g. a malformed stored token failing
-    // decryptField).
-    try {
-      await notifyPrayerRequestCreated(created);
-    } catch (err) {
-      console.error("Prayer request created notification failed:", err);
-    }
+    // Best-effort: notifyPrayerRequestCreated (utils/notifications.js)
+    // never throws -- a broken notification channel must never block
+    // saving the request itself.
+    await notifyPrayerRequestCreated(created);
 
     res.status(201).json(created);
   } catch (err) {
@@ -131,15 +124,9 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
       include: prayerRequestInclude,
     });
 
+    // Same best-effort reasoning as the POST route above.
     if (data.status === "answered" && before?.status !== "answered") {
-      // Same best-effort reasoning as the POST route above -- a broken
-      // channel (today GroupMe, maybe others later) must never block
-      // recording the answer itself.
-      try {
-        await notifyPrayerRequestAnswered(updated);
-      } catch (err) {
-        console.error("Prayer request answered notification failed:", err);
-      }
+      await notifyPrayerRequestAnswered(updated);
     }
 
     res.json(updated);

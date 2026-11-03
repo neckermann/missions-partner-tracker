@@ -14,29 +14,14 @@ import SourceLink from "../components/admin/SourceLink.jsx";
 import SourcePicker from "../components/admin/SourcePicker.jsx";
 import { formatDate, formatCurrency as formatMoney } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
+import { entityFor } from "../utils/partnerEntity.js";
+import { supportNeedStatus as statusFor } from "../utils/supportNeedStatus.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 
 // Thin binding so the call sites below stay unchanged; the formatting
 // itself lives in utils/format.js, which is also where the em-dash
 // convention for "no amount recorded" is documented.
 const formatCurrency = (amount) => formatMoney(amount, { fallback: "—" });
-
-function statusFor(need) {
-  if (need.approvedAmount == null) return { label: "Pending Decision", tone: "warn" };
-  if (need.approvedAmount === 0) return { label: "Declined", tone: "warn" };
-  if (need.approvedAmount < need.requestedAmount) return { label: "Partially Funded", tone: "good" };
-  return { label: "Fully Funded", tone: "good" };
-}
-
-function entityFor(need) {
-  const p = need.partner;
-  if (!p) return { type: "—", name: "—", link: null };
-  return {
-    type: p.kind === "organization" ? "Organization" : "Missionary",
-    name: p.displayName,
-    link: `/admin/partners/${p.id}`,
-  };
-}
 
 const emptyNewNeed = {
   partnerId: "",

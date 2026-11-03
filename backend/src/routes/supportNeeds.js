@@ -80,14 +80,9 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
     const data = supportNeedSchema.refine(approvedPairGiven, APPROVED_PAIR_ISSUE).parse(req.body);
     const created = await prisma.supportNeed.create({ data, include: supportNeedInclude });
 
-    // Best-effort: a broken notification channel must never block saving
-    // the need itself -- same reasoning and second-layer catch as
-    // routes/prayerRequests.js.
-    try {
-      await notifySupportNeedCreated(created);
-    } catch (err) {
-      console.error("Support need created notification failed:", err);
-    }
+    // Best-effort: notifySupportNeedCreated (utils/notifications.js) never
+    // throws -- see the same comment in routes/prayerRequests.js.
+    await notifySupportNeedCreated(created);
 
     res.status(201).json(created);
   } catch (err) {
@@ -126,15 +121,9 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
       include: supportNeedInclude,
     });
 
+    // Same best-effort reasoning as the POST route above.
     if (data.approvedDate != null && before?.approvedDate == null) {
-      // Same best-effort reasoning as the POST route above -- a broken
-      // channel (today GroupMe, maybe others later) must never block
-      // recording the decision itself.
-      try {
-        await notifySupportNeedDecided(updated);
-      } catch (err) {
-        console.error("Support need decided notification failed:", err);
-      }
+      await notifySupportNeedDecided(updated);
     }
 
     res.json(updated);

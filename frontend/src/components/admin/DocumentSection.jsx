@@ -3,23 +3,9 @@ import { uploadDocument, updateDocument, deleteDocument, extractFromDocument } f
 import { DOCUMENT_CATEGORIES, documentCategoryLabel } from "../../utils/documentCategories.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
-import { formatDate, todayInputValue, toDateInputValue } from "../../utils/format.js";
+import { formatDate, todayInputValue, toDateInputValue, formatFileSize } from "../../utils/format.js";
+import { isScannable } from "../../utils/scannable.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
-
-function formatFileSize(bytes) {
-  if (bytes == null) return "";
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-// Everything extractRequestsFromFile actually reads (see
-// backend/src/utils/extraction.js): PDF/JPEG/PNG by contentType, .eml by
-// filename (its browser-reported contentType is unreliable -- same
-// reasoning as resolveExt() in routes/documents.js). Word/Excel uploads
-// (allowed for documents generally, see the file input below) don't get
-// the Scan button rather than showing one that 400s.
-const SCANNABLE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
-const isScannable = (d) => SCANNABLE_TYPES.has(d.contentType) || /\.eml$/i.test(d.fileName || "");
 
 // Same shared-vs-duplicated reasoning as NewsletterSection: reused as-is on
 // both AdminMissionaryDetail.jsx and AdminOrganizationDetail.jsx. Pass
