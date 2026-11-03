@@ -46,7 +46,6 @@ function silhouetteFor(category, bg = NEUTRAL_ACCENT) {
 
 module.exports = {
   NEUTRAL_ACCENT,
-  svgDataUri,
   personSilhouette,
   coupleSilhouette,
   familySilhouette,

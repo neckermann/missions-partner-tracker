@@ -11,34 +11,11 @@ import {
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
-import { formatDate, todayInputValue } from "../utils/format.js";
+import { formatDate, todayInputValue, formatFileSize } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
+import { entityFor } from "../utils/partnerEntity.js";
+import { isScannable } from "../utils/scannable.js";
 import useLoadMore from "../hooks/useLoadMore.js";
-
-function formatFileSize(bytes) {
-  if (bytes == null) return "";
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function entityFor(n) {
-  const p = n.partner;
-  if (p) {
-    return {
-      type: p.kind === "organization" ? "Organization" : "Missionary",
-      name: p.displayName,
-      link: `/admin/partners/${p.id}`,
-    };
-  }
-  return { type: "—", name: "—", link: null };
-}
-
-// Same set/reasoning as NewsletterSection.jsx (embedded on the missionary/org
-// detail pages) -- everything extractRequestsFromFile actually reads (see
-// backend/src/utils/extraction.js): PDF/JPEG/PNG by contentType, .eml by
-// filename (its browser-reported contentType is unreliable).
-const SCANNABLE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
-const isScannable = (n) => SCANNABLE_TYPES.has(n.contentType) || /\.eml$/i.test(n.fileName || "");
 
 const emptyNewNewsletter = {
   partnerId: "",

@@ -100,14 +100,9 @@ router.post("/", requireRole("admin", "editor"), upload.single("file"), async (r
       omit: { bytes: true },
     });
 
-    // Best-effort: a broken notification channel must never block saving
-    // the newsletter itself -- same reasoning and second-layer catch as
-    // routes/prayerRequests.js.
-    try {
-      await notifyNewsletterCreated(created);
-    } catch (err) {
-      console.error("Newsletter created notification failed:", err);
-    }
+    // Best-effort: notifyNewsletterCreated (utils/notifications.js) never
+    // throws -- see the same comment in routes/prayerRequests.js.
+    await notifyNewsletterCreated(created);
 
     res.status(201).json(created);
   } catch (err) {

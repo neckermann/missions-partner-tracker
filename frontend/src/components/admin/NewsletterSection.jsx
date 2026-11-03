@@ -7,22 +7,9 @@ import {
 } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
-import { formatDate, todayInputValue, toDateInputValue } from "../../utils/format.js";
+import { formatDate, todayInputValue, toDateInputValue, formatFileSize } from "../../utils/format.js";
+import { isScannable } from "../../utils/scannable.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
-
-function formatFileSize(bytes) {
-  if (bytes == null) return "";
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-// Same set/reasoning as DocumentSection.jsx -- everything extractRequestsFromFile
-// actually reads (see backend/src/utils/extraction.js): PDF/JPEG/PNG by
-// contentType, .eml by filename (its browser-reported contentType is
-// unreliable -- same reasoning as resolveExt() in routes/newsletters.js).
-// Word/Excel don't get the Scan button rather than showing one that 400s.
-const SCANNABLE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
-const isScannable = (n) => SCANNABLE_TYPES.has(n.contentType) || /\.eml$/i.test(n.fileName || "");
 
 // Reused as-is (not duplicated) on both AdminMissionaryDetail.jsx and
 // AdminOrganizationDetail.jsx — unlike the small presentational Field/

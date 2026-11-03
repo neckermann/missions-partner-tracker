@@ -119,6 +119,17 @@ export function formatCurrency(amount, { fallback = null, currency = "USD" } = {
   });
 }
 
+// "512 KB" / "2.3 MB" -- for an uploaded file's size, next to a Newsletter
+// or Document's other metadata. Copy-pasted identically across
+// AdminDocuments.jsx, AdminNewsletters.jsx, DocumentSection.jsx, and
+// NewsletterSection.jsx (see #135); same hoisting reasoning as the rest
+// of this file.
+export function formatFileSize(bytes) {
+  if (bytes == null) return "";
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 // "5 November" from the month/day integers the reports API returns.
 //
 // Takes integers rather than a date string on purpose: a birthday is a

@@ -12,33 +12,11 @@ import { DOCUMENT_CATEGORIES, documentCategoryLabel } from "../utils/documentCat
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
-import { formatDate, todayInputValue } from "../utils/format.js";
+import { formatDate, todayInputValue, formatFileSize } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
+import { entityFor } from "../utils/partnerEntity.js";
+import { isScannable } from "../utils/scannable.js";
 import useLoadMore from "../hooks/useLoadMore.js";
-
-function formatFileSize(bytes) {
-  if (bytes == null) return "";
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function entityFor(d) {
-  const p = d.partner;
-  if (!p) return { type: "—", name: "—", link: null };
-  return {
-    type: p.kind === "organization" ? "Organization" : "Missionary",
-    name: p.displayName,
-    link: `/admin/partners/${p.id}`,
-  };
-}
-
-// Same set/reasoning as DocumentSection.jsx (embedded on the missionary/org
-// detail pages) -- everything extractRequestsFromFile actually reads (see
-// backend/src/utils/extraction.js): PDF/JPEG/PNG by contentType, .eml by
-// filename (its browser-reported contentType is unreliable). Word/Excel
-// don't get the Scan button rather than showing one that 400s.
-const SCANNABLE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
-const isScannable = (d) => SCANNABLE_TYPES.has(d.contentType) || /\.eml$/i.test(d.fileName || "");
 
 const emptyNewDocument = {
   partnerId: "",
