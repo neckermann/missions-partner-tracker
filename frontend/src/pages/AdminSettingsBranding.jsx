@@ -30,14 +30,18 @@ export default function AdminSettingsBranding() {
   const [imagePreview, setImagePreview] = useState(null);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchChurchSettings().then((s) => setForm(mergeFetchedRecord(s)));
+    fetchChurchSettings()
+      .then((s) => setForm(mergeFetchedRecord(s)))
+      .catch(() => setError("Couldn't load branding settings."));
   }, []);
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
     setSuccess("");
+    setError("");
   }
 
   function handleImageSelect(e) {
@@ -46,6 +50,7 @@ export default function AdminSettingsBranding() {
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
     setSuccess("");
+    setError("");
   }
 
   function handleRemoveImage() {
@@ -58,6 +63,7 @@ export default function AdminSettingsBranding() {
     e.preventDefault();
     setSaving(true);
     setSuccess("");
+    setError("");
     try {
       let updated = await updateChurchSettings(form);
       if (imageFile) {
@@ -67,6 +73,8 @@ export default function AdminSettingsBranding() {
       setImageFile(null);
       setImagePreview(null);
       setSuccess("Saved.");
+    } catch (err) {
+      setError(err.response?.data?.error || "Couldn't save branding settings.");
     } finally {
       setSaving(false);
     }
@@ -174,6 +182,11 @@ export default function AdminSettingsBranding() {
           <button type="submit" className="btn" disabled={saving}>
             {saving ? "Saving..." : "Save"}
           </button>
+          {error && (
+            <span style={{ color: "#b91c1c" }} role="alert">
+              {error}
+            </span>
+          )}
           {success && <span style={{ color: "#2a5d3c" }}>{success}</span>}
         </div>
       </form>
