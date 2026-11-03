@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   login,
   verifyMfaLogin,
@@ -7,6 +7,26 @@ import {
   confirmForcedMfaSetup,
   fetchSetupStatus,
 } from "../api/client.js";
+
+// #124: where to land after a successful login, instead of always /admin.
+// `next` is set by requireAuth's own redirect (a cold click on a direct
+// link to a file, e.g. from a GroupMe notification) and is always a
+// same-origin /api path server-side -- but it round-trips through the URL
+// bar, so it's treated as untrusted here anyway. `from` is set by
+// RequireAdminAuth (a session that expired mid-visit) and is always an SPA
+// route. Both are validated before use to rule out an open redirect via a
+// crafted /login?next=https://evil.com link.
+function resolveDestination(location) {
+  const next = new URLSearchParams(location.search).get("next");
+  if (next && next.startsWith("/api/") && !next.includes("://") && !next.startsWith("//")) {
+    return { type: "full", target: next };
+  }
+  const from = location.state?.from;
+  if (typeof from === "string" && from.startsWith("/") && !from.startsWith("//") && !from.includes("://")) {
+    return { type: "spa", target: from };
+  }
+  return { type: "spa", target: "/admin" };
+}
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -17,6 +37,16 @@ export default function Login() {
   const [setupData, setSetupData] = useState(null); // { secret, qrCode }
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+
+  function goToDestination() {
+    const dest = resolveDestination(location);
+    // `next` is a raw /api path, not an SPA route -- navigate() can't match
+    // it against any <Route>, so it needs a real browser navigation, this
+    // time with the fresh session cookie attached.
+    if (dest.type === "full") window.location.href = dest.target;
+    else navigate(dest.target);
+  }
 
   useEffect(() => {
     // A fresh instance has no admin account yet — send it to account
@@ -40,7 +70,7 @@ export default function Login() {
         setSetupToken(result.setupToken);
         setSetupData(await startForcedMfaSetup(result.setupToken));
       } else {
-        navigate("/admin");
+        goToDestination();
       }
     } catch (err) {
       setError(err.response?.data?.error || "Login failed");
@@ -52,7 +82,7 @@ export default function Login() {
     setError("");
     try {
       await verifyMfaLogin(pendingToken, mfaCode);
-      navigate("/admin");
+      goToDestination();
     } catch (err) {
       setError(err.response?.data?.error || "Invalid code");
     }
@@ -63,7 +93,7 @@ export default function Login() {
     setError("");
     try {
       await confirmForcedMfaSetup(setupToken, mfaCode);
-      navigate("/admin");
+      goToDestination();
     } catch (err) {
       setError(err.response?.data?.error || "Invalid code");
     }

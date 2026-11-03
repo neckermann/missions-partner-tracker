@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { generate as generateTotp } from "otplib";
-import { login } from "./helpers.js";
+import { login, ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers.js";
 
 // Logging in IS the security boundary in this app: any account that can sign
 // in reads every partner's full record, including restricted partners' exact
@@ -130,6 +130,40 @@ test.describe("first-run setup", () => {
     });
     expect(res.status(), "a second admin cannot be created").toBe(409);
   });
+});
+
+test.describe("login redirect for direct links to authenticated files", () => {
+  // #124: a cold click on a direct link to a requireAuth-gated route (a
+  // GroupMe notification, etc.) with no session used to show bare JSON.
+  // Each test gets Playwright's default fresh, cookie-less context.
+  test("a direct link with no session redirects to /login and returns to the original path after signing in", async ({
+    page,
+  }) => {
+    await page.goto("/api/newsletters/any-id/download");
+    await expect(page).toHaveURL(/\/login\?next=%2Fapi%2Fnewsletters%2Fany-id%2Fdownload/);
+
+    await page.fill('input[type="email"]', ADMIN_EMAIL);
+    await page.fill('input[type="password"]', ADMIN_PASSWORD);
+    await page.click('button[type="submit"]');
+
+    // The fixture ID doesn't exist, so this 404s -- but a 404 JSON body
+    // (not a second /login redirect, not the bare "Authentication
+    // required" this issue is about) proves requireAuth let the request
+    // through with the fresh session cookie.
+    await page.waitForURL(/\/api\/newsletters\/any-id\/download/);
+    await expect(page.locator("body")).toContainText("Not found");
+  });
+
+  // Open-redirect guard: a crafted ?next= must never be honored.
+  for (const malicious of ["https://evil.com", "//evil.com", "/not-an-api-path"]) {
+    test(`/login?next=${malicious} falls back to /admin instead of honoring it`, async ({ page }) => {
+      await page.goto(`/login?next=${encodeURIComponent(malicious)}`);
+      await page.fill('input[type="email"]', ADMIN_EMAIL);
+      await page.fill('input[type="password"]', ADMIN_PASSWORD);
+      await page.click('button[type="submit"]');
+      await page.waitForURL(/\/admin$/);
+    });
+  }
 });
 
 test.describe("two-factor authentication", () => {

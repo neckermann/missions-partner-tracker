@@ -7,6 +7,30 @@ function extractBearerToken(req) {
   return authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
 }
 
+// A real browser's top-level navigation always sends an Accept header that
+// literally contains "text/html" -- the SPA's own axios/fetch calls never
+// do. Checked as an explicit substring, not via Express's req.accepts(),
+// because a bare "Accept: */*" (default for many non-browser HTTP clients,
+// including this file's own test suite) is ambiguous under content
+// negotiation and req.accepts(["html","json"]) would resolve it by array
+// order -- i.e. pick "html" -- silently turning every ambiguous caller into
+// a redirect instead of the JSON response it expects.
+function wantsHtml(req) {
+  return req.method === "GET" && !!req.headers.accept && req.headers.accept.includes("text/html");
+}
+
+// A direct link to a requireAuth-gated route (a GroupMe notification, etc.)
+// clicked with no session shows bare JSON with no path back to the file --
+// see #124. For a real browser GET, send them to log in instead, carrying
+// the original URL so Login.jsx can return them to it afterward. Every
+// other caller (the SPA itself, any API client) keeps today's plain JSON.
+function unauthorized(req, res, message) {
+  if (wantsHtml(req)) {
+    return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
+  }
+  return res.status(401).json({ error: message });
+}
+
 /**
  * Verifies the session cookie, confirms the account still exists and is
  * still active, and attaches the user to req.user.
@@ -30,22 +54,25 @@ function extractBearerToken(req) {
 async function requireAuth(req, res, next) {
   const token = req.cookies?.[SESSION_COOKIE_NAME];
 
-  if (!token) return res.status(401).json({ error: "Authentication required" });
+  if (!token) return unauthorized(req, res, "Authentication required");
 
   let decoded;
   try {
     decoded = jwt.verify(token, process.env.SESSION_SECRET);
   } catch {
-    return res.status(401).json({ error: "Invalid or expired session" });
+    return unauthorized(req, res, "Invalid or expired session");
   }
 
   // Pending MFA tokens (issued after password check, before the TOTP code
   // is verified) and forced-setup tokens (issued when an admin requires
   // MFA but the user hasn't enrolled yet) are deliberately not full
   // sessions and never get set as the session cookie — this check exists
-  // in case one is ever presented anyway.
+  // in case one is ever presented anyway. A cold click through here still
+  // just lands on the normal login form; Login.jsx's existing
+  // password+TOTP flow handles a fresh login correctly from there, so this
+  // doesn't need to be special-cased to jump straight to the TOTP step.
   if (decoded.mfaPending || decoded.mfaSetup) {
-    return res.status(401).json({ error: "MFA verification required" });
+    return unauthorized(req, res, "MFA verification required");
   }
 
   try {
@@ -54,7 +81,7 @@ async function requireAuth(req, res, next) {
       select: { id: true, email: true, role: true, active: true },
     });
     if (!user || !user.active) {
-      return res.status(401).json({ error: "Invalid or expired session" });
+      return unauthorized(req, res, "Invalid or expired session");
     }
     req.user = { ...decoded, role: user.role, email: user.email };
     next();
