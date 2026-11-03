@@ -149,6 +149,23 @@ app.use("/api/public", rateLimit({ windowMs: 60 * 1000, max: 120 }));
 // used to pull it on a loop.
 app.use("/api/backups", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }));
 
+// Each call is a real, billable Anthropic API request (see
+// utils/extraction.js) — same "a compromised or careless session shouldn't
+// be able to run this on a loop" reasoning as /api/backups above, but with
+// a real dollar cost per request instead of just server load. Scoped to
+// the specific path rather than the whole router (app.use matches :id
+// patterns the same way a route handler does), so normal newsletter/
+// document CRUD stays unaffected.
+//
+// One limiter instance shared across both routes deliberately: express-
+// rate-limit keys by IP alone, so this is one combined budget across
+// newsletter and document scans rather than 30 of each. That's correct
+// here — what's actually being bounded is total Anthropic spend from one
+// session, which doesn't care which file type triggered it.
+const extractionLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
+app.use("/api/newsletters/:id/extract", extractionLimiter);
+app.use("/api/documents/:id/extract", extractionLimiter);
+
 // --- Routes ---
 app.use("/api/auth", authRoutes);
 app.use("/api/partners", partnerRoutes); // protected (admin) — session required

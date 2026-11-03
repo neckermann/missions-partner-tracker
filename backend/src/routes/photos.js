@@ -1,5 +1,6 @@
 const express = require("express");
 const prisma = require("../prismaClient");
+const { VERIFIED_INLINE_TYPES } = require("../utils/fileResponse");
 
 const router = express.Router();
 
@@ -20,7 +21,17 @@ router.get("/:id/raw", async (req, res, next) => {
     // row — see the Photo model comment), so its bytes are immutable for
     // the life of this id. Safe to cache aggressively.
     res.set("Cache-Control", "public, max-age=31536000, immutable");
-    res.set("Content-Type", photo.contentType || "application/octet-stream");
+    // Same VERIFIED_INLINE_TYPES allowlist newsletters/documents use (see
+    // utils/fileResponse.js) rather than trusting the stored contentType
+    // directly -- not reachable today since photo uploads are already
+    // signature-verified to image/jpeg or image/png at the multer layer in
+    // partners.js, but this is the one other place a stored contentType
+    // reaches a response header, and it shouldn't be a second, divergent
+    // copy of a rule the codebase already centralized once.
+    const contentType = VERIFIED_INLINE_TYPES.has(photo.contentType)
+      ? photo.contentType
+      : "application/octet-stream";
+    res.set("Content-Type", contentType);
     res.send(photo.bytes);
   } catch (err) {
     next(err);

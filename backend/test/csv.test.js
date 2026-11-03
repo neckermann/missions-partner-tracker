@@ -41,6 +41,43 @@ describe("escapeField", () => {
     // toMonthDay and toDateInputValue.
     assert.equal(escapeField(new Date("1979-05-04T00:00:00.000Z")), "1979-05-04");
   });
+
+  describe("neutralizes formula injection (CWE-1236)", () => {
+    // Report rows carry editor-entered free text (partner names, prayer
+    // request text, notes) opened later by an admin/treasurer in a
+    // spreadsheet app. Each of these leading characters is read as a
+    // formula trigger by Excel/Sheets/LibreOffice, not as literal text.
+    test("prepends a quote to a value starting with =", () => {
+      // The embedded quotes and comma still trigger RFC 4180 quoting on
+      // top of the formula-neutralizing prefix -- same as any other field.
+      assert.equal(
+        escapeField('=HYPERLINK("http://evil.example","click")'),
+        '"\'=HYPERLINK(""http://evil.example"",""click"")"'
+      );
+    });
+
+    test("prepends a quote to a value starting with +, -, or @", () => {
+      assert.equal(escapeField("+1+1"), "'+1+1");
+      assert.equal(escapeField("-1+1"), "'-1+1");
+      // @SUM(1,2) has no quotes but does have a comma, so it still gets
+      // RFC 4180-quoted on top of the formula-neutralizing prefix.
+      assert.equal(escapeField("@SUM(1,2)"), '"\'@SUM(1,2)"');
+    });
+
+    test("prepends a quote to a value starting with a tab", () => {
+      assert.equal(escapeField("\t=1+1"), "'\t=1+1");
+    });
+
+    test("leaves a value with = in the middle alone", () => {
+      assert.equal(escapeField("x=1"), "x=1");
+    });
+
+    test("still applies RFC 4180 quoting on top, when the field also needs it", () => {
+      // The leading quote neutralizes the formula; the embedded comma still
+      // needs its own RFC 4180 quoting, same as any other field.
+      assert.equal(escapeField("=SUM(A1),B1"), '"\'=SUM(A1),B1"');
+    });
+  });
 });
 
 describe("toCsv", () => {
