@@ -36,7 +36,6 @@ module.exports = {
       select: {
         id: true,
         displayName: true,
-        archived: true,
         supportEntries: {
           orderBy: { effectiveDate: "desc" },
           take: 1,
@@ -53,7 +52,6 @@ module.exports = {
         partnerName: p.displayName,
         amount: p.supportEntries[0].amount,
         effectiveDate: p.supportEntries[0].effectiveDate,
-        archived: Boolean(p.archived),
       }))
       .sort((a, b) => b.amount - a.amount);
   },

@@ -149,4 +149,34 @@ describe("GET /api/public/country-info/:countryCode -- feature gate", () => {
       unmockJoshuaProject();
     }
   });
+
+  test("a malformed 200 response (e.g. a misconfigured key) 404s and is never cached", async () => {
+    // A different country code than the other tests in this file use --
+    // the cache is a module-level Map, shared across every test in this
+    // process, so reusing "US" here could pass only because an earlier
+    // test's real response was already cached for it.
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { joshuaProject: true } },
+    });
+
+    mockJoshuaProject(async () => jpJson(200, { error: "Invalid API key" }));
+    try {
+      const first = await unauthenticated("/api/public/country-info/FR");
+      assert.equal(first.status, 404);
+    } finally {
+      unmockJoshuaProject();
+    }
+
+    // If the malformed response had been cached, this second call would
+    // never reach the (now-working) mock and would still 404.
+    mockJoshuaProject(async () => jpJson(200, [{ Ctry: "France", Population: 68000000 }]));
+    try {
+      const second = await unauthenticated("/api/public/country-info/FR");
+      assert.equal(second.status, 200);
+      assert.equal(second.body.Ctry, "France");
+    } finally {
+      unmockJoshuaProject();
+    }
+  });
 });

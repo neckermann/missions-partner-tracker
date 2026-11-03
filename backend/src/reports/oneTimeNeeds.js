@@ -100,7 +100,7 @@ module.exports = {
         requestDate: true,
         approvedAmount: true,
         approvedDate: true,
-        partner: { select: { id: true, displayName: true, archived: true } },
+        partner: { select: { id: true, displayName: true } },
       },
       orderBy: [{ requestDate: "desc" }],
     });
@@ -118,7 +118,6 @@ module.exports = {
       approvedAmount: r.approvedDate ? r.approvedAmount : null,
       approvedDate: r.approvedDate,
       status: r.approvedDate ? "Decided" : "Pending",
-      archived: Boolean(r.partner.archived),
     }));
   },
 };

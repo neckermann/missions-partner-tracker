@@ -141,7 +141,7 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
     <div className="admin-section">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h3 style={{ flex: 1, marginBottom: 0 }}>Documents</h3>
-        <button type="button" className="btn secondary small" onClick={() => setShowAddForm((v) => !v)}>
+        <button type="button" className="btn secondary small" onClick={() => (setShowAddForm((v) => !v), setError(""))}>
           {showAddForm ? "Cancel" : "+ Add Document"}
         </button>
       </div>

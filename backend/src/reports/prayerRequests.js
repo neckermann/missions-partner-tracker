@@ -93,7 +93,7 @@ module.exports = {
         dateReceived: true,
         status: true,
         dateAnswered: true,
-        partner: { select: { id: true, displayName: true, archived: true } },
+        partner: { select: { id: true, displayName: true } },
       },
       orderBy: [{ dateReceived: "desc" }],
     });
@@ -107,7 +107,6 @@ module.exports = {
       requestText: r.requestText,
       status: r.status[0].toUpperCase() + r.status.slice(1),
       dateAnswered: r.dateAnswered,
-      archived: Boolean(r.partner.archived),
     }));
   },
 };
