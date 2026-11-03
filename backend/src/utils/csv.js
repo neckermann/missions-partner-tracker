@@ -21,8 +21,22 @@ function cell(value) {
   return String(value);
 }
 
+// A field whose first character is one of these is read as a formula by
+// Excel/Sheets/LibreOffice when the file is opened, not as literal text --
+// CSV/formula injection (CWE-1236). Report rows carry free text an
+// editor-level account controls (partner names, prayer request text,
+// notes), opened later by an admin/treasurer in a spreadsheet app, so this
+// is a real privilege-boundary crossing, not just a display quirk. A
+// single leading quote forces every spreadsheet app to treat the cell as
+// text.
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+
+function neutralizeFormula(text) {
+  return FORMULA_TRIGGER.test(text) ? `'${text}` : text;
+}
+
 function escapeField(value) {
-  const text = cell(value);
+  const text = neutralizeFormula(cell(value));
   // \r matters on its own: Excel treats a bare CR inside an unquoted field
   // as a row break.
   if (/[",\n\r]/.test(text)) {
