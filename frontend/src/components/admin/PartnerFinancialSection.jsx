@@ -15,7 +15,7 @@ import {
 } from "../../api/client.js";
 import EditableSection from "./EditableSection.jsx";
 import useLoadMore from "../../hooks/useLoadMore.js";
-import ScanSourceLink from "./ScanSourceLink.jsx";
+import SourceLink from "./SourceLink.jsx";
 import SourcePicker from "./SourcePicker.jsx";
 
 // Monthly support and one-time needs for one partner, editable here rather
@@ -356,7 +356,7 @@ export default function PartnerFinancialSection({
                             row.approvedDate ? ` on ${formatDate(row.approvedDate)}` : ""
                           }`}
                       </div>
-                      <ScanSourceLink
+                      <SourceLink
                         sourceNewsletter={row.sourceNewsletter}
                         sourceDocument={row.sourceDocument}
                       />

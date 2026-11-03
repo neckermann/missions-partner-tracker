@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { createPrayerRequest, updatePrayerRequest, deletePrayerRequest } from "../../api/client.js";
 import { formatDate, todayInputValue, toDateInputValue } from "../../utils/format.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
-import ScanSourceLink from "./ScanSourceLink.jsx";
+import SourceLink from "./SourceLink.jsx";
 import SourcePicker from "./SourcePicker.jsx";
 
 const emptyNewRequest = {
@@ -360,7 +360,7 @@ export default function PrayerRequestSection({
                       {p.category === "strategic" && p.isPublic && " · Public"}
                       {p.category === "strategic" && p.isPublic && p.includeInBooklet && " · In booklet"}
                     </div>
-                    <ScanSourceLink sourceNewsletter={p.sourceNewsletter} sourceDocument={p.sourceDocument} />
+                    <SourceLink sourceNewsletter={p.sourceNewsletter} sourceDocument={p.sourceDocument} />
                     {/* The only status ever called out here is "answered" -- an
                         "ongoing" or "untracked" request just shows nothing
                         extra, matching this feature's whole design intent. */}
