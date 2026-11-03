@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchTrips, fetchPartners, createTrip, updateTrip, deleteTrip } from "../api/client.js";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
+import AlbumLinkField from "../components/admin/AlbumLinkField.jsx";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { formatDate, toDateInputValue } from "../utils/format.js";
 import useLoadMore from "../hooks/useLoadMore.js";
@@ -35,6 +36,8 @@ const emptyTripForm = {
   tripType: "",
   description: "",
   notes: "",
+  albumProvider: null,
+  albumUrl: null,
   participants: [],
 };
 
@@ -153,6 +156,8 @@ export default function AdminTripHistory() {
         tripType: newTrip.tripType || null,
         description: newTrip.description || null,
         notes: newTrip.notes || null,
+        albumProvider: newTrip.albumProvider || null,
+        albumUrl: newTrip.albumUrl || null,
         participants: cleanParticipants(newTrip.participants),
       });
       setNewTrip(emptyTripForm);
@@ -175,6 +180,8 @@ export default function AdminTripHistory() {
       tripType: trip.tripType || "",
       description: trip.description || "",
       notes: trip.notes || "",
+      albumProvider: trip.albumProvider || null,
+      albumUrl: trip.albumUrl || null,
       participants: (trip.participants || []).map((p) => ({ ...p })),
     });
   }
@@ -188,6 +195,8 @@ export default function AdminTripHistory() {
         tripType: editForm.tripType || null,
         description: editForm.description || null,
         notes: editForm.notes || null,
+        albumProvider: editForm.albumProvider || null,
+        albumUrl: editForm.albumUrl || null,
         participants: cleanParticipants(editForm.participants),
       });
       setEditingId(null);
@@ -336,6 +345,16 @@ export default function AdminTripHistory() {
               onChange={(e) => setNewTrip((f) => ({ ...f, notes: e.target.value }))}
             />
           </label>
+          <label style={{ marginTop: "0.75rem" }}>
+            Photo/Video Album
+            <AlbumLinkField
+              provider={newTrip.albumProvider}
+              url={newTrip.albumUrl}
+              onChange={(provider, url) =>
+                setNewTrip((f) => ({ ...f, albumProvider: provider, albumUrl: url }))
+              }
+            />
+          </label>
           {renderParticipantsEditor("new", newTrip)}
           {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
           <div style={{ marginTop: "1rem" }}>
@@ -433,6 +452,7 @@ export default function AdminTripHistory() {
             <th>Team Size</th>
             <th>Leader(s)</th>
             <th>Description</th>
+            <th>Album</th>
             <th></th>
           </tr>
         </thead>
@@ -455,6 +475,15 @@ export default function AdminTripHistory() {
                   <td>{trip.size}</td>
                   <td>{leaders.length ? leaders.join(", ") : "—"}</td>
                   <td>{trip.description || "—"}</td>
+                  <td>
+                    {trip.albumUrl ? (
+                      <a href={trip.albumUrl} target="_blank" rel="noreferrer">
+                        View
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="table-actions">
                     <button
                       type="button"
@@ -470,7 +499,7 @@ export default function AdminTripHistory() {
                 </tr>
                 {editingId === trip.id && (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <div className="form-grid">
                         <label title="To move this trip to a different missionary/organization, delete it and add it again under the correct partner.">
                           Start Date
@@ -514,6 +543,16 @@ export default function AdminTripHistory() {
                           onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
                         />
                       </label>
+                      <label style={{ marginTop: "0.75rem" }}>
+                        Photo/Video Album
+                        <AlbumLinkField
+                          provider={editForm.albumProvider}
+                          url={editForm.albumUrl}
+                          onChange={(provider, url) =>
+                            setEditForm((f) => ({ ...f, albumProvider: provider, albumUrl: url }))
+                          }
+                        />
+                      </label>
                       {renderParticipantsEditor("edit", editForm)}
                       {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
                       <div style={{ marginTop: "0.5rem" }}>
@@ -529,7 +568,7 @@ export default function AdminTripHistory() {
           })}
           {filteredTrips.length === 0 && (
             <tr>
-              <td colSpan={8} style={{ color: "#888" }}>
+              <td colSpan={9} style={{ color: "#888" }}>
                 No trips match these filters.
               </td>
             </tr>
