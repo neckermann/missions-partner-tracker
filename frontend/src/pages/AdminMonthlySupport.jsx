@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { fetchPartners, fetchSupportEntries, createSupportEntry, deleteSupportEntry } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { formatDate, todayInputValue, formatCurrency as formatMoney } from "../utils/format.js";
+import { partnerKindLabel } from "../utils/partnerEntity.js";
 
 // Thin binding so the call sites below stay unchanged; the formatting
 // itself lives in utils/format.js, which is also where the em-dash
@@ -70,7 +71,7 @@ export default function AdminMonthlySupport() {
   const rows = partners
     .map((p) => ({
       id: p.id,
-      type: p.kind === "organization" ? "Organization" : "Missionary",
+      type: partnerKindLabel(p.kind),
       name: p.displayName,
       field: p.fieldDisplayName,
       archived: p.archived,

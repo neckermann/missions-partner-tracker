@@ -17,6 +17,7 @@ import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
 import { entityFor } from "../utils/partnerEntity.js";
 import { isScannable } from "../utils/scannable.js";
 import useLoadMore from "../hooks/useLoadMore.js";
+import LoadMoreButton from "../components/LoadMoreButton.jsx";
 
 const emptyNewDocument = {
   partnerId: "",
@@ -462,11 +463,7 @@ export default function AdminDocuments() {
           )}
         </tbody>
       </table>
-      {hasMore && (
-        <button type="button" className="btn secondary" style={{ marginTop: "1rem" }} onClick={showMore}>
-          Load More ({remaining} remaining)
-        </button>
-      )}
+      <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
 
       {scanning && (
         <ExtractionReviewModal

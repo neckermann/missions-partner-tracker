@@ -23,7 +23,9 @@ import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
 import { formatDateLong, toDateInputValue, todayInputValue } from "../utils/format.js";
+import { addressByType } from "../utils/addresses.js";
 import useLoadMore from "../hooks/useLoadMore.js";
+import LoadMoreButton from "../components/LoadMoreButton.jsx";
 
 // A cleared <input type="date"> is "", which `z.coerce.date()` turns into an
 // Invalid Date and rejects -- "no date" has to travel as null.
@@ -215,8 +217,8 @@ export default function AdminPartnerDetail() {
   const isOrg = p.kind === "organization";
   const save = (patch) => updatePartner(id, patch);
 
-  const physical = (p.addresses || []).find((a) => a.type === "physical") || {};
-  const mailing = (p.addresses || []).find((a) => a.type === "mailing") || {};
+  const physical = addressByType(p.addresses, "physical") || {};
+  const mailing = addressByType(p.addresses, "mailing") || {};
 
   // Addresses are replaced as a pair on the server, so a section editing one
   // of them has to send the other back untouched or it would be deleted.
@@ -1103,16 +1105,12 @@ export default function AdminPartnerDetail() {
                         </div>
                       </div>
                     ))}
-                    {churchVisitsLoadMore.hasMore && (
-                      <button
-                        type="button"
-                        className="btn secondary small"
-                        onClick={churchVisitsLoadMore.showMore}
-                        style={{ marginTop: "0.5rem" }}
-                      >
-                        Load More ({churchVisitsLoadMore.remaining} remaining)
-                      </button>
-                    )}
+                    <LoadMoreButton
+                      hasMore={churchVisitsLoadMore.hasMore}
+                      remaining={churchVisitsLoadMore.remaining}
+                      onClick={churchVisitsLoadMore.showMore}
+                      size="small"
+                    />
                   </>
                 ) : (
                   <p style={{ color: "#888" }}>No visits on file.</p>
@@ -1182,16 +1180,12 @@ export default function AdminPartnerDetail() {
                         </div>
                       </div>
                     ))}
-                    {furloughsLoadMore.hasMore && (
-                      <button
-                        type="button"
-                        className="btn secondary small"
-                        onClick={furloughsLoadMore.showMore}
-                        style={{ marginTop: "0.5rem" }}
-                      >
-                        Load More ({furloughsLoadMore.remaining} remaining)
-                      </button>
-                    )}
+                    <LoadMoreButton
+                      hasMore={furloughsLoadMore.hasMore}
+                      remaining={furloughsLoadMore.remaining}
+                      onClick={furloughsLoadMore.showMore}
+                      size="small"
+                    />
                   </>
                 ) : (
                   <p style={{ color: "#888" }}>No furlough history on file.</p>

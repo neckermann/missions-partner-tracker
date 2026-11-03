@@ -4,6 +4,7 @@ import PresetOrCustomSelect from "./PresetOrCustomSelect.jsx";
 import AlbumLinkField from "./AlbumLinkField.jsx";
 import { formatDate, toDateInputValue } from "../../utils/format.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
+import LoadMoreButton from "../LoadMoreButton.jsx";
 
 // Trips for one partner, on that partner's own page. Same records and same
 // endpoints as the consolidated Trip History page -- this is just the view
@@ -293,16 +294,7 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
         ) : (
           <p style={{ color: "#888" }}>No trips on file.</p>
         )}
-        {hasMore && (
-          <button
-            type="button"
-            className="btn secondary small"
-            onClick={showMore}
-            style={{ marginTop: "0.5rem" }}
-          >
-            Load More ({remaining} remaining)
-          </button>
-        )}
+        <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} size="small" />
       </div>
     </div>
   );

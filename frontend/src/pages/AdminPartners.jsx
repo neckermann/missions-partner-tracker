@@ -5,6 +5,7 @@ import { useSettings } from "../context/SettingsContext.jsx";
 import { getContinent } from "../utils/countryContinents.js";
 import { matchesSearch } from "../utils/search.js";
 import { formatCurrency, formatDate } from "../utils/format.js";
+import { addressByType } from "../utils/addresses.js";
 
 // Same field as backend/src/utils/maskData.js's public `country` -- the
 // physical address's country, nothing else. fipsCountryCode is for Joshua
@@ -12,7 +13,7 @@ import { formatCurrency, formatDate } from "../utils/format.js";
 // country is this partner in" means the same thing here as it does on the
 // public site/map.
 function resolveCountry(record) {
-  const physical = (record.addresses || []).find((a) => a.type === "physical");
+  const physical = addressByType(record.addresses, "physical");
   return physical?.country || null;
 }
 

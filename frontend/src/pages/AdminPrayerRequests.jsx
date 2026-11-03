@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   fetchPrayerRequests,
@@ -6,8 +6,6 @@ import {
   updatePrayerRequest,
   deletePrayerRequest,
   fetchPartners,
-  fetchNewsletters,
-  fetchDocuments,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import SourceLink from "../components/admin/SourceLink.jsx";
@@ -16,6 +14,8 @@ import { formatDate, todayInputValue } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
 import { entityFor } from "../utils/partnerEntity.js";
 import useLoadMore from "../hooks/useLoadMore.js";
+import useSourceFiles from "../hooks/useSourceFiles.js";
+import LoadMoreButton from "../components/LoadMoreButton.jsx";
 
 const emptyNewRequest = {
   partnerId: "",
@@ -49,34 +49,11 @@ export default function AdminPrayerRequests() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   // Scoped to whichever partner is selected in the add form, or whichever
-  // request is being edited -- these pages span every partner, unlike
-  // PrayerRequestSection.jsx's per-partner version, which already has its
-  // one partner's files loaded. Re-fetched on demand (see loadSourceFiles
-  // below) rather than loading every partner's files up front.
-  const [sourceFiles, setSourceFiles] = useState({ newsletters: [], documents: [] });
-  // Switching the selected partner in the Add form, or clicking Edit on a
-  // different row, before a slower loadSourceFiles() call for the
-  // previous partner resolves, would otherwise let a previous partner's
-  // newsletters/documents land in the SourcePicker after the current
-  // partner's already did. Tracks which partner the most recent call was
-  // actually for, checked when it resolves.
-  const sourceFilesForRef = useRef(null);
+  // request is being edited -- see the same hook used in AdminOneTimeNeeds.jsx.
+  const { sourceFiles, loadSourceFiles } = useSourceFiles();
 
   function reload() {
     fetchPrayerRequests().then(setRequests).catch(console.error);
-  }
-
-  function loadSourceFiles(partnerId) {
-    sourceFilesForRef.current = partnerId || null;
-    if (!partnerId) {
-      setSourceFiles({ newsletters: [], documents: [] });
-      return;
-    }
-    Promise.all([fetchNewsletters({ partnerId }), fetchDocuments({ partnerId })])
-      .then(([newsletters, documents]) => {
-        if (sourceFilesForRef.current === partnerId) setSourceFiles({ newsletters, documents });
-      })
-      .catch(console.error);
   }
 
   useEffect(() => {
@@ -123,7 +100,7 @@ export default function AdminPrayerRequests() {
         sourceDocumentId: newRequest.sourceDocumentId,
       });
       setNewRequest(emptyNewRequest);
-      setSourceFiles({ newsletters: [], documents: [] });
+      loadSourceFiles(null);
       setShowAddForm(false);
       reload();
     } catch (err) {
@@ -572,11 +549,7 @@ export default function AdminPrayerRequests() {
       {filteredRequests.length === 0 && (
         <p style={{ color: "#888", marginTop: "1rem" }}>No prayer requests on file.</p>
       )}
-      {hasMore && (
-        <button type="button" className="btn secondary" style={{ marginTop: "1rem" }} onClick={showMore}>
-          Load More ({remaining} remaining)
-        </button>
-      )}
+      <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
     </div>
   );
 }

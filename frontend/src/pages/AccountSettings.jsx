@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { fetchCurrentUser, changePassword, setupMfa, verifyMfaSetup, disableMfa } from "../api/client.js";
+import { passwordsMatch } from "../utils/password.js";
 
 export default function AccountSettings() {
   const [user, setUser] = useState(null);
@@ -23,7 +24,7 @@ export default function AccountSettings() {
     setError("");
     setSuccess("");
 
-    if (newPassword !== confirmPassword) {
+    if (!passwordsMatch(newPassword, confirmPassword)) {
       setError("New password and confirmation do not match");
       return;
     }
