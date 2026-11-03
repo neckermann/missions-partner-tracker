@@ -119,7 +119,7 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
   const formOpen = showAddForm || editingId;
 
   return (
-    <div className="admin-section">
+    <div className={`admin-section ${formOpen ? "form-has-floating-actions" : ""}`}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h3 style={{ flex: 1, marginBottom: 0 }}>Trips</h3>
         <button
@@ -227,11 +227,15 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
             + Add Participant
           </button>
 
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-          <div style={{ marginTop: "1rem" }}>
+          <div className="form-save-bar">
             <button type="submit" className="btn" disabled={saving}>
               {saving ? "Saving..." : editingId ? "Save Trip" : "Add Trip"}
             </button>
+            {error && (
+              <span style={{ color: "#b91c1c" }} role="alert">
+                {error}
+              </span>
+            )}
           </div>
         </form>
       )}
