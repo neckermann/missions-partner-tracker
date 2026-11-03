@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   fetchPartner,
@@ -166,9 +166,23 @@ export default function AdminPartnerDetail() {
   });
   const { churchName, enabledFeatures } = useSettings();
 
+  // React Router keeps this same component instance mounted across a
+  // /partners/:id param change -- it doesn't remount. reload() is passed
+  // as onSaved/onChange to nearly every section on this page, so a save on
+  // partner A that's still in flight when the admin navigates to partner B
+  // would otherwise land A's data on B's screen once it resolves. idRef is
+  // kept current every render (not just via reload's own closure) so a
+  // reload() call can tell, when it finally resolves, whether the id it
+  // was fetching for is still the one being viewed.
+  const idRef = useRef(id);
+  idRef.current = id;
+
   function reload() {
+    const requestId = id;
     return Promise.all([
-      fetchPartner(id).then(setP),
+      fetchPartner(id).then((data) => {
+        if (idRef.current === requestId) setP(data);
+      }),
       Promise.all([
         fetchPrayerRequests({ partnerId: id }),
         fetchNewsletters({ partnerId: id }),
@@ -176,9 +190,11 @@ export default function AdminPartnerDetail() {
         fetchSupportEntries({ partnerId: id }),
         fetchSupportNeeds({ partnerId: id }),
         enabledFeatures.trips ? fetchTrips({ partnerId: id }) : Promise.resolve([]),
-      ]).then(([prayerRequests, newsletters, documents, supportEntries, needRequests, trips]) =>
-        setCollections({ prayerRequests, newsletters, documents, supportEntries, needRequests, trips })
-      ),
+      ]).then(([prayerRequests, newsletters, documents, supportEntries, needRequests, trips]) => {
+        if (idRef.current === requestId) {
+          setCollections({ prayerRequests, newsletters, documents, supportEntries, needRequests, trips });
+        }
+      }),
     ]);
   }
 

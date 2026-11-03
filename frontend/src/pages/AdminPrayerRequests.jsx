@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   fetchPrayerRequests,
@@ -63,18 +63,28 @@ export default function AdminPrayerRequests() {
   // one partner's files loaded. Re-fetched on demand (see loadSourceFiles
   // below) rather than loading every partner's files up front.
   const [sourceFiles, setSourceFiles] = useState({ newsletters: [], documents: [] });
+  // Switching the selected partner in the Add form, or clicking Edit on a
+  // different row, before a slower loadSourceFiles() call for the
+  // previous partner resolves, would otherwise let a previous partner's
+  // newsletters/documents land in the SourcePicker after the current
+  // partner's already did. Tracks which partner the most recent call was
+  // actually for, checked when it resolves.
+  const sourceFilesForRef = useRef(null);
 
   function reload() {
     fetchPrayerRequests().then(setRequests).catch(console.error);
   }
 
   function loadSourceFiles(partnerId) {
+    sourceFilesForRef.current = partnerId || null;
     if (!partnerId) {
       setSourceFiles({ newsletters: [], documents: [] });
       return;
     }
     Promise.all([fetchNewsletters({ partnerId }), fetchDocuments({ partnerId })])
-      .then(([newsletters, documents]) => setSourceFiles({ newsletters, documents }))
+      .then(([newsletters, documents]) => {
+        if (sourceFilesForRef.current === partnerId) setSourceFiles({ newsletters, documents });
+      })
       .catch(console.error);
   }
 

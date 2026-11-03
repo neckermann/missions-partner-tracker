@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   fetchSupportNeeds,
@@ -64,18 +64,26 @@ export default function AdminOneTimeNeeds() {
   // Scoped to whichever partner is selected in the add form, or whichever
   // need is being edited -- see the same state in AdminPrayerRequests.jsx.
   const [sourceFiles, setSourceFiles] = useState({ newsletters: [], documents: [] });
+  // See the same ref in AdminPrayerRequests.jsx -- switching the selected
+  // partner before a slower loadSourceFiles() call resolves would
+  // otherwise let a previous partner's files land after the current
+  // partner's already did.
+  const sourceFilesForRef = useRef(null);
 
   function reload() {
     fetchSupportNeeds().then(setNeeds).catch(console.error);
   }
 
   function loadSourceFiles(partnerId) {
+    sourceFilesForRef.current = partnerId || null;
     if (!partnerId) {
       setSourceFiles({ newsletters: [], documents: [] });
       return;
     }
     Promise.all([fetchNewsletters({ partnerId }), fetchDocuments({ partnerId })])
-      .then(([newsletters, documents]) => setSourceFiles({ newsletters, documents }))
+      .then(([newsletters, documents]) => {
+        if (sourceFilesForRef.current === partnerId) setSourceFiles({ newsletters, documents });
+      })
       .catch(console.error);
   }
 

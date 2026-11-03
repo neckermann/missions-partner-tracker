@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchPartners, fetchSupportEntries, createSupportEntry, deleteSupportEntry } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
@@ -26,6 +26,14 @@ export default function AdminMonthlySupport() {
   const [history, setHistory] = useState([]);
   const navigate = useNavigate();
 
+  // Clicking History on partner A, then quickly clicking it on partner B
+  // before A's slower fetch resolves, would otherwise let A's history
+  // land in the panel after B's already did. Tracks which partner the
+  // most recent loadHistory() call was actually for, checked when it
+  // resolves -- not just closed over, since toggleHistory can move this
+  // on before an in-flight fetch finishes.
+  const historyForRef = useRef(null);
+
   function reload() {
     fetchPartners().then(setPartners).catch(console.error);
     if (historyFor) loadHistory(historyFor);
@@ -36,11 +44,17 @@ export default function AdminMonthlySupport() {
   }, []);
 
   function loadHistory(partnerId) {
-    fetchSupportEntries({ partnerId }).then(setHistory).catch(console.error);
+    historyForRef.current = partnerId;
+    fetchSupportEntries({ partnerId })
+      .then((data) => {
+        if (historyForRef.current === partnerId) setHistory(data);
+      })
+      .catch(console.error);
   }
 
   function toggleHistory(partnerId) {
     if (historyFor === partnerId) {
+      historyForRef.current = null;
       setHistoryFor(null);
       setHistory([]);
       return;
