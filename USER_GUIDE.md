@@ -710,6 +710,14 @@ steps:
 4. **Send Test Email** — sends a real email to your own account address,
    confirming it actually works before anything depends on it.
 
+To check the connection itself works before setting up a real domain,
+paste the literal text `POSTMARK_API_TEST` as the Server API Token (no
+Postmark account needed at all) and any address as From Address, then
+**Send Test Email** — Postmark accepts and validates the request without
+actually delivering anything or requiring a verified domain, confirming
+the settings/token/API call path works. Swap in a real token once you
+have a verified domain to actually receive mail.
+
 ![The Email settings page, configured and tested](docs/assets/screenshots/email-settings.png)
 
 ## User management (Admin only)
