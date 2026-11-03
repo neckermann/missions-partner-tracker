@@ -116,7 +116,10 @@ export default function CountryStats({ countryCode }) {
                                 {info.JPScaleText}
                               </span>
                               <div className="jp-scale-gauge" title={title}>
-                                <span className="jp-scale-gauge-label">Unreached</span>
+                                <div className="jp-scale-gauge-labels">
+                                  <span>Unreached</span>
+                                  <span>Reached</span>
+                                </div>
                                 <span className="jp-scale-gauge-track">
                                   <span className="jp-scale-1" />
                                   <span className="jp-scale-2" />
@@ -128,7 +131,6 @@ export default function CountryStats({ countryCode }) {
                                     style={{ left: `${((tier - 0.5) / 5) * 100}%` }}
                                   />
                                 </span>
-                                <span className="jp-scale-gauge-label">Reached</span>
                               </div>
                             </>
                           ) : (

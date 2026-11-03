@@ -788,15 +788,15 @@ a {
 /* The gauge reuses .jp-scale-1..5 above as bare background-color segments
    (no text inside them, so their `color` rule is simply unused there). */
 .jp-scale-gauge {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  width: 120px;
   margin-top: 0.4rem;
 }
-.jp-scale-gauge-label {
+.jp-scale-gauge-labels {
+  display: flex;
+  justify-content: space-between;
   font-size: 0.65rem;
   color: #888;
-  white-space: nowrap;
+  margin-bottom: 0.2rem;
 }
 .jp-scale-gauge-track {
   position: relative;
