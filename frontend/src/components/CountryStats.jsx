@@ -71,34 +71,17 @@ export default function CountryStats({ countryCode }) {
             <>
               <p className="country-stats-title">Joshua Project Statistics</p>
               <dl className="country-stats-grid">
-                {info.Ctry && (
+                {isAffirmative(info.Window1040) && (
                   <>
-                    <dt>Country</dt>
-                    <dd>{info.Ctry}</dd>
-                  </>
-                )}
-                {info.ReligionPrimary && (
-                  <>
-                    <dt>Primary Religion</dt>
-                    <dd>{info.ReligionPrimary}</dd>
-                  </>
-                )}
-                {info.Population != null && (
-                  <>
-                    <dt>Population</dt>
-                    <dd>{info.Population.toLocaleString()}</dd>
-                  </>
-                )}
-                {info.PercentChristianity != null && (
-                  <>
-                    <dt>Christianity</dt>
-                    <dd>{info.PercentChristianity.toFixed(2)}%</dd>
-                  </>
-                )}
-                {info.PercentEvangelical != null && (
-                  <>
-                    <dt>Evangelical</dt>
-                    <dd>{info.PercentEvangelical.toFixed(2)}%</dd>
+                    <dt>10/40 Window</dt>
+                    <dd>
+                      <span
+                        className="status-pill warn"
+                        title="The 10/40 Window: the band of latitude (10°N-40°N) home to most of the world's least-reached peoples."
+                      >
+                        Yes
+                      </span>
+                    </dd>
                   </>
                 )}
                 {info.JPScaleText &&
@@ -140,17 +123,34 @@ export default function CountryStats({ countryCode }) {
                       </>
                     );
                   })()}
-                {isAffirmative(info.Window1040) && (
+                {info.Ctry && (
                   <>
-                    <dt>10/40 Window</dt>
-                    <dd>
-                      <span
-                        className="status-pill warn"
-                        title="The 10/40 Window: the band of latitude (10°N-40°N) home to most of the world's least-reached peoples."
-                      >
-                        Yes
-                      </span>
-                    </dd>
+                    <dt>Country</dt>
+                    <dd>{info.Ctry}</dd>
+                  </>
+                )}
+                {info.ReligionPrimary && (
+                  <>
+                    <dt>Primary Religion</dt>
+                    <dd>{info.ReligionPrimary}</dd>
+                  </>
+                )}
+                {info.Population != null && (
+                  <>
+                    <dt>Population</dt>
+                    <dd>{info.Population.toLocaleString()}</dd>
+                  </>
+                )}
+                {info.PercentChristianity != null && (
+                  <>
+                    <dt>Christianity</dt>
+                    <dd>{info.PercentChristianity.toFixed(2)}%</dd>
+                  </>
+                )}
+                {info.PercentEvangelical != null && (
+                  <>
+                    <dt>Evangelical</dt>
+                    <dd>{info.PercentEvangelical.toFixed(2)}%</dd>
                   </>
                 )}
                 {info.CntPeoplesLR > 0 && (
