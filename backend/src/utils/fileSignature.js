@@ -29,6 +29,16 @@ const isZip = (buf) =>
   // specifically "a Word document".
   buf.length >= 4 && buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04;
 
+// HEIC/HEIF files are ISO Base Media File Format (the same container family
+// as MP4): a "ftyp" box at byte offset 4, followed by a 4-byte major brand.
+// These are the brand codes real-world encoders (iPhones especially) and
+// the HEIF spec itself actually produce -- "heic" covers the overwhelming
+// majority of iPhone photos, the rest cover the less common profiles
+// (10-bit, multiview, scalable, image sequences).
+const HEIC_BRANDS = new Set(["heic", "heix", "heim", "heis", "hevc", "hevx", "mif1", "msf1"]);
+const isHeic = (buf) =>
+  buf.length >= 12 && buf.toString("ascii", 4, 8) === "ftyp" && HEIC_BRANDS.has(buf.toString("ascii", 8, 12));
+
 const SIGNATURES = {
   "image/jpeg": (buf) => buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff,
   "image/png": (buf) =>
@@ -43,6 +53,12 @@ const SIGNATURES = {
     buf[7] === 0x0a,
   "image/webp": (buf) =>
     buf.length >= 12 && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP",
+  // Browsers are inconsistent about which of these two MIME types they
+  // report for a HEIC file (sometimes neither, see resolveImageExt in
+  // routes/partners.js) -- registering the same check under both means
+  // whichever one a given browser sends still verifies correctly.
+  "image/heic": isHeic,
+  "image/heif": isHeic,
   "application/pdf": (buf) => buf.length >= 5 && buf.toString("ascii", 0, 5) === "%PDF-",
   "application/msword": isOle2,
   "application/vnd.ms-excel": isOle2,

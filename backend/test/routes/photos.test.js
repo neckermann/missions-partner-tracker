@@ -35,13 +35,32 @@ describe("GET /api/photos/:id/raw -- content-type allowlist", () => {
     assert.equal(res.headers.get("content-type"), "image/png");
   });
 
+  test("a webp photo is served as itself, not downgraded to octet-stream", async () => {
+    // Regression test: VERIFIED_INLINE_TYPES didn't include image/webp even
+    // though partners.js accepts and signature-verifies webp uploads --
+    // every webp partner/org photo rendered as a broken image until this
+    // was added.
+    const photo = await prisma.photo.create({
+      data: {
+        partnerId,
+        bytes: Buffer.from("RIFF\0\0\0\0WEBP"), // WebP signature, not a full valid file -- irrelevant here
+        receivedDate: new Date("2026-01-01"),
+        contentType: "image/webp",
+      },
+    });
+
+    const res = await unauthenticated(`/api/photos/${photo.id}/raw`);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("content-type"), "image/webp");
+  });
+
   test("an unverified contentType never reaches the response header", async () => {
     // Not reachable through the normal upload path (multer + fileFilter in
-    // partners.js only ever write image/jpeg or image/png) -- this is a
-    // direct DB write standing in for any future path that could insert a
-    // Photo row some other way (a migration, an admin tool, a bug). The
-    // allowlist in routes/photos.js is what makes this safe regardless of
-    // how a bad contentType got there.
+    // partners.js only ever write image/jpeg, image/png, or image/webp) --
+    // this is a direct DB write standing in for any future path that could
+    // insert a Photo row some other way (a migration, an admin tool, a
+    // bug). The allowlist in routes/photos.js is what makes this safe
+    // regardless of how a bad contentType got there.
     const photo = await prisma.photo.create({
       data: {
         partnerId,

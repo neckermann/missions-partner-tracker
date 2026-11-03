@@ -477,3 +477,92 @@ describe("partners: bulk Sending Church sync (POST /sync-sending-church)", () =>
     assert.equal(after, before + 1);
   });
 });
+
+describe("POST /:id/image -- photo upload, including HEIC transcoding", () => {
+  let partnerId;
+
+  before(async () => {
+    const p = await createPartner();
+    partnerId = p.id;
+  });
+
+  function uploadForm(buffer, filename, mimeType) {
+    const form = new FormData();
+    form.set("image", new Blob([buffer], { type: mimeType }), filename);
+    return form;
+  }
+
+  test("accepts a real JPEG", async () => {
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0]);
+    const res = await admin(`/api/partners/${partnerId}/image`, {
+      method: "POST",
+      body: uploadForm(jpeg, "photo.jpg", "image/jpeg"),
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.photos[0].id != null, true);
+  });
+
+  test("rejects content that doesn't match its declared type", async () => {
+    const notAnImage = Buffer.from("<script>alert(1)</script>");
+    const res = await admin(`/api/partners/${partnerId}/image`, {
+      method: "POST",
+      body: uploadForm(notAnImage, "photo.jpg", "image/jpeg"),
+    });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /doesn't match/);
+  });
+
+  // Real ftyp box + "heic" major brand -- passes the signature check (see
+  // fileSignature.test.js) but isn't a genuine, fully-formed HEIC image, so
+  // heic-convert can't actually decode it. Standing in for a real but
+  // corrupted/truncated upload, which is the realistic failure mode here
+  // (not a forged file, an incomplete one).
+  const heicSignatureOnly = Buffer.concat([
+    Buffer.from([0, 0, 0, 0x18]),
+    Buffer.from("ftypheic"),
+    Buffer.from([0, 0, 0, 0, 0, 0, 0, 0]),
+  ]);
+
+  test("a HEIC upload that can't actually be decoded 400s cleanly, not a 500", async () => {
+    const res = await admin(`/api/partners/${partnerId}/image`, {
+      method: "POST",
+      body: uploadForm(heicSignatureOnly, "photo.heic", "image/heic"),
+    });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /HEIC/);
+  });
+
+  test("a HEIC file is still recognized when the browser reports no usable MIME type", async () => {
+    // Real-world case this exists for: Windows browsers in particular often
+    // report application/octet-stream (or nothing) for a .heic file, since
+    // there's no OS-level MIME registration for it -- resolveImageExt falls
+    // back to the filename extension, and the signature check still
+    // verifies against "image/heic" rather than trusting the unreliable
+    // declared type.
+    const res = await admin(`/api/partners/${partnerId}/image`, {
+      method: "POST",
+      body: uploadForm(heicSignatureOnly, "photo.heic", "application/octet-stream"),
+    });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /HEIC/, "reached the decode step, not rejected as an unknown type");
+  });
+
+  test("rejects a non-HEIC file with a .heic extension -- the extension fallback doesn't bypass signature verification", async () => {
+    const notHeic = Buffer.from("<script>alert(1)</script>");
+    const res = await admin(`/api/partners/${partnerId}/image`, {
+      method: "POST",
+      body: uploadForm(notHeic, "photo.heic", "application/octet-stream"),
+    });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /doesn't match/);
+  });
+
+  test("rejects an unsupported file type", async () => {
+    const res = await admin(`/api/partners/${partnerId}/image`, {
+      method: "POST",
+      body: uploadForm(Buffer.from("GIF89a"), "photo.gif", "image/gif"),
+    });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /JPEG, PNG, WebP, or HEIC/);
+  });
+});

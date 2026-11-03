@@ -23,11 +23,13 @@ router.get("/:id/raw", async (req, res, next) => {
     res.set("Cache-Control", "public, max-age=31536000, immutable");
     // Same VERIFIED_INLINE_TYPES allowlist newsletters/documents use (see
     // utils/fileResponse.js) rather than trusting the stored contentType
-    // directly -- not reachable today since photo uploads are already
-    // signature-verified to image/jpeg or image/png at the multer layer in
-    // partners.js, but this is the one other place a stored contentType
-    // reaches a response header, and it shouldn't be a second, divergent
-    // copy of a rule the codebase already centralized once.
+    // directly. Photo uploads are signature-verified to image/jpeg,
+    // image/png, or image/webp at the multer layer in partners.js (all
+    // three are in VERIFIED_INLINE_TYPES too), so this is defense-in-depth
+    // against a future upload-path bug rather than a live gap -- but it's
+    // the one other place a stored contentType reaches a response header,
+    // and it shouldn't be a second, divergent copy of a rule the codebase
+    // already centralized once.
     const contentType = VERIFIED_INLINE_TYPES.has(photo.contentType)
       ? photo.contentType
       : "application/octet-stream";

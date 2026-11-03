@@ -54,10 +54,14 @@ export default function PhotoHistorySection({ partnerId, photos, onChange }) {
         <form onSubmit={handleSubmit} style={{ marginTop: "1rem" }}>
           <div className="form-grid">
             <label>
-              Photo (JPEG, PNG, or WebP)
+              Photo (JPEG, PNG, WebP, or HEIC/HEIF)
               <input
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                // Extensions alongside the MIME types -- a HEIC file (the
+                // default on every iPhone) doesn't reliably report a MIME
+                // type the browser's own file picker can filter on, same
+                // reasoning as resolveImageExt on the backend.
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                 onChange={(e) => setFile(e.target.files[0] || null)}
                 required
               />
