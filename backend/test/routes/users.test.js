@@ -15,8 +15,8 @@ before(async () => {
 });
 
 after(async () => {
-  await stopServer();
   await removeTestUsers();
+  await stopServer();
 });
 
 describe("POST /api/users/:id/mfa/reset", () => {
