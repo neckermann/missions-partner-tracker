@@ -8,8 +8,10 @@ import {
   updateNotifyByEmail,
 } from "../api/client.js";
 import { passwordsMatch } from "../utils/password.js";
+import { useSettings } from "../context/SettingsContext.jsx";
 
 export default function AccountSettings() {
+  const { enabledFeatures } = useSettings();
   const [user, setUser] = useState(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -110,7 +112,7 @@ export default function AccountSettings() {
       )}
 
       {user?.authProvider === "local" && <MfaSection user={user} onChange={reloadUser} />}
-      {user && <NotificationsSection user={user} onChange={reloadUser} />}
+      {user && enabledFeatures.outboundEmail && <NotificationsSection user={user} onChange={reloadUser} />}
     </div>
   );
 }
