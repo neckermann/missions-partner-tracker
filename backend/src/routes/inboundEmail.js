@@ -112,6 +112,7 @@ router.post("/postmark", async (req, res, next) => {
       const created = await prisma.newsletter.create({
         data: {
           partnerId: matches[0].id,
+          title: subject,
           receivedDate: new Date(),
           bytes,
           fileName,
@@ -192,6 +193,7 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
     const created = await prisma.newsletter.create({
       data: {
         partnerId,
+        title: record.subject,
         receivedDate: record.receivedAt,
         bytes: record.bytes,
         fileName: record.fileName,

@@ -161,6 +161,7 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
     const newsletters = await prisma.newsletter.findMany({ where: { partnerId: partner.id } });
     assert.equal(newsletters.length, 1);
     assert.equal(newsletters[0].contentType, "message/rfc822");
+    assert.equal(newsletters[0].title, "Update from the field", "the email's Subject becomes the title");
 
     const queued = await prisma.inboundEmail.findMany({ where: { fromAddress: `org@${FROM_DOMAIN}` } });
     assert.equal(queued.length, 0);
@@ -327,6 +328,7 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
 
     const newsletters = await prisma.newsletter.findMany({ where: { partnerId: partner.id } });
     assert.equal(newsletters.length, 1);
+    assert.equal(newsletters[0].title, "Assign me", "the queued email's subject becomes the title");
   });
 
   test("POST /:id/assign to a partner that no longer exists is a 400", async () => {
