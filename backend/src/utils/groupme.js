@@ -15,9 +15,13 @@
 // live API calls in the settings UI (routes/settings.js), never
 // hand-typed.
 //
-// Nothing outside this file calls the notify* functions below directly --
-// every route goes through utils/notifications.js's channel-neutral entry
-// points, which today just forward to these. See that file's own comment.
+// As of #129, this file no longer posts live on its own -- the message
+// text/topic-routing logic that used to live here moved to
+// utils/notificationBlurbs.js (shared with the email digest), and this
+// file's own job is just sendPendingNotificationsBatch below: pack
+// already-built blurbs into as-few messages as fit per topic and send
+// them. Nothing outside this file and routes/notifications.js calls
+// sendPendingNotificationsBatch directly.
 const crypto = require("crypto");
 const prisma = require("../prismaClient");
 const { decryptField } = require("./crypto");
@@ -74,156 +78,91 @@ async function postMessage(accessToken, targetId, text) {
   });
 }
 
-// Shared by all three notify* functions below -- the only things that
-// differ between a prayer request, a one-time need, and a newsletter are
-// which topic column to target and how to build the message text, both
-// handled by the caller.
-async function notifyGroupMe(topicId, buildText) {
-  const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
-  if (!settings) return;
-  if (!isFeatureEnabled(settings.enabledFeatures, "groupme")) return;
-  if (!settings.groupmeAccessToken) return;
+// Greedily packs a topic's own blurbs into as-few messages as fit under
+// MAX_MESSAGE_LENGTH, joining whole blurbs with a blank line -- never
+// splits one blurb's text across two messages. A single blurb too long
+// to ever fit on its own still gets sent (and truncated by postMessage
+// itself), since refusing to send it at all would be worse.
+function packMessages(blurbs) {
+  const messages = []; // [{ text, blurbIds }]
+  let current = null;
 
-  // Posts into the notification type's own topic once one's configured;
-  // falls back to the main group conversation if the admin has saved a
-  // token and group but hasn't picked that topic yet, so the integration
-  // is usable at every stage of setup rather than all-or-nothing.
-  const targetId = settings[topicId] || settings.groupmeGroupId;
-  if (!targetId) return;
-
-  const accessToken = decryptField(settings.groupmeAccessToken);
-  const text = buildText(settings);
-
-  try {
-    await postMessage(accessToken, targetId, text);
-  } catch (err) {
-    console.error("GroupMe notification failed:", err);
+  for (const blurb of blurbs) {
+    const candidateText = current ? `${current.text}\n\n${blurb.groupmeText}` : blurb.groupmeText;
+    if (current && candidateText.length > MAX_MESSAGE_LENGTH) {
+      messages.push(current);
+      current = { text: blurb.groupmeText, blurbIds: [blurb.id] };
+    } else {
+      current = { text: candidateText, blurbIds: [...(current?.blurbIds || []), blurb.id] };
+    }
   }
+  if (current) messages.push(current);
+  return messages;
 }
 
-// Links straight at GET /:id/download, same URL NewsletterSection.jsx's/
-// DocumentSection.jsx's own "View" button opens, and the same URL the
-// "From: ..." link on an admin card opens (see SourceLink.jsx) --
-// despite the route name, that's an inline view for PDF/JPEG/PNG
-// (utils/fileResponse.js sets Content-Disposition: inline for those,
-// forces an actual download only for .eml, which can't safely render
-// inline -- see that file's comment), so this is a genuine direct link
-// to the file's content, not just to the partner's page. Still
-// requireAuth'd (no public route for either), so whoever clicks it needs
-// to be logged in already, same as any other admin link shared outside
-// the app. Resolves to "" (not built into the message at all) whenever
-// appBaseUrl() can't resolve, or the record has no source set -- a
-// promised link that then doesn't work would be worse than no link.
-function sourceLinkLine(record) {
-  const base = appBaseUrl();
-  if (!base) return "";
-  if (record.sourceNewsletter)
-    return `\n\nFrom: ${base}/api/newsletters/${record.sourceNewsletter.id}/download`;
-  if (record.sourceDocument) return `\n\nFrom: ${base}/api/documents/${record.sourceDocument.id}/download`;
-  return "";
-}
+// Sends every given blurb to its own event type's configured Topic
+// (falling back to the main group if that topic isn't set, same as this
+// app's pre-#129 behavior), packed to minimize message count. Returns
+// the Set of blurb ids that were actually sent successfully -- the
+// caller (routes/notifications.js's flush route) uses this to stamp
+// groupmeSentAt only on rows that really went out, leaving a failed
+// topic's rows queued for the next flush without touching rows that
+// succeeded.
+async function sendPendingNotificationsBatch(blurbs) {
+  const sentIds = new Set();
+  const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
+  if (!settings) return sentIds;
+  if (!isFeatureEnabled(settings.enabledFeatures, "groupme")) return sentIds;
+  if (!settings.groupmeAccessToken) return sentIds;
 
-// Fire-and-log, not fire-and-throw: a church's GroupMe setup being broken
-// or GroupMe being down should never block saving a prayer request. The
-// caller (routes/prayerRequests.js) still wraps this in its own
-// try/catch as a second layer, since a bug in here (not just the network
-// call) shouldn't take the request down either.
-async function notifyPrayerRequestCreated(prayerRequest) {
-  const partnerName = prayerRequest.partner?.displayName || "A partner";
-  await notifyGroupMe(
-    "groupmePrayerTopicId",
-    () =>
-      `🙏 New prayer request from ${partnerName}:\n${prayerRequest.requestText}${sourceLinkLine(prayerRequest)}`
-  );
-}
+  let accessToken;
+  try {
+    accessToken = decryptField(settings.groupmeAccessToken);
+  } catch (err) {
+    // A corrupted/undecryptable stored token (e.g. FIELD_ENCRYPTION_KEY
+    // rotated since this was saved) must never take down the whole
+    // flush -- the email phase hasn't even run yet at this point in
+    // routes/notifications.js. Every row just stays queued for GroupMe
+    // (retried next flush) the same way a per-message postMessage
+    // failure below already leaves its own rows queued.
+    console.error("GroupMe batch notification failed to decrypt the stored access token:", err);
+    return sentIds;
+  }
 
-// Same fire-and-log reasoning as above -- caller is routes/supportNeeds.js.
-async function notifySupportNeedCreated(supportNeed) {
-  const partnerName = supportNeed.partner?.displayName || "A partner";
-  await notifyGroupMe(
-    "groupmeOneTimeNeedTopicId",
-    () =>
-      `🎁 New one-time need from ${partnerName}:\n` +
-      `Be praying about this opportunity — we'll talk about it more at our next meeting.\n\n` +
-      `${supportNeed.description}${sourceLinkLine(supportNeed)}`
-  );
-}
+  const byTopic = new Map();
+  for (const blurb of blurbs) {
+    // A blurb with no groupmeText (e.g. a newsletter notification that
+    // never resolved a link -- see notificationBlurbs.js) has nothing
+    // to send; it's simply never marked sent and stays queued, same as
+    // this app's pre-#129 behavior of silently not posting it.
+    if (!blurb.groupmeText) continue;
+    if (!byTopic.has(blurb.topicKey)) byTopic.set(blurb.topicKey, []);
+    byTopic.get(blurb.topicKey).push(blurb);
+  }
 
-// Outcome notifications (#127): the people who saw the original ask never
-// hear how it turned out unless they happen to check the app, so these
-// fire when a prayer request gets its answer recorded, or a one-time need
-// gets a funding decision. This is GroupMe's own implementation of each
-// event -- the channel-neutral entry point routes actually call is
-// utils/notifications.js, which today just forwards to these two, but is
-// where a future channel (email, etc.) would hook in without touching
-// routes/prayerRequests.js or routes/supportNeeds.js again. The callers of
-// *that* dispatch layer are responsible for only firing on a genuine
-// transition into the outcome state, not on every PUT that happens to
-// touch an already-decided record -- see the comment at each route's call
-// site.
+  for (const [topicKey, topicBlurbs] of byTopic) {
+    const targetId = settings[topicKey] || settings.groupmeGroupId;
+    if (!targetId) continue; // nothing configured to send to -- stays queued
 
-async function notifyPrayerRequestAnswered(prayerRequest) {
-  const partnerName = prayerRequest.partner?.displayName || "A partner";
-  const note = prayerRequest.answeredNote?.trim() || "(no note added)";
-  await notifyGroupMe(
-    "groupmePrayerTopicId",
-    () =>
-      `🙏 Prayer request answered, from ${partnerName}:\n` +
-      `"${prayerRequest.requestText}"\n\n` +
-      `${note}${sourceLinkLine(prayerRequest)}`
-  );
-}
+    for (const { text, blurbIds } of packMessages(topicBlurbs)) {
+      try {
+        await postMessage(accessToken, targetId, text);
+        blurbIds.forEach((id) => sentIds.add(id));
+      } catch (err) {
+        // One message's failure (a transient GroupMe outage, a revoked
+        // token discovered mid-batch) must never stop the rest of the
+        // batch -- those rows just stay queued for the next flush.
+        console.error("GroupMe batch notification failed:", err);
+      }
+    }
+  }
 
-// Same labels/thresholds as statusFor() in AdminOneTimeNeeds.jsx and
-// needStatus() in PartnerFinancialSection.jsx, so the GroupMe message
-// matches what the admin UI calls the same decision.
-function supportNeedOutcomeLabel(supportNeed) {
-  if (supportNeed.approvedAmount === 0) return "Declined";
-  if (supportNeed.approvedAmount < supportNeed.requestedAmount) return "Partially Funded";
-  return "Fully Funded";
-}
-
-async function notifySupportNeedDecided(supportNeed) {
-  const partnerName = supportNeed.partner?.displayName || "A partner";
-  const label = supportNeedOutcomeLabel(supportNeed);
-  const amount = `$${Number(supportNeed.approvedAmount).toLocaleString()}`;
-  await notifyGroupMe(
-    "groupmeOneTimeNeedTopicId",
-    () =>
-      `🎁 One-time need decided (${label}), from ${partnerName}:\n` +
-      `"${supportNeed.description}"\n\n` +
-      `Approved: ${amount}${sourceLinkLine(supportNeed)}`
-  );
-}
-
-// appBaseUrl() builds the direct-link URL the newsletter notification
-// (and sourceLinkLine above) both need -- the link only gets built (and
-// the notification only posts) when it resolves to something.
-function appBaseUrl() {
-  // APP_BASE_URL is the explicit override (required for any host other
-  // than Render, since nothing else exposes its own public URL to the
-  // app); RENDER_EXTERNAL_URL is set automatically by Render on every
-  // web service, no configuration needed, which covers the reference
-  // deployment with zero setup.
-  return (process.env.APP_BASE_URL || process.env.RENDER_EXTERNAL_URL || "").replace(/\/+$/, "");
-}
-
-async function notifyNewsletterCreated(newsletter) {
-  const base = appBaseUrl();
-  if (!base) return;
-
-  const partnerName = newsletter.partner?.displayName || "A partner";
-  const link = `${base}/api/newsletters/${newsletter.id}/download`;
-  await notifyGroupMe("groupmeNewsletterTopicId", () => `📰 New newsletter from ${partnerName}:\n${link}`);
+  return sentIds;
 }
 
 module.exports = {
   listGroups,
   listTopics,
   postMessage,
-  notifyPrayerRequestCreated,
-  notifyPrayerRequestAnswered,
-  notifySupportNeedCreated,
-  notifySupportNeedDecided,
-  notifyNewsletterCreated,
+  sendPendingNotificationsBatch,
 };

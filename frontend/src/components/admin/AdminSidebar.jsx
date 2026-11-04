@@ -71,6 +71,16 @@ function buildSiteAdminLinks(enabledFeatures) {
       label: "Email",
     },
     enabledFeatures.groupme && { to: "/admin/settings/groupme", label: "GroupMe" },
+    // Not /admin/settings/* -- this is content review (what's queued to
+    // send), same "content, not settings" reasoning as Unmatched Emails,
+    // not church-wide config. Still lives in this group visually since
+    // it's part of the same Communications story. Gated on groupme/
+    // outboundEmail specifically (not inboundEmail, which doesn't drive
+    // any notification sending) -- see #129.
+    (enabledFeatures.groupme || enabledFeatures.outboundEmail) && {
+      to: "/admin/notifications",
+      label: "Notifications",
+    },
     (enabledFeatures.joshuaProject || enabledFeatures.aiExtraction) && {
       label: "Integrations",
       isLabel: true,

@@ -112,7 +112,7 @@ full file with inline comments):
 | `FIELD_ENCRYPTION_KEY` | Recommended | Encrypts two-factor (MFA) secrets at rest. Generate with `npm run generate-secrets`. Without it the app still runs, but MFA enrollment fails. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
-| `APP_BASE_URL` | No | This app's own public URL, no trailing slash — only needed for the GroupMe newsletter notification's link (see [GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`; set it explicitly elsewhere. Leave unset and that one notification just doesn't include a link. |
+| `APP_BASE_URL` | No | This app's own public URL, no trailing slash — needed for the notification queue's own links: the GroupMe newsletter notification's link, the email digest's "read the source" / "read the full newsletter" links, and the digest's own unsubscribe link (see [GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only) and [Notifications](USER_GUIDE.md#notifications-admin-only)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`; set it explicitly elsewhere. Leave unset and those links just don't appear. |
 
 There's nothing to configure for the frontend separately — it's served by
 the backend and always calls `/api` on its own origin.
@@ -142,10 +142,11 @@ features (everything else, which only changes a logged-in admin's own nav).
 | Mission trips | On | The Trip History and Trip Opportunities pages. |
 | Print booklet | On | The printable prayer & support directory generator. |
 | Reports | On | Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history, furlough — with CSV download and a print view. |
-| GroupMe notifications | **Off** | Posts new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — to their own configured GroupMe Topics as they happen. Configured entirely in the UI (Site Administration → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only). |
+| GroupMe notifications | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule (or manual send) configured at Site Administration → Notifications. Configured entirely in the UI (Site Administration → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only). |
 | Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Site Administration → Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
 | AI request scanning | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Site Administration → AI Request Scanning ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
-| Email | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Site Administration → Email. Nothing in the app sends an email yet as of this writing — this toggle and its settings page exist so the sending capability can be configured and tested ahead of the features that will use it. See [§ Email (Postmark)](#email-postmark) below for why a third-party sender rather than this church's own Gmail/Microsoft account. |
+| Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Site Administration → Email. Today's only sender is the batched notification digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
+| Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Site Administration → Email page as Sending, independently toggled. See [§ Email (Postmark)](#email-postmark) below. |
 
 The registry backing this list lives in `backend/src/utils/features.js` —
 adding a new toggle later is a one-line entry there plus a `requireFeature("key")`
@@ -575,11 +576,47 @@ retains inbound message content for **45 days by default** before it's
 purged from their side; this app's own copy (the stored `.eml`, whether
 filed as a Newsletter or still sitting in the Unmatched Emails queue) is
 what persists afterward — a church shouldn't rely on Postmark itself as
-a second copy past that window. Nothing in this app sends an automated
-email yet (Send Test Email is the only thing that sends one today) —
-this section documents the sending/receiving capability and its setup;
-what a future feature chooses to put in an email body is that feature's
-own data-exposure call to document when it ships.
+a second copy past that window.
+
+### Notification batching & email digests
+
+New prayer requests, one-time needs, and newsletters — plus a prayer
+request's recorded answer and a one-time need's funding decision —
+queue in a shared `PendingNotification` table instead of posting the
+instant they happen. A flush (automatic, on the schedule below, or
+manual via **Send Pending Notifications Now**) sends each queued item
+to whichever channel(s) are currently on:
+
+- **GroupMe** — full item text (never summarized), packed into as few
+  messages as fit under GroupMe's 1,000-character limit, to each
+  type's own configured Topic exactly as before this existed.
+- **Email** — one HTML digest per user with `notifyByEmail` turned on
+  (self-service from their own Account Settings — there's no
+  admin-managed recipient list), grouped by partner, with a request/
+  need that came from a newsletter nested under that newsletter instead
+  of linking to it separately. Every digest carries a one-click
+  unsubscribe link (a signed, non-expiring token — no login needed to
+  use it).
+
+A queued item only clears once **every currently-enabled channel** has
+sent it successfully — if one channel fails, the item stays queued and
+only retries that channel next time, never re-sending to a channel that
+already succeeded. Turning both channels off entirely just leaves the
+queue parked, rather than silently discarding it.
+
+The schedule itself (Site Administration → Notifications) is a plain
+day/time an admin picks — weekly, biweekly, or monthly — checked once a
+minute by an in-process [`node-cron`](https://www.npmjs.com/package/node-cron)
+job started in `server.js`, not a separate Render Cron Job resource and
+not an external scheduler. That's a deliberate fit for this app's actual
+scale: `render.yaml` provisions exactly one web service instance, so
+there's no multi-instance double-fire risk to guard against. If this app
+is ever scaled to 2+ instances, that risk returns and needs addressing
+then (node-cron's own `distributed` option, a Redis coordinator, or
+moving the schedule check to a real Render Cron Job) — not a concern
+worth building for today. A deploy landing in the exact scheduled minute
+just skips that one occurrence, picking it up at the next; manual send
+is always available regardless of the schedule.
 
 ### Database backups
 

@@ -108,20 +108,21 @@ model Partner {
   // Partner update: doing that meant deleting and recreating every child
   // row on each save, which churned their ids and silently destroyed rows
   // added through the collection's own endpoint in the meantime.
-  addresses      Address[]
-  trips          Trip[]
-  churchVisits   ChurchVisit[]
-  supportEntries SupportEntry[]
+  addresses            Address[]
+  trips                Trip[]
+  churchVisits         ChurchVisit[]
+  supportEntries       SupportEntry[]
   // Named needRequests, not supportNeeds, to avoid colliding with the
   // ministry-need narrative text this app used to carry under that name.
-  needRequests   SupportNeed[]
-  prayerRequests PrayerRequest[]
-  newsletters    Newsletter[]
-  documents      Document[]
+  needRequests         SupportNeed[]
+  prayerRequests       PrayerRequest[]
+  newsletters          Newsletter[]
+  documents            Document[]
   // Full upload history, not just the current one — see the Photo model.
   // The "current" photo (what the admin UI and public site show) is
   // whichever has the latest receivedDate, not just the latest upload.
-  photos         Photo[]
+  photos               Photo[]
+  pendingNotifications PendingNotification[]
 
   // --- Missionary-only collections (always empty for an organization) ---
   adults         Adult[]
@@ -446,6 +447,41 @@ model InboundEmail {
   createdAt   DateTime @default(now())
 }
 
+// Queued notification events waiting to go out as a batched digest (see
+// #129, utils/notifications.js) -- a row's mere existence means
+// "pending", same InboundEmail convention above, but deletion here is
+// per-channel-aware rather than unconditional: groupmeSentAt/emailSentAt
+// are stamped independently, only once that channel's send actually
+// succeeds, and a row is only deleted once every *currently enabled*
+// channel has its own timestamp set. A channel that's off never blocks
+// deletion; a channel whose send failed leaves its own timestamp null,
+// so the next flush retries only that channel without re-sending to one
+// that already succeeded. emailSentAt tracks the digest-sending phase as
+// one unit, not per-recipient delivery -- a total failure before any
+// send happens leaves it unset for retry, but one bounced recipient
+// among several doesn't.
+//
+// `payload` holds whatever this event type's notification text needs to
+// render later (requestText/description/approvedAmount/etc., plus
+// sourceNewsletterId/sourceDocumentId for the newsletter cross-link) --
+// a `type` + `payload Json` shape instead of a column per event type,
+// since the 5 event shapes genuinely differ and none of it needs to be
+// relationally queried later, only read back whole at flush time.
+model PendingNotification {
+  id            String    @id @default(uuid())
+  // "prayerRequestCreated" | "prayerRequestAnswered" | "supportNeedCreated" | "supportNeedDecided" | "newsletterCreated"
+  type          String
+  partnerId     String
+  partner       Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  payload       Json
+  createdAt     DateTime  @default(now())
+  groupmeSentAt DateTime?
+  emailSentAt   DateTime?
+
+  @@index([type])
+  @@index([partnerId])
+}
+
 // General-purpose document storage for a partner — survey responses, signed
 // policy acknowledgments, other office documents (Word/Excel/PDF), and
 // long-term email records that don't belong in the Newsletter feed above.
@@ -640,6 +676,35 @@ model ChurchSettings {
   // otherwise, not silently opted out by a missing value.
   backupReminderDisabled Boolean @default(false)
 
+  // Admin-configurable schedule for the in-process notification-digest
+  // scheduler (see #129, utils/digestScheduler.js) -- digestFrequency
+  // null means "no automatic schedule, manual Send Pending
+  // Notifications only". Weekly/biweekly read digestDayOfWeek;
+  // monthly reads digestDayOfMonth instead (capped at 1-28 specifically
+  // to dodge the "the 31st doesn't exist in February" class of edge
+  // case -- every month has at least 28 days, so no clamping/rollover
+  // logic is ever needed). lastDigestSentAt does double duty: it's both
+  // the firing dedupe guard (don't re-send inside the same matching
+  // hour) and, via the scheduler's own minimum-gap check, the actual
+  // mechanism that tells weekly and biweekly apart -- no separate
+  // "which week" state needed.
+  digestFrequency  String? // "weekly" | "biweekly" | "monthly"
+  digestDayOfWeek  Int? // 0 (Sun) - 6 (Sat) -- weekly/biweekly
+  digestDayOfMonth Int? // 1 - 28 -- monthly
+  digestHour       Int? // 0 - 23, church's own server-local hour
+  lastDigestSentAt DateTime?
+
+  // Per-type queue switches -- independent of which channel(s) are on,
+  // and independent of any one user's own notifyByEmail opt-in above.
+  // Default true (matches this app's behavior before #129: every event
+  // type notified). A church that only cares about, say, prayer
+  // requests can turn the others off at the source -- an event type
+  // that's off never creates a PendingNotification row at all, so
+  // neither channel nor the review page ever sees it.
+  queueNotifyPrayerRequests Boolean @default(true)
+  queueNotifyOneTimeNeeds   Boolean @default(true)
+  queueNotifyNewsletters    Boolean @default(true)
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   updatedById String?
@@ -684,4 +749,13 @@ model User {
   // admin can mandate MFA for an account without knowing/setting the
   // secret themselves — the user still does the actual QR scan.
   mfaSetupRequired Boolean @default(false)
+
+  // Opt-in per user, self-service from Account Settings -- same pattern
+  // as MFA above. Whether this user receives the batched notification
+  // digest email (see #129, utils/emailDigest.js); off by default, same
+  // "nobody gets opted into something they didn't ask for" reasoning as
+  // every other notification channel in this app. Flipped off directly
+  // by the signed unsubscribe link in every digest email's footer, no
+  // login required (see routes/account.js).
+  notifyByEmail Boolean @default(false)
 }

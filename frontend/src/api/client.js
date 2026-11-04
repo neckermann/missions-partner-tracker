@@ -229,6 +229,33 @@ export async function discardInboundEmail(id) {
   await api.delete(`/inbound-email/${id}`);
 }
 
+// Notification batching (see #129) -- the digest schedule + per-type
+// queue switches are church-wide ChurchSettings, fetched/updated the
+// same write-whole-object-back pattern as every other settings
+// sub-resource here. fetchPendingNotifications/sendPendingNotifications
+// work the actual review queue -- sendPendingNotifications is the
+// manual "Send Pending Notifications Now" override (same flush logic
+// the scheduler fires automatically, if a schedule is configured).
+export async function fetchNotificationSettings() {
+  const { data } = await api.get("/settings/notifications");
+  return data;
+}
+
+export async function updateNotificationSettings(payload) {
+  const { data } = await api.put("/settings/notifications", payload);
+  return data;
+}
+
+export async function fetchPendingNotifications() {
+  const { data } = await api.get("/notifications/pending");
+  return data;
+}
+
+export async function sendPendingNotifications() {
+  const { data } = await api.post("/notifications/send");
+  return data;
+}
+
 export async function fetchPublicSettings() {
   const { data } = await api.get("/public/settings");
   return data;
@@ -480,6 +507,14 @@ export async function fetchCurrentUser() {
 export async function changePassword(currentPassword, newPassword) {
   const { data } = await api.post("/auth/change-password", { currentPassword, newPassword });
   return data;
+}
+
+// Self-service opt-in/out for the batched notification digest email
+// (see #129) -- same self-service-from-Account-Settings pattern as the
+// MFA enroll/disable calls above.
+export async function updateNotifyByEmail(enabled) {
+  const { data } = await api.put("/auth/notify-by-email", { enabled });
+  return data.user;
 }
 
 export async function fetchUsers() {
