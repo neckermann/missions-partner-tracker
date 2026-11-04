@@ -429,6 +429,23 @@ model Newsletter {
   @@index([partnerId])
 }
 
+// Inbound email (see #72) that couldn't be auto-matched to a partner --
+// held here for an admin to assign by hand or discard. A row's mere
+// existence means "pending": both outcomes (assign, discard) delete the
+// row rather than mark a status, since once assigned it's just a
+// Newsletter (see routes/inboundEmail.js) and there's nothing left here
+// worth keeping around. No partnerId/relation -- that's the whole point,
+// this is what's left *unmatched*.
+model InboundEmail {
+  id          String   @id @default(uuid())
+  receivedAt  DateTime @default(now())
+  fromAddress String
+  subject     String?
+  bytes       Bytes // the raw .eml source -- same storage shape as Newsletter.bytes above
+  fileName    String
+  createdAt   DateTime @default(now())
+}
+
 // General-purpose document storage for a partner — survey responses, signed
 // policy acknowledgments, other office documents (Word/Excel/PDF), and
 // long-term email records that don't belong in the Newsletter feed above.
@@ -592,6 +609,19 @@ model ChurchSettings {
   // above), so plain text, no encryptField.
   postmarkServerToken String?
   emailFromAddress    String?
+
+  // Inbound email (see #72, backend/src/routes/inboundEmail.js) -- same
+  // Postmark account as outbound above, its inbound webhook this time.
+  // Postmark has no HMAC signature verification for inbound webhooks, so
+  // the webhook URL carries HTTP Basic Auth instead; inboundEmailWebhookPassword
+  // is checked against the Authorization header with a constant-time
+  // compare. Encrypted the same way as postmarkServerToken above, for the
+  // same reason -- every route outside routes/settings.js's dedicated
+  // /inbound-email sub-routes (and the webhook handler's own auth check)
+  // must omit it. inboundEmailWebhookUsername is not a secret on its own
+  // (meaningless without the password), so plain text.
+  inboundEmailWebhookUsername String?
+  inboundEmailWebhookPassword String?
 
   // Per-church on/off switches for optional features -- keys are validated
   // against the registry in backend/src/utils/features.js (unknown keys

@@ -4,11 +4,11 @@ import ApiKeySettingsPage from "../components/admin/ApiKeySettingsPage.jsx";
 
 // Just an API key -- same shape as AdminSettingsJoshuaProject.jsx. Whether
 // the feature actually runs is controlled separately in Enabled Features
-// (the "AI request scanning" toggle), not here.
+// (the "AI Features" toggle), not here.
 export default function AdminSettingsAiExtraction() {
   return (
     <ApiKeySettingsPage
-      title="AI Request Scanning"
+      title="AI Features"
       description={
         <>
           Scans uploaded newsletters and documents for prayer requests and one-time needs using Claude

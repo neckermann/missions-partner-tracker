@@ -1,5 +1,6 @@
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
+require("dotenv").config({ quiet: true });
 const { client, stopServer } = require("./helpers");
 
 // DEMO_RESET_TOKEN is read fresh per request (not cached at startup), so

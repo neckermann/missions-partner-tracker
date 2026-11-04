@@ -505,48 +505,81 @@ gets masked: [USER_GUIDE.md § Understanding restricted-access partners](USER_GU
 
 ### Email (Postmark)
 
-Outbound email (see Site Administration → Email) goes through
-[Postmark](https://postmarkapp.com), a dedicated transactional email
-provider — not SMTP against this church's own Gmail/Microsoft mailbox,
-and not this app sending mail directly. Both alternatives were
-deliberately ruled out:
+Sending and receiving email (Site Administration → Email) both go
+through [Postmark](https://postmarkapp.com), a dedicated transactional
+email provider — not SMTP against this church's own Gmail/Microsoft
+mailbox, and not this app sending/polling mail directly. It's the option
+that gives the most reliable coverage across churches regardless of who
+hosts their email, and its free tier is plenty for many churches'
+volume.
 
-- **This church's own mailbox (SMTP)**: Microsoft has confirmed it's
-  turning off SMTP AUTH basic authentication — the exact mechanism an app
-  would use to send through a Microsoft 365/Exchange Online account — by
-  default for every existing tenant at the end of 2026. Building this
-  app's primary sending path around that would mean it breaks for any
-  Microsoft-hosted church within the year. Gmail has moved the same
-  direction for its own SMTP access. Neither provider's own mailbox is a
-  stable foundation for an app to send through.
-- **Sending directly from this app**: this app's hosting (Render, by
-  default) doesn't give you a dedicated outbound IP without an add-on
-  cost, and even a dedicated IP starts with zero sending reputation —
-  Gmail/Microsoft/Yahoo spam-filter unfamiliar senders aggressively
-  regardless of correct SPF/DKIM records. A dedicated email provider
-  already has that reputation built and actively maintained; this app
-  doesn't need to rebuild it from zero.
+Sending and receiving are two **independent toggles** in Enabled
+Features — a church can turn on just one, the other, or both. They share
+one settings page because it's one Postmark account either way, not
+because they depend on each other.
 
-Postmark's own HTTP API needs only a single server token — no OAuth app
-to register and maintain, no exposure to either provider's auth
-deprecation above. Setup: create a free Postmark account, verify a
-sending domain (adds SPF/DKIM records to that domain's DNS — a one-time
-step with whoever manages it), then paste the **Server API Token** and a
+**Sending.** Postmark's own HTTP API needs only a single server token —
+no OAuth app to register and maintain. Setup: create a free Postmark
+account, verify a sending domain (adds SPF/DKIM records to that
+domain's DNS — a one-time step with whoever manages it), then paste the
+**Server API Token** and a
 **From Address** on that domain into Site Administration → Email. **Send
 Test Email** confirms it actually works before anything depends on it.
 Free tier is 100 emails/month with no card required; a small church's
 outbound volume plausibly fits inside that indefinitely.
 
+**Receiving.** Lets missionary and organization partners email updates
+straight into this app instead of someone forwarding or re-uploading
+them by hand. Postmark's inbound stream pushes a webhook to this app the
+moment an email arrives at the address you configure — no mailbox to
+provision, no scheduler or cron job checking an inbox on a timer. The
+webhook includes the entire raw email (headers, body, attachments) in
+one request, which this app stores as a `.eml` file, exactly like a
+manually-uploaded newsletter. If the sender's address matches exactly
+one partner — either that partner's own Contact Email (organizations) or
+any of their household adults' email addresses (missionaries) — it's
+filed as a Newsletter automatically, scannable by AI Request Scanning
+like any other. If zero partners match, or more than one does, it lands
+in the **Unmatched Emails** queue instead of guessing, where any
+logged-in admin or editor can view the raw email and assign it to the
+right partner (or an admin can discard it). Setup:
+
+1. Create a free Postmark account (or reuse the one from Sending above —
+   the same server can run both an outbound and an inbound stream).
+2. On your server's **Default Inbound Stream** → Settings tab, pick a
+   dedicated subdomain for inbound mail (e.g. `updates.yourchurch.org`)
+   under **Inbound domain forwarding** — **never your church's real
+   inbox**. Partners send to this address, not to a real mailbox anyone
+   reads.
+3. Check **Include raw email content in JSON payload** — without this,
+   Postmark's webhook omits the field this app reads, and every inbound
+   email fails.
+4. Set the **Inbound webhook** URL to
+   `https://<username>:<password>@yourapp.com/api/inbound-email/postmark`,
+   using a username/password you choose yourself — paste the same two
+   values into Site Administration → Email. Postmark sends them as HTTP
+   Basic Auth on every request; this app verifies them with a
+   constant-time comparison before accepting anything, and a wrong
+   password gets a plain 401, never a hint about what's missing.
+5. Turn **Email (Receiving)** on at Site Administration → Enabled
+   Features once it's configured — independent of whether **Email
+   (Sending)** is also on.
+
 **Data exposure**, same honesty this guide already applies to GroupMe and
-AI Request Scanning: an email sent this way passes through Postmark's
-infrastructure in transit. Postmark's data centers carry SOC 2 Type II /
-ISO 27017/27018 / PCI DSS Level 1 compliance, with TLS in transit and
-encryption at rest; Postmark itself (distinct from its data centers)
-hasn't undergone its own independent SOC audit. As of this writing,
-nothing in this app actually sends an email yet — this section documents
-the sending capability and its setup; what a future feature chooses to
-put in an email body is that feature's own data-exposure call to
-document when it ships.
+AI Request Scanning: mail sent or received this way passes through
+Postmark's infrastructure in transit. Postmark's data centers carry SOC
+2 Type II / ISO 27017/27018 / PCI DSS Level 1 compliance, with TLS in
+transit and encryption at rest; Postmark itself (distinct from its data
+centers) hasn't undergone its own independent SOC audit. Postmark
+retains inbound message content for **45 days by default** before it's
+purged from their side; this app's own copy (the stored `.eml`, whether
+filed as a Newsletter or still sitting in the Unmatched Emails queue) is
+what persists afterward — a church shouldn't rely on Postmark itself as
+a second copy past that window. Nothing in this app sends an automated
+email yet (Send Test Email is the only thing that sends one today) —
+this section documents the sending/receiving capability and its setup;
+what a future feature chooses to put in an email body is that feature's
+own data-exposure call to document when it ships.
 
 ### Database backups
 

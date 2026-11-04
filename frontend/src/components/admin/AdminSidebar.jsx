@@ -18,13 +18,14 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
   return [
     { to: "/admin", label: "Home", end: true },
     { to: "/admin/partners", label: usePartnerTermInAdmin ? partnerTermPlural : "Partners" },
-    enabledFeatures.monthlySupport && { to: "/admin/support/monthly", label: "Monthly Support" },
-    enabledFeatures.oneTimeNeeds && { to: "/admin/support/needs", label: "One-Time Needs" },
-    enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
-    enabledFeatures.trips && { to: "/admin/trips", label: "Trip History", end: true },
-    enabledFeatures.trips && { to: "/admin/trips/opportunities", label: "Trip Opportunities" },
+    enabledFeatures.inboundEmail && { to: "/admin/inbound-email", label: "Unmatched Emails" },
     enabledFeatures.newsletters && { to: "/admin/newsletters", label: "Newsletters" },
     enabledFeatures.documents && { to: "/admin/documents", label: "Documents" },
+    enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
+    enabledFeatures.oneTimeNeeds && { to: "/admin/support/needs", label: "One-Time Needs" },
+    enabledFeatures.monthlySupport && { to: "/admin/support/monthly", label: "Monthly Support" },
+    enabledFeatures.trips && { to: "/admin/trips", label: "Trip History", end: true },
+    enabledFeatures.trips && { to: "/admin/trips/opportunities", label: "Trip Opportunities" },
     enabledFeatures.booklet && { to: "/admin/booklet", label: "Print Booklet" },
     enabledFeatures.reports && { to: "/admin/reports", label: "Reports" },
   ].filter(Boolean);
@@ -38,31 +39,44 @@ function SidebarLink({ to, label, end }) {
   );
 }
 
-// Manage Users, Branding, Enabled Features, About Church, Backups --
+// About Church, Manage Users, Branding, Enabled Features, Backups --
 // order as specified, not alphabetical or route order. Backups sits with
 // these four (not the links below it) since every church needs it
 // regardless of which features are on -- not gated by a feature toggle
 // for the same reason.
 //
 // Below that, two kinds of optional integration, visually split by what
-// they actually do -- GroupMe and Email both *send something out* on an
-// event (a notification channel); Joshua Project and AI Request Scanning
-// *pull data in* or process content, never notify anyone. isLabel marks
-// a plain section caption (rendered as text, not a link) rather than
-// adding a second collapsible level under Site Administration -- that
-// felt like more machinery than nine total sub-items needs.
+// they actually do -- GroupMe and Email both *send and/or receive
+// communications* (Email's own sending/receiving halves are themselves
+// independently gated -- see utils/features.js -- but share one settings
+// page, so one link covers both); Joshua Project and AI Features
+// *pull data in* or process content, never communicate with anyone.
+// isLabel marks a plain section caption (rendered as text, not a link)
+// rather than adding a second collapsible level under Site
+// Administration -- two dividers over nine total sub-items is still far
+// less machinery than a nested expandable group.
 function buildSiteAdminLinks(enabledFeatures) {
   return [
+    { to: "/admin/settings/about", label: "About Church" },
     { to: "/admin/settings/users", label: "Manage Users" },
     { to: "/admin/settings/branding", label: "Branding" },
     { to: "/admin/settings/features", label: "Enabled Features" },
-    { to: "/admin/settings/about", label: "About Church" },
     { to: "/admin/settings/backups", label: "Backups" },
-    (enabledFeatures.groupme || enabledFeatures.email) && { label: "Notifications", isLabel: true },
+    (enabledFeatures.groupme || enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
+      label: "Communications",
+      isLabel: true,
+    },
+    (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
+      to: "/admin/settings/email",
+      label: "Email",
+    },
     enabledFeatures.groupme && { to: "/admin/settings/groupme", label: "GroupMe" },
-    enabledFeatures.email && { to: "/admin/settings/email", label: "Email" },
+    (enabledFeatures.joshuaProject || enabledFeatures.aiExtraction) && {
+      label: "Integrations",
+      isLabel: true,
+    },
+    enabledFeatures.aiExtraction && { to: "/admin/settings/ai-extraction", label: "AI Features" },
     enabledFeatures.joshuaProject && { to: "/admin/settings/joshua-project", label: "Joshua Project" },
-    enabledFeatures.aiExtraction && { to: "/admin/settings/ai-extraction", label: "AI Request Scanning" },
   ].filter(Boolean);
 }
 

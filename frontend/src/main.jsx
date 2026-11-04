@@ -44,6 +44,7 @@ const AdminSettingsGroupMe = lazy(() => import("./pages/AdminSettingsGroupMe.jsx
 const AdminSettingsJoshuaProject = lazy(() => import("./pages/AdminSettingsJoshuaProject.jsx"));
 const AdminSettingsAiExtraction = lazy(() => import("./pages/AdminSettingsAiExtraction.jsx"));
 const AdminSettingsEmail = lazy(() => import("./pages/AdminSettingsEmail.jsx"));
+const AdminInboundEmailQueue = lazy(() => import("./pages/AdminInboundEmailQueue.jsx"));
 const AdminSettingsBackups = lazy(() => import("./pages/AdminSettingsBackups.jsx"));
 const AdminMonthlySupport = lazy(() => import("./pages/AdminMonthlySupport.jsx"));
 const AdminOneTimeNeeds = lazy(() => import("./pages/AdminOneTimeNeeds.jsx"));
@@ -171,6 +172,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 />
                 <Route path="newsletters" element={<AdminNewsletters />} />
                 <Route path="documents" element={<AdminDocuments />} />
+                <Route
+                  path="inbound-email"
+                  element={
+                    <RequireAdminFeature feature="inboundEmail">
+                      <AdminInboundEmailQueue />
+                    </RequireAdminFeature>
+                  }
+                />
                 <Route path="account" element={<AccountSettings />} />
                 {/* Site Administration -- one admin-only guard on the whole
                 sub-tree instead of repeating RequireAdminAuth per leaf

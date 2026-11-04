@@ -81,7 +81,7 @@ async function client() {
   });
   if (!settings?.anthropicApiKey) {
     const err = new Error(
-      "AI request scanning isn't configured -- add an API key under Site Administration → AI Request Scanning"
+      "AI request scanning isn't configured -- add an API key under Site Administration → AI Features"
     );
     err.status = 400;
     throw err;
