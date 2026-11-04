@@ -59,9 +59,15 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
   ].filter(Boolean);
 }
 
-// Mirrors AdminSidebar.jsx's SITE_ADMIN_LINKS -- same pages, same order,
-// just as tiles instead of a nav submenu, so an admin coming from Home
-// can jump straight to one without going through the sidebar at all.
+// Mirrors AdminSidebar.jsx's buildSiteAdminLinks -- same pages, same
+// order (including the notification-channel vs. data-integration split
+// there -- GroupMe/Email send something out, Joshua Project/AI Request
+// Scanning pull data in or process content, never notify anyone), just
+// as tiles instead of a nav submenu, so an admin coming from Home can
+// jump straight to one without going through the sidebar at all. No
+// section-label tile here the way the sidebar has one -- this grid has
+// no precedent for a non-card divider, and grouping by adjacency alone
+// reads clearly enough at this size.
 //
 // GroupMe/Joshua Project/AI Extraction tiles always show regardless of
 // their own feature flag -- deliberate, so an admin can configure them
@@ -97,6 +103,11 @@ function buildSiteAdminSections(enabledFeatures) {
       title: "GroupMe",
       description: "Post new prayer requests to a GroupMe group automatically.",
     },
+    enabledFeatures.email && {
+      to: "/admin/settings/email",
+      title: "Email",
+      description: "Send email through a configured Postmark account.",
+    },
     {
       to: "/admin/settings/joshua-project",
       title: "Joshua Project",
@@ -106,11 +117,6 @@ function buildSiteAdminSections(enabledFeatures) {
       to: "/admin/settings/ai-extraction",
       title: "AI Request Scanning",
       description: "API key for scanning newsletters and documents for prayer requests and needs.",
-    },
-    enabledFeatures.email && {
-      to: "/admin/settings/email",
-      title: "Email",
-      description: "Send email through a configured Postmark account.",
     },
   ].filter(Boolean);
 }
