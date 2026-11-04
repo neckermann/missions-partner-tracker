@@ -1,8 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { fetchCurrentUser, changePassword, setupMfa, verifyMfaSetup, disableMfa } from "../api/client.js";
+import {
+  fetchCurrentUser,
+  changePassword,
+  setupMfa,
+  verifyMfaSetup,
+  disableMfa,
+  updateNotifyByEmail,
+} from "../api/client.js";
 import { passwordsMatch } from "../utils/password.js";
+import { useSettings } from "../context/SettingsContext.jsx";
 
 export default function AccountSettings() {
+  const { enabledFeatures } = useSettings();
   const [user, setUser] = useState(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -103,6 +112,51 @@ export default function AccountSettings() {
       )}
 
       {user?.authProvider === "local" && <MfaSection user={user} onChange={reloadUser} />}
+      {user && enabledFeatures.outboundEmail && <NotificationsSection user={user} onChange={reloadUser} />}
+    </div>
+  );
+}
+
+// Self-service opt-in for the batched notification digest email (see
+// #129) -- same self-service-from-Account-Settings pattern as MFA
+// above, just a plain toggle instead of a real credential check (there's
+// nothing sensitive being turned on here). Turning it off here does the
+// same thing clicking "Unsubscribe" in a digest email's own footer
+// does -- this is just the in-app equivalent for someone who's already
+// logged in.
+function NotificationsSection({ user, onChange }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleToggle(e) {
+    const enabled = e.target.checked;
+    setError("");
+    setBusy(true);
+    try {
+      await updateNotifyByEmail(enabled);
+      await onChange();
+    } catch (err) {
+      setError(err.response?.data?.error || "Couldn't update your notification preference");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="admin-section">
+      <h3>Email Notifications</h3>
+      {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+      <div className="admin-checkbox-row">
+        <label>
+          <input type="checkbox" checked={user.notifyByEmail} onChange={handleToggle} disabled={busy} />
+          Email me the periodic notification digest
+        </label>
+      </div>
+      <p style={{ color: "#555", fontSize: "0.9rem" }}>
+        A summary of new prayer requests, one-time needs, and newsletters, sent on whatever schedule Site
+        Administration has configured (or only when an admin manually sends one). You can also unsubscribe
+        directly from the link in any digest email.
+      </p>
     </div>
   );
 }

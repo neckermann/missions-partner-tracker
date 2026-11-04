@@ -137,6 +137,11 @@ function buildSiteAdminSections(enabledFeatures) {
       title: "GroupMe",
       description: "Post new prayer requests to a GroupMe group automatically.",
     },
+    (enabledFeatures.groupme || enabledFeatures.outboundEmail) && {
+      to: "/admin/notifications",
+      title: "Notifications",
+      description: "Review and send what's queued -- on a schedule, or on demand.",
+    },
   ].filter(Boolean);
   const integrations = [
     enabledFeatures.aiExtraction && {

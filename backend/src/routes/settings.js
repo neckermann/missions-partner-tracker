@@ -477,6 +477,71 @@ router.post("/email/test", requireFeature("outboundEmail"), requireRole("admin")
   }
 });
 
+// Notification batching (see #129) -- the digest schedule and the
+// per-type queue switches, both admin-only church-wide config, same
+// shape of settings sub-resource as GroupMe/Email above (not gated by
+// requireFeature -- this page is useful to configure regardless of
+// which channel(s) happen to be on, same reasoning Enabled Features
+// itself is never gated). The pending queue and the manual flush action
+// itself live in routes/notifications.js, not here -- this is just the
+// configuration half.
+const notificationSettingsSelect = {
+  digestFrequency: true,
+  digestDayOfWeek: true,
+  digestDayOfMonth: true,
+  digestHour: true,
+  queueNotifyPrayerRequests: true,
+  queueNotifyOneTimeNeeds: true,
+  queueNotifyNewsletters: true,
+};
+
+const notificationSettingsSchema = z.object({
+  digestFrequency: z.enum(["weekly", "biweekly", "monthly"]).nullable().optional(),
+  digestDayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
+  digestDayOfMonth: z.number().int().min(1).max(28).nullable().optional(),
+  digestHour: z.number().int().min(0).max(23).nullable().optional(),
+  queueNotifyPrayerRequests: z.boolean().optional(),
+  queueNotifyOneTimeNeeds: z.boolean().optional(),
+  queueNotifyNewsletters: z.boolean().optional(),
+});
+
+router.get("/notifications", requireRole("admin"), async (req, res, next) => {
+  try {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: notificationSettingsSelect,
+    });
+    res.json(
+      settings || {
+        digestFrequency: null,
+        digestDayOfWeek: null,
+        digestDayOfMonth: null,
+        digestHour: null,
+        queueNotifyPrayerRequests: true,
+        queueNotifyOneTimeNeeds: true,
+        queueNotifyNewsletters: true,
+      }
+    );
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/notifications", requireRole("admin"), async (req, res, next) => {
+  try {
+    const data = notificationSettingsSchema.parse(req.body);
+    const updated = await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      create: { id: "singleton", ...data, updatedById: req.user.id },
+      update: { ...data, updatedById: req.user.id },
+      select: notificationSettingsSelect,
+    });
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // A write-only "one API key, admin-only, GET returns { configured }"
 // settings sub-resource -- the exact same shape Joshua Project and AI
 // Request Scanning each need below, differing only in which ChurchSettings

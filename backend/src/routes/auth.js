@@ -305,6 +305,53 @@ router.post("/mfa/disable", requireAuth, async (req, res, next) => {
   }
 });
 
+// Self-service opt-in/out for the batched notification digest email
+// (see #129) -- same self-service-from-Account-Settings pattern as MFA
+// enroll/disable above, just a plain toggle instead of a real
+// credential check (there's nothing sensitive being turned on here, so
+// no password confirmation needed the way MFA disable requires one).
+router.put("/notify-by-email", requireAuth, async (req, res, next) => {
+  try {
+    const enabled = Boolean(req.body?.enabled);
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { notifyByEmail: enabled },
+    });
+    res.json({ user: sanitizeUser(user) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/auth/unsubscribe -- public, no requireAuth, reached straight
+// from a link in a digest email (see utils/emailDigest.js's
+// buildUnsubscribeUrl). Verifies the same { id, unsubscribe: true }
+// token shape/signing as the MFA-pending/MFA-setup tokens above, minted
+// fresh per recipient per email, deliberately with no expiry (an old,
+// saved email's unsubscribe link should still work). Renders a plain
+// HTML confirmation page, not JSON -- this is a link a person clicks in
+// their mail client, not an API call.
+router.get("/unsubscribe", async (req, res) => {
+  const page = (message) => `<!doctype html>
+<html><head><meta charset="utf-8"><title>Email notifications</title></head>
+<body style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:80px auto;text-align:center;color:#222;">
+<h2>${message}</h2>
+</body></html>`;
+
+  let decoded;
+  try {
+    decoded = jwt.verify(String(req.query.token || ""), process.env.SESSION_SECRET);
+  } catch {
+    return res.status(400).send(page("This unsubscribe link isn't valid."));
+  }
+  if (!decoded?.unsubscribe || !decoded.id) {
+    return res.status(400).send(page("This unsubscribe link isn't valid."));
+  }
+
+  await prisma.user.updateMany({ where: { id: decoded.id }, data: { notifyByEmail: false } });
+  res.send(page("You've been unsubscribed from email notifications."));
+});
+
 router.post("/logout", (req, res) => {
   // The session lives in an httpOnly cookie, so client-side JS can't clear
   // it itself — this is the only way to actually log out.
@@ -320,6 +367,7 @@ function sanitizeUser(user) {
     role: user.role,
     authProvider: user.authProvider,
     mfaEnabled: user.mfaEnabled,
+    notifyByEmail: user.notifyByEmail,
   };
 }
 

@@ -247,86 +247,35 @@ describe("GET /api/settings/groupme/groups and /groups/:id/topics", () => {
   });
 });
 
-describe("prayer request creation never fails because of GroupMe", () => {
+// As of #129, record creation/outcome events no longer post to GroupMe
+// live -- they write a PendingNotification row instead (see
+// utils/notifications.js), flushed later by routes/notifications.js.
+// The actual GroupMe posting (topic routing, packing, truncation) is
+// tested against that flush route in test/routes/notifications.test.js,
+// which is also where it belongs now -- this file stays focused on
+// GroupMe's own settings routes. What's left to verify here is just the
+// dispatcher's own enqueue behavior: a row gets written with the right
+// type/partner/payload, and the per-type queueNotify* switch is actually
+// respected.
+describe("prayer request creation enqueues a PendingNotification instead of posting live", () => {
   let partnerId;
 
   before(async () => {
     const partner = await admin("/api/partners", {
       method: "POST",
-      body: { kind: "missionary", displayName: `${FIXTURE_TAG} GroupMe notify target` },
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} enqueue target` },
     });
     partnerId = partner.body.id;
-
-    // Feature on, a topic configured, but GroupMe itself will reject the
-    // post below -- this is the actual failure path the hook has to
-    // survive, not just an unconfigured no-op. Set explicitly here
-    // rather than relying on what an earlier describe block happened to
-    // leave behind -- this block should pass on its own regardless of
-    // test order.
-    await prisma.churchSettings.update({
-      where: { id: "singleton" },
-      data: { enabledFeatures: { groupme: true }, groupmePrayerTopicId: "fake-topic-id" },
-    });
   });
 
   after(async () => {
-    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+    await prisma.pendingNotification.deleteMany({ where: { partnerId } });
   });
 
-  test("a prayer request still saves (201) when the GroupMe post itself fails", async () => {
-    mockGroupMe(async () => groupmeJson(500, { meta: { code: 500, errors: ["boom"] } }));
-    try {
-      const res = await admin("/api/prayer-requests", {
-        method: "POST",
-        body: {
-          partnerId,
-          category: "situational",
-          requestText: `${FIXTURE_TAG} should still save`,
-          dateReceived: "2026-01-01",
-        },
-      });
-      assert.equal(res.status, 201);
-      assert.equal(res.body.requestText, `${FIXTURE_TAG} should still save`);
-    } finally {
-      unmockGroupMe();
-    }
-  });
-
-  test("a prayer request posts into the configured topic, not the main group", async () => {
-    let capturedUrl = null;
-    mockGroupMe(async (url, options) => {
-      capturedUrl = String(url);
-      JSON.parse(options.body); // confirms it's a well-formed message post
-      return groupmeJson(202, { response: null });
-    });
-    try {
-      const res = await admin("/api/prayer-requests", {
-        method: "POST",
-        body: {
-          partnerId,
-          category: "strategic",
-          requestText: `${FIXTURE_TAG} posts to the topic`,
-          dateReceived: "2026-01-01",
-        },
-      });
-      assert.equal(res.status, 201);
-      assert.ok(capturedUrl?.includes("/groups/fake-topic-id/messages"), capturedUrl);
-    } finally {
-      unmockGroupMe();
-    }
-  });
-
-  test("a prayer request with a source newsletter includes a direct link to it", async () => {
-    const form = new FormData();
-    form.set("file", new Blob([Buffer.from("%PDF-1.4 test")], { type: "application/pdf" }), "t.pdf");
-    form.set("partnerId", partnerId);
-    form.set("receivedDate", "2026-01-01");
-    const newsletter = await admin("/api/newsletters", { method: "POST", body: form });
-    assert.equal(newsletter.status, 201);
-
-    let capturedText = null;
-    mockGroupMe(async (url, options) => {
-      capturedText = JSON.parse(options.body).message.text;
+  test("creating a prayer request never calls GroupMe directly and writes a queued row instead", async () => {
+    let called = false;
+    mockGroupMe(async () => {
+      called = true;
       return groupmeJson(202, { response: null });
     });
     try {
@@ -335,167 +284,115 @@ describe("prayer request creation never fails because of GroupMe", () => {
         body: {
           partnerId,
           category: "situational",
-          requestText: `${FIXTURE_TAG} scanned from a newsletter`,
+          requestText: `${FIXTURE_TAG} enqueues, doesn't post live`,
           dateReceived: "2026-01-01",
-          sourceNewsletterId: newsletter.body.id,
         },
       });
       assert.equal(res.status, 201);
+      assert.equal(called, false, "no live GroupMe call should happen at creation time");
+
+      const queued = await prisma.pendingNotification.findMany({ where: { partnerId } });
+      assert.equal(queued.length, 1);
+      assert.equal(queued[0].type, "prayerRequestCreated");
+      assert.equal(queued[0].payload.requestText, `${FIXTURE_TAG} enqueues, doesn't post live`);
+    } finally {
+      unmockGroupMe();
+    }
+  });
+
+  test("queueNotifyPrayerRequests: false skips the queue entirely", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { queueNotifyPrayerRequests: false },
+    });
+    try {
+      const res = await admin("/api/prayer-requests", {
+        method: "POST",
+        body: {
+          partnerId,
+          category: "situational",
+          requestText: `${FIXTURE_TAG} should never queue`,
+          dateReceived: "2026-01-01",
+        },
+      });
+      assert.equal(res.status, 201);
+      const queued = await prisma.pendingNotification.findMany({
+        where: { partnerId, type: "prayerRequestCreated" },
+      });
       assert.ok(
-        capturedText?.includes(`From: http://localhost:4000/api/newsletters/${newsletter.body.id}/download`),
-        capturedText
+        !queued.some((row) => row.payload.requestText === `${FIXTURE_TAG} should never queue`),
+        "turning the queue type off should prevent a row from ever being written"
       );
     } finally {
-      unmockGroupMe();
-    }
-  });
-
-  test("a prayer request with no source carries no 'From:' line at all", async () => {
-    let capturedText = null;
-    mockGroupMe(async (url, options) => {
-      capturedText = JSON.parse(options.body).message.text;
-      return groupmeJson(202, { response: null });
-    });
-    try {
-      const res = await admin("/api/prayer-requests", {
-        method: "POST",
-        body: {
-          partnerId,
-          category: "situational",
-          requestText: `${FIXTURE_TAG} no source here`,
-          dateReceived: "2026-01-01",
-        },
+      await prisma.churchSettings.update({
+        where: { id: "singleton" },
+        data: { queueNotifyPrayerRequests: true },
       });
-      assert.equal(res.status, 201);
-      assert.ok(!capturedText?.includes("From:"), capturedText);
-    } finally {
-      unmockGroupMe();
     }
   });
 });
 
-describe("support need creation never fails because of GroupMe", () => {
+describe("support need creation enqueues a PendingNotification instead of posting live", () => {
   let partnerId;
 
   before(async () => {
     const partner = await admin("/api/partners", {
       method: "POST",
-      body: { kind: "missionary", displayName: `${FIXTURE_TAG} GroupMe need target` },
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} enqueue need target` },
     });
     partnerId = partner.body.id;
-
-    await prisma.churchSettings.update({
-      where: { id: "singleton" },
-      data: { enabledFeatures: { groupme: true }, groupmeOneTimeNeedTopicId: "fake-need-topic-id" },
-    });
   });
 
   after(async () => {
-    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+    await prisma.pendingNotification.deleteMany({ where: { partnerId } });
   });
 
-  test("a one-time need still saves (201) when the GroupMe post itself fails", async () => {
-    mockGroupMe(async () => groupmeJson(500, { meta: { code: 500, errors: ["boom"] } }));
+  test("creating a one-time need never calls GroupMe directly and writes a queued row instead", async () => {
+    let called = false;
+    mockGroupMe(async () => {
+      called = true;
+      return groupmeJson(202, { response: null });
+    });
     try {
       const res = await admin("/api/support-needs", {
         method: "POST",
         body: {
           partnerId,
-          description: `${FIXTURE_TAG} should still save`,
+          description: `${FIXTURE_TAG} enqueues, doesn't post live`,
           requestedAmount: 500,
           requestDate: "2026-01-01",
         },
       });
       assert.equal(res.status, 201);
-      assert.equal(res.body.description, `${FIXTURE_TAG} should still save`);
-    } finally {
-      unmockGroupMe();
-    }
-  });
+      assert.equal(called, false);
 
-  test("a one-time need posts into the configured topic, not the main group", async () => {
-    let capturedUrl = null;
-    mockGroupMe(async (url, options) => {
-      capturedUrl = String(url);
-      JSON.parse(options.body);
-      return groupmeJson(202, { response: null });
-    });
-    try {
-      const res = await admin("/api/support-needs", {
-        method: "POST",
-        body: {
-          partnerId,
-          description: `${FIXTURE_TAG} posts to the needs topic`,
-          requestedAmount: 1000,
-          requestDate: "2026-01-01",
-        },
-      });
-      assert.equal(res.status, 201);
-      assert.ok(capturedUrl?.includes("/groups/fake-need-topic-id/messages"), capturedUrl);
-    } finally {
-      unmockGroupMe();
-    }
-  });
-
-  test("a one-time need with a source document includes a direct link to it", async () => {
-    const form = new FormData();
-    form.set("file", new Blob([Buffer.from("%PDF-1.4 test")], { type: "application/pdf" }), "t.pdf");
-    form.set("partnerId", partnerId);
-    form.set("category", "office_document");
-    form.set("receivedDate", "2026-01-01");
-    const document = await admin("/api/documents", { method: "POST", body: form });
-    assert.equal(document.status, 201);
-
-    let capturedText = null;
-    mockGroupMe(async (url, options) => {
-      capturedText = JSON.parse(options.body).message.text;
-      return groupmeJson(202, { response: null });
-    });
-    try {
-      const res = await admin("/api/support-needs", {
-        method: "POST",
-        body: {
-          partnerId,
-          description: `${FIXTURE_TAG} scanned from a document`,
-          requestedAmount: 250,
-          requestDate: "2026-01-01",
-          sourceDocumentId: document.body.id,
-        },
-      });
-      assert.equal(res.status, 201);
-      assert.ok(
-        capturedText?.includes(`From: http://localhost:4000/api/documents/${document.body.id}/download`),
-        capturedText
-      );
+      const queued = await prisma.pendingNotification.findMany({ where: { partnerId } });
+      assert.equal(queued.length, 1);
+      assert.equal(queued[0].type, "supportNeedCreated");
+      assert.equal(queued[0].payload.description, `${FIXTURE_TAG} enqueues, doesn't post live`);
     } finally {
       unmockGroupMe();
     }
   });
 });
 
-// #127: notifications on answering a prayer request / deciding a one-time
-// need. Routed through utils/notifications.js's channel-neutral dispatch,
-// but GroupMe is the only channel wired up today, so these tests exercise
-// it the same way the creation tests above do -- intercepting the real
-// api.groupme.com call.
-describe("recording a prayer request's answer notifies GroupMe", () => {
+// #127: notifications on answering a prayer request / deciding a
+// one-time need. Routed through utils/notifications.js's channel-neutral
+// dispatch -- same enqueue-not-post-live behavior as creation above, and
+// still only on a genuine transition (not a repeat PUT).
+describe("recording a prayer request's answer enqueues, same transition-only rule as before", () => {
   let partnerId;
 
   before(async () => {
     const partner = await admin("/api/partners", {
       method: "POST",
-      body: { kind: "missionary", displayName: `${FIXTURE_TAG} GroupMe answered target` },
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} enqueue answered target` },
     });
     partnerId = partner.body.id;
-
-    await prisma.churchSettings.update({
-      where: { id: "singleton" },
-      data: { enabledFeatures: { groupme: true }, groupmePrayerTopicId: "fake-topic-id" },
-    });
   });
 
   after(async () => {
-    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+    await prisma.pendingNotification.deleteMany({ where: { partnerId } });
   });
 
   async function createOngoing(requestText) {
@@ -507,113 +404,77 @@ describe("recording a prayer request's answer notifies GroupMe", () => {
     return res.body.id;
   }
 
-  test("transitioning status to answered posts the request and answer note to the prayer topic", async () => {
-    const id = await createOngoing(`${FIXTURE_TAG} please pray for travel safety`);
-
-    let capturedUrl = null;
-    let capturedText = null;
-    mockGroupMe(async (url, options) => {
-      capturedUrl = String(url);
-      capturedText = JSON.parse(options.body).message.text;
-      return groupmeJson(202, { response: null });
+  // Scoped to this one record's own requestText, not just partnerId+type
+  // -- several tests in this block share one partner, so a bare
+  // partnerId+type count would also see earlier tests' own rows.
+  async function queuedAnsweredCountFor(requestText) {
+    const rows = await prisma.pendingNotification.findMany({
+      where: { partnerId, type: "prayerRequestAnswered" },
     });
-    try {
-      const res = await admin(`/api/prayer-requests/${id}`, {
-        method: "PUT",
-        body: { status: "answered", dateAnswered: "2026-02-01", answeredNote: "Arrived home safely." },
-      });
-      assert.equal(res.status, 200);
-      assert.ok(capturedUrl?.includes("/groups/fake-topic-id/messages"), capturedUrl);
-      assert.ok(capturedText?.includes("please pray for travel safety"), capturedText);
-      assert.ok(capturedText?.includes("Arrived home safely."), capturedText);
-    } finally {
-      unmockGroupMe();
-    }
-  });
+    return rows.filter((row) => row.payload.requestText === requestText).length;
+  }
 
-  test("a PUT that doesn't touch status never posts to GroupMe", async () => {
-    const id = await createOngoing(`${FIXTURE_TAG} unrelated field edit`);
-
-    let called = false;
-    mockGroupMe(async () => {
-      called = true;
-      return groupmeJson(202, { response: null });
+  test("transitioning status to answered queues a prayerRequestAnswered row with the note", async () => {
+    const requestText = `${FIXTURE_TAG} please pray for travel safety`;
+    const id = await createOngoing(requestText);
+    const res = await admin(`/api/prayer-requests/${id}`, {
+      method: "PUT",
+      body: { status: "answered", dateAnswered: "2026-02-01", answeredNote: "Arrived home safely." },
     });
-    try {
-      const res = await admin(`/api/prayer-requests/${id}`, {
-        method: "PUT",
-        body: { notes: "internal note" },
-      });
-      assert.equal(res.status, 200);
-      assert.equal(called, false);
-    } finally {
-      unmockGroupMe();
-    }
+    assert.equal(res.status, 200);
+    assert.equal(await queuedAnsweredCountFor(requestText), 1);
   });
 
-  test("re-saving an already-answered request (e.g. fixing a typo) doesn't re-notify", async () => {
-    const id = await createOngoing(`${FIXTURE_TAG} already answered, editing note`);
-    mockGroupMe(async () => groupmeJson(202, { response: null }));
-    try {
-      const first = await admin(`/api/prayer-requests/${id}`, {
-        method: "PUT",
-        body: { status: "answered", dateAnswered: "2026-02-01", answeredNote: "Original note." },
-      });
-      assert.equal(first.status, 200);
-
-      let called = false;
-      mockGroupMe(async () => {
-        called = true;
-        return groupmeJson(202, { response: null });
-      });
-      const second = await admin(`/api/prayer-requests/${id}`, {
-        method: "PUT",
-        // dateAnswered has to be resent -- answeredDateGiven requires it
-        // alongside status: "answered" in the same request (see the
-        // schema's own refine), same as a real edit form would.
-        body: { status: "answered", dateAnswered: "2026-02-01", answeredNote: "Fixed a typo in the note." },
-      });
-      assert.equal(second.status, 200);
-      assert.equal(called, false);
-    } finally {
-      unmockGroupMe();
-    }
+  test("a PUT that doesn't touch status never queues anything", async () => {
+    const requestText = `${FIXTURE_TAG} unrelated field edit`;
+    const id = await createOngoing(requestText);
+    const res = await admin(`/api/prayer-requests/${id}`, {
+      method: "PUT",
+      body: { notes: "internal note" },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(await queuedAnsweredCountFor(requestText), 0);
   });
 
-  test("a prayer request still saves (200) when the GroupMe post itself fails", async () => {
-    const id = await createOngoing(`${FIXTURE_TAG} answer still saves on GroupMe failure`);
-    mockGroupMe(async () => groupmeJson(500, { meta: { code: 500, errors: ["boom"] } }));
-    try {
-      const res = await admin(`/api/prayer-requests/${id}`, {
-        method: "PUT",
-        body: { status: "answered", dateAnswered: "2026-02-01", answeredNote: "Still saved." },
-      });
-      assert.equal(res.status, 200);
-      assert.equal(res.body.status, "answered");
-    } finally {
-      unmockGroupMe();
-    }
+  test("re-saving an already-answered request (e.g. fixing a typo) doesn't re-queue", async () => {
+    const requestText = `${FIXTURE_TAG} already answered, editing note`;
+    const id = await createOngoing(requestText);
+    const first = await admin(`/api/prayer-requests/${id}`, {
+      method: "PUT",
+      body: { status: "answered", dateAnswered: "2026-02-01", answeredNote: "Original note." },
+    });
+    assert.equal(first.status, 200);
+
+    const second = await admin(`/api/prayer-requests/${id}`, {
+      method: "PUT",
+      // dateAnswered has to be resent -- answeredDateGiven requires it
+      // alongside status: "answered" in the same request (see the
+      // schema's own refine), same as a real edit form would.
+      body: { status: "answered", dateAnswered: "2026-02-01", answeredNote: "Fixed a typo in the note." },
+    });
+    assert.equal(second.status, 200);
+
+    assert.equal(
+      await queuedAnsweredCountFor(requestText),
+      1,
+      "only the genuine transition should have queued a row"
+    );
   });
 });
 
-describe("recording a one-time need's decision notifies GroupMe", () => {
+describe("recording a one-time need's decision enqueues, same transition-only rule as before", () => {
   let partnerId;
 
   before(async () => {
     const partner = await admin("/api/partners", {
       method: "POST",
-      body: { kind: "missionary", displayName: `${FIXTURE_TAG} GroupMe decided target` },
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} enqueue decided target` },
     });
     partnerId = partner.body.id;
-
-    await prisma.churchSettings.update({
-      where: { id: "singleton" },
-      data: { enabledFeatures: { groupme: true }, groupmeOneTimeNeedTopicId: "fake-need-topic-id" },
-    });
   });
 
   after(async () => {
-    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+    await prisma.pendingNotification.deleteMany({ where: { partnerId } });
   });
 
   async function createUndecided(description, requestedAmount) {
@@ -625,142 +486,59 @@ describe("recording a one-time need's decision notifies GroupMe", () => {
     return res.body.id;
   }
 
-  test("recording full funding posts the need and amount to the needs topic", async () => {
-    const id = await createUndecided(`${FIXTURE_TAG} vehicle replacement`, 1000);
-
-    let capturedUrl = null;
-    let capturedText = null;
-    mockGroupMe(async (url, options) => {
-      capturedUrl = String(url);
-      capturedText = JSON.parse(options.body).message.text;
-      return groupmeJson(202, { response: null });
+  // Scoped to this one record's own description, not just partnerId+type
+  // -- several tests in this block share one partner.
+  async function queuedDecidedCountFor(description) {
+    const rows = await prisma.pendingNotification.findMany({
+      where: { partnerId, type: "supportNeedDecided" },
     });
-    try {
-      const res = await admin(`/api/support-needs/${id}`, {
-        method: "PUT",
-        body: { approvedAmount: 1000, approvedDate: "2026-02-01" },
-      });
-      assert.equal(res.status, 200);
-      assert.ok(capturedUrl?.includes("/groups/fake-need-topic-id/messages"), capturedUrl);
-      assert.ok(capturedText?.includes("vehicle replacement"), capturedText);
-      assert.ok(capturedText?.includes("Fully Funded"), capturedText);
-      assert.ok(capturedText?.includes("$1,000"), capturedText);
-    } finally {
-      unmockGroupMe();
-    }
-  });
+    return rows.filter((row) => row.payload.description === description).length;
+  }
 
-  test("declining a need (approvedAmount: 0) labels it Declined", async () => {
-    const id = await createUndecided(`${FIXTURE_TAG} declined need`, 500);
-
-    let capturedText = null;
-    mockGroupMe(async (url, options) => {
-      capturedText = JSON.parse(options.body).message.text;
-      return groupmeJson(202, { response: null });
+  test("recording a decision queues a supportNeedDecided row with the approved amount", async () => {
+    const description = `${FIXTURE_TAG} vehicle replacement`;
+    const id = await createUndecided(description, 1000);
+    const res = await admin(`/api/support-needs/${id}`, {
+      method: "PUT",
+      body: { approvedAmount: 1000, approvedDate: "2026-02-01" },
     });
-    try {
-      const res = await admin(`/api/support-needs/${id}`, {
-        method: "PUT",
-        body: { approvedAmount: 0, approvedDate: "2026-02-01" },
-      });
-      assert.equal(res.status, 200);
-      assert.ok(capturedText?.includes("Declined"), capturedText);
-    } finally {
-      unmockGroupMe();
-    }
+    assert.equal(res.status, 200);
+    assert.equal(await queuedDecidedCountFor(description), 1);
   });
 
-  test("a PUT that doesn't touch the decision pair never posts to GroupMe", async () => {
-    const id = await createUndecided(`${FIXTURE_TAG} unrelated edit`, 500);
+  test("a PUT that doesn't touch the decision pair never queues anything", async () => {
+    const description = `${FIXTURE_TAG} unrelated edit`;
+    const id = await createUndecided(description, 500);
+    const res = await admin(`/api/support-needs/${id}`, { method: "PUT", body: { notes: "internal note" } });
+    assert.equal(res.status, 200);
+    assert.equal(await queuedDecidedCountFor(description), 0);
+  });
 
-    let called = false;
-    mockGroupMe(async () => {
-      called = true;
-      return groupmeJson(202, { response: null });
+  test("clearing a decision (both fields nulled) doesn't queue anything", async () => {
+    const description = `${FIXTURE_TAG} clearing a decision`;
+    const id = await createUndecided(description, 500);
+    const first = await admin(`/api/support-needs/${id}`, {
+      method: "PUT",
+      body: { approvedAmount: 500, approvedDate: "2026-02-01" },
     });
-    try {
-      const res = await admin(`/api/support-needs/${id}`, {
-        method: "PUT",
-        body: { notes: "internal note" },
-      });
-      assert.equal(res.status, 200);
-      assert.equal(called, false);
-    } finally {
-      unmockGroupMe();
-    }
-  });
+    assert.equal(first.status, 200);
 
-  test("re-saving an already-decided need doesn't re-notify", async () => {
-    const id = await createUndecided(`${FIXTURE_TAG} already decided`, 500);
-    mockGroupMe(async () => groupmeJson(202, { response: null }));
-    try {
-      const first = await admin(`/api/support-needs/${id}`, {
-        method: "PUT",
-        body: { approvedAmount: 500, approvedDate: "2026-02-01" },
-      });
-      assert.equal(first.status, 200);
+    const second = await admin(`/api/support-needs/${id}`, {
+      method: "PUT",
+      body: { approvedAmount: null, approvedDate: null },
+    });
+    assert.equal(second.status, 200);
 
-      let called = false;
-      mockGroupMe(async () => {
-        called = true;
-        return groupmeJson(202, { response: null });
-      });
-      const second = await admin(`/api/support-needs/${id}`, {
-        method: "PUT",
-        body: { approvedAmount: 500, approvedDate: "2026-02-01" },
-      });
-      assert.equal(second.status, 200);
-      assert.equal(called, false);
-    } finally {
-      unmockGroupMe();
-    }
-  });
-
-  test("clearing a decision (both fields nulled) doesn't notify", async () => {
-    const id = await createUndecided(`${FIXTURE_TAG} clearing a decision`, 500);
-    mockGroupMe(async () => groupmeJson(202, { response: null }));
-    try {
-      const first = await admin(`/api/support-needs/${id}`, {
-        method: "PUT",
-        body: { approvedAmount: 500, approvedDate: "2026-02-01" },
-      });
-      assert.equal(first.status, 200);
-
-      let called = false;
-      mockGroupMe(async () => {
-        called = true;
-        return groupmeJson(202, { response: null });
-      });
-      const second = await admin(`/api/support-needs/${id}`, {
-        method: "PUT",
-        body: { approvedAmount: null, approvedDate: null },
-      });
-      assert.equal(second.status, 200);
-      assert.equal(called, false);
-    } finally {
-      unmockGroupMe();
-    }
-  });
-
-  test("a support need still saves (200) when the GroupMe post itself fails", async () => {
-    const id = await createUndecided(`${FIXTURE_TAG} decision still saves on GroupMe failure`, 500);
-    mockGroupMe(async () => groupmeJson(500, { meta: { code: 500, errors: ["boom"] } }));
-    try {
-      const res = await admin(`/api/support-needs/${id}`, {
-        method: "PUT",
-        body: { approvedAmount: 500, approvedDate: "2026-02-01" },
-      });
-      assert.equal(res.status, 200);
-      assert.equal(res.body.approvedAmount, 500);
-    } finally {
-      unmockGroupMe();
-    }
+    assert.equal(
+      await queuedDecidedCountFor(description),
+      1,
+      "only the original decision should have queued a row"
+    );
   });
 });
 
-describe("newsletter creation never fails because of GroupMe", () => {
+describe("newsletter creation enqueues a PendingNotification instead of posting live", () => {
   let partnerId;
-  let originalAppBaseUrl;
 
   function uploadForm(fields) {
     const form = new FormData();
@@ -772,44 +550,19 @@ describe("newsletter creation never fails because of GroupMe", () => {
   before(async () => {
     const partner = await admin("/api/partners", {
       method: "POST",
-      body: { kind: "missionary", displayName: `${FIXTURE_TAG} GroupMe newsletter target` },
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} enqueue newsletter target` },
     });
     partnerId = partner.body.id;
-
-    originalAppBaseUrl = process.env.APP_BASE_URL;
-    process.env.APP_BASE_URL = "https://church.example.org";
-
-    await prisma.churchSettings.update({
-      where: { id: "singleton" },
-      data: { enabledFeatures: { groupme: true }, groupmeNewsletterTopicId: "fake-newsletter-topic-id" },
-    });
   });
 
   after(async () => {
-    if (originalAppBaseUrl === undefined) delete process.env.APP_BASE_URL;
-    else process.env.APP_BASE_URL = originalAppBaseUrl;
-    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+    await prisma.pendingNotification.deleteMany({ where: { partnerId } });
   });
 
-  test("a newsletter still saves (201) when the GroupMe post itself fails", async () => {
-    mockGroupMe(async () => groupmeJson(500, { meta: { code: 500, errors: ["boom"] } }));
-    try {
-      const res = await admin("/api/newsletters", {
-        method: "POST",
-        body: uploadForm({ partnerId, receivedDate: "2026-01-01" }),
-      });
-      assert.equal(res.status, 201);
-    } finally {
-      unmockGroupMe();
-    }
-  });
-
-  test("a newsletter posts into the configured topic with a direct download link", async () => {
-    let capturedUrl = null;
-    let capturedText = null;
-    mockGroupMe(async (url, options) => {
-      capturedUrl = String(url);
-      capturedText = JSON.parse(options.body).message.text;
+  test("uploading a newsletter never calls GroupMe directly and writes a queued row instead", async () => {
+    let called = false;
+    mockGroupMe(async () => {
+      called = true;
       return groupmeJson(202, { response: null });
     });
     try {
@@ -818,34 +571,15 @@ describe("newsletter creation never fails because of GroupMe", () => {
         body: uploadForm({ partnerId, receivedDate: "2026-01-01" }),
       });
       assert.equal(created.status, 201);
-      assert.ok(capturedUrl?.includes("/groups/fake-newsletter-topic-id/messages"), capturedUrl);
-      assert.ok(
-        capturedText?.includes(`https://church.example.org/api/newsletters/${created.body.id}/download`),
-        capturedText
-      );
-    } finally {
-      unmockGroupMe();
-    }
-  });
+      assert.equal(called, false);
 
-  test("no APP_BASE_URL (and no RENDER_EXTERNAL_URL) means no notification at all -- no broken link ever gets sent", async () => {
-    delete process.env.APP_BASE_URL;
-    delete process.env.RENDER_EXTERNAL_URL;
-    let called = false;
-    mockGroupMe(async () => {
-      called = true;
-      return groupmeJson(202, { response: null });
-    });
-    try {
-      const res = await admin("/api/newsletters", {
-        method: "POST",
-        body: uploadForm({ partnerId, receivedDate: "2026-01-01" }),
+      const queued = await prisma.pendingNotification.findMany({
+        where: { partnerId, type: "newsletterCreated" },
       });
-      assert.equal(res.status, 201);
-      assert.equal(called, false, "GroupMe should never be called with no base URL to build a link from");
+      assert.equal(queued.length, 1);
+      assert.equal(queued[0].payload.newsletterId, created.body.id);
     } finally {
       unmockGroupMe();
-      process.env.APP_BASE_URL = "https://church.example.org";
     }
   });
 });

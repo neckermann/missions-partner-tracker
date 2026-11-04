@@ -575,13 +575,18 @@ everywhere, with no code changes needed:
 
 ## GroupMe notifications (Admin only)
 
-Posts new prayer requests, one-time needs, and newsletters to GroupMe as
-they're added, so a team sees them the moment they're added without
-checking the admin dashboard. A prayer request getting **Record Answer**ed
-or a one-time need getting **Record Decision**ed posts too — the original
-ask alongside the outcome, into that same type's topic, no separate setup.
-Off by default — turn it on in
-[Enabled Features](ADMIN_GUIDE.md#feature-toggles) once it's set up here.
+Posts new prayer requests, one-time needs, and newsletters to GroupMe so
+a team sees them without checking the admin dashboard. A prayer request
+getting **Record Answer**ed or a one-time need getting **Record
+Decision**ed posts too — the original ask alongside the outcome, into
+that same type's topic, no separate setup. Off by default — turn it on
+in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) once it's set up
+here.
+
+These don't post the instant they happen — they queue and go out on a
+schedule (or on demand), alongside any email digest, through the shared
+**Notifications** page. See [Notifications](#notifications-admin-only)
+below for how that queue, schedule, and manual send work.
 
 Setup, on the **GroupMe** page under Site Administration, builds up in
 steps:
@@ -605,8 +610,8 @@ steps:
 
 If GroupMe itself is unreachable or rejects a post, whatever you were
 saving — a prayer request, a one-time need, a newsletter, an answer, a
-decision — still saves normally. The notification is best-effort and
-never blocks your own work.
+decision — still saves normally; it just queues for the next send
+attempt. The notification is best-effort and never blocks your own work.
 
 The newsletter notification includes a direct link to the letter (the
 same link **View** opens on the newsletter's own page) — this only
@@ -615,15 +620,52 @@ appears once `APP_BASE_URL` is set, or automatically on Render (see
 Whoever clicks it needs to be logged into the admin dashboard, same as
 any other admin link.
 
-Once it's working, a new prayer request, one-time need, or newsletter
-shows up in its own configured Topic within the GroupMe app itself, same
-as any other message:
+Once it's sent, a prayer request, one-time need, or newsletter shows up
+in its own configured Topic within the GroupMe app itself, same as any
+other message, with the full request/need text (not a summary) and
+several queued items packed into as few messages as fit GroupMe's
+1,000-character limit:
 
 ![A new prayer request notification, as it actually appears in the GroupMe app](docs/assets/screenshots/groupme-notification.png)
 
 ![A new one-time need notification, with the prayer/meeting-prep note above the need itself](docs/assets/screenshots/groupme-notification-need.png)
 
 ![A new newsletter notification, with a direct link to the letter](docs/assets/screenshots/groupme-notification-newsletter.png)
+
+## Notifications (Admin only)
+
+The **Notifications** page (under Communications in the sidebar) is
+where every prayer request, one-time need, and newsletter queues before
+going out — the shared review-and-send queue behind both GroupMe
+notifications above and email digests below. Only shows up once
+GroupMe notifications or Email (Sending) is turned on — no point
+reviewing a queue neither channel will ever read. Visible to any
+logged-in role from there; only an admin or editor can actually send.
+
+**What queues at all.** Three independent checkboxes — Prayer Requests,
+One-Time Needs, Newsletters — control what joins the queue in the first
+place. Turn one off and that type never queues for either channel, at
+the source; it's not a per-channel filter.
+
+**Schedule.** Pick **Weekly**, **Biweekly**, or **Monthly**, then a day
+(day-of-week for weekly/biweekly, a day-of-month 1–28 for monthly) and a
+time. Whatever's queued at that moment goes out automatically — to
+GroupMe, to email, or both, whichever channel(s) are turned on in
+Enabled Features. Leave it as **No automatic schedule** to only ever
+send by hand.
+
+**Send Pending Notifications Now** is always available regardless of
+the schedule, for "we want this out right now" moments. The pending list
+above it shows everything currently queued, grouped by partner, with a
+prayer request or need that came from a newsletter nested right under
+that newsletter instead of repeated separately.
+
+![The Notifications page: schedule, queue toggles, and the pending queue grouped by partner](docs/assets/screenshots/notifications-settings.png)
+
+A queued item only clears once every currently-enabled channel has
+actually sent it — if GroupMe is down but email goes out fine, that item
+stays queued and only retries GroupMe next time, rather than going out
+to email twice.
 
 ## Joshua Project (Admin only)
 
@@ -691,9 +733,10 @@ Outbound email, sent through [Postmark](https://postmarkapp.com), a
 dedicated email delivery service — not through this church's own Gmail or
 Microsoft account. See
 [ADMIN_GUIDE.md § Email (Postmark)](ADMIN_GUIDE.md#email-postmark) for
-why. As of this writing, nothing in the app actually sends an email yet —
-this page configures and tests the capability ahead of the features that
-will use it.
+why. Once turned on, this is the email half of the
+[Notifications](#notifications-admin-only) queue above — an opted-in
+user gets one digest email covering everything currently queued, instead
+of one email per item.
 
 Setup, on the **Email** page under Site Administration, builds up in
 steps:
@@ -719,6 +762,12 @@ the settings/token/API call path works. Swap in a real token once you
 have a verified domain to actually receive mail.
 
 ![The Email settings page, configured and tested](docs/assets/screenshots/email-settings.png)
+
+Each user decides for themselves whether they get the digest — there's
+no admin-managed recipient list. Turn it on from
+[Your account settings](#your-account-settings); every digest also
+carries its own one-click unsubscribe link, which turns it back off
+without needing to log in.
 
 ## User management (Admin only)
 
@@ -766,6 +815,12 @@ You can change your password (current password required) and
 enable/disable two-factor authentication — enabling walks you through
 scanning a QR code and confirming a code; disabling requires your current
 password.
+
+If [Email notifications](#email-admin-only) is turned on for the church,
+there's also a plain **Email me notification digests** toggle here — one
+blanket opt-in, not per prayer request/need/newsletter. It's off by
+default; flip it on to start receiving the digest on whatever schedule
+the admin set up on the [Notifications](#notifications-admin-only) page.
 
 ![Account settings, mid-enrollment: the QR code step of enabling two-factor authentication](docs/assets/screenshots/mfa-enrollment.png)
 

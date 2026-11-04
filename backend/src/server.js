@@ -31,6 +31,8 @@ const versionRoutes = require("./routes/version");
 const backupCheckRoutes = require("./routes/backupCheck");
 const backupsRoutes = require("./routes/backups");
 const inboundEmailRoutes = require("./routes/inboundEmail");
+const notificationRoutes = require("./routes/notifications");
+const { startDigestScheduler } = require("./utils/digestScheduler");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -202,6 +204,7 @@ app.use("/api/version-check", versionRoutes); // protected (admin role only)
 app.use("/api/backup-check", backupCheckRoutes); // protected (admin role only)
 app.use("/api/backups", backupsRoutes); // protected (admin role only)
 app.use("/api/inbound-email", inboundEmailRoutes); // mixed -- see that file's own comment
+app.use("/api/notifications", notificationRoutes); // protected (any role for read, admin/editor to flush)
 
 // Only exists at all if DEMO_RESET_TOKEN is configured — absent in every
 // normal deployment. See ADMIN_GUIDE.md § Demo mode.
@@ -238,11 +241,18 @@ app.use(errorHandler);
 // Guarded so this file can be require()'d by the route tests, which boot
 // the real app on an ephemeral port rather than mocking it -- same reason
 // prisma/seed.js has the same guard. Running it directly still listens
-// exactly as before.
+// exactly as before. The notification-digest scheduler (see #129,
+// utils/digestScheduler.js) is started here too, under the same guard --
+// a once-a-minute cron.schedule() timer would otherwise keep every route
+// test file's own process alive indefinitely (each test file boots this
+// whole app fresh in its own process -- see test/routes/helpers.js's own
+// comment on exactly this class of problem, #162) and fire real flush
+// attempts against the test database no test asked for.
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Missionary Tracker API listening on port ${PORT}`);
   });
+  startDigestScheduler();
 }
 
 module.exports = app;
