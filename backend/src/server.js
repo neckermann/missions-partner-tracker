@@ -30,6 +30,7 @@ const publicSettingsRoutes = require("./routes/publicSettings");
 const versionRoutes = require("./routes/version");
 const backupCheckRoutes = require("./routes/backupCheck");
 const backupsRoutes = require("./routes/backups");
+const inboundEmailRoutes = require("./routes/inboundEmail");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -93,7 +94,12 @@ app.use(
   })
 );
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
-app.use(express.json());
+// Default is 100kb -- too small for Postmark's inbound-email webhook (see
+// #72, routes/inboundEmail.js), whose JSON body carries the entire email
+// base64-encoded, attachments included. Every other route's JSON bodies
+// are small form-field-sized payloads, so raising this globally rather
+// than scoping it to one path doesn't meaningfully change their behavior.
+app.use(express.json({ limit: "15mb" }));
 app.use(cookieParser());
 
 // Frontend and backend are one origin — this backend serves the built
@@ -166,6 +172,16 @@ const extractionLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
 app.use("/api/newsletters/:id/extract", extractionLimiter);
 app.use("/api/documents/:id/extract", extractionLimiter);
 
+// The inbound-email webhook (see #72) isn't behind a login session --
+// Postmark calls it directly, authenticated by Basic Auth instead (see
+// routes/inboundEmail.js). That makes it a real target for someone
+// guessing at the password, same risk shape as the auth endpoints above
+// -- rate-limited for the same reason. Generous enough for genuine
+// inbound volume (a church isn't receiving hundreds of emails in 15
+// minutes) while still meaningfully throttling a brute-force attempt.
+const inboundEmailWebhookLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 60 });
+app.use("/api/inbound-email/postmark", inboundEmailWebhookLimiter);
+
 // --- Routes ---
 app.use("/api/auth", authRoutes);
 app.use("/api/partners", partnerRoutes); // protected (admin) — session required
@@ -185,6 +201,7 @@ app.use("/api/public/settings", publicSettingsRoutes); // open (public site + ad
 app.use("/api/version-check", versionRoutes); // protected (admin role only)
 app.use("/api/backup-check", backupCheckRoutes); // protected (admin role only)
 app.use("/api/backups", backupsRoutes); // protected (admin role only)
+app.use("/api/inbound-email", inboundEmailRoutes); // mixed -- see that file's own comment
 
 // Only exists at all if DEMO_RESET_TOKEN is configured — absent in every
 // normal deployment. See ADMIN_GUIDE.md § Demo mode.

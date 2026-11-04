@@ -46,15 +46,24 @@ const DEFAULTS = {
   },
 };
 
-const SettingsContext = createContext({ ...DEFAULTS, loading: true });
+const SettingsContext = createContext({ ...DEFAULTS, loading: true, refreshSettings: () => {} });
 
 export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState({ ...DEFAULTS, loading: true });
 
-  useEffect(() => {
-    fetchPublicSettings()
+  // Extracted so a page that just changed a setting this context carries
+  // (Enabled Features, the Email page's own inline toggles, Branding,
+  // ...) can call refreshSettings() afterward instead of leaving the
+  // sidebar/Home tiles showing stale data until a full page reload --
+  // this context only ever fetches once on mount otherwise.
+  function loadSettings() {
+    return fetchPublicSettings()
       .then((data) => setSettings({ ...DEFAULTS, ...data, loading: false }))
       .catch(() => setSettings({ ...DEFAULTS, loading: false }));
+  }
+
+  useEffect(() => {
+    loadSettings();
   }, []);
 
   // Both side effects are harmless no-ops on an unconfigured instance
@@ -72,7 +81,11 @@ export function SettingsProvider({ children }) {
     }
   }, [settings.churchName, settings.partnerTermPlural]);
 
-  return <SettingsContext.Provider value={settings}>{children}</SettingsContext.Provider>;
+  return (
+    <SettingsContext.Provider value={{ ...settings, refreshSettings: loadSettings }}>
+      {children}
+    </SettingsContext.Provider>
+  );
 }
 
 export function useSettings() {

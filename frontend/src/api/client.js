@@ -188,9 +188,12 @@ export async function updateAiExtractionSettings(payload) {
   return data;
 }
 
-// Email (Postmark) -- admin-only on the backend, same pattern as GroupMe/
-// Joshua Project/AI Extraction above. fetchEmailSettings() returns
-// { configured, fromAddress }; the server token itself never appears in
+// Email (Postmark) -- sending and receiving share one settings page and
+// one admin-only route pair, but are independently gated (see
+// backend/src/utils/features.js's "email"/"inboundEmail" keys).
+// fetchEmailSettings() returns { sendEnabled, outboundConfigured,
+// fromAddress, receiveEnabled, inboundConfigured, webhookUsername,
+// webhookPath } -- the server token and webhook password never appear in
 // any response. sendTestEmail() sends a real email to the caller's own
 // account address.
 export async function fetchEmailSettings() {
@@ -206,6 +209,24 @@ export async function updateEmailSettings(payload) {
 export async function sendTestEmail() {
   const { data } = await api.post("/settings/email/test");
   return data;
+}
+
+// The review queue -- inbound emails Postmark couldn't automatically match
+// to a partner. assignInboundEmail files it as a Newsletter against the
+// chosen partner and removes it from the queue; discardInboundEmail
+// removes it without filing anything.
+export async function fetchPendingInboundEmails() {
+  const { data } = await api.get("/inbound-email");
+  return data;
+}
+
+export async function assignInboundEmail(id, partnerId) {
+  const { data } = await api.post(`/inbound-email/${id}/assign`, { partnerId });
+  return data;
+}
+
+export async function discardInboundEmail(id) {
+  await api.delete(`/inbound-email/${id}`);
 }
 
 export async function fetchPublicSettings() {

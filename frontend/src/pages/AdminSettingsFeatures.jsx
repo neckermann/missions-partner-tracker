@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { fetchChurchSettings, updateChurchSettings } from "../api/client.js";
+import { useSettings } from "../context/SettingsContext.jsx";
 
 // A plain div, not <label> -- .admin-shell label forces flex-direction:
 // column (stacked, for the usual label-above-input fields elsewhere in
@@ -19,6 +20,7 @@ function FeatureToggleRow({ feature, checked, onToggle }) {
 }
 
 export default function AdminSettingsFeatures() {
+  const { refreshSettings } = useSettings();
   const [enabledFeatures, setEnabledFeatures] = useState({});
   const [featureRegistry, setFeatureRegistry] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -49,6 +51,10 @@ export default function AdminSettingsFeatures() {
     try {
       const updated = await updateChurchSettings({ enabledFeatures });
       setEnabledFeatures(updated.enabledFeatures || {});
+      // The sidebar/Home tiles read enabledFeatures from SettingsContext,
+      // which only fetches once on mount otherwise -- without this they'd
+      // keep showing pre-save nav until a full page reload.
+      refreshSettings();
       setSuccess("Saved.");
     } catch (err) {
       setError(err.response?.data?.error || "Couldn't save feature settings.");
@@ -61,9 +67,14 @@ export default function AdminSettingsFeatures() {
   // comment in backend/src/utils/features.js): "public" is the couple of
   // toggles a logged-out visitor can notice at all (the site disappearing
   // at "/" or "/map"); "admin" is everything else, which only ever
-  // changes a logged-in admin's own nav.
+  // changes a logged-in admin's own nav. Within "admin", `section` splits
+  // Communications and Integrations into their own blocks below -- same
+  // three-way grouping (core / Communications / Integrations) the
+  // sidebar and Home tiles already use, so this page reads the same way.
   const publicFeatures = featureRegistry.filter((f) => f.group === "public");
-  const adminFeatures = featureRegistry.filter((f) => f.group !== "public");
+  const coreAdminFeatures = featureRegistry.filter((f) => f.group === "admin" && !f.section);
+  const communicationsFeatures = featureRegistry.filter((f) => f.section === "communications");
+  const integrationsFeatures = featureRegistry.filter((f) => f.section === "integrations");
 
   return (
     <div className="admin-shell form-has-floating-actions">
@@ -88,10 +99,38 @@ export default function AdminSettingsFeatures() {
           </div>
         )}
 
-        {adminFeatures.length > 0 && (
+        {coreAdminFeatures.length > 0 && (
           <div className="admin-section">
             <h3>Admin features</h3>
-            {adminFeatures.map((f) => (
+            {coreAdminFeatures.map((f) => (
+              <FeatureToggleRow
+                key={f.key}
+                feature={f}
+                checked={enabledFeatures[f.key] ?? f.defaultEnabled}
+                onToggle={() => toggleFeature(f.key)}
+              />
+            ))}
+          </div>
+        )}
+
+        {communicationsFeatures.length > 0 && (
+          <div className="admin-section">
+            <h3>Communications</h3>
+            {communicationsFeatures.map((f) => (
+              <FeatureToggleRow
+                key={f.key}
+                feature={f}
+                checked={enabledFeatures[f.key] ?? f.defaultEnabled}
+                onToggle={() => toggleFeature(f.key)}
+              />
+            ))}
+          </div>
+        )}
+
+        {integrationsFeatures.length > 0 && (
+          <div className="admin-section">
+            <h3>Integrations</h3>
+            {integrationsFeatures.map((f) => (
               <FeatureToggleRow
                 key={f.key}
                 feature={f}

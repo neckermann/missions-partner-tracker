@@ -1,5 +1,6 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
+require("dotenv").config({ quiet: true });
 const jwt = require("jsonwebtoken");
 
 // Must be set before requireAuth.js is required, and before any token is
