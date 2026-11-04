@@ -37,7 +37,10 @@ async function safeNotify(label, fn) {
 // settings lookup always had: a church can flip this mid-session and
 // the very next event should respect it.
 async function queueTypeEnabled(column) {
-  const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" }, select: { [column]: true } });
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { [column]: true },
+  });
   // No settings row yet (brand-new instance) -- same "everything on
   // until configured otherwise" default every other queueNotify* column
   // already has at the schema level.

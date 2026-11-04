@@ -25,7 +25,8 @@ function appBaseUrl() {
 function sourceLinkLine(payload) {
   const base = appBaseUrl();
   if (!base) return "";
-  if (payload.sourceNewsletterId) return `\n\nFrom: ${base}/api/newsletters/${payload.sourceNewsletterId}/download`;
+  if (payload.sourceNewsletterId)
+    return `\n\nFrom: ${base}/api/newsletters/${payload.sourceNewsletterId}/download`;
   if (payload.sourceDocumentId) return `\n\nFrom: ${base}/api/documents/${payload.sourceDocumentId}/download`;
   return "";
 }
