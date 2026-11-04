@@ -40,12 +40,17 @@ function SidebarLink({ to, label, end }) {
 
 // Manage Users, Branding, Enabled Features, About Church, Backups --
 // order as specified, not alphabetical or route order. Backups sits with
-// these four (not the optional-integration links below it) since every
-// church needs it regardless of which features are on -- not gated by a
-// feature toggle for the same reason. The last three below it ARE settings
-// pages for features that can be toggled off (see AdminSettingsFeatures.jsx)
-// -- same reasoning as buildLinks() above: no point linking to a settings
-// page for a feature that's off everywhere else in the app.
+// these four (not the links below it) since every church needs it
+// regardless of which features are on -- not gated by a feature toggle
+// for the same reason.
+//
+// Below that, two kinds of optional integration, visually split by what
+// they actually do -- GroupMe and Email both *send something out* on an
+// event (a notification channel); Joshua Project and AI Request Scanning
+// *pull data in* or process content, never notify anyone. isLabel marks
+// a plain section caption (rendered as text, not a link) rather than
+// adding a second collapsible level under Site Administration -- that
+// felt like more machinery than nine total sub-items needs.
 function buildSiteAdminLinks(enabledFeatures) {
   return [
     { to: "/admin/settings/users", label: "Manage Users" },
@@ -53,10 +58,11 @@ function buildSiteAdminLinks(enabledFeatures) {
     { to: "/admin/settings/features", label: "Enabled Features" },
     { to: "/admin/settings/about", label: "About Church" },
     { to: "/admin/settings/backups", label: "Backups" },
+    (enabledFeatures.groupme || enabledFeatures.email) && { label: "Notifications", isLabel: true },
     enabledFeatures.groupme && { to: "/admin/settings/groupme", label: "GroupMe" },
+    enabledFeatures.email && { to: "/admin/settings/email", label: "Email" },
     enabledFeatures.joshuaProject && { to: "/admin/settings/joshua-project", label: "Joshua Project" },
     enabledFeatures.aiExtraction && { to: "/admin/settings/ai-extraction", label: "AI Request Scanning" },
-    enabledFeatures.email && { to: "/admin/settings/email", label: "Email" },
   ].filter(Boolean);
 }
 
@@ -101,9 +107,15 @@ export default function AdminSidebar() {
             </button>
             {showSiteAdmin && (
               <div className="admin-sidebar-subnav">
-                {siteAdminLinks.map((link) => (
-                  <SidebarLink key={link.to} {...link} />
-                ))}
+                {siteAdminLinks.map((link) =>
+                  link.isLabel ? (
+                    <div key={link.label} className="admin-sidebar-subnav-label">
+                      {link.label}
+                    </div>
+                  ) : (
+                    <SidebarLink key={link.to} {...link} />
+                  )
+                )}
               </div>
             )}
           </>
