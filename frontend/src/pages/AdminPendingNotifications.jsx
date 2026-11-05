@@ -5,7 +5,10 @@ import {
   fetchPendingNotifications,
   sendPendingNotifications,
   deletePendingNotification,
+  revealPendingNotification,
+  updatePendingNotification,
 } from "../api/client.js";
+import NotificationReviewModal from "../components/admin/NotificationReviewModal.jsx";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -85,7 +88,29 @@ function RestrictedBadge() {
   );
 }
 
-function BlurbRow({ blurb, onClear, clearing }) {
+// Same amber language as RestrictedBadge, worded differently -- this one
+// means "nothing has gone out yet, and nothing will until this is
+// reviewed," not just "this row's content is masked" (#187).
+function AwaitingReviewBadge() {
+  return (
+    <span
+      style={{
+        marginLeft: "0.5rem",
+        padding: "0.1rem 0.5rem",
+        borderRadius: "999px",
+        background: RESTRICTED_BORDER,
+        color: "#fff",
+        fontSize: "0.75rem",
+        fontWeight: 600,
+        verticalAlign: "middle",
+      }}
+    >
+      Awaiting review
+    </span>
+  );
+}
+
+function BlurbRow({ blurb, onClear, clearing, onEdit, onQuickApprove, approving }) {
   return (
     <div
       style={{
@@ -104,20 +129,40 @@ function BlurbRow({ blurb, onClear, clearing }) {
           {blurb.emoji} {blurb.summary}
         </strong>
         <SentStatus blurb={blurb} />
+        {blurb.needsReview && <AwaitingReviewBadge />}
+        {blurb.isRestricted && blurb.reviewedAt && !blurb.needsReview && (
+          <span style={{ color: "#2a5d3c", fontSize: "0.8rem", marginLeft: "0.5rem" }}>Reviewed ✓</span>
+        )}
         <p style={{ margin: "0.25rem 0 0", color: "#555" }}>{blurb.bodyText}</p>
         {blurb.amount && <p style={{ margin: "0.25rem 0 0", fontWeight: 600 }}>Approved: {blurb.amount}</p>}
       </div>
-      {onClear && (
-        <button
-          type="button"
-          className="btn secondary small"
-          onClick={() => onClear(blurb.id)}
-          disabled={clearing}
-          style={{ flexShrink: 0 }}
-        >
-          {clearing ? "Clearing..." : "Clear"}
-        </button>
-      )}
+      <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
+        {blurb.needsReview && onQuickApprove && (
+          <button
+            type="button"
+            className="btn secondary small"
+            onClick={() => onQuickApprove(blurb)}
+            disabled={approving}
+          >
+            {approving ? "Approving..." : "Approve"}
+          </button>
+        )}
+        {onEdit && (
+          <button type="button" className="btn secondary small" onClick={() => onEdit(blurb)}>
+            Edit
+          </button>
+        )}
+        {onClear && (
+          <button
+            type="button"
+            className="btn secondary small"
+            onClick={() => onClear(blurb.id)}
+            disabled={clearing}
+          >
+            {clearing ? "Clearing..." : "Clear"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -129,6 +174,8 @@ export default function AdminPendingNotifications() {
   const [savingSettings, setSavingSettings] = useState(false);
   const [sending, setSending] = useState(false);
   const [clearingId, setClearingId] = useState(null);
+  const [editingBlurb, setEditingBlurb] = useState(null);
+  const [approvingId, setApprovingId] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -165,14 +212,18 @@ export default function AdminPendingNotifications() {
     try {
       const result = await sendPendingNotifications();
       await reloadPending();
+      const heldNote =
+        result.heldForReview > 0
+          ? ` ${result.heldForReview} item${result.heldForReview === 1 ? "" : "s"} still awaiting review, excluded from this send.`
+          : "";
       setSuccess(
         result.sent > 0
           ? `Sent ${result.sent} notification${result.sent === 1 ? "" : "s"}.${
               result.remaining > 0
                 ? ` ${result.remaining} still queued (a channel's send didn't succeed).`
                 : ""
-            }`
-          : "Nothing went out -- check that a channel is actually configured, or there's nothing queued."
+            }${heldNote}`
+          : `Nothing went out -- check that a channel is actually configured, or there's nothing queued.${heldNote}`
       );
     } catch (err) {
       setError(err.response?.data?.error || "Couldn't send pending notifications.");
@@ -199,9 +250,48 @@ export default function AdminPendingNotifications() {
     }
   }
 
+  // Merges an edited row back into the list in place -- no need to
+  // re-fetch the whole queue just to reflect one saved edit.
+  function handleEditSaved(updated) {
+    setPending((list) => list.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
+  }
+
+  // The lightweight path for a held row that doesn't need any wording
+  // changed -- skips opening the full edit modal, but carries the exact
+  // same real-world consequence as saving there (it clears the hold, so
+  // this is sendable from here on), so it gets the same safety gate: show
+  // the real text and make the admin explicitly confirm it before it's
+  // saved as-is. Uses the same reveal+save calls the modal itself uses,
+  // just without the textarea step in between.
+  async function handleQuickApprove(blurb) {
+    setApprovingId(blurb.id);
+    setError("");
+    setSuccess("");
+    try {
+      const { rawText } = await revealPendingNotification(blurb.id);
+      const confirmed = window.confirm(
+        `This partner is restricted. Approving marks this reviewed and eligible to send to any enabled ` +
+          `notification channel -- their name, photo, and any source-file link stay masked regardless, but ` +
+          `the exact wording below is what goes out as-is. Check it for anything else that could identify ` +
+          `them or their location (a specific place, date, or detail only they'd be tied to) before approving.\n\n` +
+          `Text to send:\n"${rawText}"\n\n` +
+          `Approve and send this as-is?`
+      );
+      if (!confirmed) return;
+      const updated = await updatePendingNotification(blurb.id, rawText);
+      setPending((list) => list.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
+    } catch (err) {
+      setError(err.response?.data?.error || "Couldn't approve that notification.");
+    } finally {
+      setApprovingId(null);
+    }
+  }
+
   if (loading || !settings) return <p className="admin-shell">Loading…</p>;
 
   const groups = groupByPartner(pending);
+  const heldCount = pending.filter((p) => p.needsReview).length;
+  const sendableCount = pending.length - heldCount;
 
   return (
     <div className="admin-shell form-has-floating-actions">
@@ -325,6 +415,26 @@ export default function AdminPendingNotifications() {
               Newsletters
             </label>
           </div>
+          <p style={{ margin: "0.75rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+            This last one is a filter across the three above, not a peer type of its own.
+          </p>
+          <div className="admin-checkbox-row" style={{ marginTop: "0.35rem" }}>
+            <label>
+              <input
+                type="checkbox"
+                checked={settings.queueNotifyRestrictedPartners}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, queueNotifyRestrictedPartners: e.target.checked }))
+                }
+              />
+              Restricted partners
+            </label>
+          </div>
+          <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+            Off skips restricted-access partners' events entirely -- nothing is queued for them, which also
+            means nothing ever needs manual review. On (default) queues them like anyone else, subject to the
+            review requirement below.
+          </p>
         </div>
 
         <div className="admin-section" style={{ marginTop: "1rem" }}>
@@ -392,11 +502,16 @@ export default function AdminPendingNotifications() {
             type="button"
             className="btn"
             onClick={handleSendNow}
-            disabled={sending || pending.length === 0}
+            disabled={sending || sendableCount === 0}
           >
             {sending ? "Sending..." : "Send Pending Notifications Now"}
           </button>
         </div>
+        {heldCount > 0 && (
+          <p style={{ color: "#b45309", fontSize: "0.9rem" }}>
+            {heldCount} awaiting review -- excluded from both manual and scheduled sends until reviewed.
+          </p>
+        )}
 
         {groups.length === 0 && <p style={{ color: "#888" }}>Nothing waiting to go out.</p>}
 
@@ -409,10 +524,24 @@ export default function AdminPendingNotifications() {
             {group.isRestricted && <RestrictedBadge />}
             {group.newsletters.map(({ blurb, children }) => (
               <div key={blurb.id}>
-                <BlurbRow blurb={blurb} onClear={handleClear} clearing={clearingId === blurb.id} />
+                <BlurbRow
+                  blurb={blurb}
+                  onClear={handleClear}
+                  clearing={clearingId === blurb.id}
+                  onEdit={setEditingBlurb}
+                  onQuickApprove={handleQuickApprove}
+                  approving={approvingId === blurb.id}
+                />
                 {children.map((child) => (
                   <div key={child.id} style={{ marginLeft: "1.5rem" }}>
-                    <BlurbRow blurb={child} onClear={handleClear} clearing={clearingId === child.id} />
+                    <BlurbRow
+                      blurb={child}
+                      onClear={handleClear}
+                      clearing={clearingId === child.id}
+                      onEdit={setEditingBlurb}
+                      onQuickApprove={handleQuickApprove}
+                      approving={approvingId === child.id}
+                    />
                   </div>
                 ))}
               </div>
@@ -423,11 +552,22 @@ export default function AdminPendingNotifications() {
                 blurb={blurb}
                 onClear={handleClear}
                 clearing={clearingId === blurb.id}
+                onEdit={setEditingBlurb}
+                onQuickApprove={handleQuickApprove}
+                approving={approvingId === blurb.id}
               />
             ))}
           </div>
         ))}
       </div>
+
+      {editingBlurb && (
+        <NotificationReviewModal
+          blurb={editingBlurb}
+          onSaved={handleEditSaved}
+          onClose={() => setEditingBlurb(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 const express = require("express");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
-const { buildBlurb } = require("../utils/notificationBlurbs");
+const { buildBlurb, REVIEW_GATED_TYPES } = require("../utils/notificationBlurbs");
 const { flushPendingNotifications } = require("../utils/notificationFlush");
 
 // The batched-notification review queue (see #129) -- what used to post
@@ -41,6 +41,15 @@ router.get("/pending", async (req, res, next) => {
           // partner, without this route handing back anything it
           // wouldn't otherwise.
           isRestricted: !!partnerById.get(row.partnerId)?.isRestricted,
+          // #187: whether this row is currently held out of every send
+          // path (see notificationFlush.js's own needsReview(), which
+          // this must stay consistent with -- restricted real-content
+          // row, never yet edited/confirmed).
+          needsReview:
+            REVIEW_GATED_TYPES.has(row.type) &&
+            !!partnerById.get(row.partnerId)?.isRestricted &&
+            !row.reviewedAt,
+          reviewedAt: row.reviewedAt,
           groupmeSentAt: row.groupmeSentAt,
           emailSentAt: row.emailSentAt,
           createdAt: row.createdAt,
@@ -48,6 +57,67 @@ router.get("/pending", async (req, res, next) => {
       })
       .filter(Boolean);
     res.json(items);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/notifications/pending/:id -- admin or editor, not the bare
+// requireAuth every role gets for the masked list above: this exposes
+// the REAL unmasked text, a restricted partner's included, so it's
+// gated the same as everything else that mutates/reveals more than the
+// list view (#187). Reuses buildBlurb against a synthetic
+// isRestricted:false view of the partner, instead of duplicating each
+// type's own text-composition logic (note concatenation, amount
+// wording, etc.) here -- never returns the partner's real name/photo,
+// since masking those stays out of scope for this feature and the admin
+// already knows who this row is for from the page's own grouping.
+router.get("/pending/:id", requireRole("admin", "editor"), async (req, res, next) => {
+  try {
+    const row = await prisma.pendingNotification.findUnique({ where: { id: req.params.id } });
+    if (!row) return res.status(404).json({ error: "Not found" });
+    const partner = await prisma.partner.findUnique({
+      where: { id: row.partnerId },
+      select: { displayName: true, isRestricted: true },
+    });
+    const unmasked = buildBlurb(row, partner ? { ...partner, isRestricted: false } : null);
+    res.json({ rawText: row.reviewedAt ? row.reviewedText : (unmasked?.bodyText ?? null) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/notifications/pending/:id -- admin or editor, same gate as
+// every other queue-mutating route. Available on any row regardless of
+// type or restriction -- an admin might want to tidy up the wording on
+// anything before it sends, not just a restricted partner's held row
+// (#187). For a restricted real-content row specifically, saving here is
+// also what satisfies notificationFlush.js's needsReview() gate; for
+// every other row it's purely a content edit with no send-eligibility
+// consequence. Re-callable: saving again overwrites the previous edit.
+router.put("/pending/:id", requireRole("admin", "editor"), async (req, res, next) => {
+  try {
+    const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+    if (!text) return res.status(400).json({ error: "text is required" });
+
+    const row = await prisma.pendingNotification.findUnique({ where: { id: req.params.id } });
+    if (!row) return res.status(404).json({ error: "Not found" });
+
+    const updated = await prisma.pendingNotification.update({
+      where: { id: row.id },
+      data: { reviewedAt: new Date(), reviewedById: req.user.id, reviewedText: text },
+    });
+    const partner = await prisma.partner.findUnique({
+      where: { id: updated.partnerId },
+      select: { displayName: true, isRestricted: true },
+    });
+    const blurb = buildBlurb(updated, partner);
+    res.json({
+      ...blurb,
+      isRestricted: !!partner?.isRestricted,
+      needsReview: false,
+      reviewedAt: updated.reviewedAt,
+    });
   } catch (err) {
     next(err);
   }

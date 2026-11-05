@@ -31,20 +31,31 @@ async function safeNotify(label, fn) {
   }
 }
 
-// Each event type's own ChurchSettings on/off switch (see the
-// queueNotify* fields' own schema.prisma comment) -- checked fresh per
-// call rather than cached, same reasoning groupme.js's old per-call
-// settings lookup always had: a church can flip this mid-session and
-// the very next event should respect it.
-async function queueTypeEnabled(column) {
+// Each event type's own ChurchSettings on/off switch, plus the
+// cross-cutting queueNotifyRestrictedPartners switch (#187) -- checked
+// fresh per call rather than cached, same reasoning groupme.js's old
+// per-call settings lookup always had: a church can flip either mid-
+// session and the very next event should respect it. The restricted-
+// partner check only runs its own extra query when that switch is
+// actually off (the common default-on case adds no round trip over what
+// this already did).
+async function shouldQueue(column, partnerId) {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { [column]: true },
+    select: { [column]: true, queueNotifyRestrictedPartners: true },
   });
   // No settings row yet (brand-new instance) -- same "everything on
   // until configured otherwise" default every other queueNotify* column
   // already has at the schema level.
-  return settings ? settings[column] !== false : true;
+  if (settings && settings[column] === false) return false;
+  if (settings && settings.queueNotifyRestrictedPartners === false) {
+    const partner = await prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: { isRestricted: true },
+    });
+    if (partner?.isRestricted) return false;
+  }
+  return true;
 }
 
 async function enqueue(type, partnerId, payload) {
@@ -53,7 +64,7 @@ async function enqueue(type, partnerId, payload) {
 
 async function notifyPrayerRequestCreated(prayerRequest) {
   await safeNotify("Prayer request created", async () => {
-    if (!(await queueTypeEnabled("queueNotifyPrayerRequests"))) return;
+    if (!(await shouldQueue("queueNotifyPrayerRequests", prayerRequest.partnerId))) return;
     await enqueue("prayerRequestCreated", prayerRequest.partnerId, {
       partnerName: prayerRequest.partner?.displayName || "A partner",
       requestText: prayerRequest.requestText,
@@ -64,7 +75,7 @@ async function notifyPrayerRequestCreated(prayerRequest) {
 
 async function notifyPrayerRequestAnswered(prayerRequest) {
   await safeNotify("Prayer request answered", async () => {
-    if (!(await queueTypeEnabled("queueNotifyPrayerRequests"))) return;
+    if (!(await shouldQueue("queueNotifyPrayerRequests", prayerRequest.partnerId))) return;
     await enqueue("prayerRequestAnswered", prayerRequest.partnerId, {
       partnerName: prayerRequest.partner?.displayName || "A partner",
       requestText: prayerRequest.requestText,
@@ -76,7 +87,7 @@ async function notifyPrayerRequestAnswered(prayerRequest) {
 
 async function notifySupportNeedCreated(supportNeed) {
   await safeNotify("Support need created", async () => {
-    if (!(await queueTypeEnabled("queueNotifyOneTimeNeeds"))) return;
+    if (!(await shouldQueue("queueNotifyOneTimeNeeds", supportNeed.partnerId))) return;
     await enqueue("supportNeedCreated", supportNeed.partnerId, {
       partnerName: supportNeed.partner?.displayName || "A partner",
       description: supportNeed.description,
@@ -87,7 +98,7 @@ async function notifySupportNeedCreated(supportNeed) {
 
 async function notifySupportNeedDecided(supportNeed) {
   await safeNotify("Support need decided", async () => {
-    if (!(await queueTypeEnabled("queueNotifyOneTimeNeeds"))) return;
+    if (!(await shouldQueue("queueNotifyOneTimeNeeds", supportNeed.partnerId))) return;
     await enqueue("supportNeedDecided", supportNeed.partnerId, {
       partnerName: supportNeed.partner?.displayName || "A partner",
       description: supportNeed.description,
@@ -100,7 +111,7 @@ async function notifySupportNeedDecided(supportNeed) {
 
 async function notifyNewsletterCreated(newsletter) {
   await safeNotify("Newsletter created", async () => {
-    if (!(await queueTypeEnabled("queueNotifyNewsletters"))) return;
+    if (!(await shouldQueue("queueNotifyNewsletters", newsletter.partnerId))) return;
     await enqueue("newsletterCreated", newsletter.partnerId, {
       partnerName: newsletter.partner?.displayName || "A partner",
       newsletterId: newsletter.id,
