@@ -16,7 +16,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
-## [1.0.0] - 2026-09-22
+## [1.0.0] - 2026-11-05
 
 First release.
 
@@ -29,26 +29,60 @@ What's in it:
 
 - **Partners.** Missionaries and organizations are one record type
   distinguished by `kind`, so everything downstream — trips, support,
-  prayer requests, newsletters, documents — attaches the same way for
-  both. A partner's page is also its editor: each section saves only its
-  own fields, so changing one thing can't quietly overwrite another.
+  prayer requests, newsletters & docs — attaches the same way for both.
+  A partner's page is also its editor: each section saves only its own
+  fields, so changing one thing can't quietly overwrite another.
 - **A public site that protects people.** Partners marked
   restricted-access appear with their name masked to initials, a
   silhouette instead of a photograph, and a map pin coarsened to a country
   centroid. Every public response goes through one masking serializer that
-  no public route can bypass, tested in isolation.
-- **Prayer requests, monthly support, one-time needs, trips,
-  newsletters and documents**, each with its own page and its own section
-  on a partner's page.
-- **A printable booklet** that lays out every partner for handing round on
-  paper.
-- **Per-church feature toggles.** Turn off anything a church doesn't use;
-  the toggle is enforced on the server, not just hidden in the UI.
-- **Optional AI request scanning.** Point it at an uploaded newsletter and
-  it suggests prayer requests and financial needs for review — nothing is
+  no public route can bypass, tested in isolation — and the same masking
+  carries through to GroupMe posts and digest emails, not just the public
+  site.
+- **Prayer requests, monthly support, one-time needs, and trip
+  history/opportunities**, each with its own page and its own section on
+  a partner's page.
+- **Newsletters & Docs.** Upload a newsletter, survey response, signed
+  policy, email record, or other office document against a partner,
+  picking its kind from one list — reclassify a mis-filed upload the same
+  way you'd edit anything else, no delete-and-re-upload required.
+- **Optional AI Request Scanning.** Point it at an uploaded file and it
+  suggests prayer requests and one-time needs for review — nothing is
   added without an explicit accept. Off by default, and only available at
   all once `ANTHROPIC_API_KEY` is set, since it's the one feature that
   sends file content to a third party.
+- **A printable booklet** with six selectable Look & Feel templates
+  (Classic, Modern, Traditional, Keepsake, Portfolio, Friendly), an
+  optional facing Notes & Prayer page, and a configurable cover/back
+  cover — built for handing round on paper.
+- **Reports.** Read-only views — birthdays, monthly support, one-time
+  needs, prayer requests, trip history, furlough — each filterable, with
+  CSV export and a clean print layout.
+- **Optional GroupMe notifications.** New prayer requests, one-time
+  needs, and newsletters post to their own configured GroupMe Topics,
+  along with answered-prayer/decided-need outcomes — queued and sent as a
+  batch rather than posting the instant they happen.
+- **Optional email**, via Postmark — outbound digests of what's queued,
+  and inbound email that auto-files a reply as a newsletter when it
+  matches a known partner (anything else lands in an Unmatched Emails
+  queue for a quick manual assign). Sending and receiving toggle
+  independently.
+- **Notification batching**, shared by GroupMe and email: review what's
+  queued and send it on a schedule or on demand, with an email digest
+  customizable between a plain Classic layout and a Snapshot layout
+  (partner photo, "supporting since," short overview) plus your own
+  subject-line template and signature.
+- **Optional unreached-people-group data.** A partner's public page can
+  pull live country statistics from the
+  [Joshua Project](https://joshuaproject.net/) — population, primary
+  religion, percent evangelical, how reached the country is. Off by
+  default; add a free API key and turn it on, no code changes.
+- **White-labeling.** Three independently-pickable brand colors plus a
+  font choice, and a custom term for "partners" (e.g. "Go Team Partners"
+  instead of "Missionaries") used everywhere in the app that would
+  otherwise say the hardcoded default.
+- **Per-church feature toggles.** Turn off anything a church doesn't use;
+  the toggle is enforced on the server, not just hidden in the UI.
 - **Accounts with optional two-factor.** Email and password, with TOTP
   that an admin can require per account.
 - **One-click deployment on [Render](https://render.com)** with a
