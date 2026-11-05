@@ -1080,7 +1080,14 @@ body {
   max-height: 1.4in;
   object-fit: contain;
   margin-bottom: 0.3in;
-  border-radius: 50%;
+  /* A full circle (border-radius: 50%) only looks right for a roughly
+     square logo -- with no fixed width/height, the box itself scales to
+     the image's own aspect ratio, so a wide wordmark would get squeezed
+     into a thin oval instead. A small fixed radius stays soft and
+     "friendly" (matches this template's own pill-badge language
+     elsewhere) regardless of whether the logo is square or a wide
+     rectangle. */
+  border-radius: 12px;
   border: 6px solid #fff;
 }
 .tpl-friendly .booklet-back-church {

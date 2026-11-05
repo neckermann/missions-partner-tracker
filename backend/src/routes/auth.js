@@ -7,6 +7,8 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireAuthOrMfaSetup } = require("../middleware/requireAuth");
 const { setSessionCookie, clearSessionCookie } = require("../utils/jwt");
 const { encryptField, decryptField } = require("../utils/crypto");
+const { appBaseUrl } = require("../utils/notificationBlurbs");
+const { escapeHtml } = require("../utils/emailDigest");
 
 const router = express.Router();
 const MFA_PENDING_TTL = "5m";
@@ -332,10 +334,36 @@ router.put("/notify-by-email", requireAuth, async (req, res, next) => {
 // HTML confirmation page, not JSON -- this is a link a person clicks in
 // their mail client, not an API call.
 router.get("/unsubscribe", async (req, res) => {
+  // Branded to match the digest email's own header-band treatment (see
+  // utils/emailDigest.js) -- same three colors/font, same fallbacks, so
+  // this doesn't look like a different, unbranded app once clicked into
+  // from the email.
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { churchName: true, headerColor: true, logoContentType: true, brandFont: true },
+  });
+  const churchName = settings?.churchName || "Missions Partner Tracker";
+  const headerColor = settings?.headerColor || "#2c2a28";
+  const fontFamily =
+    settings?.brandFont || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  const base = appBaseUrl();
+  const logoHtml =
+    settings?.logoContentType && base
+      ? `<img src="${base}/api/public/settings/logo/raw" alt="${escapeHtml(churchName)}" style="max-height:40px;width:auto;max-width:240px;margin-bottom:10px;">`
+      : "";
+
   const page = (message) => `<!doctype html>
 <html><head><meta charset="utf-8"><title>Email notifications</title></head>
-<body style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:80px auto;text-align:center;color:#222;">
-<h2>${message}</h2>
+<body style="font-family:${fontFamily};background:#f7f5f0;margin:0;padding:40px 16px;">
+<div style="max-width:420px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;">
+  <div style="background-color:${headerColor};padding:28px 24px;text-align:center;">
+    ${logoHtml}
+    <h2 style="margin:0;color:#ffffff;font-size:18px;">${escapeHtml(churchName)}</h2>
+  </div>
+  <div style="padding:32px 24px;text-align:center;color:#222;">
+    <p style="margin:0;font-size:16px;line-height:1.5;">${message}</p>
+  </div>
+</div>
 </body></html>`;
 
   let decoded;

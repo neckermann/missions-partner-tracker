@@ -31,12 +31,14 @@ const IMAGE_MIME_TO_EXT = {
 // HEIC/HEIF (the default photo format on every iPhone since iOS 11) has no
 // reliable browser-reported MIME type -- Windows in particular has no
 // built-in HEIC registration, so Chrome/Edge there often report
-// application/octet-stream or leave it blank. Recognized by extension as a
+// application/octet-stream or leave it blank. webp's Content-Type isn't
+// always reliable either (confirmed directly -- see routes/settings.js's
+// own logo upload for the same fix). Both recognized by extension as a
 // fallback, same approach as .eml in routes/newsletters.js/documents.js.
-const resolveImageExt = makeExtResolver(IMAGE_MIME_TO_EXT, {
-  test: (name) => /\.hei[cf]$/i.test(name),
-  ext: "heic",
-});
+const resolveImageExt = makeExtResolver(IMAGE_MIME_TO_EXT, [
+  { test: (name) => /\.hei[cf]$/i.test(name), ext: "heic" },
+  { test: (name) => /\.webp$/i.test(name), ext: "webp" },
+]);
 
 const upload = uploadFilteredBy(resolveImageExt, {
   maxFileSize: 5 * 1024 * 1024,
@@ -429,16 +431,20 @@ router.post("/:id/image", requireRole("admin", "editor"), upload.single("image")
 
     const ext = resolveImageExt(req.file);
     // Verified against the canonical type for the resolved extension, not
-    // req.file.mimetype directly -- a HEIC upload's own Content-Type can't
-    // be trusted (see resolveImageExt's comment), so the signature check
-    // needs to know what it's actually supposed to be.
-    const signatureMime = ext === "heic" ? "image/heic" : req.file.mimetype;
+    // req.file.mimetype directly -- a HEIC or webp upload's own
+    // Content-Type can't always be trusted (see resolveImageExt's
+    // comment), so the signature check needs to know what it's actually
+    // supposed to be.
+    const signatureMime = ext === "heic" ? "image/heic" : ext === "webp" ? "image/webp" : req.file.mimetype;
     if (!matchesFileSignature(req.file.buffer, signatureMime)) {
       return res.status(400).json({ error: "File content doesn't match its declared image type" });
     }
 
     let bytes = req.file.buffer;
-    let contentType = req.file.mimetype;
+    // Also what actually gets stored, so a served photo's Content-Type
+    // header is always correct regardless of what the upload itself
+    // claimed -- same reasoning as the signature check above.
+    let contentType = signatureMime;
     let fileSize = req.file.size;
 
     // HEIC doesn't render in an <img> tag in most browsers outside Safari

@@ -255,6 +255,32 @@ export default function AdminPendingNotifications() {
               Newsletters
             </label>
           </div>
+        </div>
+
+        <div className="admin-section" style={{ marginTop: "1rem" }}>
+          <h3>Digest Customization</h3>
+          <label>
+            Subject line
+            <input
+              value={settings.digestSubjectTemplate || ""}
+              onChange={(e) => setSettings((s) => ({ ...s, digestSubjectTemplate: e.target.value || null }))}
+              placeholder="e.g. Weekly update: {count} items from {church}"
+            />
+          </label>
+          <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+            Leave blank for the default ("3 updates from {"{church}"}"). Use <code>{"{count}"}</code> for the
+            number of queued items and <code>{"{church}"}</code> for the church name, anywhere in your own
+            wording.
+          </p>
+          <label style={{ marginTop: "1rem" }}>
+            Signature
+            <textarea
+              rows={3}
+              value={settings.digestSignature || ""}
+              onChange={(e) => setSettings((s) => ({ ...s, digestSignature: e.target.value || null }))}
+              placeholder="An optional closing line -- a verse, a closing phrase, 'Questions? Contact us', etc."
+            />
+          </label>
           <div style={{ marginTop: "1rem" }}>
             <button type="submit" className="btn" disabled={savingSettings}>
               {savingSettings ? "Saving..." : "Save"}

@@ -33,7 +33,15 @@ const IMAGE_MIME_TO_EXT = {
   "image/webp": "webp",
 };
 
-const resolveImageExt = makeExtResolver(IMAGE_MIME_TO_EXT);
+// webp's Content-Type isn't always reliably reported by the uploading
+// client -- confirmed directly (a plain multipart upload with no explicit
+// Content-Type gets rejected even for a genuinely valid .webp file).
+// Recognized by extension as a fallback, same approach HEIC/HEIF gets in
+// routes/partners.js.
+const resolveImageExt = makeExtResolver(IMAGE_MIME_TO_EXT, {
+  test: (name) => /\.webp$/i.test(name),
+  ext: "webp",
+});
 
 const upload = uploadFilteredBy(resolveImageExt, {
   maxFileSize: 5 * 1024 * 1024,
@@ -65,6 +73,9 @@ const settingsSchema = z.object({
   publicTagline: z.string().optional().nullable(),
   aboutText: z.string().optional().nullable(),
   primaryColor: z.string().optional().nullable(),
+  headerColor: z.string().optional().nullable(),
+  highlightColor: z.string().optional().nullable(),
+  brandFont: z.string().optional().nullable(),
   // Sets are normally via POST /logo (below), same as missionary/org
   // photos — this is here so PUT can also clear it (form sets logo: null).
   logo: z.any().optional().nullable(),
@@ -152,7 +163,17 @@ router.put("/", requireRole("admin"), async (req, res, next) => {
 router.post("/logo", requireRole("admin"), upload.single("image"), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No image file provided" });
-    if (!matchesFileSignature(req.file.buffer, req.file.mimetype)) {
+
+    const ext = resolveImageExt(req.file);
+    // Verified against the canonical type for the resolved extension, not
+    // req.file.mimetype directly -- same reasoning as the HEIC photo
+    // upload in routes/partners.js: a browser's own reported Content-Type
+    // for this file isn't always trustworthy, and the signature check
+    // needs to know what it's actually supposed to be. Also what actually
+    // gets stored, so GET /logo/raw later serves the correct header
+    // regardless of what the upload itself claimed.
+    const signatureMime = ext === "webp" ? "image/webp" : req.file.mimetype;
+    if (!matchesFileSignature(req.file.buffer, signatureMime)) {
       return res.status(400).json({ error: "File content doesn't match its declared image type" });
     }
 
@@ -161,10 +182,10 @@ router.post("/logo", requireRole("admin"), upload.single("image"), async (req, r
       create: {
         id: "singleton",
         logoBytes: req.file.buffer,
-        logoContentType: req.file.mimetype,
+        logoContentType: signatureMime,
         updatedById: req.user.id,
       },
-      update: { logoBytes: req.file.buffer, logoContentType: req.file.mimetype, updatedById: req.user.id },
+      update: { logoBytes: req.file.buffer, logoContentType: signatureMime, updatedById: req.user.id },
       omit: {
         logoBytes: true,
         groupmeAccessToken: true,
@@ -493,6 +514,8 @@ const notificationSettingsSelect = {
   queueNotifyPrayerRequests: true,
   queueNotifyOneTimeNeeds: true,
   queueNotifyNewsletters: true,
+  digestSubjectTemplate: true,
+  digestSignature: true,
 };
 
 const notificationSettingsSchema = z.object({
@@ -503,6 +526,8 @@ const notificationSettingsSchema = z.object({
   queueNotifyPrayerRequests: z.boolean().optional(),
   queueNotifyOneTimeNeeds: z.boolean().optional(),
   queueNotifyNewsletters: z.boolean().optional(),
+  digestSubjectTemplate: z.string().optional().nullable(),
+  digestSignature: z.string().optional().nullable(),
 });
 
 router.get("/notifications", requireRole("admin"), async (req, res, next) => {
@@ -520,6 +545,8 @@ router.get("/notifications", requireRole("admin"), async (req, res, next) => {
         queueNotifyPrayerRequests: true,
         queueNotifyOneTimeNeeds: true,
         queueNotifyNewsletters: true,
+        digestSubjectTemplate: null,
+        digestSignature: null,
       }
     );
   } catch (err) {
