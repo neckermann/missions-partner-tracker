@@ -75,9 +75,10 @@ email sending only),
 **Site Administration**, an expandable group at the bottom of the
 sidebar, appears only for admins and holds **About Church**,
 [**Manage Users**](#user-management-admin-only), **Branding**,
-[**Enabled Features**](ADMIN_GUIDE.md#feature-toggles), and
-[**Backups**](#database-backups-admin-only) up front, then two further
-sub-groups that only appear once their own features are on:
+[**Enabled Features**](ADMIN_GUIDE.md#feature-toggles),
+[**Backups**](#database-backups-admin-only), and [**System
+Info**](#system-info-admin-only) up front, then two further sub-groups
+that only appear once their own features are on:
 
 - **Communications** — [**Email**](#email-admin-only),
   [**GroupMe**](#groupme-notifications-admin-only), and
@@ -627,6 +628,19 @@ permanent opt-out for a church that's already confirmed that elsewhere —
 checking that box requires a deliberate save, not just a casual dismiss.
 
 ![The Backups page: a Back up now button and the opt-out for the periodic reminder](docs/assets/screenshots/backups-settings.png)
+
+## System Info (Admin only)
+
+**System Info**, right below Backups, is a read-only page showing
+what's actually running on this instance: the app version (plus the
+same "update available" check the dashboard banner already does),
+Node.js/React/React DOM versions, the Postgres version and database
+size, and — when running on Render — the service name, git commit,
+and external URL. Useful for confirming what you're on before filing
+a bug, without needing shell access. Never shows a connection string
+or any credential.
+
+![The System Info page: app, runtime, database, and deployment details](docs/assets/screenshots/system-info.png)
 
 ## GroupMe notifications (Admin only)
 

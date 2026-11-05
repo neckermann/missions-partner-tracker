@@ -42,11 +42,12 @@ function SidebarLink({ to, label, end }) {
   );
 }
 
-// About Church, Manage Users, Branding, Enabled Features, Backups --
-// order as specified, not alphabetical or route order. Backups sits with
-// these four (not the links below it) since every church needs it
-// regardless of which features are on -- not gated by a feature toggle
-// for the same reason.
+// About Church, Manage Users, Branding, Enabled Features, Backups,
+// System Info -- order as specified, not alphabetical or route order.
+// These six sit together (not with the links below them) since every
+// church needs them regardless of which features are on -- not gated
+// by a feature toggle for the same reason (#195: core admin tooling,
+// not an opt-in feature).
 //
 // Below that, two kinds of optional integration, visually split by what
 // they actually do -- GroupMe and Email both *send and/or receive
@@ -65,6 +66,7 @@ function buildSiteAdminLinks(enabledFeatures) {
     { to: "/admin/settings/branding", label: "Branding" },
     { to: "/admin/settings/features", label: "Enabled Features" },
     { to: "/admin/settings/backups", label: "Backups" },
+    { to: "/admin/settings/system-info", label: "System Info" },
     (enabledFeatures.groupme || enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       label: "Communications",
       isLabel: true,

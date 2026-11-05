@@ -785,6 +785,34 @@ re-entered, and affected users will need MFA reset and re-enrolled from
 Manage Users. Nothing else is affected, and password hashes aren't tied
 to `FIELD_ENCRYPTION_KEY` at all, so normal login is unaffected.
 
+### System Info
+
+The **System Info** page (Site Administration, alongside Backups) is
+"what's actually running" on this instance — useful when debugging
+something, or checking what you're on before filing a bug against a
+fork, without needing shell/SSH access:
+
+- **App** — the running version, and the same "update available" check
+  the dashboard banner already does, surfaced here too.
+- **Runtime** — Node.js, React, and React DOM's versions. React/React
+  DOM come straight from the loaded frontend bundle at runtime
+  (`React.version`/`ReactDOM.version`), not from a file on the backend
+  — a deployed instance never ships `frontend/package.json` (only
+  `backend/` reaches the deployed artifact), so this is the only
+  accurate source for those two.
+- **Database** — the Postgres version string and the database's total
+  size. Never the connection string or any credential.
+- **Deployment** — on Render, the service name, short git commit, and
+  external URL (all auto-injected by Render itself); elsewhere, a plain
+  "Not running on Render" rather than guessing.
+
+Admin-gated like Backups, but for a slightly different reason: exact
+dependency versions are a small vulnerability-scanning convenience for
+anyone who's already gotten admin access, so this is enforced
+server-side (`GET /api/system-info` requires the `admin` role, same as
+`GET /api/backups/download`), not just hidden from other roles in the
+UI.
+
 ## Troubleshooting
 
 - **`node --test test/` fails with `MODULE_NOT_FOUND`**: this is a Node

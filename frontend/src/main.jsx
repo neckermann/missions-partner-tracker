@@ -48,6 +48,7 @@ const AdminInboundEmailQueue = lazy(() => import("./pages/AdminInboundEmailQueue
 const AdminPendingNotifications = lazy(() => import("./pages/AdminPendingNotifications.jsx"));
 const AdminNotificationSettings = lazy(() => import("./pages/AdminNotificationSettings.jsx"));
 const AdminSettingsBackups = lazy(() => import("./pages/AdminSettingsBackups.jsx"));
+const AdminSystemInfo = lazy(() => import("./pages/AdminSystemInfo.jsx"));
 const AdminMonthlySupport = lazy(() => import("./pages/AdminMonthlySupport.jsx"));
 const AdminOneTimeNeeds = lazy(() => import("./pages/AdminOneTimeNeeds.jsx"));
 const AdminPrayerRequests = lazy(() => import("./pages/AdminPrayerRequests.jsx"));
@@ -228,6 +229,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     }
                   />
                   <Route path="backups" element={<AdminSettingsBackups />} />
+                  <Route path="system-info" element={<AdminSystemInfo />} />
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="users/new" element={<AdminUserForm />} />
                   <Route path="users/:id" element={<AdminUserForm />} />

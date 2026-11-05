@@ -28,6 +28,7 @@ const reportsRoutes = require("./routes/reports");
 const settingsRoutes = require("./routes/settings");
 const publicSettingsRoutes = require("./routes/publicSettings");
 const versionRoutes = require("./routes/version");
+const systemInfoRoutes = require("./routes/systemInfo");
 const backupCheckRoutes = require("./routes/backupCheck");
 const backupsRoutes = require("./routes/backups");
 const inboundEmailRoutes = require("./routes/inboundEmail");
@@ -195,6 +196,7 @@ app.use("/api/silhouette", silhouetteRoutes); // open (public — needs to load 
 app.use("/api/settings", settingsRoutes); // protected (admin for write, any role for read)
 app.use("/api/public/settings", publicSettingsRoutes); // open (public site + admin nav branding)
 app.use("/api/version-check", versionRoutes); // protected (admin role only)
+app.use("/api/system-info", systemInfoRoutes); // protected (admin role only)
 app.use("/api/backup-check", backupCheckRoutes); // protected (admin role only)
 app.use("/api/backups", backupsRoutes); // protected (admin role only)
 app.use("/api/inbound-email", inboundEmailRoutes); // mixed -- see that file's own comment
