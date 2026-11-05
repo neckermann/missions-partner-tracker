@@ -30,7 +30,14 @@ function joinBackground(background, verbatim) {
   return b ? `${b} ${v}` : v;
 }
 
-export default function ExtractionReviewModal({ scan, partnerId, defaultDate, sourceFileId, onChange, onClose }) {
+export default function ExtractionReviewModal({
+  scan,
+  partnerId,
+  defaultDate,
+  sourceFileId,
+  onChange,
+  onClose,
+}) {
   const { enabledFeatures } = useSettings();
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [error, setError] = useState("");

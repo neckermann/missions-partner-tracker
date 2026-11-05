@@ -1,5 +1,10 @@
 import React, { useState } from "react";
-import { uploadPartnerFile, updatePartnerFile, deletePartnerFile, extractFromPartnerFile } from "../../api/client.js";
+import {
+  uploadPartnerFile,
+  updatePartnerFile,
+  deletePartnerFile,
+  extractFromPartnerFile,
+} from "../../api/client.js";
 import { FILE_KINDS, fileKindLabel } from "../../utils/fileKinds.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
@@ -26,7 +31,13 @@ export default function PartnerFileSection({ partnerId, files, onChange }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ kind: "", customKind: "", title: "", receivedDate: "", notes: "" });
+  const [editForm, setEditForm] = useState({
+    kind: "",
+    customKind: "",
+    title: "",
+    receivedDate: "",
+    notes: "",
+  });
   const { visible, hasMore, remaining, showMore } = useLoadMore(files);
 
   async function handleSubmit(e) {

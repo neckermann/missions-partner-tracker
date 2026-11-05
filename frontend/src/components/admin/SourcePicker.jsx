@@ -21,7 +21,8 @@ export default function SourcePicker({ files, sourceFileId, onChange }) {
         <option value="">None</option>
         {files.map((f) => (
           <option key={f.id} value={f.id}>
-            {f.title ? `${f.title} — ${f.fileName}` : f.fileName} · {fileKindLabel(f)} ({formatDate(f.receivedDate)})
+            {f.title ? `${f.title} — ${f.fileName}` : f.fileName} · {fileKindLabel(f)} (
+            {formatDate(f.receivedDate)})
           </option>
         ))}
       </select>

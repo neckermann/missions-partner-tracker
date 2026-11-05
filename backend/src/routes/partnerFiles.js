@@ -51,10 +51,13 @@ const baseFields = {
 // .partial() it -- .refine() wraps a schema in a way that no longer
 // exposes that (see the hand-rolled re-check on PUT below).
 const metaObjectSchema = z.object(baseFields);
-const metaSchema = metaObjectSchema.refine((data) => data.kind !== "other" || Boolean(data.customKind?.trim()), {
-  message: 'customKind is required when kind is "other"',
-  path: ["customKind"],
-});
+const metaSchema = metaObjectSchema.refine(
+  (data) => data.kind !== "other" || Boolean(data.customKind?.trim()),
+  {
+    message: 'customKind is required when kind is "other"',
+    path: ["customKind"],
+  }
+);
 
 // GET /?partnerId=&kind= (all partners combined, newest first)
 router.get("/", async (req, res, next) => {
@@ -175,17 +178,22 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
 // stored file's actual content type is one Claude can read (PDF/JPEG/PNG;
 // extractRequestsFromFile 400s clearly for anything else, e.g. a raw .eml
 // or Word/Excel file), a more accurate constraint than guessing from kind.
-router.post("/:id/extract", requireRole("admin", "editor"), requireFeature("aiExtraction"), async (req, res, next) => {
-  try {
-    const record = await prisma.partnerFile.findUnique({ where: { id: req.params.id } });
-    if (!record) return res.status(404).json({ error: "Not found" });
+router.post(
+  "/:id/extract",
+  requireRole("admin", "editor"),
+  requireFeature("aiExtraction"),
+  async (req, res, next) => {
+    try {
+      const record = await prisma.partnerFile.findUnique({ where: { id: req.params.id } });
+      if (!record) return res.status(404).json({ error: "Not found" });
 
-    const suggestions = await extractRequestsFromFile(record);
-    res.json(suggestions);
-  } catch (err) {
-    next(err);
+      const suggestions = await extractRequestsFromFile(record);
+      res.json(suggestions);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 // DELETE /:id (admin only)
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {

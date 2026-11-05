@@ -206,7 +206,10 @@ export default function AdminPartnerFiles() {
             </label>
             <label>
               Kind
-              <select value={newFile.kind} onChange={(e) => setNewFile((f) => ({ ...f, kind: e.target.value }))}>
+              <select
+                value={newFile.kind}
+                onChange={(e) => setNewFile((f) => ({ ...f, kind: e.target.value }))}
+              >
                 {FILE_KINDS.map((k) => (
                   <option key={k.value} value={k.value}>
                     {k.label}
@@ -244,7 +247,10 @@ export default function AdminPartnerFiles() {
             </label>
             <label style={{ gridColumn: "1 / -1" }}>
               Notes
-              <input value={newFile.notes} onChange={(e) => setNewFile((f) => ({ ...f, notes: e.target.value }))} />
+              <input
+                value={newFile.notes}
+                onChange={(e) => setNewFile((f) => ({ ...f, notes: e.target.value }))}
+              />
             </label>
           </div>
           {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
@@ -294,7 +300,10 @@ export default function AdminPartnerFiles() {
           </select>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label htmlFor="partner-files-date-range-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>
+          <label
+            htmlFor="partner-files-date-range-filter"
+            style={{ flexDirection: "row", fontWeight: "normal" }}
+          >
             Received:
           </label>
           <select
@@ -335,14 +344,21 @@ export default function AdminPartnerFiles() {
                   <td>{entity.type}</td>
                   <td>{fileKindLabel(f)}</td>
                   <td>{f.title || "—"}</td>
-                  <td>{editingId === f.id ? formatDate(editForm.receivedDate) : formatDate(f.receivedDate)}</td>
+                  <td>
+                    {editingId === f.id ? formatDate(editForm.receivedDate) : formatDate(f.receivedDate)}
+                  </td>
                   <td>
                     {f.fileName}
                     {f.fileSize != null && (
-                      <span style={{ color: "#888", fontSize: "0.85rem" }}> ({formatFileSize(f.fileSize)})</span>
+                      <span style={{ color: "#888", fontSize: "0.85rem" }}>
+                        {" "}
+                        ({formatFileSize(f.fileSize)})
+                      </span>
                     )}
                   </td>
-                  <td style={{ maxWidth: "16rem" }}>{editingId === f.id ? editForm.notes || "—" : f.notes || "—"}</td>
+                  <td style={{ maxWidth: "16rem" }}>
+                    {editingId === f.id ? editForm.notes || "—" : f.notes || "—"}
+                  </td>
                   <td className="table-actions">
                     <button type="button" className="btn secondary small" onClick={() => handleView(f)}>
                       View
@@ -368,7 +384,10 @@ export default function AdminPartnerFiles() {
                   <tr>
                     <td colSpan={8}>
                       <div className="form-grid">
-                        <label style={{ gridColumn: "1 / -1" }} title="Everything but the file itself can be edited.">
+                        <label
+                          style={{ gridColumn: "1 / -1" }}
+                          title="Everything but the file itself can be edited."
+                        >
                           Partner
                           <PartnerSelect
                             partners={partners}
