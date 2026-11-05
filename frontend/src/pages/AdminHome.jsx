@@ -28,16 +28,11 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       title: "Unmatched Emails",
       description: "Inbound emails that couldn't be automatically matched to a partner -- assign or discard.",
     },
-    enabledFeatures.newsletters && {
-      to: "/admin/newsletters",
-      title: "Newsletters",
-      description: "Upload and browse newsletters received from missionary and organization partners.",
-    },
-    enabledFeatures.documents && {
-      to: "/admin/documents",
-      title: "Documents",
+    enabledFeatures.partnerFiles && {
+      to: "/admin/partner-files",
+      title: "Newsletters & Docs",
       description:
-        "Survey responses, signed policies, and other documents from missionary and organization partners.",
+        "Upload and browse newsletters, survey responses, signed policies, and other documents from missionary and organization partners.",
     },
     enabledFeatures.prayerRequests && {
       to: "/admin/prayer-requests",

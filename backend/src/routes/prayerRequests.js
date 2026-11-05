@@ -27,10 +27,9 @@ const prayerRequestSchema = z.object({
   dateAnswered: z.coerce.date().optional().nullable(),
   answeredNote: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
-  // Set only by ExtractionReviewModal.jsx's scan flow -- see the comment on
-  // these columns in schema.prisma. At most one of the two is ever sent.
-  sourceNewsletterId: z.string().optional().nullable(),
-  sourceDocumentId: z.string().optional().nullable(),
+  // Set only by ExtractionReviewModal.jsx's scan flow -- see the comment
+  // on this column in schema.prisma.
+  sourceFileId: z.string().optional().nullable(),
 });
 
 // Only fires when a request transitions to "answered" *in this request* --
@@ -54,9 +53,10 @@ const prayerRequestInclude = {
   partner: partnerRefSelect,
   // Just enough for the "From: <title>, <date>" admin card link -- never
   // the file bytes themselves, same omit discipline as every other
-  // Newsletter/Document list query.
-  sourceNewsletter: { select: { id: true, title: true, fileName: true, receivedDate: true } },
-  sourceDocument: { select: { id: true, title: true, fileName: true, receivedDate: true } },
+  // PartnerFile list query. `kind` is what tells SourceLink.jsx (and the
+  // notification payload, see utils/notifications.js) whether to build a
+  // /api/partner-files download link.
+  sourceFile: { select: { id: true, kind: true, title: true, fileName: true, receivedDate: true } },
 };
 
 // GET /api/prayer-requests?partnerId=  (all partners combined, newest received first)

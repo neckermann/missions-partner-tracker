@@ -10,6 +10,11 @@ const { APP_VERSION } = require("./versionCheck");
 // directly except TripParticipant, which hangs off Trip. ChurchSettings
 // and User have no FK to Partner and could restore in any position, but
 // are listed last for clarity.
+//
+// partnerFile sits *before* supportNeed/prayerRequest, not after --
+// those two have a non-deferrable FK into it (sourceFileId), so it must
+// already exist by the time a request/need referencing one is inserted
+// inside this same transaction (see restore-backup.js's restoreRows).
 const MODELS = [
   "partner",
   "adult",
@@ -20,11 +25,10 @@ const MODELS = [
   "furlough",
   "churchVisit",
   "sendingParty",
+  "partnerFile",
   "supportEntry",
   "supportNeed",
   "prayerRequest",
-  "newsletter",
-  "document",
   "photo",
   "churchSettings",
   "user",
@@ -36,8 +40,7 @@ const MODELS = [
 // explicitly instead (roughly 1.33x) and decoded back to a Buffer on
 // restore.
 const BYTES_FIELDS = {
-  newsletter: ["bytes"],
-  document: ["bytes"],
+  partnerFile: ["bytes"],
   photo: ["bytes"],
   churchSettings: ["logoBytes"],
 };

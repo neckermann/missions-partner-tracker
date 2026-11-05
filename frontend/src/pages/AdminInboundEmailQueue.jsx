@@ -44,7 +44,7 @@ export default function AdminInboundEmailQueue() {
   }, []);
 
   function handleViewRaw(email) {
-    // Same same-origin, cookie-authenticated pattern as AdminNewsletters.jsx's
+    // Same same-origin, cookie-authenticated pattern as AdminPartnerFiles.jsx's
     // handleView -- the browser sends the session cookie automatically.
     window.open(`/api/inbound-email/${email.id}/raw`, "_blank");
   }

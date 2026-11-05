@@ -4,16 +4,14 @@ import {
   fetchPartner,
   updatePartner,
   fetchPrayerRequests,
-  fetchNewsletters,
-  fetchDocuments,
+  fetchPartnerFiles,
   fetchSupportEntries,
   fetchSupportNeeds,
   fetchTrips,
 } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
-import NewsletterSection from "../components/admin/NewsletterSection.jsx";
+import PartnerFileSection from "../components/admin/PartnerFileSection.jsx";
 import PrayerRequestSection from "../components/admin/PrayerRequestSection.jsx";
-import DocumentSection from "../components/admin/DocumentSection.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
 import PartnerTripSection from "../components/admin/PartnerTripSection.jsx";
 import PartnerFinancialSection from "../components/admin/PartnerFinancialSection.jsx";
@@ -160,8 +158,7 @@ export default function AdminPartnerDetail() {
   const [p, setP] = useState(null);
   const [collections, setCollections] = useState({
     prayerRequests: [],
-    newsletters: [],
-    documents: [],
+    files: [],
     supportEntries: [],
     needRequests: [],
     trips: [],
@@ -187,14 +184,13 @@ export default function AdminPartnerDetail() {
       }),
       Promise.all([
         fetchPrayerRequests({ partnerId: id }),
-        fetchNewsletters({ partnerId: id }),
-        fetchDocuments({ partnerId: id }),
+        fetchPartnerFiles({ partnerId: id }),
         fetchSupportEntries({ partnerId: id }),
         fetchSupportNeeds({ partnerId: id }),
         enabledFeatures.trips ? fetchTrips({ partnerId: id }) : Promise.resolve([]),
-      ]).then(([prayerRequests, newsletters, documents, supportEntries, needRequests, trips]) => {
+      ]).then(([prayerRequests, files, supportEntries, needRequests, trips]) => {
         if (idRef.current === requestId) {
-          setCollections({ prayerRequests, newsletters, documents, supportEntries, needRequests, trips });
+          setCollections({ prayerRequests, files, supportEntries, needRequests, trips });
         }
       }),
     ]);
@@ -924,8 +920,7 @@ export default function AdminPartnerDetail() {
               partnerId={p.id}
               supportEntries={collections.supportEntries}
               needRequests={collections.needRequests}
-              newsletters={collections.newsletters}
-              documents={collections.documents}
+              files={collections.files}
               showMonthlySupport={enabledFeatures.monthlySupport}
               showOneTimeNeeds={enabledFeatures.oneTimeNeeds}
               supportingSince={p.supportingSince}
@@ -1056,18 +1051,13 @@ export default function AdminPartnerDetail() {
             <PrayerRequestSection
               partnerId={p.id}
               prayerRequests={collections.prayerRequests}
-              newsletters={collections.newsletters}
-              documents={collections.documents}
+              files={collections.files}
               onChange={reload}
             />
           )}
 
-          {enabledFeatures.newsletters && (
-            <NewsletterSection partnerId={p.id} newsletters={collections.newsletters} onChange={reload} />
-          )}
-
-          {enabledFeatures.documents && (
-            <DocumentSection partnerId={p.id} documents={collections.documents} onChange={reload} />
+          {enabledFeatures.partnerFiles && (
+            <PartnerFileSection partnerId={p.id} files={collections.files} onChange={reload} />
           )}
 
           <EditableSection

@@ -3,17 +3,17 @@ const assert = require("node:assert/strict");
 const { isFeatureEnabled } = require("../src/utils/features");
 
 describe("isFeatureEnabled", () => {
-  test("defaults to enabled for a key with no stored value (newsletters)", () => {
-    assert.equal(isFeatureEnabled({}, "newsletters"), true);
-    assert.equal(isFeatureEnabled(null, "newsletters"), true);
+  test("defaults to enabled for a key with no stored value (partnerFiles)", () => {
+    assert.equal(isFeatureEnabled({}, "partnerFiles"), true);
+    assert.equal(isFeatureEnabled(null, "partnerFiles"), true);
   });
 
   test("an explicit false overrides the default-enabled state", () => {
-    assert.equal(isFeatureEnabled({ newsletters: false }, "newsletters"), false);
+    assert.equal(isFeatureEnabled({ partnerFiles: false }, "partnerFiles"), false);
   });
 
   test("an explicit true keeps a default-enabled feature on", () => {
-    assert.equal(isFeatureEnabled({ newsletters: true }, "newsletters"), true);
+    assert.equal(isFeatureEnabled({ partnerFiles: true }, "partnerFiles"), true);
   });
 
   test("returns false for a key not in the registry", () => {

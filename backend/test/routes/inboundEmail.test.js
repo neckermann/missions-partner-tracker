@@ -158,7 +158,7 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, { matched: true });
 
-    const newsletters = await prisma.newsletter.findMany({ where: { partnerId: partner.id } });
+    const newsletters = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
     assert.equal(newsletters.length, 1);
     assert.equal(newsletters[0].contentType, "message/rfc822");
     assert.equal(newsletters[0].title, "Update from the field", "the email's Subject becomes the title");
@@ -178,7 +178,7 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, { matched: true });
 
-    const newsletters = await prisma.newsletter.findMany({ where: { partnerId: partner.id } });
+    const newsletters = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
     assert.equal(newsletters.length, 1);
   });
 
@@ -193,7 +193,7 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, { matched: true });
 
-    const newsletters = await prisma.newsletter.findMany({ where: { partnerId: partner.id } });
+    const newsletters = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
     assert.equal(newsletters.length, 1);
   });
 
@@ -326,7 +326,7 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
     const stillQueued = await prisma.inboundEmail.findUnique({ where: { id: created.id } });
     assert.equal(stillQueued, null, "the queue row should be gone once assigned");
 
-    const newsletters = await prisma.newsletter.findMany({ where: { partnerId: partner.id } });
+    const newsletters = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
     assert.equal(newsletters.length, 1);
     assert.equal(newsletters[0].title, "Assign me", "the queued email's subject becomes the title");
   });

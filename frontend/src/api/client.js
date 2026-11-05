@@ -57,8 +57,8 @@ export async function createPartner(payload) {
 
 // A partial update: only the keys you send are touched, so a section can
 // save just its own fields. Collection arrays (trips, support entries,
-// needs, prayer requests, newsletters, documents) are ignored if sent —
-// each has its own endpoint.
+// needs, prayer requests, partner files) are ignored if sent — each has
+// its own endpoint.
 export async function updatePartner(id, payload) {
   const { data } = await api.put(`/partners/${id}`, payload);
   return data;
@@ -212,9 +212,9 @@ export async function sendTestEmail() {
 }
 
 // The review queue -- inbound emails Postmark couldn't automatically match
-// to a partner. assignInboundEmail files it as a Newsletter against the
-// chosen partner and removes it from the queue; discardInboundEmail
-// removes it without filing anything.
+// to a partner. assignInboundEmail files it as a newsletter-kind
+// PartnerFile against the chosen partner and removes it from the queue;
+// discardInboundEmail removes it without filing anything.
 export async function fetchPendingInboundEmails() {
   const { data } = await api.get("/inbound-email");
   return data;
@@ -314,7 +314,7 @@ export async function deleteSupportEntry(id) {
 // Reports. `listReports` returns the picker metadata (filter fields and
 // columns); `runReport` returns the rows for one. The CSV download is NOT
 // here -- it goes through a plain same-origin navigation so the browser
-// handles the file, the same approach as the document/newsletter downloads.
+// handles the file, the same approach as partner file downloads.
 export async function listReports() {
   const { data } = await api.get("/reports");
   return data;
@@ -370,59 +370,32 @@ export async function deletePrayerRequest(id) {
   await api.delete(`/prayer-requests/${id}`);
 }
 
-export async function fetchNewsletters(params = {}) {
-  const { data } = await api.get("/newsletters", { params });
+export async function fetchPartnerFiles(params = {}) {
+  const { data } = await api.get("/partner-files", { params });
   return data;
 }
 
-export async function uploadNewsletter(formData) {
-  const { data } = await api.post("/newsletters", formData);
+export async function uploadPartnerFile(formData) {
+  const { data } = await api.post("/partner-files", formData);
   return data;
 }
 
-export async function deleteNewsletter(id) {
-  await api.delete(`/newsletters/${id}`);
+export async function deletePartnerFile(id) {
+  await api.delete(`/partner-files/${id}`);
 }
 
-// Everything but the file itself is editable -- see the PUT route comment
-// in backend/src/routes/newsletters.js.
-export async function updateNewsletter(id, data) {
-  const { data: updated } = await api.put(`/newsletters/${id}`, data);
+// Everything but the file itself is editable, including `kind` -- see the
+// PUT route comment in backend/src/routes/partnerFiles.js.
+export async function updatePartnerFile(id, data) {
+  const { data: updated } = await api.put(`/partner-files/${id}`, data);
   return updated;
 }
 
 // Returns { prayerRequests: [...], oneTimeNeeds: [...] } -- nothing is
 // persisted server-side, the caller reviews and explicitly adds each one
 // (see ExtractionReviewModal.jsx).
-export async function extractFromNewsletter(id) {
-  const { data } = await api.post(`/newsletters/${id}/extract`);
-  return data;
-}
-
-export async function fetchDocuments(params = {}) {
-  const { data } = await api.get("/documents", { params });
-  return data;
-}
-
-export async function uploadDocument(formData) {
-  const { data } = await api.post("/documents", formData);
-  return data;
-}
-
-export async function deleteDocument(id) {
-  await api.delete(`/documents/${id}`);
-}
-
-// Everything but the file itself is editable -- see the PUT route comment
-// in backend/src/routes/documents.js.
-export async function updateDocument(id, data) {
-  const { data: updated } = await api.put(`/documents/${id}`, data);
-  return updated;
-}
-
-// See extractFromNewsletter above -- same shape, same nothing-persisted behavior.
-export async function extractFromDocument(id) {
-  const { data } = await api.post(`/documents/${id}/extract`);
+export async function extractFromPartnerFile(id) {
+  const { data } = await api.post(`/partner-files/${id}/extract`);
   return data;
 }
 

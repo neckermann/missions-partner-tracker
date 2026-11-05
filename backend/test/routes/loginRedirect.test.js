@@ -12,17 +12,17 @@ describe("GET a requireAuth-gated download route, unauthenticated, as a real bro
 
   test("redirects to /login with the original path preserved, instead of bare JSON", async () => {
     const base = await startServer();
-    const res = await fetch(`${base}/api/newsletters/any-id/download`, {
+    const res = await fetch(`${base}/api/partner-files/any-id/download`, {
       redirect: "manual",
       headers: { Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" },
     });
     assert.equal(res.status, 302);
-    assert.equal(res.headers.get("location"), "/login?next=%2Fapi%2Fnewsletters%2Fany-id%2Fdownload");
+    assert.equal(res.headers.get("location"), "/login?next=%2Fapi%2Fpartner-files%2Fany-id%2Fdownload");
   });
 
   test("a plain API-style request to the same route still gets JSON, unchanged", async () => {
     const base = await startServer();
-    const res = await fetch(`${base}/api/newsletters/any-id/download`, {
+    const res = await fetch(`${base}/api/partner-files/any-id/download`, {
       redirect: "manual",
       headers: { Accept: "application/json" },
     });

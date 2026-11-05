@@ -14,12 +14,11 @@ const emptyNewRequest = {
   includeInBooklet: false,
   untracked: false,
   notes: "",
-  sourceNewsletterId: null,
-  sourceDocumentId: null,
+  sourceFileId: null,
 };
 
 // Reused as-is on both AdminMissionaryDetail.jsx and
-// AdminOrganizationDetail.jsx, same pattern as NewsletterSection.jsx.
+// AdminOrganizationDetail.jsx, same pattern as PartnerFileSection.jsx.
 // Scoped to one partner via partnerId.
 //
 // Deliberately no status badge/coloring for "ongoing" or "untracked"
@@ -27,13 +26,7 @@ const emptyNewRequest = {
 // why: an open request isn't a problem to flag, it's just still open.
 // The only status this UI calls out at all is "answered", as a quiet
 // note, not a checklist item being marked off.
-export default function PrayerRequestSection({
-  partnerId,
-  prayerRequests,
-  newsletters,
-  documents,
-  onChange,
-}) {
+export default function PrayerRequestSection({ partnerId, prayerRequests, files, onChange }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
   const [saving, setSaving] = useState(false);
@@ -59,8 +52,7 @@ export default function PrayerRequestSection({
         includeInBooklet: isStrategic && newRequest.isPublic ? newRequest.includeInBooklet : false,
         status: newRequest.untracked ? "untracked" : "ongoing",
         notes: newRequest.notes || null,
-        sourceNewsletterId: newRequest.sourceNewsletterId,
-        sourceDocumentId: newRequest.sourceDocumentId,
+        sourceFileId: newRequest.sourceFileId,
       });
       setNewRequest(emptyNewRequest);
       setShowAddForm(false);
@@ -109,8 +101,7 @@ export default function PrayerRequestSection({
       isPublic: request.isPublic,
       includeInBooklet: request.includeInBooklet,
       notes: request.notes || "",
-      sourceNewsletterId: request.sourceNewsletter?.id || null,
-      sourceDocumentId: request.sourceDocument?.id || null,
+      sourceFileId: request.sourceFile?.id || null,
     });
   }
 
@@ -124,8 +115,7 @@ export default function PrayerRequestSection({
         isPublic: isStrategic ? editForm.isPublic : false,
         includeInBooklet: isStrategic && editForm.isPublic ? editForm.includeInBooklet : false,
         notes: editForm.notes || null,
-        sourceNewsletterId: editForm.sourceNewsletterId,
-        sourceDocumentId: editForm.sourceDocumentId,
+        sourceFileId: editForm.sourceFileId,
       });
       setEditingId(null);
       setEditForm(null);
@@ -222,10 +212,8 @@ export default function PrayerRequestSection({
               </label>
             </div>
             <SourcePicker
-              newsletters={newsletters}
-              documents={documents}
-              sourceNewsletterId={newRequest.sourceNewsletterId}
-              sourceDocumentId={newRequest.sourceDocumentId}
+              files={files}
+              sourceFileId={newRequest.sourceFileId}
               onChange={(source) => setNewRequest((f) => ({ ...f, ...source }))}
             />
             <label style={{ gridColumn: "1 / -1" }}>
@@ -323,10 +311,8 @@ export default function PrayerRequestSection({
                       </div>
                     )}
                     <SourcePicker
-                      newsletters={newsletters}
-                      documents={documents}
-                      sourceNewsletterId={editForm.sourceNewsletterId}
-                      sourceDocumentId={editForm.sourceDocumentId}
+                      files={files}
+                      sourceFileId={editForm.sourceFileId}
                       onChange={(source) => setEditForm((f) => ({ ...f, ...source }))}
                     />
                     <label style={{ gridColumn: "1 / -1" }}>
@@ -361,7 +347,7 @@ export default function PrayerRequestSection({
                       {p.category === "strategic" && p.isPublic && " · Public"}
                       {p.category === "strategic" && p.isPublic && p.includeInBooklet && " · In booklet"}
                     </div>
-                    <SourceLink sourceNewsletter={p.sourceNewsletter} sourceDocument={p.sourceDocument} />
+                    <SourceLink sourceFile={p.sourceFile} />
                     {/* The only status ever called out here is "answered" -- an
                         "ongoing" or "untracked" request just shows nothing
                         extra, matching this feature's whole design intent. */}

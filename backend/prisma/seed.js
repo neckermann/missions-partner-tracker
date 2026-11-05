@@ -523,8 +523,8 @@ function scannableExtras() {
 
 // Uploaded as .eml (a plain-text "saved email") rather than a generated
 // PDF — trivially valid with no binary structure to get wrong, and matches
-// one of the file types the Newsletter feature already explicitly supports
-// (see routes/newsletters.js's resolveExt).
+// one of the file types the Newsletters & Docs feature already explicitly
+// supports (see routes/partnerFiles.js's resolveExt).
 function buildFakeEml(fromName, fromSlug, subject, field) {
   const extras = scannableExtras();
   const body = `${pick(NEWSLETTER_OPENERS)} as we serve in ${field}. This season has brought both challenges and encouragement, and we're excited to share a bit of both with you.${extras ? `\n\n${extras}` : ""}\n\nThank you for partnering with us.\n\nIn Him,\n${fromName}`;
@@ -545,9 +545,10 @@ async function maybeAddNewsletter({ partnerId, name, slug, field }) {
   if (!chance(0.3)) return;
   const subject = `${pick(NEWSLETTER_SUBJECTS)} — ${pick(NEWSLETTER_SEASONS)} ${randInt(2023, 2026)}`;
   const buffer = buildFakeEml(name, slug, subject, field);
-  await prisma.newsletter.create({
+  await prisma.partnerFile.create({
     data: {
       partnerId,
+      kind: "newsletter",
       title: subject,
       receivedDate: dateBetween(1, 0),
       bytes: buffer,
@@ -558,9 +559,9 @@ async function maybeAddNewsletter({ partnerId, name, slug, field }) {
   });
 }
 
-// Titles per Document category — see backend/src/routes/documents.js's
-// CATEGORIES for what these keys mean. "other" pairs a title with its own
-// free-typed customCategory, same as a real admin would fill in.
+// Titles per document kind — see backend/src/routes/fileKinds.js's
+// FILE_KINDS for what these keys mean. "other" pairs a title with its own
+// free-typed customKind, same as a real admin would fill in.
 const DOCUMENT_TITLES = {
   survey_response: [
     "Annual Field Survey Response",
@@ -654,32 +655,31 @@ function buildFakePdf(title, extraText) {
 
 async function maybeAddDocument({ partnerId, name, slug, field }) {
   if (!chance(0.35)) return;
-  const category = pick(["survey_response", "signed_policy", "office_document", "email", "other"]);
-  const isOther = category === "other";
-  const title = isOther ? pick(OTHER_DOCUMENT_TITLES) : pick(DOCUMENT_TITLES[category]);
-  const customCategory = isOther ? pick(OTHER_DOCUMENT_CATEGORIES) : null;
+  const kind = pick(["survey_response", "signed_policy", "office_document", "email", "other"]);
+  const isOther = kind === "other";
+  const title = isOther ? pick(OTHER_DOCUMENT_TITLES) : pick(DOCUMENT_TITLES[kind]);
+  const customKind = isOther ? pick(OTHER_DOCUMENT_CATEGORIES) : null;
 
   let buffer, fileName, contentType;
-  if (category === "email") {
+  if (kind === "email") {
     buffer = buildFakeEml(name, slug, title, field);
     fileName = "email.eml";
     contentType = "message/rfc822";
   } else {
-    // Only for categories where a prayer request/need mention is plausible
+    // Only for kinds where a prayer request/need mention is plausible
     // content -- a signed policy or background-check result wouldn't
     // realistically contain one.
-    const extraText =
-      category === "office_document" || category === "survey_response" ? scannableExtras() : "";
+    const extraText = kind === "office_document" || kind === "survey_response" ? scannableExtras() : "";
     buffer = buildFakePdf(title, extraText);
     fileName = "document.pdf";
     contentType = "application/pdf";
   }
 
-  await prisma.document.create({
+  await prisma.partnerFile.create({
     data: {
       partnerId,
-      category,
-      customCategory,
+      kind,
+      customKind,
       title,
       receivedDate: dateBetween(1, 0),
       notes: chance(0.5) ? pick(DOCUMENT_NOTES) : null,

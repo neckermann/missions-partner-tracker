@@ -409,7 +409,7 @@ const emailSchema = z.object({
 // (whose settings stay reachable while off, so an admin can configure
 // them before flipping the switch), Email's settings route is gated the
 // same way a real content feature's routes are (see
-// routes/newsletters.js's router.use(requireFeature(...))) -- off means
+// routes/partnerFiles.js's router.use(requireFeature(...))) -- off means
 // genuinely not reachable, not just hidden from nav. A church with
 // neither direction on yet turns one on first from Enabled Features
 // (which is never gated), then this page becomes reachable to configure

@@ -31,15 +31,10 @@ const FEATURES = {
     defaultEnabled: true,
     group: "public",
   },
-  newsletters: {
-    label: "Newsletters",
-    description: "The newsletter archive on missionary/organization pages and its own admin section.",
-    defaultEnabled: true,
-    group: "admin",
-  },
-  documents: {
-    label: "Documents",
-    description: "The general document repo (survey responses, signed policies, etc.).",
+  partnerFiles: {
+    label: "Newsletters & Docs",
+    description:
+      "Newsletters and documents (survey responses, signed policies, etc.) on missionary/organization pages and their own admin section.",
     defaultEnabled: true,
     group: "admin",
   },

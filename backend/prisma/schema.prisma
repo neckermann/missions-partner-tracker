@@ -116,8 +116,7 @@ model Partner {
   // ministry-need narrative text this app used to carry under that name.
   needRequests         SupportNeed[]
   prayerRequests       PrayerRequest[]
-  newsletters          Newsletter[]
-  documents            Document[]
+  files                PartnerFile[]
   // Full upload history, not just the current one — see the Photo model.
   // The "current" photo (what the admin UI and public site show) is
   // whichever has the latest receivedDate, not just the latest upload.
@@ -323,12 +322,10 @@ model SupportNeed {
   notes           String?   @db.Text
   createdAt       DateTime  @default(now())
 
-  // Same source-link as PrayerRequest.sourceNewsletterId/sourceDocumentId
-  // above -- see that comment for the full reasoning.
-  sourceNewsletterId String?
-  sourceNewsletter   Newsletter? @relation(fields: [sourceNewsletterId], references: [id], onDelete: SetNull)
-  sourceDocumentId   String?
-  sourceDocument     Document?   @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  // Same source-link as PrayerRequest.sourceFileId above -- see that
+  // comment for the full reasoning.
+  sourceFileId String?
+  sourceFile   PartnerFile? @relation(fields: [sourceFileId], references: [id], onDelete: SetNull)
 
   @@index([partnerId])
 }
@@ -378,38 +375,54 @@ model PrayerRequest {
   createdAt DateTime @default(now())
 
   // Set when this request was added from ExtractionReviewModal.jsx's "Scan
-  // for requests" flow, so the admin can get back to the original letter
-  // later -- at most one of the two is ever set, since the modal is shown
-  // either from NewsletterSection or DocumentSection, never both. Both
-  // onDelete: SetNull, not Cascade -- deleting the source file a request
-  // came from shouldn't delete the request itself, just its back-link. Null
-  // for every request added by hand (the normal case, unaffected by this).
-  // Never surfaced on the public site or in the booklet.
-  sourceNewsletterId String?
-  sourceNewsletter   Newsletter? @relation(fields: [sourceNewsletterId], references: [id], onDelete: SetNull)
-  sourceDocumentId   String?
-  sourceDocument     Document?   @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  // for requests" flow, so the admin can get back to the original file
+  // later. onDelete: SetNull, not Cascade -- deleting the source file a
+  // request came from shouldn't delete the request itself, just its
+  // back-link. Null for every request added by hand (the normal case,
+  // unaffected by this). Never surfaced on the public site or in the
+  // booklet.
+  sourceFileId String?
+  sourceFile   PartnerFile? @relation(fields: [sourceFileId], references: [id], onDelete: SetNull)
 
   @@index([partnerId])
   @@index([category])
   @@index([status])
 }
 
-// A newsletter file (PDF, .eml export, or a screenshot image) received from a
-// partner. The file itself lives right in this row (see `bytes` below) rather
-// than in a separate object store — no external storage service to configure
+// A file received from a partner -- either a newsletter (PDF, .eml export,
+// or a screenshot image) or a general-purpose document (survey response,
+// signed policy acknowledgment, other office document, long-term email
+// record), distinguished by `kind` -- a single flat, defined list, same
+// convention as Partner.kind ("missionary" | "organization") above:
+// "newsletter" is just one more value alongside the document-specific
+// ones, not a structurally separate concept from them.
+//
+// The file itself lives right in this row (see `bytes` below) rather than
+// in a separate object store — no external storage service to configure
 // at all, and Postgres's TOAST mechanism already keeps large column values
 // out-of-line and compressed, so this doesn't bloat ordinary queries.
 // Deliberately not exposed by any query that doesn't need the actual file
 // content (see the `omit: { bytes: true }` on every list/detail include
 // across the route files) — reachable only through
-// GET /api/newsletters/:id/download, admin-only. Fine at the scale this app
-// runs at (one church's worth of files, not a multi-tenant media library) —
-// see CONTRIBUTING.md if that ever stops being true for a particular fork.
-model Newsletter {
+// GET /api/partner-files/:id/download, admin-only. Fine at the scale this
+// app runs at (one church's worth of files, not a multi-tenant media
+// library) — see CONTRIBUTING.md if that ever stops being true for a
+// particular fork.
+model PartnerFile {
   id        String  @id @default(uuid())
   partnerId String
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  // A plain validated string (see routes/partnerFiles.js), not a native
+  // Prisma enum — same convention as Partner.orgType and User.role
+  // elsewhere in this schema, so a fork can add its own kind without a
+  // migration. Inbound email always defaults new rows to "newsletter"
+  // (that's the overwhelming majority of what actually arrives from a
+  // partner) -- an admin who finds one mis-filed just edits `kind` via
+  // the normal PUT, no separate "reclassify" action needed.
+  kind String // "newsletter" | "survey_response" | "signed_policy" | "email" | "office_document" | "other"
+  // Free-typed label, only used when kind is "other".
+  customKind String?
 
   title        String?
   receivedDate DateTime @db.Date
@@ -421,20 +434,21 @@ model Newsletter {
 
   createdAt DateTime @default(now())
 
-  // Back-relations for PrayerRequest/SupportNeed.sourceNewsletterId above --
-  // not read directly (requests/needs are fetched by partner, not by
-  // source), but Prisma requires both sides of a relation declared.
+  // Back-relation for PrayerRequest/SupportNeed.sourceFileId above -- not
+  // read directly (requests/needs are fetched by partner, not by source),
+  // but Prisma requires both sides of a relation declared.
   sourcedPrayerRequests PrayerRequest[]
   sourcedSupportNeeds   SupportNeed[]
 
   @@index([partnerId])
+  @@index([kind])
 }
 
 // Inbound email (see #72) that couldn't be auto-matched to a partner --
 // held here for an admin to assign by hand or discard. A row's mere
 // existence means "pending": both outcomes (assign, discard) delete the
 // row rather than mark a status, since once assigned it's just a
-// Newsletter (see routes/inboundEmail.js) and there's nothing left here
+// PartnerFile (see routes/inboundEmail.js) and there's nothing left here
 // worth keeping around. No partnerId/relation -- that's the whole point,
 // this is what's left *unmatched*.
 model InboundEmail {
@@ -442,7 +456,7 @@ model InboundEmail {
   receivedAt  DateTime @default(now())
   fromAddress String
   subject     String?
-  bytes       Bytes // the raw .eml source -- same storage shape as Newsletter.bytes above
+  bytes       Bytes // the raw .eml source -- same storage shape as PartnerFile.bytes above
   fileName    String
   createdAt   DateTime @default(now())
 }
@@ -463,7 +477,7 @@ model InboundEmail {
 //
 // `payload` holds whatever this event type's notification text needs to
 // render later (requestText/description/approvedAmount/etc., plus
-// sourceNewsletterId/sourceDocumentId for the newsletter cross-link) --
+// sourceFileId for the source-file cross-link) --
 // a `type` + `payload Json` shape instead of a column per event type,
 // since the 5 event shapes genuinely differ and none of it needs to be
 // relationally queried later, only read back whole at flush time.
@@ -482,42 +496,8 @@ model PendingNotification {
   @@index([partnerId])
 }
 
-// General-purpose document storage for a partner — survey responses, signed
-// policy acknowledgments, other office documents (Word/Excel/PDF), and
-// long-term email records that don't belong in the Newsletter feed above.
-// Same private-DB-blob access model as Newsletter, same admin-only
-// visibility. `category` is a plain validated string (see
-// routes/documents.js), not a native Prisma enum — same convention as
-// Partner.orgType and User.role elsewhere in this schema, so a fork can add
-// its own category without a migration.
-model Document {
-  id        String  @id @default(uuid())
-  partnerId String
-  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-
-  category       String // "survey_response" | "signed_policy" | "email" | "office_document" | "other"
-  customCategory String? // free-typed label, only used when category is "other"
-  title          String?
-  receivedDate   DateTime @db.Date
-  bytes          Bytes // the file itself — see the comment above this model
-  fileName       String // original uploaded filename, for display/download
-  contentType    String
-  fileSize       Int? // bytes
-  notes          String?  @db.Text
-
-  createdAt DateTime @default(now())
-
-  // Back-relations for PrayerRequest/SupportNeed.sourceDocumentId above --
-  // see the same comment on Newsletter's back-relations.
-  sourcedPrayerRequests PrayerRequest[]
-  sourcedSupportNeeds   SupportNeed[]
-
-  @@index([partnerId])
-  @@index([category])
-}
-
 // Every photo ever uploaded for a partner, not just the current one — same
-// in-row bytes approach as Newsletter. Unlike Newsletter, photos are public
+// in-row bytes approach as PartnerFile. Unlike PartnerFile, photos are public
 // (served unauthenticated at GET /api/photos/:id/raw — the public serializer
 // is what keeps a restricted record's real photo out of any response in the
 // first place, not this route). Same `omit: { bytes: true }` discipline
@@ -584,7 +564,7 @@ model ChurchSettings {
   highlightColor  String? // hex, overrides --brand-highlight-color; hover/focus/active/selected feedback
   brandFont       String? // literal CSS font-family stack (not an abstract key), overrides --brand-font; curated choices offered in AdminSettingsBranding.jsx
   // The site logo, stored right in this row — see the comment on the
-  // Newsletter model for why this app keeps file bytes in Postgres
+  // PartnerFile model for why this app keeps file bytes in Postgres
   // instead of an object store. Public, served unauthenticated at
   // GET /api/public/settings/logo/raw when set. API responses synthesize
   // a `logo: { url: "..." } | null` shape from these two columns rather

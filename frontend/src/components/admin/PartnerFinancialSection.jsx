@@ -33,16 +33,14 @@ const emptyNeed = {
   requestedAmount: "",
   requestDate: todayInputValue(),
   notes: "",
-  sourceNewsletterId: null,
-  sourceDocumentId: null,
+  sourceFileId: null,
 };
 
 export default function PartnerFinancialSection({
   partnerId,
   supportEntries,
   needRequests,
-  newsletters,
-  documents,
+  files,
   showMonthlySupport,
   showOneTimeNeeds,
   supportingSince,
@@ -107,8 +105,7 @@ export default function PartnerFinancialSection({
         requestedAmount: Number(need.requestedAmount),
         requestDate: need.requestDate,
         notes: need.notes || null,
-        sourceNewsletterId: need.sourceNewsletterId,
-        sourceDocumentId: need.sourceDocumentId,
+        sourceFileId: need.sourceFileId,
       });
       setNeed(emptyNeed);
       setAddingNeed(false);
@@ -304,10 +301,8 @@ export default function PartnerFinancialSection({
                   />
                 </label>
                 <SourcePicker
-                  newsletters={newsletters}
-                  documents={documents}
-                  sourceNewsletterId={need.sourceNewsletterId}
-                  sourceDocumentId={need.sourceDocumentId}
+                  files={files}
+                  sourceFileId={need.sourceFileId}
                   onChange={(source) => setNeed((f) => ({ ...f, ...source }))}
                 />
                 <label style={{ gridColumn: "1 / -1" }}>
@@ -347,10 +342,7 @@ export default function PartnerFinancialSection({
                             row.approvedDate ? ` on ${formatDate(row.approvedDate)}` : ""
                           }`}
                       </div>
-                      <SourceLink
-                        sourceNewsletter={row.sourceNewsletter}
-                        sourceDocument={row.sourceDocument}
-                      />
+                      <SourceLink sourceFile={row.sourceFile} />
                       {row.notes && (
                         <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
                           {row.notes}

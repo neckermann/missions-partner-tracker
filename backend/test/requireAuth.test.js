@@ -146,12 +146,12 @@ describe("requireAuth — browser navigation redirects", () => {
   test("no cookie, a real browser's Accept header -- redirects to /login with the original URL preserved", () => {
     const req = fakeReq(null, {
       headers: { accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" },
-      originalUrl: "/api/newsletters/42/download",
+      originalUrl: "/api/partner-files/42/download",
     });
     const res = fakeRes();
     const next = spyNext();
     requireAuth(req, res, next);
-    assert.equal(res.redirectedTo, "/login?next=%2Fapi%2Fnewsletters%2F42%2Fdownload");
+    assert.equal(res.redirectedTo, "/login?next=%2Fapi%2Fpartner-files%2F42%2Fdownload");
     assert.equal(res.statusCode, null, "the JSON path must not also have run");
     assert.equal(next.calls.length, 0);
   });

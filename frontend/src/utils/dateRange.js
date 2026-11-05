@@ -1,5 +1,5 @@
 // Quick time-range filtering shared by the consolidated admin list pages
-// (One-Time Needs, Prayer Requests, Newsletters, Documents) -- a lighter
+// (One-Time Needs, Prayer Requests, Newsletters & Docs) -- a lighter
 // alternative to a full From/To picker for "what came in recently," which
 // is what most look-ups on these pages actually want. The Reports page's
 // "Quick Range" fields (see resolveQuickRangeDates below) use this same

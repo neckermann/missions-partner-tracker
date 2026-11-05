@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  fetchDocuments,
-  uploadDocument,
-  updateDocument,
-  deleteDocument,
-  extractFromDocument,
+  fetchPartnerFiles,
+  uploadPartnerFile,
+  updatePartnerFile,
+  deletePartnerFile,
+  extractFromPartnerFile,
   fetchPartners,
 } from "../api/client.js";
-import { DOCUMENT_CATEGORIES, documentCategoryLabel } from "../utils/documentCategories.js";
+import { FILE_KINDS, fileKindLabel } from "../utils/fileKinds.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
@@ -19,40 +19,40 @@ import { isScannable } from "../utils/scannable.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 
-const emptyNewDocument = {
+const emptyNewFile = {
   partnerId: "",
-  category: DOCUMENT_CATEGORIES[0].value,
-  customCategory: "",
+  kind: FILE_KINDS[0].value,
+  customKind: "",
   title: "",
   receivedDate: todayInputValue(),
   notes: "",
 };
 
-export default function AdminDocuments() {
+export default function AdminPartnerFiles() {
   const { enabledFeatures } = useSettings();
-  const [scanning, setScanning] = useState(null); // the document being reviewed, or null
-  const [documents, setDocuments] = useState([]);
+  const [scanning, setScanning] = useState(null); // the file being reviewed, or null
+  const [files, setFiles] = useState([]);
   const [partners, setPartners] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newDocument, setNewDocument] = useState(emptyNewDocument);
+  const [newFile, setNewFile] = useState(emptyNewFile);
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [entityFilter, setEntityFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [kindFilter, setKindFilter] = useState("all");
   const [dateRangeFilter, setDateRangeFilter] = useState("all");
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({
     partnerId: "",
-    category: "",
-    customCategory: "",
+    kind: "",
+    customKind: "",
     title: "",
     receivedDate: "",
     notes: "",
   });
 
   function reload() {
-    fetchDocuments().then(setDocuments).catch(console.error);
+    fetchPartnerFiles().then(setFiles).catch(console.error);
   }
 
   useEffect(() => {
@@ -63,7 +63,7 @@ export default function AdminDocuments() {
   async function handleAddSubmit(e) {
     e.preventDefault();
     setError("");
-    if (!newDocument.partnerId) {
+    if (!newFile.partnerId) {
       setError("Choose a partner");
       return;
     }
@@ -71,60 +71,60 @@ export default function AdminDocuments() {
       setError("Choose a file to upload");
       return;
     }
-    if (newDocument.category === "other" && !newDocument.customCategory.trim()) {
-      setError("Enter a label for this document's category");
+    if (newFile.kind === "other" && !newFile.customKind.trim()) {
+      setError("Enter a label for this file's kind");
       return;
     }
     setSaving(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("partnerId", newDocument.partnerId);
-      formData.append("category", newDocument.category);
-      if (newDocument.category === "other") formData.append("customCategory", newDocument.customCategory);
-      formData.append("title", newDocument.title);
-      formData.append("receivedDate", newDocument.receivedDate);
-      formData.append("notes", newDocument.notes);
+      formData.append("partnerId", newFile.partnerId);
+      formData.append("kind", newFile.kind);
+      if (newFile.kind === "other") formData.append("customKind", newFile.customKind);
+      formData.append("title", newFile.title);
+      formData.append("receivedDate", newFile.receivedDate);
+      formData.append("notes", newFile.notes);
 
-      await uploadDocument(formData);
-      setNewDocument(emptyNewDocument);
+      await uploadPartnerFile(formData);
+      setNewFile(emptyNewFile);
       setFile(null);
       setShowAddForm(false);
       reload();
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to upload document");
+      setError(err.response?.data?.error || "Failed to upload file");
     } finally {
       setSaving(false);
     }
   }
 
-  function handleView(d) {
+  function handleView(f) {
     // A direct, same-origin, cookie-authenticated download — no async
-    // lookup needed now that the file is served straight from the
-    // database (see backend/src/routes/documents.js).
-    window.open(`/api/documents/${d.id}/download`, "_blank");
+    // lookup needed, the file is served straight from the database (see
+    // backend/src/routes/partnerFiles.js).
+    window.open(`/api/partner-files/${f.id}/download`, "_blank");
   }
 
-  async function handleDelete(d) {
-    const entity = entityFor(d);
-    if (!confirm(`Delete this document for ${entity.name}? This cannot be undone.`)) return;
-    await deleteDocument(d.id);
+  async function handleDelete(f) {
+    const entity = entityFor(f);
+    if (!confirm(`Delete this file for ${entity.name}? This cannot be undone.`)) return;
+    await deletePartnerFile(f.id);
     reload();
   }
 
   // Everything but the file itself is editable (see the PUT route comment
-  // in backend/src/routes/documents.js), including moving it to a
-  // different partner.
-  function startEdit(d) {
+  // in backend/src/routes/partnerFiles.js), including `kind` and moving it
+  // to a different partner.
+  function startEdit(f) {
     setError("");
-    setEditingId(d.id);
+    setEditingId(f.id);
     setEditForm({
-      partnerId: d.partner?.id || "",
-      category: d.category,
-      customCategory: d.customCategory || "",
-      title: d.title || "",
-      receivedDate: String(d.receivedDate).slice(0, 10),
-      notes: d.notes || "",
+      partnerId: f.partner?.id || "",
+      kind: f.kind,
+      customKind: f.customKind || "",
+      title: f.title || "",
+      receivedDate: String(f.receivedDate).slice(0, 10),
+      notes: f.notes || "",
     });
   }
 
@@ -134,15 +134,15 @@ export default function AdminDocuments() {
       setError("Choose a partner");
       return;
     }
-    if (editForm.category === "other" && !editForm.customCategory.trim()) {
-      setError("Enter a label for this document's category");
+    if (editForm.kind === "other" && !editForm.customKind.trim()) {
+      setError("Enter a label for this file's kind");
       return;
     }
     try {
-      await updateDocument(id, {
+      await updatePartnerFile(id, {
         partnerId: editForm.partnerId,
-        category: editForm.category,
-        customCategory: editForm.category === "other" ? editForm.customCategory : null,
+        kind: editForm.kind,
+        customKind: editForm.kind === "other" ? editForm.customKind : null,
         title: editForm.title,
         receivedDate: editForm.receivedDate,
         notes: editForm.notes,
@@ -154,14 +154,14 @@ export default function AdminDocuments() {
     }
   }
 
-  const filtered = documents.filter(
-    (d) =>
-      (entityFilter === "all" || entityFor(d).type === entityFilter) &&
-      (categoryFilter === "all" || d.category === categoryFilter) &&
-      inDateRange(d.receivedDate, dateRangeFilter)
+  const filtered = files.filter(
+    (f) =>
+      (entityFilter === "all" || entityFor(f).type === entityFilter) &&
+      (kindFilter === "all" || f.kind === kindFilter) &&
+      inDateRange(f.receivedDate, dateRangeFilter)
   );
   const {
-    visible: visibleDocuments,
+    visible: visibleFiles,
     hasMore,
     remaining,
     showMore,
@@ -173,14 +173,14 @@ export default function AdminDocuments() {
   return (
     <div className="admin-shell">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>Documents</h2>
+        <h2>Newsletters &amp; Docs</h2>
         <button className="btn" onClick={() => setShowAddForm((v) => !v)}>
-          {showAddForm ? "Cancel" : "+ Upload Document"}
+          {showAddForm ? "Cancel" : "+ Upload File"}
         </button>
       </div>
       <p style={{ color: "#555" }}>
-        Survey responses, signed policies, other office documents, and long-term email records from missionary
-        and organization partners. Admin-only — never shown on the public site.
+        Newsletters, survey responses, signed policies, other office documents, and long-term email records
+        from missionary and organization partners. Admin-only — never shown on the public site.
       </p>
 
       {showAddForm && (
@@ -190,8 +190,8 @@ export default function AdminDocuments() {
               Partner
               <PartnerSelect
                 partners={partners}
-                value={newDocument.partnerId}
-                onChange={(partnerId) => setNewDocument((f) => ({ ...f, partnerId }))}
+                value={newFile.partnerId}
+                onChange={(partnerId) => setNewFile((f) => ({ ...f, partnerId }))}
                 required
               />
             </label>
@@ -205,24 +205,24 @@ export default function AdminDocuments() {
               />
             </label>
             <label>
-              Category
+              Kind
               <select
-                value={newDocument.category}
-                onChange={(e) => setNewDocument((f) => ({ ...f, category: e.target.value }))}
+                value={newFile.kind}
+                onChange={(e) => setNewFile((f) => ({ ...f, kind: e.target.value }))}
               >
-                {DOCUMENT_CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
+                {FILE_KINDS.map((k) => (
+                  <option key={k.value} value={k.value}>
+                    {k.label}
                   </option>
                 ))}
               </select>
             </label>
-            {newDocument.category === "other" && (
+            {newFile.kind === "other" && (
               <label>
-                Category label
+                Kind label
                 <input
-                  value={newDocument.customCategory}
-                  onChange={(e) => setNewDocument((f) => ({ ...f, customCategory: e.target.value }))}
+                  value={newFile.customKind}
+                  onChange={(e) => setNewFile((f) => ({ ...f, customKind: e.target.value }))}
                   placeholder="e.g. Background Check"
                   required
                 />
@@ -231,25 +231,25 @@ export default function AdminDocuments() {
             <label>
               Title (optional)
               <input
-                value={newDocument.title}
-                onChange={(e) => setNewDocument((f) => ({ ...f, title: e.target.value }))}
-                placeholder="e.g. 2026 Field Survey"
+                value={newFile.title}
+                onChange={(e) => setNewFile((f) => ({ ...f, title: e.target.value }))}
+                placeholder="e.g. Summer 2026 Update"
               />
             </label>
             <label>
               Received Date
               <input
                 type="date"
-                value={newDocument.receivedDate}
-                onChange={(e) => setNewDocument((f) => ({ ...f, receivedDate: e.target.value }))}
+                value={newFile.receivedDate}
+                onChange={(e) => setNewFile((f) => ({ ...f, receivedDate: e.target.value }))}
                 required
               />
             </label>
             <label style={{ gridColumn: "1 / -1" }}>
               Notes
               <input
-                value={newDocument.notes}
-                onChange={(e) => setNewDocument((f) => ({ ...f, notes: e.target.value }))}
+                value={newFile.notes}
+                onChange={(e) => setNewFile((f) => ({ ...f, notes: e.target.value }))}
               />
             </label>
           </div>
@@ -267,11 +267,11 @@ export default function AdminDocuments() {
         style={{ marginTop: "1rem", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label htmlFor="documents-entity-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>
+          <label htmlFor="partner-files-entity-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>
             Show:
           </label>
           <select
-            id="documents-entity-filter"
+            id="partner-files-entity-filter"
             value={entityFilter}
             onChange={(e) => setEntityFilter(e.target.value)}
             style={{ width: "auto" }}
@@ -282,29 +282,32 @@ export default function AdminDocuments() {
           </select>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label htmlFor="documents-category-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>
-            Category:
+          <label htmlFor="partner-files-kind-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>
+            Kind:
           </label>
           <select
-            id="documents-category-filter"
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            id="partner-files-kind-filter"
+            value={kindFilter}
+            onChange={(e) => setKindFilter(e.target.value)}
             style={{ width: "auto" }}
           >
             <option value="all">All</option>
-            {DOCUMENT_CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
+            {FILE_KINDS.map((k) => (
+              <option key={k.value} value={k.value}>
+                {k.label}
               </option>
             ))}
           </select>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label htmlFor="documents-date-range-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>
+          <label
+            htmlFor="partner-files-date-range-filter"
+            style={{ flexDirection: "row", fontWeight: "normal" }}
+          >
             Received:
           </label>
           <select
-            id="documents-date-range-filter"
+            id="partner-files-date-range-filter"
             value={dateRangeFilter}
             onChange={(e) => setDateRangeFilter(e.target.value)}
             style={{ width: "auto" }}
@@ -323,7 +326,7 @@ export default function AdminDocuments() {
           <tr>
             <th>Partner</th>
             <th>Type</th>
-            <th>Category</th>
+            <th>Kind</th>
             <th>Title</th>
             <th>Received</th>
             <th>File</th>
@@ -332,52 +335,52 @@ export default function AdminDocuments() {
           </tr>
         </thead>
         <tbody>
-          {visibleDocuments.map((d) => {
-            const entity = entityFor(d);
+          {visibleFiles.map((f) => {
+            const entity = entityFor(f);
             return (
-              <React.Fragment key={d.id}>
+              <React.Fragment key={f.id}>
                 <tr>
                   <td>{entity.link ? <Link to={entity.link}>{entity.name}</Link> : entity.name}</td>
                   <td>{entity.type}</td>
-                  <td>{documentCategoryLabel(d)}</td>
-                  <td>{d.title || "—"}</td>
+                  <td>{fileKindLabel(f)}</td>
+                  <td>{f.title || "—"}</td>
                   <td>
-                    {editingId === d.id ? formatDate(editForm.receivedDate) : formatDate(d.receivedDate)}
+                    {editingId === f.id ? formatDate(editForm.receivedDate) : formatDate(f.receivedDate)}
                   </td>
                   <td>
-                    {d.fileName}
-                    {d.fileSize != null && (
+                    {f.fileName}
+                    {f.fileSize != null && (
                       <span style={{ color: "#888", fontSize: "0.85rem" }}>
                         {" "}
-                        ({formatFileSize(d.fileSize)})
+                        ({formatFileSize(f.fileSize)})
                       </span>
                     )}
                   </td>
                   <td style={{ maxWidth: "16rem" }}>
-                    {editingId === d.id ? editForm.notes || "—" : d.notes || "—"}
+                    {editingId === f.id ? editForm.notes || "—" : f.notes || "—"}
                   </td>
                   <td className="table-actions">
-                    <button type="button" className="btn secondary small" onClick={() => handleView(d)}>
+                    <button type="button" className="btn secondary small" onClick={() => handleView(f)}>
                       View
                     </button>
-                    {enabledFeatures.aiExtraction && isScannable(d) && (
-                      <button type="button" className="btn secondary small" onClick={() => setScanning(d)}>
+                    {enabledFeatures.aiExtraction && isScannable(f) && (
+                      <button type="button" className="btn secondary small" onClick={() => setScanning(f)}>
                         Scan for requests
                       </button>
                     )}
                     <button
                       type="button"
                       className="btn secondary small"
-                      onClick={() => (editingId === d.id ? (setEditingId(null), setError("")) : startEdit(d))}
+                      onClick={() => (editingId === f.id ? (setEditingId(null), setError("")) : startEdit(f))}
                     >
-                      {editingId === d.id ? "Cancel" : "Edit"}
+                      {editingId === f.id ? "Cancel" : "Edit"}
                     </button>
-                    <button type="button" className="btn danger small" onClick={() => handleDelete(d)}>
+                    <button type="button" className="btn danger small" onClick={() => handleDelete(f)}>
                       Delete
                     </button>
                   </td>
                 </tr>
-                {editingId === d.id && (
+                {editingId === f.id && (
                   <tr>
                     <td colSpan={8}>
                       <div className="form-grid">
@@ -394,24 +397,24 @@ export default function AdminDocuments() {
                           />
                         </label>
                         <label>
-                          Category
+                          Kind
                           <select
-                            value={editForm.category}
-                            onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
+                            value={editForm.kind}
+                            onChange={(e) => setEditForm((f) => ({ ...f, kind: e.target.value }))}
                           >
-                            {DOCUMENT_CATEGORIES.map((c) => (
-                              <option key={c.value} value={c.value}>
-                                {c.label}
+                            {FILE_KINDS.map((k) => (
+                              <option key={k.value} value={k.value}>
+                                {k.label}
                               </option>
                             ))}
                           </select>
                         </label>
-                        {editForm.category === "other" && (
+                        {editForm.kind === "other" && (
                           <label>
-                            Category label
+                            Kind label
                             <input
-                              value={editForm.customCategory}
-                              onChange={(e) => setEditForm((f) => ({ ...f, customCategory: e.target.value }))}
+                              value={editForm.customKind}
+                              onChange={(e) => setEditForm((f) => ({ ...f, customKind: e.target.value }))}
                               placeholder="e.g. Background Check"
                               required
                             />
@@ -422,7 +425,7 @@ export default function AdminDocuments() {
                           <input
                             value={editForm.title}
                             onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                            placeholder="e.g. 2026 Field Survey"
+                            placeholder="e.g. Summer 2026 Update"
                           />
                         </label>
                         <label>
@@ -444,7 +447,7 @@ export default function AdminDocuments() {
                       </div>
                       {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
                       <div style={{ marginTop: "0.5rem" }}>
-                        <button type="button" className="btn small" onClick={() => submitEdit(d.id)}>
+                        <button type="button" className="btn small" onClick={() => submitEdit(f.id)}>
                           Save
                         </button>
                       </div>
@@ -457,7 +460,7 @@ export default function AdminDocuments() {
           {filtered.length === 0 && (
             <tr>
               <td colSpan={8} style={{ color: "#888" }}>
-                No documents on file.
+                No files on record.
               </td>
             </tr>
           )}
@@ -467,10 +470,10 @@ export default function AdminDocuments() {
 
       {scanning && (
         <ExtractionReviewModal
-          scan={() => extractFromDocument(scanning.id)}
+          scan={() => extractFromPartnerFile(scanning.id)}
           partnerId={scanning.partner?.id}
           defaultDate={scanning.receivedDate}
-          sourceDocumentId={scanning.id}
+          sourceFileId={scanning.id}
           onChange={reload}
           onClose={() => setScanning(null)}
         />

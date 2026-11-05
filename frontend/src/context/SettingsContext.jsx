@@ -33,8 +33,7 @@ const DEFAULTS = {
   // except aiExtraction, groupme, and joshuaProject, whose real registry
   // default is off.
   enabledFeatures: {
-    newsletters: true,
-    documents: true,
+    partnerFiles: true,
     publicDirectory: true,
     publicMap: true,
     aiExtraction: false,

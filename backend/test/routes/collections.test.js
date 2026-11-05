@@ -14,8 +14,8 @@ const {
   FIXTURE_TAG,
 } = require("./helpers");
 
-// The six collections hanging off a partner (trips, support entries,
-// one-time needs, prayer requests, newsletters, documents). Each router is
+// The five collections hanging off a partner (trips, support entries,
+// one-time needs, prayer requests, partner files). Each router is
 // the *only* writer for its table -- the partner record's own PUT refuses
 // them -- so the gates here are the whole story for that data.
 
@@ -55,7 +55,7 @@ after(async () => {
 });
 
 // Each entry: the route, a minimal valid create body, and a field to edit.
-// newsletters/documents are excluded here because they're multipart uploads
+// partner files are excluded here because they're multipart uploads
 // rather than JSON -- they get their own describe block below.
 function collectionCases() {
   return [
@@ -466,10 +466,10 @@ describe("support entries: append-only", () => {
   });
 });
 
-describe("documents: category rules", () => {
-  // The one schema refinement that survived the merge: an "other" category
-  // needs a free-typed label. It has to hold on a partial update too, where
-  // either field can arrive on its own.
+describe("partner files: kind rules", () => {
+  // The one schema refinement this collapsed down to: a "other" kind
+  // needs a free-typed label. It has to hold on a partial update too,
+  // where either field can arrive on its own.
   function upload(fields) {
     const form = new FormData();
     form.set("file", new Blob([Buffer.from("%PDF-1.4 test")], { type: "application/pdf" }), "t.pdf");
@@ -477,20 +477,20 @@ describe("documents: category rules", () => {
     return form;
   }
 
-  test("category 'other' requires a customCategory on create", async () => {
-    const res = await admin("/api/documents", {
+  test("kind 'other' requires a customKind on create", async () => {
+    const res = await admin("/api/partner-files", {
       method: "POST",
-      body: upload({ partnerId: partner.id, category: "other", receivedDate: "2026-01-01" }),
+      body: upload({ partnerId: partner.id, kind: "other", receivedDate: "2026-01-01" }),
     });
     assert.equal(res.status, 400);
   });
 
-  test("a valid document round-trips, downloads, and enforces the rule on update", async () => {
-    const created = await admin("/api/documents", {
+  test("a valid file round-trips, downloads, and enforces the rule on update", async () => {
+    const created = await admin("/api/partner-files", {
       method: "POST",
       body: upload({
         partnerId: partner.id,
-        category: "survey_response",
+        kind: "survey_response",
         receivedDate: "2026-01-01",
         title: "Survey",
       }),
@@ -498,34 +498,34 @@ describe("documents: category rules", () => {
     assert.equal(created.status, 201, JSON.stringify(created.body));
     assert.ok(!("bytes" in created.body), "file bytes must never come back in a JSON response");
 
-    const download = await admin(`/api/documents/${created.body.id}/download`);
+    const download = await admin(`/api/partner-files/${created.body.id}/download`);
     assert.equal(download.status, 200);
 
     // Switching to "other" without a label must be refused, even though the
     // body only carries one of the two fields.
-    const bad = await admin(`/api/documents/${created.body.id}`, {
+    const bad = await admin(`/api/partner-files/${created.body.id}`, {
       method: "PUT",
-      body: { category: "other" },
+      body: { kind: "other" },
     });
     assert.equal(bad.status, 400);
 
-    const good = await admin(`/api/documents/${created.body.id}`, {
+    const good = await admin(`/api/partner-files/${created.body.id}`, {
       method: "PUT",
-      body: { category: "other", customCategory: "Background Check" },
+      body: { kind: "other", customKind: "Background Check" },
     });
     assert.equal(good.status, 200);
-    assert.equal(good.body.customCategory, "Background Check");
+    assert.equal(good.body.customKind, "Background Check");
 
-    await admin(`/api/documents/${created.body.id}`, { method: "DELETE" });
+    await admin(`/api/partner-files/${created.body.id}`, { method: "DELETE" });
   });
 
   test("rejects a file whose bytes don't match its declared type", async () => {
     const form = new FormData();
     form.set("file", new Blob([Buffer.from("not a pdf at all")], { type: "application/pdf" }), "fake.pdf");
     form.set("partnerId", partner.id);
-    form.set("category", "office_document");
+    form.set("kind", "office_document");
     form.set("receivedDate", "2026-01-01");
-    const res = await admin("/api/documents", { method: "POST", body: form });
+    const res = await admin("/api/partner-files", { method: "POST", body: form });
     assert.equal(res.status, 400);
     // Assert the *reason*, not just the status: an earlier version of the
     // test helper mangled FormData, so this passed on "No file provided"

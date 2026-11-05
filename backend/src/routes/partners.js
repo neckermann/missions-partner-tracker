@@ -34,7 +34,7 @@ const IMAGE_MIME_TO_EXT = {
 // application/octet-stream or leave it blank. webp's Content-Type isn't
 // always reliable either (confirmed directly -- see routes/settings.js's
 // own logo upload for the same fix). Both recognized by extension as a
-// fallback, same approach as .eml in routes/newsletters.js/documents.js.
+// fallback, same approach as .eml in routes/partnerFiles.js.
 const resolveImageExt = makeExtResolver(IMAGE_MIME_TO_EXT, [
   { test: (name) => /\.hei[cf]$/i.test(name), ext: "heic" },
   { test: (name) => /\.webp$/i.test(name), ext: "webp" },
@@ -50,7 +50,7 @@ const upload = uploadFilteredBy(resolveImageExt, {
 // ever written through this route.
 //
 // Deliberately NOT the history collections (trips, support entries,
-// one-time needs, prayer requests, newsletters, documents). Those are
+// one-time needs, prayer requests, partner files). Those are
 // independent resources with their own endpoints, and each section of the
 // partner page loads the one it needs -- a list row shouldn't drag ten
 // years of history across the wire to render a name.
@@ -527,8 +527,8 @@ router.delete("/:id/photos/:photoId", requireRole("admin"), async (req, res, nex
 // church visits. Those are still replaced wholesale when their key is
 // present, which is safe precisely because nothing else writes them.
 //
-// Trips, support entries, one-time needs, prayer requests, newsletters and
-// documents are deliberately NOT accepted here, even if the client sends
+// Trips, support entries, one-time needs, prayer requests, and partner
+// files are deliberately NOT accepted here, even if the client sends
 // them. Each has its own per-row endpoint, and accepting them here meant
 // deleting and recreating every row on each save — which churned their ids,
 // reset their timestamps, and silently destroyed any row added through the
@@ -694,8 +694,8 @@ router.delete("/:id", requireRole("admin"), async (req, res, next) => {
     if (!existing.archived) {
       return res.status(400).json({ error: "Archive this partner before deleting it." });
     }
-    // Cascades to newsletters/documents/photos/addresses/etc. — their file
-    // bytes live in the same row (see the Newsletter model comment in
+    // Cascades to partner files/photos/addresses/etc. — their file bytes
+    // live in the same row (see the PartnerFile model comment in
     // schema.prisma), so there's no separate external cleanup needed.
     await prisma.partner.delete({ where: { id: req.params.id } });
 
