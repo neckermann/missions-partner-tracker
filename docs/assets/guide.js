@@ -69,7 +69,73 @@ function assignHeadingIds(container) {
   });
 }
 
-async function loadGuide(fileName, containerId) {
+// Builds the in-page TOC from the guide's own H2s (with H3s nested
+// underneath their preceding H2) -- reuses the ids assignHeadingIds()
+// just assigned, so a TOC link and a cross-reference link from inside
+// the Markdown itself always land on the exact same anchor. Skipped
+// (left empty) when there's nothing to navigate, e.g. an error state or
+// a guide with no subheadings.
+function buildToc(container, tocNavId) {
+  const nav = document.getElementById(tocNavId);
+  if (!nav) return;
+  const headings = [...container.querySelectorAll("h2, h3")];
+  if (headings.length === 0) {
+    nav.closest(".guide-toc")?.setAttribute("hidden", "");
+    return;
+  }
+
+  const topUl = document.createElement("ul");
+  let currentTopLi = null;
+  let currentSubUl = null;
+  for (const heading of headings) {
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.textContent = heading.textContent;
+    li.appendChild(a);
+
+    if (heading.tagName === "H2") {
+      topUl.appendChild(li);
+      currentTopLi = li;
+      currentSubUl = null;
+    } else {
+      // An H3 before any H2 (shouldn't happen in practice, but a guide's
+      // structure isn't this script's to enforce) just falls back to the
+      // top level instead of throwing.
+      if (!currentTopLi) {
+        topUl.appendChild(li);
+        continue;
+      }
+      if (!currentSubUl) {
+        currentSubUl = document.createElement("ul");
+        currentTopLi.appendChild(currentSubUl);
+      }
+      currentSubUl.appendChild(li);
+    }
+  }
+  nav.innerHTML = "";
+  nav.appendChild(topUl);
+
+  // Scroll-spy: highlights whichever heading's section is currently
+  // nearest the top of the viewport, same idea most docs sites use.
+  // Plain IntersectionObserver, not a scroll listener -- cheap, and
+  // naturally debounced by the browser's own layout/paint cycle.
+  const links = new Map(headings.map((h) => [h.id, nav.querySelector(`a[href="#${h.id}"]`)]));
+  const setActive = (id) => {
+    nav.querySelectorAll("a.active").forEach((a) => a.classList.remove("active"));
+    links.get(id)?.classList.add("active");
+  };
+  const observer = new IntersectionObserver(
+    (entries) => {
+      const visible = entries.filter((e) => e.isIntersecting);
+      if (visible.length > 0) setActive(visible[0].target.id);
+    },
+    { rootMargin: "-80px 0px -70% 0px" }
+  );
+  headings.forEach((h) => observer.observe(h));
+}
+
+async function loadGuide(fileName, containerId, tocNavId) {
   const container = document.getElementById(containerId);
   try {
     const res = await fetch(`${RAW_BASE}${fileName}`);
@@ -83,6 +149,7 @@ async function loadGuide(fileName, containerId) {
     container.querySelectorAll("img[src]").forEach((img) => {
       img.setAttribute("src", rewriteImageSrc(img.getAttribute("src")));
     });
+    if (tocNavId) buildToc(container, tocNavId);
     // Jump to the requested anchor now that the real content (and its
     // heading ids) exists -- the browser already tried once, before any
     // of this existed, and gave up.
