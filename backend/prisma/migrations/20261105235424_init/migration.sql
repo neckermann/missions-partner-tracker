@@ -245,6 +245,9 @@ CREATE TABLE "PendingNotification" (
     "reviewedAt" TIMESTAMP(3),
     "reviewedById" TEXT,
     "reviewedText" TEXT,
+    "weeklyDigestSentAt" TIMESTAMP(3),
+    "biweeklyDigestSentAt" TIMESTAMP(3),
+    "monthlyDigestSentAt" TIMESTAMP(3),
 
     CONSTRAINT "PendingNotification_pkey" PRIMARY KEY ("id")
 );
@@ -304,6 +307,12 @@ CREATE TABLE "ChurchSettings" (
     "digestDayOfMonth" INTEGER,
     "digestHour" INTEGER,
     "lastDigestSentAt" TIMESTAMP(3),
+    "scopedDigestDayOfWeek" INTEGER,
+    "scopedDigestDayOfMonth" INTEGER,
+    "scopedDigestHour" INTEGER,
+    "lastWeeklyScopedDigestSentAt" TIMESTAMP(3),
+    "lastBiweeklyScopedDigestSentAt" TIMESTAMP(3),
+    "lastMonthlyScopedDigestSentAt" TIMESTAMP(3),
     "queueNotifyPrayerRequests" BOOLEAN NOT NULL DEFAULT true,
     "queueNotifyOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
     "queueNotifyNewsletters" BOOLEAN NOT NULL DEFAULT true,
@@ -333,9 +342,38 @@ CREATE TABLE "User" (
     "mfaSecret" TEXT,
     "mfaLastTimeStep" INTEGER,
     "mfaSetupRequired" BOOLEAN NOT NULL DEFAULT false,
-    "notifyByEmail" BOOLEAN NOT NULL DEFAULT false,
+    "digestFrequency" TEXT,
+    "allPartners" BOOLEAN NOT NULL DEFAULT true,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "UserFollowedPartner" (
+    "userId" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+
+    CONSTRAINT "UserFollowedPartner_pkey" PRIMARY KEY ("userId","partnerId")
+);
+
+-- CreateTable
+CREATE TABLE "PublicSubscriber" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "confirmedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "frequency" TEXT NOT NULL DEFAULT 'weekly',
+    "allPartners" BOOLEAN NOT NULL DEFAULT true,
+
+    CONSTRAINT "PublicSubscriber_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PublicSubscriberPartner" (
+    "subscriberId" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+
+    CONSTRAINT "PublicSubscriberPartner_pkey" PRIMARY KEY ("subscriberId","partnerId")
 );
 
 -- CreateIndex
@@ -404,6 +442,18 @@ CREATE INDEX "Photo_partnerId_idx" ON "Photo"("partnerId");
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
+-- CreateIndex
+CREATE INDEX "UserFollowedPartner_partnerId_idx" ON "UserFollowedPartner"("partnerId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PublicSubscriber_email_key" ON "PublicSubscriber"("email");
+
+-- CreateIndex
+CREATE INDEX "PublicSubscriber_confirmedAt_idx" ON "PublicSubscriber"("confirmedAt");
+
+-- CreateIndex
+CREATE INDEX "PublicSubscriberPartner_partnerId_idx" ON "PublicSubscriberPartner"("partnerId");
+
 -- AddForeignKey
 ALTER TABLE "Adult" ADD CONSTRAINT "Adult_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -451,3 +501,15 @@ ALTER TABLE "PendingNotification" ADD CONSTRAINT "PendingNotification_partnerId_
 
 -- AddForeignKey
 ALTER TABLE "Photo" ADD CONSTRAINT "Photo_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserFollowedPartner" ADD CONSTRAINT "UserFollowedPartner_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserFollowedPartner" ADD CONSTRAINT "UserFollowedPartner_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PublicSubscriberPartner" ADD CONSTRAINT "PublicSubscriberPartner_subscriberId_fkey" FOREIGN KEY ("subscriberId") REFERENCES "PublicSubscriber"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PublicSubscriberPartner" ADD CONSTRAINT "PublicSubscriberPartner_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -115,6 +115,13 @@ export async function fetchVersionCheck() {
   return data;
 }
 
+// Backs AdminSystemInfo.jsx. Admin-role only, same reasoning as
+// fetchVersionCheck above.
+export async function fetchSystemInfo() {
+  const { data } = await api.get("/system-info");
+  return data;
+}
+
 // Backs the database-backup reminder in AdminLayout.jsx. Admin-role only,
 // same reasoning as fetchVersionCheck above -- see BackupReminder.jsx.
 export async function fetchBackupCheck() {

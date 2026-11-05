@@ -124,6 +124,11 @@ function buildSiteAdminSections(enabledFeatures) {
       title: "Backups",
       description: "Download a full database backup on demand, or manage the periodic reminder.",
     },
+    {
+      to: "/admin/settings/system-info",
+      title: "System Info",
+      description: "App version, runtime, database, and deployment details -- what's actually running.",
+    },
   ];
   const communications = [
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {

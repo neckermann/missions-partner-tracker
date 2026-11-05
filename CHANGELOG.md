@@ -16,6 +16,18 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.2.0] - 2026-11-05
+
+A new **System Info** page (Site Administration, alongside Backups)
+shows what's actually running on this instance — app version (plus
+the same "update available" check the dashboard banner already does),
+Node.js/React/React DOM versions, the Postgres version and database
+size, and, when running on Render, the service name, git commit, and
+external URL. Useful for confirming what you're on before filing a
+bug against a fork, without needing shell access. Admin-only,
+enforced server-side like every other admin-only route; never shows a
+connection string or any credential.
+
 ## [1.1.1] - 2026-11-05
 
 A restricted partner's photo tile in a Snapshot-layout digest email
