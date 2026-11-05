@@ -28,7 +28,11 @@ const { appBaseUrl } = require("./notificationBlurbs");
 
 const HEADER_FALLBACK_COLOR = "#2c2a28";
 const ACCENT_FALLBACK_COLOR = "#2a5d3c";
-const HIGHLIGHT_FALLBACK_COLOR = "#c97a3d";
+// #a6540f, not the lighter #c97a3d it might look like it should be --
+// see the matching comment in frontend/src/index.css: a lighter
+// terracotta fails WCAG AA color-contrast against the white text it
+// pairs with in several uses.
+const HIGHLIGHT_FALLBACK_COLOR = "#a6540f";
 const FONT_FALLBACK = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
 // Same { id, <purpose>: true } shape routes/auth.js already uses for

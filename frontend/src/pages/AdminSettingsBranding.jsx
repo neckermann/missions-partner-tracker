@@ -172,7 +172,7 @@ export default function AdminSettingsBranding() {
             Highlight Color
             <input
               type="color"
-              value={form.highlightColor || "#c97a3d"}
+              value={form.highlightColor || "#a6540f"}
               onChange={(e) => update("highlightColor", e.target.value)}
             />
           </label>
