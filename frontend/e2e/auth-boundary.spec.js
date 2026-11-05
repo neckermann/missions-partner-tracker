@@ -139,8 +139,8 @@ test.describe("login redirect for direct links to authenticated files", () => {
   test("a direct link with no session redirects to /login and returns to the original path after signing in", async ({
     page,
   }) => {
-    await page.goto("/api/newsletters/any-id/download");
-    await expect(page).toHaveURL(/\/login\?next=%2Fapi%2Fnewsletters%2Fany-id%2Fdownload/);
+    await page.goto("/api/partner-files/any-id/download");
+    await expect(page).toHaveURL(/\/login\?next=%2Fapi%2Fpartner-files%2Fany-id%2Fdownload/);
 
     await page.fill('input[type="email"]', ADMIN_EMAIL);
     await page.fill('input[type="password"]', ADMIN_PASSWORD);
@@ -150,7 +150,7 @@ test.describe("login redirect for direct links to authenticated files", () => {
     // (not a second /login redirect, not the bare "Authentication
     // required" this issue is about) proves requireAuth let the request
     // through with the fresh session cookie.
-    await page.waitForURL(/\/api\/newsletters\/any-id\/download/);
+    await page.waitForURL(/\/api\/partner-files\/any-id\/download/);
     await expect(page.locator("body")).toContainText("Not found");
   });
 

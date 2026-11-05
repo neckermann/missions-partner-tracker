@@ -178,8 +178,7 @@ CREATE TABLE "SupportNeed" (
     "approvedDate" DATE,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "sourceNewsletterId" TEXT,
-    "sourceDocumentId" TEXT,
+    "sourceFileId" TEXT,
 
     CONSTRAINT "SupportNeed_pkey" PRIMARY KEY ("id")
 );
@@ -198,16 +197,17 @@ CREATE TABLE "PrayerRequest" (
     "answeredNote" TEXT,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "sourceNewsletterId" TEXT,
-    "sourceDocumentId" TEXT,
+    "sourceFileId" TEXT,
 
     CONSTRAINT "PrayerRequest_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "Newsletter" (
+CREATE TABLE "PartnerFile" (
     "id" TEXT NOT NULL,
     "partnerId" TEXT NOT NULL,
+    "kind" TEXT NOT NULL,
+    "customKind" TEXT,
     "title" TEXT,
     "receivedDate" DATE NOT NULL,
     "bytes" BYTEA NOT NULL,
@@ -217,7 +217,7 @@ CREATE TABLE "Newsletter" (
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "Newsletter_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "PartnerFile_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -244,24 +244,6 @@ CREATE TABLE "PendingNotification" (
     "emailSentAt" TIMESTAMP(3),
 
     CONSTRAINT "PendingNotification_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Document" (
-    "id" TEXT NOT NULL,
-    "partnerId" TEXT NOT NULL,
-    "category" TEXT NOT NULL,
-    "customCategory" TEXT,
-    "title" TEXT,
-    "receivedDate" DATE NOT NULL,
-    "bytes" BYTEA NOT NULL,
-    "fileName" TEXT NOT NULL,
-    "contentType" TEXT NOT NULL,
-    "fileSize" INTEGER,
-    "notes" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "Document_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -401,19 +383,16 @@ CREATE INDEX "PrayerRequest_category_idx" ON "PrayerRequest"("category");
 CREATE INDEX "PrayerRequest_status_idx" ON "PrayerRequest"("status");
 
 -- CreateIndex
-CREATE INDEX "Newsletter_partnerId_idx" ON "Newsletter"("partnerId");
+CREATE INDEX "PartnerFile_partnerId_idx" ON "PartnerFile"("partnerId");
+
+-- CreateIndex
+CREATE INDEX "PartnerFile_kind_idx" ON "PartnerFile"("kind");
 
 -- CreateIndex
 CREATE INDEX "PendingNotification_type_idx" ON "PendingNotification"("type");
 
 -- CreateIndex
 CREATE INDEX "PendingNotification_partnerId_idx" ON "PendingNotification"("partnerId");
-
--- CreateIndex
-CREATE INDEX "Document_partnerId_idx" ON "Document"("partnerId");
-
--- CreateIndex
-CREATE INDEX "Document_category_idx" ON "Document"("category");
 
 -- CreateIndex
 CREATE INDEX "Photo_partnerId_idx" ON "Photo"("partnerId");
@@ -452,28 +431,19 @@ ALTER TABLE "SupportEntry" ADD CONSTRAINT "SupportEntry_partnerId_fkey" FOREIGN 
 ALTER TABLE "SupportNeed" ADD CONSTRAINT "SupportNeed_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "SupportNeed" ADD CONSTRAINT "SupportNeed_sourceNewsletterId_fkey" FOREIGN KEY ("sourceNewsletterId") REFERENCES "Newsletter"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "SupportNeed" ADD CONSTRAINT "SupportNeed_sourceDocumentId_fkey" FOREIGN KEY ("sourceDocumentId") REFERENCES "Document"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "SupportNeed" ADD CONSTRAINT "SupportNeed_sourceFileId_fkey" FOREIGN KEY ("sourceFileId") REFERENCES "PartnerFile"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PrayerRequest" ADD CONSTRAINT "PrayerRequest_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "PrayerRequest" ADD CONSTRAINT "PrayerRequest_sourceNewsletterId_fkey" FOREIGN KEY ("sourceNewsletterId") REFERENCES "Newsletter"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "PrayerRequest" ADD CONSTRAINT "PrayerRequest_sourceFileId_fkey" FOREIGN KEY ("sourceFileId") REFERENCES "PartnerFile"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "PrayerRequest" ADD CONSTRAINT "PrayerRequest_sourceDocumentId_fkey" FOREIGN KEY ("sourceDocumentId") REFERENCES "Document"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Newsletter" ADD CONSTRAINT "Newsletter_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "PartnerFile" ADD CONSTRAINT "PartnerFile_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PendingNotification" ADD CONSTRAINT "PendingNotification_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Document" ADD CONSTRAINT "Document_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Photo" ADD CONSTRAINT "Photo_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;

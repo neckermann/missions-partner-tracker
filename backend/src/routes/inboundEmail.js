@@ -88,7 +88,7 @@ router.post("/postmark", async (req, res, next) => {
     // RawEmail is the full RFC 822 message as plain text (not base64 --
     // confirmed against Rails' ActionMailbox Postmark ingress, which
     // reads this same field the same way), so a plain UTF-8 buffer is
-    // the raw .eml source, same shape as an uploaded Newsletter.bytes.
+    // the raw .eml source, same shape as an uploaded PartnerFile.bytes.
     const bytes = Buffer.from(rawEmail, "utf8");
     const fileName = `inbound-${payload.MessageID || crypto.randomUUID()}.eml`;
     const subject = payload.Subject || null;
@@ -109,9 +109,10 @@ router.post("/postmark", async (req, res, next) => {
     });
 
     if (matches.length === 1) {
-      const created = await prisma.newsletter.create({
+      const created = await prisma.partnerFile.create({
         data: {
           partnerId: matches[0].id,
+          kind: "newsletter",
           title: subject,
           receivedDate: new Date(),
           bytes,
@@ -147,7 +148,7 @@ router.use(requireFeature("inboundEmail"));
 const inboundEmailInclude = { omit: { bytes: true } };
 
 // GET /api/inbound-email -- the pending queue, newest first. No role
-// restriction beyond being logged in, same as GET /api/newsletters.
+// restriction beyond being logged in, same as GET /api/partner-files.
 router.get("/", async (req, res, next) => {
   try {
     const records = await prisma.inboundEmail.findMany({
@@ -162,7 +163,7 @@ router.get("/", async (req, res, next) => {
 
 // GET /api/inbound-email/:id/raw -- lets an admin read the email before
 // deciding who it's from. Same sendStoredFile helper
-// newsletters.js's /:id/download uses; contentType is always
+// partnerFiles.js's /:id/download uses; contentType is always
 // message/rfc822 here so it isn't a stored column (see the model
 // comment in schema.prisma).
 router.get("/:id/raw", async (req, res, next) => {
@@ -178,11 +179,26 @@ router.get("/:id/raw", async (req, res, next) => {
 const assignSchema = z.object({ partnerId: z.string() });
 
 // POST /api/inbound-email/:id/assign (editor or admin, matches
-// newsletters.js's own create-role gating -- this creates a Newsletter,
-// same as that route does).
+// partnerFiles.js's own create-role gating). Always files as a
+// newsletter -- that's what the overwhelming majority of inbound mail
+// actually is, and an admin who finds one mis-filed just edits `kind`
+// via PartnerFile's normal PUT afterward.
 router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const { partnerId } = assignSchema.parse(req.body);
+
+    // Must be on too -- not just "inboundEmail" (checked by the
+    // router.use above), since an admin shouldn't be able to file a row
+    // into a feature that's disabled. Same 404 semantics as
+    // requireFeature itself: a disabled feature looks like this action
+    // doesn't exist, not like a validation error.
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { enabledFeatures: true },
+    });
+    if (!isFeatureEnabled(settings?.enabledFeatures, "partnerFiles")) {
+      return res.status(404).json({ error: "Not found" });
+    }
 
     const record = await prisma.inboundEmail.findUnique({ where: { id: req.params.id } });
     if (!record) return res.status(404).json({ error: "Not found" });
@@ -190,9 +206,10 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
     const partner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { id: true } });
     if (!partner) return res.status(400).json({ error: "That partner no longer exists" });
 
-    const created = await prisma.newsletter.create({
+    const created = await prisma.partnerFile.create({
       data: {
         partnerId,
+        kind: "newsletter",
         title: record.subject,
         receivedDate: record.receivedAt,
         bytes: record.bytes,
@@ -218,7 +235,7 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
   }
 });
 
-// DELETE /api/inbound-email/:id (admin only, matches newsletters.js's own
+// DELETE /api/inbound-email/:id (admin only, matches partnerFiles.js's own
 // delete-role gating) -- discards without filing anything.
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {

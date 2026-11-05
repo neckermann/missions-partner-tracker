@@ -566,9 +566,9 @@ describe("newsletter creation enqueues a PendingNotification instead of posting 
       return groupmeJson(202, { response: null });
     });
     try {
-      const created = await admin("/api/newsletters", {
+      const created = await admin("/api/partner-files", {
         method: "POST",
-        body: uploadForm({ partnerId, receivedDate: "2026-01-01" }),
+        body: uploadForm({ partnerId, kind: "newsletter", receivedDate: "2026-01-01" }),
       });
       assert.equal(created.status, 201);
       assert.equal(called, false);

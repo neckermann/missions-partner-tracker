@@ -162,10 +162,10 @@ describe("AI request scanning route is gated by the feature flag", () => {
       where: { id: "singleton" },
       data: { enabledFeatures: { aiExtraction: false } },
     });
-    // Newsletters' scan sub-route 404s before ever reaching extraction.js,
-    // same "off means 404" rule every other gated feature gets -- not
+    // The scan sub-route 404s before ever reaching extraction.js, same
+    // "off means 404" rule every other gated feature gets -- not
     // exercising an actual file here, just confirming the gate itself.
-    const res = await admin("/api/newsletters/00000000-0000-4000-8000-000000000000/extract", {
+    const res = await admin("/api/partner-files/00000000-0000-4000-8000-000000000000/extract", {
       method: "POST",
     });
     assert.equal(res.status, 404);
@@ -209,9 +209,9 @@ describe("stripFootnoteArtifacts", () => {
 });
 
 // Source-linking (issue #94 part 2): a request/need created from the scan
-// modal can carry sourceNewsletterId/sourceDocumentId back to the file it
-// came from. No API call needed -- this is DB/route plumbing, exercised
-// directly against the create routes and a fixture Newsletter/Document.
+// modal can carry sourceFileId back to the file it came from. No API call
+// needed -- this is DB/route plumbing, exercised directly against the
+// create routes and a fixture PartnerFile of each kind.
 describe("prayer request / one-time need source linking", () => {
   let partnerId;
   let newsletterId;
@@ -222,9 +222,10 @@ describe("prayer request / one-time need source linking", () => {
       data: { kind: "missionary", displayName: `${FIXTURE_TAG} Source Link Fixture` },
     });
     partnerId = partner.id;
-    const newsletter = await prisma.newsletter.create({
+    const newsletter = await prisma.partnerFile.create({
       data: {
         partnerId,
+        kind: "newsletter",
         title: "Spring Update",
         receivedDate: new Date("2026-03-01"),
         bytes: Buffer.from("fixture"),
@@ -233,10 +234,11 @@ describe("prayer request / one-time need source linking", () => {
       },
     });
     newsletterId = newsletter.id;
-    const document = await prisma.document.create({
+    const document = await prisma.partnerFile.create({
       data: {
         partnerId,
-        category: "other",
+        kind: "other",
+        customKind: "Background Check",
         title: "Prayer Letter",
         receivedDate: new Date("2026-04-01"),
         bytes: Buffer.from("fixture"),
@@ -251,7 +253,7 @@ describe("prayer request / one-time need source linking", () => {
     await removeFixturePartners();
   });
 
-  test("a prayer request created with sourceNewsletterId returns the newsletter's title/date on GET", async () => {
+  test("a prayer request created with sourceFileId returns the file's title/date on GET", async () => {
     const created = await admin("/api/prayer-requests", {
       method: "POST",
       body: {
@@ -259,19 +261,18 @@ describe("prayer request / one-time need source linking", () => {
         category: "situational",
         requestText: "Pray for safe travel.",
         dateReceived: "2026-03-01",
-        sourceNewsletterId: newsletterId,
+        sourceFileId: newsletterId,
       },
     });
     assert.equal(created.status, 201);
-    assert.equal(created.body.sourceNewsletter.title, "Spring Update");
-    assert.equal(created.body.sourceDocument, null);
+    assert.equal(created.body.sourceFile.title, "Spring Update");
 
     const fetched = await admin(`/api/prayer-requests?partnerId=${partnerId}`);
     const row = fetched.body.find((r) => r.id === created.body.id);
-    assert.equal(row.sourceNewsletter.title, "Spring Update");
+    assert.equal(row.sourceFile.title, "Spring Update");
   });
 
-  test("a one-time need created with sourceDocumentId returns the document's title/date on GET", async () => {
+  test("a one-time need created with sourceFileId returns the file's title/date on GET", async () => {
     const created = await admin("/api/support-needs", {
       method: "POST",
       body: {
@@ -279,15 +280,14 @@ describe("prayer request / one-time need source linking", () => {
         description: "Need $500 for a vehicle repair.",
         requestedAmount: 500,
         requestDate: "2026-04-01",
-        sourceDocumentId: documentId,
+        sourceFileId: documentId,
       },
     });
     assert.equal(created.status, 201);
-    assert.equal(created.body.sourceDocument.title, "Prayer Letter");
-    assert.equal(created.body.sourceNewsletter, null);
+    assert.equal(created.body.sourceFile.title, "Prayer Letter");
   });
 
-  test("a request/need added by hand (no source) has both source fields null", async () => {
+  test("a request/need added by hand (no source) has sourceFile null", async () => {
     const created = await admin("/api/prayer-requests", {
       method: "POST",
       body: {
@@ -298,11 +298,10 @@ describe("prayer request / one-time need source linking", () => {
       },
     });
     assert.equal(created.status, 201);
-    assert.equal(created.body.sourceNewsletter, null);
-    assert.equal(created.body.sourceDocument, null);
+    assert.equal(created.body.sourceFile, null);
   });
 
-  test("deleting the source newsletter sets sourceNewsletterId to null, not the request itself", async () => {
+  test("deleting the source file sets sourceFileId to null, not the request itself", async () => {
     const created = await admin("/api/prayer-requests", {
       method: "POST",
       body: {
@@ -310,14 +309,14 @@ describe("prayer request / one-time need source linking", () => {
         category: "situational",
         requestText: "Pray for the trip.",
         dateReceived: "2026-03-01",
-        sourceNewsletterId: newsletterId,
+        sourceFileId: newsletterId,
       },
     });
-    await prisma.newsletter.delete({ where: { id: newsletterId } });
+    await prisma.partnerFile.delete({ where: { id: newsletterId } });
 
     const fetched = await admin(`/api/prayer-requests?partnerId=${partnerId}`);
     const row = fetched.body.find((r) => r.id === created.body.id);
-    assert.ok(row, "the prayer request itself must survive its source newsletter being deleted");
-    assert.equal(row.sourceNewsletter, null);
+    assert.ok(row, "the prayer request itself must survive its source file being deleted");
+    assert.equal(row.sourceFile, null);
   });
 });

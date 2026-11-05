@@ -21,7 +21,7 @@ router.get("/:id/raw", async (req, res, next) => {
     // row — see the Photo model comment), so its bytes are immutable for
     // the life of this id. Safe to cache aggressively.
     res.set("Cache-Control", "public, max-age=31536000, immutable");
-    // Same VERIFIED_INLINE_TYPES allowlist newsletters/documents use (see
+    // Same VERIFIED_INLINE_TYPES allowlist partner files use (see
     // utils/fileResponse.js) rather than trusting the stored contentType
     // directly. Photo uploads are signature-verified to image/jpeg,
     // image/png, or image/webp at the multer layer in partners.js (all

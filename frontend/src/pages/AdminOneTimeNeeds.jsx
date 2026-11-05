@@ -29,8 +29,7 @@ const emptyNewNeed = {
   requestedAmount: "",
   requestDate: "",
   notes: "",
-  sourceNewsletterId: null,
-  sourceDocumentId: null,
+  sourceFileId: null,
 };
 
 export default function AdminOneTimeNeeds() {
@@ -89,8 +88,7 @@ export default function AdminOneTimeNeeds() {
         requestedAmount: Number(newNeed.requestedAmount),
         requestDate: newNeed.requestDate,
         notes: newNeed.notes || null,
-        sourceNewsletterId: newNeed.sourceNewsletterId,
-        sourceDocumentId: newNeed.sourceDocumentId,
+        sourceFileId: newNeed.sourceFileId,
       });
       setNewNeed(emptyNewNeed);
       loadSourceFiles(null);
@@ -131,8 +129,7 @@ export default function AdminOneTimeNeeds() {
       requestedAmount: String(need.requestedAmount),
       requestDate: String(need.requestDate).slice(0, 10),
       notes: need.notes || "",
-      sourceNewsletterId: need.sourceNewsletter?.id || null,
-      sourceDocumentId: need.sourceDocument?.id || null,
+      sourceFileId: need.sourceFile?.id || null,
     });
     loadSourceFiles(need.partner?.id);
   }
@@ -144,8 +141,7 @@ export default function AdminOneTimeNeeds() {
         requestedAmount: Number(editForm.requestedAmount),
         requestDate: editForm.requestDate,
         notes: editForm.notes || null,
-        sourceNewsletterId: editForm.sourceNewsletterId,
-        sourceDocumentId: editForm.sourceDocumentId,
+        sourceFileId: editForm.sourceFileId,
       });
       setEditingId(null);
       setEditForm(null);
@@ -180,7 +176,7 @@ export default function AdminOneTimeNeeds() {
                 partners={partners}
                 value={newNeed.partnerId}
                 onChange={(partnerId) => {
-                  setNewNeed((f) => ({ ...f, partnerId, sourceNewsletterId: null, sourceDocumentId: null }));
+                  setNewNeed((f) => ({ ...f, partnerId, sourceFileId: null }));
                   loadSourceFiles(partnerId);
                 }}
                 required
@@ -215,10 +211,8 @@ export default function AdminOneTimeNeeds() {
               />
             </label>
             <SourcePicker
-              newsletters={sourceFiles.newsletters}
-              documents={sourceFiles.documents}
-              sourceNewsletterId={newNeed.sourceNewsletterId}
-              sourceDocumentId={newNeed.sourceDocumentId}
+              files={sourceFiles}
+              sourceFileId={newNeed.sourceFileId}
               onChange={(source) => setNewNeed((f) => ({ ...f, ...source }))}
             />
             <label style={{ gridColumn: "1 / -1" }}>
@@ -341,10 +335,8 @@ export default function AdminOneTimeNeeds() {
                   />
                 </label>
                 <SourcePicker
-                  newsletters={sourceFiles.newsletters}
-                  documents={sourceFiles.documents}
-                  sourceNewsletterId={editForm.sourceNewsletterId}
-                  sourceDocumentId={editForm.sourceDocumentId}
+                  files={sourceFiles}
+                  sourceFileId={editForm.sourceFileId}
                   onChange={(source) => setEditForm((f) => ({ ...f, ...source }))}
                 />
                 <label style={{ gridColumn: "1 / -1" }}>
@@ -402,7 +394,7 @@ export default function AdminOneTimeNeeds() {
                     </div>
                   )}
                 </div>
-                <SourceLink sourceNewsletter={need.sourceNewsletter} sourceDocument={need.sourceDocument} />
+                <SourceLink sourceFile={need.sourceFile} />
               </>
             )}
 

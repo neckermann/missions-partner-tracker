@@ -14,7 +14,7 @@ const router = express.Router();
 router.use(requireAuth);
 
 // GET /api/notifications/pending -- any logged-in role, same "viewing is
-// harmless" reasoning as GET /api/newsletters/GET /api/inbound-email.
+// harmless" reasoning as GET /api/partner-files/GET /api/inbound-email.
 // Reuses buildBlurb so the admin sees the exact same summary text that
 // would actually go out, not a second, hand-maintained description of
 // it.

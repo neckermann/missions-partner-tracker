@@ -3,18 +3,16 @@ import Modal from "../Modal.jsx";
 import { createPrayerRequest, createSupportNeed } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 
-// Shared by NewsletterSection and DocumentSection's "Scan for requests"
-// button. `scan` is the extractFromNewsletter/extractFromDocument call
-// (passed in rather than an id + type, so this component doesn't need to
-// know which kind of file it's reviewing) -- runs once on mount. Nothing is
-// written until the admin explicitly clicks Add on a given card; closing
-// the modal without adding just discards the rest of the suggestions
-// (re-runnable any time from the same button). sourceNewsletterId/
-// sourceDocumentId (at most one set, matching which section rendered this)
-// ride along on save so the created row can link back to this file -- see
-// that column's comment in schema.prisma. `onChange` (the same reload
-// callback NewsletterSection/DocumentSection already get from the partner
-// page) fires after each successful Add, so the partner's Prayer
+// Shared by PartnerFileSection's "Scan for requests" button. `scan` is the
+// extractFromPartnerFile call (passed in rather than an id, so this
+// component doesn't need to know anything about the file itself) -- runs
+// once on mount. Nothing is written until the admin explicitly clicks Add
+// on a given card; closing the modal without adding just discards the
+// rest of the suggestions (re-runnable any time from the same button).
+// sourceFileId rides along on save so the created row can link back to
+// this file -- see that column's comment in schema.prisma. `onChange`
+// (the same reload callback PartnerFileSection already gets from the
+// partner page) fires after each successful Add, so the partner's Prayer
 // Requests/One-Time Needs sections -- rendered elsewhere on that same
 // page, already mounted with their own stale data from before this modal
 // opened -- pick up the new row (and its source link) without the admin
@@ -32,15 +30,7 @@ function joinBackground(background, verbatim) {
   return b ? `${b} ${v}` : v;
 }
 
-export default function ExtractionReviewModal({
-  scan,
-  partnerId,
-  defaultDate,
-  sourceNewsletterId,
-  sourceDocumentId,
-  onChange,
-  onClose,
-}) {
+export default function ExtractionReviewModal({ scan, partnerId, defaultDate, sourceFileId, onChange, onClose }) {
   const { enabledFeatures } = useSettings();
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [error, setError] = useState("");
@@ -96,8 +86,7 @@ export default function ExtractionReviewModal({
         category: r.category,
         requestText: r.requestText,
         dateReceived: defaultDate,
-        sourceNewsletterId,
-        sourceDocumentId,
+        sourceFileId,
       });
       setPrayerRequests((list) => list.map((x, idx) => (idx === i ? { ...x, state: "added" } : x)));
       onChange?.();
@@ -120,8 +109,7 @@ export default function ExtractionReviewModal({
         description: n.description,
         requestedAmount: n.requestedAmount,
         requestDate: defaultDate,
-        sourceNewsletterId,
-        sourceDocumentId,
+        sourceFileId,
       });
       setOneTimeNeeds((list) => list.map((x, idx) => (idx === i ? { ...x, state: "added" } : x)));
       onChange?.();

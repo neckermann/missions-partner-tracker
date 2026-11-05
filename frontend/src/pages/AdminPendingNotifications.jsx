@@ -40,8 +40,8 @@ function groupByPartner(blurbs) {
   for (const blurb of blurbs) {
     if (blurb.type === "newsletterCreated") continue;
     const group = byPartner.get(blurb.partnerId);
-    const parent = blurb.sourceNewsletterId
-      ? group.newsletters.find((n) => n.blurb.newsletterId === blurb.sourceNewsletterId)
+    const parent = blurb.sourceFileId
+      ? group.newsletters.find((n) => n.blurb.newsletterId === blurb.sourceFileId)
       : null;
     if (parent) parent.children.push(blurb);
     else group.standalone.push(blurb);

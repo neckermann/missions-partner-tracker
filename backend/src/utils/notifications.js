@@ -12,7 +12,7 @@
 // routes/notifications.js, utils/groupme.js's sendPendingNotificationsBatch,
 // utils/emailDigest.js). This file staying the one place every route
 // calls is exactly what made that swap possible without touching
-// routes/prayerRequests.js, routes/supportNeeds.js, routes/newsletters.js,
+// routes/prayerRequests.js, routes/supportNeeds.js, routes/partnerFiles.js,
 // or routes/inboundEmail.js at all -- a future channel still hooks in by
 // adding a call in the flush logic, not by editing every route that can
 // trigger an event.
@@ -57,8 +57,7 @@ async function notifyPrayerRequestCreated(prayerRequest) {
     await enqueue("prayerRequestCreated", prayerRequest.partnerId, {
       partnerName: prayerRequest.partner?.displayName || "A partner",
       requestText: prayerRequest.requestText,
-      sourceNewsletterId: prayerRequest.sourceNewsletter?.id || null,
-      sourceDocumentId: prayerRequest.sourceDocument?.id || null,
+      sourceFileId: prayerRequest.sourceFile?.id || null,
     });
   });
 }
@@ -70,8 +69,7 @@ async function notifyPrayerRequestAnswered(prayerRequest) {
       partnerName: prayerRequest.partner?.displayName || "A partner",
       requestText: prayerRequest.requestText,
       answeredNote: prayerRequest.answeredNote || null,
-      sourceNewsletterId: prayerRequest.sourceNewsletter?.id || null,
-      sourceDocumentId: prayerRequest.sourceDocument?.id || null,
+      sourceFileId: prayerRequest.sourceFile?.id || null,
     });
   });
 }
@@ -82,8 +80,7 @@ async function notifySupportNeedCreated(supportNeed) {
     await enqueue("supportNeedCreated", supportNeed.partnerId, {
       partnerName: supportNeed.partner?.displayName || "A partner",
       description: supportNeed.description,
-      sourceNewsletterId: supportNeed.sourceNewsletter?.id || null,
-      sourceDocumentId: supportNeed.sourceDocument?.id || null,
+      sourceFileId: supportNeed.sourceFile?.id || null,
     });
   });
 }
@@ -96,8 +93,7 @@ async function notifySupportNeedDecided(supportNeed) {
       description: supportNeed.description,
       approvedAmount: supportNeed.approvedAmount,
       requestedAmount: supportNeed.requestedAmount,
-      sourceNewsletterId: supportNeed.sourceNewsletter?.id || null,
-      sourceDocumentId: supportNeed.sourceDocument?.id || null,
+      sourceFileId: supportNeed.sourceFile?.id || null,
     });
   });
 }

@@ -26,8 +26,7 @@ const emptyNewRequest = {
   includeInBooklet: false,
   untracked: false,
   notes: "",
-  sourceNewsletterId: null,
-  sourceDocumentId: null,
+  sourceFileId: null,
 };
 
 // Same shape as AdminOneTimeNeeds.jsx, but deliberately without that
@@ -96,8 +95,7 @@ export default function AdminPrayerRequests() {
         includeInBooklet: isStrategic && newRequest.isPublic ? newRequest.includeInBooklet : false,
         status: newRequest.untracked ? "untracked" : "ongoing",
         notes: newRequest.notes || null,
-        sourceNewsletterId: newRequest.sourceNewsletterId,
-        sourceDocumentId: newRequest.sourceDocumentId,
+        sourceFileId: newRequest.sourceFileId,
       });
       setNewRequest(emptyNewRequest);
       loadSourceFiles(null);
@@ -144,8 +142,7 @@ export default function AdminPrayerRequests() {
       isPublic: request.isPublic,
       includeInBooklet: request.includeInBooklet,
       notes: request.notes || "",
-      sourceNewsletterId: request.sourceNewsletter?.id || null,
-      sourceDocumentId: request.sourceDocument?.id || null,
+      sourceFileId: request.sourceFile?.id || null,
     });
     loadSourceFiles(request.partner?.id);
   }
@@ -160,8 +157,7 @@ export default function AdminPrayerRequests() {
         isPublic: isStrategic ? editForm.isPublic : false,
         includeInBooklet: isStrategic && editForm.isPublic ? editForm.includeInBooklet : false,
         notes: editForm.notes || null,
-        sourceNewsletterId: editForm.sourceNewsletterId,
-        sourceDocumentId: editForm.sourceDocumentId,
+        sourceFileId: editForm.sourceFileId,
       });
       setEditingId(null);
       setEditForm(null);
@@ -199,12 +195,7 @@ export default function AdminPrayerRequests() {
                 partners={partners}
                 value={newRequest.partnerId}
                 onChange={(partnerId) => {
-                  setNewRequest((f) => ({
-                    ...f,
-                    partnerId,
-                    sourceNewsletterId: null,
-                    sourceDocumentId: null,
-                  }));
+                  setNewRequest((f) => ({ ...f, partnerId, sourceFileId: null }));
                   loadSourceFiles(partnerId);
                 }}
                 required
@@ -281,10 +272,8 @@ export default function AdminPrayerRequests() {
               </label>
             </div>
             <SourcePicker
-              newsletters={sourceFiles.newsletters}
-              documents={sourceFiles.documents}
-              sourceNewsletterId={newRequest.sourceNewsletterId}
-              sourceDocumentId={newRequest.sourceDocumentId}
+              files={sourceFiles}
+              sourceFileId={newRequest.sourceFileId}
               onChange={(source) => setNewRequest((f) => ({ ...f, ...source }))}
             />
             <label style={{ gridColumn: "1 / -1" }}>
@@ -441,10 +430,8 @@ export default function AdminPrayerRequests() {
                   </div>
                 )}
                 <SourcePicker
-                  newsletters={sourceFiles.newsletters}
-                  documents={sourceFiles.documents}
-                  sourceNewsletterId={editForm.sourceNewsletterId}
-                  sourceDocumentId={editForm.sourceDocumentId}
+                  files={sourceFiles}
+                  sourceFileId={editForm.sourceFileId}
                   onChange={(source) => setEditForm((f) => ({ ...f, ...source }))}
                 />
                 <label style={{ gridColumn: "1 / -1" }}>
@@ -507,7 +494,7 @@ export default function AdminPrayerRequests() {
                 </div>
               )}
             </div>
-            <SourceLink sourceNewsletter={request.sourceNewsletter} sourceDocument={request.sourceDocument} />
+            <SourceLink sourceFile={request.sourceFile} />
 
             {answeringId === request.id && (
               <div

@@ -36,25 +36,20 @@ function appBaseUrl() {
   return (process.env.APP_BASE_URL || process.env.RENDER_EXTERNAL_URL || "").replace(/\/+$/, "");
 }
 
-// Same wording/behavior as groupme.js's own sourceLinkLine(), operating
-// on the payload's own sourceNewsletterId/sourceDocumentId instead of a
-// live Prisma include (the row's payload is a frozen snapshot -- see the
-// schema.prisma comment on PendingNotification for why).
+// Same wording/behavior as groupme.js's own sourceLinkLine(), operating on
+// the payload's own sourceFileId instead of a live Prisma include (the
+// row's payload is a frozen snapshot -- see the schema.prisma comment on
+// PendingNotification for why).
 function sourceLinkLine(payload) {
   const base = appBaseUrl();
-  if (!base) return "";
-  if (payload.sourceNewsletterId)
-    return `\n\nFrom: ${base}/api/newsletters/${payload.sourceNewsletterId}/download`;
-  if (payload.sourceDocumentId) return `\n\nFrom: ${base}/api/documents/${payload.sourceDocumentId}/download`;
-  return "";
+  if (!base || !payload.sourceFileId) return "";
+  return `\n\nFrom: ${base}/api/partner-files/${payload.sourceFileId}/download`;
 }
 
 function sourceLinkUrl(payload) {
   const base = appBaseUrl();
-  if (!base) return null;
-  if (payload.sourceNewsletterId) return `${base}/api/newsletters/${payload.sourceNewsletterId}/download`;
-  if (payload.sourceDocumentId) return `${base}/api/documents/${payload.sourceDocumentId}/download`;
-  return null;
+  if (!base || !payload.sourceFileId) return null;
+  return `${base}/api/partner-files/${payload.sourceFileId}/download`;
 }
 
 // Same labels/thresholds as groupme.js's own supportNeedOutcomeLabel()
@@ -83,8 +78,7 @@ function buildBlurb(row, partner) {
   // Masked out for a restricted partner regardless of type -- never a
   // working link to the actual file, even though the download routes
   // are auth-gated (see the file-header comment above).
-  const maskedSourceNewsletterId = restricted ? null : payload.sourceNewsletterId || null;
-  const maskedSourceDocumentId = restricted ? null : payload.sourceDocumentId || null;
+  const maskedSourceFileId = restricted ? null : payload.sourceFileId || null;
   const maskedSourceLinkUrl = restricted ? null : sourceLinkUrl(payload);
   const maskedSourceLinkLine = restricted ? "" : sourceLinkLine(payload);
 
@@ -100,8 +94,7 @@ function buildBlurb(row, partner) {
         summary: "New prayer request",
         bodyText: restricted ? RESTRICTED_NOTICE : payload.requestText,
         amount: null,
-        sourceNewsletterId: maskedSourceNewsletterId,
-        sourceDocumentId: maskedSourceDocumentId,
+        sourceFileId: maskedSourceFileId,
         sourceLinkUrl: maskedSourceLinkUrl,
         groupmeText: restricted
           ? `🙏 New prayer request from ${partnerName}:\n${RESTRICTED_NOTICE}`
@@ -120,8 +113,7 @@ function buildBlurb(row, partner) {
         summary: "Prayer request answered",
         bodyText: restricted ? RESTRICTED_NOTICE : `"${payload.requestText}"\n\n${note}`,
         amount: null,
-        sourceNewsletterId: maskedSourceNewsletterId,
-        sourceDocumentId: maskedSourceDocumentId,
+        sourceFileId: maskedSourceFileId,
         sourceLinkUrl: maskedSourceLinkUrl,
         groupmeText: restricted
           ? `🙏 Prayer request answered, from ${partnerName}:\n${RESTRICTED_NOTICE}`
@@ -142,8 +134,7 @@ function buildBlurb(row, partner) {
         summary: "New one-time need",
         bodyText: restricted ? RESTRICTED_NOTICE : payload.description,
         amount: null,
-        sourceNewsletterId: maskedSourceNewsletterId,
-        sourceDocumentId: maskedSourceDocumentId,
+        sourceFileId: maskedSourceFileId,
         sourceLinkUrl: maskedSourceLinkUrl,
         groupmeText: restricted
           ? `🎁 New one-time need from ${partnerName}:\n${RESTRICTED_NOTICE}`
@@ -165,8 +156,7 @@ function buildBlurb(row, partner) {
         summary: `One-time need decided (${label})`,
         bodyText: restricted ? RESTRICTED_NOTICE : `"${payload.description}"`,
         amount,
-        sourceNewsletterId: maskedSourceNewsletterId,
-        sourceDocumentId: maskedSourceDocumentId,
+        sourceFileId: maskedSourceFileId,
         sourceLinkUrl: maskedSourceLinkUrl,
         groupmeText: restricted
           ? `🎁 One-time need decided (${label}), from ${partnerName}:\n${RESTRICTED_NOTICE}\n\nApproved: ${amount}`
@@ -178,7 +168,7 @@ function buildBlurb(row, partner) {
 
     case "newsletterCreated": {
       const base = appBaseUrl();
-      const link = restricted || !base ? null : `${base}/api/newsletters/${payload.newsletterId}/download`;
+      const link = restricted || !base ? null : `${base}/api/partner-files/${payload.newsletterId}/download`;
       return {
         id: row.id,
         type,
@@ -190,8 +180,7 @@ function buildBlurb(row, partner) {
         bodyText: restricted ? RESTRICTED_NOTICE : null,
         amount: null,
         newsletterId: restricted ? null : payload.newsletterId,
-        sourceNewsletterId: null,
-        sourceDocumentId: null,
+        sourceFileId: null,
         sourceLinkUrl: link,
         // Same as groupme.js's own notifyNewsletterCreated: no link, no
         // message -- a newsletter notification with nothing to point at

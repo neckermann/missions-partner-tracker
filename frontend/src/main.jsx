@@ -52,8 +52,7 @@ const AdminOneTimeNeeds = lazy(() => import("./pages/AdminOneTimeNeeds.jsx"));
 const AdminPrayerRequests = lazy(() => import("./pages/AdminPrayerRequests.jsx"));
 const AdminTripHistory = lazy(() => import("./pages/AdminTripHistory.jsx"));
 const AdminTripOpportunities = lazy(() => import("./pages/AdminTripOpportunities.jsx"));
-const AdminNewsletters = lazy(() => import("./pages/AdminNewsletters.jsx"));
-const AdminDocuments = lazy(() => import("./pages/AdminDocuments.jsx"));
+const AdminPartnerFiles = lazy(() => import("./pages/AdminPartnerFiles.jsx"));
 
 // Chunks are served same-origin from this app, so the gap is a network hop
 // on a local connection, not a spinner anyone will study.
@@ -171,8 +170,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     </RequireAdminFeature>
                   }
                 />
-                <Route path="newsletters" element={<AdminNewsletters />} />
-                <Route path="documents" element={<AdminDocuments />} />
+                <Route
+                  path="partner-files"
+                  element={
+                    <RequireAdminFeature feature="partnerFiles">
+                      <AdminPartnerFiles />
+                    </RequireAdminFeature>
+                  }
+                />
                 <Route
                   path="inbound-email"
                   element={

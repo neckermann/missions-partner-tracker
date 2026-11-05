@@ -21,8 +21,7 @@ const supportNeedRoutes = require("./routes/supportNeeds");
 const supportEntryRoutes = require("./routes/supportEntries");
 const prayerRequestRoutes = require("./routes/prayerRequests");
 const tripRoutes = require("./routes/trips");
-const newsletterRoutes = require("./routes/newsletters");
-const documentRoutes = require("./routes/documents");
+const partnerFileRoutes = require("./routes/partnerFiles");
 const photoRoutes = require("./routes/photos");
 const reportsRoutes = require("./routes/reports");
 const settingsRoutes = require("./routes/settings");
@@ -165,14 +164,8 @@ app.use("/api/backups", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }));
 // patterns the same way a route handler does), so normal newsletter/
 // document CRUD stays unaffected.
 //
-// One limiter instance shared across both routes deliberately: express-
-// rate-limit keys by IP alone, so this is one combined budget across
-// newsletter and document scans rather than 30 of each. That's correct
-// here — what's actually being bounded is total Anthropic spend from one
-// session, which doesn't care which file type triggered it.
 const extractionLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
-app.use("/api/newsletters/:id/extract", extractionLimiter);
-app.use("/api/documents/:id/extract", extractionLimiter);
+app.use("/api/partner-files/:id/extract", extractionLimiter);
 
 // The inbound-email webhook (see #72) isn't behind a login session --
 // Postmark calls it directly, authenticated by Basic Auth instead (see
@@ -195,8 +188,7 @@ app.use("/api/support-entries", supportEntryRoutes); // protected (admin) — se
 app.use("/api/prayer-requests", prayerRequestRoutes); // protected (admin) — session required
 app.use("/api/trips", tripRoutes); // protected (admin) — session required
 app.use("/api/reports", reportsRoutes); // protected — read-only exports, any signed-in role
-app.use("/api/newsletters", newsletterRoutes); // protected (admin) — session required
-app.use("/api/documents", documentRoutes); // protected (admin) — session required
+app.use("/api/partner-files", partnerFileRoutes); // protected (admin) — session required
 app.use("/api/photos", photoRoutes); // open (public — same as when these were S3 public-read objects)
 app.use("/api/settings", settingsRoutes); // protected (admin for write, any role for read)
 app.use("/api/public/settings", publicSettingsRoutes); // open (public site + admin nav branding)

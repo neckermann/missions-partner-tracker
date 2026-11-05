@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { uploadDocument, updateDocument, deleteDocument, extractFromDocument } from "../../api/client.js";
-import { DOCUMENT_CATEGORIES, documentCategoryLabel } from "../../utils/documentCategories.js";
+import { uploadPartnerFile, updatePartnerFile, deletePartnerFile, extractFromPartnerFile } from "../../api/client.js";
+import { FILE_KINDS, fileKindLabel } from "../../utils/fileKinds.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
 import { formatDate, todayInputValue, toDateInputValue, formatFileSize } from "../../utils/format.js";
@@ -8,16 +8,17 @@ import { isScannable } from "../../utils/scannable.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
 import LoadMoreButton from "../LoadMoreButton.jsx";
 
-// Same shared-vs-duplicated reasoning as NewsletterSection: reused as-is on
-// both AdminMissionaryDetail.jsx and AdminOrganizationDetail.jsx. Pass
-// partnerId — matches the Document
-// model's shape.
-export default function DocumentSection({ partnerId, documents, onChange }) {
+// Reused as-is (not duplicated) on both AdminMissionaryDetail.jsx and
+// AdminOrganizationDetail.jsx — unlike the small presentational Field/
+// AddressSummary helpers those pages already duplicate, this one carries
+// real upload/view/delete behavior, so it's a genuine shared component
+// rather than something worth copy-pasting twice.
+export default function PartnerFileSection({ partnerId, files, onChange }) {
   const { enabledFeatures } = useSettings();
-  const [scanning, setScanning] = useState(null); // the document being reviewed, or null
+  const [scanning, setScanning] = useState(null); // the file being reviewed, or null
   const [showAddForm, setShowAddForm] = useState(false);
-  const [category, setCategory] = useState(DOCUMENT_CATEGORIES[0].value);
-  const [customCategory, setCustomCategory] = useState("");
+  const [kind, setKind] = useState(FILE_KINDS[0].value);
+  const [customKind, setCustomKind] = useState("");
   const [title, setTitle] = useState("");
   const [receivedDate, setReceivedDate] = useState(todayInputValue());
   const [notes, setNotes] = useState("");
@@ -25,14 +26,8 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({
-    category: "",
-    customCategory: "",
-    title: "",
-    receivedDate: "",
-    notes: "",
-  });
-  const { visible, hasMore, remaining, showMore } = useLoadMore(documents);
+  const [editForm, setEditForm] = useState({ kind: "", customKind: "", title: "", receivedDate: "", notes: "" });
+  const { visible, hasMore, remaining, showMore } = useLoadMore(files);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -41,8 +36,8 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
       setError("Choose a file to upload");
       return;
     }
-    if (category === "other" && !customCategory.trim()) {
-      setError("Enter a label for this document's category");
+    if (kind === "other" && !customKind.trim()) {
+      setError("Enter a label for this file's kind");
       return;
     }
     setSaving(true);
@@ -50,15 +45,15 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("partnerId", partnerId);
-      formData.append("category", category);
-      if (category === "other") formData.append("customCategory", customCategory);
+      formData.append("kind", kind);
+      if (kind === "other") formData.append("customKind", customKind);
       formData.append("title", title);
       formData.append("receivedDate", receivedDate);
       formData.append("notes", notes);
 
-      await uploadDocument(formData);
-      setCategory(DOCUMENT_CATEGORIES[0].value);
-      setCustomCategory("");
+      await uploadPartnerFile(formData);
+      setKind(FILE_KINDS[0].value);
+      setCustomKind("");
       setTitle("");
       setReceivedDate(todayInputValue());
       setNotes("");
@@ -66,53 +61,53 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
       setShowAddForm(false);
       await onChange();
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to upload document");
+      setError(err.response?.data?.error || "Failed to upload file");
     } finally {
       setSaving(false);
     }
   }
 
-  function handleView(d) {
+  function handleView(f) {
     // A direct, same-origin, cookie-authenticated download — no async
-    // lookup needed now that the file is served straight from the
-    // database (see backend/src/routes/documents.js).
-    window.open(`/api/documents/${d.id}/download`, "_blank");
+    // lookup needed, the file is served straight from the database (see
+    // backend/src/routes/partnerFiles.js).
+    window.open(`/api/partner-files/${f.id}/download`, "_blank");
   }
 
-  async function handleDelete(d) {
-    if (!confirm(`Delete "${d.title || d.fileName}"? This cannot be undone.`)) return;
-    await deleteDocument(d.id);
+  async function handleDelete(f) {
+    if (!confirm(`Delete "${f.title || f.fileName}"? This cannot be undone.`)) return;
+    await deletePartnerFile(f.id);
     await onChange();
   }
 
   // Everything but the file itself is editable (see the PUT route comment
-  // in backend/src/routes/documents.js). Re-parenting to a different
-  // missionary/organization isn't offered here -- this section is embedded
-  // on that partner's own detail page, which doesn't have the full
-  // missionary/organization list loaded; use the top-level Documents page
-  // for that.
-  function startEdit(d) {
-    setEditingId(d.id);
+  // in backend/src/routes/partnerFiles.js), including `kind`. Re-parenting
+  // to a different missionary/organization isn't offered here -- this
+  // section is embedded on that partner's own detail page, which doesn't
+  // have the full missionary/organization list loaded; use the top-level
+  // Newsletters & Docs page for that.
+  function startEdit(f) {
+    setEditingId(f.id);
     setError("");
     setEditForm({
-      category: d.category,
-      customCategory: d.customCategory || "",
-      title: d.title || "",
-      receivedDate: toDateInputValue(d.receivedDate),
-      notes: d.notes || "",
+      kind: f.kind,
+      customKind: f.customKind || "",
+      title: f.title || "",
+      receivedDate: toDateInputValue(f.receivedDate),
+      notes: f.notes || "",
     });
   }
 
   async function submitEdit(id) {
     setError("");
-    if (editForm.category === "other" && !editForm.customCategory.trim()) {
-      setError("Enter a label for this document's category");
+    if (editForm.kind === "other" && !editForm.customKind.trim()) {
+      setError("Enter a label for this file's kind");
       return;
     }
     try {
-      await updateDocument(id, {
-        category: editForm.category,
-        customCategory: editForm.category === "other" ? editForm.customCategory : null,
+      await updatePartnerFile(id, {
+        kind: editForm.kind,
+        customKind: editForm.kind === "other" ? editForm.customKind : null,
         title: editForm.title,
         receivedDate: editForm.receivedDate,
         notes: editForm.notes,
@@ -127,13 +122,13 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
   return (
     <div className="admin-section">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h3 style={{ flex: 1, marginBottom: 0 }}>Documents</h3>
+        <h3 style={{ flex: 1, marginBottom: 0 }}>Newsletters &amp; Docs</h3>
         <button
           type="button"
           className="btn secondary small"
           onClick={() => (setShowAddForm((v) => !v), setError(""))}
         >
-          {showAddForm ? "Cancel" : "+ Add Document"}
+          {showAddForm ? "Cancel" : "+ Add File"}
         </button>
       </div>
 
@@ -150,21 +145,21 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
               />
             </label>
             <label>
-              Category
-              <select value={category} onChange={(e) => setCategory(e.target.value)}>
-                {DOCUMENT_CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
+              Kind
+              <select value={kind} onChange={(e) => setKind(e.target.value)}>
+                {FILE_KINDS.map((k) => (
+                  <option key={k.value} value={k.value}>
+                    {k.label}
                   </option>
                 ))}
               </select>
             </label>
-            {category === "other" && (
+            {kind === "other" && (
               <label>
-                Category label
+                Kind label
                 <input
-                  value={customCategory}
-                  onChange={(e) => setCustomCategory(e.target.value)}
+                  value={customKind}
+                  onChange={(e) => setCustomKind(e.target.value)}
                   placeholder="e.g. Background Check"
                   required
                 />
@@ -175,7 +170,7 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. 2026 Field Survey"
+                placeholder="e.g. Summer 2026 Update"
               />
             </label>
             <label>
@@ -202,9 +197,9 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
       )}
 
       <div style={{ marginTop: "1rem" }}>
-        {documents?.length > 0 ? (
-          visible.map((d) => (
-            <div key={d.id} className="repeatable-row">
+        {files?.length > 0 ? (
+          visible.map((f) => (
+            <div key={f.id} className="repeatable-row">
               <div
                 style={{
                   display: "flex",
@@ -215,57 +210,57 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
                 }}
               >
                 <div>
-                  <strong>{d.title || d.fileName}</strong>
+                  <strong>{f.title || f.fileName}</strong>
                   <div style={{ fontSize: "0.85rem", color: "#666" }}>
-                    {documentCategoryLabel(d)} · Received {formatDate(d.receivedDate)} · {d.fileName}
-                    {d.fileSize != null && ` (${formatFileSize(d.fileSize)})`}
+                    {fileKindLabel(f)} · Received {formatDate(f.receivedDate)} · {f.fileName}
+                    {f.fileSize != null && ` (${formatFileSize(f.fileSize)})`}
                   </div>
-                  {d.notes && (
-                    <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>{d.notes}</div>
+                  {f.notes && (
+                    <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>{f.notes}</div>
                   )}
                 </div>
                 <div className="table-actions">
-                  <button type="button" className="btn secondary small" onClick={() => handleView(d)}>
+                  <button type="button" className="btn secondary small" onClick={() => handleView(f)}>
                     View
                   </button>
-                  {enabledFeatures.aiExtraction && isScannable(d) && (
-                    <button type="button" className="btn secondary small" onClick={() => setScanning(d)}>
+                  {enabledFeatures.aiExtraction && isScannable(f) && (
+                    <button type="button" className="btn secondary small" onClick={() => setScanning(f)}>
                       Scan for requests
                     </button>
                   )}
                   <button
                     type="button"
                     className="btn secondary small"
-                    onClick={() => (editingId === d.id ? (setEditingId(null), setError("")) : startEdit(d))}
+                    onClick={() => (editingId === f.id ? (setEditingId(null), setError("")) : startEdit(f))}
                   >
-                    {editingId === d.id ? "Cancel" : "Edit"}
+                    {editingId === f.id ? "Cancel" : "Edit"}
                   </button>
-                  <button type="button" className="btn danger small" onClick={() => handleDelete(d)}>
+                  <button type="button" className="btn danger small" onClick={() => handleDelete(f)}>
                     Delete
                   </button>
                 </div>
               </div>
-              {editingId === d.id && (
+              {editingId === f.id && (
                 <div className="form-grid" style={{ marginTop: "0.75rem" }}>
-                  <label title="Everything but the file itself can be edited. To move this to a different missionary/organization, use the top-level Documents page.">
-                    Category
+                  <label title="Everything but the file itself can be edited. To move this to a different missionary/organization, use the top-level Newsletters & Docs page.">
+                    Kind
                     <select
-                      value={editForm.category}
-                      onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
+                      value={editForm.kind}
+                      onChange={(e) => setEditForm((f) => ({ ...f, kind: e.target.value }))}
                     >
-                      {DOCUMENT_CATEGORIES.map((c) => (
-                        <option key={c.value} value={c.value}>
-                          {c.label}
+                      {FILE_KINDS.map((k) => (
+                        <option key={k.value} value={k.value}>
+                          {k.label}
                         </option>
                       ))}
                     </select>
                   </label>
-                  {editForm.category === "other" && (
+                  {editForm.kind === "other" && (
                     <label>
-                      Category label
+                      Kind label
                       <input
-                        value={editForm.customCategory}
-                        onChange={(e) => setEditForm((f) => ({ ...f, customCategory: e.target.value }))}
+                        value={editForm.customKind}
+                        onChange={(e) => setEditForm((f) => ({ ...f, customKind: e.target.value }))}
                         placeholder="e.g. Background Check"
                         required
                       />
@@ -276,7 +271,7 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
                     <input
                       value={editForm.title}
                       onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                      placeholder="e.g. 2026 Field Survey"
+                      placeholder="e.g. Summer 2026 Update"
                     />
                   </label>
                   <label>
@@ -297,7 +292,7 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
                   </label>
                   {error && <p style={{ color: "#b91c1c", gridColumn: "1 / -1" }}>{error}</p>}
                   <div style={{ gridColumn: "1 / -1" }}>
-                    <button type="button" className="btn small" onClick={() => submitEdit(d.id)}>
+                    <button type="button" className="btn small" onClick={() => submitEdit(f.id)}>
                       Save
                     </button>
                   </div>
@@ -306,17 +301,17 @@ export default function DocumentSection({ partnerId, documents, onChange }) {
             </div>
           ))
         ) : (
-          <p style={{ color: "#888" }}>No documents on file.</p>
+          <p style={{ color: "#888" }}>No files on record.</p>
         )}
         <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} size="small" />
       </div>
 
       {scanning && (
         <ExtractionReviewModal
-          scan={() => extractFromDocument(scanning.id)}
+          scan={() => extractFromPartnerFile(scanning.id)}
           partnerId={partnerId}
           defaultDate={scanning.receivedDate}
-          sourceDocumentId={scanning.id}
+          sourceFileId={scanning.id}
           onChange={onChange}
           onClose={() => setScanning(null)}
         />

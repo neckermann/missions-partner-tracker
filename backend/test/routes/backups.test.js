@@ -67,16 +67,17 @@ describe("backup/restore round trip", () => {
   // JSON.stringify -- producing a bulky, undecodable {"0":70,"1":114,...}
   // object instead of a string, which then failed Prisma's own Bytes
   // validation on restore.
-  test("a document's bytes round-trip exactly through export encoding and restore decoding", async () => {
+  test("a partner file's bytes round-trip exactly through export encoding and restore decoding", async () => {
     const partner = await admin("/api/partners", {
       method: "POST",
       body: { kind: "missionary", displayName: `${FIXTURE_TAG} Backup Bytes Fixture` },
     });
     const originalBytes = Buffer.from("not actually a PDF, just test bytes \x00\x01\xff", "latin1");
-    const doc = await prisma.document.create({
+    const file = await prisma.partnerFile.create({
       data: {
         partnerId: partner.body.id,
-        category: "other",
+        kind: "other",
+        customKind: "Background Check",
         receivedDate: new Date("2026-01-01"),
         fileName: "fixture.bin",
         contentType: "application/octet-stream",
@@ -87,12 +88,12 @@ describe("backup/restore round trip", () => {
     const { buffer } = await buildBackup(prisma);
     const text = zlib.gunzipSync(buffer).toString("utf8");
     const { rowsByModel } = parseBackup(text);
-    const exportedRow = rowsByModel.document.find((r) => r.id === doc.id);
-    assert.ok(exportedRow, "the fixture document should appear in the backup");
+    const exportedRow = rowsByModel.partnerFile.find((r) => r.id === file.id);
+    assert.ok(exportedRow, "the fixture file should appear in the backup");
     assert.ok(Buffer.isBuffer(exportedRow.bytes), "decoded bytes should be a real Buffer");
     assert.ok(originalBytes.equals(exportedRow.bytes), "bytes should round-trip exactly");
 
-    await prisma.document.delete({ where: { id: doc.id } });
+    await prisma.partnerFile.delete({ where: { id: file.id } });
     await prisma.partner.delete({ where: { id: partner.body.id } });
   });
 

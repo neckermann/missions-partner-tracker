@@ -91,8 +91,8 @@ async function client() {
 
 // .eml's browser-reported contentType is unreliable (often
 // application/octet-stream or blank -- see the same comment in
-// routes/newsletters.js/documents.js), so it's recognized by filename
-// extension instead, same as upload-time validation does.
+// routes/partnerFiles.js), so it's recognized by filename extension
+// instead, same as upload-time validation does.
 function isEml(fileName) {
   return /\.eml$/i.test(fileName || "");
 }
