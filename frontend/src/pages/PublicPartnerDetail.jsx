@@ -69,7 +69,10 @@ export default function PublicPartnerDetail() {
   const name = partner.displayName;
   const meta = isOrg
     ? [partner.orgType, partner.fieldDisplayName].filter(Boolean).join(" · ")
-    : [partner.fieldDisplayName, partner.supportingSince && `Since ${formatYear(partner.supportingSince)}`]
+    : [
+        partner.fieldDisplayName,
+        partner.supportingSince && `Supporting since ${formatYear(partner.supportingSince)}`,
+      ]
         .filter(Boolean)
         .join(" · ");
   const links = LINK_FIELDS.filter(([key]) => partner[key]);

@@ -149,11 +149,18 @@ export default function AdminSidebar() {
         <SidebarLink to="/admin/account" label="My Account" />
         {/* Prefers the directory as the primary public entry point; falls
             back to the map if only that's on, and hides entirely if
-            neither public-facing page is enabled. */}
+            neither public-facing page is enabled. New tab so following it
+            never navigates the admin itself away from where it was. */}
         {enabledFeatures.publicDirectory ? (
-          <Link to="/">View public site</Link>
+          <Link to="/" target="_blank" rel="noopener noreferrer">
+            View public site
+          </Link>
         ) : (
-          enabledFeatures.publicMap && <Link to="/map">View public map</Link>
+          enabledFeatures.publicMap && (
+            <Link to="/map" target="_blank" rel="noopener noreferrer">
+              View public map
+            </Link>
+          )
         )}
         <button
           className="btn secondary"

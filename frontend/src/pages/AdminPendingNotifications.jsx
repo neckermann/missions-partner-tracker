@@ -4,6 +4,7 @@ import {
   updateNotificationSettings,
   fetchPendingNotifications,
   sendPendingNotifications,
+  deletePendingNotification,
 } from "../api/client.js";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -23,7 +24,14 @@ function groupByPartner(blurbs) {
   const byPartner = new Map();
   for (const blurb of blurbs) {
     if (!byPartner.has(blurb.partnerId)) {
-      byPartner.set(blurb.partnerId, { partnerName: blurb.partnerName, newsletters: [], standalone: [] });
+      byPartner.set(blurb.partnerId, {
+        partnerName: blurb.partnerName,
+        // Uniform across every blurb from the same partner -- grabbed
+        // off whichever blurb happens to create the group.
+        isRestricted: blurb.isRestricted,
+        newsletters: [],
+        standalone: [],
+      });
     }
     if (blurb.type === "newsletterCreated") {
       byPartner.get(blurb.partnerId).newsletters.push({ blurb, children: [] });
@@ -51,15 +59,65 @@ function SentStatus({ blurb }) {
   );
 }
 
-function BlurbRow({ blurb }) {
+// Amber, not this app's own red/danger color -- "restricted" isn't an
+// error state, it's a heads-up that this row's content is already masked
+// and should stay that way (no copy-pasting the real details into
+// GroupMe/email by hand, no assuming the summary is the full story).
+const RESTRICTED_BORDER = "#b45309";
+const RESTRICTED_BG = "#fffbeb";
+
+function RestrictedBadge() {
   return (
-    <div style={{ margin: "0.5rem 0 0.5rem 1rem", paddingLeft: "0.75rem", borderLeft: "3px solid #e5e5e5" }}>
-      <strong>
-        {blurb.emoji} {blurb.summary}
-      </strong>
-      <SentStatus blurb={blurb} />
-      <p style={{ margin: "0.25rem 0 0", color: "#555" }}>{blurb.bodyText}</p>
-      {blurb.amount && <p style={{ margin: "0.25rem 0 0", fontWeight: 600 }}>Approved: {blurb.amount}</p>}
+    <span
+      style={{
+        marginLeft: "0.5rem",
+        padding: "0.1rem 0.5rem",
+        borderRadius: "999px",
+        background: RESTRICTED_BORDER,
+        color: "#fff",
+        fontSize: "0.75rem",
+        fontWeight: 600,
+        verticalAlign: "middle",
+      }}
+    >
+      🔒 Restricted
+    </span>
+  );
+}
+
+function BlurbRow({ blurb, onClear, clearing }) {
+  return (
+    <div
+      style={{
+        margin: "0.5rem 0 0.5rem 1rem",
+        paddingLeft: "0.75rem",
+        borderLeft: `3px solid ${blurb.isRestricted ? RESTRICTED_BORDER : "#e5e5e5"}`,
+        background: blurb.isRestricted ? RESTRICTED_BG : "transparent",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        gap: "0.75rem",
+      }}
+    >
+      <div>
+        <strong>
+          {blurb.emoji} {blurb.summary}
+        </strong>
+        <SentStatus blurb={blurb} />
+        <p style={{ margin: "0.25rem 0 0", color: "#555" }}>{blurb.bodyText}</p>
+        {blurb.amount && <p style={{ margin: "0.25rem 0 0", fontWeight: 600 }}>Approved: {blurb.amount}</p>}
+      </div>
+      {onClear && (
+        <button
+          type="button"
+          className="btn secondary small"
+          onClick={() => onClear(blurb.id)}
+          disabled={clearing}
+          style={{ flexShrink: 0 }}
+        >
+          {clearing ? "Clearing..." : "Clear"}
+        </button>
+      )}
     </div>
   );
 }
@@ -70,6 +128,7 @@ export default function AdminPendingNotifications() {
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [sending, setSending] = useState(false);
+  const [clearingId, setClearingId] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -122,24 +181,35 @@ export default function AdminPendingNotifications() {
     }
   }
 
+  // Discards one queued item for good -- works on any row, not just a
+  // restricted one. No confirm dialog: same as every other delete in
+  // this admin, a mis-click just means it's gone (it was never sent
+  // anywhere, so there's nothing downstream to also undo).
+  async function handleClear(id) {
+    setClearingId(id);
+    setError("");
+    setSuccess("");
+    try {
+      await deletePendingNotification(id);
+      await reloadPending();
+    } catch (err) {
+      setError(err.response?.data?.error || "Couldn't clear that notification.");
+    } finally {
+      setClearingId(null);
+    }
+  }
+
   if (loading || !settings) return <p className="admin-shell">Loading…</p>;
 
   const groups = groupByPartner(pending);
 
   return (
-    <div className="admin-shell">
+    <div className="admin-shell form-has-floating-actions">
       <h2>Notifications</h2>
       <p style={{ color: "#555" }}>
         New prayer requests, one-time needs, and newsletters queue here instead of posting immediately --
         review and send them as a batch, on a schedule or on demand.
       </p>
-
-      {error && (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-      )}
-      {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
 
       <form onSubmit={handleSaveSettings} className="admin-form">
         <div className="admin-section">
@@ -260,6 +330,22 @@ export default function AdminPendingNotifications() {
         <div className="admin-section" style={{ marginTop: "1rem" }}>
           <h3>Digest Customization</h3>
           <label>
+            Layout
+            <select
+              value={settings.digestTemplate || "classic"}
+              onChange={(e) => setSettings((s) => ({ ...s, digestTemplate: e.target.value }))}
+              style={{ width: "auto" }}
+            >
+              <option value="classic">Classic -- text only</option>
+              <option value="snapshot">Snapshot -- adds each partner's photo, field, and overview</option>
+            </select>
+          </label>
+          <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+            Snapshot shows each partner's photo (or a generic silhouette if they don't have one, or if they're
+            a restricted-access partner), field, "Supporting since" year, and short overview above their items
+            in that batch.
+          </p>
+          <label style={{ marginTop: "1rem" }}>
             Subject line
             <input
               value={settings.digestSubjectTemplate || ""}
@@ -268,10 +354,12 @@ export default function AdminPendingNotifications() {
             />
           </label>
           <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-            Leave blank for the default (a count-based subject). Use any of these anywhere in your own
+            Leave blank for the default: <code>{"{date} {church} - {term} Updates"}</code> -- e.g. "November
+            4, 2026 Hillside Community Church - Missionary Updates". Use any of these anywhere in your own
             wording: <code>{"{church}"}</code>, <code>{"{month}"}</code>, <code>{"{year}"}</code>,{" "}
             <code>{"{date}"}</code>, <code>{"{frequency}"}</code> (Weekly/Biweekly/Monthly),{" "}
-            <code>{"{name}"}</code> (the recipient's own name).
+            <code>{"{name}"}</code> (the recipient's own name), <code>{"{term}"}</code> (your Partner
+            Terminology setting, e.g. "Missionary").
           </p>
           <label style={{ marginTop: "1rem" }}>
             Signature
@@ -282,11 +370,18 @@ export default function AdminPendingNotifications() {
               placeholder="An optional closing line -- a verse, a closing phrase, 'Questions? Contact us', etc."
             />
           </label>
-          <div style={{ marginTop: "1rem" }}>
-            <button type="submit" className="btn" disabled={savingSettings}>
-              {savingSettings ? "Saving..." : "Save"}
-            </button>
-          </div>
+        </div>
+
+        <div className="form-save-bar">
+          <button type="submit" className="btn" disabled={savingSettings}>
+            {savingSettings ? "Saving..." : "Save"}
+          </button>
+          {error && (
+            <span style={{ color: "#b91c1c" }} role="alert">
+              {error}
+            </span>
+          )}
+          {success && <span style={{ color: "#2a5d3c" }}>{success}</span>}
         </div>
       </form>
 
@@ -311,18 +406,24 @@ export default function AdminPendingNotifications() {
             style={{ marginTop: "1rem", paddingBottom: "1rem", borderBottom: "1px solid #e5e5e5" }}
           >
             <strong>{group.partnerName}</strong>
+            {group.isRestricted && <RestrictedBadge />}
             {group.newsletters.map(({ blurb, children }) => (
               <div key={blurb.id}>
-                <BlurbRow blurb={blurb} />
+                <BlurbRow blurb={blurb} onClear={handleClear} clearing={clearingId === blurb.id} />
                 {children.map((child) => (
                   <div key={child.id} style={{ marginLeft: "1.5rem" }}>
-                    <BlurbRow blurb={child} />
+                    <BlurbRow blurb={child} onClear={handleClear} clearing={clearingId === child.id} />
                   </div>
                 ))}
               </div>
             ))}
             {group.standalone.map((blurb) => (
-              <BlurbRow key={blurb.id} blurb={blurb} />
+              <BlurbRow
+                key={blurb.id}
+                blurb={blurb}
+                onClear={handleClear}
+                clearing={clearingId === blurb.id}
+              />
             ))}
           </div>
         ))}

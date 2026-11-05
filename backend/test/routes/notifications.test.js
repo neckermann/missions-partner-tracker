@@ -89,10 +89,12 @@ before(async () => {
       queueNotifyNewsletters: true,
       digestSubjectTemplate: true,
       digestSignature: true,
+      digestTemplate: true,
       churchName: true,
       address: true,
       phone: true,
       websiteLink: true,
+      partnerTermSingular: true,
     },
   });
   // Clean slate -- same reasoning as groupme.test.js/email.test.js's own
@@ -163,6 +165,7 @@ describe("GET/PUT /api/settings/notifications -- admin gate and defaults", () =>
         queueNotifyNewsletters: true,
         digestSubjectTemplate: null,
         digestSignature: null,
+        digestTemplate: null,
       },
     });
     const res = await admin("/api/settings/notifications");
@@ -177,6 +180,7 @@ describe("GET/PUT /api/settings/notifications -- admin gate and defaults", () =>
       queueNotifyNewsletters: true,
       digestSubjectTemplate: null,
       digestSignature: null,
+      digestTemplate: null,
     });
   });
 
@@ -412,6 +416,98 @@ describe("POST /api/notifications/send -- flush behavior", () => {
     }
   });
 
+  test("no subject template set -- falls back to {date} {church} - {term} Updates", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: {
+        enabledFeatures: { groupme: false, outboundEmail: true },
+        churchName: "Hillside Community Church",
+        digestSubjectTemplate: null,
+        partnerTermSingular: "Go Team Partner",
+      },
+    });
+    const put = await admin("/api/settings/email", {
+      method: "PUT",
+      body: { sendEnabled: true, serverToken: "pm-test-token", fromAddress: "updates@example.org" },
+    });
+    assert.equal(put.status, 200);
+    await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: true } });
+
+    const requestText = `${FIXTURE_TAG} default subject`;
+    await createPrayerRequest(requestText);
+
+    let capturedSubject = null;
+    mockPostmark(async (url, options) => {
+      capturedSubject = JSON.parse(options.body).Subject;
+      return postmarkJson(200, { MessageID: "fake-id", SubmittedAt: "2026-01-01T00:00:00Z" });
+    });
+    try {
+      const res = await admin("/api/notifications/send", { method: "POST" });
+      assert.equal(res.status, 200);
+
+      assert.ok(
+        capturedSubject.endsWith("Hillside Community Church - Go Team Partner Updates"),
+        `{church} and {term} should substitute into the default: ${capturedSubject}`
+      );
+      // No time-mocking in this codebase -- just confirm {date} was
+      // substituted at all, not left as a literal unreplaced token.
+      assert.doesNotMatch(capturedSubject, /\{date\}/, `{date} should be substituted: ${capturedSubject}`);
+    } finally {
+      unmockAll();
+      await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: false } });
+      await prisma.churchSettings.update({ where: { id: "singleton" }, data: { partnerTermSingular: null } });
+    }
+  });
+
+  test("digestTemplate -- snapshot adds the partner tile (photo/field/overview), classic doesn't", async () => {
+    await prisma.partner.update({
+      where: { id: partnerId },
+      data: { fieldDisplayName: "Northern Thailand", overviewShort: "Serving church planters in the north." },
+    });
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { groupme: false, outboundEmail: true }, digestTemplate: "classic" },
+    });
+    const put = await admin("/api/settings/email", {
+      method: "PUT",
+      body: { sendEnabled: true, serverToken: "pm-test-token", fromAddress: "updates@example.org" },
+    });
+    assert.equal(put.status, 200);
+    await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: true } });
+
+    let capturedHtml = null;
+    mockPostmark(async (url, options) => {
+      capturedHtml = JSON.parse(options.body).HtmlBody;
+      return postmarkJson(200, { MessageID: "fake-id", SubmittedAt: "2026-01-01T00:00:00Z" });
+    });
+    try {
+      await createPrayerRequest(`${FIXTURE_TAG} classic layout check`);
+      let res = await admin("/api/notifications/send", { method: "POST" });
+      assert.equal(res.status, 200);
+      assert.ok(!capturedHtml.includes("Northern Thailand"), "classic should not show the field");
+      assert.ok(!capturedHtml.includes("Serving church planters"), "classic should not show the overview");
+
+      await prisma.churchSettings.update({
+        where: { id: "singleton" },
+        data: { digestTemplate: "snapshot" },
+      });
+      await createPrayerRequest(`${FIXTURE_TAG} snapshot layout check`);
+      res = await admin("/api/notifications/send", { method: "POST" });
+      assert.equal(res.status, 200);
+      assert.ok(capturedHtml.includes("Northern Thailand"), "snapshot should show the field");
+      assert.ok(capturedHtml.includes("Serving church planters"), "snapshot should show the overview");
+      assert.ok(capturedHtml.includes("border-radius:50%"), "snapshot should render a circular photo/avatar");
+    } finally {
+      unmockAll();
+      await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: false } });
+      await prisma.churchSettings.update({ where: { id: "singleton" }, data: { digestTemplate: null } });
+      await prisma.partner.update({
+        where: { id: partnerId },
+        data: { fieldDisplayName: null, overviewShort: null },
+      });
+    }
+  });
+
   test("both channels on, GroupMe fails and Email succeeds -- row stays queued but only retries GroupMe next time", async () => {
     await prisma.churchSettings.update({
       where: { id: "singleton" },
@@ -472,6 +568,64 @@ describe("GET /api/notifications/pending -- any logged-in role", () => {
       res.body.every((item) => "emoji" in item && "summary" in item),
       "pending items should already be blurb-shaped for display"
     );
+  });
+
+  test("a restricted partner's notification is masked -- initials name, generic body, isRestricted flagged", async () => {
+    const restrictedPartner = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} Jordan Rivera`, isRestricted: true },
+    });
+    assert.equal(restrictedPartner.status, 201, JSON.stringify(restrictedPartner.body));
+    const restrictedId = restrictedPartner.body.id;
+
+    const requestText = `${FIXTURE_TAG} restricted partner's real prayer request text`;
+    const created = await admin("/api/prayer-requests", {
+      method: "POST",
+      body: { partnerId: restrictedId, category: "situational", requestText, dateReceived: "2026-01-01" },
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+
+    try {
+      const res = await admin("/api/notifications/pending");
+      assert.equal(res.status, 200);
+      const item = res.body.find((i) => i.partnerId === restrictedId);
+      assert.ok(item, "the restricted partner's notification should still be queued and visible");
+      assert.equal(item.isRestricted, true);
+      assert.ok(
+        !item.partnerName.includes("Jordan") && !item.partnerName.includes("Rivera"),
+        `real name must not leak: ${item.partnerName}`
+      );
+      assert.notEqual(item.bodyText, requestText, "the real request text must not leak");
+      assert.ok(item.bodyText.includes("withheld"), item.bodyText);
+      assert.equal(item.sourceLinkUrl, null, "no source link for a restricted partner's notification");
+    } finally {
+      await prisma.pendingNotification.deleteMany({ where: { partnerId: restrictedId } });
+      await prisma.partner.delete({ where: { id: restrictedId } }).catch(() => {});
+    }
+  });
+});
+
+describe("DELETE /api/notifications/pending/:id", () => {
+  test("viewer is rejected, admin can clear a queued row without sending it", async () => {
+    const requestText = `${FIXTURE_TAG} cleared before it ever goes out`;
+    await createPrayerRequest(requestText);
+    const row = await prisma.pendingNotification.findFirst({
+      where: { partnerId, payload: { path: ["requestText"], equals: requestText } },
+    });
+    assert.ok(row, "fixture setup: the row should be queued");
+
+    assert.equal((await viewer(`/api/notifications/pending/${row.id}`, { method: "DELETE" })).status, 403);
+
+    const res = await admin(`/api/notifications/pending/${row.id}`, { method: "DELETE" });
+    assert.equal(res.status, 204);
+
+    const stillThere = await prisma.pendingNotification.findUnique({ where: { id: row.id } });
+    assert.equal(stillThere, null, "the row should be gone, not just marked sent");
+  });
+
+  test("clearing an already-gone id 404s instead of throwing", async () => {
+    const res = await admin("/api/notifications/pending/not-a-real-id", { method: "DELETE" });
+    assert.equal(res.status, 404);
   });
 });
 
