@@ -65,7 +65,7 @@ term, e.g. "Go Team Partners," if enabled in Branding),
 [**Prayer Requests**](#prayer-requests),
 [**Trip History**](#trip-history--trip-opportunities),
 [**Trip Opportunities**](#trip-history--trip-opportunities),
-[**Newsletters**](#newsletters), [**Documents**](#documents),
+[**Newsletters & Docs**](#newsletters--docs),
 [**Print Booklet**](#printable-partner-booklet), [**Reports**](#reports)
 — visible to everyone, each one only if its
 [feature toggle](ADMIN_GUIDE.md#feature-toggles) is on.
@@ -246,8 +246,8 @@ not just what topic they fall under:
     [Trip Opportunities](#trip-history--trip-opportunities) capacity
     search.
 - **Communication**:
-  - [**Prayer Requests**](#prayer-requests), [**Newsletters**](#newsletters),
-    [**Documents**](#documents) — see their own sections below.
+  - [**Prayer Requests**](#prayer-requests),
+    [**Newsletters & Docs**](#newsletters--docs) — see their own sections below.
   - **Church Visits** — Visit Date + Notes; the most recent becomes
     "last visit" everywhere it's shown.
   - **Furlough** (missionary only) — Start/End Date (leave End Date
@@ -257,7 +257,7 @@ Blank repeatable rows (an empty adult, an empty trip, etc.) are silently
 dropped when you save — you don't need to manually remove unused rows.
 
 Any list that can grow long over the years — Financial Support, One-Time
-Needs, Trip History, Prayer Requests, Newsletters, Documents, Church
+Needs, Trip History, Prayer Requests, Newsletters & Docs, Church
 Visits, Furlough — shows only its 3 most recent entries by default, with
 a **Load More** button (showing how many more there are) to reveal the
 rest. Nothing is hidden permanently; it's just not all rendered at once.
@@ -272,8 +272,8 @@ sent-by-us, on-furlough, archived) and hovering one that lives in a
 specific section (like "Sent by {your church}") says where to go edit
 it. **Back to list** returns you to Partners. This page *is* where every
 edit happens — each section's own **Edit** button, not a separate form
-— including newsletters, documents, and photos (see
-[Newsletters](#newsletters), [Documents](#documents), and
+— including newsletters & docs, and photos (see
+[Newsletters & Docs](#newsletters--docs), and
 [Photo history](#photo-history) below).
 
 ![The top of a partner detail page -- Photo History, Status & Visibility, and Ministry Overview](docs/assets/screenshots/admin-partner-detail-preview.png)
@@ -393,50 +393,38 @@ These are two different things:
 
 ![Trip Opportunities, a capacity search by team size and trip type](docs/assets/screenshots/trip-opportunities.png)
 
-## Newsletters
+## Newsletters & Docs
 
-Upload from the central **Newsletters** page (**+ Upload Newsletter**:
-pick the partner, choose a file — PDF, `.eml`, JPEG, or PNG — optional
-title/notes) or directly from that partner's detail page, which embeds
-the same upload/view/delete UI. **View** opens the file in a new tab;
-**Edit** lets you fix everything but the uploaded file itself — title,
-received date, notes, and (from the central page only) which partner
-it's filed under; **Delete** removes it permanently. Newsletters are
-always private — never shown on the public site, regardless of the
-partner's `isPublic` flag.
+One place for every file a partner sends — a newsletter update, a
+completed survey, a returned signed policy acknowledgment, an email
+worth keeping on file long-term, or any other document — distinguished
+by a single **Kind** field rather than separate newsletter/document
+systems to choose between:
 
-![The central Newsletters page, listing uploads across every partner](docs/assets/screenshots/newsletters.png)
-
-## Documents
-
-A separate, more general place to keep other files from a partner —
-survey responses, a returned signed policy acknowledgment, Word/Excel/PDF
-documents, or an email you want kept on file long-term — anything that
-isn't a newsletter update. Same private, admin-only visibility as
-Newsletters; the difference is what each is *for*, not who can see it.
-
-Upload from the central **Documents** page (**+ Upload Document**: pick
-the partner, choose a file — PDF, Word `.doc`/`.docx`, Excel `.xls`/
-`.xlsx`, `.eml`, JPEG, or PNG — pick a **Category**, optional title/notes)
-or directly from that partner's detail page, which embeds the same
-upload/view/delete UI. Every document needs a category:
-
-| Category | For |
+| Kind | For |
 |---|---|
+| Newsletter | A ministry/prayer update — what most uploads actually are. |
 | Survey Response | A completed survey or check-in questionnaire sent back by the partner. |
 | Signed Policy | A policy acknowledgment (child protection, code of conduct, etc.) signed and returned. |
 | Email Communication | An email exchange worth keeping on file long-term. |
-| Office Document | A Word/Excel/PDF document that doesn't fit the other categories. |
+| Office Document | A Word/Excel/PDF document that doesn't fit the other kinds. |
 | Other | Anything else — pick this and type your own label (e.g. "Background Check"). |
 
-The central **Documents** page can filter by category and by
+Upload from the central **Newsletters & Docs** page (**+ Upload File**:
+pick the partner, choose a file — PDF, Word `.doc`/`.docx`, Excel `.xls`/
+`.xlsx`, `.eml`, JPEG, or PNG — pick a Kind, optional title/notes) or
+directly from that partner's detail page, which embeds the same
+upload/view/delete UI. The central page can filter by Kind and by
 missionary/organization, so you can, for example, pull up every signed
 policy on file across all partners at once. **View** opens the file in a
 new tab; **Edit** lets you fix everything but the uploaded file itself —
-category, title, received date, notes, and (from the central page only)
-which partner it's filed under; **Delete** removes it permanently.
+Kind, title, received date, notes, and (from the central page only)
+which partner it's filed under — so reclassifying a mis-filed upload is
+just an edit, not a delete-and-reupload. Files here are always private —
+never shown on the public site, regardless of the partner's `isPublic`
+flag.
 
-![The central Documents page, filterable by category and partner](docs/assets/screenshots/documents.png)
+![The central Newsletters & Docs page, listing uploads across every partner with their Kind](docs/assets/screenshots/partner-files.png)
 
 ## Prayer Requests
 

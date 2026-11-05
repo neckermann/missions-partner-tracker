@@ -134,8 +134,7 @@ features (everything else, which only changes a logged-in admin's own nav).
 |---|---|---|
 | Public directory | On | The public list/search view at the site's root (`/`). Off shows a short "this isn't public" page there instead. |
 | Public map | On | The public map view (`/map`). Same off-behavior as above. Independent of the directory toggle — a church can run either one alone, or both, or neither; the partner-detail page stays reachable as long as at least one of the two is on. |
-| Newsletters | On | The newsletter archive on missionary/organization pages and its own admin section. |
-| Documents | On | The general document repo (survey responses, signed policies, etc.). |
+| Newsletters & Docs | On | Newsletters and documents (survey responses, signed policies, etc.) on missionary/organization pages and their own admin section. |
 | Prayer requests | On | The Prayer Requests admin section, and the prayer request list on missionary/organization pages. |
 | One-time needs | On | The One-Time Needs admin section, and the one-time needs list on missionary/organization pages. Only gates the standalone `/api/support-needs` CRUD — a need can still be added via a missionary/organization's own edit form either way (a narrower gap than the other toggles here). |
 | Monthly support | On | The Monthly Support report page. |
@@ -197,8 +196,8 @@ For the app's role model itself (`viewer`/`editor`/`admin`), see
 ## File storage
 
 Photos, logos, newsletter PDFs, and other partner documents are stored
-directly in the database — a `bytes` column right on the `Photo`,
-`Newsletter`, and `Document` rows (see the `Newsletter` model comment in
+directly in the database — a `bytes` column right on the `Photo` and
+`PartnerFile` rows (see the `PartnerFile` model comment in
 `backend/prisma/schema.prisma` for the full reasoning). There's no
 separate object storage service to provision, configure, or hold
 credentials for; the database backup you're already taking covers files
