@@ -34,24 +34,30 @@
     </header>
 
     <section class="guide-page">
-      <div class="wrap">
-        <a class="guide-back" href="index.html">← Back to site</a>
-        <div class="guide-switch">
-          <a href="admin-guide.html">Admin Guide</a>
-          <a href="user-guide.html" class="active">User Guide</a>
-        </div>
-        <p class="guide-source">
-          Read live from
-          <a
-            href="https://github.com/neckermann/missions-partner-tracker/blob/main/USER_GUIDE.md"
-            target="_blank"
-            rel="noreferrer"
-            >USER_GUIDE.md</a
-          >
-          in the repo — always current with the code.
-        </p>
-        <div id="guide-content" class="guide-content">
-          <p class="guide-loading">Loading…</p>
+      <div class="wrap guide-layout">
+        <details class="guide-toc" open>
+          <summary>On this page</summary>
+          <nav id="guide-toc-nav" aria-label="Table of contents"></nav>
+        </details>
+        <div class="guide-main">
+          <a class="guide-back" href="index.html">← Back to site</a>
+          <div class="guide-switch">
+            <a href="admin-guide.html">Admin Guide</a>
+            <a href="user-guide.html" class="active">User Guide</a>
+          </div>
+          <p class="guide-source">
+            Read live from
+            <a
+              href="https://github.com/neckermann/missions-partner-tracker/blob/main/USER_GUIDE.md"
+              target="_blank"
+              rel="noreferrer"
+              >USER_GUIDE.md</a
+            >
+            in the repo — always current with the code.
+          </p>
+          <div id="guide-content" class="guide-content">
+            <p class="guide-loading">Loading…</p>
+          </div>
         </div>
       </div>
     </section>
@@ -70,7 +76,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="assets/guide.js"></script>
     <script>
-      loadGuide("USER_GUIDE.md", "guide-content");
+      loadGuide("USER_GUIDE.md", "guide-content", "guide-toc-nav");
     </script>
   </body>
 </html>

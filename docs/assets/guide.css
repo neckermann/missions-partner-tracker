@@ -5,6 +5,103 @@
   padding: 2.5rem 0 5rem;
 }
 
+/* Two-column layout: a sticky in-page TOC alongside the guide-main
+   column. Below 980px there isn't room for both side by side, so the
+   TOC becomes a collapsible <details> sitting above the content instead
+   -- same markup either way, just restyled per breakpoint. */
+.guide-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 2.5rem;
+}
+
+.guide-main {
+  flex: 1;
+  min-width: 0; /* lets long code lines/tables scroll instead of pushing the TOC column wider */
+}
+
+.guide-toc {
+  flex: 0 0 220px;
+  position: sticky;
+  /* Header is sticky at the very top (see style.css) -- clear it rather
+     than sit flush underneath. */
+  top: 1.5rem;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  font-size: 0.88rem;
+}
+
+.guide-toc summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--green-dark);
+  padding: 0.5rem 0;
+  list-style: none;
+}
+
+.guide-toc summary::-webkit-details-marker {
+  display: none;
+}
+
+.guide-toc summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 0.4rem;
+  transition: transform 0.15s ease;
+}
+
+.guide-toc[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.guide-toc nav ul {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+}
+
+.guide-toc nav ul ul {
+  margin-left: 0.9rem;
+  border-left: 1px solid var(--border);
+}
+
+.guide-toc nav li {
+  margin: 0;
+}
+
+.guide-toc nav a {
+  display: block;
+  padding: 0.3rem 0 0.3rem 0.7rem;
+  color: var(--muted);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  line-height: 1.35;
+}
+
+.guide-toc nav a:hover {
+  color: var(--green-dark);
+}
+
+.guide-toc nav a.active {
+  color: var(--green-dark);
+  border-left-color: var(--green);
+  font-weight: 600;
+}
+
+@media (max-width: 980px) {
+  .guide-layout {
+    display: block;
+  }
+  .guide-toc {
+    position: static;
+    max-height: none;
+    margin-bottom: 2rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.25rem 1rem;
+  }
+}
+
 .guide-back {
   display: inline-block;
   margin-bottom: 1.5rem;
