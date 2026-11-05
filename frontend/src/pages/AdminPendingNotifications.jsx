@@ -3,7 +3,6 @@ import {
   fetchPendingNotifications,
   sendPendingNotifications,
   deletePendingNotification,
-  revealPendingNotification,
   updatePendingNotification,
 } from "../api/client.js";
 import NotificationReviewModal from "../components/admin/NotificationReviewModal.jsx";
@@ -237,26 +236,30 @@ export default function AdminPendingNotifications() {
   // The lightweight path for a held row that doesn't need any wording
   // changed -- skips opening the full edit modal, but carries the exact
   // same real-world consequence as saving there (it clears the hold, so
-  // this is sendable from here on), so it gets the same safety gate: show
-  // the real text and make the admin explicitly confirm it before it's
-  // saved as-is. Uses the same reveal+save calls the modal itself uses,
-  // just without the textarea step in between.
+  // this is sendable from here on), so it gets the same safety gate:
+  // make the admin explicitly confirm the real text before it's saved
+  // as-is. No separate reveal call needed -- blurb.bodyText is already
+  // the real (unmasked) text here, not the placeholder: GET /pending
+  // returns it unmasked for any held row, since the underlying
+  // request/need text was never actually hidden from any role in the
+  // first place (GET /api/prayer-requests and /api/support-needs show
+  // it to anyone logged in, restricted or not -- see ADMIN_GUIDE.md §
+  // Who can see what).
   async function handleQuickApprove(blurb) {
     setApprovingId(blurb.id);
     setError("");
     setSuccess("");
     try {
-      const { rawText } = await revealPendingNotification(blurb.id);
       const confirmed = window.confirm(
         `This partner is restricted. Approving marks this reviewed and eligible to send to any enabled ` +
           `notification channel -- their name, photo, and any source-file link stay masked regardless, but ` +
           `the exact wording below is what goes out as-is. Check it for anything else that could identify ` +
           `them or their location (a specific place, date, or detail only they'd be tied to) before approving.\n\n` +
-          `Text to send:\n"${rawText}"\n\n` +
+          `Text to send:\n"${blurb.bodyText}"\n\n` +
           `Approve and send this as-is?`
       );
       if (!confirmed) return;
-      const updated = await updatePendingNotification(blurb.id, rawText);
+      const updated = await updatePendingNotification(blurb.id, blurb.bodyText);
       setPending((list) => list.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
     } catch (err) {
       setError(err.response?.data?.error || "Couldn't approve that notification.");

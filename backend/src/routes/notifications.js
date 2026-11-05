@@ -29,12 +29,31 @@ router.get("/pending", async (req, res, next) => {
       select: { id: true, displayName: true, isRestricted: true },
     });
     const partnerById = new Map(partners.map((p) => [p.id, p]));
+    // Not role-gated: GET /api/prayer-requests and GET /api/support-needs
+    // already return a restricted partner's real request/need text to
+    // every logged-in role with no masking at all (this app's "auth is
+    // the boundary" rule -- see ADMIN_GUIDE.md § Who can see what), so
+    // hiding it specifically in this list behind a role check wouldn't
+    // protect anything a viewer couldn't already read on those pages --
+    // it would just make this one list inconsistent with the rest of the
+    // app for no real reason. Showing it here too means an admin/editor
+    // reviewing a held row can read it and hit Approve without opening
+    // Edit first (#187 follow-up).
     const items = rows
       .map((row) => {
         const blurb = buildBlurb(row, partnerById.get(row.partnerId));
         if (!blurb) return null;
+        const needsReview =
+          REVIEW_GATED_TYPES.has(row.type) &&
+          !!partnerById.get(row.partnerId)?.isRestricted &&
+          !row.reviewedAt;
+        const bodyText = needsReview
+          ? (buildBlurb(row, { ...partnerById.get(row.partnerId), isRestricted: false })?.bodyText ??
+            blurb.bodyText)
+          : blurb.bodyText;
         return {
           ...blurb,
+          bodyText,
           // Surfaced separately from the masking itself (the blurb's own
           // fields are already masked above) so the admin reviewing the
           // queue can see at a glance which rows are from a restricted
@@ -45,10 +64,7 @@ router.get("/pending", async (req, res, next) => {
           // path (see notificationFlush.js's own needsReview(), which
           // this must stay consistent with -- restricted real-content
           // row, never yet edited/confirmed).
-          needsReview:
-            REVIEW_GATED_TYPES.has(row.type) &&
-            !!partnerById.get(row.partnerId)?.isRestricted &&
-            !row.reviewedAt,
+          needsReview,
           reviewedAt: row.reviewedAt,
           groupmeSentAt: row.groupmeSentAt,
           emailSentAt: row.emailSentAt,

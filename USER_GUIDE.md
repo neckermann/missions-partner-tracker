@@ -730,23 +730,32 @@ held item (next).
 **Reviewing a restricted partner's request or need.** A restricted
 partner's prayer request or one-time need — new, answered, or decided
 — can't send to either channel, manually or on schedule, until an admin
-reviews it. It shows an amber **Awaiting review** badge and stays
-excluded from "Send Pending Notifications Now" (and from the automatic
-schedule) until cleared, one of two ways:
+or editor reviews it. It shows an amber **Awaiting review** badge and
+stays excluded from "Send Pending Notifications Now" (and from the
+automatic schedule) until cleared.
 
-- **Approve** — shows the real text in a confirmation prompt and clears
+The real (unmasked) text shows right there on the row itself, not a
+generic placeholder — the structural masking above (name, photo,
+source link) is the actual protection here, not the wording, so there's
+nothing gained by hiding it in this one list when [Prayer
+Requests](#prayer-requests) and [One-Time
+Needs](#financial-support--one-time-needs) already show it to anyone
+logged in regardless of role. Clear the hold one of two ways:
+
+- **Approve** — confirms the text already shown on the row and clears
   the hold in one click, with nothing to edit.
 - **Edit**, then **Save and Approve** (the Save button's label when the
-  item is held) — edit the wording first, confirm the same prompt, and
-  save; the hold clears at the same time.
+  item is held) — edit the wording first, confirm, and save; the hold
+  clears at the same time.
 
-Either way, the confirmation prompt shows the exact text that's about
-to become sendable and asks you to check it for anything else that
-could identify the partner or their location before confirming — the
-structural masking above (name, photo, source link) stays in effect
-regardless, but the wording itself is otherwise sent as-is. Once
-reviewed, the item is eligible for the next send like any other queued
-item; editing it again later overwrites what was previously reviewed.
+Either way, the confirmation prompt repeats the exact text that's
+about to become sendable and asks you to check it for anything else
+that could identify the partner or their location before confirming —
+the structural masking above (name, photo, source link) stays in
+effect regardless, but the wording itself is otherwise sent as-is.
+Once reviewed, the item is eligible for the next send like any other
+queued item; editing it again later overwrites what was previously
+reviewed.
 
 The **Pending (N)** heading shows a note when any items are being held
 this way, and the **Send Pending Notifications Now** button only
