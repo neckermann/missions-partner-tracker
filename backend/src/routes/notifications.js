@@ -21,12 +21,26 @@ router.use(requireAuth);
 router.get("/pending", async (req, res, next) => {
   try {
     const rows = await prisma.pendingNotification.findMany({ orderBy: { createdAt: "asc" } });
+    // Same masking-needs-the-live-flag reasoning as notificationFlush.js
+    // -- this preview should show admins exactly what would actually go
+    // out, restricted-partner masking included.
+    const partners = await prisma.partner.findMany({
+      where: { id: { in: [...new Set(rows.map((row) => row.partnerId))] } },
+      select: { id: true, displayName: true, isRestricted: true },
+    });
+    const partnerById = new Map(partners.map((p) => [p.id, p]));
     const items = rows
       .map((row) => {
-        const blurb = buildBlurb(row);
+        const blurb = buildBlurb(row, partnerById.get(row.partnerId));
         if (!blurb) return null;
         return {
           ...blurb,
+          // Surfaced separately from the masking itself (the blurb's own
+          // fields are already masked above) so the admin reviewing the
+          // queue can see at a glance which rows are from a restricted
+          // partner, without this route handing back anything it
+          // wouldn't otherwise.
+          isRestricted: !!partnerById.get(row.partnerId)?.isRestricted,
           groupmeSentAt: row.groupmeSentAt,
           emailSentAt: row.emailSentAt,
           createdAt: row.createdAt,
@@ -47,6 +61,21 @@ router.get("/pending", async (req, res, next) => {
 router.post("/send", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     res.json(await flushPendingNotifications());
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/notifications/pending/:id -- admin or editor, same gate as
+// sending. Discards one queued notification without ever sending it on
+// either channel -- e.g. a restricted partner's update that shouldn't go
+// out over GroupMe/email at all this round. Irreversible (no undo queue),
+// same as deleting any other record in this app.
+router.delete("/pending/:id", requireRole("admin", "editor"), async (req, res, next) => {
+  try {
+    const deleted = await prisma.pendingNotification.deleteMany({ where: { id: req.params.id } });
+    if (deleted.count === 0) return res.status(404).json({ error: "Not found" });
+    res.status(204).end();
   } catch (err) {
     next(err);
   }

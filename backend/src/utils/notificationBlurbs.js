@@ -10,6 +10,23 @@
 // Message wording below is unchanged from utils/groupme.js's own
 // pre-#129 notify* functions -- same emoji, same phrasing -- just
 // extracted so it isn't duplicated between the two channels.
+//
+// Masking: GroupMe posts and digest emails both leave this app's own
+// auth boundary -- a GroupMe group can include non-admin members, and a
+// digest email can sit in an inbox that gets forwarded or auto-synced
+// somewhere public. That's the same exposure utils/maskData.js's
+// toPublicPartner() already guards against for the public website, so a
+// restricted partner's notifications get the same treatment here: an
+// initialed name and a generic "details withheld" line instead of the
+// real name and the specific request/need/newsletter content, and no
+// link to the actual file (even though the download routes are
+// auth-gated, a restricted partner's notification should never hint at
+// specific content to begin with). isRestricted is read fresh from the
+// partner at build time, not from the payload's own frozen snapshot --
+// the flag can change after a notification was already queued.
+const { toInitials } = require("./maskData");
+
+const RESTRICTED_NOTICE = "Specific details are withheld for security -- please pray for this partner's safety and ministry.";
 
 // Same reasoning/placement as groupme.js's own appBaseUrl(): resolves to
 // "" when neither env var is set, so a link just isn't built rather than
@@ -48,13 +65,27 @@ function supportNeedOutcomeLabel(payload) {
   return "Fully Funded";
 }
 
-// Builds one blurb from a PendingNotification row. Returns null for a
-// type this function doesn't recognize (defensive -- should never
-// happen since `type` is only ever written by notifications.js below)
-// rather than throwing and taking down an entire flush over one bad row.
-function buildBlurb(row) {
+// Builds one blurb from a PendingNotification row. `partner` is the
+// current Partner record (just { displayName, isRestricted } is enough)
+// -- pass null/undefined when it's unavailable (e.g. the partner was
+// since deleted) and masking is simply skipped, same as before this
+// existed. Returns null for a type this function doesn't recognize
+// (defensive -- should never happen since `type` is only ever written by
+// notifications.js below) rather than throwing and taking down an entire
+// flush over one bad row.
+function buildBlurb(row, partner) {
   const { type, payload } = row;
-  const partnerName = payload.partnerName || "A partner";
+  const restricted = !!partner?.isRestricted;
+  const partnerName = restricted
+    ? toInitials(partner.displayName || payload.partnerName || "A partner")
+    : payload.partnerName || "A partner";
+  // Masked out for a restricted partner regardless of type -- never a
+  // working link to the actual file, even though the download routes
+  // are auth-gated (see the file-header comment above).
+  const maskedSourceNewsletterId = restricted ? null : payload.sourceNewsletterId || null;
+  const maskedSourceDocumentId = restricted ? null : payload.sourceDocumentId || null;
+  const maskedSourceLinkUrl = restricted ? null : sourceLinkUrl(payload);
+  const maskedSourceLinkLine = restricted ? "" : sourceLinkLine(payload);
 
   switch (type) {
     case "prayerRequestCreated":
@@ -66,12 +97,14 @@ function buildBlurb(row) {
         topicKey: "groupmePrayerTopicId",
         emoji: "🙏",
         summary: "New prayer request",
-        bodyText: payload.requestText,
+        bodyText: restricted ? RESTRICTED_NOTICE : payload.requestText,
         amount: null,
-        sourceNewsletterId: payload.sourceNewsletterId || null,
-        sourceDocumentId: payload.sourceDocumentId || null,
-        sourceLinkUrl: sourceLinkUrl(payload),
-        groupmeText: `🙏 New prayer request from ${partnerName}:\n${payload.requestText}${sourceLinkLine(payload)}`,
+        sourceNewsletterId: maskedSourceNewsletterId,
+        sourceDocumentId: maskedSourceDocumentId,
+        sourceLinkUrl: maskedSourceLinkUrl,
+        groupmeText: restricted
+          ? `🙏 New prayer request from ${partnerName}:\n${RESTRICTED_NOTICE}`
+          : `🙏 New prayer request from ${partnerName}:\n${payload.requestText}${maskedSourceLinkLine}`,
       };
 
     case "prayerRequestAnswered": {
@@ -84,15 +117,16 @@ function buildBlurb(row) {
         topicKey: "groupmePrayerTopicId",
         emoji: "🙏",
         summary: "Prayer request answered",
-        bodyText: `"${payload.requestText}"\n\n${note}`,
+        bodyText: restricted ? RESTRICTED_NOTICE : `"${payload.requestText}"\n\n${note}`,
         amount: null,
-        sourceNewsletterId: payload.sourceNewsletterId || null,
-        sourceDocumentId: payload.sourceDocumentId || null,
-        sourceLinkUrl: sourceLinkUrl(payload),
-        groupmeText:
-          `🙏 Prayer request answered, from ${partnerName}:\n` +
-          `"${payload.requestText}"\n\n` +
-          `${note}${sourceLinkLine(payload)}`,
+        sourceNewsletterId: maskedSourceNewsletterId,
+        sourceDocumentId: maskedSourceDocumentId,
+        sourceLinkUrl: maskedSourceLinkUrl,
+        groupmeText: restricted
+          ? `🙏 Prayer request answered, from ${partnerName}:\n${RESTRICTED_NOTICE}`
+          : `🙏 Prayer request answered, from ${partnerName}:\n` +
+            `"${payload.requestText}"\n\n` +
+            `${note}${maskedSourceLinkLine}`,
       };
     }
 
@@ -105,15 +139,16 @@ function buildBlurb(row) {
         topicKey: "groupmeOneTimeNeedTopicId",
         emoji: "🎁",
         summary: "New one-time need",
-        bodyText: payload.description,
+        bodyText: restricted ? RESTRICTED_NOTICE : payload.description,
         amount: null,
-        sourceNewsletterId: payload.sourceNewsletterId || null,
-        sourceDocumentId: payload.sourceDocumentId || null,
-        sourceLinkUrl: sourceLinkUrl(payload),
-        groupmeText:
-          `🎁 New one-time need from ${partnerName}:\n` +
-          `Be praying about this opportunity — we'll talk about it more at our next meeting.\n\n` +
-          `${payload.description}${sourceLinkLine(payload)}`,
+        sourceNewsletterId: maskedSourceNewsletterId,
+        sourceDocumentId: maskedSourceDocumentId,
+        sourceLinkUrl: maskedSourceLinkUrl,
+        groupmeText: restricted
+          ? `🎁 New one-time need from ${partnerName}:\n${RESTRICTED_NOTICE}`
+          : `🎁 New one-time need from ${partnerName}:\n` +
+            `Be praying about this opportunity — we'll talk about it more at our next meeting.\n\n` +
+            `${payload.description}${maskedSourceLinkLine}`,
       };
 
     case "supportNeedDecided": {
@@ -127,21 +162,22 @@ function buildBlurb(row) {
         topicKey: "groupmeOneTimeNeedTopicId",
         emoji: "🎁",
         summary: `One-time need decided (${label})`,
-        bodyText: `"${payload.description}"`,
+        bodyText: restricted ? RESTRICTED_NOTICE : `"${payload.description}"`,
         amount,
-        sourceNewsletterId: payload.sourceNewsletterId || null,
-        sourceDocumentId: payload.sourceDocumentId || null,
-        sourceLinkUrl: sourceLinkUrl(payload),
-        groupmeText:
-          `🎁 One-time need decided (${label}), from ${partnerName}:\n` +
-          `"${payload.description}"\n\n` +
-          `Approved: ${amount}${sourceLinkLine(payload)}`,
+        sourceNewsletterId: maskedSourceNewsletterId,
+        sourceDocumentId: maskedSourceDocumentId,
+        sourceLinkUrl: maskedSourceLinkUrl,
+        groupmeText: restricted
+          ? `🎁 One-time need decided (${label}), from ${partnerName}:\n${RESTRICTED_NOTICE}\n\nApproved: ${amount}`
+          : `🎁 One-time need decided (${label}), from ${partnerName}:\n` +
+            `"${payload.description}"\n\n` +
+            `Approved: ${amount}${maskedSourceLinkLine}`,
       };
     }
 
     case "newsletterCreated": {
       const base = appBaseUrl();
-      const link = base ? `${base}/api/newsletters/${payload.newsletterId}/download` : null;
+      const link = restricted || !base ? null : `${base}/api/newsletters/${payload.newsletterId}/download`;
       return {
         id: row.id,
         type,
@@ -150,15 +186,17 @@ function buildBlurb(row) {
         topicKey: "groupmeNewsletterTopicId",
         emoji: "📰",
         summary: "New newsletter",
-        bodyText: null,
+        bodyText: restricted ? RESTRICTED_NOTICE : null,
         amount: null,
-        newsletterId: payload.newsletterId,
+        newsletterId: restricted ? null : payload.newsletterId,
         sourceNewsletterId: null,
         sourceDocumentId: null,
         sourceLinkUrl: link,
         // Same as groupme.js's own notifyNewsletterCreated: no link, no
         // message -- a newsletter notification with nothing to point at
-        // isn't worth sending at all.
+        // isn't worth sending at all. A restricted partner's newsletter
+        // never gets a link in the first place, so it's never worth a
+        // GroupMe post either, same reasoning.
         groupmeText: link ? `📰 New newsletter from ${partnerName}:\n${link}` : null,
       };
     }

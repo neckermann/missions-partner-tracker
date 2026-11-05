@@ -516,6 +516,7 @@ const notificationSettingsSelect = {
   queueNotifyNewsletters: true,
   digestSubjectTemplate: true,
   digestSignature: true,
+  digestTemplate: true,
 };
 
 const notificationSettingsSchema = z.object({
@@ -528,6 +529,7 @@ const notificationSettingsSchema = z.object({
   queueNotifyNewsletters: z.boolean().optional(),
   digestSubjectTemplate: z.string().optional().nullable(),
   digestSignature: z.string().optional().nullable(),
+  digestTemplate: z.enum(["classic", "snapshot"]).optional().nullable(),
 });
 
 router.get("/notifications", requireRole("admin"), async (req, res, next) => {
@@ -547,6 +549,7 @@ router.get("/notifications", requireRole("admin"), async (req, res, next) => {
         queueNotifyNewsletters: true,
         digestSubjectTemplate: null,
         digestSignature: null,
+        digestTemplate: null,
       }
     );
   } catch (err) {

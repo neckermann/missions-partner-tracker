@@ -717,20 +717,27 @@ model ChurchSettings {
   queueNotifyOneTimeNeeds   Boolean @default(true)
   queueNotifyNewsletters    Boolean @default(true)
 
-  // Digest email customization (see #182) -- both null means "use the
-  // built-in defaults" (a plain "{count} update(s) from {church}"
-  // subject, no signature line), same blank-means-default convention
-  // every other admin-text field in this app already follows.
-  // digestSubjectTemplate supports {count}/{church} tokens, substituted
-  // in utils/emailDigest.js -- an admin writes plain text, not a real
-  // template language, so no other token syntax (conditionals, loops) is
-  // ever needed or supported.
+  // Digest email customization (see #182) -- null subject/signature means
+  // "use the built-in default" (see DEFAULT_SUBJECT_TEMPLATE in
+  // utils/emailDigest.js), same blank-means-default convention every
+  // other admin-text field in this app already follows.
+  // digestSubjectTemplate supports {church}/{month}/{year}/{date}/
+  // {frequency}/{name}/{term} tokens, substituted in utils/emailDigest.js
+  // -- an admin writes plain text, not a real template language, so no
+  // other token syntax (conditionals, loops) is ever needed or supported.
   digestSubjectTemplate String?
   // A short closing line (a verse, "Questions? Contact us", etc.) shown
   // near the digest's footer, above the unsubscribe link. Deliberately
   // separate from publicTagline (the public-site subtitle) -- this is
   // email-specific and never shown anywhere else.
   digestSignature       String? @db.Text
+  // Which digest layout to render -- "classic" (plain text-only partner
+  // cards, the original design) or "snapshot" (adds each partner's
+  // photo/silhouette, field, "Supporting since", and short overview above
+  // their items -- see partnerTileDetails() in utils/emailDigest.js).
+  // Null/unset means "classic", so every church's digest looks exactly
+  // the same as before this field existed until one opts in.
+  digestTemplate         String? // "classic" | "snapshot"
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

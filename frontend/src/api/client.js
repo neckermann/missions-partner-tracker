@@ -256,6 +256,13 @@ export async function sendPendingNotifications() {
   return data;
 }
 
+// Discards one queued notification without sending it on either channel
+// -- e.g. a restricted partner's update the admin decides shouldn't go
+// out this round.
+export async function deletePendingNotification(id) {
+  await api.delete(`/notifications/pending/${id}`);
+}
+
 export async function fetchPublicSettings() {
   const { data } = await api.get("/public/settings");
   return data;

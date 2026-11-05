@@ -30,7 +30,18 @@ async function flushPendingNotifications() {
   });
   if (rows.length === 0) return { sent: 0, remaining: 0 };
 
-  const blurbById = new Map(rows.map((row) => [row.id, buildBlurb(row)]).filter(([, blurb]) => blurb));
+  // Read fresh, not from each row's own frozen payload -- isRestricted
+  // can change after a notification was already queued, and buildBlurb
+  // needs the current value to mask correctly (see notificationBlurbs.js).
+  const partners = await prisma.partner.findMany({
+    where: { id: { in: [...new Set(rows.map((row) => row.partnerId))] } },
+    select: { id: true, displayName: true, isRestricted: true },
+  });
+  const partnerById = new Map(partners.map((p) => [p.id, p]));
+
+  const blurbById = new Map(
+    rows.map((row) => [row.id, buildBlurb(row, partnerById.get(row.partnerId))]).filter(([, blurb]) => blurb)
+  );
 
   if (groupmeOn) {
     const candidates = rows
