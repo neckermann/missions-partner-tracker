@@ -142,19 +142,20 @@ function formatAddress(address) {
   return [line1, cityStateZip, address.country].filter(Boolean).join(", ") || null;
 }
 
-// The footer's church-contact block -- mailing address, phone, website,
-// each included only if actually configured. A real mailing address in
-// a periodic bulk email's footer is expected practice (CAN-SPAM), not
-// just a nice-to-have. Deliberately not aboutText (the public-site
-// blurb) -- written for a different audience/length than a plain email
-// footer calls for.
-function buildContactLines(churchSettings) {
+// The footer's church-contact block -- church name, mailing address,
+// phone, website, each included only if actually configured (churchName
+// always is, via renderDigestEmail's own fallback). A real mailing
+// address in a periodic bulk email's footer is expected practice
+// (CAN-SPAM), not just a nice-to-have. Deliberately not aboutText (the
+// public-site blurb) -- written for a different audience/length than a
+// plain email footer calls for.
+function buildContactLines(churchSettings, churchName) {
   const address = formatAddress(churchSettings?.address);
   const phone = churchSettings?.phone || null;
   const website = churchSettings?.websiteLink || null;
 
-  const html = [];
-  const text = [];
+  const html = [`<strong>${escapeHtml(churchName)}</strong>`];
+  const text = [churchName];
   if (address) {
     html.push(escapeHtml(address));
     text.push(address);
@@ -213,7 +214,7 @@ function renderDigestEmail(blurbs, churchSettings, unsubscribeUrl, recipientName
   const signatureHtml = signature
     ? `<p style="margin:20px 4px 0;font-size:14px;line-height:1.5;color:#444;">${nl2br(signature)}</p>`
     : "";
-  const contactLines = buildContactLines(churchSettings);
+  const contactLines = buildContactLines(churchSettings, churchName);
   const contactHtml = contactLines.html.length
     ? `<p style="margin:0 0 6px;">${contactLines.html.join("<br>")}</p>`
     : "";
@@ -229,7 +230,7 @@ function renderDigestEmail(blurbs, churchSettings, unsubscribeUrl, recipientName
         ${groups.map((g) => renderPartnerHtml(g, accentColor, highlightColor)).join("")}
         ${signatureHtml}
       </div>
-      <div style="margin-top:12px;padding:16px 4px 0;border-top:1px solid #e5e2d8;font-size:12px;color:#888;line-height:1.5;">
+      <div style="margin-top:12px;padding:16px 4px 0;border-top:1px solid #e5e2d8;font-size:12px;color:#888;line-height:1.5;text-align:center;">
         ${contactHtml}
         <p style="margin:0 0 6px;">You're receiving this because email notifications are turned on for your account.</p>
         ${unsubscribeUrl ? `<p style="margin:0;"><a href="${unsubscribeUrl}" style="color:#888;">Unsubscribe</a></p>` : ""}
@@ -237,22 +238,43 @@ function renderDigestEmail(blurbs, churchSettings, unsubscribeUrl, recipientName
     </div>`;
 
   return {
-    subject: buildSubject(churchSettings?.digestSubjectTemplate, count, churchName),
+    subject: buildSubject(
+      churchSettings?.digestSubjectTemplate,
+      count,
+      churchName,
+      churchSettings,
+      recipientName
+    ),
     html,
     text: renderText(groups, unsubscribeUrl, recipientName, signature, contactLines),
   };
 }
 
-// A custom subject is plain text with two supported tokens, not a real
-// template language (no conditionals/loops) -- an admin writing their
-// own subject line never needs more than "put the count/church name
-// somewhere in my own wording". Falls back to the built-in default when
-// no template is set, or when one is set but matches neither token
-// (still works, just doesn't substitute anything -- never a hard error
-// over a typo in an admin's own text).
-function buildSubject(template, count, churchName) {
+// A custom subject is plain text with a handful of supported tokens, not
+// a real template language (no conditionals/loops) -- an admin writing
+// their own subject line never needs more than "put a date/name/church
+// name somewhere in my own wording". Falls back to the built-in default
+// (still count-based -- a separate decision from which tokens an admin's
+// own template can use) when no template is set, or substitutes nothing
+// for a token that doesn't match any of these (never a hard error over a
+// typo in an admin's own text). {count} is deliberately NOT offered here
+// -- a raw item count read poorly in a subject line ("3 updates" says
+// less than it seems to); {date}/{month}/{year} solve the same original
+// problem (every send sharing an identical subject, risking Gmail/
+// webmail thread-collapse) without that.
+function buildSubject(template, count, churchName, churchSettings, recipientName) {
   if (!template) return `${count} update${count === 1 ? "" : "s"} from ${churchName}`;
-  return template.replace(/\{count\}/g, String(count)).replace(/\{church\}/g, churchName);
+  const now = new Date();
+  const frequency = churchSettings?.digestFrequency
+    ? churchSettings.digestFrequency.charAt(0).toUpperCase() + churchSettings.digestFrequency.slice(1)
+    : "";
+  return template
+    .replace(/\{church\}/g, churchName)
+    .replace(/\{month\}/g, now.toLocaleString("en-US", { month: "long" }))
+    .replace(/\{year\}/g, String(now.getFullYear()))
+    .replace(/\{date\}/g, now.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }))
+    .replace(/\{frequency\}/g, frequency)
+    .replace(/\{name\}/g, recipientName || "there");
 }
 
 // Sends the digest to every opted-in active user. Returns true if the
