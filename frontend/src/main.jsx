@@ -46,6 +46,7 @@ const AdminSettingsAiExtraction = lazy(() => import("./pages/AdminSettingsAiExtr
 const AdminSettingsEmail = lazy(() => import("./pages/AdminSettingsEmail.jsx"));
 const AdminInboundEmailQueue = lazy(() => import("./pages/AdminInboundEmailQueue.jsx"));
 const AdminPendingNotifications = lazy(() => import("./pages/AdminPendingNotifications.jsx"));
+const AdminNotificationSettings = lazy(() => import("./pages/AdminNotificationSettings.jsx"));
 const AdminSettingsBackups = lazy(() => import("./pages/AdminSettingsBackups.jsx"));
 const AdminMonthlySupport = lazy(() => import("./pages/AdminMonthlySupport.jsx"));
 const AdminOneTimeNeeds = lazy(() => import("./pages/AdminOneTimeNeeds.jsx"));
@@ -218,6 +219,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   <Route path="joshua-project" element={<AdminSettingsJoshuaProject />} />
                   <Route path="ai-extraction" element={<AdminSettingsAiExtraction />} />
                   <Route path="email" element={<AdminSettingsEmail />} />
+                  <Route
+                    path="notifications"
+                    element={
+                      <RequireAdminFeature feature={["groupme", "outboundEmail"]}>
+                        <AdminNotificationSettings />
+                      </RequireAdminFeature>
+                    }
+                  />
                   <Route path="backups" element={<AdminSettingsBackups />} />
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="users/new" element={<AdminUserForm />} />

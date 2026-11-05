@@ -28,6 +28,11 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       title: "Unmatched Emails",
       description: "Inbound emails that couldn't be automatically matched to a partner -- assign or discard.",
     },
+    (enabledFeatures.groupme || enabledFeatures.outboundEmail) && {
+      to: "/admin/notifications",
+      title: "Pending Notifications",
+      description: "Review and send what's queued -- on a schedule, or on demand.",
+    },
     enabledFeatures.partnerFiles && {
       to: "/admin/partner-files",
       title: "Newsletters & Docs",
@@ -133,9 +138,9 @@ function buildSiteAdminSections(enabledFeatures) {
       description: "Post new prayer requests to a GroupMe group automatically.",
     },
     (enabledFeatures.groupme || enabledFeatures.outboundEmail) && {
-      to: "/admin/notifications",
+      to: "/admin/settings/notifications",
       title: "Notifications",
-      description: "Review and send what's queued -- on a schedule, or on demand.",
+      description: "Schedule, queue toggles, and email digest appearance.",
     },
   ].filter(Boolean);
   const integrations = [

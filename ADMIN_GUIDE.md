@@ -112,7 +112,7 @@ full file with inline comments):
 | `FIELD_ENCRYPTION_KEY` | Recommended | Encrypts two-factor (MFA) secrets at rest. Generate with `npm run generate-secrets`. Without it the app still runs, but MFA enrollment fails. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
-| `APP_BASE_URL` | No | This app's own public URL, no trailing slash — needed for the notification queue's own links: the GroupMe newsletter notification's link, the email digest's "read the source" / "read the full newsletter" links, and the digest's own unsubscribe link (see [GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only) and [Notifications](USER_GUIDE.md#notifications-admin-only)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`; set it explicitly elsewhere. Leave unset and those links just don't appear. |
+| `APP_BASE_URL` | No | This app's own public URL, no trailing slash — needed for the notification queue's own links: the GroupMe newsletter notification's link, the email digest's "read the source" / "read the full newsletter" links, and the digest's own unsubscribe link (see [GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only) and [Pending Notifications](USER_GUIDE.md#pending-notifications)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`; set it explicitly elsewhere. Leave unset and those links just don't appear. |
 
 There's nothing to configure for the frontend separately — it's served by
 the backend and always calls `/api` on its own origin.
@@ -141,7 +141,7 @@ features (everything else, which only changes a logged-in admin's own nav).
 | Mission trips | On | The Trip History and Trip Opportunities pages. |
 | Print booklet | On | The printable prayer & support directory generator. |
 | Reports | On | Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history, furlough — with CSV download and a print view. |
-| GroupMe notifications | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule (or manual send) configured at Site Administration → Notifications. Configured entirely in the UI (Site Administration → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only). |
+| GroupMe notifications | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Site Administration → Notifications, or via manual send from Pending Notifications. Configured entirely in the UI (Site Administration → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only). |
 | Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Site Administration → Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Site Administration → AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 | Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Site Administration → Email. Today's only sender is the batched notification digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
@@ -606,15 +606,22 @@ already succeeded. Turning both channels off entirely just leaves the
 queue parked, rather than silently discarding it.
 
 A restricted-access partner's items are masked on both channels — name
-reduced to initials, request/need text replaced with a generic notice,
-no source link — computed fresh from the partner's *current*
-`isRestricted` value at send time, not from whatever it was when the
-item was first queued, so flipping that flag after something's already
-queued still takes effect. This exists because both channels leave the
-app's own auth boundary (a GroupMe group can include non-admin members;
-a digest email can sit in an inbox that gets forwarded) — the same
-exposure `isPublic`/`isRestricted` masking already guards against on the
-public site.
+reduced to initials, photo to a silhouette, no source link — computed
+fresh from the partner's *current* `isRestricted` value at send time,
+not from whatever it was when the item was first queued, so flipping
+that flag after something's already queued still takes effect. This
+exists because both channels leave the app's own auth boundary (a
+GroupMe group can include non-admin members; a digest email can sit in
+an inbox that gets forwarded) — the same exposure
+`isPublic`/`isRestricted` masking already guards against on the public
+site.
+
+A restricted partner's prayer request or one-time need additionally
+can't send **at all** — to either channel, manually or on schedule —
+until an admin has reviewed it: see [§ Restricted-partner notification
+review](#restricted-partner-notification-review) below. Masking itself
+(name, photo, source link) is unconditional and unaffected by review
+state either way.
 
 The email digest's own appearance — subject line (token-based, e.g.
 `{date} {church} - {term} Updates`), an optional signature line, and a
@@ -638,6 +645,45 @@ moving the schedule check to a real Render Cron Job) — not a concern
 worth building for today. A deploy landing in the exact scheduled minute
 just skips that one occurrence, picking it up at the next; manual send
 is always available regardless of the schedule.
+
+### Restricted-partner notification review
+
+A restricted partner's prayer request/one-time need (new, answered, or
+decided) queues the same as anyone else's, but can't actually send to
+either channel — not manually, not on the automatic schedule — until an
+admin reviews it. This is on top of the structural masking above, which
+applies regardless: it's about whether the request/need **text itself**
+is safe to send verbatim, something only a human reading the real
+content can judge. Newsletters aren't affected — a restricted partner's
+newsletter notification is already fully suppressed, nothing to review.
+
+On the Pending Notifications page, a held item shows an amber
+**Awaiting review** badge and two ways to clear it, both requiring the
+admin to read the real (unmasked) text first and confirm it in a dialog
+before it's accepted:
+
+- **Approve** — a one-click path for text that's already fine as-is.
+  Shows the real text in the confirmation prompt, nothing to edit.
+- **Edit** — opens the same reveal-and-edit view available on any
+  queued item (see [USER_GUIDE.md § Pending
+  Notifications](USER_GUIDE.md#pending-notifications)), but for a held
+  item, saving carries the same confirmation and also clears the hold —
+  the button reads **Save and Approve** rather than plain **Save** to
+  make that consequence explicit.
+
+Either path writes the admin's reviewed text as the authoritative
+content going forward (overriding whatever would otherwise display),
+and the item becomes eligible for the next send, manual or scheduled,
+same as any other queued item. Editing again later overwrites the
+previously reviewed text.
+
+A church that would rather not run a review step at all — fully
+automated, nobody checking a queue — can turn off the **Restricted
+partners** checkbox in "What queues for notification." With it off, a
+restricted partner's events are never written to the queue in the first
+place, for any of the three types above; there's nothing to hold and
+nothing to review, since there's nothing queued. The default is on,
+matching the behavior of the other three queue checkboxes.
 
 ### Database backups
 
