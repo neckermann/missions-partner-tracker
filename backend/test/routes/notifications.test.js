@@ -487,7 +487,10 @@ describe("POST /api/notifications/send -- flush behavior", () => {
       assert.ok(!capturedHtml.includes("Northern Thailand"), "classic should not show the field");
       assert.ok(!capturedHtml.includes("Serving church planters"), "classic should not show the overview");
 
-      await prisma.churchSettings.update({ where: { id: "singleton" }, data: { digestTemplate: "snapshot" } });
+      await prisma.churchSettings.update({
+        where: { id: "singleton" },
+        data: { digestTemplate: "snapshot" },
+      });
       await createPrayerRequest(`${FIXTURE_TAG} snapshot layout check`);
       res = await admin("/api/notifications/send", { method: "POST" });
       assert.equal(res.status, 200);

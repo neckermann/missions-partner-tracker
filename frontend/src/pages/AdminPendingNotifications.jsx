@@ -341,9 +341,9 @@ export default function AdminPendingNotifications() {
             </select>
           </label>
           <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-            Snapshot shows each partner's photo (or a generic silhouette if they don't have one, or if
-            they're a restricted-access partner), field, "Supporting since" year, and short overview above
-            their items in that batch.
+            Snapshot shows each partner's photo (or a generic silhouette if they don't have one, or if they're
+            a restricted-access partner), field, "Supporting since" year, and short overview above their items
+            in that batch.
           </p>
           <label style={{ marginTop: "1rem" }}>
             Subject line
@@ -418,7 +418,12 @@ export default function AdminPendingNotifications() {
               </div>
             ))}
             {group.standalone.map((blurb) => (
-              <BlurbRow key={blurb.id} blurb={blurb} onClear={handleClear} clearing={clearingId === blurb.id} />
+              <BlurbRow
+                key={blurb.id}
+                blurb={blurb}
+                onClear={handleClear}
+                clearing={clearingId === blurb.id}
+              />
             ))}
           </div>
         ))}

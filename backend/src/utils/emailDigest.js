@@ -157,7 +157,10 @@ function renderNewsletterBlock(blurb, children, accentColor, highlightColor) {
 }
 
 function renderPartnerHtml(group, accentColor, highlightColor, tile) {
-  const metaLine = [tile?.fieldDisplayName, tile?.supportingSinceYear && `Supporting since ${tile.supportingSinceYear}`]
+  const metaLine = [
+    tile?.fieldDisplayName,
+    tile?.supportingSinceYear && `Supporting since ${tile.supportingSinceYear}`,
+  ]
     .filter(Boolean)
     .join(" · ");
 
@@ -166,7 +169,9 @@ function renderPartnerHtml(group, accentColor, highlightColor, tile) {
   // before the first or after the last, same rhythm the reference email
   // uses between its own stacked items.
   const topLevelItems = [
-    ...group.newsletters.map(({ blurb, children }) => renderNewsletterBlock(blurb, children, accentColor, highlightColor)),
+    ...group.newsletters.map(({ blurb, children }) =>
+      renderNewsletterBlock(blurb, children, accentColor, highlightColor)
+    ),
     ...group.standalone.map((b) => renderBlurbHtml(b, accentColor, highlightColor)),
   ];
   const itemsHtml = topLevelItems.join('<div style="border-top:1px solid #eeeeee;margin:14px 0;"></div>');
@@ -212,7 +217,8 @@ function partnerTileDetails(p) {
   const restricted = !!p.isRestricted;
   const base = appBaseUrl();
   const category = p.kind === "organization" ? "organization" : missionaryHouseholdCategory(p);
-  const realPhotoSrc = !restricted && base && p.photos?.[0] ? `${base}${withPhotoUrl(p.photos[0]).url}` : null;
+  const realPhotoSrc =
+    !restricted && base && p.photos?.[0] ? `${base}${withPhotoUrl(p.photos[0]).url}` : null;
   return {
     fieldDisplayName: p.fieldDisplayName || null,
     supportingSinceYear: p.supportingSince ? new Date(p.supportingSince).getFullYear() : null,
@@ -259,7 +265,9 @@ function buildContactLines(churchSettings, churchName, accentColor) {
     text.push(phone);
   }
   if (website) {
-    html.push(`<a href="${escapeHtml(website)}" style="color:${accentColor};text-decoration:none;">${escapeHtml(website)}</a>`);
+    html.push(
+      `<a href="${escapeHtml(website)}" style="color:${accentColor};text-decoration:none;">${escapeHtml(website)}</a>`
+    );
     text.push(website);
   }
   return { html, text };
@@ -274,7 +282,10 @@ function renderText(groups, unsubscribeUrl, greetingName, signature, contactLine
   for (const group of groups) {
     lines.push(group.partnerName, "-".repeat(group.partnerName.length));
     const tile = partnerDetailsById?.get(group.partnerId);
-    const metaLine = [tile?.fieldDisplayName, tile?.supportingSinceYear && `Supporting since ${tile.supportingSinceYear}`]
+    const metaLine = [
+      tile?.fieldDisplayName,
+      tile?.supportingSinceYear && `Supporting since ${tile.supportingSinceYear}`,
+    ]
       .filter(Boolean)
       .join(" · ");
     if (metaLine) lines.push(metaLine);
@@ -343,7 +354,9 @@ function renderDigestEmail(blurbs, churchSettings, unsubscribeUrl, recipientName
         <div style="padding:28px 4px 4px;">
           <p style="margin:0 0 18px;font-size:16px;line-height:1.5;">${greeting}</p>
           ${groups
-            .map((g) => renderPartnerHtml(g, accentColor, highlightColor, partnerDetailsById?.get(g.partnerId)))
+            .map((g) =>
+              renderPartnerHtml(g, accentColor, highlightColor, partnerDetailsById?.get(g.partnerId))
+            )
             .join("")}
           ${signatureHtml}
         </div>

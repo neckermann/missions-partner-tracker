@@ -26,7 +26,8 @@
 // the flag can change after a notification was already queued.
 const { toInitials } = require("./maskData");
 
-const RESTRICTED_NOTICE = "Specific details are withheld for security -- please pray for this partner's safety and ministry.";
+const RESTRICTED_NOTICE =
+  "Specific details are withheld for security -- please pray for this partner's safety and ministry.";
 
 // Same reasoning/placement as groupme.js's own appBaseUrl(): resolves to
 // "" when neither env var is set, so a link just isn't built rather than
