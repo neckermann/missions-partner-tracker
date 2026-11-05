@@ -238,22 +238,43 @@ function renderDigestEmail(blurbs, churchSettings, unsubscribeUrl, recipientName
     </div>`;
 
   return {
-    subject: buildSubject(churchSettings?.digestSubjectTemplate, count, churchName),
+    subject: buildSubject(
+      churchSettings?.digestSubjectTemplate,
+      count,
+      churchName,
+      churchSettings,
+      recipientName
+    ),
     html,
     text: renderText(groups, unsubscribeUrl, recipientName, signature, contactLines),
   };
 }
 
-// A custom subject is plain text with two supported tokens, not a real
-// template language (no conditionals/loops) -- an admin writing their
-// own subject line never needs more than "put the count/church name
-// somewhere in my own wording". Falls back to the built-in default when
-// no template is set, or when one is set but matches neither token
-// (still works, just doesn't substitute anything -- never a hard error
-// over a typo in an admin's own text).
-function buildSubject(template, count, churchName) {
+// A custom subject is plain text with a handful of supported tokens, not
+// a real template language (no conditionals/loops) -- an admin writing
+// their own subject line never needs more than "put a date/name/church
+// name somewhere in my own wording". Falls back to the built-in default
+// (still count-based -- a separate decision from which tokens an admin's
+// own template can use) when no template is set, or substitutes nothing
+// for a token that doesn't match any of these (never a hard error over a
+// typo in an admin's own text). {count} is deliberately NOT offered here
+// -- a raw item count read poorly in a subject line ("3 updates" says
+// less than it seems to); {date}/{month}/{year} solve the same original
+// problem (every send sharing an identical subject, risking Gmail/
+// webmail thread-collapse) without that.
+function buildSubject(template, count, churchName, churchSettings, recipientName) {
   if (!template) return `${count} update${count === 1 ? "" : "s"} from ${churchName}`;
-  return template.replace(/\{count\}/g, String(count)).replace(/\{church\}/g, churchName);
+  const now = new Date();
+  const frequency = churchSettings?.digestFrequency
+    ? churchSettings.digestFrequency.charAt(0).toUpperCase() + churchSettings.digestFrequency.slice(1)
+    : "";
+  return template
+    .replace(/\{church\}/g, churchName)
+    .replace(/\{month\}/g, now.toLocaleString("en-US", { month: "long" }))
+    .replace(/\{year\}/g, String(now.getFullYear()))
+    .replace(/\{date\}/g, now.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }))
+    .replace(/\{frequency\}/g, frequency)
+    .replace(/\{name\}/g, recipientName || "there");
 }
 
 // Sends the digest to every opted-in active user. Returns true if the

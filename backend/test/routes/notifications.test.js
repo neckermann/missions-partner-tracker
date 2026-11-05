@@ -347,7 +347,8 @@ describe("POST /api/notifications/send -- flush behavior", () => {
       data: {
         enabledFeatures: { groupme: false, outboundEmail: true },
         churchName: "Hillside Community Church",
-        digestSubjectTemplate: "{count} new item(s) for {church}",
+        digestFrequency: "weekly",
+        digestSubjectTemplate: "{frequency} update for {church} ({month} {year}) -- hi {name}",
         digestSignature: "Grace and peace,\nThe Hillside Missions Team",
         address: {
           addressLine1: "123 Main St",
@@ -382,10 +383,24 @@ describe("POST /api/notifications/send -- flush behavior", () => {
       assert.equal(res.status, 200);
 
       assert.ok(
-        capturedSubject.includes("new item(s) for Hillside Community Church"),
-        `subject should use the custom template: ${capturedSubject}`
+        capturedSubject.startsWith("Weekly update for Hillside Community Church"),
+        `{frequency} and {church} should substitute: ${capturedSubject}`
       );
-      assert.match(capturedSubject, /^\d+ new item\(s\)/, "subject should substitute the real {count}");
+      // TEST_USERS.admin has no name set, so {name} should fall back to
+      // "there" -- same fallback the greeting itself uses.
+      assert.ok(
+        capturedSubject.endsWith("hi there"),
+        `{name} should fall back to "there": ${capturedSubject}`
+      );
+      // {month}/{year} aren't asserted against an exact value (no
+      // time-mocking in this codebase -- see digestScheduler.test.js's
+      // own comment on the same constraint) -- just confirm they were
+      // substituted at all, not left as literal unreplaced tokens.
+      assert.doesNotMatch(
+        capturedSubject,
+        /\{month\}|\{year\}/,
+        `tokens should be substituted: ${capturedSubject}`
+      );
 
       assert.ok(capturedHtml.includes("Grace and peace,"), "signature should appear in the HTML body");
       assert.ok(capturedHtml.includes("123 Main St"), "address should appear in the HTML body");

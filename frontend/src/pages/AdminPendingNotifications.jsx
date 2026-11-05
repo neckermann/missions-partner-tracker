@@ -264,13 +264,14 @@ export default function AdminPendingNotifications() {
             <input
               value={settings.digestSubjectTemplate || ""}
               onChange={(e) => setSettings((s) => ({ ...s, digestSubjectTemplate: e.target.value || null }))}
-              placeholder="e.g. Weekly update: {count} items from {church}"
+              placeholder="e.g. Your {frequency} Update -- {month} {year}"
             />
           </label>
           <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-            Leave blank for the default ("3 updates from {"{church}"}"). Use <code>{"{count}"}</code> for the
-            number of queued items and <code>{"{church}"}</code> for the church name, anywhere in your own
-            wording.
+            Leave blank for the default (a count-based subject). Use any of these anywhere in your own
+            wording: <code>{"{church}"}</code>, <code>{"{month}"}</code>, <code>{"{year}"}</code>,{" "}
+            <code>{"{date}"}</code>, <code>{"{frequency}"}</code> (Weekly/Biweekly/Monthly),{" "}
+            <code>{"{name}"}</code> (the recipient's own name).
           </p>
           <label style={{ marginTop: "1rem" }}>
             Signature
