@@ -11,9 +11,10 @@ organization partners.
 - **Admin dashboard**: add, edit, and manage every missionary and
   organization (combined into one filterable, searchable list), support
   tracking, trip history & capacity search, furlough/church-visit
-  scheduling, private newsletter and document uploads (surveys, signed
-  policies, other correspondence), a printable partner booklet export, and
-  user management with role-based permissions.
+  scheduling, private Newsletters & Docs uploads (newsletters, survey
+  responses, signed policies, other correspondence, classified by a single
+  kind field), a printable partner booklet export, and user management
+  with role-based permissions.
 - **White-labeling**: Branding and About Church screens control the
   church's name, logo, three independent brand colors plus a font choice,
   and the term it uses for its partners (e.g. "Go Team Partners" instead
