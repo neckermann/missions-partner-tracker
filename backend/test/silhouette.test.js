@@ -1,6 +1,6 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const { silhouetteFor, NEUTRAL_ACCENT } = require("../src/utils/silhouette");
+const { silhouetteFor, silhouetteMarkup, NEUTRAL_ACCENT } = require("../src/utils/silhouette");
 
 describe("silhouetteFor", () => {
   test("returns a valid SVG data URI for each known category", () => {
@@ -27,5 +27,16 @@ describe("silhouetteFor", () => {
 
   test("falls back to the single-person shape for an unknown category", () => {
     assert.equal(silhouetteFor("unknown-category"), silhouetteFor("single"));
+  });
+});
+
+describe("silhouetteMarkup", () => {
+  // The raw-SVG counterpart to silhouetteFor()'s data: URI -- routes/
+  // silhouette.js serves this directly, since an email client won't
+  // reliably render a data: URI in an <img src>.
+  test("returns raw SVG markup, not a data URI", () => {
+    const markup = silhouetteMarkup("single");
+    assert.equal(markup.startsWith("<svg"), true);
+    assert.equal(silhouetteFor("single"), `data:image/svg+xml,${encodeURIComponent(markup)}`);
   });
 });

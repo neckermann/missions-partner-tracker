@@ -39,9 +39,13 @@ const BUILDERS = {
 // `category` is one of BUILDERS' keys above; anything else falls back to
 // the single-person shape rather than throwing, since a masked public
 // record is exactly the wrong place for an unhandled-category crash.
-function silhouetteFor(category, bg = NEUTRAL_ACCENT) {
+function silhouetteMarkup(category, bg = NEUTRAL_ACCENT) {
   const build = BUILDERS[category] || personSilhouette;
-  return svgDataUri(build(bg));
+  return build(bg);
+}
+
+function silhouetteFor(category, bg = NEUTRAL_ACCENT) {
+  return svgDataUri(silhouetteMarkup(category, bg));
 }
 
 module.exports = {
@@ -51,4 +55,5 @@ module.exports = {
   familySilhouette,
   buildingSilhouette,
   silhouetteFor,
+  silhouetteMarkup,
 };

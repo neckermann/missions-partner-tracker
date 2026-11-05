@@ -219,14 +219,20 @@ function partnerTileDetails(p) {
   const category = p.kind === "organization" ? "organization" : missionaryHouseholdCategory(p);
   const realPhotoSrc =
     !restricted && base && p.photos?.[0] ? `${base}${withPhotoUrl(p.photos[0]).url}` : null;
+  // Never the real photo for a restricted partner (see the file-header
+  // masking comment in notificationBlurbs.js) -- a generic silhouette
+  // instead, same as a missing photo gets for anyone else. Must be an
+  // actual URL here, not silhouetteFor()'s data: URI -- that renders
+  // fine in the public site's own <img> tags, but most email clients
+  // (Outlook chief among them) strip or refuse a data: URI in an email,
+  // leaving a blank gap where the tile's photo should be. routes/
+  // silhouette.js serves the same shape as a real, reachable image.
+  const silhouetteSrc = base ? `${base}/api/silhouette/${category}.svg` : silhouetteFor(category);
   return {
     fieldDisplayName: p.fieldDisplayName || null,
     supportingSinceYear: p.supportingSince ? new Date(p.supportingSince).getFullYear() : null,
     overviewShort: restricted ? "Restricted-access location." : p.overviewShort || null,
-    // Never the real photo for a restricted partner (see the file-header
-    // masking comment in notificationBlurbs.js) -- a generic silhouette
-    // instead, same as a missing photo gets for anyone else.
-    photoSrc: realPhotoSrc || silhouetteFor(category),
+    photoSrc: realPhotoSrc || silhouetteSrc,
   };
 }
 
