@@ -514,6 +514,8 @@ const notificationSettingsSelect = {
   queueNotifyPrayerRequests: true,
   queueNotifyOneTimeNeeds: true,
   queueNotifyNewsletters: true,
+  digestSubjectTemplate: true,
+  digestSignature: true,
 };
 
 const notificationSettingsSchema = z.object({
@@ -524,6 +526,8 @@ const notificationSettingsSchema = z.object({
   queueNotifyPrayerRequests: z.boolean().optional(),
   queueNotifyOneTimeNeeds: z.boolean().optional(),
   queueNotifyNewsletters: z.boolean().optional(),
+  digestSubjectTemplate: z.string().optional().nullable(),
+  digestSignature: z.string().optional().nullable(),
 });
 
 router.get("/notifications", requireRole("admin"), async (req, res, next) => {
@@ -541,6 +545,8 @@ router.get("/notifications", requireRole("admin"), async (req, res, next) => {
         queueNotifyPrayerRequests: true,
         queueNotifyOneTimeNeeds: true,
         queueNotifyNewsletters: true,
+        digestSubjectTemplate: null,
+        digestSignature: null,
       }
     );
   } catch (err) {

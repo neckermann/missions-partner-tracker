@@ -87,6 +87,12 @@ before(async () => {
       queueNotifyPrayerRequests: true,
       queueNotifyOneTimeNeeds: true,
       queueNotifyNewsletters: true,
+      digestSubjectTemplate: true,
+      digestSignature: true,
+      churchName: true,
+      address: true,
+      phone: true,
+      websiteLink: true,
     },
   });
   // Clean slate -- same reasoning as groupme.test.js/email.test.js's own
@@ -155,6 +161,8 @@ describe("GET/PUT /api/settings/notifications -- admin gate and defaults", () =>
         queueNotifyPrayerRequests: true,
         queueNotifyOneTimeNeeds: true,
         queueNotifyNewsletters: true,
+        digestSubjectTemplate: null,
+        digestSignature: null,
       },
     });
     const res = await admin("/api/settings/notifications");
@@ -167,6 +175,8 @@ describe("GET/PUT /api/settings/notifications -- admin gate and defaults", () =>
       queueNotifyPrayerRequests: true,
       queueNotifyOneTimeNeeds: true,
       queueNotifyNewsletters: true,
+      digestSubjectTemplate: null,
+      digestSignature: null,
     });
   });
 
@@ -325,6 +335,62 @@ describe("POST /api/notifications/send -- flush behavior", () => {
         !remaining.some((row) => row.payload.requestText === requestText),
         "a successfully-emailed row should be cleared"
       );
+    } finally {
+      unmockAll();
+      await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: false } });
+    }
+  });
+
+  test("digest customization -- custom subject template, signature, and church contact info all appear in the send", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: {
+        enabledFeatures: { groupme: false, outboundEmail: true },
+        churchName: "Hillside Community Church",
+        digestSubjectTemplate: "{count} new item(s) for {church}",
+        digestSignature: "Grace and peace,\nThe Hillside Missions Team",
+        address: {
+          addressLine1: "123 Main St",
+          city: "Springfield",
+          stateProvinceRegion: "IL",
+          postalCode: "62701",
+        },
+        phone: "555-123-4567",
+        websiteLink: "https://hillside.example.org",
+      },
+    });
+    const put = await admin("/api/settings/email", {
+      method: "PUT",
+      body: { sendEnabled: true, serverToken: "pm-test-token", fromAddress: "updates@example.org" },
+    });
+    assert.equal(put.status, 200);
+    await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: true } });
+
+    const requestText = `${FIXTURE_TAG} digest customization`;
+    await createPrayerRequest(requestText);
+
+    let capturedSubject = null;
+    let capturedHtml = null;
+    mockPostmark(async (url, options) => {
+      const body = JSON.parse(options.body);
+      capturedSubject = body.Subject;
+      capturedHtml = body.HtmlBody;
+      return postmarkJson(200, { MessageID: "fake-id", SubmittedAt: "2026-01-01T00:00:00Z" });
+    });
+    try {
+      const res = await admin("/api/notifications/send", { method: "POST" });
+      assert.equal(res.status, 200);
+
+      assert.ok(
+        capturedSubject.includes("new item(s) for Hillside Community Church"),
+        `subject should use the custom template: ${capturedSubject}`
+      );
+      assert.match(capturedSubject, /^\d+ new item\(s\)/, "subject should substitute the real {count}");
+
+      assert.ok(capturedHtml.includes("Grace and peace,"), "signature should appear in the HTML body");
+      assert.ok(capturedHtml.includes("123 Main St"), "address should appear in the HTML body");
+      assert.ok(capturedHtml.includes("555-123-4567"), "phone should appear in the HTML body");
+      assert.ok(capturedHtml.includes("hillside.example.org"), "website link should appear in the HTML body");
     } finally {
       unmockAll();
       await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: false } });

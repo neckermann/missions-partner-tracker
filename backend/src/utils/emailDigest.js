@@ -126,10 +126,50 @@ function renderPartnerHtml(group, accentColor, highlightColor) {
     </div>`;
 }
 
+// A plain postal address string from the structured Address fields on
+// the About Church settings page -- null if nothing's set. Each piece is
+// optional, so this joins only what's actually there rather than leaving
+// stray ", ," gaps.
+function formatAddress(address) {
+  if (!address) return null;
+  const line1 = [address.addressLine1, address.addressLine2].filter(Boolean).join(", ");
+  const cityState = [address.city, address.stateProvinceRegion].filter(Boolean).join(", ");
+  const cityStateZip = [cityState, address.postalCode].filter(Boolean).join(" ");
+  return [line1, cityStateZip, address.country].filter(Boolean).join(", ") || null;
+}
+
+// The footer's church-contact block -- mailing address, phone, website,
+// each included only if actually configured. A real mailing address in
+// a periodic bulk email's footer is expected practice (CAN-SPAM), not
+// just a nice-to-have. Deliberately not aboutText (the public-site
+// blurb) -- written for a different audience/length than a plain email
+// footer calls for.
+function buildContactLines(churchSettings) {
+  const address = formatAddress(churchSettings?.address);
+  const phone = churchSettings?.phone || null;
+  const website = churchSettings?.websiteLink || null;
+
+  const html = [];
+  const text = [];
+  if (address) {
+    html.push(escapeHtml(address));
+    text.push(address);
+  }
+  if (phone) {
+    html.push(escapeHtml(phone));
+    text.push(phone);
+  }
+  if (website) {
+    html.push(`<a href="${escapeHtml(website)}" style="color:#888;">${escapeHtml(website)}</a>`);
+    text.push(website);
+  }
+  return { html, text };
+}
+
 // Plain-text fallback -- every email client that renders HTML also
 // accepts a text part, and some (screen readers, very old clients)
 // prefer it outright.
-function renderText(groups, unsubscribeUrl, greetingName) {
+function renderText(groups, unsubscribeUrl, greetingName, signature, contactLines) {
   const lines = [];
   lines.push(greetingName ? `Hi ${greetingName},` : "Hi there,", "");
   for (const group of groups) {
@@ -145,6 +185,8 @@ function renderText(groups, unsubscribeUrl, greetingName) {
     }
     lines.push("");
   }
+  if (signature) lines.push(signature, "");
+  if (contactLines?.text.length) lines.push(...contactLines.text, "");
   if (unsubscribeUrl) lines.push(`Unsubscribe: ${unsubscribeUrl}`);
   return lines.join("\n");
 }
@@ -163,6 +205,14 @@ function renderDigestEmail(blurbs, churchSettings, unsubscribeUrl, recipientName
       : "";
   const greeting = recipientName ? `Hi ${escapeHtml(recipientName)},` : "Hi there,";
   const count = blurbs.length;
+  const signature = churchSettings?.digestSignature || null;
+  const signatureHtml = signature
+    ? `<p style="margin:20px 4px 0;font-size:14px;line-height:1.5;color:#444;">${nl2br(signature)}</p>`
+    : "";
+  const contactLines = buildContactLines(churchSettings);
+  const contactHtml = contactLines.html.length
+    ? `<p style="margin:0 0 6px;">${contactLines.html.join("<br>")}</p>`
+    : "";
 
   const html = `
     <div style="font-family:${fontFamily};max-width:600px;margin:0 auto;color:#222;">
@@ -173,18 +223,32 @@ function renderDigestEmail(blurbs, churchSettings, unsubscribeUrl, recipientName
       <div style="padding:20px 4px 4px;">
         <p style="margin:0 0 16px;font-size:15px;line-height:1.5;">${greeting}</p>
         ${groups.map((g) => renderPartnerHtml(g, accentColor, highlightColor)).join("")}
+        ${signatureHtml}
       </div>
       <div style="margin-top:12px;padding:16px 4px 0;border-top:1px solid #e5e2d8;font-size:12px;color:#888;line-height:1.5;">
+        ${contactHtml}
         <p style="margin:0 0 6px;">You're receiving this because email notifications are turned on for your account.</p>
         ${unsubscribeUrl ? `<p style="margin:0;"><a href="${unsubscribeUrl}" style="color:#888;">Unsubscribe</a></p>` : ""}
       </div>
     </div>`;
 
   return {
-    subject: `${count} update${count === 1 ? "" : "s"} from ${churchName}`,
+    subject: buildSubject(churchSettings?.digestSubjectTemplate, count, churchName),
     html,
-    text: renderText(groups, unsubscribeUrl, recipientName),
+    text: renderText(groups, unsubscribeUrl, recipientName, signature, contactLines),
   };
+}
+
+// A custom subject is plain text with two supported tokens, not a real
+// template language (no conditionals/loops) -- an admin writing their
+// own subject line never needs more than "put the count/church name
+// somewhere in my own wording". Falls back to the built-in default when
+// no template is set, or when one is set but matches neither token
+// (still works, just doesn't substitute anything -- never a hard error
+// over a typo in an admin's own text).
+function buildSubject(template, count, churchName) {
+  if (!template) return `${count} update${count === 1 ? "" : "s"} from ${churchName}`;
+  return template.replace(/\{count\}/g, String(count)).replace(/\{church\}/g, churchName);
 }
 
 // Sends the digest to every opted-in active user. Returns true if the

@@ -717,6 +717,21 @@ model ChurchSettings {
   queueNotifyOneTimeNeeds   Boolean @default(true)
   queueNotifyNewsletters    Boolean @default(true)
 
+  // Digest email customization (see #182) -- both null means "use the
+  // built-in defaults" (a plain "{count} update(s) from {church}"
+  // subject, no signature line), same blank-means-default convention
+  // every other admin-text field in this app already follows.
+  // digestSubjectTemplate supports {count}/{church} tokens, substituted
+  // in utils/emailDigest.js -- an admin writes plain text, not a real
+  // template language, so no other token syntax (conditionals, loops) is
+  // ever needed or supported.
+  digestSubjectTemplate String?
+  // A short closing line (a verse, "Questions? Contact us", etc.) shown
+  // near the digest's footer, above the unsubscribe link. Deliberately
+  // separate from publicTagline (the public-site subtitle) -- this is
+  // email-specific and never shown anywhere else.
+  digestSignature       String? @db.Text
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   updatedById String?
