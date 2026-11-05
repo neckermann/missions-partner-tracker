@@ -16,6 +16,15 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.1.1] - 2026-11-05
+
+A restricted partner's photo tile in a Snapshot-layout digest email
+showed a blank gap instead of the generic silhouette — most email
+clients (Outlook chief among them) strip a `data:` URI out of an
+`<img src>`, which is how the silhouette was embedded. It's now served
+from a real, reachable URL instead; nothing changes on the public site
+itself, where a `data:` URI renders fine.
+
 ## [1.1.0] - 2026-11-05
 
 A restricted partner's prayer request or one-time need notification now
