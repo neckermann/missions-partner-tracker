@@ -492,6 +492,25 @@ model PendingNotification {
   groupmeSentAt DateTime?
   emailSentAt   DateTime?
 
+  // Admin-edited body text (#187) -- any queued notification can be
+  // edited before it sends, restricted or not; see
+  // routes/notifications.js's PUT /pending/:id. reviewedAt null means
+  // "never edited," same one-nullable-timestamp convention as
+  // groupmeSentAt/emailSentAt above, not a separate boolean that could
+  // disagree with it. reviewedById is audit-only, no FK, same convention
+  // as Partner's own createdById/updatedById. reviewedText, once set,
+  // overrides the computed body text for any row -- see
+  // notificationBlurbs.js. For a RESTRICTED partner's real-content
+  // notification specifically, reviewedAt null also means "held, not
+  // eligible to send yet" -- see notificationFlush.js's needsReview() --
+  // but that hold is a separate concern layered on top of this plain
+  // edit mechanism, not a property of these columns themselves.
+  // Structural masking (name/photo/source link) stays in effect
+  // regardless of edit state either way. Re-editing overwrites all three.
+  reviewedAt   DateTime?
+  reviewedById String?
+  reviewedText String?   @db.Text
+
   @@index([type])
   @@index([partnerId])
 }
@@ -696,6 +715,14 @@ model ChurchSettings {
   queueNotifyPrayerRequests Boolean @default(true)
   queueNotifyOneTimeNeeds   Boolean @default(true)
   queueNotifyNewsletters    Boolean @default(true)
+  // A fourth, cross-cutting switch (#187), not a peer event type: off
+  // means a restricted partner's event is never queued at all, for any
+  // of the three types above -- the cleanest opt-out for a church that
+  // wants everything fully automated with nobody manually reviewing a
+  // queue (see PendingNotification.reviewedAt and
+  // notificationFlush.js's needsReview() for the manual-review gate this
+  // sidesteps entirely by removing what it would apply to).
+  queueNotifyRestrictedPartners Boolean @default(true)
 
   // Digest email customization (see #182) -- null subject/signature means
   // "use the built-in default" (see DEFAULT_SUBJECT_TEMPLATE in

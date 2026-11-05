@@ -251,6 +251,25 @@ export async function fetchPendingNotifications() {
   return data;
 }
 
+// The real (unmasked) text behind a queued row -- GET /pending's own list
+// always shows the masked/placeholder version for a restricted partner,
+// same as what would actually send; this is the separate "let an admin
+// look before editing" lookup (#187).
+export async function revealPendingNotification(id) {
+  const { data } = await api.get(`/notifications/pending/${id}`);
+  return data;
+}
+
+// Saves an admin's edit to a queued row's text -- available on any row,
+// not just a restricted partner's. For a restricted real-content row
+// specifically, saving here is also what clears it to send (see
+// notificationFlush.js's needsReview()); for every other row it's purely
+// a content edit.
+export async function updatePendingNotification(id, text) {
+  const { data } = await api.put(`/notifications/pending/${id}`, { text });
+  return data;
+}
+
 export async function sendPendingNotifications() {
   const { data } = await api.post("/notifications/send");
   return data;

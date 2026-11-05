@@ -146,6 +146,42 @@
   max-width: 760px;
 }
 
+/* Every heading in a loaded guide gets an id (see guide.js's
+   assignHeadingIds) and is a real jump target -- from the in-page TOC's
+   own scrollIntoView() call, from a cross-reference link elsewhere in
+   the same Markdown, and from a direct/shared URL with a #hash. All
+   three land flush at the very top of the scroll position by default,
+   which is exactly where the sticky header (position: sticky in
+   style.css) sits -- without this, the heading's top portion renders
+   underneath it. scroll-margin-top is honored by both native fragment
+   navigation and a plain element.scrollIntoView() call in every
+   browser this site supports, so one rule fixes every jump path at
+   once. Sized generously for the site header's real single-row height
+   plus breathing room; bumped further at the mobile breakpoint below,
+   where the header wraps onto two centered lines and is taller. */
+.guide-content h1,
+.guide-content h2,
+.guide-content h3,
+.guide-content h4,
+.guide-content h5,
+.guide-content h6 {
+  scroll-margin-top: 5.5rem;
+}
+
+/* Matches style.css's own header breakpoint -- below 800px the header
+   wraps the nav onto a second centered line (see header.site-header
+   .wrap there) and is taller, so the same flat 5.5rem isn't enough. */
+@media (max-width: 800px) {
+  .guide-content h1,
+  .guide-content h2,
+  .guide-content h3,
+  .guide-content h4,
+  .guide-content h5,
+  .guide-content h6 {
+    scroll-margin-top: 10rem;
+  }
+}
+
 .guide-content h1 {
   font-size: 2rem;
   color: var(--green-dark);

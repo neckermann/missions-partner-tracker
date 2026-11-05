@@ -19,6 +19,10 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
     { to: "/admin", label: "Home", end: true },
     { to: "/admin/partners", label: usePartnerTermInAdmin ? partnerTermPlural : "Partners" },
     enabledFeatures.inboundEmail && { to: "/admin/inbound-email", label: "Unmatched Emails" },
+    (enabledFeatures.groupme || enabledFeatures.outboundEmail) && {
+      to: "/admin/notifications",
+      label: "Pending Notifications",
+    },
     enabledFeatures.partnerFiles && { to: "/admin/partner-files", label: "Newsletters & Docs" },
     enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
     enabledFeatures.oneTimeNeeds && { to: "/admin/support/needs", label: "One-Time Needs" },
@@ -70,14 +74,14 @@ function buildSiteAdminLinks(enabledFeatures) {
       label: "Email",
     },
     enabledFeatures.groupme && { to: "/admin/settings/groupme", label: "GroupMe" },
-    // Not /admin/settings/* -- this is content review (what's queued to
-    // send), same "content, not settings" reasoning as Unmatched Emails,
-    // not church-wide config. Still lives in this group visually since
-    // it's part of the same Communications story. Gated on groupme/
-    // outboundEmail specifically (not inboundEmail, which doesn't drive
-    // any notification sending) -- see #129.
+    // Schedule, queue toggles, and digest appearance only -- the actual
+    // queue (what's waiting to send) is its own top-level "Pending
+    // Notifications" link above, same "content, not settings" split
+    // Unmatched Emails already has from Email's own settings page (#187).
+    // Gated on groupme/outboundEmail specifically (not inboundEmail,
+    // which doesn't drive any notification sending) -- see #129.
     (enabledFeatures.groupme || enabledFeatures.outboundEmail) && {
-      to: "/admin/notifications",
+      to: "/admin/settings/notifications",
       label: "Notifications",
     },
     (enabledFeatures.joshuaProject || enabledFeatures.aiExtraction) && {

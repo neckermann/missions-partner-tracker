@@ -87,6 +87,7 @@ before(async () => {
       queueNotifyPrayerRequests: true,
       queueNotifyOneTimeNeeds: true,
       queueNotifyNewsletters: true,
+      queueNotifyRestrictedPartners: true,
       digestSubjectTemplate: true,
       digestSignature: true,
       digestTemplate: true,
@@ -117,6 +118,7 @@ before(async () => {
       queueNotifyPrayerRequests: true,
       queueNotifyOneTimeNeeds: true,
       queueNotifyNewsletters: true,
+      queueNotifyRestrictedPartners: true,
     },
     create: { id: "singleton" },
   });
@@ -163,6 +165,7 @@ describe("GET/PUT /api/settings/notifications -- admin gate and defaults", () =>
         queueNotifyPrayerRequests: true,
         queueNotifyOneTimeNeeds: true,
         queueNotifyNewsletters: true,
+        queueNotifyRestrictedPartners: true,
         digestSubjectTemplate: null,
         digestSignature: null,
         digestTemplate: null,
@@ -178,6 +181,7 @@ describe("GET/PUT /api/settings/notifications -- admin gate and defaults", () =>
       queueNotifyPrayerRequests: true,
       queueNotifyOneTimeNeeds: true,
       queueNotifyNewsletters: true,
+      queueNotifyRestrictedPartners: true,
       digestSubjectTemplate: null,
       digestSignature: null,
       digestTemplate: null,
@@ -598,6 +602,11 @@ describe("GET /api/notifications/pending -- any logged-in role", () => {
       assert.notEqual(item.bodyText, requestText, "the real request text must not leak");
       assert.ok(item.bodyText.includes("withheld"), item.bodyText);
       assert.equal(item.sourceLinkUrl, null, "no source link for a restricted partner's notification");
+      // #187: an unreviewed restricted real-content row stays unconditionally
+      // masked (this test's assertions above are unchanged), and is flagged
+      // as held from sending until an admin reviews it.
+      assert.equal(item.needsReview, true);
+      assert.equal(item.reviewedAt, null);
     } finally {
       await prisma.pendingNotification.deleteMany({ where: { partnerId: restrictedId } });
       await prisma.partner.delete({ where: { id: restrictedId } }).catch(() => {});
@@ -626,6 +635,252 @@ describe("DELETE /api/notifications/pending/:id", () => {
   test("clearing an already-gone id 404s instead of throwing", async () => {
     const res = await admin("/api/notifications/pending/not-a-real-id", { method: "DELETE" });
     assert.equal(res.status, 404);
+  });
+});
+
+describe("restricted-partner notification review & edit (#187)", () => {
+  let restrictedPartnerId;
+
+  before(async () => {
+    const restrictedPartner = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} review flow partner`, isRestricted: true },
+    });
+    assert.equal(restrictedPartner.status, 201, JSON.stringify(restrictedPartner.body));
+    restrictedPartnerId = restrictedPartner.body.id;
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { queueNotifyPrayerRequests: true, queueNotifyRestrictedPartners: true },
+    });
+  });
+
+  after(async () => {
+    await prisma.pendingNotification.deleteMany({ where: { partnerId: restrictedPartnerId } });
+    await prisma.partner.delete({ where: { id: restrictedPartnerId } }).catch(() => {});
+  });
+
+  async function createRestrictedPrayerRequest(requestText) {
+    const res = await admin("/api/prayer-requests", {
+      method: "POST",
+      body: {
+        partnerId: restrictedPartnerId,
+        category: "situational",
+        requestText,
+        dateReceived: "2026-01-01",
+      },
+    });
+    assert.equal(res.status, 201, `fixture setup failed: ${JSON.stringify(res.body)}`);
+  }
+
+  function findPendingRow(requestText) {
+    return prisma.pendingNotification.findFirst({
+      where: { partnerId: restrictedPartnerId, payload: { path: ["requestText"], equals: requestText } },
+    });
+  }
+
+  test("a flush excludes an unapproved restricted row from both channels", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { groupme: true, outboundEmail: false } },
+    });
+    await admin("/api/settings/groupme", {
+      method: "PUT",
+      body: { accessToken: "fake-token", prayerTopicId: "fake-prayer-topic" },
+    });
+
+    const requestText = `${FIXTURE_TAG} held for review`;
+    await createRestrictedPrayerRequest(requestText);
+
+    mockGroupMe(async () => groupmeJson(202, { response: null }));
+    try {
+      const res = await admin("/api/notifications/send", { method: "POST" });
+      assert.equal(res.status, 200);
+      assert.ok(res.body.heldForReview >= 1, JSON.stringify(res.body));
+
+      const row = await findPendingRow(requestText);
+      assert.ok(row, "the row must remain queued, not sent");
+      assert.equal(row.groupmeSentAt, null);
+      assert.equal(row.emailSentAt, null);
+    } finally {
+      unmockAll();
+    }
+  });
+
+  test("after PUT with edited text, a subsequent flush does send it -- still masked name, no source link", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { groupme: true, outboundEmail: false } },
+    });
+
+    const requestText = `${FIXTURE_TAG} will be edited then sent`;
+    await createRestrictedPrayerRequest(requestText);
+    const row = await findPendingRow(requestText);
+    assert.ok(row);
+
+    const editedText = "Pray for wisdom in an upcoming transition.";
+    const putRes = await admin(`/api/notifications/pending/${row.id}`, {
+      method: "PUT",
+      body: { text: editedText },
+    });
+    assert.equal(putRes.status, 200);
+    assert.equal(putRes.body.needsReview, false);
+
+    let capturedText = null;
+    mockGroupMe(async (url, options) => {
+      capturedText = JSON.parse(options.body).message.text;
+      return groupmeJson(202, { response: null });
+    });
+    try {
+      const sendRes = await admin("/api/notifications/send", { method: "POST" });
+      assert.equal(sendRes.status, 200);
+      assert.ok(capturedText.includes(editedText), capturedText);
+      assert.ok(!capturedText.includes(requestText), "the original real text should not appear");
+      assert.ok(!capturedText.includes("review flow partner"), "the real partner name must not leak");
+
+      const finalRow = await prisma.pendingNotification.findUnique({ where: { id: row.id } });
+      assert.equal(finalRow, null, "a successfully-sent row should be cleared");
+    } finally {
+      unmockAll();
+    }
+  });
+
+  test("editing a non-restricted row's text takes effect on send, with no prior hold", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { groupme: true, outboundEmail: false } },
+    });
+
+    const requestText = `${FIXTURE_TAG} non-restricted, will be edited`;
+    await createPrayerRequest(requestText);
+    const row = await prisma.pendingNotification.findFirst({
+      where: { partnerId, payload: { path: ["requestText"], equals: requestText } },
+    });
+    assert.ok(row);
+
+    const editedText = "Edited wording for the team to see.";
+    const putRes = await admin(`/api/notifications/pending/${row.id}`, {
+      method: "PUT",
+      body: { text: editedText },
+    });
+    assert.equal(putRes.status, 200);
+    // Not restricted, so this was never held in the first place.
+    assert.equal(putRes.body.needsReview, false);
+
+    let capturedText = null;
+    mockGroupMe(async (url, options) => {
+      capturedText = JSON.parse(options.body).message.text;
+      return groupmeJson(202, { response: null });
+    });
+    try {
+      const sendRes = await admin("/api/notifications/send", { method: "POST" });
+      assert.equal(sendRes.status, 200);
+      assert.ok(capturedText.includes(editedText), capturedText);
+    } finally {
+      unmockAll();
+    }
+  });
+
+  test("GET /pending/:id -- role gate and real unmasked content", async () => {
+    const requestText = `${FIXTURE_TAG} reveal real text`;
+    await createRestrictedPrayerRequest(requestText);
+    const row = await findPendingRow(requestText);
+    assert.ok(row);
+
+    assert.equal((await viewer(`/api/notifications/pending/${row.id}`)).status, 403);
+
+    const res = await admin(`/api/notifications/pending/${row.id}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.rawText, requestText, "reveal must return the real text, not the placeholder");
+
+    assert.equal((await admin("/api/notifications/pending/not-a-real-id")).status, 404);
+  });
+
+  test("PUT /pending/:id -- validation", async () => {
+    const requestText = `${FIXTURE_TAG} validation check`;
+    await createRestrictedPrayerRequest(requestText);
+    const row = await findPendingRow(requestText);
+    assert.ok(row);
+
+    assert.equal(
+      (await admin(`/api/notifications/pending/${row.id}`, { method: "PUT", body: { text: "" } })).status,
+      400
+    );
+    assert.equal(
+      (await viewer(`/api/notifications/pending/${row.id}`, { method: "PUT", body: { text: "fine" } }))
+        .status,
+      403
+    );
+    assert.equal(
+      (await admin("/api/notifications/pending/not-a-real-id", { method: "PUT", body: { text: "fine" } }))
+        .status,
+      404
+    );
+  });
+
+  test("editing a restricted row twice overwrites reviewedText/reviewedById/reviewedAt each time", async () => {
+    const requestText = `${FIXTURE_TAG} edited twice`;
+    await createRestrictedPrayerRequest(requestText);
+    const row = await findPendingRow(requestText);
+    assert.ok(row);
+
+    const first = await admin(`/api/notifications/pending/${row.id}`, {
+      method: "PUT",
+      body: { text: "First edit." },
+    });
+    assert.equal(first.status, 200);
+    const afterFirst = await prisma.pendingNotification.findUnique({ where: { id: row.id } });
+    assert.equal(afterFirst.reviewedText, "First edit.");
+    assert.ok(afterFirst.reviewedById, "reviewedById should be set");
+
+    const second = await admin(`/api/notifications/pending/${row.id}`, {
+      method: "PUT",
+      body: { text: "Second edit, cleaner." },
+    });
+    assert.equal(second.status, 200);
+    const afterSecond = await prisma.pendingNotification.findUnique({ where: { id: row.id } });
+    assert.equal(afterSecond.reviewedText, "Second edit, cleaner.");
+    assert.ok(afterSecond.reviewedAt.getTime() >= afterFirst.reviewedAt.getTime());
+  });
+
+  test("queueNotifyRestrictedPartners: false -- a restricted partner's event is never queued at all", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { queueNotifyRestrictedPartners: false },
+    });
+    try {
+      const requestText = `${FIXTURE_TAG} should never be queued`;
+      const res = await admin("/api/prayer-requests", {
+        method: "POST",
+        body: {
+          partnerId: restrictedPartnerId,
+          category: "situational",
+          requestText,
+          dateReceived: "2026-01-01",
+        },
+      });
+      assert.equal(res.status, 201);
+
+      const row = await findPendingRow(requestText);
+      assert.equal(row, null, "no PendingNotification row should ever be created");
+    } finally {
+      await prisma.churchSettings.update({
+        where: { id: "singleton" },
+        data: { queueNotifyRestrictedPartners: true },
+      });
+    }
+  });
+
+  test("queueNotifyRestrictedPartners: true (default) -- the row is created and starts needing review", async () => {
+    const requestText = `${FIXTURE_TAG} queued normally, needs review`;
+    await createRestrictedPrayerRequest(requestText);
+    const row = await findPendingRow(requestText);
+    assert.ok(row, "row should be queued");
+
+    const listed = await admin("/api/notifications/pending");
+    const item = listed.body.find((i) => i.id === row.id);
+    assert.ok(item);
+    assert.equal(item.needsReview, true);
+    assert.equal(item.reviewedAt, null);
   });
 });
 

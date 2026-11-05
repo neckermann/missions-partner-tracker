@@ -242,6 +242,9 @@ CREATE TABLE "PendingNotification" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "groupmeSentAt" TIMESTAMP(3),
     "emailSentAt" TIMESTAMP(3),
+    "reviewedAt" TIMESTAMP(3),
+    "reviewedById" TEXT,
+    "reviewedText" TEXT,
 
     CONSTRAINT "PendingNotification_pkey" PRIMARY KEY ("id")
 );
@@ -304,6 +307,7 @@ CREATE TABLE "ChurchSettings" (
     "queueNotifyPrayerRequests" BOOLEAN NOT NULL DEFAULT true,
     "queueNotifyOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
     "queueNotifyNewsletters" BOOLEAN NOT NULL DEFAULT true,
+    "queueNotifyRestrictedPartners" BOOLEAN NOT NULL DEFAULT true,
     "digestSubjectTemplate" TEXT,
     "digestSignature" TEXT,
     "digestTemplate" TEXT,

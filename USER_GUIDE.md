@@ -60,6 +60,8 @@ The sidebar (and the Home page's card grid, which mirrors it) lists:
 term, e.g. "Go Team Partners," if enabled in Branding),
 [**Unmatched Emails**](#receiving) (inbound email only — see
 [Email](#email-admin-only) below),
+[**Pending Notifications**](#pending-notifications) (GroupMe and/or
+email sending only),
 [**Monthly Support**](#financial-support--one-time-needs),
 [**One-Time Needs**](#financial-support--one-time-needs),
 [**Prayer Requests**](#prayer-requests),
@@ -79,8 +81,9 @@ sub-groups that only appear once their own features are on:
 
 - **Communications** — [**Email**](#email-admin-only),
   [**GroupMe**](#groupme-notifications-admin-only), and
-  [**Notifications**](#notifications-admin-only) (the shared queue
-  behind both).
+  [**Notifications**](#notification-settings-admin-only) (schedule,
+  queue toggles, and digest appearance — the queue itself is
+  [**Pending Notifications**](#pending-notifications) in the main menu).
 - **Integrations** — [**AI Features**](#ai-features-admin-only) and
   [**Joshua Project**](#joshua-project-admin-only).
 
@@ -637,8 +640,9 @@ here.
 
 These don't post the instant they happen — they queue and go out on a
 schedule (or on demand), alongside any email digest, through the shared
-**Notifications** page. See [Notifications](#notifications-admin-only)
-below for how that queue, schedule, and manual send work.
+notification queue. See [Pending Notifications](#pending-notifications)
+for the queue and manual send, and [Notification
+Settings](#notification-settings-admin-only) for the schedule.
 
 Setup, on the **GroupMe** page under Site Administration, builds up in
 steps:
@@ -684,35 +688,27 @@ several queued items packed into as few messages as fit GroupMe's
 
 ![A new newsletter notification, with a direct link to the letter](docs/assets/screenshots/groupme-notification-newsletter.png)
 
-## Notifications (Admin only)
+## Pending Notifications
 
-The **Notifications** page (under Communications in the sidebar) is
-where every prayer request, one-time need, and newsletter queues before
-going out — the shared review-and-send queue behind both GroupMe
-notifications above and email digests below. Only shows up once
-GroupMe notifications or Email (Sending) is turned on — no point
-reviewing a queue neither channel will ever read. Visible to any
-logged-in role from there; only an admin or editor can actually send.
-
-**What queues at all.** Three independent checkboxes — Prayer Requests,
-One-Time Needs, Newsletters — control what joins the queue in the first
-place. Turn one off and that type never queues for either channel, at
-the source; it's not a per-channel filter.
-
-**Schedule.** Pick **Weekly**, **Biweekly**, or **Monthly**, then a day
-(day-of-week for weekly/biweekly, a day-of-month 1–28 for monthly) and a
-time. Whatever's queued at that moment goes out automatically — to
-GroupMe, to email, or both, whichever channel(s) are turned on in
-Enabled Features. Leave it as **No automatic schedule** to only ever
-send by hand.
+The **Pending Notifications** page (in the main menu, alongside
+Unmatched Emails) is where every prayer request, one-time need, and
+newsletter queues before going out — the shared review-and-send queue
+behind both GroupMe notifications above and email digests below. Only
+shows up once GroupMe notifications or Email (Sending) is turned on —
+no point reviewing a queue neither channel will ever read. Visible to
+any logged-in role; only an admin or editor can actually edit, approve,
+clear, or send. For the schedule, queue toggles, and email digest
+appearance, see [Notification Settings](#notification-settings-admin-only)
+below.
 
 **Send Pending Notifications Now** is always available regardless of
-the schedule, for "we want this out right now" moments. The pending list
-above it shows everything currently queued, grouped by partner, with a
-prayer request or need that came from a newsletter nested right under
-that newsletter instead of repeated separately.
+the schedule set on the Notification Settings page, for "we want this
+out right now" moments. The pending list below it shows everything
+currently queued, grouped by partner, with a prayer request or need
+that came from a newsletter nested right under that newsletter instead
+of repeated separately.
 
-![The Notifications page: schedule, queue toggles, and the pending queue grouped by partner](docs/assets/screenshots/notifications-settings.png)
+![The Pending Notifications page: one held restricted item and two sendable items, grouped by partner](docs/assets/screenshots/pending-notifications.png)
 
 A queued item only clears once every currently-enabled channel has
 actually sent it — if GroupMe is down but email goes out fine, that item
@@ -722,10 +718,70 @@ to email twice.
 A partner marked **Restricted-access** (see [Understanding
 restricted-access partners](#understanding-restricted-access-partners))
 shows a **Restricted** badge on its queued items here, and its name,
-request/need text, and any source link are masked the same way they are
-everywhere else a restricted partner appears — the real content never
-reaches either channel. Any item, restricted or not, can be removed from
-the queue without sending it with the **Clear** button on its row.
+photo, and any source link are masked the same way they are everywhere
+else a restricted partner appears, regardless of anything below.
+
+**Editing any item.** Every queued item has an **Edit** button — opens
+the real (unmasked) text in a small editor, for a quick wording fix
+before it goes out. Saving takes effect on that item's next send; it
+has no effect on *whether* an item is eligible to send, except for a
+held item (next).
+
+**Reviewing a restricted partner's request or need.** A restricted
+partner's prayer request or one-time need — new, answered, or decided
+— can't send to either channel, manually or on schedule, until an admin
+reviews it. It shows an amber **Awaiting review** badge and stays
+excluded from "Send Pending Notifications Now" (and from the automatic
+schedule) until cleared, one of two ways:
+
+- **Approve** — shows the real text in a confirmation prompt and clears
+  the hold in one click, with nothing to edit.
+- **Edit**, then **Save and Approve** (the Save button's label when the
+  item is held) — edit the wording first, confirm the same prompt, and
+  save; the hold clears at the same time.
+
+Either way, the confirmation prompt shows the exact text that's about
+to become sendable and asks you to check it for anything else that
+could identify the partner or their location before confirming — the
+structural masking above (name, photo, source link) stays in effect
+regardless, but the wording itself is otherwise sent as-is. Once
+reviewed, the item is eligible for the next send like any other queued
+item; editing it again later overwrites what was previously reviewed.
+
+The **Pending (N)** heading shows a note when any items are being held
+this way, and the **Send Pending Notifications Now** button only
+counts/sends items that aren't held.
+
+Any item, restricted or not, reviewed or not, can be removed from the
+queue without sending it with the **Clear** button on its row.
+
+## Notification Settings (Admin only)
+
+The **Notifications** page under Site Administration → Communications
+holds the schedule, what joins the queue in the first place, and the
+email digest's own appearance — separate from the actual queue above,
+same split Email already has between its own settings page and
+Unmatched Emails.
+
+**What queues at all.** Three independent checkboxes — Prayer Requests,
+One-Time Needs, Newsletters — control what joins the queue in the first
+place. Turn one off and that type never queues for either channel, at
+the source; it's not a per-channel filter.
+
+A fourth checkbox, **Restricted partners**, is a filter across those
+three rather than a type of its own: turned off, a restricted-access
+partner's events never queue at all, for any type, no matter what else
+is checked above. Leave it on (the default) and they queue like anyone
+else — subject to the review requirement described above.
+
+**Schedule.** Pick **Weekly**, **Biweekly**, or **Monthly**, then a day
+(day-of-week for weekly/biweekly, a day-of-month 1–28 for monthly) and a
+time. Whatever's queued at that moment goes out automatically — to
+GroupMe, to email, or both, whichever channel(s) are turned on in
+Enabled Features. Leave it as **No automatic schedule** to only ever
+send by hand, from Pending Notifications.
+
+![The Notification Settings page: schedule, queue toggles including Restricted partners, and digest customization](docs/assets/screenshots/notifications-settings.png)
 
 ### Digest Customization
 
@@ -772,9 +828,9 @@ the digest doesn't need Receiving on, and vice versa.
 ### Sending
 
 Once turned on, this is the email half of the
-[Notifications](#notifications-admin-only) queue above — an opted-in
-user gets one digest email covering everything currently queued, instead
-of one email per item. Setup builds up in steps:
+[Pending Notifications](#pending-notifications) queue above — an
+opted-in user gets one digest email covering everything currently
+queued, instead of one email per item. Setup builds up in steps:
 
 1. Create a free account at [postmarkapp.com](https://postmarkapp.com),
    verify a sending domain there (adds SPF/DKIM records to that domain's
@@ -906,7 +962,8 @@ If [Email notifications](#email-admin-only) is turned on for the church,
 there's also a plain **Email me notification digests** toggle here — one
 blanket opt-in, not per prayer request/need/newsletter. It's off by
 default; flip it on to start receiving the digest on whatever schedule
-the admin set up on the [Notifications](#notifications-admin-only) page.
+the admin set up on the [Notification
+Settings](#notification-settings-admin-only) page.
 
 ![Account settings, mid-enrollment: the QR code step of enabling two-factor authentication](docs/assets/screenshots/mfa-enrollment.png)
 

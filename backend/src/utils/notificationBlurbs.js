@@ -29,6 +29,22 @@ const { toInitials } = require("./maskData");
 const RESTRICTED_NOTICE =
   "Specific details are withheld for security -- please pray for this partner's safety and ministry.";
 
+// The 4 "real content" event types -- the ones a restricted partner's
+// notification needs manual review for before it's eligible to send at
+// all (#187; see notificationFlush.js's needsReview()). newsletterCreated
+// is deliberately excluded: it already fully suppresses for a restricted
+// partner (bodyText/groupmeText both come back masked-to-nothing below),
+// so there's no real content there to ever gate. Exported so
+// notificationFlush.js and routes/notifications.js share this exact list
+// instead of each re-deriving "which types are real content" and
+// drifting apart.
+const REVIEW_GATED_TYPES = new Set([
+  "prayerRequestCreated",
+  "prayerRequestAnswered",
+  "supportNeedCreated",
+  "supportNeedDecided",
+]);
+
 // Same reasoning/placement as groupme.js's own appBaseUrl(): resolves to
 // "" when neither env var is set, so a link just isn't built rather than
 // pointing at nothing.
@@ -69,6 +85,16 @@ function supportNeedOutcomeLabel(payload) {
 // (defensive -- should never happen since `type` is only ever written by
 // notifications.js below) rather than throwing and taking down an entire
 // flush over one bad row.
+//
+// row.reviewedAt/row.reviewedText (#187): any row can carry an admin's
+// saved edit, which -- once set -- is simply the authoritative body text
+// for that row, full stop, overriding whatever would otherwise be
+// computed. For a restricted partner's real-content row specifically,
+// this is also what "reveals" the real content in place of
+// RESTRICTED_NOTICE; for every other row it's just whatever edit the
+// admin made. Whether an un-reviewed restricted row is actually allowed
+// to *send* yet is a separate question this function has no opinion on
+// -- see notificationFlush.js's needsReview().
 function buildBlurb(row, partner) {
   const { type, payload } = row;
   const restricted = !!partner?.isRestricted;
@@ -83,7 +109,12 @@ function buildBlurb(row, partner) {
   const maskedSourceLinkLine = restricted ? "" : sourceLinkLine(payload);
 
   switch (type) {
-    case "prayerRequestCreated":
+    case "prayerRequestCreated": {
+      const bodyText = row.reviewedAt
+        ? row.reviewedText
+        : restricted
+          ? RESTRICTED_NOTICE
+          : payload.requestText;
       return {
         id: row.id,
         type,
@@ -92,17 +123,23 @@ function buildBlurb(row, partner) {
         topicKey: "groupmePrayerTopicId",
         emoji: "🙏",
         summary: "New prayer request",
-        bodyText: restricted ? RESTRICTED_NOTICE : payload.requestText,
+        bodyText,
         amount: null,
         sourceFileId: maskedSourceFileId,
         sourceLinkUrl: maskedSourceLinkUrl,
         groupmeText: restricted
-          ? `🙏 New prayer request from ${partnerName}:\n${RESTRICTED_NOTICE}`
-          : `🙏 New prayer request from ${partnerName}:\n${payload.requestText}${maskedSourceLinkLine}`,
+          ? `🙏 New prayer request from ${partnerName}:\n${bodyText}`
+          : `🙏 New prayer request from ${partnerName}:\n${bodyText}${maskedSourceLinkLine}`,
       };
+    }
 
     case "prayerRequestAnswered": {
       const note = payload.answeredNote?.trim() || "(no note added)";
+      const bodyText = row.reviewedAt
+        ? row.reviewedText
+        : restricted
+          ? RESTRICTED_NOTICE
+          : `"${payload.requestText}"\n\n${note}`;
       return {
         id: row.id,
         type,
@@ -111,19 +148,22 @@ function buildBlurb(row, partner) {
         topicKey: "groupmePrayerTopicId",
         emoji: "🙏",
         summary: "Prayer request answered",
-        bodyText: restricted ? RESTRICTED_NOTICE : `"${payload.requestText}"\n\n${note}`,
+        bodyText,
         amount: null,
         sourceFileId: maskedSourceFileId,
         sourceLinkUrl: maskedSourceLinkUrl,
         groupmeText: restricted
-          ? `🙏 Prayer request answered, from ${partnerName}:\n${RESTRICTED_NOTICE}`
-          : `🙏 Prayer request answered, from ${partnerName}:\n` +
-            `"${payload.requestText}"\n\n` +
-            `${note}${maskedSourceLinkLine}`,
+          ? `🙏 Prayer request answered, from ${partnerName}:\n${bodyText}`
+          : `🙏 Prayer request answered, from ${partnerName}:\n${bodyText}${maskedSourceLinkLine}`,
       };
     }
 
-    case "supportNeedCreated":
+    case "supportNeedCreated": {
+      const bodyText = row.reviewedAt
+        ? row.reviewedText
+        : restricted
+          ? RESTRICTED_NOTICE
+          : payload.description;
       return {
         id: row.id,
         type,
@@ -132,20 +172,26 @@ function buildBlurb(row, partner) {
         topicKey: "groupmeOneTimeNeedTopicId",
         emoji: "🎁",
         summary: "New one-time need",
-        bodyText: restricted ? RESTRICTED_NOTICE : payload.description,
+        bodyText,
         amount: null,
         sourceFileId: maskedSourceFileId,
         sourceLinkUrl: maskedSourceLinkUrl,
         groupmeText: restricted
-          ? `🎁 New one-time need from ${partnerName}:\n${RESTRICTED_NOTICE}`
+          ? `🎁 New one-time need from ${partnerName}:\n${bodyText}`
           : `🎁 New one-time need from ${partnerName}:\n` +
             `Be praying about this opportunity — we'll talk about it more at our next meeting.\n\n` +
-            `${payload.description}${maskedSourceLinkLine}`,
+            `${bodyText}${maskedSourceLinkLine}`,
       };
+    }
 
     case "supportNeedDecided": {
       const label = supportNeedOutcomeLabel(payload);
       const amount = `$${Number(payload.approvedAmount).toLocaleString()}`;
+      const bodyText = row.reviewedAt
+        ? row.reviewedText
+        : restricted
+          ? RESTRICTED_NOTICE
+          : `"${payload.description}"`;
       return {
         id: row.id,
         type,
@@ -154,15 +200,13 @@ function buildBlurb(row, partner) {
         topicKey: "groupmeOneTimeNeedTopicId",
         emoji: "🎁",
         summary: `One-time need decided (${label})`,
-        bodyText: restricted ? RESTRICTED_NOTICE : `"${payload.description}"`,
+        bodyText,
         amount,
         sourceFileId: maskedSourceFileId,
         sourceLinkUrl: maskedSourceLinkUrl,
         groupmeText: restricted
-          ? `🎁 One-time need decided (${label}), from ${partnerName}:\n${RESTRICTED_NOTICE}\n\nApproved: ${amount}`
-          : `🎁 One-time need decided (${label}), from ${partnerName}:\n` +
-            `"${payload.description}"\n\n` +
-            `Approved: ${amount}${maskedSourceLinkLine}`,
+          ? `🎁 One-time need decided (${label}), from ${partnerName}:\n${bodyText}\n\nApproved: ${amount}`
+          : `🎁 One-time need decided (${label}), from ${partnerName}:\n${bodyText}\n\nApproved: ${amount}${maskedSourceLinkLine}`,
       };
     }
 
@@ -196,4 +240,4 @@ function buildBlurb(row, partner) {
   }
 }
 
-module.exports = { buildBlurb, appBaseUrl };
+module.exports = { buildBlurb, appBaseUrl, REVIEW_GATED_TYPES };

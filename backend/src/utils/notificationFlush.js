@@ -6,9 +6,21 @@
 // thin HTTP handlers over utils/, never the other way around.
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
-const { buildBlurb } = require("./notificationBlurbs");
+const { buildBlurb, REVIEW_GATED_TYPES } = require("./notificationBlurbs");
 const { sendPendingNotificationsBatch } = require("./groupme");
 const { sendPendingNotificationsDigest } = require("./emailDigest");
+
+// A restricted partner's real-content notification (#187) is held out of
+// every send path -- manual button and automatic schedule alike, both of
+// which go through flushPendingNotifications() below -- until an admin
+// has edited/confirmed it via PUT /api/notifications/pending/:id. Reads
+// isRestricted live off the passed-in partner (already fetched fresh by
+// the caller, same discipline buildBlurb's own masking follows), not a
+// frozen value, since restricted status can change after a row was
+// queued.
+function needsReview(row, partner) {
+  return REVIEW_GATED_TYPES.has(row.type) && !!partner?.isRestricted && !row.reviewedAt;
+}
 
 // Attempts whichever channels are currently enabled, independently --
 // see the PendingNotification schema.prisma comment for the full
@@ -28,7 +40,7 @@ async function flushPendingNotifications() {
     where: { OR: [{ groupmeSentAt: null }, { emailSentAt: null }] },
     orderBy: { createdAt: "asc" },
   });
-  if (rows.length === 0) return { sent: 0, remaining: 0 };
+  if (rows.length === 0) return { sent: 0, remaining: 0, heldForReview: 0 };
 
   // Read fresh, not from each row's own frozen payload -- isRestricted
   // can change after a notification was already queued, and buildBlurb
@@ -39,12 +51,21 @@ async function flushPendingNotifications() {
   });
   const partnerById = new Map(partners.map((p) => [p.id, p]));
 
+  // A restricted partner's unreviewed real-content row (#187) is held out
+  // of both channels below entirely -- it simply never appears in either
+  // candidates array, so it's never sent and never stamped, same as a
+  // failed-send row staying queued for the next flush, just for a
+  // different reason. groupme.js/emailDigest.js need no awareness of this
+  // -- they only ever see whatever candidates array they're handed.
+  const sendableRows = rows.filter((row) => !needsReview(row, partnerById.get(row.partnerId)));
+  const heldForReview = rows.length - sendableRows.length;
+
   const blurbById = new Map(
     rows.map((row) => [row.id, buildBlurb(row, partnerById.get(row.partnerId))]).filter(([, blurb]) => blurb)
   );
 
   if (groupmeOn) {
-    const candidates = rows
+    const candidates = sendableRows
       .filter((row) => !row.groupmeSentAt)
       .map((row) => blurbById.get(row.id))
       .filter(Boolean);
@@ -60,7 +81,7 @@ async function flushPendingNotifications() {
   }
 
   if (emailOn) {
-    const candidates = rows
+    const candidates = sendableRows
       .filter((row) => !row.emailSentAt)
       .map((row) => blurbById.get(row.id))
       .filter(Boolean);
@@ -93,7 +114,7 @@ async function flushPendingNotifications() {
     await prisma.pendingNotification.deleteMany({ where: { id: { in: clearableIds } } });
   }
 
-  return { sent: clearableIds.length, remaining: rows.length - clearableIds.length };
+  return { sent: clearableIds.length, remaining: rows.length - clearableIds.length, heldForReview };
 }
 
 module.exports = { flushPendingNotifications };
