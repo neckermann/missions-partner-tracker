@@ -6,13 +6,16 @@
 // upload outright in multer's own fileFilter if neither resolves.
 const multer = require("multer");
 
-// mimeToExt: { [mimeType]: extension }. fallback (optional): { test(fileName),
-// ext } -- a predicate plus the extension to use when it matches.
+// mimeToExt: { [mimeType]: extension }. fallback (optional): a single
+// { test(fileName), ext } pair, or an array of them (tried in order) when a
+// route needs more than one unreliable-MIME-type format recognized by
+// extension -- e.g. partners.js needs both HEIC and webp.
 function makeExtResolver(mimeToExt, fallback) {
+  const fallbacks = !fallback ? [] : Array.isArray(fallback) ? fallback : [fallback];
   return function resolveExt(file) {
     if (mimeToExt[file.mimetype]) return mimeToExt[file.mimetype];
-    if (fallback && fallback.test(file.originalname)) return fallback.ext;
-    return null;
+    const matched = fallbacks.find((f) => f.test(file.originalname));
+    return matched ? matched.ext : null;
   };
 }
 

@@ -570,7 +570,19 @@ model ChurchSettings {
 
   publicTagline   String? // short subtitle under the public map/directory header
   aboutText       String? @db.Text // optional blurb shown on the public directory
-  primaryColor    String? // hex, overrides the site's --brand-color CSS variable
+  // Three independently-pickable brand colors (see #182's history for why
+  // not a single color, and why not a full template builder): primaryColor
+  // is the ACCENT role (buttons, links, headings, letterhead -- the color
+  // people actually associate with the church), headerColor is header +
+  // admin sidebar background, highlightColor is hover/focus/active/
+  // selected interaction feedback. primaryColor's field name predates the
+  // other two and is kept as-is rather than renamed -- no church has ever
+  // set a custom value, so there's nothing to preserve, but renaming would
+  // just be churn for a field that already works.
+  primaryColor    String? // hex, overrides --brand-color; ACCENT role
+  headerColor     String? // hex, overrides --brand-header-color; header + admin sidebar background
+  highlightColor  String? // hex, overrides --brand-highlight-color; hover/focus/active/selected feedback
+  brandFont       String? // literal CSS font-family stack (not an abstract key), overrides --brand-font; curated choices offered in AdminSettingsBranding.jsx
   // The site logo, stored right in this row — see the comment on the
   // Newsletter model for why this app keeps file bytes in Postgres
   // instead of an object store. Public, served unauthenticated at

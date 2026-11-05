@@ -12,6 +12,9 @@ const DEFAULTS = {
   churchName: null,
   logo: null,
   primaryColor: null,
+  headerColor: null,
+  highlightColor: null,
+  brandFont: null,
   partnerTermSingular: "Missionary",
   partnerTermPlural: "Missionaries",
   usePartnerTermInAdmin: false,
@@ -66,14 +69,43 @@ export function SettingsProvider({ children }) {
     loadSettings();
   }, []);
 
-  // Both side effects are harmless no-ops on an unconfigured instance
-  // (primaryColor/churchName stay null), so nothing changes until a church
-  // actually sets them in Church Settings.
+  // All five side effects below are harmless no-ops on an unconfigured
+  // instance (every field stays null), so nothing changes until a church
+  // actually sets them in Church Settings. primaryColor drives --brand-color
+  // (the ACCENT role: buttons, links, headings, letterhead -- see its
+  // comment in schema.prisma), headerColor/highlightColor are the other two
+  // brand colors, brandFont is the font choice.
   useEffect(() => {
     if (settings.primaryColor) {
       document.documentElement.style.setProperty("--brand-color", settings.primaryColor);
+    } else {
+      document.documentElement.style.removeProperty("--brand-color");
     }
   }, [settings.primaryColor]);
+
+  useEffect(() => {
+    if (settings.headerColor) {
+      document.documentElement.style.setProperty("--brand-header-color", settings.headerColor);
+    } else {
+      document.documentElement.style.removeProperty("--brand-header-color");
+    }
+  }, [settings.headerColor]);
+
+  useEffect(() => {
+    if (settings.highlightColor) {
+      document.documentElement.style.setProperty("--brand-highlight-color", settings.highlightColor);
+    } else {
+      document.documentElement.style.removeProperty("--brand-highlight-color");
+    }
+  }, [settings.highlightColor]);
+
+  useEffect(() => {
+    if (settings.brandFont) {
+      document.documentElement.style.setProperty("--brand-font", settings.brandFont);
+    } else {
+      document.documentElement.style.removeProperty("--brand-font");
+    }
+  }, [settings.brandFont]);
 
   useEffect(() => {
     if (settings.churchName) {

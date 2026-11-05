@@ -15,12 +15,21 @@
 // Inline CSS throughout -- required for reliable rendering across real
 // email clients (no external stylesheet, no flexbox/grid, nothing that
 // Outlook's renderer or a stripped-down webmail preview would drop).
+// Colors/font reuse the exact same three-role branding system (see
+// #182's history) the rest of the app uses: Header (the band at the
+// top), Accent (links), Highlight (the item accent border) --
+// `routes/publicSettings.js`/`schema.prisma` are the source of truth for
+// the stored fields and their own fallback defaults, mirrored here so
+// an unconfigured church's digest looks the same as its site.
 const jwt = require("jsonwebtoken");
 const prisma = require("../prismaClient");
 const { sendEmail } = require("./email");
 const { appBaseUrl } = require("./notificationBlurbs");
 
-const BRAND_FALLBACK_COLOR = "#2a5d3c";
+const HEADER_FALLBACK_COLOR = "#2c2a28";
+const ACCENT_FALLBACK_COLOR = "#2a5d3c";
+const HIGHLIGHT_FALLBACK_COLOR = "#c97a3d";
+const FONT_FALLBACK = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
 // Same { id, <purpose>: true } shape routes/auth.js already uses for
 // MFA-pending/MFA-setup tokens, signed with the same SESSION_SECRET --
@@ -74,42 +83,44 @@ function nl2br(value) {
   return escapeHtml(value).replace(/\n/g, "<br>");
 }
 
-function renderBlurbHtml(blurb) {
+function renderBlurbHtml(blurb, accentColor, highlightColor) {
   const amountLine = blurb.amount
-    ? `<p style="margin:4px 0 0;font-weight:600;">Approved: ${escapeHtml(blurb.amount)}</p>`
+    ? `<p style="margin:6px 0 0;font-weight:600;color:#444;">Approved: ${escapeHtml(blurb.amount)}</p>`
     : "";
   const link = blurb.sourceLinkUrl
-    ? `<p style="margin:4px 0 0;"><a href="${blurb.sourceLinkUrl}" style="color:#2a5d3c;">Read the source</a></p>`
+    ? `<p style="margin:6px 0 0;"><a href="${blurb.sourceLinkUrl}" style="color:${accentColor};">Read the source</a></p>`
     : "";
   return `
-    <div style="margin:12px 0;padding-left:12px;border-left:3px solid #e5e5e5;">
-      <p style="margin:0;font-weight:600;">${blurb.emoji} ${escapeHtml(blurb.summary)}</p>
-      <p style="margin:4px 0 0;color:#333;">${nl2br(blurb.bodyText)}</p>
+    <div style="margin:14px 0;padding-left:14px;border-left:3px solid ${highlightColor};">
+      <p style="margin:0;font-weight:600;line-height:1.4;">${blurb.emoji} ${escapeHtml(blurb.summary)}</p>
+      <p style="margin:6px 0 0;color:#444;line-height:1.5;">${nl2br(blurb.bodyText)}</p>
       ${amountLine}
       ${link}
     </div>`;
 }
 
-function renderPartnerHtml(group) {
+function renderPartnerHtml(group, accentColor, highlightColor) {
   const newsletterBlocks = group.newsletters
     .map(
       ({ blurb, children }) => `
-      <div style="margin:16px 0;">
-        <p style="margin:0;font-weight:700;">${blurb.emoji} New newsletter</p>
+      <div style="margin:0 0 16px;">
+        <p style="margin:0;font-weight:700;line-height:1.4;">${blurb.emoji} New newsletter</p>
         ${
           blurb.sourceLinkUrl
-            ? `<p style="margin:4px 0 0;"><a href="${blurb.sourceLinkUrl}" style="color:#2a5d3c;">Read the full newsletter</a></p>`
+            ? `<p style="margin:6px 0 0;"><a href="${blurb.sourceLinkUrl}" style="color:${accentColor};">Read the full newsletter</a></p>`
             : ""
         }
-        ${children.map(renderBlurbHtml).join("")}
+        ${children.map((c) => renderBlurbHtml(c, accentColor, highlightColor)).join("")}
       </div>`
     )
     .join("");
-  const standaloneBlocks = group.standalone.map(renderBlurbHtml).join("");
+  const standaloneBlocks = group.standalone
+    .map((b) => renderBlurbHtml(b, accentColor, highlightColor))
+    .join("");
 
   return `
-    <div style="margin:24px 0;padding-bottom:16px;border-bottom:1px solid #e5e5e5;">
-      <h3 style="margin:0 0 4px;font-size:16px;">${escapeHtml(group.partnerName)}</h3>
+    <div style="margin:20px 0;padding:18px 20px;background-color:#f7f5f0;border-radius:10px;">
+      <h3 style="margin:0 0 10px;font-size:16px;color:#222;">${escapeHtml(group.partnerName)}</h3>
       ${newsletterBlocks}
       ${standaloneBlocks}
     </div>`;
@@ -118,8 +129,9 @@ function renderPartnerHtml(group) {
 // Plain-text fallback -- every email client that renders HTML also
 // accepts a text part, and some (screen readers, very old clients)
 // prefer it outright.
-function renderText(groups, unsubscribeUrl) {
+function renderText(groups, unsubscribeUrl, greetingName) {
   const lines = [];
+  lines.push(greetingName ? `Hi ${greetingName},` : "Hi there,", "");
   for (const group of groups) {
     lines.push(group.partnerName, "-".repeat(group.partnerName.length));
     for (const { blurb, children } of group.newsletters) {
@@ -137,33 +149,41 @@ function renderText(groups, unsubscribeUrl) {
   return lines.join("\n");
 }
 
-function renderDigestEmail(blurbs, churchSettings, unsubscribeUrl) {
+function renderDigestEmail(blurbs, churchSettings, unsubscribeUrl, recipientName) {
   const groups = groupByPartner(blurbs);
   const churchName = churchSettings?.churchName || "Missions Partner Tracker";
-  const color = churchSettings?.primaryColor || BRAND_FALLBACK_COLOR;
+  const headerColor = churchSettings?.headerColor || HEADER_FALLBACK_COLOR;
+  const accentColor = churchSettings?.primaryColor || ACCENT_FALLBACK_COLOR;
+  const highlightColor = churchSettings?.highlightColor || HIGHLIGHT_FALLBACK_COLOR;
+  const fontFamily = churchSettings?.brandFont || FONT_FALLBACK;
   const base = appBaseUrl();
   const logoHtml =
     churchSettings?.logoContentType && base
-      ? `<img src="${base}/api/public/settings/logo/raw" alt="${escapeHtml(churchName)}" style="max-height:48px;margin-bottom:8px;">`
+      ? `<img src="${base}/api/public/settings/logo/raw" alt="${escapeHtml(churchName)}" style="max-height:40px;width:auto;max-width:240px;margin-bottom:10px;">`
       : "";
+  const greeting = recipientName ? `Hi ${escapeHtml(recipientName)},` : "Hi there,";
+  const count = blurbs.length;
 
   const html = `
-    <div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;color:#222;">
-      <div style="padding:20px 0;border-bottom:3px solid ${color};">
+    <div style="font-family:${fontFamily};max-width:600px;margin:0 auto;color:#222;">
+      <div style="background-color:${headerColor};padding:28px 24px;border-radius:10px 10px 0 0;">
         ${logoHtml}
-        <h2 style="margin:0;color:${color};">${escapeHtml(churchName)} updates</h2>
+        <h2 style="margin:0;color:#ffffff;font-size:20px;">${escapeHtml(churchName)} updates</h2>
       </div>
-      ${groups.map(renderPartnerHtml).join("")}
-      <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e5e5e5;font-size:12px;color:#888;">
-        <p>You're receiving this because email notifications are turned on for your account.</p>
-        ${unsubscribeUrl ? `<p><a href="${unsubscribeUrl}" style="color:#888;">Unsubscribe</a></p>` : ""}
+      <div style="padding:20px 4px 4px;">
+        <p style="margin:0 0 16px;font-size:15px;line-height:1.5;">${greeting}</p>
+        ${groups.map((g) => renderPartnerHtml(g, accentColor, highlightColor)).join("")}
+      </div>
+      <div style="margin-top:12px;padding:16px 4px 0;border-top:1px solid #e5e2d8;font-size:12px;color:#888;line-height:1.5;">
+        <p style="margin:0 0 6px;">You're receiving this because email notifications are turned on for your account.</p>
+        ${unsubscribeUrl ? `<p style="margin:0;"><a href="${unsubscribeUrl}" style="color:#888;">Unsubscribe</a></p>` : ""}
       </div>
     </div>`;
 
   return {
-    subject: `${churchName} — partner updates`,
+    subject: `${count} update${count === 1 ? "" : "s"} from ${churchName}`,
     html,
-    text: renderText(groups, unsubscribeUrl),
+    text: renderText(groups, unsubscribeUrl, recipientName),
   };
 }
 
@@ -178,7 +198,7 @@ function renderDigestEmail(blurbs, churchSettings, unsubscribeUrl) {
 async function sendPendingNotificationsDigest(blurbs) {
   const recipients = await prisma.user.findMany({
     where: { notifyByEmail: true, active: true },
-    select: { id: true, email: true },
+    select: { id: true, email: true, name: true },
   });
   if (recipients.length === 0) return false;
 
@@ -196,7 +216,7 @@ async function sendPendingNotificationsDigest(blurbs) {
   let anySucceeded = false;
   for (const recipient of recipients) {
     const unsubscribeUrl = buildUnsubscribeUrl(recipient.id);
-    const { subject, html, text } = renderDigestEmail(blurbs, churchSettings, unsubscribeUrl);
+    const { subject, html, text } = renderDigestEmail(blurbs, churchSettings, unsubscribeUrl, recipient.name);
     try {
       await sendEmail({ to: recipient.email, subject, text, html });
       anySucceeded = true;
@@ -210,4 +230,4 @@ async function sendPendingNotificationsDigest(blurbs) {
   return anySucceeded;
 }
 
-module.exports = { sendPendingNotificationsDigest, buildUnsubscribeToken, renderDigestEmail };
+module.exports = { sendPendingNotificationsDigest, buildUnsubscribeToken, renderDigestEmail, escapeHtml };

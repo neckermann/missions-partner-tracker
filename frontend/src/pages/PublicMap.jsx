@@ -163,7 +163,7 @@ function MissionaryPopup({ m }) {
           </p>
           {m.overviewShort && <p className="popup-summary">{m.overviewShort}</p>}
         </div>
-        <Link to={`/partners/${m.id}`} className="btn secondary small">
+        <Link to={`/partners/${m.id}`} className="btn small">
           View Full Profile
         </Link>
       </div>
@@ -199,7 +199,7 @@ function OrganizationPopup({ o }) {
           <p className="popup-meta">{[o.orgType, o.fieldDisplayName].filter(Boolean).join(" · ")}</p>
           {o.overviewShort && <p className="popup-summary">{o.overviewShort}</p>}
         </div>
-        <Link to={`/partners/${o.id}`} className="btn secondary small">
+        <Link to={`/partners/${o.id}`} className="btn small">
           View Full Profile
         </Link>
       </div>
