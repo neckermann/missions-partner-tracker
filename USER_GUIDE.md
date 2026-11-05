@@ -368,6 +368,56 @@ pick one if you read it yourself and typed the need in, or leave it as
 
 ![A one-time need showing its "From: ..." source link](docs/assets/screenshots/support-need-source-link.png)
 
+## Prayer Requests
+
+Meant as a long-term record of what's been prayed for and how it was
+answered — not a checklist. Add one from a partner's detail page or the
+central **Prayer Requests** page (pick the partner, category, and the
+request itself). **+ Add Prayer Request** and its Edit form also have a
+**Source (optional)** dropdown listing that partner's newsletters and
+documents — pick one if you read it yourself and typed the request in,
+or leave it as "None."
+
+![The Source (optional) dropdown on the Add Prayer Request form, listing this partner's newsletters and documents](docs/assets/screenshots/source-picker.png)
+
+- **Category** is **Strategic** (tied to the ministry's long-term vision
+  or calling — church planting, discipleship, language study, funding —
+  can optionally be shown on that partner's public profile via **Show on
+  public profile**) or **Situational** (whatever came up — health,
+  travel, family needs, paperwork; admin-only, never shown publicly
+  regardless of any setting).
+- A strategic request marked **Show on public profile** can also be
+  checked **Include in printed booklet** — a separate setting, since a
+  partner can build up more public strategic requests over time than
+  would ever fit on a printed page. Only requests checked both ways ever
+  appear in the booklet, and even then only up to the per-partner cap set
+  on the [Booklet](#printable-partner-booklet) page (a handful, most recent first) — the
+  rest still show on the public profile, just not in print. See
+  [Printable partner booklet](#printable-partner-booklet) below.
+- An open request just sits there — there's no "pending" or "unanswered"
+  label anywhere in the app. Most requests, especially strategic ones,
+  simply don't have a resolution yet, and that's normal, not a gap to
+  flag. If you don't intend to follow up on a specific request for a
+  formal answer (many situational ones), check **Not tracking this one
+  for a specific answer** when adding it.
+- When a request *is* answered, click **Record Answer** on it — the date
+  and an optional note on how it was answered (shown as a quiet "✓
+  Answered" line, never a colored badge). This is the part worth keeping
+  long-term: a public strategic request's answer note shows on that
+  partner's public profile and in the booklet too, right alongside the
+  request itself — a real, growing record of how prayers actually get
+  answered over time, not just a log of what's currently outstanding.
+
+The central **Prayer Requests** page lists every request across every
+partner, filterable by category, with a running count of how many have
+been answered so far. A request pointed at a source this way, or added
+automatically by [AI Features](#ai-features-admin-only),
+shows a "From: ..." link back to that file, rendered the same either way.
+
+![The central Prayer Requests page, newest first across every partner](docs/assets/screenshots/prayer-requests-list.png)
+
+![A prayer request showing its "From: ..." source link](docs/assets/screenshots/prayer-request-source-link.png)
+
 ## Trip history & trip opportunities
 
 These are two different things:
@@ -426,88 +476,6 @@ flag.
 
 ![The central Newsletters & Docs page, listing uploads across every partner with their Kind](docs/assets/screenshots/partner-files.png)
 
-## Prayer Requests
-
-Meant as a long-term record of what's been prayed for and how it was
-answered — not a checklist. Add one from a partner's detail page or the
-central **Prayer Requests** page (pick the partner, category, and the
-request itself). **+ Add Prayer Request** and its Edit form also have a
-**Source (optional)** dropdown listing that partner's newsletters and
-documents — pick one if you read it yourself and typed the request in,
-or leave it as "None."
-
-![The Source (optional) dropdown on the Add Prayer Request form, listing this partner's newsletters and documents](docs/assets/screenshots/source-picker.png)
-
-- **Category** is **Strategic** (tied to the ministry's long-term vision
-  or calling — church planting, discipleship, language study, funding —
-  can optionally be shown on that partner's public profile via **Show on
-  public profile**) or **Situational** (whatever came up — health,
-  travel, family needs, paperwork; admin-only, never shown publicly
-  regardless of any setting).
-- A strategic request marked **Show on public profile** can also be
-  checked **Include in printed booklet** — a separate setting, since a
-  partner can build up more public strategic requests over time than
-  would ever fit on a printed page. Only requests checked both ways ever
-  appear in the booklet, and even then only up to the per-partner cap set
-  on the [Booklet](#printable-partner-booklet) page (a handful, most recent first) — the
-  rest still show on the public profile, just not in print. See
-  [Printable partner booklet](#printable-partner-booklet) below.
-- An open request just sits there — there's no "pending" or "unanswered"
-  label anywhere in the app. Most requests, especially strategic ones,
-  simply don't have a resolution yet, and that's normal, not a gap to
-  flag. If you don't intend to follow up on a specific request for a
-  formal answer (many situational ones), check **Not tracking this one
-  for a specific answer** when adding it.
-- When a request *is* answered, click **Record Answer** on it — the date
-  and an optional note on how it was answered (shown as a quiet "✓
-  Answered" line, never a colored badge). This is the part worth keeping
-  long-term: a public strategic request's answer note shows on that
-  partner's public profile and in the booklet too, right alongside the
-  request itself — a real, growing record of how prayers actually get
-  answered over time, not just a log of what's currently outstanding.
-
-The central **Prayer Requests** page lists every request across every
-partner, filterable by category, with a running count of how many have
-been answered so far. A request pointed at a source this way, or added
-automatically by [AI Features](#ai-features-admin-only),
-shows a "From: ..." link back to that file, rendered the same either way.
-
-![The central Prayer Requests page, newest first across every partner](docs/assets/screenshots/prayer-requests-list.png)
-
-![A prayer request showing its "From: ..." source link](docs/assets/screenshots/prayer-request-source-link.png)
-
-## Reports
-
-Read-only views over data already in the tracker, for anyone who needs
-numbers rather than a record-by-record browse. Pick a report, set its
-filters, and click **Run report**; **Reset Filters** clears everything
-back to that report's defaults. Every report's results can be exported
-as **Download CSV** (a spreadsheet, same rows and columns as the screen)
-or **Print** (a clean paginated layout for handing to a meeting).
-
-Prayer Requests, One-Time Needs, and Furlough each add a **Quick Range**
-dropdown next to their From/To date fields — pick **This Month**/**This
-Year**/**Last Year** (or, for Furlough, **This Year**/**Next Year**, since
-a furlough you're tracking is as likely to be upcoming as past) to fill
-in the date range in one click, or set From/To by hand for anything more
-specific.
-
-| Report | Shows |
-|---|---|
-| Upcoming Birthdays | Adults and children with a birthday, with the partner they belong to. Defaults to a full-year view (every month, in order); switch its **View** filter to **One month** for a single calendar month instead. No feature toggle gates this one — it's always available. |
-| Monthly Support | Every partner's current monthly support amount, as of its most recent entry — the same number [Monthly Support](#financial-support--one-time-needs) shows. |
-| One-Time Needs | One-time gift requests in a date range, with what was requested, what was approved, and what's still pending a decision. |
-| Prayer Requests | Prayer requests across every partner, filterable by category, status, and date range. |
-| Trip History | Mission trips across every missionary and organization, with dates, type, and team size — the same filters as [Trip History](#trip-history--trip-opportunities)'s own page. |
-| Furlough | Missionaries currently on furlough or with an upcoming furlough on file, filterable by status (current/upcoming) and when the furlough starts. No feature toggle gates this one — furlough tracking is always available. |
-
-A report tied to a feature that's turned off (see
-[ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles))
-simply doesn't appear in the picker — Upcoming Birthdays and Furlough are
-the two exceptions, since neither has a feature of its own to tie to.
-
-![The Reports page, with the Prayer Requests report run](docs/assets/screenshots/reports-preview.png)
-
 ## Printable partner booklet
 
 **Print Booklet** builds a print-formatted directory: pick a **Look &
@@ -547,6 +515,38 @@ prayer/support directory for your congregation.
 
 ![One page of the resulting booklet, in the Classic template](docs/assets/screenshots/booklet.png)
 
+## Reports
+
+Read-only views over data already in the tracker, for anyone who needs
+numbers rather than a record-by-record browse. Pick a report, set its
+filters, and click **Run report**; **Reset Filters** clears everything
+back to that report's defaults. Every report's results can be exported
+as **Download CSV** (a spreadsheet, same rows and columns as the screen)
+or **Print** (a clean paginated layout for handing to a meeting).
+
+Prayer Requests, One-Time Needs, and Furlough each add a **Quick Range**
+dropdown next to their From/To date fields — pick **This Month**/**This
+Year**/**Last Year** (or, for Furlough, **This Year**/**Next Year**, since
+a furlough you're tracking is as likely to be upcoming as past) to fill
+in the date range in one click, or set From/To by hand for anything more
+specific.
+
+| Report | Shows |
+|---|---|
+| Upcoming Birthdays | Adults and children with a birthday, with the partner they belong to. Defaults to a full-year view (every month, in order); switch its **View** filter to **One month** for a single calendar month instead. No feature toggle gates this one — it's always available. |
+| Monthly Support | Every partner's current monthly support amount, as of its most recent entry — the same number [Monthly Support](#financial-support--one-time-needs) shows. |
+| One-Time Needs | One-time gift requests in a date range, with what was requested, what was approved, and what's still pending a decision. |
+| Prayer Requests | Prayer requests across every partner, filterable by category, status, and date range. |
+| Trip History | Mission trips across every missionary and organization, with dates, type, and team size — the same filters as [Trip History](#trip-history--trip-opportunities)'s own page. |
+| Furlough | Missionaries currently on furlough or with an upcoming furlough on file, filterable by status (current/upcoming) and when the furlough starts. No feature toggle gates this one — furlough tracking is always available. |
+
+A report tied to a feature that's turned off (see
+[ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles))
+simply doesn't appear in the picker — Upcoming Birthdays and Furlough are
+the two exceptions, since neither has a feature of its own to tie to.
+
+![The Reports page, with the Prayer Requests report run](docs/assets/screenshots/reports-preview.png)
+
 ## Church Settings (Admin only)
 
 One record controls the whole instance's branding, split across two pages
@@ -585,6 +585,45 @@ everywhere, with no code changes needed:
 ![The About Church page, with Church Info and address fields](docs/assets/screenshots/about-church.png)
 
 ![The Branding page, with Public Site, Logo, and Partner Terminology](docs/assets/screenshots/branding-settings.png)
+
+## User management (Admin only)
+
+**Manage Users** lists everyone with access — email, role, active status,
+MFA status, last login. **+ Add User** creates one: email, role, and a
+password (every account is email + password, per
+[Logging in](#logging-in) above). Editing lets you change role,
+deactivate, force MFA enrollment, or reset a password. **Reset MFA**
+clears a locked-out user's two-factor setup so they can log back in with
+just their password and re-enroll — for your own account, use **Disable
+Two-Factor Authentication** on [Your account settings](#your-account-settings)
+instead, which requires your current password; **Reset MFA** on your own
+row is blocked here, since skipping that password check is exactly how a
+hijacked session could silently strip your own two-factor protection.
+You can't delete your own account, and the app won't let you demote,
+deactivate, or delete the last active admin — there's always at least
+one way back in.
+
+![The Manage Users page, listing role, auth provider, and MFA status](docs/assets/screenshots/manage-users.png)
+
+## Database Backups (Admin only)
+
+**Backups**, under Site Administration, lets any admin download a full
+backup of everything in the database — every partner, user, and uploaded
+file — as a single file, on demand, with no setup required. Nothing is
+kept server-side; the download is the only copy, so save it somewhere
+safe right away. The file is unmasked and highly sensitive (restricted
+partners' real data, password hashes, encrypted two-factor secrets) —
+treat it accordingly. Restoring one is a deliberate command-line step,
+not a button — see
+[ADMIN_GUIDE.md § Database backups](ADMIN_GUIDE.md#database-backups) for
+the full runbook.
+
+The same page also has a periodic reminder banner (asking you to confirm
+your database provider's own backups are working) with an explicit,
+permanent opt-out for a church that's already confirmed that elsewhere —
+checking that box requires a deliberate save, not just a casual dismiss.
+
+![The Backups page: a Back up now button and the opt-out for the periodic reminder](docs/assets/screenshots/backups-settings.png)
 
 ## GroupMe notifications (Admin only)
 
@@ -717,66 +756,6 @@ you can see exactly what changes between the two before picking one.
 | --- | --- |
 | ![An example Classic-layout digest email](docs/assets/screenshots/digest-email-classic.png) | ![An example Snapshot-layout digest email, including a restricted partner's masked card](docs/assets/screenshots/digest-email-snapshot.png) |
 
-## Joshua Project (Admin only)
-
-Shows country-level unreached-people-group statistics — population,
-primary religion, percent evangelical, how reached the country is — on a
-partner's page, pulled live from the [Joshua
-Project](https://joshuaproject.net/). Off by default.
-
-Setup, on the **Joshua Project** page under Site Administration, is one
-step: paste an API key from
-[joshuaproject.net/api/request](https://joshuaproject.net/api/request)
-(free) and **Save API Key** — write-only once saved, same as a password
-field; leave it blank on a later save to keep the existing one.
-
-![The Joshua Project settings page, with an API key saved](docs/assets/screenshots/joshua-project-settings.png)
-
-A key alone doesn't show anything — turn on **Joshua Project stats** in
-[Enabled Features](ADMIN_GUIDE.md#feature-toggles). Once both are done,
-it shows up everywhere it always has: a partner's admin page and public
-page, wherever a Country Code is on file.
-
-## AI Features (Admin only)
-
-Adds a **Scan for requests** button on each newsletter/document that's
-PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one
-file to Claude (Anthropic's API) to look for prayer requests and
-one-time financial needs, then shows them for review — nothing is added
-until you explicitly accept a suggestion. Off by default, even once
-configured, since it's the one feature here that sends data to a third
-party.
-
-Each suggestion's text box starts with a short background sentence
-(resolving things like "the teenager we mentioned" to who that actually
-is) ahead of the request itself, so you're editing one readable block
-rather than a bare, context-free sentence — edit it freely before
-accepting. Once accepted, the request or need shows a "From: ..." link
-back to the newsletter or document it came from, visible only here in
-the admin view.
-
-![Scan results, with each suggestion's background sentence joined ahead of the verbatim request](docs/assets/screenshots/ai-scan-results.png)
-
-That source link is set automatically here — accepting a suggestion sets
-it for you. The same link can also be set by hand, whether or not this
-feature is turned on, via the **Source** dropdown on each request/need's
-Add or Edit form — see [Prayer Requests](#prayer-requests) and
-[Financial support & one-time needs](#financial-support--one-time-needs).
-
-Setup, on the **AI Features** page under Site Administration, is
-one step: paste an API key from
-[console.anthropic.com](https://console.anthropic.com/settings/keys) and
-**Save API Key** — write-only once saved, same as a password field;
-leave it blank on a later save to keep the existing one. Usage is
-pay-per-scan on the key owner's Anthropic account — a few cents/month at
-typical volume, not a flat fee.
-
-![The AI Features settings page, with an API key saved](docs/assets/screenshots/ai-extraction-settings.png)
-
-A key alone doesn't turn anything on — turn on **AI Features**
-in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) to actually show
-the Scan for requests button.
-
 ## Email (Admin only)
 
 One **Email** page under Site Administration, with two independent
@@ -855,44 +834,65 @@ filed at all.
 
 ![The Unmatched Emails queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
 
-## User management (Admin only)
+## Joshua Project (Admin only)
 
-**Manage Users** lists everyone with access — email, role, active status,
-MFA status, last login. **+ Add User** creates one: email, role, and a
-password (every account is email + password, per
-[Logging in](#logging-in) above). Editing lets you change role,
-deactivate, force MFA enrollment, or reset a password. **Reset MFA**
-clears a locked-out user's two-factor setup so they can log back in with
-just their password and re-enroll — for your own account, use **Disable
-Two-Factor Authentication** on [Your account settings](#your-account-settings)
-instead, which requires your current password; **Reset MFA** on your own
-row is blocked here, since skipping that password check is exactly how a
-hijacked session could silently strip your own two-factor protection.
-You can't delete your own account, and the app won't let you demote,
-deactivate, or delete the last active admin — there's always at least
-one way back in.
+Shows country-level unreached-people-group statistics — population,
+primary religion, percent evangelical, how reached the country is — on a
+partner's page, pulled live from the [Joshua
+Project](https://joshuaproject.net/). Off by default.
 
-![The Manage Users page, listing role, auth provider, and MFA status](docs/assets/screenshots/manage-users.png)
+Setup, on the **Joshua Project** page under Site Administration, is one
+step: paste an API key from
+[joshuaproject.net/api/request](https://joshuaproject.net/api/request)
+(free) and **Save API Key** — write-only once saved, same as a password
+field; leave it blank on a later save to keep the existing one.
 
-## Database Backups (Admin only)
+![The Joshua Project settings page, with an API key saved](docs/assets/screenshots/joshua-project-settings.png)
 
-**Backups**, under Site Administration, lets any admin download a full
-backup of everything in the database — every partner, user, and uploaded
-file — as a single file, on demand, with no setup required. Nothing is
-kept server-side; the download is the only copy, so save it somewhere
-safe right away. The file is unmasked and highly sensitive (restricted
-partners' real data, password hashes, encrypted two-factor secrets) —
-treat it accordingly. Restoring one is a deliberate command-line step,
-not a button — see
-[ADMIN_GUIDE.md § Database backups](ADMIN_GUIDE.md#database-backups) for
-the full runbook.
+A key alone doesn't show anything — turn on **Joshua Project stats** in
+[Enabled Features](ADMIN_GUIDE.md#feature-toggles). Once both are done,
+it shows up everywhere it always has: a partner's admin page and public
+page, wherever a Country Code is on file.
 
-The same page also has a periodic reminder banner (asking you to confirm
-your database provider's own backups are working) with an explicit,
-permanent opt-out for a church that's already confirmed that elsewhere —
-checking that box requires a deliberate save, not just a casual dismiss.
+## AI Features (Admin only)
 
-![The Backups page: a Back up now button and the opt-out for the periodic reminder](docs/assets/screenshots/backups-settings.png)
+Adds a **Scan for requests** button on each newsletter/document that's
+PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one
+file to Claude (Anthropic's API) to look for prayer requests and
+one-time financial needs, then shows them for review — nothing is added
+until you explicitly accept a suggestion. Off by default, even once
+configured, since it's the one feature here that sends data to a third
+party.
+
+Each suggestion's text box starts with a short background sentence
+(resolving things like "the teenager we mentioned" to who that actually
+is) ahead of the request itself, so you're editing one readable block
+rather than a bare, context-free sentence — edit it freely before
+accepting. Once accepted, the request or need shows a "From: ..." link
+back to the newsletter or document it came from, visible only here in
+the admin view.
+
+![Scan results, with each suggestion's background sentence joined ahead of the verbatim request](docs/assets/screenshots/ai-scan-results.png)
+
+That source link is set automatically here — accepting a suggestion sets
+it for you. The same link can also be set by hand, whether or not this
+feature is turned on, via the **Source** dropdown on each request/need's
+Add or Edit form — see [Prayer Requests](#prayer-requests) and
+[Financial support & one-time needs](#financial-support--one-time-needs).
+
+Setup, on the **AI Features** page under Site Administration, is
+one step: paste an API key from
+[console.anthropic.com](https://console.anthropic.com/settings/keys) and
+**Save API Key** — write-only once saved, same as a password field;
+leave it blank on a later save to keep the existing one. Usage is
+pay-per-scan on the key owner's Anthropic account — a few cents/month at
+typical volume, not a flat fee.
+
+![The AI Features settings page, with an API key saved](docs/assets/screenshots/ai-extraction-settings.png)
+
+A key alone doesn't turn anything on — turn on **AI Features**
+in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) to actually show
+the Scan for requests button.
 
 ## Your account settings
 
