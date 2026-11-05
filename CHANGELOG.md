@@ -16,6 +16,31 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.1.0] - 2026-11-05
+
+A restricted partner's prayer request or one-time need notification now
+needs an admin's manual review before it's eligible to send at all —
+held back from both the manual "Send Pending Notifications Now" button
+and the automatic digest schedule until someone confirms it. Structural
+masking (name → initials, photo → silhouette, no link back to the
+source file) stays exactly as it already was either way; this is
+scoped to the body text itself, which previously always sent as a
+generic "details are withheld" placeholder with no way to include the
+real wording even after a human had checked it for anything
+identifying.
+
+Reviewing is also just editing — any queued notification, not only a
+held restricted one, can have its text tidied up before it sends, with
+no effect on send-eligibility for anything that wasn't held in the
+first place. A new **Approve** button clears a held row in one click
+without opening the editor, showing the real text in a confirmation
+prompt first; the editor's own Save does the same when it's the row
+that's being held. A church that would rather automate everything with
+nobody reviewing a queue can turn off queuing restricted partners'
+events entirely, from a new toggle next to the existing per-type queue
+switches — removing what the review requirement would otherwise apply
+to.
+
 ## [1.0.0] - 2026-11-05
 
 First release.
