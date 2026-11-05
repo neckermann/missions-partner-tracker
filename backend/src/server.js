@@ -33,6 +33,9 @@ const backupCheckRoutes = require("./routes/backupCheck");
 const backupsRoutes = require("./routes/backups");
 const inboundEmailRoutes = require("./routes/inboundEmail");
 const notificationRoutes = require("./routes/notifications");
+const publicSubscribeRoutes = require("./routes/publicSubscribe");
+const publicUnsubscribeRoutes = require("./routes/publicUnsubscribe");
+const adminScopedDigestRoutes = require("./routes/adminScopedDigest");
 const { startDigestScheduler } = require("./utils/digestScheduler");
 
 const app = express();
@@ -201,6 +204,9 @@ app.use("/api/backup-check", backupCheckRoutes); // protected (admin role only)
 app.use("/api/backups", backupsRoutes); // protected (admin role only)
 app.use("/api/inbound-email", inboundEmailRoutes); // mixed -- see that file's own comment
 app.use("/api/notifications", notificationRoutes); // protected (any role for read, admin/editor to flush)
+app.use("/api/public/subscribe", publicSubscribeRoutes); // open (public, feature-gated -- see that file's own comment)
+app.use("/api/public/unsubscribe", publicUnsubscribeRoutes); // open (public, feature-gated -- sibling of publicSubscribe, not nested under it)
+app.use("/api/scoped-digest", adminScopedDigestRoutes); // protected (any role for read)
 
 // Only exists at all if DEMO_RESET_TOKEN is configured — absent in every
 // normal deployment. See ADMIN_GUIDE.md § Demo mode.

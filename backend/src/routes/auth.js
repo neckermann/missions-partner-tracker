@@ -312,12 +312,18 @@ router.post("/mfa/disable", requireAuth, async (req, res, next) => {
 // enroll/disable above, just a plain toggle instead of a real
 // credential check (there's nothing sensitive being turned on here, so
 // no password confirmation needed the way MFA disable requires one).
+// Stopgap: still takes a plain { enabled } boolean so Account
+// Settings' current checkbox keeps working unchanged. Translates to
+// User.digestFrequency (#202's richer cadence + scope field, which
+// replaced the old notifyByEmail: Boolean) -- "on" means a default
+// weekly cadence until a later phase adds a real cadence/scope picker
+// here; "off" means null, same as notifyByEmail: false always meant.
 router.put("/notify-by-email", requireAuth, async (req, res, next) => {
   try {
     const enabled = Boolean(req.body?.enabled);
     const user = await prisma.user.update({
       where: { id: req.user.id },
-      data: { notifyByEmail: enabled },
+      data: { digestFrequency: enabled ? "weekly" : null },
     });
     res.json({ user: sanitizeUser(user) });
   } catch (err) {
@@ -376,7 +382,7 @@ router.get("/unsubscribe", async (req, res) => {
     return res.status(400).send(page("This unsubscribe link isn't valid."));
   }
 
-  await prisma.user.updateMany({ where: { id: decoded.id }, data: { notifyByEmail: false } });
+  await prisma.user.updateMany({ where: { id: decoded.id }, data: { digestFrequency: null } });
   res.send(page("You've been unsubscribed from email notifications."));
 });
 
@@ -395,7 +401,12 @@ function sanitizeUser(user) {
     role: user.role,
     authProvider: user.authProvider,
     mfaEnabled: user.mfaEnabled,
-    notifyByEmail: user.notifyByEmail,
+    // Derived boolean, not the stored shape -- keeps the existing
+    // Account Settings checkbox working unchanged until a later phase
+    // adds a real cadence/scope picker reading digestFrequency directly
+    // (see PUT /notify-by-email's own comment above for the same
+    // stopgap on the write side).
+    notifyByEmail: !!user.digestFrequency,
   };
 }
 

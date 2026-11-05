@@ -425,8 +425,14 @@ function buildSubject(template, churchName, churchSettings, recipientName) {
 // before any individual send is attempted (e.g. Postmark isn't
 // configured), which the caller treats as the whole phase failing.
 async function sendPendingNotificationsDigest(blurbs) {
+  // notifyByEmail: true always meant "subscribed" here -- replaced by
+  // #202's richer digestFrequency field (null = not subscribed, a
+  // value = which cadence), but this internal digest's own schedule is
+  // still ChurchSettings.digestFrequency, not the per-user one, so any
+  // non-null value here still just means "send me the one shared
+  // digest" until a later phase makes this scoped-digest-aware.
   const recipients = await prisma.user.findMany({
-    where: { notifyByEmail: true, active: true },
+    where: { digestFrequency: { not: null }, active: true },
     select: { id: true, email: true, name: true },
   });
   if (recipients.length === 0) return false;

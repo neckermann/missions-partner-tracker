@@ -93,6 +93,14 @@ const FEATURES = {
     group: "admin",
     section: "communications",
   },
+  publicPrayerDigest: {
+    label: "Public prayer digest",
+    description:
+      "Lets anyone subscribe (no login) to email digests of prayer-request updates, for all partners or specific ones they follow. Also requires Public directory and Email (Sending) to be on.",
+    defaultEnabled: false,
+    group: "admin",
+    section: "communications",
+  },
   inboundEmail: {
     label: "Email (Receiving)",
     description: "Receive email through a configured Postmark account, matched to partners automatically.",

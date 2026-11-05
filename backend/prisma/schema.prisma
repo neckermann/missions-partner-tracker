@@ -108,20 +108,24 @@ model Partner {
   // Partner update: doing that meant deleting and recreating every child
   // row on each save, which churned their ids and silently destroyed rows
   // added through the collection's own endpoint in the meantime.
-  addresses            Address[]
-  trips                Trip[]
-  churchVisits         ChurchVisit[]
-  supportEntries       SupportEntry[]
+  addresses                Address[]
+  trips                    Trip[]
+  churchVisits             ChurchVisit[]
+  supportEntries           SupportEntry[]
   // Named needRequests, not supportNeeds, to avoid colliding with the
   // ministry-need narrative text this app used to carry under that name.
-  needRequests         SupportNeed[]
-  prayerRequests       PrayerRequest[]
-  files                PartnerFile[]
+  needRequests             SupportNeed[]
+  prayerRequests           PrayerRequest[]
+  files                    PartnerFile[]
   // Full upload history, not just the current one — see the Photo model.
   // The "current" photo (what the admin UI and public site show) is
   // whichever has the latest receivedDate, not just the latest upload.
-  photos               Photo[]
-  pendingNotifications PendingNotification[]
+  photos                   Photo[]
+  pendingNotifications     PendingNotification[]
+  // Scoped-digest follows (#202) -- who's opted into updates for just
+  // this partner, rather than every partner. Two sources, same shape.
+  followedByUsers          UserFollowedPartner[]
+  publicSubscriberPartners PublicSubscriberPartner[]
 
   // --- Missionary-only collections (always empty for an organization) ---
   adults         Adult[]
@@ -420,7 +424,7 @@ model PartnerFile {
   // (that's the overwhelming majority of what actually arrives from a
   // partner) -- an admin who finds one mis-filed just edits `kind` via
   // the normal PUT, no separate "reclassify" action needed.
-  kind String // "newsletter" | "survey_response" | "signed_policy" | "email" | "office_document" | "other"
+  kind       String // "newsletter" | "survey_response" | "signed_policy" | "email" | "office_document" | "other"
   // Free-typed label, only used when kind is "other".
   customKind String?
 
@@ -510,6 +514,21 @@ model PendingNotification {
   reviewedAt   DateTime?
   reviewedById String?
   reviewedText String?   @db.Text
+
+  // One stamp per scoped-digest cadence tier (#202), not one per
+  // audience -- a single weekly-tier send pass considers every User and
+  // PublicSubscriber on that tier at once, so a row only needs one "did
+  // the weekly pass get to this" marker, not a separate admin-weekly and
+  // public-weekly pair. A single shared stamp set by whichever tier
+  // fires first (weekly, being most frequent) would permanently
+  // suppress the slower tiers from ever receiving the row at all, not
+  // just delay them -- that's why there are three of these, not one.
+  // See utils/notificationFlush.js's tierApplies() for the per-row,
+  // per-tier eligibility check these pair with, and utils/scopedDigest.js
+  // for the send pass that writes them.
+  weeklyDigestSentAt   DateTime?
+  biweeklyDigestSentAt DateTime?
+  monthlyDigestSentAt  DateTime?
 
   @@index([type])
   @@index([partnerId])
@@ -705,6 +724,26 @@ model ChurchSettings {
   digestHour       Int? // 0 - 23, church's own server-local hour
   lastDigestSentAt DateTime?
 
+  // Schedule for the scoped digest (#202) -- named for the mechanism,
+  // not either audience, since both admin (User) and public
+  // (PublicSubscriber) recipients ride the same three tiers. Genuinely
+  // independent of digestFrequency/etc. above, which drive the
+  // PendingNotification-review-gated internal digest's own schedule --
+  // a church can run these on different days/hours. Weekly and biweekly
+  // share scopedDigestDayOfWeek (same "only the minimum gap tells them
+  // apart" trick digestFrequency/digestDayOfWeek already use -- see
+  // digestScheduler.js's shouldFlushNow); monthly uses
+  // scopedDigestDayOfMonth instead. A separate lastSentAt cursor per
+  // tier, not one shared one, since weekly/biweekly/monthly fire on
+  // different cycles and must each independently dedupe within their
+  // own matching hour.
+  scopedDigestDayOfWeek          Int?
+  scopedDigestDayOfMonth         Int?
+  scopedDigestHour               Int?
+  lastWeeklyScopedDigestSentAt   DateTime?
+  lastBiweeklyScopedDigestSentAt DateTime?
+  lastMonthlyScopedDigestSentAt  DateTime?
+
   // Per-type queue switches -- independent of which channel(s) are on,
   // and independent of any one user's own notifyByEmail opt-in above.
   // Default true (matches this app's behavior before #129: every event
@@ -712,9 +751,9 @@ model ChurchSettings {
   // requests can turn the others off at the source -- an event type
   // that's off never creates a PendingNotification row at all, so
   // neither channel nor the review page ever sees it.
-  queueNotifyPrayerRequests Boolean @default(true)
-  queueNotifyOneTimeNeeds   Boolean @default(true)
-  queueNotifyNewsletters    Boolean @default(true)
+  queueNotifyPrayerRequests     Boolean @default(true)
+  queueNotifyOneTimeNeeds       Boolean @default(true)
+  queueNotifyNewsletters        Boolean @default(true)
   // A fourth, cross-cutting switch (#187), not a peer event type: off
   // means a restricted partner's event is never queued at all, for any
   // of the three types above -- the cleanest opt-out for a church that
@@ -744,7 +783,7 @@ model ChurchSettings {
   // their items -- see partnerTileDetails() in utils/emailDigest.js).
   // Null/unset means "classic", so every church's digest looks exactly
   // the same as before this field existed until one opts in.
-  digestTemplate         String? // "classic" | "snapshot"
+  digestTemplate        String? // "classic" | "snapshot"
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -792,11 +831,83 @@ model User {
   mfaSetupRequired Boolean @default(false)
 
   // Opt-in per user, self-service from Account Settings -- same pattern
-  // as MFA above. Whether this user receives the batched notification
-  // digest email (see #129, utils/emailDigest.js); off by default, same
-  // "nobody gets opted into something they didn't ask for" reasoning as
-  // every other notification channel in this app. Flipped off directly
-  // by the signed unsubscribe link in every digest email's footer, no
-  // login required (see routes/account.js).
-  notifyByEmail Boolean @default(false)
+  // as MFA above. null = not subscribed to the batched notification
+  // digest email (see #129, utils/emailDigest.js; #202 for the cadence
+  // choice); a value is which of the three cadence tiers this user
+  // picked, same options ChurchSettings.digestFrequency itself offers.
+  // Replaces the old notifyByEmail: Boolean (true always meant "whatever
+  // the church's single schedule is") -- one nullable field for
+  // "subscribed at all" and "to what cadence" together, same convention
+  // as PendingNotification.reviewedAt, not two fields that could
+  // disagree. Flipped to null directly by the signed unsubscribe link in
+  // every digest email's footer, no login required (see this file's own
+  // /unsubscribe route).
+  digestFrequency  String? // "weekly" | "biweekly" | "monthly" | null
+  // Scope for this user's own digest, independent of the church-wide
+  // schedule above -- mirrors PublicSubscriber's identical shape (#202).
+  // false means only the partners in followedPartners below; true (the
+  // default, matching every existing subscriber's current behavior)
+  // means every partner this user's role can already see.
+  allPartners      Boolean               @default(true)
+  followedPartners UserFollowedPartner[]
+}
+
+// Join rows for a user's specific-partner digest scope (#202) -- only
+// populated when User.allPartners is false. Identical shape to
+// PublicSubscriberPartner below, intentionally -- same mechanism, two
+// different subscriber sources.
+model UserFollowedPartner {
+  userId    String
+  partnerId String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@id([userId, partnerId])
+  @@index([partnerId])
+}
+
+// A public, no-login email subscription to prayer-request updates (#202).
+// Deliberately NOT built on PendingNotification/#187's review queue --
+// that queue fires on every event before any admin has looked at it,
+// which is why it needs its own review gate for restricted content; this
+// feature instead rides the exact same PendingNotification rows once
+// they're no longer held, the same way an admin subscriber already does.
+// See PendingNotification's three new tier-stamp columns and
+// utils/scopedDigest.js for the shared send-pass both subscriber types
+// go through.
+//
+// Double opt-in: confirmedAt null means "never confirmed, never sent
+// to." A row is created unconfirmed on POST /api/public/subscribe and
+// only starts receiving digests once the emailed confirmation link is
+// clicked.
+model PublicSubscriber {
+  id          String    @id @default(uuid())
+  email       String    @unique
+  confirmedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  // Which of the three cadence tiers this subscriber picked -- same
+  // three options ChurchSettings.digestFrequency and User.digestFrequency
+  // above both already use.
+  frequency String @default("weekly") // "weekly" | "biweekly" | "monthly"
+
+  // Same all-vs-specific shape as User.allPartners above.
+  allPartners    Boolean                   @default(true)
+  scopedPartners PublicSubscriberPartner[]
+
+  @@index([confirmedAt])
+}
+
+// Join rows for a public subscriber's specific-partner scope -- only
+// populated when PublicSubscriber.allPartners is false. See
+// UserFollowedPartner's own comment above for why this is a separate,
+// identically-shaped table rather than one polymorphic one.
+model PublicSubscriberPartner {
+  subscriberId String
+  partnerId    String
+  subscriber   PublicSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  partner      Partner          @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@id([subscriberId, partnerId])
+  @@index([partnerId])
 }
