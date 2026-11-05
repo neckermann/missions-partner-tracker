@@ -49,7 +49,14 @@ a {
 .admin-sidebar {
   width: 230px;
   flex-shrink: 0;
-  min-height: 100vh;
+  /* height (not min-height): with Site Administration expanded, the nav
+     list can run taller than the viewport. Capping the box here and
+     scrolling it internally is what lets you actually reach Log out --
+     previously the box just grew past the viewport with no way to bring
+     its lower items into view short of scrolling almost to the very
+     bottom of a long page. */
+  height: 100vh;
+  overflow-y: auto;
   background: var(--brand-color, #2a5d3c);
   color: white;
   padding: 1.5rem 1rem;
@@ -165,7 +172,8 @@ a {
   }
   .admin-sidebar {
     width: 100%;
-    min-height: auto;
+    height: auto;
+    overflow-y: visible;
     position: static;
   }
 }
