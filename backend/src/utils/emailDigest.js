@@ -142,19 +142,20 @@ function formatAddress(address) {
   return [line1, cityStateZip, address.country].filter(Boolean).join(", ") || null;
 }
 
-// The footer's church-contact block -- mailing address, phone, website,
-// each included only if actually configured. A real mailing address in
-// a periodic bulk email's footer is expected practice (CAN-SPAM), not
-// just a nice-to-have. Deliberately not aboutText (the public-site
-// blurb) -- written for a different audience/length than a plain email
-// footer calls for.
-function buildContactLines(churchSettings) {
+// The footer's church-contact block -- church name, mailing address,
+// phone, website, each included only if actually configured (churchName
+// always is, via renderDigestEmail's own fallback). A real mailing
+// address in a periodic bulk email's footer is expected practice
+// (CAN-SPAM), not just a nice-to-have. Deliberately not aboutText (the
+// public-site blurb) -- written for a different audience/length than a
+// plain email footer calls for.
+function buildContactLines(churchSettings, churchName) {
   const address = formatAddress(churchSettings?.address);
   const phone = churchSettings?.phone || null;
   const website = churchSettings?.websiteLink || null;
 
-  const html = [];
-  const text = [];
+  const html = [`<strong>${escapeHtml(churchName)}</strong>`];
+  const text = [churchName];
   if (address) {
     html.push(escapeHtml(address));
     text.push(address);
@@ -213,7 +214,7 @@ function renderDigestEmail(blurbs, churchSettings, unsubscribeUrl, recipientName
   const signatureHtml = signature
     ? `<p style="margin:20px 4px 0;font-size:14px;line-height:1.5;color:#444;">${nl2br(signature)}</p>`
     : "";
-  const contactLines = buildContactLines(churchSettings);
+  const contactLines = buildContactLines(churchSettings, churchName);
   const contactHtml = contactLines.html.length
     ? `<p style="margin:0 0 6px;">${contactLines.html.join("<br>")}</p>`
     : "";
@@ -229,7 +230,7 @@ function renderDigestEmail(blurbs, churchSettings, unsubscribeUrl, recipientName
         ${groups.map((g) => renderPartnerHtml(g, accentColor, highlightColor)).join("")}
         ${signatureHtml}
       </div>
-      <div style="margin-top:12px;padding:16px 4px 0;border-top:1px solid #e5e2d8;font-size:12px;color:#888;line-height:1.5;">
+      <div style="margin-top:12px;padding:16px 4px 0;border-top:1px solid #e5e2d8;font-size:12px;color:#888;line-height:1.5;text-align:center;">
         ${contactHtml}
         <p style="margin:0 0 6px;">You're receiving this because email notifications are turned on for your account.</p>
         ${unsubscribeUrl ? `<p style="margin:0;"><a href="${unsubscribeUrl}" style="color:#888;">Unsubscribe</a></p>` : ""}
