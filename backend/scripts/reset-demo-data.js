@@ -49,7 +49,9 @@ async function resolveGroupmeConfig() {
       if (!name) return null;
       const topic = topics.find((t) => t.name === name);
       if (!topic) {
-        console.warn(`GroupMe topic "${name}" (${envVar}) not found in group "${groupName}" -- leaving unset.`);
+        console.warn(
+          `GroupMe topic "${name}" (${envVar}) not found in group "${groupName}" -- leaving unset.`
+        );
       }
       return topic;
     };
