@@ -16,7 +16,7 @@ backend's own deploy is the whole app.
 
 | Piece | What it is |
 |---|---|
-| **Database** | PostgreSQL, any host (this project's reference deployment uses [Neon](https://neon.tech)) |
+| **Database** | PostgreSQL, any host — the Render Blueprint deploy (see [Getting your church running](#getting-your-church-running-render) below) provisions its own Render-managed Postgres automatically |
 | **App** | Node/Express + Prisma ORM (`backend/`), serving the built React/Vite frontend (`frontend/`) directly — public site + admin dashboard + API, all one deployable origin |
 
 Auth is an `httpOnly`, `Secure`, `SameSite=Lax` session cookie — since
@@ -108,7 +108,7 @@ full file with inline comments):
 | `DATABASE_URL` | Yes | Any Postgres connection string |
 | `PORT` | No | Defaults to 4000 |
 | `NODE_ENV` | No | `development` or `production` |
-| `SESSION_SECRET` | Yes | Signs the session cookie (see [Authentication setup](#authentication-setup)). Generate a long random value, e.g. `openssl rand -base64 48`. See [Rotating SESSION_SECRET](#rotating-sessionsecret) below |
+| `SESSION_SECRET` | Yes | Signs the session cookie (see [Authentication setup](#authentication-setup)). Generate a long random value, e.g. `openssl rand -base64 48`. See [Rotating SESSION_SECRET](#rotating-session_secret) below |
 | `FIELD_ENCRYPTION_KEY` | Recommended | Encrypts two-factor (MFA) secrets at rest. Generate with `npm run generate-secrets`. Without it the app still runs, but MFA enrollment fails. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
@@ -144,7 +144,7 @@ features (everything else, which only changes a logged-in admin's own nav).
 | Reports | On | Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history, furlough — with CSV download and a print view. |
 | GroupMe notifications | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule (or manual send) configured at Site Administration → Notifications. Configured entirely in the UI (Site Administration → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only). |
 | Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Site Administration → Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
-| AI request scanning | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Site Administration → AI Request Scanning ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
+| AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Site Administration → AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 | Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Site Administration → Email. Today's only sender is the batched notification digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
 | Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Site Administration → Email page as Sending, independently toggled. See [§ Email (Postmark)](#email-postmark) below. |
 
@@ -154,12 +154,14 @@ check on the relevant route(s), not a database migration.
 
 All of this lives under **Site Administration**, an expandable group in
 the admin sidebar itself (not a separate page with its own tab bar) —
-click it to reveal Manage Users, Branding, Enabled Features, About
-Church, GroupMe, Joshua Project, AI Request Scanning, and Email. User Management
-moved here from its own top-level nav link. Adding a new settings category
-later is a new entry in
-`SITE_ADMIN_LINKS` (`components/admin/AdminSidebar.jsx`) plus a new child
-route in `main.jsx`, not a restructure.
+click it to reveal About Church, Manage Users, Branding, Enabled
+Features, and Backups, then two further sub-groups shown only once
+their features are on: **Communications** (Email, GroupMe,
+Notifications) and **Integrations** (AI Features, Joshua Project). User
+Management moved here from its own top-level nav link. Adding a new
+settings category later is a new entry in `buildSiteAdminLinks()`
+(`components/admin/AdminSidebar.jsx`) plus a new child route in
+`main.jsx`, not a restructure.
 
 ## Authentication setup
 
@@ -179,7 +181,7 @@ created deliberately, by an admin.
 
 A few things worth knowing operationally:
 - `SESSION_SECRET` is what signs the session cookie — see
-  [Rotating SESSION_SECRET](#rotating-sessionsecret) below before you
+  [Rotating SESSION_SECRET](#rotating-session_secret) below before you
   ever need to do this in a hurry.
 - `FIELD_ENCRYPTION_KEY` encrypts two-factor (MFA) secrets in
   the database — see
@@ -539,7 +541,7 @@ one request, which this app stores as a `.eml` file, exactly like a
 manually-uploaded newsletter. If the sender's address matches exactly
 one partner — either that partner's own Contact Email (organizations) or
 any of their household adults' email addresses (missionaries) — it's
-filed as a Newsletter automatically, scannable by AI Request Scanning
+filed as a Newsletter automatically, scannable by AI Features
 like any other. If zero partners match, or more than one does, it lands
 in the **Unmatched Emails** queue instead of guessing, where any
 logged-in admin or editor can view the raw email and assign it to the
@@ -567,7 +569,7 @@ right partner (or an admin can discard it). Setup:
    (Sending)** is also on.
 
 **Data exposure**, same honesty this guide already applies to GroupMe and
-AI Request Scanning: mail sent or received this way passes through
+AI Features: mail sent or received this way passes through
 Postmark's infrastructure in transit. Postmark's data centers carry SOC
 2 Type II / ISO 27017/27018 / PCI DSS Level 1 compliance, with TLS in
 transit and encryption at rest; Postmark itself (distinct from its data
@@ -603,6 +605,26 @@ sent it successfully — if one channel fails, the item stays queued and
 only retries that channel next time, never re-sending to a channel that
 already succeeded. Turning both channels off entirely just leaves the
 queue parked, rather than silently discarding it.
+
+A restricted-access partner's items are masked on both channels — name
+reduced to initials, request/need text replaced with a generic notice,
+no source link — computed fresh from the partner's *current*
+`isRestricted` value at send time, not from whatever it was when the
+item was first queued, so flipping that flag after something's already
+queued still takes effect. This exists because both channels leave the
+app's own auth boundary (a GroupMe group can include non-admin members;
+a digest email can sit in an inbox that gets forwarded) — the same
+exposure `isPublic`/`isRestricted` masking already guards against on the
+public site.
+
+The email digest's own appearance — subject line (token-based, e.g.
+`{date} {church} - {term} Updates`), an optional signature line, and a
+choice between a plain Classic layout or a Snapshot layout (adds each
+partner's photo/field/overview to their card) — is admin-configurable on
+the same Notifications page, independent of the schedule/channel
+settings above. GroupMe's own messages are plain text and have no
+equivalent styling to configure. Full walkthrough of each control:
+[USER_GUIDE.md § Digest Customization](USER_GUIDE.md#digest-customization).
 
 The schedule itself (Site Administration → Notifications) is a plain
 day/time an admin picks — weekly, biweekly, or monthly — checked once a
@@ -641,7 +663,7 @@ trusted people can reach).
 contains unmasked data for every partner, including restricted ones
 (real names, exact locations), and every user's password hash and
 encrypted two-factor secret. Treat it accordingly, and if one is ever
-exposed, rotate [`SESSION_SECRET`](#rotating-sessionsecret) immediately.
+exposed, rotate [`SESSION_SECRET`](#rotating-session_secret) immediately.
 
 A periodic banner also reminds every admin to confirm their provider's
 own backup settings (dismissible for ~30 days at a time, per browser). If

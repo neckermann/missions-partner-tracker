@@ -15,12 +15,17 @@ organization partners.
   policies, other correspondence), a printable partner booklet export, and
   user management with role-based permissions.
 - **White-labeling**: Branding and About Church screens control the
-  church's name, logo, brand color, and the term it uses for its partners
-  (e.g. "Go Team Partners" instead of "Missionaries") — everything else in
-  the app reads from that instead of hardcoded copy.
-- **GroupMe notifications**: connect a GroupMe group and pick a Topic, and
-  every new prayer request posts there automatically — off by default, no
-  code changes to turn on.
+  church's name, logo, three independent brand colors plus a font choice,
+  and the term it uses for its partners (e.g. "Go Team Partners" instead
+  of "Missionaries") — everything else in the app reads from that instead
+  of hardcoded copy.
+- **Notifications**: new prayer requests, one-time needs, and newsletters
+  queue for review instead of posting instantly, then go out together —
+  on a schedule or on demand — to GroupMe and/or a branded email digest
+  (via Postmark; also handles inbound email, auto-filing a reply as a
+  Newsletter when it matches a partner). A restricted-access partner's
+  items are masked on both channels, the same way they are on the public
+  site.
 - **Unreached-people-group data**: a partner's page can pull live country
   statistics from the [Joshua Project](https://joshuaproject.net/) —
   population, primary religion, percent evangelical, how reached the
@@ -31,10 +36,19 @@ organization partners.
   [ADMIN_GUIDE.md § Authentication setup](ADMIN_GUIDE.md#authentication-setup)
   for why. Sessions are secured with an `httpOnly` cookie, never exposed to
   client-side JavaScript.
-- **Database**: PostgreSQL via Prisma ORM. Works with any Postgres — this
-  project's reference deployment uses [Neon](https://neon.tech).
+- **Database**: PostgreSQL via Prisma ORM. Works with any Postgres host —
+  the one-click [Render](https://render.com) deploy below provisions its
+  own Render-managed Postgres automatically, no separate database
+  account needed.
 
 ## Deploy
+
+**[Render](https://render.com) is the recommended way to run this for your
+own church** — one-click, no command line or database to manage, about
+$13/mo. See [ADMIN_GUIDE.md § Getting your church running (Render)](ADMIN_GUIDE.md#getting-your-church-running-render)
+for the full walkthrough; other hosting options exist too (see
+[ADMIN_GUIDE.md § Deploying to production](ADMIN_GUIDE.md#deploying-to-production))
+but need you to run the database and app yourself.
 
 > **Setting up your own church's instance? Don't use the button below.**
 > Its URL points at *this* repo and always will — a README button can't
@@ -96,7 +110,7 @@ task-oriented guides:
 |---|---|---|
 | Frontend | React 19 + Vite, React Router v6 | No CSS framework — plain CSS in `frontend/src/index.css` |
 | Backend | Node/Express, Prisma ORM | Serves the built frontend directly — one deployable origin, see [ADMIN_GUIDE.md § Deploying to production](ADMIN_GUIDE.md#deploying-to-production) |
-| Database | PostgreSQL (any host) | Prisma migrations in `backend/prisma/migrations`; also holds photo/newsletter/document files directly — no separate file storage to run |
+| Database | PostgreSQL (any host; Render's own Blueprint deploy provisions one automatically) | Prisma migrations in `backend/prisma/migrations`; also holds photo/newsletter/document files directly — no separate file storage to run |
 | Maps | Leaflet, OpenStreetMap tiles | Keyless, so a fork needs no tile account to deploy. Uses the single `tile.openstreetmap.org` host, never the deprecated `{s}` subdomains — that pattern breaks their [tile usage policy](https://operations.osmfoundation.org/policies/tiles/). A larger church should expect to point `TILE_URL` at its own provider |
 | Geocoding | OpenStreetMap Nominatim | Free, no API key; server-side and only on save. Geocodes to city level, never a street address. Set `NOMINATIM_CONTACT` to your own email — their policy requires a reachable contact |
 | Auth | httpOnly session cookie + bcrypt, `otplib`/`qrcode` (two-factor) | |

@@ -58,6 +58,8 @@ at your church.
 The sidebar (and the Home page's card grid, which mirrors it) lists:
 **Home**, [**Partners**](#the-partners-list) (or your church's custom
 term, e.g. "Go Team Partners," if enabled in Branding),
+[**Unmatched Emails**](#receiving) (inbound email only — see
+[Email](#email-admin-only) below),
 [**Monthly Support**](#financial-support--one-time-needs),
 [**One-Time Needs**](#financial-support--one-time-needs),
 [**Prayer Requests**](#prayer-requests),
@@ -66,18 +68,25 @@ term, e.g. "Go Team Partners," if enabled in Branding),
 [**Newsletters**](#newsletters), [**Documents**](#documents),
 [**Print Booklet**](#printable-partner-booklet), [**Reports**](#reports)
 — visible to everyone, each one only if its
-[feature toggle](ADMIN_GUIDE.md#feature-toggles) is on. **Site
-Administration**, an expandable group at the bottom of the
-sidebar, appears only for admins and holds
+[feature toggle](ADMIN_GUIDE.md#feature-toggles) is on.
+
+**Site Administration**, an expandable group at the bottom of the
+sidebar, appears only for admins and holds **About Church**,
 [**Manage Users**](#user-management-admin-only), **Branding**,
-[**Enabled Features**](ADMIN_GUIDE.md#feature-toggles),
-**About Church**, **Backups**, **GroupMe**, and **Email** —
-see [Church Settings](#church-settings-admin-only),
-[Database Backups](#database-backups-admin-only),
-[GroupMe notifications](#groupme-notifications-admin-only), and
-[Email (Admin only)](#email-admin-only) below. The
-footer has **My Account**, a link back to the public site, and **Log
-out**.
+[**Enabled Features**](ADMIN_GUIDE.md#feature-toggles), and
+[**Backups**](#database-backups-admin-only) up front, then two further
+sub-groups that only appear once their own features are on:
+
+- **Communications** — [**Email**](#email-admin-only),
+  [**GroupMe**](#groupme-notifications-admin-only), and
+  [**Notifications**](#notifications-admin-only) (the shared queue
+  behind both).
+- **Integrations** — [**AI Features**](#ai-features-admin-only) and
+  [**Joshua Project**](#joshua-project-admin-only).
+
+See [Church Settings](#church-settings-admin-only) for About Church and
+Branding. The footer has **My Account**, a link back to the public
+site, and **Log out**.
 
 ![The Home dashboard's card grid, mirroring the sidebar](docs/assets/screenshots/admin-home.png)
 
@@ -352,7 +361,7 @@ has made a call. Both **+ Add Need** and its Edit form have a **Source
 (optional)** dropdown listing that partner's newsletters and documents —
 pick one if you read it yourself and typed the need in, or leave it as
 "None." A need pointed at a source this way, or added automatically by
-[AI Request Scanning](#ai-request-scanning-admin-only), shows a
+[AI Features](#ai-features-admin-only), shows a
 "From: ..." link back to that file, rendered the same either way.
 
 ![The One-Time Needs page, with status pills per need](docs/assets/screenshots/one-time-needs.png)
@@ -472,7 +481,7 @@ or leave it as "None."
 The central **Prayer Requests** page lists every request across every
 partner, filterable by category, with a running count of how many have
 been answered so far. A request pointed at a source this way, or added
-automatically by [AI Request Scanning](#ai-request-scanning-admin-only),
+automatically by [AI Features](#ai-features-admin-only),
 shows a "From: ..." link back to that file, rendered the same either way.
 
 ![The central Prayer Requests page, newest first across every partner](docs/assets/screenshots/prayer-requests-list.png)
@@ -565,9 +574,25 @@ everywhere, with no code changes needed:
   keeping everyone in sync after an address or contact change. It's
   deliberate, not automatic: saving About Church alone never touches any
   partner on its own.
-- **Branding** — Public Site (tagline, about text, brand color), Logo,
-  and Partner Terminology (swap "Missionary" for whatever your church
-  calls them, and optionally use that term in the admin nav too).
+- **Branding** — Public Site (tagline, about text, three independent
+  colors, plus a font choice), Logo, and Partner Terminology (swap
+  "Missionary" for whatever your church calls them, and optionally use
+  that term in the admin nav too). Each color controls a different part
+  of the app, so a church can genuinely style itself rather than
+  tinting everything the same shade:
+  - **Header Color** — the header bar and the admin sidebar background.
+  - **Accent Color** — buttons, links, headings, and report
+    letterheads — the color people actually associate with the church.
+  - **Highlight Color** — hover, focus, and active/selected states, e.g.
+    a button on hover or the current nav item.
+
+  All three also flow into the [email digest](#digest-customization)'s
+  Snapshot layout and its masthead/buttons, so the digest looks like the
+  same product as the rest of the site, not a separately-styled email.
+  **Reset to Default** clears all three colors and the font back to the
+  built-in look in one click; changing nothing leaves every surface at
+  its current built-in default, the same visual look as before this
+  feature existed.
 
 ![The About Church page, with Church Info and address fields](docs/assets/screenshots/about-church.png)
 
@@ -667,6 +692,43 @@ actually sent it — if GroupMe is down but email goes out fine, that item
 stays queued and only retries GroupMe next time, rather than going out
 to email twice.
 
+A partner marked **Restricted-access** (see [Understanding
+restricted-access partners](#understanding-restricted-access-partners))
+shows a **Restricted** badge on its queued items here, and its name,
+request/need text, and any source link are masked the same way they are
+everywhere else a restricted partner appears — the real content never
+reaches either channel. Any item, restricted or not, can be removed from
+the queue without sending it with the **Clear** button on its row.
+
+### Digest Customization
+
+Everything here controls the **email digest specifically** — GroupMe's
+own message format doesn't change, since GroupMe is plain text and has
+no layout/subject/signature of its own to customize:
+
+- **Layout** — **Classic** (plain text-only partner cards) or
+  **Snapshot** (adds each partner's photo — or a generic silhouette if
+  they don't have one, or if they're restricted-access — field, how long
+  the church has supported them, and a short overview above their
+  items). Classic is the default; switching to Snapshot doesn't change
+  what's masked for a restricted partner, only how the rest of the card
+  looks.
+- **Subject line** — leave blank for the default
+  (`{date} {church} - {term} Updates`), or write your own using any of
+  `{church}`, `{month}`, `{year}`, `{date}`, `{frequency}`,
+  `{name}` (the recipient's own name), and `{term}` (the Partner
+  Terminology set on [Branding](#church-settings-admin-only)).
+- **Signature** — an optional closing line (a verse, "Questions? Contact
+  us," etc.) shown above the unsubscribe link.
+
+Below are the same batch of items from the Snapshot example rendered as
+both an actual email, Classic on the left and Snapshot on the right, so
+you can see exactly what changes between the two before picking one.
+
+| Classic | Snapshot |
+| --- | --- |
+| ![An example Classic-layout digest email](docs/assets/screenshots/digest-email-classic.png) | ![An example Snapshot-layout digest email, including a restricted partner's masked card](docs/assets/screenshots/digest-email-snapshot.png) |
+
 ## Joshua Project (Admin only)
 
 Shows country-level unreached-people-group statistics — population,
@@ -687,7 +749,7 @@ A key alone doesn't show anything — turn on **Joshua Project stats** in
 it shows up everywhere it always has: a partner's admin page and public
 page, wherever a Country Code is on file.
 
-## AI Request Scanning (Admin only)
+## AI Features (Admin only)
 
 Adds a **Scan for requests** button on each newsletter/document that's
 PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one
@@ -713,7 +775,7 @@ feature is turned on, via the **Source** dropdown on each request/need's
 Add or Edit form — see [Prayer Requests](#prayer-requests) and
 [Financial support & one-time needs](#financial-support--one-time-needs).
 
-Setup, on the **AI Request Scanning** page under Site Administration, is
+Setup, on the **AI Features** page under Site Administration, is
 one step: paste an API key from
 [console.anthropic.com](https://console.anthropic.com/settings/keys) and
 **Save API Key** — write-only once saved, same as a password field;
@@ -721,25 +783,31 @@ leave it blank on a later save to keep the existing one. Usage is
 pay-per-scan on the key owner's Anthropic account — a few cents/month at
 typical volume, not a flat fee.
 
-![The AI Request Scanning settings page, with an API key saved](docs/assets/screenshots/ai-extraction-settings.png)
+![The AI Features settings page, with an API key saved](docs/assets/screenshots/ai-extraction-settings.png)
 
-A key alone doesn't turn anything on — turn on **AI request scanning**
+A key alone doesn't turn anything on — turn on **AI Features**
 in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) to actually show
 the Scan for requests button.
 
 ## Email (Admin only)
 
-Outbound email, sent through [Postmark](https://postmarkapp.com), a
-dedicated email delivery service — not through this church's own Gmail or
-Microsoft account. See
+One **Email** page under Site Administration, with two independent
+halves — **Sending** and **Receiving** — each with its own on/off switch.
+Both go through [Postmark](https://postmarkapp.com), a dedicated email
+delivery service, not through this church's own Gmail or Microsoft
+account. See
 [ADMIN_GUIDE.md § Email (Postmark)](ADMIN_GUIDE.md#email-postmark) for
-why. Once turned on, this is the email half of the
+why. Turn on just the one you actually use — a church that only wants
+the digest doesn't need Receiving on, and vice versa.
+
+![The Email settings page, Sending and Receiving both configured](docs/assets/screenshots/email-settings.png)
+
+### Sending
+
+Once turned on, this is the email half of the
 [Notifications](#notifications-admin-only) queue above — an opted-in
 user gets one digest email covering everything currently queued, instead
-of one email per item.
-
-Setup, on the **Email** page under Site Administration, builds up in
-steps:
+of one email per item. Setup builds up in steps:
 
 1. Create a free account at [postmarkapp.com](https://postmarkapp.com),
    verify a sending domain there (adds SPF/DKIM records to that domain's
@@ -761,13 +829,43 @@ actually delivering anything or requiring a verified domain, confirming
 the settings/token/API call path works. Swap in a real token once you
 have a verified domain to actually receive mail.
 
-![The Email settings page, configured and tested](docs/assets/screenshots/email-settings.png)
-
 Each user decides for themselves whether they get the digest — there's
 no admin-managed recipient list. Turn it on from
 [Your account settings](#your-account-settings); every digest also
 carries its own one-click unsubscribe link, which turns it back off
 without needing to log in.
+
+### Receiving
+
+Lets a missionary or organization email an update straight into the app
+instead of you having to download and upload it yourself. Point partners
+to a dedicated inbox address (never the church's own real inbox — see
+[ADMIN_GUIDE.md § Email (Postmark)](ADMIN_GUIDE.md#email-postmark) for
+the webhook setup itself, which is a one-time admin/infra step). When an
+email arrives:
+
+- If the sender's address matches **exactly one** partner — either that
+  organization's own Contact Email, or any household adult's email on a
+  missionary's record — it's filed automatically as a **Newsletter** on
+  that partner (title = the email's subject, the original `.eml` as the
+  file), and notifies the same way a manually-uploaded newsletter does
+  (GroupMe/email digest, if those are on; [AI Features](#ai-features-admin-only)
+  can scan it the same as any other newsletter). Nothing to do — it just
+  shows up on that partner's record.
+- If the sender's address matches **no partner, or more than one** (two
+  partners happen to share a household-adult email, for instance),
+  there's no safe guess to make — it lands in the **Unmatched Emails**
+  queue instead, visible to any logged-in role.
+
+**Unmatched Emails** (its own nav item, next to Partners) lists what's
+waiting: From, Subject, Received. **View raw** opens the original email.
+**Assign** (editor or admin) picks the right partner and files it as a
+Newsletter on that partner, the same outcome as if it had matched
+automatically. **Discard** (admin only) removes it permanently with a
+confirmation prompt — for spam or anything that was never meant to be
+filed at all.
+
+![The Unmatched Emails queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
 
 ## User management (Admin only)
 
