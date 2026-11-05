@@ -574,7 +574,7 @@ describe("GET /api/notifications/pending -- any logged-in role", () => {
     );
   });
 
-  test("a restricted partner's notification is masked -- initials name, generic body, isRestricted flagged", async () => {
+  test("a restricted partner's notification masks name/photo/source link but shows the real text to any role", async () => {
     const restrictedPartner = await admin("/api/partners", {
       method: "POST",
       body: { kind: "missionary", displayName: `${FIXTURE_TAG} Jordan Rivera`, isRestricted: true },
@@ -590,23 +590,30 @@ describe("GET /api/notifications/pending -- any logged-in role", () => {
     assert.equal(created.status, 201, JSON.stringify(created.body));
 
     try {
-      const res = await admin("/api/notifications/pending");
-      assert.equal(res.status, 200);
-      const item = res.body.find((i) => i.partnerId === restrictedId);
-      assert.ok(item, "the restricted partner's notification should still be queued and visible");
-      assert.equal(item.isRestricted, true);
-      assert.ok(
-        !item.partnerName.includes("Jordan") && !item.partnerName.includes("Rivera"),
-        `real name must not leak: ${item.partnerName}`
-      );
-      assert.notEqual(item.bodyText, requestText, "the real request text must not leak");
-      assert.ok(item.bodyText.includes("withheld"), item.bodyText);
-      assert.equal(item.sourceLinkUrl, null, "no source link for a restricted partner's notification");
-      // #187: an unreviewed restricted real-content row stays unconditionally
-      // masked (this test's assertions above are unchanged), and is flagged
-      // as held from sending until an admin reviews it.
-      assert.equal(item.needsReview, true);
-      assert.equal(item.reviewedAt, null);
+      // Structural masking (name, photo, source link) applies regardless
+      // of role -- that's the real security boundary (public vs. admin
+      // dashboard). The request/need text itself is not role-gated here,
+      // same as GET /api/prayer-requests/GET /api/support-needs already
+      // show it to any logged-in role with no masking at all -- so a
+      // held row's real text shows up the same way for every role.
+      for (const asRole of [admin, editor, viewer]) {
+        const res = await asRole("/api/notifications/pending");
+        assert.equal(res.status, 200);
+        const item = res.body.find((i) => i.partnerId === restrictedId);
+        assert.ok(item, "the restricted partner's notification should still be queued and visible");
+        assert.equal(item.isRestricted, true);
+        assert.ok(
+          !item.partnerName.includes("Jordan") && !item.partnerName.includes("Rivera"),
+          `real name must not leak: ${item.partnerName}`
+        );
+        assert.equal(item.bodyText, requestText, "the real text should show, not the generic placeholder");
+        assert.equal(item.sourceLinkUrl, null, "no source link for a restricted partner's notification");
+        // #187: an unreviewed restricted real-content row stays held
+        // from sending until an admin/editor reviews it, regardless of
+        // who's asking or that they can already see the text.
+        assert.equal(item.needsReview, true);
+        assert.equal(item.reviewedAt, null);
+      }
     } finally {
       await prisma.pendingNotification.deleteMany({ where: { partnerId: restrictedId } });
       await prisma.partner.delete({ where: { id: restrictedId } }).catch(() => {});

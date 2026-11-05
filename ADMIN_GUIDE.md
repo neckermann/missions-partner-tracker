@@ -471,7 +471,13 @@ login. In practice that means:
 
 If you need staff who can see *some* partners but not others, this app
 can't express that, and pretending otherwise with roles would be worse
-than saying so plainly.
+than saying so plainly. The Pending Notifications page's own held-row
+text (see [§ Restricted-partner notification
+review](#restricted-partner-notification-review)) follows this same
+rule — it's not role-gated, since `GET /api/prayer-requests` and `GET
+/api/support-needs` already show that same text to any logged-in role
+with no masking at all; hiding it specifically in one list would be
+exactly the kind of reduced read view this section rules out.
 
 ### Rotating SESSION_SECRET
 
@@ -658,9 +664,14 @@ content can judge. Newsletters aren't affected — a restricted partner's
 newsletter notification is already fully suppressed, nothing to review.
 
 On the Pending Notifications page, a held item shows an amber
-**Awaiting review** badge and two ways to clear it, both requiring the
-admin to read the real (unmasked) text first and confirm it in a dialog
-before it's accepted:
+**Awaiting review** badge, and the row itself already shows the real
+(unmasked) text — not the generic placeholder — regardless of who's
+looking; that text was never actually protected by hiding it here, since
+`GET /api/prayer-requests`/`GET /api/support-needs` already show it to
+any logged-in role with no masking at all (see [§ Who can see
+what](#who-can-see-what)). Only admin/editor can actually clear a hold,
+which still requires a confirm dialog repeating the exact text before
+it's accepted, one of two ways:
 
 - **Approve** — a one-click path for text that's already fine as-is.
   Shows the real text in the confirmation prompt, nothing to edit.
