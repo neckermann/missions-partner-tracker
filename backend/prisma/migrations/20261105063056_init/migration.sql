@@ -1,6 +1,3 @@
--- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "public";
-
 -- CreateTable
 CREATE TABLE "Partner" (
     "id" TEXT NOT NULL,
@@ -97,6 +94,8 @@ CREATE TABLE "Trip" (
     "tripType" TEXT,
     "description" TEXT,
     "notes" TEXT,
+    "albumProvider" TEXT,
+    "albumUrl" TEXT,
 
     CONSTRAINT "Trip_pkey" PRIMARY KEY ("id")
 );
@@ -179,6 +178,8 @@ CREATE TABLE "SupportNeed" (
     "approvedDate" DATE,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "sourceNewsletterId" TEXT,
+    "sourceDocumentId" TEXT,
 
     CONSTRAINT "SupportNeed_pkey" PRIMARY KEY ("id")
 );
@@ -197,6 +198,8 @@ CREATE TABLE "PrayerRequest" (
     "answeredNote" TEXT,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "sourceNewsletterId" TEXT,
+    "sourceDocumentId" TEXT,
 
     CONSTRAINT "PrayerRequest_pkey" PRIMARY KEY ("id")
 );
@@ -215,6 +218,32 @@ CREATE TABLE "Newsletter" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Newsletter_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "InboundEmail" (
+    "id" TEXT NOT NULL,
+    "receivedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "fromAddress" TEXT NOT NULL,
+    "subject" TEXT,
+    "bytes" BYTEA NOT NULL,
+    "fileName" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "InboundEmail_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PendingNotification" (
+    "id" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "payload" JSONB NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "groupmeSentAt" TIMESTAMP(3),
+    "emailSentAt" TIMESTAMP(3),
+
+    CONSTRAINT "PendingNotification_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -263,9 +292,39 @@ CREATE TABLE "ChurchSettings" (
     "publicTagline" TEXT,
     "aboutText" TEXT,
     "primaryColor" TEXT,
+    "headerColor" TEXT,
+    "highlightColor" TEXT,
+    "brandFont" TEXT,
     "logoBytes" BYTEA,
     "logoContentType" TEXT,
+    "groupmeAccessToken" TEXT,
+    "groupmeGroupId" TEXT,
+    "groupmeGroupName" TEXT,
+    "groupmePrayerTopicId" TEXT,
+    "groupmePrayerTopicName" TEXT,
+    "groupmeOneTimeNeedTopicId" TEXT,
+    "groupmeOneTimeNeedTopicName" TEXT,
+    "groupmeNewsletterTopicId" TEXT,
+    "groupmeNewsletterTopicName" TEXT,
+    "joshuaProjectApiKey" TEXT,
+    "anthropicApiKey" TEXT,
+    "postmarkServerToken" TEXT,
+    "emailFromAddress" TEXT,
+    "inboundEmailWebhookUsername" TEXT,
+    "inboundEmailWebhookPassword" TEXT,
     "enabledFeatures" JSONB NOT NULL DEFAULT '{}',
+    "backupReminderDisabled" BOOLEAN NOT NULL DEFAULT false,
+    "digestFrequency" TEXT,
+    "digestDayOfWeek" INTEGER,
+    "digestDayOfMonth" INTEGER,
+    "digestHour" INTEGER,
+    "lastDigestSentAt" TIMESTAMP(3),
+    "queueNotifyPrayerRequests" BOOLEAN NOT NULL DEFAULT true,
+    "queueNotifyOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
+    "queueNotifyNewsletters" BOOLEAN NOT NULL DEFAULT true,
+    "digestSubjectTemplate" TEXT,
+    "digestSignature" TEXT,
+    "digestTemplate" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "updatedById" TEXT,
@@ -288,6 +347,7 @@ CREATE TABLE "User" (
     "mfaSecret" TEXT,
     "mfaLastTimeStep" INTEGER,
     "mfaSetupRequired" BOOLEAN NOT NULL DEFAULT false,
+    "notifyByEmail" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
@@ -344,6 +404,12 @@ CREATE INDEX "PrayerRequest_status_idx" ON "PrayerRequest"("status");
 CREATE INDEX "Newsletter_partnerId_idx" ON "Newsletter"("partnerId");
 
 -- CreateIndex
+CREATE INDEX "PendingNotification_type_idx" ON "PendingNotification"("type");
+
+-- CreateIndex
+CREATE INDEX "PendingNotification_partnerId_idx" ON "PendingNotification"("partnerId");
+
+-- CreateIndex
 CREATE INDEX "Document_partnerId_idx" ON "Document"("partnerId");
 
 -- CreateIndex
@@ -386,14 +452,28 @@ ALTER TABLE "SupportEntry" ADD CONSTRAINT "SupportEntry_partnerId_fkey" FOREIGN 
 ALTER TABLE "SupportNeed" ADD CONSTRAINT "SupportNeed_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "SupportNeed" ADD CONSTRAINT "SupportNeed_sourceNewsletterId_fkey" FOREIGN KEY ("sourceNewsletterId") REFERENCES "Newsletter"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SupportNeed" ADD CONSTRAINT "SupportNeed_sourceDocumentId_fkey" FOREIGN KEY ("sourceDocumentId") REFERENCES "Document"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "PrayerRequest" ADD CONSTRAINT "PrayerRequest_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "PrayerRequest" ADD CONSTRAINT "PrayerRequest_sourceNewsletterId_fkey" FOREIGN KEY ("sourceNewsletterId") REFERENCES "Newsletter"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PrayerRequest" ADD CONSTRAINT "PrayerRequest_sourceDocumentId_fkey" FOREIGN KEY ("sourceDocumentId") REFERENCES "Document"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Newsletter" ADD CONSTRAINT "Newsletter_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PendingNotification" ADD CONSTRAINT "PendingNotification_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Document" ADD CONSTRAINT "Document_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Photo" ADD CONSTRAINT "Photo_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
