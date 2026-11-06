@@ -9,6 +9,7 @@ const { isFeatureEnabled } = require("../utils/features");
 const { sendStoredFile } = require("../utils/fileResponse");
 const { notifyNewsletterCreated } = require("../utils/notifications");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
+const { FILE_KINDS } = require("./fileKinds");
 
 // Mixed router (see #72): POST /postmark is called by Postmark directly,
 // not a logged-in admin -- it authenticates via HTTP Basic Auth (see
@@ -176,16 +177,30 @@ router.get("/:id/raw", async (req, res, next) => {
   }
 });
 
-const assignSchema = z.object({ partnerId: z.string() });
+// kind defaults to "newsletter" when omitted (#206) -- that's still the
+// overwhelming majority of what actually arrives, and keeps any other
+// existing caller of this endpoint working unchanged. Same
+// customKind-required-when-"other" rule as partnerFiles.js's own
+// metaSchema, mirrored here rather than reusing that schema directly
+// since this route only ever sets these two fields, not the rest of
+// PartnerFile's create shape.
+const assignSchema = z
+  .object({
+    partnerId: z.string(),
+    kind: z.enum(FILE_KINDS).default("newsletter"),
+    customKind: z.string().optional().nullable(),
+  })
+  .refine((data) => data.kind !== "other" || Boolean(data.customKind?.trim()), {
+    message: 'customKind is required when kind is "other"',
+    path: ["customKind"],
+  });
 
 // POST /api/inbound-email/:id/assign (editor or admin, matches
-// partnerFiles.js's own create-role gating). Always files as a
-// newsletter -- that's what the overwhelming majority of inbound mail
-// actually is, and an admin who finds one mis-filed just edits `kind`
-// via PartnerFile's normal PUT afterward.
+// partnerFiles.js's own create-role gating). Files as whichever kind the
+// admin picked (#206) -- defaults to newsletter if the caller omits it.
 router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const { partnerId } = assignSchema.parse(req.body);
+    const { partnerId, kind, customKind } = assignSchema.parse(req.body);
 
     // Must be on too -- not just "inboundEmail" (checked by the
     // router.use above), since an admin shouldn't be able to file a row
@@ -209,7 +224,8 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
     const created = await prisma.partnerFile.create({
       data: {
         partnerId,
-        kind: "newsletter",
+        kind,
+        customKind: kind === "other" ? customKind : null,
         title: record.subject,
         receivedDate: record.receivedAt,
         bytes: record.bytes,

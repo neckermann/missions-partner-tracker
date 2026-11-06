@@ -14,7 +14,12 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
-Nothing yet.
+Assigning an email from the **Unmatched Emails** queue to a partner now
+lets you pick what kind of file it actually is — Newsletter, Survey
+Response, Signed Policy, Email Communication, Office Document, or Other
+with your own label — the same choices as uploading any file directly,
+instead of always filing it as a Newsletter. Newsletter stays the
+default, since that's still what most inbound mail turns out to be.
 
 ## [1.3.0] - 2026-11-06
 

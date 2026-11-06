@@ -228,16 +228,17 @@ export async function sendTestEmail() {
 }
 
 // The review queue -- inbound emails Postmark couldn't automatically match
-// to a partner. assignInboundEmail files it as a newsletter-kind
-// PartnerFile against the chosen partner and removes it from the queue;
+// to a partner. assignInboundEmail files it as a PartnerFile of the
+// chosen kind (#206, defaults to "newsletter" server-side if omitted)
+// against the chosen partner and removes it from the queue;
 // discardInboundEmail removes it without filing anything.
 export async function fetchPendingInboundEmails() {
   const { data } = await api.get("/inbound-email");
   return data;
 }
 
-export async function assignInboundEmail(id, partnerId) {
-  const { data } = await api.post(`/inbound-email/${id}/assign`, { partnerId });
+export async function assignInboundEmail(id, partnerId, kind, customKind) {
+  const { data } = await api.post(`/inbound-email/${id}/assign`, { partnerId, kind, customKind });
   return data;
 }
 

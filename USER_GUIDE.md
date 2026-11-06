@@ -931,11 +931,13 @@ email arrives:
 
 **Unmatched Emails** (its own nav item, next to Partners) lists what's
 waiting: From, Subject, Received. **View raw** opens the original email.
-**Assign** (editor or admin) picks the right partner and files it as a
-Newsletter on that partner, the same outcome as if it had matched
-automatically. **Discard** (admin only) removes it permanently with a
-confirmation prompt — for spam or anything that was never meant to be
-filed at all.
+**Assign** (editor or admin) picks the right partner *and* what kind of
+file it actually is — Newsletter, Survey Response, Signed Policy, Email
+Communication, Office Document, or Other (with your own label) — the same
+choices as uploading any other file on a partner's own page, defaulting to
+Newsletter since that's what most inbound mail turns out to be. **Discard**
+(admin only) removes it permanently with a confirmation prompt — for spam
+or anything that was never meant to be filed at all.
 
 ![The Unmatched Emails queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
 
