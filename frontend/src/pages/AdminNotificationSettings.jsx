@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { fetchNotificationSettings, updateNotificationSettings } from "../api/client.js";
+import { useSettings } from "../context/SettingsContext.jsx";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -15,6 +16,7 @@ function hourLabel(hour) {
 // site config, same "settings vs. content" split Email already has
 // between its settings page and Unmatched Emails.
 export default function AdminNotificationSettings() {
+  const { enabledFeatures } = useSettings();
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -46,13 +48,24 @@ export default function AdminNotificationSettings() {
 
   if (loading || !settings) return <p className="admin-shell">Loading…</p>;
 
+  // What the top Schedule section below actually drives, given this
+  // church's current configuration -- it's never both unchecked (this
+  // page itself is only reachable with at least one of groupme/
+  // outboundEmail on), but which one(s) varies, and the generic
+  // description alone didn't say so.
+  const scheduleChannels = [
+    enabledFeatures.groupme && "GroupMe",
+    enabledFeatures.outboundEmail && "the original church-wide email digest batch",
+  ].filter(Boolean);
+
   return (
     <div className="admin-shell form-has-floating-actions">
       <h2>Notifications</h2>
       <p style={{ color: "#555" }}>
-        How new prayer requests, one-time needs, and newsletters get batched and sent to GroupMe and/or email.
-        To review or send what's currently queued, see the <strong>Pending Notifications</strong> page in the
-        main menu.
+        How new prayer requests, one-time needs, and newsletters get batched and sent to GroupMe and/or email
+        -- plus, separately below, the scoped prayer digest each admin and public subscriber sets their own
+        cadence for. To review or send what's currently queued, see the <strong>Pending Notifications</strong>{" "}
+        page in the main menu.
       </p>
 
       <form onSubmit={handleSave} className="admin-form">
@@ -60,7 +73,8 @@ export default function AdminNotificationSettings() {
           <h3>Schedule</h3>
           <p style={{ color: "#555", fontSize: "0.9rem" }}>
             Automatically send whatever's queued on this cadence. Leave as "No automatic schedule" to only
-            send manually from Pending Notifications.
+            send manually from Pending Notifications. Currently governs: {scheduleChannels.join(" and ")} --
+            not the prayer digest below, which runs on its own schedule regardless of this one.
           </p>
           <label>
             Frequency
@@ -212,8 +226,9 @@ export default function AdminNotificationSettings() {
         <div className="admin-section" style={{ marginTop: "1rem" }}>
           <h3>What queues for notification</h3>
           <p style={{ color: "#555", fontSize: "0.9rem" }}>
-            Turn off anything you don't want notified about at all -- it never joins the queue for either
-            channel.
+            Turn off anything you don't want notified about at all -- it never joins the queue for any
+            channel, including GroupMe, the digests below, and the admin/public prayer digest (if that's
+            turned on) for Prayer Requests specifically.
           </p>
           <div className="admin-checkbox-row">
             <label>
@@ -257,14 +272,21 @@ export default function AdminNotificationSettings() {
             </label>
           </div>
           <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-            Off skips restricted-access partners' events entirely -- nothing is queued for them, which also
-            means nothing ever needs manual review. On (default) queues them like anyone else, subject to the
-            review requirement on the Pending Notifications page.
+            Off skips restricted-access partners' events entirely -- nothing is queued for them on any
+            channel, which also means nothing ever needs manual review and nothing from them can ever reach
+            the public prayer digest either. On (default) queues them like anyone else, subject to the review
+            requirement on the Pending Notifications page -- the same review clears them for every channel at
+            once, including the public digest.
           </p>
         </div>
 
         <div className="admin-section" style={{ marginTop: "1rem" }}>
           <h3>Digest Customization</h3>
+          <p style={{ color: "#555", fontSize: "0.9rem" }}>
+            Applies to the digest above and to admins' own scoped digest from Account Settings -- never to
+            the public prayer digest, which always uses its own fixed layout, subject line, and branding
+            colors regardless of what's set here.
+          </p>
           <label>
             Layout
             <select
