@@ -13,7 +13,7 @@ const { execFileSync } = require("child_process");
 const prisma = require("../src/prismaClient");
 const { FEATURE_KEYS } = require("../src/utils/features");
 const { encryptField } = require("../src/utils/crypto");
-const { listGroups, listTopics } = require("../src/utils/groupme");
+const { listGroups, listTopics } = require("../src/utils/groupmeChannel");
 
 const BACKEND_DIR = path.join(__dirname, "..");
 
@@ -221,6 +221,11 @@ async function resetDemoData() {
     publicTagline: "Supporting our missionary and organization partners around the world",
     aboutText:
       "We partner with missionaries and organizations serving around the world, supporting them in prayer, finances, and care.",
+    // Defaults to false for a real church (see schema.prisma's own
+    // comment on this field) -- turned on here so a demo visitor can
+    // actually see the restricted-partner review workflow in Pending
+    // Notifications instead of that content being silently unrecorded.
+    allowRestrictedPartnerNotifications: true,
   };
 
   await prisma.churchSettings.upsert({
