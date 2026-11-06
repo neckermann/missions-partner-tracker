@@ -312,7 +312,7 @@ CREATE TABLE "ChurchSettings" (
     "lastQuarterlyScopedDigestSentAt" TIMESTAMP(3),
     "groupmeDigestHour" INTEGER,
     "lastGroupmeDigestSentAt" TIMESTAMP(3),
-    "timezone" TEXT NOT NULL DEFAULT 'UTC',
+    "timezone" TEXT NOT NULL DEFAULT 'America/Chicago',
     "notifyGroupMePrayerRequests" BOOLEAN NOT NULL DEFAULT true,
     "notifyGroupMeOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
     "notifyGroupMeNewsletters" BOOLEAN NOT NULL DEFAULT true,

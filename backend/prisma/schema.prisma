@@ -776,13 +776,16 @@ model ChurchSettings {
   // Hour-based schedule check above, plus birthdays/furlough elsewhere
   // in this app, depends on process.env.TZ actually matching the
   // church's real local time, which nothing set before this field
-  // existed (Render's own default is UTC). Defaults to "UTC" so an
-  // unconfigured deployment behaves exactly as it already did, just now
-  // fixable from this app's own settings instead of a silent,
-  // undiscoverable mismatch. Changing this takes effect on the next
-  // restart/deploy, not instantly -- process.env.TZ is read once at
-  // boot, since changing it mid-process is documented as unreliable.
-  timezone String @default("UTC")
+  // existed (Render's own default is UTC). Defaults to "America/Chicago"
+  // rather than UTC -- every church this app has actually been built
+  // for so far is US-based, so a brand-new deployment that never visits
+  // this setting should already be close to correct, not off by several
+  // hours until someone finds and changes it. Still just a starting
+  // point: any church can pick its own real zone from this field's
+  // `<select>`. Changing this takes effect on the next restart/deploy,
+  // not instantly -- process.env.TZ is read once at boot, since changing
+  // it mid-process is documented as unreliable.
+  timezone String @default("America/Chicago")
 
   // Per-channel content-type mutes, GroupMe only -- the admin digest
   // always includes every content type it's allowed to (no toggle), and
