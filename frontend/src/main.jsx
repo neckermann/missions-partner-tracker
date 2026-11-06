@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import PublicDirectory from "./pages/PublicDirectory.jsx";
 import PublicPartnerDetail from "./pages/PublicPartnerDetail.jsx";
-import PublicPrayerWall from "./pages/PublicPrayerWall.jsx";
+import PublicSubscribe from "./pages/PublicSubscribe.jsx";
 import Login from "./pages/Login.jsx";
 import Setup from "./pages/Setup.jsx";
 import RequireAdminAuth from "./components/RequireAdminAuth.jsx";
@@ -100,10 +100,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 }
               />
               <Route
-                path="/prayer-wall"
+                path="/subscribe"
                 element={
                   <RequirePublicSite feature="publicPrayerDigest">
-                    <PublicPrayerWall />
+                    <PublicSubscribe />
                   </RequirePublicSite>
                 }
               />

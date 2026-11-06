@@ -296,24 +296,6 @@ function missionaryHouseholdCategory(m) {
   return "single";
 }
 
-// Curates a (already query-filtered to public strategic ones -- see
-// publicPartners.js) list of PrayerRequest rows down to just what's
-// safe/meaningful to show publicly. No id, category, isPublic, or notes --
-// those are all admin-side bookkeeping. `status`/`dateAnswered`/
-// `answeredNote` come through as-is: per the model comment in
-// schema.prisma, "ongoing" carries no negative implication, so there's
-// nothing here that needs hiding or softening for a public audience the
-// way isRestricted's other masking does.
-function toPublicPrayerRequests(prayerRequests) {
-  return (prayerRequests || []).map((p) => ({
-    requestText: p.requestText,
-    dateReceived: p.dateReceived,
-    status: p.status,
-    dateAnswered: p.dateAnswered,
-    answeredNote: p.answeredNote,
-  }));
-}
-
 /**
  * Given a full Partner record (with relations included), return the shape
  * that is safe to send to the PUBLIC website, based on isPublic /
@@ -409,7 +391,6 @@ function toPublicPartner(p) {
     // `take: 1` include) is ever surfaced publicly — never the upload
     // history, and never at all for a restricted record (see above).
     photo: p.photos?.[0] ? withPhotoUrl(p.photos[0]).url : null,
-    prayerRequests: toPublicPrayerRequests(p.prayerRequests),
     // --- Missionary-only below ---
     ...(isOrg
       ? {}

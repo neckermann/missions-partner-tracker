@@ -146,7 +146,7 @@ features (everything else, which only changes a logged-in admin's own nav).
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Site Administration → AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 | Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Site Administration → Email. Today's only sender is the batched notification digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
 | Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Site Administration → Email page as Sending, independently toggled. See [§ Email (Postmark)](#email-postmark) below. |
-| Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the new public **Prayer Wall** page (`/prayer-wall`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on. See [§ Notification batching & email digests](#notification-batching--email-digests) below. |
+| Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the public **Subscribe** page (`/subscribe`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on. See [§ Notification batching & email digests](#notification-batching--email-digests) below. |
 
 The registry backing this list lives in `backend/src/utils/features.js` —
 adding a new toggle later is a one-line entry there plus a `requireFeature("key")`
@@ -657,9 +657,11 @@ is always available regardless of the schedule.
 ### Public prayer digest & the scoped-digest schedule
 
 Anyone, no login required, can subscribe to email updates on prayer
-requests — either every one (the **Prayer Wall** public page) or just
-a single partner's (a "follow this partner" form on that partner's own
-public page). This is a separate mechanism from the GroupMe/email
+requests — either every partner, several of them, or just one, all from
+a single dedicated **Subscribe** page (`/subscribe`), or from a "follow
+this partner" form on that partner's own public page (which also points
+back to the Subscribe page, for anyone who wants more than just that one
+partner). This is a separate mechanism from the GroupMe/email
 batch above, sharing only the same underlying queue and the same
 restricted-partner masking and review gate: a public digest is
 **prayer-requests only** — never a one-time need, never a newsletter

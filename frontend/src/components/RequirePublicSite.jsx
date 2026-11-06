@@ -2,14 +2,15 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext.jsx";
 
-// Wraps the three public-facing routes (directory, map, partner detail) --
-// same "gate the route" role as RequireAdminAuth.jsx plays for /admin, just
-// checking feature toggle(s) instead of a session. `feature` is either
-// "publicDirectory" or "publicMap" for those two pages themselves; the
-// partner-detail page (linked from both) passes both keys and renders as
-// long as at least one is on. Both default to true (see SettingsContext's
-// DEFAULTS) so this renders children during the initial settings fetch
-// rather than flashing this notice first.
+// Wraps the public-facing routes (directory, map, partner detail,
+// subscribe) -- same "gate the route" role as RequireAdminAuth.jsx plays
+// for /admin, just checking feature toggle(s) instead of a session.
+// `feature` is either "publicDirectory" or "publicMap" for those two
+// pages themselves; the partner-detail page (linked from both) passes
+// both keys and renders as long as at least one is on; the subscribe
+// page passes "publicPrayerDigest". publicDirectory/publicMap default to
+// true (see SettingsContext's DEFAULTS) so this renders children during
+// the initial settings fetch rather than flashing this notice first.
 export default function RequirePublicSite({ feature, children }) {
   const { enabledFeatures } = useSettings();
   const features = Array.isArray(feature) ? feature : [feature];

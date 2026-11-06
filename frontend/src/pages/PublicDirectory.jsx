@@ -111,8 +111,8 @@ export default function PublicDirectory() {
         </div>
         <div style={{ display: "flex", gap: "1rem" }}>
           {enabledFeatures.publicPrayerDigest && (
-            <Link to="/prayer-wall" style={{ color: "white" }}>
-              Prayer Wall
+            <Link to="/subscribe" style={{ color: "white" }}>
+              Pray for our {partnerTermPlural}
             </Link>
           )}
           <Link to="/map" style={{ color: "white" }}>

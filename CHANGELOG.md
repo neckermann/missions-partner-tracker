@@ -19,9 +19,11 @@ Nothing yet.
 ## [1.3.0] - 2026-11-06
 
 Anyone can now opt in to email updates on prayer requests, with no
-account needed — either for everything from a new public **Prayer
-Wall** page, or for a single partner from that partner's own public
-page. Each subscriber picks weekly, biweekly, or monthly, confirms by
+account needed — either for every partner, several at once, or just
+one, from a new public **Subscribe** page, or for a single partner
+from that partner's own public page (which also points to the
+Subscribe page for anyone who wants more than just that one). Each
+subscriber picks weekly, biweekly, or monthly, confirms by
 email first (a plain double opt-in, no account), and can unsubscribe
 anytime from a link in every email — no admin-managed list. Public
 digests are prayer-requests only: never a one-time need, never a

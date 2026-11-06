@@ -32,16 +32,10 @@ export async function fetchCountryInfo(countryCode) {
   return data;
 }
 
-// Public, no-login prayer-digest subscriptions (#202). fetchPrayerWall()
-// returns the "recent prayer activity" feed backing PublicPrayerWall.jsx;
-// subscribeToDigest() is shared by that page's "subscribe to everyone"
-// form and PublicPartnerDetail.jsx's "follow this partner" form -- the
-// caller bakes in allPartners/partnerIds for whichever scope it's offering.
-export async function fetchPrayerWall() {
-  const { data } = await api.get("/public/prayer-wall");
-  return data;
-}
-
+// Public, no-login prayer-digest subscriptions (#202). Shared by
+// PublicSubscribe.jsx's "subscribe to everyone or pick several" page and
+// PublicPartnerDetail.jsx's "follow this partner" form -- the caller
+// bakes in allPartners/partnerIds for whichever scope it's offering.
 export async function subscribeToDigest({ email, frequency, allPartners, partnerIds }) {
   const { data } = await api.post("/public/subscribe", { email, frequency, allPartners, partnerIds });
   return data; // { message }

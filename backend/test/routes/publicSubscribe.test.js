@@ -171,6 +171,22 @@ describe("POST /api/public/subscribe", () => {
     assert.equal(row.scopedPartners[0].partnerId, partner.id);
   });
 
+  test("multiple valid partnerIds in one request are all kept", async () => {
+    const email = "route-test-sub-multipartner@example.test";
+    const [first, second] = await Promise.all([createPublicPartner({}), createPublicPartner({})]);
+    const res = await anon("/api/public/subscribe", {
+      method: "POST",
+      body: { email, allPartners: false, partnerIds: [first.id, second.id] },
+    });
+    assert.equal(res.status, 200);
+    const row = await prisma.publicSubscriber.findUnique({
+      where: { email },
+      include: { scopedPartners: true },
+    });
+    const keptIds = row.scopedPartners.map((p) => p.partnerId).sort();
+    assert.deepEqual(keptIds, [first.id, second.id].sort());
+  });
+
   test("404s when publicPrayerDigest is off", async () => {
     await setFeatures({ publicPrayerDigest: false });
     try {

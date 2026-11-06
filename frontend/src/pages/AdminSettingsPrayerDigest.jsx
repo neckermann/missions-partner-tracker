@@ -22,7 +22,7 @@ export default function AdminSettingsPrayerDigest() {
       <h2>Prayer Digest Subscribers</h2>
       <p style={{ color: "#555" }}>
         Who's subscribed to the scoped prayer-request digest -- admins via Account Settings, and the public
-        via the Prayer Wall or a partner's own public page. Each chooses their own cadence and partner scope;
+        via the Subscribe page or a partner's own public page. Each chooses their own cadence and partner scope;
         this page is counts only, no email addresses.
       </p>
 

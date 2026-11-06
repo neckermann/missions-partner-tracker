@@ -1,26 +1,56 @@
-import React, { useState } from "react";
-import { subscribeToDigest } from "../api/client.js";
+import React, { useEffect, useState } from "react";
+import { fetchPublicPartners, subscribeToDigest } from "../api/client.js";
 
-// Shared by PublicPrayerWall.jsx's "subscribe to everyone" form and
-// PublicPartnerDetail.jsx's "follow this partner" form (#202) -- the only
-// difference between the two is which scope the caller bakes in
-// (allPartners: true vs. allPartners: false + a single partnerId), so
-// there's one form, not two. No partner-picker UI here at all: unlike the
-// admin side's own cadence+scope control (AccountSettings.jsx), the
-// public surface only ever offers these two fixed scopes.
-export default function PublicSubscribeForm({ allPartners, partnerIds, title, description }) {
+// Shared by PublicSubscribe.jsx's "subscribe to everyone or pick several"
+// page and PublicPartnerDetail.jsx's "follow this partner" form (#202).
+// Two modes: with `picker` unset (the follow form's case), the caller
+// bakes in a fixed scope (allPartners/partnerIds) and nothing here
+// changes -- no picker UI, no partner fetch. With `picker` set (the
+// dedicated Subscribe page's case), the form manages its own scope state
+// and lets the visitor choose all partners or several specific ones.
+export default function PublicSubscribeForm({ allPartners, partnerIds, title, description, picker = false }) {
   const [email, setEmail] = useState("");
   const [frequency, setFrequency] = useState("weekly");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  // Picker-only state -- unused (and nothing fetched) when picker is
+  // false, so the fixed-scope caller pays nothing extra.
+  const [scopeAllPartners, setScopeAllPartners] = useState(true);
+  const [scopePartnerIds, setScopePartnerIds] = useState([]);
+  const [partners, setPartners] = useState([]);
+
+  useEffect(() => {
+    if (!picker) return;
+    fetchPublicPartners()
+      .then(setPartners)
+      .catch(() => setPartners([]));
+  }, [picker]);
+
+  function togglePartner(id) {
+    setScopePartnerIds((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
+  }
+
+  const effectiveAllPartners = picker ? scopeAllPartners : allPartners;
+  const effectivePartnerIds = picker ? scopePartnerIds : partnerIds;
+  const nothingSelected = picker && !scopeAllPartners && scopePartnerIds.length === 0;
+
   async function handleSubmit(e) {
     e.preventDefault();
+    if (nothingSelected) {
+      setError("Choose at least one partner, or include all partners.");
+      return;
+    }
     setError("");
     setBusy(true);
     try {
-      const { message } = await subscribeToDigest({ email, frequency, allPartners, partnerIds });
+      const { message } = await subscribeToDigest({
+        email,
+        frequency,
+        allPartners: effectiveAllPartners,
+        partnerIds: effectivePartnerIds,
+      });
       setMessage(message);
       setEmail("");
     } catch (err) {
@@ -38,6 +68,52 @@ export default function PublicSubscribeForm({ allPartners, partnerIds, title, de
         <p className="public-subscribe-success">{message}</p>
       ) : (
         <form onSubmit={handleSubmit}>
+          {picker && (
+            <div style={{ marginBottom: "0.75rem" }}>
+              <div className="admin-checkbox-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={scopeAllPartners}
+                    onChange={(e) => setScopeAllPartners(e.target.checked)}
+                    disabled={busy}
+                  />
+                  Include all partners
+                </label>
+              </div>
+              {!scopeAllPartners && (
+                <div
+                  style={{
+                    marginTop: "0.5rem",
+                    maxHeight: 200,
+                    overflowY: "auto",
+                    border: "1px solid #ccc",
+                    borderRadius: 4,
+                    padding: "0.5rem",
+                  }}
+                >
+                  {partners.length === 0 ? (
+                    <p style={{ color: "#555", fontSize: "0.9rem", margin: 0 }}>No partners available.</p>
+                  ) : (
+                    partners.map((p) => (
+                      <div className="admin-checkbox-row" key={p.id}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={scopePartnerIds.includes(p.id)}
+                            onChange={() => togglePartner(p.id)}
+                            disabled={busy}
+                          />
+                          {p.displayName ?? p.name}
+                        </label>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="public-subscribe-row">
             <input
               type="email"

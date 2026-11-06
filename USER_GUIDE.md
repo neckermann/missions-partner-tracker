@@ -809,8 +809,8 @@ send by hand, from Pending Notifications.
 **Prayer Digest Schedule.** A separate schedule, right below the one
 above, for the weekly/biweekly/monthly cadence each admin picks on
 their own [Account Settings](#your-account-settings) page and each
-public subscriber picks when they follow a partner or the Prayer Wall
-(see [§ The public site](#the-public-site)). Set a day of week (used
+public subscriber picks when they follow a partner or use the Subscribe
+page (see [§ The public site](#the-public-site)). Set a day of week (used
 by both the weekly and biweekly tiers), a day of month (monthly), and
 a time shared by all three — each tier only fires once its own day/
 time is set; leaving all three unset (the default) means nobody's
@@ -903,7 +903,7 @@ recipient list. Set it up from
 carries its own one-click unsubscribe link, which turns it back off
 without needing to log in.
 
-This is also what Sending powers for the public **Prayer Wall** — see
+This is also what Sending powers for the public **Subscribe** page — see
 [§ The public site](#the-public-site) below — once [Public prayer
 digest](ADMIN_GUIDE.md#feature-toggles) is turned on.
 
@@ -1055,21 +1055,24 @@ entirely by what you check in the admin dashboard:
   admin side, here for visitors.
 
   ![A public partner profile with Joshua Project country statistics expanded](docs/assets/screenshots/public-partner-detail.png)
-- **Prayer Wall** (`/prayer-wall`) — only shown once an admin turns on
-  [Public prayer digest](ADMIN_GUIDE.md#feature-toggles). Recent
-  prayer-request activity across every public partner, and a "Get
-  prayer updates by email" form at the top: no login, just an email
-  address and a weekly/biweekly/monthly choice. A visitor clicks a link
+- **Subscribe** (`/subscribe`) — only shown once an admin turns on
+  [Public prayer digest](ADMIN_GUIDE.md#feature-toggles). A dedicated page
+  for getting prayer-request updates by email: no login, just an email
+  address, a weekly/biweekly/monthly choice, and either every partner or
+  several specific ones picked from a checklist. A visitor clicks a link
   in a confirmation email before anything actually sends (double
   opt-in — nothing goes out to an address nobody confirmed), and every
   digest they get after that carries its own one-click unsubscribe
   link. A matching, smaller "Follow this partner's prayer requests"
   form sits on each partner's own detail page, for subscribing to just
-  that one partner instead of everyone. Either form's email only ever
-  goes toward sending these updates — see the form's own privacy
+  that one partner instead of everyone — it also points back to this
+  page, and, when that partner has their own newsletter signup link,
+  makes clear this is separate from (not a replacement for) subscribing
+  to the partner's own newsletter directly. Either form's email only
+  ever goes toward sending these updates — see the form's own privacy
   line for the exact wording.
 
-  ![The public Prayer Wall, with the subscribe form and recent prayer-request activity](docs/assets/screenshots/prayer-wall.png)
+  ![The public Subscribe page, with the all-partners/specific-partners picker](docs/assets/screenshots/subscribe-page.png)
 
 ### The public map's auto-tour
 
