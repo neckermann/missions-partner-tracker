@@ -1,15 +1,20 @@
 const express = require("express");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
-const { buildBlurb, REVIEW_GATED_TYPES } = require("../utils/notificationBlurbs");
-const { flushPendingNotifications } = require("../utils/notificationFlush");
+const { buildBlurb } = require("../utils/notificationBlurbs");
+const { needsReview } = require("../utils/notificationEligibility");
+const { countUrgentRecipients } = require("../utils/notificationOrchestrator");
 
-// The batched-notification review queue (see #129) -- what used to post
-// live to GroupMe the instant an event happened now collects in
-// PendingNotification rows (written by utils/notifications.js) until an
-// admin/editor flushes them here, manually or via
-// utils/digestScheduler.js's own call into the same flush logic in
-// utils/notificationFlush.js.
+// The review queue for recorded events -- a row is written by
+// notificationRecording.js the instant something happens, and leaves
+// this queue once every applicable channel's own pass has handled it
+// (GroupMe's own daily schedule, or one of the three email cadence
+// tiers) -- see notificationOrchestrator.js's clearNotifiableEvents().
+// There's no manual "send now" action anymore: the old one force-sent
+// the now-retired church-wide email digest alongside GroupMe, and that
+// mechanism has no equivalent once every recipient has their own
+// cadence -- see the plan this was built from for why it was removed
+// outright rather than redesigned.
 const router = express.Router();
 router.use(requireAuth);
 
@@ -17,13 +22,14 @@ router.use(requireAuth);
 // harmless" reasoning as GET /api/partner-files/GET /api/inbound-email.
 // Reuses buildBlurb so the admin sees the exact same summary text that
 // would actually go out, not a second, hand-maintained description of
-// it.
+// it. Deliberately unfiltered -- every row shows here regardless of
+// which channel(s) it's actually relevant to (e.g. a prayer request
+// muted on GroupMe but still relevant to the public digest still shows),
+// since this page was never scoped to any one channel's relevance in
+// the first place.
 router.get("/pending", async (req, res, next) => {
   try {
-    const rows = await prisma.pendingNotification.findMany({ orderBy: { createdAt: "asc" } });
-    // Same masking-needs-the-live-flag reasoning as notificationFlush.js
-    // -- this preview should show admins exactly what would actually go
-    // out, restricted-partner masking included.
+    const rows = await prisma.notifiableEvent.findMany({ orderBy: { createdAt: "asc" } });
     const partners = await prisma.partner.findMany({
       where: { id: { in: [...new Set(rows.map((row) => row.partnerId))] } },
       select: { id: true, displayName: true, isRestricted: true },
@@ -38,16 +44,13 @@ router.get("/pending", async (req, res, next) => {
     // it would just make this one list inconsistent with the rest of the
     // app for no real reason. Showing it here too means an admin/editor
     // reviewing a held row can read it and hit Approve without opening
-    // Edit first (#187 follow-up).
+    // Edit first.
     const items = rows
       .map((row) => {
         const blurb = buildBlurb(row, partnerById.get(row.partnerId));
         if (!blurb) return null;
-        const needsReview =
-          REVIEW_GATED_TYPES.has(row.type) &&
-          !!partnerById.get(row.partnerId)?.isRestricted &&
-          !row.reviewedAt;
-        const bodyText = needsReview
+        const held = needsReview(row, partnerById.get(row.partnerId));
+        const bodyText = held
           ? (buildBlurb(row, { ...partnerById.get(row.partnerId), isRestricted: false })?.bodyText ??
             blurb.bodyText)
           : blurb.bodyText;
@@ -60,14 +63,17 @@ router.get("/pending", async (req, res, next) => {
           // partner, without this route handing back anything it
           // wouldn't otherwise.
           isRestricted: !!partnerById.get(row.partnerId)?.isRestricted,
-          // #187: whether this row is currently held out of every send
-          // path (see notificationFlush.js's own needsReview(), which
-          // this must stay consistent with -- restricted real-content
-          // row, never yet edited/confirmed).
-          needsReview,
+          // Whether this row is currently held out of every channel --
+          // restricted real-content row, never yet edited/confirmed. An
+          // urgent send is held exactly the same way; there's no
+          // separate flag for that, urgent just means "don't wait for a
+          // schedule," never "skip review."
+          needsReview: held,
           reviewedAt: row.reviewedAt,
           groupmeSentAt: row.groupmeSentAt,
-          emailSentAt: row.emailSentAt,
+          biweeklyDigestSentAt: row.biweeklyDigestSentAt,
+          monthlyDigestSentAt: row.monthlyDigestSentAt,
+          quarterlyDigestSentAt: row.quarterlyDigestSentAt,
           createdAt: row.createdAt,
         };
       })
@@ -90,7 +96,7 @@ router.get("/pending", async (req, res, next) => {
 // already knows who this row is for from the page's own grouping.
 router.get("/pending/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const row = await prisma.pendingNotification.findUnique({ where: { id: req.params.id } });
+    const row = await prisma.notifiableEvent.findUnique({ where: { id: req.params.id } });
     if (!row) return res.status(404).json({ error: "Not found" });
     const partner = await prisma.partner.findUnique({
       where: { id: row.partnerId },
@@ -108,18 +114,19 @@ router.get("/pending/:id", requireRole("admin", "editor"), async (req, res, next
 // type or restriction -- an admin might want to tidy up the wording on
 // anything before it sends, not just a restricted partner's held row
 // (#187). For a restricted real-content row specifically, saving here is
-// also what satisfies notificationFlush.js's needsReview() gate; for
-// every other row it's purely a content edit with no send-eligibility
-// consequence. Re-callable: saving again overwrites the previous edit.
+// also what satisfies notificationEligibility.js's needsReview() gate;
+// for every other row it's purely a content edit with no send-
+// eligibility consequence. Re-callable: saving again overwrites the
+// previous edit.
 router.put("/pending/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
     if (!text) return res.status(400).json({ error: "text is required" });
 
-    const row = await prisma.pendingNotification.findUnique({ where: { id: req.params.id } });
+    const row = await prisma.notifiableEvent.findUnique({ where: { id: req.params.id } });
     if (!row) return res.status(404).json({ error: "Not found" });
 
-    const updated = await prisma.pendingNotification.update({
+    const updated = await prisma.notifiableEvent.update({
       where: { id: row.id },
       data: { reviewedAt: new Date(), reviewedById: req.user.id, reviewedText: text },
     });
@@ -139,29 +146,31 @@ router.put("/pending/:id", requireRole("admin", "editor"), async (req, res, next
   }
 });
 
-// POST /api/notifications/send -- admin or editor, matches
-// routes/inboundEmail.js's own assign-role gating (this files real
-// content the same way that does). Calls the exact same flush
-// utils/digestScheduler.js's own automatic schedule uses, so a manual
-// click and an automatic flush behave identically.
-router.post("/send", requireRole("admin", "editor"), async (req, res, next) => {
+// DELETE /api/notifications/pending/:id -- admin or editor, same gate as
+// editing. Discards one recorded event without ever sending it on any
+// channel -- e.g. a restricted partner's update that shouldn't go out
+// at all this round. Irreversible (no undo queue), same as deleting any
+// other record in this app.
+router.delete("/pending/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    res.json(await flushPendingNotifications());
+    const deleted = await prisma.notifiableEvent.deleteMany({ where: { id: req.params.id } });
+    if (deleted.count === 0) return res.status(404).json({ error: "Not found" });
+    res.status(204).end();
   } catch (err) {
     next(err);
   }
 });
 
-// DELETE /api/notifications/pending/:id -- admin or editor, same gate as
-// sending. Discards one queued notification without ever sending it on
-// either channel -- e.g. a restricted partner's update that shouldn't go
-// out over GroupMe/email at all this round. Irreversible (no undo queue),
-// same as deleting any other record in this app.
-router.delete("/pending/:id", requireRole("admin", "editor"), async (req, res, next) => {
+// GET /api/notifications/urgent-recipient-count?partnerId= -- admin or
+// editor (same role gate as marking something urgent at all), used to
+// populate the confirm dialog's real numbers before an urgent send
+// actually fires. Cadence-blind and approximate on purpose -- see
+// countUrgentRecipients' own comment.
+router.get("/urgent-recipient-count", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const deleted = await prisma.pendingNotification.deleteMany({ where: { id: req.params.id } });
-    if (deleted.count === 0) return res.status(404).json({ error: "Not found" });
-    res.status(204).end();
+    const partnerId = String(req.query.partnerId || "");
+    if (!partnerId) return res.status(400).json({ error: "partnerId is required" });
+    res.json(await countUrgentRecipients(partnerId));
   } catch (err) {
     next(err);
   }

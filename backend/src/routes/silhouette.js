@@ -10,10 +10,10 @@ const router = express.Router();
 // for the public site's own <img> tags (browsers render those inline
 // with no extra request) but most email clients (Outlook chief among
 // them) strip or refuse to render a data: URI in an <img src> for
-// security reasons -- so the email digest (see
-// utils/emailDigest.js's partnerTileDetails) needs an actual reachable
-// URL instead, which is what this route exists to provide. Deterministic
-// per category/color, so safe to cache aggressively like a real photo.
+// security reasons -- so the email digests (see digestShell.js's
+// partnerTileDetails) need an actual reachable URL instead, which is
+// what this route exists to provide. Deterministic per category/color,
+// so safe to cache aggressively like a real photo.
 router.get("/:category.svg", (req, res) => {
   res.set("Cache-Control", "public, max-age=31536000, immutable");
   res.set("Content-Type", "image/svg+xml");

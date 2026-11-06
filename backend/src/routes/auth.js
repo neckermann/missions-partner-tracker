@@ -9,7 +9,7 @@ const { requireAuth, requireAuthOrMfaSetup } = require("../middleware/requireAut
 const { setSessionCookie, clearSessionCookie } = require("../utils/jwt");
 const { encryptField, decryptField } = require("../utils/crypto");
 const { appBaseUrl } = require("../utils/notificationBlurbs");
-const { escapeHtml } = require("../utils/emailDigest");
+const { escapeHtml } = require("../utils/digestShell");
 
 const router = express.Router();
 const MFA_PENDING_TTL = "5m";
@@ -319,13 +319,13 @@ router.post("/mfa/disable", requireAuth, async (req, res, next) => {
 //
 // allPartners: true always clears any existing UserFollowedPartner rows
 // for this account, rather than just leaving them unread -- same
-// reasoning as digestFrequency: null doing the same below: stale scope
-// data sitting around unread is exactly the kind of drift that turns
-// into a bug the next time someone toggles allPartners back to false
-// and gets a list they don't recognize. Cheaper to not have it than to
-// trust every future reader to ignore it correctly.
+// reasoning as cadence: null doing the same below: stale scope data
+// sitting around unread is exactly the kind of drift that turns into a
+// bug the next time someone toggles allPartners back to false and gets
+// a list they don't recognize. Cheaper to not have it than to trust
+// every future reader to ignore it correctly.
 const digestSubscriptionSchema = z.object({
-  digestFrequency: z.enum(["weekly", "biweekly", "monthly"]).nullable(),
+  cadence: z.enum(["biweekly", "monthly", "quarterly"]).nullable(),
   allPartners: z.boolean().optional().default(true),
   partnerIds: z.array(z.string()).optional().default([]),
 });
@@ -335,18 +335,18 @@ router.put("/notify-by-email", requireAuth, async (req, res, next) => {
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid request" });
     }
-    const { digestFrequency, allPartners, partnerIds } = parsed.data;
+    const { cadence, allPartners, partnerIds } = parsed.data;
 
     // Unlike the public subscribe route (which silently drops an invalid
     // id, to avoid giving an anonymous caller any signal about what
     // exists), this is an authenticated admin/editor/viewer route --
     // there's no enumeration concern, so a bad id is a real 400, not a
     // silent drop. Admins aren't restricted to public partners the way a
-    // public subscriber is (see #202's plan -- "auth is the boundary,"
-    // an admin already sees every partner regardless of isPublic), so
-    // this only excludes archived ones, not non-public ones.
+    // public subscriber is ("auth is the boundary," an admin already
+    // sees every partner regardless of isPublic), so this only excludes
+    // archived ones, not non-public ones.
     let validPartnerIds = [];
-    if (!digestFrequency || allPartners) {
+    if (!cadence || allPartners) {
       // Nothing to validate -- either unsubscribing entirely or
       // following everyone, so any partnerIds sent are simply ignored
       // rather than erroring on them (the field is irrelevant in both
@@ -367,7 +367,7 @@ router.put("/notify-by-email", requireAuth, async (req, res, next) => {
     await prisma.$transaction([
       prisma.user.update({
         where: { id: req.user.id },
-        data: { digestFrequency, allPartners },
+        data: { cadence, allPartners },
       }),
       prisma.userFollowedPartner.deleteMany({ where: { userId: req.user.id } }),
       ...(validPartnerIds.length
@@ -387,7 +387,7 @@ router.put("/notify-by-email", requireAuth, async (req, res, next) => {
 });
 
 // GET /api/auth/unsubscribe -- public, no requireAuth, reached straight
-// from a link in a digest email (see utils/emailDigest.js's
+// from a link in a digest email (see utils/digestShell.js's
 // buildUnsubscribeUrl). Verifies the same { id, unsubscribe: true }
 // token shape/signing as the MFA-pending/MFA-setup tokens above, minted
 // fresh per recipient per email, deliberately with no expiry (an old,
@@ -396,7 +396,7 @@ router.put("/notify-by-email", requireAuth, async (req, res, next) => {
 // their mail client, not an API call.
 router.get("/unsubscribe", async (req, res) => {
   // Branded to match the digest email's own header-band treatment (see
-  // utils/emailDigest.js) -- same three colors/font, same fallbacks, so
+  // utils/digestShell.js) -- same three colors/font, same fallbacks, so
   // this doesn't look like a different, unbranded app once clicked into
   // from the email.
   const settings = await prisma.churchSettings.findUnique({
@@ -438,9 +438,9 @@ router.get("/unsubscribe", async (req, res) => {
   }
 
   // Same "don't leave stale scope data around" reasoning as PUT
-  // /notify-by-email's own digestFrequency: null handling above.
+  // /notify-by-email's own cadence: null handling above.
   await prisma.$transaction([
-    prisma.user.updateMany({ where: { id: decoded.id }, data: { digestFrequency: null } }),
+    prisma.user.updateMany({ where: { id: decoded.id }, data: { cadence: null } }),
     prisma.userFollowedPartner.deleteMany({ where: { userId: decoded.id } }),
   ]);
   res.send(page("You've been unsubscribed from email notifications."));
@@ -462,7 +462,7 @@ router.post("/logout", (req, res) => {
 // discipline this codebase already applies elsewhere.
 async function sanitizeUser(user) {
   let partnerIds = [];
-  if (user.digestFrequency && !user.allPartners) {
+  if (user.cadence && !user.allPartners) {
     const rows = await prisma.userFollowedPartner.findMany({
       where: { userId: user.id },
       select: { partnerId: true },
@@ -476,7 +476,7 @@ async function sanitizeUser(user) {
     role: user.role,
     authProvider: user.authProvider,
     mfaEnabled: user.mfaEnabled,
-    digestFrequency: user.digestFrequency,
+    cadence: user.cadence,
     allPartners: user.allPartners,
     followedPartnerIds: partnerIds,
   };

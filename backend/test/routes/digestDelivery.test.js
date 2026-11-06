@@ -3,24 +3,39 @@ const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
 const { encryptField } = require("../../src/utils/crypto");
-const { sendScopedDigest } = require("../../src/utils/scopedDigest");
+const { sendDigestTier } = require("../../src/utils/digestDelivery");
 
 // Same mock-the-whole-domain technique test/routes/notifications.test.js
 // and test/routes/publicSubscribe.test.js each already use for Postmark
 // -- no real email ever sends in this suite. No Express server is
-// started here at all -- sendScopedDigest() only ever touches Prisma and
-// utils/email.js's sendEmail(), so fixtures are built directly via
+// started here at all -- sendDigestTier() only ever touches Prisma and
+// utils/email.js's sendEmailBatch(), so fixtures are built directly via
 // Prisma rather than through the HTTP routes those other files use.
+//
+// sendEmailBatch sends every recipient's message in ONE call to
+// POST /email/batch (an array body), not one call per recipient -- the
+// mock below flattens every batch call's array into one list of
+// individual messages (`postmarkMessages`) so assertions below can
+// still reason per-recipient without caring how many underlying HTTP
+// calls that took.
 const realFetch = global.fetch;
-let postmarkCalls = [];
+let postmarkMessages = [];
 function mockPostmark() {
-  postmarkCalls = [];
+  postmarkMessages = [];
 }
 global.fetch = (url, options) => {
   const s = String(url);
   if (s.startsWith("https://api.postmarkapp.com")) {
-    postmarkCalls.push({ url: String(url), body: options?.body ? JSON.parse(options.body) : null });
-    const responseBody = { MessageID: "fake-id", SubmittedAt: "2026-01-01T00:00:00Z" };
+    const sent = options?.body ? JSON.parse(options.body) : [];
+    const messages = Array.isArray(sent) ? sent : [sent];
+    postmarkMessages.push(...messages);
+    const responseBody = messages.map((m) => ({
+      ErrorCode: 0,
+      Message: "OK",
+      MessageID: "fake-id",
+      SubmittedAt: "2026-01-01T00:00:00Z",
+      To: m.To,
+    }));
     return Promise.resolve({
       ok: true,
       status: 200,
@@ -31,10 +46,10 @@ global.fetch = (url, options) => {
   return realFetch(url, options);
 };
 
-const FIXTURE_TAG = "ZZTEST-scopedDigest";
+const FIXTURE_TAG = "ZZTEST-digestDelivery";
 
 async function cleanup() {
-  await prisma.pendingNotification.deleteMany({
+  await prisma.notifiableEvent.deleteMany({
     where: { partner: { displayName: { contains: FIXTURE_TAG } } },
   });
   await prisma.userFollowedPartner.deleteMany({
@@ -44,8 +59,8 @@ async function cleanup() {
     where: { partner: { displayName: { contains: FIXTURE_TAG } } },
   });
   await prisma.partner.deleteMany({ where: { displayName: { contains: FIXTURE_TAG } } });
-  await prisma.publicSubscriber.deleteMany({ where: { email: { contains: "scoped-digest-test" } } });
-  await prisma.user.deleteMany({ where: { email: { contains: "scoped-digest-test" } } });
+  await prisma.publicSubscriber.deleteMany({ where: { email: { contains: "digest-delivery-test" } } });
+  await prisma.user.deleteMany({ where: { email: { contains: "digest-delivery-test" } } });
 }
 
 function createPartner(overrides) {
@@ -54,14 +69,14 @@ function createPartner(overrides) {
   });
 }
 
-function createPendingRow(partnerId, type, payload) {
-  return prisma.pendingNotification.create({ data: { partnerId, type, payload } });
+function createRow(partnerId, type, payload) {
+  return prisma.notifiableEvent.create({ data: { partnerId, type, payload } });
 }
 
 function createAdminUser(overrides) {
   return prisma.user.create({
     data: {
-      email: `scoped-digest-test-${Math.random().toString(36).slice(2)}@example.test`,
+      email: `digest-delivery-test-${Math.random().toString(36).slice(2)}@example.test`,
       role: "editor",
       active: true,
       allPartners: true,
@@ -73,7 +88,7 @@ function createAdminUser(overrides) {
 function createPublicSubscriber(overrides) {
   return prisma.publicSubscriber.create({
     data: {
-      email: `scoped-digest-test-${Math.random().toString(36).slice(2)}@example.test`,
+      email: `digest-delivery-test-${Math.random().toString(36).slice(2)}@example.test`,
       confirmedAt: new Date(),
       allPartners: true,
       ...overrides,
@@ -90,7 +105,11 @@ before(async () => {
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
     update: {
-      enabledFeatures: { outboundEmail: true },
+      enabledFeatures: { outboundEmail: true, publicPrayerDigest: true },
+      // Defaults off now -- this file's own restricted-partner review-gate
+      // tests need it on, same as notifications.test.js/groupme.test.js
+      // already set explicitly rather than relying on the schema default.
+      allowRestrictedPartnerNotifications: true,
       postmarkServerToken: encryptField("pm-test-token"),
       emailFromAddress: "updates@example.test",
       churchName: "Hillside Community Church",
@@ -98,7 +117,8 @@ before(async () => {
     },
     create: {
       id: "singleton",
-      enabledFeatures: { outboundEmail: true },
+      enabledFeatures: { outboundEmail: true, publicPrayerDigest: true },
+      allowRestrictedPartnerNotifications: true,
       postmarkServerToken: encryptField("pm-test-token"),
       emailFromAddress: "updates@example.test",
       churchName: "Hillside Community Church",
@@ -110,8 +130,7 @@ before(async () => {
 // allPartners: true recipient (the default for both helpers above) sees
 // *every* fixture row still in the table, not just the one its own test
 // created, so a prior test's row/partner left behind would otherwise
-// leak into this one's counts. Individual tests' own finally-blocks still
-// clean up what they created too (defensive, not load-bearing).
+// leak into this one's counts.
 beforeEach(async () => {
   mockPostmark();
   await cleanup();
@@ -126,23 +145,23 @@ after(async () => {
   });
 });
 
-describe("sendScopedDigest -- basic gating", () => {
+describe("sendDigestTier -- basic gating", () => {
   test("outboundEmail off -- returns empty, sends nothing, touches nothing", async () => {
     const settings = await getSettings();
-    const result = await sendScopedDigest("weekly", {
+    const result = await sendDigestTier("biweekly", {
       ...settings,
       enabledFeatures: { outboundEmail: false },
     });
     assert.deepEqual(result.consideredIds, []);
-    assert.equal(postmarkCalls.length, 0);
+    assert.equal(postmarkMessages.length, 0);
   });
 
   test("no rows at all -- returns empty", async () => {
-    const admin = await createAdminUser({ digestFrequency: "weekly" });
+    const admin = await createAdminUser({ cadence: "biweekly" });
     try {
-      const result = await sendScopedDigest("weekly", await getSettings());
+      const result = await sendDigestTier("biweekly", await getSettings());
       assert.deepEqual(result.consideredIds, []);
-      assert.equal(postmarkCalls.length, 0);
+      assert.equal(postmarkMessages.length, 0);
     } finally {
       await prisma.user.delete({ where: { id: admin.id } });
     }
@@ -150,32 +169,55 @@ describe("sendScopedDigest -- basic gating", () => {
 
   test("rows exist but nobody is subscribed at this tier -- returns empty, nothing sent", async () => {
     const partner = await createPartner({});
-    await createPendingRow(partner.id, "prayerRequestCreated", {
+    await createRow(partner.id, "prayerRequestCreated", {
       partnerName: partner.displayName,
       requestText: "pray",
     });
-    const result = await sendScopedDigest("weekly", await getSettings());
+    const result = await sendDigestTier("biweekly", await getSettings());
     assert.deepEqual(result.consideredIds, []);
-    assert.equal(postmarkCalls.length, 0);
+    assert.equal(postmarkMessages.length, 0);
+  });
+
+  test("publicPrayerDigest off -- a confirmed public subscriber gets nothing, even though outboundEmail is on and the admin digest still sends", async () => {
+    const partner = await createPartner({ isPublic: true });
+    const admin = await createAdminUser({ cadence: "biweekly" });
+    const subscriber = await createPublicSubscriber({ cadence: "biweekly" });
+    const row = await createRow(partner.id, "prayerRequestCreated", {
+      partnerName: partner.displayName,
+      requestText: "pray",
+    });
+    try {
+      const settings = await getSettings();
+      const result = await sendDigestTier("biweekly", {
+        ...settings,
+        enabledFeatures: { outboundEmail: true, publicPrayerDigest: false },
+      });
+      assert.ok(result.consideredIds.includes(row.id), "admin digest should still stamp this row");
+      assert.equal(postmarkMessages.length, 1, "only the admin should have been emailed");
+      assert.equal(postmarkMessages[0].To, admin.email);
+    } finally {
+      await prisma.user.delete({ where: { id: admin.id } });
+      await prisma.publicSubscriber.delete({ where: { id: subscriber.id } });
+    }
   });
 });
 
-describe("sendScopedDigest -- restricted-partner review gate (#187)", () => {
+describe("sendDigestTier -- restricted-partner review gate (#187)", () => {
   test("an unreviewed restricted partner's row never goes out to either audience", async () => {
     const partner = await createPartner({ isRestricted: true, isPublic: true });
-    const admin = await createAdminUser({ digestFrequency: "weekly" });
-    const subscriber = await createPublicSubscriber({ frequency: "weekly" });
-    const row = await createPendingRow(partner.id, "prayerRequestCreated", {
+    const admin = await createAdminUser({ cadence: "biweekly" });
+    const subscriber = await createPublicSubscriber({ cadence: "biweekly" });
+    const row = await createRow(partner.id, "prayerRequestCreated", {
       partnerName: partner.displayName,
       requestText: "SECRET-UNREVIEWED-TEXT",
     });
     try {
-      const result = await sendScopedDigest("weekly", await getSettings());
+      const result = await sendDigestTier("biweekly", await getSettings());
       assert.ok(
         !result.consideredIds.includes(row.id),
         "an unreviewed restricted row must not be considered"
       );
-      assert.equal(postmarkCalls.length, 0, "neither audience should have been emailed");
+      assert.equal(postmarkMessages.length, 0, "neither audience should have been emailed");
     } finally {
       await prisma.user.delete({ where: { id: admin.id } });
       await prisma.publicSubscriber.delete({ where: { id: subscriber.id } });
@@ -188,21 +230,21 @@ describe("sendScopedDigest -- restricted-partner review gate (#187)", () => {
       isPublic: true,
       displayName: `${FIXTURE_TAG} Jordan Rivera`,
     });
-    const admin = await createAdminUser({ digestFrequency: "weekly" });
-    const subscriber = await createPublicSubscriber({ frequency: "weekly" });
-    const row = await createPendingRow(partner.id, "prayerRequestCreated", {
+    const admin = await createAdminUser({ cadence: "biweekly" });
+    const subscriber = await createPublicSubscriber({ cadence: "biweekly" });
+    const row = await createRow(partner.id, "prayerRequestCreated", {
       partnerName: partner.displayName,
       requestText: "SECRET-ORIGINAL-TEXT",
     });
-    await prisma.pendingNotification.update({
+    await prisma.notifiableEvent.update({
       where: { id: row.id },
       data: { reviewedAt: new Date(), reviewedById: admin.id, reviewedText: "Reviewed, safe wording." },
     });
     try {
-      const result = await sendScopedDigest("weekly", await getSettings());
+      const result = await sendDigestTier("biweekly", await getSettings());
       assert.ok(result.consideredIds.includes(row.id));
-      assert.equal(postmarkCalls.length, 2, "one email to the admin, one to the public subscriber");
-      const bodies = postmarkCalls.map((c) => c.body.HtmlBody).join("\n");
+      assert.equal(postmarkMessages.length, 2, "one email to the admin, one to the public subscriber");
+      const bodies = postmarkMessages.map((m) => m.HtmlBody).join("\n");
       assert.ok(bodies.includes("Reviewed, safe wording."), "reviewed text should appear");
       assert.ok(!bodies.includes("SECRET-ORIGINAL-TEXT"), "original unreviewed text must never appear");
       assert.ok(!bodies.includes("Jordan") && !bodies.includes("Rivera"), "real name must never leak");
@@ -213,27 +255,27 @@ describe("sendScopedDigest -- restricted-partner review gate (#187)", () => {
   });
 });
 
-describe("sendScopedDigest -- content scope: admin vs. public audience", () => {
+describe("sendDigestTier -- content scope: admin vs. public audience", () => {
   test("admin gets needs and newsletters; the identical-tier public subscriber gets neither", async () => {
     const partner = await createPartner({ isPublic: true });
-    const admin = await createAdminUser({ digestFrequency: "weekly" });
-    const subscriber = await createPublicSubscriber({ frequency: "weekly" });
-    await createPendingRow(partner.id, "supportNeedCreated", {
+    const admin = await createAdminUser({ cadence: "biweekly" });
+    const subscriber = await createPublicSubscriber({ cadence: "biweekly" });
+    await createRow(partner.id, "supportNeedCreated", {
       partnerName: partner.displayName,
       description: "NEED-TEXT-MARKER",
     });
-    await createPendingRow(partner.id, "newsletterCreated", {
+    await createRow(partner.id, "newsletterCreated", {
       partnerName: partner.displayName,
       newsletterId: "fake-newsletter-id",
     });
     try {
-      await sendScopedDigest("weekly", await getSettings());
+      await sendDigestTier("biweekly", await getSettings());
       assert.equal(
-        postmarkCalls.length,
+        postmarkMessages.length,
         1,
         "only the admin should have been emailed -- neither row is prayer-request-shaped"
       );
-      const html = postmarkCalls[0].body.HtmlBody;
+      const html = postmarkMessages[0].HtmlBody;
       assert.ok(html.includes("NEED-TEXT-MARKER"), "admin should see the need");
       assert.ok(html.toLowerCase().includes("newsletter"), "admin should see the newsletter");
     } finally {
@@ -244,49 +286,49 @@ describe("sendScopedDigest -- content scope: admin vs. public audience", () => {
 
   test("a prayerRequestCreated row on a non-public partner never reaches a public subscriber, even on the same tier", async () => {
     const partner = await createPartner({ isPublic: false });
-    const subscriber = await createPublicSubscriber({ frequency: "weekly" });
-    await createPendingRow(partner.id, "prayerRequestCreated", {
+    const subscriber = await createPublicSubscriber({ cadence: "biweekly" });
+    await createRow(partner.id, "prayerRequestCreated", {
       partnerName: partner.displayName,
       requestText: "non-public partner prayer",
     });
     try {
-      const result = await sendScopedDigest("weekly", await getSettings());
+      const result = await sendDigestTier("biweekly", await getSettings());
       assert.deepEqual(
         result.consideredIds,
         [],
         "nobody eligible -- non-public partner, no admin subscriber"
       );
-      assert.equal(postmarkCalls.length, 0);
+      assert.equal(postmarkMessages.length, 0);
     } finally {
       await prisma.publicSubscriber.delete({ where: { id: subscriber.id } });
     }
   });
 });
 
-describe("sendScopedDigest -- no source link for public, source link preserved for admin", () => {
+describe("sendDigestTier -- no source link for public, source link preserved for admin", () => {
   test("identical row with sourceFileId set: admin render includes a source link, public render never does", async () => {
     const partner = await createPartner({ isPublic: true });
-    const admin = await createAdminUser({ digestFrequency: "weekly" });
-    const subscriber = await createPublicSubscriber({ frequency: "weekly" });
-    await createPendingRow(partner.id, "prayerRequestCreated", {
+    const admin = await createAdminUser({ cadence: "biweekly" });
+    const subscriber = await createPublicSubscriber({ cadence: "biweekly" });
+    await createRow(partner.id, "prayerRequestCreated", {
       partnerName: partner.displayName,
       requestText: "a request sourced from a newsletter",
       sourceFileId: "fake-source-file-id",
     });
     try {
-      await sendScopedDigest("weekly", await getSettings());
-      assert.equal(postmarkCalls.length, 2);
-      const adminCall = postmarkCalls.find((c) => c.body.To === admin.email);
-      const publicCall = postmarkCalls.find((c) => c.body.To === subscriber.email);
-      assert.ok(adminCall, "admin should have been emailed");
-      assert.ok(publicCall, "public subscriber should have been emailed");
+      await sendDigestTier("biweekly", await getSettings());
+      assert.equal(postmarkMessages.length, 2);
+      const adminMessage = postmarkMessages.find((m) => m.To === admin.email);
+      const publicMessage = postmarkMessages.find((m) => m.To === subscriber.email);
+      assert.ok(adminMessage, "admin should have been emailed");
+      assert.ok(publicMessage, "public subscriber should have been emailed");
       assert.ok(
-        adminCall.body.HtmlBody.includes("/api/partner-files/fake-source-file-id/download"),
+        adminMessage.HtmlBody.includes("/api/partner-files/fake-source-file-id/download"),
         "admin render should still include the source link -- unchanged from the existing internal digest"
       );
       assert.ok(
-        !publicCall.body.HtmlBody.includes("fake-source-file-id") &&
-          !publicCall.body.HtmlBody.includes("partner-files"),
+        !publicMessage.HtmlBody.includes("fake-source-file-id") &&
+          !publicMessage.HtmlBody.includes("partner-files"),
         "public render must never include a source link, even for the exact same underlying row"
       );
     } finally {
@@ -296,28 +338,28 @@ describe("sendScopedDigest -- no source link for public, source link preserved f
   });
 });
 
-describe("sendScopedDigest -- allPartners / scoped-partner filtering", () => {
+describe("sendDigestTier -- allPartners / scoped-partner filtering", () => {
   test("User.allPartners: false -- only followed partners' rows are included", async () => {
     const followed = await createPartner({ displayName: `${FIXTURE_TAG} Followed` });
     const notFollowed = await createPartner({ displayName: `${FIXTURE_TAG} Not Followed` });
     const admin = await createAdminUser({
-      digestFrequency: "weekly",
+      cadence: "biweekly",
       allPartners: false,
       followedPartners: { create: [{ partnerId: followed.id }] },
     });
-    await createPendingRow(followed.id, "supportNeedCreated", {
+    await createRow(followed.id, "supportNeedCreated", {
       partnerName: followed.displayName,
       description: "FOLLOWED-NEED",
     });
-    await createPendingRow(notFollowed.id, "supportNeedCreated", {
+    await createRow(notFollowed.id, "supportNeedCreated", {
       partnerName: notFollowed.displayName,
       description: "NOT-FOLLOWED-NEED",
     });
     try {
-      await sendScopedDigest("weekly", await getSettings());
-      assert.equal(postmarkCalls.length, 1);
-      assert.ok(postmarkCalls[0].body.HtmlBody.includes("FOLLOWED-NEED"));
-      assert.ok(!postmarkCalls[0].body.HtmlBody.includes("NOT-FOLLOWED-NEED"));
+      await sendDigestTier("biweekly", await getSettings());
+      assert.equal(postmarkMessages.length, 1);
+      assert.ok(postmarkMessages[0].HtmlBody.includes("FOLLOWED-NEED"));
+      assert.ok(!postmarkMessages[0].HtmlBody.includes("NOT-FOLLOWED-NEED"));
     } finally {
       await prisma.user.delete({ where: { id: admin.id } });
     }
@@ -327,23 +369,23 @@ describe("sendScopedDigest -- allPartners / scoped-partner filtering", () => {
     const scoped = await createPartner({ displayName: `${FIXTURE_TAG} Scoped`, isPublic: true });
     const notScoped = await createPartner({ displayName: `${FIXTURE_TAG} Not Scoped`, isPublic: true });
     const subscriber = await createPublicSubscriber({
-      frequency: "weekly",
+      cadence: "biweekly",
       allPartners: false,
       scopedPartners: { create: [{ partnerId: scoped.id }] },
     });
-    await createPendingRow(scoped.id, "prayerRequestCreated", {
+    await createRow(scoped.id, "prayerRequestCreated", {
       partnerName: scoped.displayName,
       requestText: "SCOPED-PRAYER",
     });
-    await createPendingRow(notScoped.id, "prayerRequestCreated", {
+    await createRow(notScoped.id, "prayerRequestCreated", {
       partnerName: notScoped.displayName,
       requestText: "NOT-SCOPED-PRAYER",
     });
     try {
-      await sendScopedDigest("weekly", await getSettings());
-      assert.equal(postmarkCalls.length, 1);
-      assert.ok(postmarkCalls[0].body.HtmlBody.includes("SCOPED-PRAYER"));
-      assert.ok(!postmarkCalls[0].body.HtmlBody.includes("NOT-SCOPED-PRAYER"));
+      await sendDigestTier("biweekly", await getSettings());
+      assert.equal(postmarkMessages.length, 1);
+      assert.ok(postmarkMessages[0].HtmlBody.includes("SCOPED-PRAYER"));
+      assert.ok(!postmarkMessages[0].HtmlBody.includes("NOT-SCOPED-PRAYER"));
     } finally {
       await prisma.publicSubscriber.delete({ where: { id: subscriber.id } });
     }
@@ -351,17 +393,47 @@ describe("sendScopedDigest -- allPartners / scoped-partner filtering", () => {
 
   test("a confirmedAt: null subscriber (never confirmed) is never sent to, regardless of tier", async () => {
     const partner = await createPartner({ isPublic: true });
-    const subscriber = await createPublicSubscriber({ frequency: "weekly", confirmedAt: null });
-    await createPendingRow(partner.id, "prayerRequestCreated", {
+    const subscriber = await createPublicSubscriber({ cadence: "biweekly", confirmedAt: null });
+    await createRow(partner.id, "prayerRequestCreated", {
       partnerName: partner.displayName,
       requestText: "unconfirmed test",
     });
     try {
-      const result = await sendScopedDigest("weekly", await getSettings());
+      const result = await sendDigestTier("biweekly", await getSettings());
       assert.deepEqual(result.consideredIds, []);
-      assert.equal(postmarkCalls.length, 0);
+      assert.equal(postmarkMessages.length, 0);
     } finally {
       await prisma.publicSubscriber.delete({ where: { id: subscriber.id } });
+    }
+  });
+});
+
+describe("sendDigestTier -- batching", () => {
+  test("more than 250 eligible recipients are sent in multiple batch calls, not one giant call", async () => {
+    const partner = await createPartner({});
+    await createRow(partner.id, "prayerRequestCreated", {
+      partnerName: partner.displayName,
+      requestText: "batching test",
+    });
+    const admins = await Promise.all(
+      Array.from({ length: 251 }, () => createAdminUser({ cadence: "biweekly" }))
+    );
+    const batchCalls = [];
+    const originalFetch = global.fetch;
+    global.fetch = (url, options) => {
+      if (String(url).startsWith("https://api.postmarkapp.com")) {
+        batchCalls.push(JSON.parse(options.body).length);
+      }
+      return originalFetch(url, options);
+    };
+    try {
+      await sendDigestTier("biweekly", await getSettings());
+      assert.equal(batchCalls.length, 2, "251 recipients -> 2 batch calls");
+      assert.equal(batchCalls[0], 250);
+      assert.equal(batchCalls[1], 1);
+    } finally {
+      global.fetch = originalFetch;
+      await prisma.user.deleteMany({ where: { id: { in: admins.map((a) => a.id) } } });
     }
   });
 });

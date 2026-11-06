@@ -50,4 +50,25 @@ async function sendEmail({ to, subject, text, html }) {
   });
 }
 
-module.exports = { sendEmail };
+// Sends up to 500 already-fully-built messages in one Postmark API call
+// (POST /email/batch) -- a transport optimization only. Each message is
+// still independently addressed (its own To/Subject/HtmlBody/TextBody),
+// so this never reduces the number of emails sent or billed, and no
+// recipient is ever visible to another -- there's no Cc/Bcc involved,
+// just fewer HTTP round-trips for the same N sends. Callers chunk to
+// <=250 per call themselves (see digestDelivery.js), well under
+// Postmark's 500-message/50MB cap, to leave real headroom. `messages`
+// are { To, Subject, HtmlBody, TextBody } objects, matching sendEmail's
+// own shape plus the capitalized Postmark field names batch expects
+// directly (digestShell.js's buildDigestMessage already returns this
+// exact shape). Returns one response entry per message, in the same
+// order submitted, each with its own ErrorCode -- callers check that
+// per-entry rather than relying on the call as a whole succeeding or
+// failing, since one bad address must never affect any other message in
+// the same batch.
+async function sendEmailBatch(messages) {
+  const { postmark, fromAddress } = await client();
+  return postmark.sendEmailBatch(messages.map((m) => ({ ...m, From: fromAddress })));
+}
+
+module.exports = { sendEmail, sendEmailBatch };

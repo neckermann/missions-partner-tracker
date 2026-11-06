@@ -127,14 +127,14 @@ describe("POST /api/public/subscribe", () => {
 
     const res = await anon("/api/public/subscribe", {
       method: "POST",
-      body: { email, frequency: "monthly" },
+      body: { email, cadence: "monthly" },
     });
     assert.equal(res.status, 200);
     assert.ok(res.body.message, "same generic response shape as the new-subscriber case");
     assert.equal(postmarkCalls.length, 0, "an already-confirmed subscriber gets no new confirmation email");
 
     const updated = await prisma.publicSubscriber.findUnique({ where: { email } });
-    assert.equal(updated.frequency, "monthly", "scope/cadence still updates");
+    assert.equal(updated.cadence, "monthly", "scope/cadence still updates");
     assert.ok(updated.confirmedAt, "stays confirmed");
   });
 

@@ -36,7 +36,8 @@ const notificationRoutes = require("./routes/notifications");
 const publicSubscribeRoutes = require("./routes/publicSubscribe");
 const publicUnsubscribeRoutes = require("./routes/publicUnsubscribe");
 const adminScopedDigestRoutes = require("./routes/adminScopedDigest");
-const { startDigestScheduler } = require("./utils/digestScheduler");
+const { startDigestScheduler, startGroupMeScheduler } = require("./utils/digestScheduler");
+const prisma = require("./prismaClient");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -203,7 +204,7 @@ app.use("/api/system-info", systemInfoRoutes); // protected (admin role only)
 app.use("/api/backup-check", backupCheckRoutes); // protected (admin role only)
 app.use("/api/backups", backupsRoutes); // protected (admin role only)
 app.use("/api/inbound-email", inboundEmailRoutes); // mixed -- see that file's own comment
-app.use("/api/notifications", notificationRoutes); // protected (any role for read, admin/editor to flush)
+app.use("/api/notifications", notificationRoutes); // protected (any role for read, admin/editor to review/edit)
 app.use("/api/public/subscribe", publicSubscribeRoutes); // open (public, feature-gated -- see that file's own comment)
 app.use("/api/public/unsubscribe", publicUnsubscribeRoutes); // open (public, feature-gated -- sibling of publicSubscribe, not nested under it)
 app.use("/api/scoped-digest", adminScopedDigestRoutes); // protected (any role for read)
@@ -243,18 +244,40 @@ app.use(errorHandler);
 // Guarded so this file can be require()'d by the route tests, which boot
 // the real app on an ephemeral port rather than mocking it -- same reason
 // prisma/seed.js has the same guard. Running it directly still listens
-// exactly as before. The notification-digest scheduler (see #129,
-// utils/digestScheduler.js) is started here too, under the same guard --
-// a once-a-minute cron.schedule() timer would otherwise keep every route
-// test file's own process alive indefinitely (each test file boots this
-// whole app fresh in its own process -- see test/routes/helpers.js's own
-// comment on exactly this class of problem, #162) and fire real flush
-// attempts against the test database no test asked for.
+// exactly as before. The two notification schedulers (digestScheduler.js)
+// are started here too, under the same guard -- a once-a-minute
+// cron.schedule() timer would otherwise keep every route test file's own
+// process alive indefinitely (each test file boots this whole app fresh
+// in its own process -- see test/routes/helpers.js's own comment on
+// exactly this class of problem, #162) and fire real flush attempts
+// against the test database no test asked for.
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Missionary Tracker API listening on port ${PORT}`);
-  });
-  startDigestScheduler();
+  (async () => {
+    // ChurchSettings.timezone (see that field's own schema.prisma
+    // comment) must be applied to process.env.TZ once, here, before
+    // either scheduler starts -- changing process.env.TZ after a Date-
+    // using module has already run is documented as unreliable, so this
+    // has to happen before anything below reads the clock. Falls back to
+    // UTC on a fresh deploy (no ChurchSettings row yet) or a transient
+    // DB hiccup, matching this field's own default and Render's own
+    // actual behavior today -- never blocks startup over this.
+    try {
+      const settings = await prisma.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: { timezone: true },
+      });
+      process.env.TZ = settings?.timezone || "UTC";
+    } catch (err) {
+      console.error("Couldn't read ChurchSettings.timezone at startup, defaulting to UTC:", err);
+      process.env.TZ = process.env.TZ || "UTC";
+    }
+
+    app.listen(PORT, () => {
+      console.log(`Missionary Tracker API listening on port ${PORT}`);
+    });
+    startDigestScheduler();
+    startGroupMeScheduler();
+  })();
 }
 
 module.exports = app;

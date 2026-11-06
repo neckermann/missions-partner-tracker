@@ -1,17 +1,17 @@
-// Channel-neutral notification text, shared by the GroupMe batch sender
-// and the email digest (see #129) -- built once here instead of each
-// channel re-implementing its own wording. A "blurb" is one
-// PendingNotification row turned into everything either channel needs:
-// GroupMe wants one ready-to-pack message string per topic; the email
-// digest wants the same content as structured fields so it can render
-// real HTML (headings, nested items, an amount styled on its own) and
-// group by partner instead of by flat type.
+// Channel-neutral notification text, shared by GroupMe and both digest
+// audiences -- built once here instead of each channel re-implementing
+// its own wording. This is the real, load-bearing masking authority in
+// the whole system: groupmeChannel.js, adminDigestContent.js, and
+// publicDigestContent.js all build their output by calling buildBlurb()
+// on every row before rendering anything from it, never reading a raw
+// NotifiableEvent row's fields directly. A "blurb" is one
+// NotifiableEvent row turned into everything any channel needs: GroupMe
+// wants one ready-to-pack message string per topic; both digest
+// audiences want the same content as structured fields so they can
+// render real HTML (headings, nested items, an amount styled on its
+// own) and group by partner instead of by flat type.
 //
-// Message wording below is unchanged from utils/groupme.js's own
-// pre-#129 notify* functions -- same emoji, same phrasing -- just
-// extracted so it isn't duplicated between the two channels.
-//
-// Masking: GroupMe posts and digest emails both leave this app's own
+// Masking: GroupMe posts and digest emails all leave this app's own
 // auth boundary -- a GroupMe group can include non-admin members, and a
 // digest email can sit in an inbox that gets forwarded or auto-synced
 // somewhere public. That's the same exposure utils/maskData.js's
@@ -23,7 +23,7 @@
 // auth-gated, a restricted partner's notification should never hint at
 // specific content to begin with). isRestricted is read fresh from the
 // partner at build time, not from the payload's own frozen snapshot --
-// the flag can change after a notification was already queued.
+// the flag can change after a notification was already recorded.
 const { toInitials } = require("./maskData");
 
 const RESTRICTED_NOTICE =
@@ -31,12 +31,13 @@ const RESTRICTED_NOTICE =
 
 // The 4 "real content" event types -- the ones a restricted partner's
 // notification needs manual review for before it's eligible to send at
-// all (#187; see notificationFlush.js's needsReview()). newsletterCreated
-// is deliberately excluded: it already fully suppresses for a restricted
-// partner (bodyText/groupmeText both come back masked-to-nothing below),
-// so there's no real content there to ever gate. Exported so
-// notificationFlush.js and routes/notifications.js share this exact list
-// instead of each re-deriving "which types are real content" and
+// all (#187; see notificationEligibility.js's needsReview()).
+// newsletterCreated is deliberately excluded: it already fully
+// suppresses for a restricted partner (bodyText/groupmeText both come
+// back masked-to-nothing below), so there's no real content there to
+// ever gate. Exported so notificationEligibility.js's
+// isEligibleForChannel and routes/notifications.js share this exact
+// list instead of each re-deriving "which types are real content" and
 // drifting apart.
 const REVIEW_GATED_TYPES = new Set([
   "prayerRequestCreated",
@@ -45,11 +46,10 @@ const REVIEW_GATED_TYPES = new Set([
   "supportNeedDecided",
 ]);
 
-// The subset of types eligible for the public scoped-digest audience
-// specifically (#202) -- admin (User) recipients aren't restricted by
-// this set at all, they keep every type, same as the existing internal
-// digest. See utils/notificationFlush.js's tierApplies() and
-// utils/scopedDigest.js's sendScopedDigest() for where this is used.
+// The subset of types eligible for the public digest audience
+// specifically -- admin (User) recipients aren't restricted by this set
+// at all, they keep every type. See notificationEligibility.js's
+// isEligibleForChannel for where this is used.
 const PUBLIC_DIGEST_TYPES = new Set(["prayerRequestCreated", "prayerRequestAnswered"]);
 
 // Same reasoning/placement as groupme.js's own appBaseUrl(): resolves to
@@ -84,14 +84,14 @@ function supportNeedOutcomeLabel(payload) {
   return "Fully Funded";
 }
 
-// Builds one blurb from a PendingNotification row. `partner` is the
-// current Partner record (just { displayName, isRestricted } is enough)
-// -- pass null/undefined when it's unavailable (e.g. the partner was
-// since deleted) and masking is simply skipped, same as before this
-// existed. Returns null for a type this function doesn't recognize
-// (defensive -- should never happen since `type` is only ever written by
-// notifications.js below) rather than throwing and taking down an entire
-// flush over one bad row.
+// Builds one blurb from a NotifiableEvent row. `partner` is the current
+// Partner record (just { displayName, isRestricted } is enough) -- pass
+// null/undefined when it's unavailable (e.g. the partner was since
+// deleted) and masking is simply skipped, same as before this existed.
+// Returns null for a type this function doesn't recognize (defensive --
+// should never happen since `type` is only ever written by
+// notificationRecording.js) rather than throwing and taking down an
+// entire pass over one bad row.
 //
 // row.reviewedAt/row.reviewedText (#187): any row can carry an admin's
 // saved edit, which -- once set -- is simply the authoritative body text
@@ -101,7 +101,7 @@ function supportNeedOutcomeLabel(payload) {
 // RESTRICTED_NOTICE; for every other row it's just whatever edit the
 // admin made. Whether an un-reviewed restricted row is actually allowed
 // to *send* yet is a separate question this function has no opinion on
-// -- see notificationFlush.js's needsReview().
+// -- see notificationEligibility.js's needsReview().
 function buildBlurb(row, partner) {
   const { type, payload } = row;
   const restricted = !!partner?.isRestricted;
@@ -171,6 +171,18 @@ function buildBlurb(row, partner) {
         : restricted
           ? RESTRICTED_NOTICE
           : payload.description;
+      // One-time needs never reach the public digest -- not in
+      // PUBLIC_DIGEST_TYPES above, admin-only on every channel -- so the
+      // requested amount is safe to surface here the same way the
+      // approved amount already is on the decided case below.
+      // Restricted-partner masking still applies to the partner's
+      // name/description; the dollar figure itself was never treated as
+      // identifying. Guarded against a missing requestedAmount (a real
+      // SupportNeed always has one -- the column is non-nullable -- but
+      // a test fixture or a future caller that doesn't is safer showing
+      // nothing than "$NaN").
+      const amount =
+        payload.requestedAmount != null ? `$${Number(payload.requestedAmount).toLocaleString()}` : null;
       return {
         id: row.id,
         type,
@@ -180,14 +192,16 @@ function buildBlurb(row, partner) {
         emoji: "🎁",
         summary: "New one-time need",
         bodyText,
-        amount: null,
+        amount,
+        amountLabel: "Requested",
+        decisionNote: null,
         sourceFileId: maskedSourceFileId,
         sourceLinkUrl: maskedSourceLinkUrl,
         groupmeText: restricted
-          ? `🎁 New one-time need from ${partnerName}:\n${bodyText}`
+          ? `🎁 New one-time need from ${partnerName}:\n${bodyText}${amount ? `\n\nRequested: ${amount}` : ""}`
           : `🎁 New one-time need from ${partnerName}:\n` +
             `Be praying about this opportunity — we'll talk about it more at our next meeting.\n\n` +
-            `${bodyText}${maskedSourceLinkLine}`,
+            `${bodyText}${amount ? `\n\nRequested: ${amount}` : ""}${maskedSourceLinkLine}`,
       };
     }
 
@@ -199,6 +213,11 @@ function buildBlurb(row, partner) {
         : restricted
           ? RESTRICTED_NOTICE
           : `"${payload.description}"`;
+      // Documents *why* the decision came out this way -- same
+      // admin-only reasoning as the amount above, so no masking beyond
+      // what restricted already does to bodyText/partnerName.
+      const decisionNote = payload.decisionNote?.trim() || null;
+      const decisionNoteLine = decisionNote ? `\n\n${decisionNote}` : "";
       return {
         id: row.id,
         type,
@@ -209,17 +228,25 @@ function buildBlurb(row, partner) {
         summary: `One-time need decided (${label})`,
         bodyText,
         amount,
+        amountLabel: "Approved",
+        decisionNote,
         sourceFileId: maskedSourceFileId,
         sourceLinkUrl: maskedSourceLinkUrl,
         groupmeText: restricted
-          ? `🎁 One-time need decided (${label}), from ${partnerName}:\n${bodyText}\n\nApproved: ${amount}`
-          : `🎁 One-time need decided (${label}), from ${partnerName}:\n${bodyText}\n\nApproved: ${amount}${maskedSourceLinkLine}`,
+          ? `🎁 One-time need decided (${label}), from ${partnerName}:\n${bodyText}\n\nApproved: ${amount}${decisionNoteLine}`
+          : `🎁 One-time need decided (${label}), from ${partnerName}:\n${bodyText}\n\nApproved: ${amount}${decisionNoteLine}${maskedSourceLinkLine}`,
       };
     }
 
     case "newsletterCreated": {
       const base = appBaseUrl();
       const link = restricted || !base ? null : `${base}/api/partner-files/${payload.newsletterId}/download`;
+      // The newsletter's real title (new) -- masked to null for a
+      // restricted partner's newsletter, same as every other
+      // identifying field on this row. Often genuinely null in
+      // practice too (PartnerFile.title is optional) -- that's fine,
+      // not a bug, there's just nothing to show for that row.
+      const title = restricted ? null : payload.title || null;
       return {
         id: row.id,
         type,
@@ -230,15 +257,17 @@ function buildBlurb(row, partner) {
         summary: "New newsletter",
         bodyText: restricted ? RESTRICTED_NOTICE : null,
         amount: null,
+        title,
         newsletterId: restricted ? null : payload.newsletterId,
         sourceFileId: null,
         sourceLinkUrl: link,
-        // Same as groupme.js's own notifyNewsletterCreated: no link, no
-        // message -- a newsletter notification with nothing to point at
-        // isn't worth sending at all. A restricted partner's newsletter
-        // never gets a link in the first place, so it's never worth a
-        // GroupMe post either, same reasoning.
-        groupmeText: link ? `📰 New newsletter from ${partnerName}:\n${link}` : null,
+        // No link, no message -- a newsletter notification with
+        // nothing to point at isn't worth sending at all. A restricted
+        // partner's newsletter never gets a link in the first place, so
+        // it's never worth a GroupMe post either, same reasoning.
+        groupmeText: link
+          ? `📰 New newsletter from ${partnerName}${title ? `: ${title}` : ""}:\n${link}`
+          : null,
       };
     }
 

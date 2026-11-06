@@ -3,7 +3,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
-const { notifySupportNeedCreated, notifySupportNeedDecided } = require("../utils/notifications");
+const { notifySupportNeedCreated, notifySupportNeedDecided } = require("../utils/notificationRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
@@ -24,6 +24,14 @@ const supportNeedSchema = z.object({
   requestDate: z.coerce.date(),
   approvedAmount: z.coerce.number().int().nonnegative().optional().nullable(),
   approvedDate: z.coerce.date().optional().nullable(),
+  decisionNote: z.string().optional().nullable(),
+  // Admin/editor-set at creation -- see notificationRecording.js's
+  // maybeBroadcastUrgent for what this actually triggers.
+  isUrgent: z.boolean().optional(),
+  // Not a SupportNeed column -- stripped out below before the Prisma
+  // create. Same inline "approve now" path as prayerRequests.js's own
+  // approveNow -- see that file's comment.
+  approveNow: z.boolean().optional(),
   notes: z.string().optional().nullable(),
   // Set only by ExtractionReviewModal.jsx's scan flow -- see the comment
   // on this column in schema.prisma.
@@ -78,12 +86,14 @@ router.get("/", async (req, res, next) => {
 // POST /api/support-needs  (create — editor or admin)
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = supportNeedSchema.refine(approvedPairGiven, APPROVED_PAIR_ISSUE).parse(req.body);
+    const { approveNow, ...data } = supportNeedSchema
+      .refine(approvedPairGiven, APPROVED_PAIR_ISSUE)
+      .parse(req.body);
     const created = await prisma.supportNeed.create({ data, include: supportNeedInclude });
 
-    // Best-effort: notifySupportNeedCreated (utils/notifications.js) never
-    // throws -- see the same comment in routes/prayerRequests.js.
-    await notifySupportNeedCreated(created);
+    // Best-effort: notifySupportNeedCreated (utils/notificationRecording.js)
+    // never throws -- see the same comment in routes/prayerRequests.js.
+    await notifySupportNeedCreated(created, approveNow ? { reviewerId: req.user.id } : null);
 
     res.status(201).json(created);
   } catch (err) {
