@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { fetchPublicPartners } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import DemoBanner from "../components/DemoBanner.jsx";
+import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import { getContinent } from "../utils/countryContinents.js";
 import { matchesSearch } from "../utils/search.js";
 
@@ -16,7 +17,7 @@ export default function PublicDirectory() {
   const [continentFilter, setContinentFilter] = useState("all");
   const [countryFilter, setCountryFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const { logo, partnerTermPlural, publicTagline, aboutText, enabledFeatures } = useSettings();
+  const { partnerTermPlural, publicTagline, aboutText } = useSettings();
 
   useEffect(() => {
     fetchPublicPartners().then(setRecords).catch(console.error);
@@ -101,25 +102,7 @@ export default function PublicDirectory() {
 
   return (
     <div>
-      <header className="app-header">
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          {logo?.url && <img src={logo.url} alt="" className="header-logo" />}
-          <div>
-            <h1>Our {partnerTermPlural}</h1>
-            {publicTagline && <p className="header-tagline">{publicTagline}</p>}
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: "1rem" }}>
-          {enabledFeatures.publicPrayerDigest && (
-            <Link to="/subscribe" style={{ color: "white" }}>
-              Pray for our {partnerTermPlural}
-            </Link>
-          )}
-          <Link to="/map" style={{ color: "white" }}>
-            View Map
-          </Link>
-        </div>
-      </header>
+      <PublicSiteHeader title={`Our ${partnerTermPlural}`} subtitle={publicTagline} />
 
       <DemoBanner />
       {aboutText && <p className="public-about-text">{aboutText}</p>}

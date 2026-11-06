@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { fetchPublicPartner } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
 import PublicSubscribeForm from "../components/PublicSubscribeForm.jsx";
+import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { formatYear } from "../utils/format.js";
 
@@ -19,28 +20,6 @@ const LINK_FIELDS = [
   ["instagram", "Instagram"],
   ["linkedin", "LinkedIn"],
 ];
-
-function PublicHeader() {
-  const { logo, partnerTermPlural, enabledFeatures } = useSettings();
-  return (
-    <header className="app-header">
-      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-        {logo?.url && <img src={logo.url} alt="" className="header-logo" />}
-        <h1>Our {partnerTermPlural}</h1>
-      </div>
-      <div style={{ display: "flex", gap: "1rem" }}>
-        {enabledFeatures.publicPrayerDigest && (
-          <Link to="/subscribe" style={{ color: "white" }}>
-            Pray for our {partnerTermPlural}
-          </Link>
-        )}
-        <Link to="/map" style={{ color: "white" }}>
-          View Map
-        </Link>
-      </div>
-    </header>
-  );
-}
 
 export default function PublicPartnerDetail() {
   const { id } = useParams();
@@ -62,7 +41,7 @@ export default function PublicPartnerDetail() {
   if (notFound) {
     return (
       <div>
-        <PublicHeader />
+        <PublicSiteHeader title={`Our ${partnerTermPlural}`} />
         <div className="admin-shell">
           <p>Partner not found.</p>
           <Link to="/">&larr; Back to directory</Link>
@@ -88,7 +67,7 @@ export default function PublicPartnerDetail() {
 
   return (
     <div>
-      <PublicHeader />
+      <PublicSiteHeader title={`Our ${partnerTermPlural}`} />
       <div className="admin-shell">
         <Link to="/">&larr; Back to directory</Link>
 

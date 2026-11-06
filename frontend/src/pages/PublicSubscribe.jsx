@@ -1,7 +1,7 @@
 import React from "react";
-import { Link } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext.jsx";
 import DemoBanner from "../components/DemoBanner.jsx";
+import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import PublicSubscribeForm from "../components/PublicSubscribeForm.jsx";
 
 // Public, no-login "subscribe to prayer updates" page (#202, replacing the
@@ -12,20 +12,12 @@ import PublicSubscribeForm from "../components/PublicSubscribeForm.jsx";
 // PublicDirectory.jsx's masthead/banner shape, not an admin-shell login
 // idiom -- there's no login here.
 export default function PublicSubscribe() {
-  const { logo, partnerTermPlural } = useSettings();
+  const { partnerTermPlural } = useSettings();
   const plural = partnerTermPlural.toLowerCase();
 
   return (
     <div>
-      <header className="app-header">
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          {logo?.url && <img src={logo.url} alt="" className="header-logo" />}
-          <h1>Pray for our {partnerTermPlural}</h1>
-        </div>
-        <Link to="/" style={{ color: "white" }}>
-          View {partnerTermPlural}
-        </Link>
-      </header>
+      <PublicSiteHeader title={`Pray for our ${partnerTermPlural}`} />
 
       <DemoBanner />
 
