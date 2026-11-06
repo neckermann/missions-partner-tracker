@@ -36,6 +36,7 @@ const notificationRoutes = require("./routes/notifications");
 const publicSubscribeRoutes = require("./routes/publicSubscribe");
 const publicUnsubscribeRoutes = require("./routes/publicUnsubscribe");
 const adminScopedDigestRoutes = require("./routes/adminScopedDigest");
+const publicPrayerWallRoutes = require("./routes/publicPrayerWall");
 const { startDigestScheduler } = require("./utils/digestScheduler");
 
 const app = express();
@@ -207,6 +208,7 @@ app.use("/api/notifications", notificationRoutes); // protected (any role for re
 app.use("/api/public/subscribe", publicSubscribeRoutes); // open (public, feature-gated -- see that file's own comment)
 app.use("/api/public/unsubscribe", publicUnsubscribeRoutes); // open (public, feature-gated -- sibling of publicSubscribe, not nested under it)
 app.use("/api/scoped-digest", adminScopedDigestRoutes); // protected (any role for read)
+app.use("/api/public/prayer-wall", publicPrayerWallRoutes); // open (public, feature-gated -- see that file's own comment)
 
 // Only exists at all if DEMO_RESET_TOKEN is configured — absent in every
 // normal deployment. See ADMIN_GUIDE.md § Demo mode.

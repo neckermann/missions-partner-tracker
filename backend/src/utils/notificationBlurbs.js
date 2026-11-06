@@ -45,6 +45,13 @@ const REVIEW_GATED_TYPES = new Set([
   "supportNeedDecided",
 ]);
 
+// The subset of types eligible for the public scoped-digest audience
+// specifically (#202) -- admin (User) recipients aren't restricted by
+// this set at all, they keep every type, same as the existing internal
+// digest. See utils/notificationFlush.js's tierApplies() and
+// utils/scopedDigest.js's sendScopedDigest() for where this is used.
+const PUBLIC_DIGEST_TYPES = new Set(["prayerRequestCreated", "prayerRequestAnswered"]);
+
 // Same reasoning/placement as groupme.js's own appBaseUrl(): resolves to
 // "" when neither env var is set, so a link just isn't built rather than
 // pointing at nothing.
@@ -240,4 +247,4 @@ function buildBlurb(row, partner) {
   }
 }
 
-module.exports = { buildBlurb, appBaseUrl, REVIEW_GATED_TYPES };
+module.exports = { buildBlurb, appBaseUrl, REVIEW_GATED_TYPES, PUBLIC_DIGEST_TYPES };

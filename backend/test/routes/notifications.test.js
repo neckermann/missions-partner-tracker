@@ -574,6 +574,234 @@ describe("POST /api/notifications/send -- flush behavior", () => {
   });
 });
 
+describe("scoped-digest tier clearing (#202 phase 3)", () => {
+  // No settings route exists yet for ChurchSettings.scopedDigest* (that
+  // schedule's own settings page is a later phase) -- tests poke it
+  // directly via Prisma, same as they poke weeklyDigestSentAt/etc.
+  // below, which nothing but utils/scopedDigest.js's own send pass
+  // writes in production.
+  async function setScopedSchedule(patch) {
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: patch });
+  }
+  function clearScopedSchedule() {
+    return setScopedSchedule({
+      scopedDigestDayOfWeek: null,
+      scopedDigestDayOfMonth: null,
+      scopedDigestHour: null,
+    });
+  }
+  async function stampTier(rowId, column) {
+    await prisma.pendingNotification.update({ where: { id: rowId }, data: { [column]: new Date() } });
+  }
+
+  let publicPartnerId;
+
+  before(async () => {
+    const res = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} scoped tier target`, isPublic: true },
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    publicPartnerId = res.body.id;
+  });
+
+  after(async () => {
+    await prisma.pendingNotification.deleteMany({ where: { partnerId: publicPartnerId } });
+    await prisma.publicSubscriber.deleteMany({ where: { email: { contains: "scoped-tier-test" } } });
+    await clearScopedSchedule();
+    await admin("/api/auth/notify-by-email", { method: "PUT", body: { digestFrequency: null } });
+  });
+
+  test("with no scoped-digest schedule configured, an admin's cadence pick never blocks clearing (regression guard)", async () => {
+    await clearScopedSchedule();
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { groupme: false, outboundEmail: true } },
+    });
+    await admin("/api/settings/email", {
+      method: "PUT",
+      body: { sendEnabled: true, serverToken: "pm-test-token", fromAddress: "updates@example.org" },
+    });
+    await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: true },
+    });
+
+    const requestText = `${FIXTURE_TAG} unconfigured scoped schedule still clears`;
+    await createPrayerRequest(requestText);
+    mockPostmark(async () =>
+      postmarkJson(200, { MessageID: "fake-id", SubmittedAt: "2026-01-01T00:00:00Z" })
+    );
+    try {
+      const res = await admin("/api/notifications/send", { method: "POST" });
+      assert.equal(res.status, 200);
+      const remaining = await prisma.pendingNotification.findMany({
+        where: { partnerId, type: "prayerRequestCreated" },
+      });
+      assert.ok(
+        !remaining.some((row) => row.payload.requestText === requestText),
+        "should clear via the old email mechanism -- the scoped-digest schedule itself was never configured, so it must never block anything"
+      );
+    } finally {
+      unmockAll();
+      await admin("/api/auth/notify-by-email", { method: "PUT", body: { digestFrequency: null } });
+    }
+  });
+
+  test("schedule configured -- an admin-only type (supportNeedCreated) waits on the weekly stamp, ignoring public eligibility entirely", async () => {
+    await setScopedSchedule({ scopedDigestDayOfWeek: 3, scopedDigestHour: 9 });
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { groupme: false, outboundEmail: false } },
+    });
+    await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: true },
+    });
+
+    const description = `${FIXTURE_TAG} scoped tier need`;
+    const needRes = await admin("/api/support-needs", {
+      method: "POST",
+      body: { partnerId, description, requestedAmount: 100, requestDate: "2026-01-01" },
+    });
+    assert.equal(needRes.status, 201, JSON.stringify(needRes.body));
+
+    let flush = await admin("/api/notifications/send", { method: "POST" });
+    assert.equal(flush.status, 200);
+    let row = await prisma.pendingNotification.findFirst({
+      where: {
+        partnerId,
+        type: "supportNeedCreated",
+        payload: { path: ["description"], equals: description },
+      },
+    });
+    assert.ok(
+      row,
+      "should remain queued -- the weekly tier applies (an admin subscriber exists) but isn't stamped yet, even with every channel off"
+    );
+
+    await stampTier(row.id, "weeklyDigestSentAt");
+    flush = await admin("/api/notifications/send", { method: "POST" });
+    assert.equal(flush.status, 200);
+    row = await prisma.pendingNotification.findUnique({ where: { id: row.id } });
+    assert.equal(
+      row,
+      null,
+      "clears once the weekly stamp is set -- biweekly/monthly never applied (no subscriber on either) so they never blocked it either"
+    );
+  });
+
+  test("a public-eligible row on a public partner needs every applicable tier's stamp, admin and public alike, even on different tiers", async () => {
+    await setScopedSchedule({ scopedDigestDayOfWeek: 3, scopedDigestDayOfMonth: 7, scopedDigestHour: 9 });
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { groupme: false, outboundEmail: false } },
+    });
+    await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: true },
+    });
+    const subscriber = await prisma.publicSubscriber.create({
+      data: { email: "scoped-tier-test-sub@example.test", frequency: "monthly", confirmedAt: new Date() },
+    });
+
+    const requestText = `${FIXTURE_TAG} public partner, two tiers`;
+    const created = await admin("/api/prayer-requests", {
+      method: "POST",
+      body: { partnerId: publicPartnerId, category: "situational", requestText, dateReceived: "2026-01-01" },
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    const row = await prisma.pendingNotification.findFirst({
+      where: {
+        partnerId: publicPartnerId,
+        type: "prayerRequestCreated",
+        payload: { path: ["requestText"], equals: requestText },
+      },
+    });
+    assert.ok(row, "fixture setup: row should be queued");
+
+    try {
+      let flush = await admin("/api/notifications/send", { method: "POST" });
+      assert.equal(flush.status, 200);
+      let current = await prisma.pendingNotification.findUnique({ where: { id: row.id } });
+      assert.ok(current, "should remain queued -- neither tier is stamped yet");
+
+      await stampTier(row.id, "weeklyDigestSentAt");
+      flush = await admin("/api/notifications/send", { method: "POST" });
+      assert.equal(flush.status, 200);
+      current = await prisma.pendingNotification.findUnique({ where: { id: row.id } });
+      assert.ok(
+        current,
+        "should still remain queued -- the public subscriber's monthly tier hasn't had its own chance yet"
+      );
+
+      await stampTier(row.id, "monthlyDigestSentAt");
+      flush = await admin("/api/notifications/send", { method: "POST" });
+      assert.equal(flush.status, 200);
+      current = await prisma.pendingNotification.findUnique({ where: { id: row.id } });
+      assert.equal(
+        current,
+        null,
+        "clears once every tier that has an eligible subscriber -- admin's weekly and the public subscriber's monthly -- has been stamped"
+      );
+    } finally {
+      await prisma.publicSubscriber.delete({ where: { id: subscriber.id } }).catch(() => {});
+      await admin("/api/auth/notify-by-email", { method: "PUT", body: { digestFrequency: null } });
+    }
+  });
+
+  test("the same prayer-request type on a non-public partner is never eligible for a public subscriber's tier", async () => {
+    // Both groupme and email stay off throughout -- with no admin
+    // subscriber either, a flush that had *nothing at all* applicable to
+    // this row would correctly leave it queued forever (same "never lose
+    // an unsent row" discipline the original groupme/email vacuous guard
+    // already has), which would make this test indistinguishable from
+    // that case rather than actually proving the isPublic gate works. An
+    // admin subscribed on a genuinely-applicable tier (weekly) is what
+    // lets the row clear at all, so that clearing -- via weekly alone,
+    // with the monthly stamp never set -- is what proves the public
+    // subscriber's monthly tier never applied to this non-public partner.
+    await setScopedSchedule({ scopedDigestDayOfWeek: 3, scopedDigestDayOfMonth: 7, scopedDigestHour: 9 });
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { groupme: false, outboundEmail: false } },
+    });
+    await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: true },
+    });
+    const subscriber = await prisma.publicSubscriber.create({
+      data: { email: "scoped-tier-test-private@example.test", frequency: "monthly", confirmedAt: new Date() },
+    });
+
+    const requestText = `${FIXTURE_TAG} non-public partner, public subscriber irrelevant`;
+    await createPrayerRequest(requestText); // partnerId fixture is not public
+    try {
+      const row = await prisma.pendingNotification.findFirst({
+        where: {
+          partnerId,
+          type: "prayerRequestCreated",
+          payload: { path: ["requestText"], equals: requestText },
+        },
+      });
+      assert.ok(row);
+
+      await stampTier(row.id, "weeklyDigestSentAt");
+      const flush = await admin("/api/notifications/send", { method: "POST" });
+      assert.equal(flush.status, 200);
+      const remaining = await prisma.pendingNotification.findUnique({ where: { id: row.id } });
+      assert.equal(
+        remaining,
+        null,
+        "clears on the weekly stamp alone -- monthly never applied, since this partner isn't public, so the public subscriber's tier was never actually in play"
+      );
+    } finally {
+      await prisma.publicSubscriber.delete({ where: { id: subscriber.id } }).catch(() => {});
+      await admin("/api/auth/notify-by-email", { method: "PUT", body: { digestFrequency: null } });
+    }
+  });
+});
+
 describe("GET /api/notifications/pending -- any logged-in role", () => {
   test("a viewer can list the queue", async () => {
     await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });

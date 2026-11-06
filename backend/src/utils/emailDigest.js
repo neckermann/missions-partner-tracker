@@ -505,4 +505,11 @@ async function sendPendingNotificationsDigest(blurbs) {
   return anySucceeded;
 }
 
-module.exports = { sendPendingNotificationsDigest, buildUnsubscribeToken, renderDigestEmail, escapeHtml };
+module.exports = {
+  sendPendingNotificationsDigest,
+  buildUnsubscribeToken,
+  buildUnsubscribeUrl,
+  renderDigestEmail,
+  escapeHtml,
+  partnerTileDetails,
+};
