@@ -16,7 +16,7 @@ export default function PublicDirectory() {
   const [continentFilter, setContinentFilter] = useState("all");
   const [countryFilter, setCountryFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const { logo, partnerTermPlural, publicTagline, aboutText } = useSettings();
+  const { logo, partnerTermPlural, publicTagline, aboutText, enabledFeatures } = useSettings();
 
   useEffect(() => {
     fetchPublicPartners().then(setRecords).catch(console.error);
@@ -109,9 +109,16 @@ export default function PublicDirectory() {
             {publicTagline && <p className="header-tagline">{publicTagline}</p>}
           </div>
         </div>
-        <Link to="/map" style={{ color: "white" }}>
-          View Map
-        </Link>
+        <div style={{ display: "flex", gap: "1rem" }}>
+          {enabledFeatures.publicPrayerDigest && (
+            <Link to="/prayer-wall" style={{ color: "white" }}>
+              Prayer Wall
+            </Link>
+          )}
+          <Link to="/map" style={{ color: "white" }}>
+            View Map
+          </Link>
+        </div>
       </header>
 
       <DemoBanner />

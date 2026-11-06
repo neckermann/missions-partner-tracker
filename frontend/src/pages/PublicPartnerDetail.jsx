@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { fetchPublicPartner } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
+import PublicSubscribeForm from "../components/PublicSubscribeForm.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { formatDate, formatYear } from "../utils/format.js";
 
@@ -20,16 +21,23 @@ const LINK_FIELDS = [
 ];
 
 function PublicHeader() {
-  const { logo, partnerTermPlural } = useSettings();
+  const { logo, partnerTermPlural, enabledFeatures } = useSettings();
   return (
     <header className="app-header">
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
         {logo?.url && <img src={logo.url} alt="" className="header-logo" />}
         <h1>Our {partnerTermPlural}</h1>
       </div>
-      <Link to="/map" style={{ color: "white" }}>
-        View Map
-      </Link>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        {enabledFeatures.publicPrayerDigest && (
+          <Link to="/prayer-wall" style={{ color: "white" }}>
+            Prayer Wall
+          </Link>
+        )}
+        <Link to="/map" style={{ color: "white" }}>
+          View Map
+        </Link>
+      </div>
     </header>
   );
 }
@@ -171,6 +179,15 @@ export default function PublicPartnerDetail() {
               </div>
             ))}
           </div>
+        )}
+
+        {enabledFeatures.publicPrayerDigest && (
+          <PublicSubscribeForm
+            allPartners={false}
+            partnerIds={[partner.id]}
+            title={`Follow ${name}'s prayer requests`}
+            description="Get an email when there's a new or answered prayer request for this partner."
+          />
         )}
 
         {enabledFeatures.joshuaProject && partner.fipsCountryCode && (

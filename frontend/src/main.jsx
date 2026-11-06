@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import PublicDirectory from "./pages/PublicDirectory.jsx";
 import PublicPartnerDetail from "./pages/PublicPartnerDetail.jsx";
+import PublicPrayerWall from "./pages/PublicPrayerWall.jsx";
 import Login from "./pages/Login.jsx";
 import Setup from "./pages/Setup.jsx";
 import RequireAdminAuth from "./components/RequireAdminAuth.jsx";
@@ -44,6 +45,7 @@ const AdminSettingsGroupMe = lazy(() => import("./pages/AdminSettingsGroupMe.jsx
 const AdminSettingsJoshuaProject = lazy(() => import("./pages/AdminSettingsJoshuaProject.jsx"));
 const AdminSettingsAiExtraction = lazy(() => import("./pages/AdminSettingsAiExtraction.jsx"));
 const AdminSettingsEmail = lazy(() => import("./pages/AdminSettingsEmail.jsx"));
+const AdminSettingsPrayerDigest = lazy(() => import("./pages/AdminSettingsPrayerDigest.jsx"));
 const AdminInboundEmailQueue = lazy(() => import("./pages/AdminInboundEmailQueue.jsx"));
 const AdminPendingNotifications = lazy(() => import("./pages/AdminPendingNotifications.jsx"));
 const AdminNotificationSettings = lazy(() => import("./pages/AdminNotificationSettings.jsx"));
@@ -94,6 +96,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 element={
                   <RequirePublicSite feature={["publicDirectory", "publicMap"]}>
                     <PublicPartnerDetail />
+                  </RequirePublicSite>
+                }
+              />
+              <Route
+                path="/prayer-wall"
+                element={
+                  <RequirePublicSite feature="publicPrayerDigest">
+                    <PublicPrayerWall />
                   </RequirePublicSite>
                 }
               />
@@ -220,6 +230,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   <Route path="joshua-project" element={<AdminSettingsJoshuaProject />} />
                   <Route path="ai-extraction" element={<AdminSettingsAiExtraction />} />
                   <Route path="email" element={<AdminSettingsEmail />} />
+                  <Route path="prayer-digest" element={<AdminSettingsPrayerDigest />} />
                   <Route
                     path="notifications"
                     element={

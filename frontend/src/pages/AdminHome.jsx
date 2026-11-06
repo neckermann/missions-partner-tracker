@@ -147,6 +147,11 @@ function buildSiteAdminSections(enabledFeatures) {
       title: "Notifications",
       description: "Schedule, queue toggles, and email digest appearance.",
     },
+    enabledFeatures.outboundEmail && {
+      to: "/admin/settings/prayer-digest",
+      title: "Prayer Digest Subscribers",
+      description: "How many admins and public visitors are subscribed to the scoped prayer digest.",
+    },
   ].filter(Boolean);
   const integrations = [
     enabledFeatures.aiExtraction && {

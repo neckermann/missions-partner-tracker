@@ -86,6 +86,10 @@ function buildSiteAdminLinks(enabledFeatures) {
       to: "/admin/settings/notifications",
       label: "Notifications",
     },
+    enabledFeatures.outboundEmail && {
+      to: "/admin/settings/prayer-digest",
+      label: "Prayer Digest Subscribers",
+    },
     (enabledFeatures.joshuaProject || enabledFeatures.aiExtraction) && {
       label: "Integrations",
       isLabel: true,

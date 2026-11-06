@@ -557,6 +557,69 @@ a {
   margin-top: 1rem;
 }
 
+.public-subscribe-form {
+  background: #f7f5f0;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin: 1.5rem 0;
+}
+.public-subscribe-form h3 {
+  margin: 0 0 0.35rem;
+}
+.public-subscribe-description {
+  margin: 0 0 0.75rem;
+  color: #555;
+  font-size: 0.9rem;
+}
+.public-subscribe-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.public-subscribe-row input,
+.public-subscribe-row select {
+  padding: 0.5rem 0.6rem;
+  font-size: 0.9rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.public-subscribe-row input {
+  min-width: 220px;
+  flex: 1;
+}
+.public-subscribe-privacy {
+  margin: 0.6rem 0 0;
+  font-size: 0.8rem;
+  color: #777;
+}
+.public-subscribe-success {
+  margin: 0;
+  color: #2a5d3c;
+}
+
+.prayer-wall-group {
+  margin-bottom: 1.5rem;
+}
+.prayer-wall-group h3 {
+  margin: 0 0 0.5rem;
+}
+.prayer-wall-item {
+  background: white;
+  border: 1px solid #e2e2e2;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.6rem;
+}
+.prayer-wall-item-summary {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+.prayer-wall-item p:last-child {
+  margin-bottom: 0;
+}
+
 .admin-shell {
   max-width: 1000px;
   margin: 2rem auto;

@@ -16,6 +16,33 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 Nothing yet.
 
+## [1.3.0] - 2026-11-06
+
+Anyone can now opt in to email updates on prayer requests, with no
+account needed — either for everything from a new public **Prayer
+Wall** page, or for a single partner from that partner's own public
+page. Each subscriber picks weekly, biweekly, or monthly, confirms by
+email first (a plain double opt-in, no account), and can unsubscribe
+anytime from a link in every email — no admin-managed list. Public
+digests are prayer-requests only: never a one-time need, never a
+newsletter or a link back to one, and a restricted partner's content
+stays masked exactly as it already is everywhere else. Off by default,
+behind a new **Public prayer digest** feature toggle; also needs
+Public Directory and Email (Sending) turned on.
+
+Admins get the same cadence-and-scope choice for the existing
+notification digest, replacing the old all-or-nothing "email me the
+digest" checkbox — pick weekly/biweekly/monthly and either every
+partner or just the ones you follow, from your own Account Settings.
+Unlike the public digest, an admin's digest still includes one-time
+needs and newsletters, same as before. A new **Prayer Digest
+Schedule** section (Site Administration → Notifications) sets when
+these three cadence tiers actually go out — independent of the
+existing schedule, which still only governs GroupMe and the original
+church-wide email batch. A new **Prayer Digest Subscribers** page
+(Site Administration → Communications) shows how many admins and
+public visitors are subscribed, counts only, no email addresses.
+
 ## [1.2.0] - 2026-11-05
 
 A new **System Info** page (Site Administration, alongside Backups)

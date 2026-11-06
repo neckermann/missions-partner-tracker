@@ -806,6 +806,17 @@ send by hand, from Pending Notifications.
 
 ![The Notification Settings page: schedule, queue toggles including Restricted partners, and digest customization](docs/assets/screenshots/notifications-settings.png)
 
+**Prayer Digest Schedule.** A separate schedule, right below the one
+above, for the weekly/biweekly/monthly cadence each admin picks on
+their own [Account Settings](#your-account-settings) page and each
+public subscriber picks when they follow a partner or the Prayer Wall
+(see [§ The public site](#the-public-site)). Set a day of week (used
+by both the weekly and biweekly tiers), a day of month (monthly), and
+a time shared by all three — each tier only fires once its own day/
+time is set; leaving all three unset (the default) means nobody's
+individual cadence choice ever actually sends, regardless of what they
+picked for themselves.
+
 ### Digest Customization
 
 Everything here controls the **email digest specifically** — GroupMe's
@@ -834,6 +845,16 @@ you can see exactly what changes between the two before picking one.
 | Classic | Snapshot |
 | --- | --- |
 | ![An example Classic-layout digest email](docs/assets/screenshots/digest-email-classic.png) | ![An example Snapshot-layout digest email, including a restricted partner's masked card](docs/assets/screenshots/digest-email-snapshot.png) |
+
+### Prayer Digest Subscribers
+
+A read-only page (Site Administration → Communications) showing how
+many admins are subscribed to the digest from their Account Settings,
+how many public visitors have confirmed their subscription, and how
+many are still waiting on their confirmation email. Counts only — no
+email addresses, here or anywhere else an admin can see.
+
+![The Prayer Digest Subscribers page, showing admin and public subscriber counts](docs/assets/screenshots/prayer-digest-subscribers.png)
 
 ## Email (Admin only)
 
@@ -875,11 +896,16 @@ actually delivering anything or requiring a verified domain, confirming
 the settings/token/API call path works. Swap in a real token once you
 have a verified domain to actually receive mail.
 
-Each user decides for themselves whether they get the digest — there's
-no admin-managed recipient list. Turn it on from
+Each user decides for themselves whether they get the digest, on
+what cadence, and for which partners — there's no admin-managed
+recipient list. Set it up from
 [Your account settings](#your-account-settings); every digest also
 carries its own one-click unsubscribe link, which turns it back off
 without needing to log in.
+
+This is also what Sending powers for the public **Prayer Wall** — see
+[§ The public site](#the-public-site) below — once [Public prayer
+digest](ADMIN_GUIDE.md#feature-toggles) is turned on.
 
 ### Receiving
 
@@ -981,12 +1007,19 @@ enable/disable two-factor authentication — enabling walks you through
 scanning a QR code and confirming a code; disabling requires your current
 password.
 
-If [Email notifications](#email-admin-only) is turned on for the church,
-there's also a plain **Email me notification digests** toggle here — one
-blanket opt-in, not per prayer request/need/newsletter. It's off by
-default; flip it on to start receiving the digest on whatever schedule
-the admin set up on the [Notification
-Settings](#notification-settings-admin-only) page.
+If [Email (Sending)](#email-admin-only) is turned on for the church,
+there's also an **Email Notifications** section here: a digest
+frequency (weekly, biweekly, monthly, or no automatic digest — off by
+default) and, once a frequency is picked, a choice between every
+partner or just the ones you check from a list. The digest itself
+still includes prayer requests, one-time needs, and newsletters, same
+as before — picking a frequency and scope here doesn't narrow what you
+get, just when and for whom. It sends on whatever schedule the admin
+set up at Site Administration → Notifications (the **Prayer Digest
+Schedule** section specifically — see
+[ADMIN_GUIDE.md § Notification batching & email digests](ADMIN_GUIDE.md#notification-batching--email-digests)).
+You can also turn it off directly from the unsubscribe link in any
+digest email, without logging in.
 
 ![Account settings, mid-enrollment: the QR code step of enabling two-factor authentication](docs/assets/screenshots/mfa-enrollment.png)
 
@@ -1022,6 +1055,21 @@ entirely by what you check in the admin dashboard:
   admin side, here for visitors.
 
   ![A public partner profile with Joshua Project country statistics expanded](docs/assets/screenshots/public-partner-detail.png)
+- **Prayer Wall** (`/prayer-wall`) — only shown once an admin turns on
+  [Public prayer digest](ADMIN_GUIDE.md#feature-toggles). Recent
+  prayer-request activity across every public partner, and a "Get
+  prayer updates by email" form at the top: no login, just an email
+  address and a weekly/biweekly/monthly choice. A visitor clicks a link
+  in a confirmation email before anything actually sends (double
+  opt-in — nothing goes out to an address nobody confirmed), and every
+  digest they get after that carries its own one-click unsubscribe
+  link. A matching, smaller "Follow this partner's prayer requests"
+  form sits on each partner's own detail page, for subscribing to just
+  that one partner instead of everyone. Either form's email only ever
+  goes toward sending these updates — see the form's own privacy
+  line for the exact wording.
+
+  ![The public Prayer Wall, with the subscribe form and recent prayer-request activity](docs/assets/screenshots/prayer-wall.png)
 
 ### The public map's auto-tour
 

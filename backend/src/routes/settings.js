@@ -518,6 +518,19 @@ const notificationSettingsSelect = {
   digestSubjectTemplate: true,
   digestSignature: true,
   digestTemplate: true,
+  // The scoped-digest schedule (#202) -- a second, independent schedule
+  // governing the three cadence tiers (weekly/biweekly/monthly) that
+  // admin (User.digestFrequency) and public (PublicSubscriber.frequency)
+  // recipients each pick for themselves, separate from digestFrequency/
+  // digestDayOfWeek/digestHour above (which still only governs the
+  // original church-wide GroupMe + "everyone who's opted in" email
+  // batch). Without these ever being set, utils/notificationFlush.js's
+  // tierApplies() treats every tier as unscheduled and the three gate
+  // checks in utils/digestScheduler.js never fire -- see those files'
+  // own comments.
+  scopedDigestDayOfWeek: true,
+  scopedDigestDayOfMonth: true,
+  scopedDigestHour: true,
 };
 
 const notificationSettingsSchema = z.object({
@@ -532,6 +545,9 @@ const notificationSettingsSchema = z.object({
   digestSubjectTemplate: z.string().optional().nullable(),
   digestSignature: z.string().optional().nullable(),
   digestTemplate: z.enum(["classic", "snapshot"]).optional().nullable(),
+  scopedDigestDayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
+  scopedDigestDayOfMonth: z.number().int().min(1).max(28).nullable().optional(),
+  scopedDigestHour: z.number().int().min(0).max(23).nullable().optional(),
 });
 
 router.get("/notifications", requireRole("admin"), async (req, res, next) => {
@@ -553,6 +569,9 @@ router.get("/notifications", requireRole("admin"), async (req, res, next) => {
         digestSubjectTemplate: null,
         digestSignature: null,
         digestTemplate: null,
+        scopedDigestDayOfWeek: null,
+        scopedDigestDayOfMonth: null,
+        scopedDigestHour: null,
       }
     );
   } catch (err) {

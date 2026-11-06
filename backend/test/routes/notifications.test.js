@@ -91,6 +91,9 @@ before(async () => {
       digestSubjectTemplate: true,
       digestSignature: true,
       digestTemplate: true,
+      scopedDigestDayOfWeek: true,
+      scopedDigestDayOfMonth: true,
+      scopedDigestHour: true,
       churchName: true,
       address: true,
       phone: true,
@@ -119,6 +122,9 @@ before(async () => {
       queueNotifyOneTimeNeeds: true,
       queueNotifyNewsletters: true,
       queueNotifyRestrictedPartners: true,
+      scopedDigestDayOfWeek: null,
+      scopedDigestDayOfMonth: null,
+      scopedDigestHour: null,
     },
     create: { id: "singleton" },
   });
@@ -169,6 +175,9 @@ describe("GET/PUT /api/settings/notifications -- admin gate and defaults", () =>
         digestSubjectTemplate: null,
         digestSignature: null,
         digestTemplate: null,
+        scopedDigestDayOfWeek: null,
+        scopedDigestDayOfMonth: null,
+        scopedDigestHour: null,
       },
     });
     const res = await admin("/api/settings/notifications");
@@ -185,6 +194,25 @@ describe("GET/PUT /api/settings/notifications -- admin gate and defaults", () =>
       digestSubjectTemplate: null,
       digestSignature: null,
       digestTemplate: null,
+      scopedDigestDayOfWeek: null,
+      scopedDigestDayOfMonth: null,
+      scopedDigestHour: null,
+    });
+  });
+
+  test("a partial PUT can also set the scoped-digest schedule, independent of the fields above", async () => {
+    const res = await admin("/api/settings/notifications", {
+      method: "PUT",
+      body: { scopedDigestDayOfWeek: 3, scopedDigestHour: 9 },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.scopedDigestDayOfWeek, 3);
+    assert.equal(res.body.scopedDigestHour, 9);
+    assert.equal(res.body.scopedDigestDayOfMonth, null);
+
+    await admin("/api/settings/notifications", {
+      method: "PUT",
+      body: { scopedDigestDayOfWeek: null, scopedDigestHour: null },
     });
   });
 
@@ -575,11 +603,11 @@ describe("POST /api/notifications/send -- flush behavior", () => {
 });
 
 describe("scoped-digest tier clearing (#202 phase 3)", () => {
-  // No settings route exists yet for ChurchSettings.scopedDigest* (that
-  // schedule's own settings page is a later phase) -- tests poke it
-  // directly via Prisma, same as they poke weeklyDigestSentAt/etc.
-  // below, which nothing but utils/scopedDigest.js's own send pass
-  // writes in production.
+  // Tests below poke ChurchSettings.scopedDigest* directly via Prisma
+  // rather than through PUT /api/settings/notifications (exercised
+  // separately above) -- simpler for exact before/after control here,
+  // same as how they poke weeklyDigestSentAt/etc. below, which nothing
+  // but utils/scopedDigest.js's own send pass writes in production.
   async function setScopedSchedule(patch) {
     await prisma.churchSettings.update({ where: { id: "singleton" }, data: patch });
   }

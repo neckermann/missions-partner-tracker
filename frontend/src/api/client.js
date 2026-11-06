@@ -32,6 +32,21 @@ export async function fetchCountryInfo(countryCode) {
   return data;
 }
 
+// Public, no-login prayer-digest subscriptions (#202). fetchPrayerWall()
+// returns the "recent prayer activity" feed backing PublicPrayerWall.jsx;
+// subscribeToDigest() is shared by that page's "subscribe to everyone"
+// form and PublicPartnerDetail.jsx's "follow this partner" form -- the
+// caller bakes in allPartners/partnerIds for whichever scope it's offering.
+export async function fetchPrayerWall() {
+  const { data } = await api.get("/public/prayer-wall");
+  return data;
+}
+
+export async function subscribeToDigest({ email, frequency, allPartners, partnerIds }) {
+  const { data } = await api.post("/public/subscribe", { email, frequency, allPartners, partnerIds });
+  return data; // { message }
+}
+
 // --- Partners (admin) ---
 //
 // fetchPartners returns summary rows only — enough to render a list, not a
@@ -251,6 +266,14 @@ export async function fetchNotificationSettings() {
 export async function updateNotificationSettings(payload) {
   const { data } = await api.put("/settings/notifications", payload);
   return data;
+}
+
+// Counts-only admin visibility into the scoped-digest subscriber base
+// (#202) -- no email addresses in this v1 response, see that route's own
+// comment. Any logged-in role can read it, same as fetchPendingNotifications.
+export async function fetchScopedDigestSummary() {
+  const { data } = await api.get("/scoped-digest/summary");
+  return data; // { adminSubscribedCount, publicConfirmedCount, publicUnconfirmedCount }
 }
 
 export async function fetchPendingNotifications() {

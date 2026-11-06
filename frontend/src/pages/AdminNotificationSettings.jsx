@@ -138,6 +138,78 @@ export default function AdminNotificationSettings() {
         </div>
 
         <div className="admin-section" style={{ marginTop: "1rem" }}>
+          <h3>Prayer Digest Schedule</h3>
+          <p style={{ color: "#555", fontSize: "0.9rem" }}>
+            A separate schedule for the scoped prayer digest (#202) -- the weekly/biweekly/monthly cadence
+            each admin picks for themselves on their own <a href="/admin/account">Account Settings</a> page,
+            and each public subscriber picks when they follow a partner or the Prayer Wall. All three cadence
+            tiers run on this one schedule, not the schedule above (which only governs GroupMe and the
+            original church-wide email batch) -- weekly and biweekly share the same day of week, and fire for
+            whichever subscribers picked that specific cadence.
+          </p>
+          <label>
+            Day of week (weekly & biweekly)
+            <select
+              value={settings.scopedDigestDayOfWeek ?? ""}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  scopedDigestDayOfWeek: e.target.value === "" ? null : Number(e.target.value),
+                }))
+              }
+              style={{ width: "auto" }}
+            >
+              <option value="">Not set -- these tiers won't send</option>
+              {DAY_NAMES.map((name, i) => (
+                <option key={name} value={i}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ marginTop: "1rem" }}>
+            Day of month (monthly)
+            <select
+              value={settings.scopedDigestDayOfMonth ?? ""}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  scopedDigestDayOfMonth: e.target.value === "" ? null : Number(e.target.value),
+                }))
+              }
+              style={{ width: "auto" }}
+            >
+              <option value="">Not set -- this tier won't send</option>
+              {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                <option key={day} value={day}>
+                  {day}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ marginTop: "1rem" }}>
+            Time (shared by all three)
+            <select
+              value={settings.scopedDigestHour ?? ""}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  scopedDigestHour: e.target.value === "" ? null : Number(e.target.value),
+                }))
+              }
+              style={{ width: "auto" }}
+            >
+              <option value="">Not set</option>
+              {Array.from({ length: 24 }, (_, h) => h).map((hour) => (
+                <option key={hour} value={hour}>
+                  {hourLabel(hour)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="admin-section" style={{ marginTop: "1rem" }}>
           <h3>What queues for notification</h3>
           <p style={{ color: "#555", fontSize: "0.9rem" }}>
             Turn off anything you don't want notified about at all -- it never joins the queue for either

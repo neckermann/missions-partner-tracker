@@ -146,6 +146,7 @@ features (everything else, which only changes a logged-in admin's own nav).
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Site Administration → AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 | Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Site Administration → Email. Today's only sender is the batched notification digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
 | Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Site Administration → Email page as Sending, independently toggled. See [§ Email (Postmark)](#email-postmark) below. |
+| Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the new public **Prayer Wall** page (`/prayer-wall`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on. See [§ Notification batching & email digests](#notification-batching--email-digests) below. |
 
 The registry backing this list lives in `backend/src/utils/features.js` —
 adding a new toggle later is a one-line entry there plus a `requireFeature("key")`
@@ -156,7 +157,8 @@ the admin sidebar itself (not a separate page with its own tab bar) —
 click it to reveal About Church, Manage Users, Branding, Enabled
 Features, and Backups, then two further sub-groups shown only once
 their features are on: **Communications** (Email, GroupMe,
-Notifications) and **Integrations** (AI Features, Joshua Project). User
+Notifications, Prayer Digest Subscribers) and **Integrations** (AI
+Features, Joshua Project). User
 Management moved here from its own top-level nav link. Adding a new
 settings category later is a new entry in `buildSiteAdminLinks()`
 (`components/admin/AdminSidebar.jsx`) plus a new child route in
@@ -597,7 +599,7 @@ to whichever channel(s) are currently on:
 - **GroupMe** — full item text (never summarized), packed into as few
   messages as fit under GroupMe's 1,000-character limit, to each
   type's own configured Topic exactly as before this existed.
-- **Email** — one HTML digest per user with `notifyByEmail` turned on
+- **Email** — one HTML digest per user who's picked a cadence
   (self-service from their own Account Settings — there's no
   admin-managed recipient list), grouped by partner, with a request/
   need that came from a newsletter nested under that newsletter instead
@@ -651,6 +653,53 @@ moving the schedule check to a real Render Cron Job) — not a concern
 worth building for today. A deploy landing in the exact scheduled minute
 just skips that one occurrence, picking it up at the next; manual send
 is always available regardless of the schedule.
+
+### Public prayer digest & the scoped-digest schedule
+
+Anyone, no login required, can subscribe to email updates on prayer
+requests — either every one (the **Prayer Wall** public page) or just
+a single partner's (a "follow this partner" form on that partner's own
+public page). This is a separate mechanism from the GroupMe/email
+batch above, sharing only the same underlying queue and the same
+restricted-partner masking and review gate: a public digest is
+**prayer-requests only** — never a one-time need, never a newsletter
+or a link back to one, by construction (the code that renders a public
+digest has no field capable of carrying a source link at all, not just
+a check that happens to leave it out).
+
+A subscriber confirms by email first (double opt-in — nothing sends to
+an unconfirmed address) and picks weekly, biweekly, or monthly; the
+same cadence + all-partners-or-specific-partners choice is also
+available to any admin/editor/viewer from their own [Account
+Settings](#your-account-settings), replacing the old all-or-nothing
+"email me the digest" checkbox — unlike the public digest, an admin's
+own digest still includes one-time needs and newsletters, same as
+before. Turned on at Site Administration → Enabled Features (**Public
+prayer digest**, off by default); also needs Public directory and
+Email (Sending) on, since there's no public site to follow a partner
+from without the first and no way to send a confirmation without the
+second.
+
+These three cadence tiers run on their **own** schedule — a new
+**Prayer Digest Schedule** section on the same Site Administration →
+Notifications page as the schedule above, independent of it. Nothing
+sends on any tier until that schedule is actually set, same as the
+original schedule defaulting to manual-only until an admin picks one.
+A new **Prayer Digest Subscribers** page (Site Administration →
+Communications) shows how many admins and public visitors are
+subscribed — counts only, never an email address.
+
+Because this is the first time the app collects an email address from
+an anonymous member of the public, both subscribe forms (and the
+confirm/unsubscribe pages reached from the email itself) carry a short,
+plain statement of what actually happens: the address is used only to
+send these updates, never shared, and unsubscribing is always
+one click. That's a real commitment, not boilerplate — nothing in this
+feature sends a subscriber's address anywhere except Postmark for
+delivery (same as every other email this app sends), and the admin
+summary page above never exposes raw addresses. Worth keeping in mind
+before adding anything (analytics, a third-party integration, an
+export) that would make that statement stop being true.
 
 ### Restricted-partner notification review
 
