@@ -1,6 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { z } = require("zod");
 const { generateSecret, generateURI, verify: verifyOtp } = require("otplib");
 const QRCode = require("qrcode");
 const prisma = require("../prismaClient");
@@ -8,7 +9,7 @@ const { requireAuth, requireAuthOrMfaSetup } = require("../middleware/requireAut
 const { setSessionCookie, clearSessionCookie } = require("../utils/jwt");
 const { encryptField, decryptField } = require("../utils/crypto");
 const { appBaseUrl } = require("../utils/notificationBlurbs");
-const { escapeHtml } = require("../utils/emailDigest");
+const { escapeHtml } = require("../utils/digestShell");
 
 const router = express.Router();
 const MFA_PENDING_TTL = "5m";
@@ -45,7 +46,7 @@ function signMfaSetupToken(user) {
 async function completeLogin(res, user) {
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   setSessionCookie(res, user);
-  return { user: sanitizeUser(user) };
+  return { user: await sanitizeUser(user) };
 }
 
 // --- First-run setup ---
@@ -190,7 +191,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
     if (!user || !user.active) {
       return res.status(401).json({ error: "Invalid or expired session" });
     }
-    res.json({ user: sanitizeUser(user) });
+    res.json({ user: await sanitizeUser(user) });
   } catch (err) {
     next(err);
   }
@@ -307,32 +308,86 @@ router.post("/mfa/disable", requireAuth, async (req, res, next) => {
   }
 });
 
-// Self-service opt-in/out for the batched notification digest email
-// (see #129) -- same self-service-from-Account-Settings pattern as MFA
-// enroll/disable above, just a plain toggle instead of a real
-// credential check (there's nothing sensitive being turned on here, so
-// no password confirmation needed the way MFA disable requires one).
-// Stopgap: still takes a plain { enabled } boolean so Account
-// Settings' current checkbox keeps working unchanged. Translates to
-// User.digestFrequency (#202's richer cadence + scope field, which
-// replaced the old notifyByEmail: Boolean) -- "on" means a default
-// weekly cadence until a later phase adds a real cadence/scope picker
-// here; "off" means null, same as notifyByEmail: false always meant.
+// Self-service cadence + scope picker for the batched notification
+// digest email (see #129, #202) -- same self-service-from-Account-
+// Settings pattern as MFA enroll/disable above, just a plain preference
+// instead of a real credential check (nothing sensitive being turned on
+// here, so no password confirmation needed the way MFA disable
+// requires one). Replaces the #202-phase-1 stopgap that only took a
+// plain { enabled } boolean -- this is the real cadence/scope picker
+// the Account Settings UI now has.
+//
+// allPartners: true always clears any existing UserFollowedPartner rows
+// for this account, rather than just leaving them unread -- same
+// reasoning as cadence: null doing the same below: stale scope data
+// sitting around unread is exactly the kind of drift that turns into a
+// bug the next time someone toggles allPartners back to false and gets
+// a list they don't recognize. Cheaper to not have it than to trust
+// every future reader to ignore it correctly.
+const digestSubscriptionSchema = z.object({
+  cadence: z.enum(["biweekly", "monthly", "quarterly"]).nullable(),
+  allPartners: z.boolean().optional().default(true),
+  partnerIds: z.array(z.string()).optional().default([]),
+});
 router.put("/notify-by-email", requireAuth, async (req, res, next) => {
   try {
-    const enabled = Boolean(req.body?.enabled);
-    const user = await prisma.user.update({
-      where: { id: req.user.id },
-      data: { digestFrequency: enabled ? "weekly" : null },
-    });
-    res.json({ user: sanitizeUser(user) });
+    const parsed = digestSubscriptionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid request" });
+    }
+    const { cadence, allPartners, partnerIds } = parsed.data;
+
+    // Unlike the public subscribe route (which silently drops an invalid
+    // id, to avoid giving an anonymous caller any signal about what
+    // exists), this is an authenticated admin/editor/viewer route --
+    // there's no enumeration concern, so a bad id is a real 400, not a
+    // silent drop. Admins aren't restricted to public partners the way a
+    // public subscriber is ("auth is the boundary," an admin already
+    // sees every partner regardless of isPublic), so this only excludes
+    // archived ones, not non-public ones.
+    let validPartnerIds = [];
+    if (!cadence || allPartners) {
+      // Nothing to validate -- either unsubscribing entirely or
+      // following everyone, so any partnerIds sent are simply ignored
+      // rather than erroring on them (the field is irrelevant in both
+      // states, not invalid).
+    } else if (partnerIds.length === 0) {
+      return res.status(400).json({ error: "Pick at least one partner, or choose all partners" });
+    } else {
+      const found = await prisma.partner.findMany({
+        where: { id: { in: partnerIds }, archived: false },
+        select: { id: true },
+      });
+      if (found.length !== partnerIds.length) {
+        return res.status(400).json({ error: "One or more selected partners couldn't be found" });
+      }
+      validPartnerIds = found.map((p) => p.id);
+    }
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: req.user.id },
+        data: { cadence, allPartners },
+      }),
+      prisma.userFollowedPartner.deleteMany({ where: { userId: req.user.id } }),
+      ...(validPartnerIds.length
+        ? [
+            prisma.userFollowedPartner.createMany({
+              data: validPartnerIds.map((partnerId) => ({ userId: req.user.id, partnerId })),
+            }),
+          ]
+        : []),
+    ]);
+
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    res.json({ user: await sanitizeUser(user) });
   } catch (err) {
     next(err);
   }
 });
 
 // GET /api/auth/unsubscribe -- public, no requireAuth, reached straight
-// from a link in a digest email (see utils/emailDigest.js's
+// from a link in a digest email (see utils/digestShell.js's
 // buildUnsubscribeUrl). Verifies the same { id, unsubscribe: true }
 // token shape/signing as the MFA-pending/MFA-setup tokens above, minted
 // fresh per recipient per email, deliberately with no expiry (an old,
@@ -341,7 +396,7 @@ router.put("/notify-by-email", requireAuth, async (req, res, next) => {
 // their mail client, not an API call.
 router.get("/unsubscribe", async (req, res) => {
   // Branded to match the digest email's own header-band treatment (see
-  // utils/emailDigest.js) -- same three colors/font, same fallbacks, so
+  // utils/digestShell.js) -- same three colors/font, same fallbacks, so
   // this doesn't look like a different, unbranded app once clicked into
   // from the email.
   const settings = await prisma.churchSettings.findUnique({
@@ -382,7 +437,12 @@ router.get("/unsubscribe", async (req, res) => {
     return res.status(400).send(page("This unsubscribe link isn't valid."));
   }
 
-  await prisma.user.updateMany({ where: { id: decoded.id }, data: { digestFrequency: null } });
+  // Same "don't leave stale scope data around" reasoning as PUT
+  // /notify-by-email's own cadence: null handling above.
+  await prisma.$transaction([
+    prisma.user.updateMany({ where: { id: decoded.id }, data: { cadence: null } }),
+    prisma.userFollowedPartner.deleteMany({ where: { userId: decoded.id } }),
+  ]);
   res.send(page("You've been unsubscribed from email notifications."));
 });
 
@@ -393,7 +453,22 @@ router.post("/logout", (req, res) => {
   res.json({ ok: true });
 });
 
-function sanitizeUser(user) {
+// Async now (#202 phase 2) -- a separate small query for followedPartner
+// ids rather than requiring every one of this file's own `prisma.user`
+// queries to remember an `include`. Only actually queries when there's
+// something to find (allPartners: false with a real subscription) --
+// the common cases (not subscribed, or subscribed to everyone) skip it
+// entirely, same "the cheapest data to fetch is data you never queried"
+// discipline this codebase already applies elsewhere.
+async function sanitizeUser(user) {
+  let partnerIds = [];
+  if (user.cadence && !user.allPartners) {
+    const rows = await prisma.userFollowedPartner.findMany({
+      where: { userId: user.id },
+      select: { partnerId: true },
+    });
+    partnerIds = rows.map((r) => r.partnerId);
+  }
   return {
     id: user.id,
     email: user.email,
@@ -401,12 +476,9 @@ function sanitizeUser(user) {
     role: user.role,
     authProvider: user.authProvider,
     mfaEnabled: user.mfaEnabled,
-    // Derived boolean, not the stored shape -- keeps the existing
-    // Account Settings checkbox working unchanged until a later phase
-    // adds a real cadence/scope picker reading digestFrequency directly
-    // (see PUT /notify-by-email's own comment above for the same
-    // stopgap on the write side).
-    notifyByEmail: !!user.digestFrequency,
+    cadence: user.cadence,
+    allPartners: user.allPartners,
+    followedPartnerIds: partnerIds,
   };
 }
 

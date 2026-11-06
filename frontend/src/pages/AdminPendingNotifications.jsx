@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from "react";
 import {
   fetchPendingNotifications,
-  sendPendingNotifications,
   deletePendingNotification,
   updatePendingNotification,
 } from "../api/client.js";
 import NotificationReviewModal from "../components/admin/NotificationReviewModal.jsx";
+import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
+import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 
 // Groups blurbs by partner, nesting a request/need under the newsletter
-// blurb it was sourced from -- same structure utils/emailDigest.js
+// blurb it was sourced from -- same structure adminDigestContent.js
 // renders, so this preview matches what actually goes out. Duplicated
 // here rather than shared with the backend since it's purely a display
 // concern, not a contract either side depends on the other to honor.
@@ -44,7 +45,9 @@ function groupByPartner(blurbs) {
 function SentStatus({ blurb }) {
   const parts = [];
   if (blurb.groupmeSentAt) parts.push("GroupMe ✓");
-  if (blurb.emailSentAt) parts.push("Email ✓");
+  if (blurb.biweeklyDigestSentAt || blurb.monthlyDigestSentAt || blurb.quarterlyDigestSentAt) {
+    parts.push("Email ✓");
+  }
   if (parts.length === 0) return null;
   return (
     <span style={{ color: "#888", fontSize: "0.8rem", marginLeft: "0.5rem" }}>({parts.join(", ")})</span>
@@ -123,7 +126,11 @@ function BlurbRow({ blurb, onClear, clearing, onEdit, onQuickApprove, approving 
           <span style={{ color: "#2a5d3c", fontSize: "0.8rem", marginLeft: "0.5rem" }}>Reviewed ✓</span>
         )}
         <p style={{ margin: "0.25rem 0 0", color: "#555" }}>{blurb.bodyText}</p>
-        {blurb.amount && <p style={{ margin: "0.25rem 0 0", fontWeight: 600 }}>Approved: {blurb.amount}</p>}
+        {blurb.amount && (
+          <p style={{ margin: "0.25rem 0 0", fontWeight: 600 }}>
+            {blurb.amountLabel || "Approved"}: {blurb.amount}
+          </p>
+        )}
       </div>
       <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
         {blurb.needsReview && onQuickApprove && (
@@ -165,12 +172,12 @@ function BlurbRow({ blurb, onClear, clearing, onEdit, onQuickApprove, approving 
 export default function AdminPendingNotifications() {
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
   const [clearingId, setClearingId] = useState(null);
   const [editingBlurb, setEditingBlurb] = useState(null);
   const [approvingId, setApprovingId] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
 
   function reloadPending() {
     return fetchPendingNotifications().then(setPending);
@@ -181,33 +188,6 @@ export default function AdminPendingNotifications() {
       .catch((err) => setError(err.response?.data?.error || "Couldn't load pending notifications."))
       .finally(() => setLoading(false));
   }, []);
-
-  async function handleSendNow() {
-    setSending(true);
-    setError("");
-    setSuccess("");
-    try {
-      const result = await sendPendingNotifications();
-      await reloadPending();
-      const heldNote =
-        result.heldForReview > 0
-          ? ` ${result.heldForReview} item${result.heldForReview === 1 ? "" : "s"} still awaiting review, excluded from this send.`
-          : "";
-      setSuccess(
-        result.sent > 0
-          ? `Sent ${result.sent} notification${result.sent === 1 ? "" : "s"}.${
-              result.remaining > 0
-                ? ` ${result.remaining} still queued (a channel's send didn't succeed).`
-                : ""
-            }${heldNote}`
-          : `Nothing went out -- check that a channel is actually configured, or there's nothing queued.${heldNote}`
-      );
-    } catch (err) {
-      setError(err.response?.data?.error || "Couldn't send pending notifications.");
-    } finally {
-      setSending(false);
-    }
-  }
 
   // Discards one queued item for good -- works on any row, not just a
   // restricted one. No confirm dialog: same as every other delete in
@@ -246,19 +226,16 @@ export default function AdminPendingNotifications() {
   // it to anyone logged in, restricted or not -- see ADMIN_GUIDE.md §
   // Who can see what).
   async function handleQuickApprove(blurb) {
+    const confirmed = await confirmDialog({
+      title: "Approve and send?",
+      body: <ApproveRestrictedTextConfirmBody text={blurb.bodyText} />,
+      confirmLabel: "Approve and send",
+    });
+    if (!confirmed) return;
     setApprovingId(blurb.id);
     setError("");
     setSuccess("");
     try {
-      const confirmed = window.confirm(
-        `This partner is restricted. Approving marks this reviewed and eligible to send to any enabled ` +
-          `notification channel -- their name, photo, and any source-file link stay masked regardless, but ` +
-          `the exact wording below is what goes out as-is. Check it for anything else that could identify ` +
-          `them or their location (a specific place, date, or detail only they'd be tied to) before approving.\n\n` +
-          `Text to send:\n"${blurb.bodyText}"\n\n` +
-          `Approve and send this as-is?`
-      );
-      if (!confirmed) return;
       const updated = await updatePendingNotification(blurb.id, blurb.bodyText);
       setPending((list) => list.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
     } catch (err) {
@@ -272,32 +249,23 @@ export default function AdminPendingNotifications() {
 
   const groups = groupByPartner(pending);
   const heldCount = pending.filter((p) => p.needsReview).length;
-  const sendableCount = pending.length - heldCount;
 
   return (
     <div className="admin-shell">
       <h2>Pending Notifications</h2>
       <p style={{ color: "#555" }}>
-        New prayer requests, one-time needs, and newsletters queue here instead of posting immediately --
-        review and send them as a batch, on a schedule or on demand. For the schedule, queue toggles, and
-        email digest appearance, see Site Administration → Notifications.
+        New prayer requests, one-time needs, and newsletters queue here instead of posting immediately -- each
+        one clears once every channel it's relevant to (GroupMe, the admin digest, the public digest) has
+        handled it, on its own schedule. For schedules, GroupMe's content-type mutes, and email digest
+        appearance, see Site Administration → Notifications.
       </p>
 
       <div className="admin-section" style={{ marginTop: "1rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h3 style={{ margin: 0 }}>Pending ({pending.length})</h3>
-          <button
-            type="button"
-            className="btn"
-            onClick={handleSendNow}
-            disabled={sending || sendableCount === 0}
-          >
-            {sending ? "Sending..." : "Send Pending Notifications Now"}
-          </button>
-        </div>
+        <h3 style={{ margin: 0 }}>Pending ({pending.length})</h3>
         {heldCount > 0 && (
           <p style={{ color: "#b45309", fontSize: "0.9rem" }}>
-            {heldCount} awaiting review -- excluded from both manual and scheduled sends until reviewed.
+            {heldCount} awaiting review -- excluded from every channel's send, including an urgent one, until
+            reviewed.
           </p>
         )}
         {error && (
@@ -362,6 +330,7 @@ export default function AdminPendingNotifications() {
           onClose={() => setEditingBlurb(null)}
         />
       )}
+      {confirmElement}
     </div>
   );
 }

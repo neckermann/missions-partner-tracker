@@ -18,6 +18,8 @@ import { entityFor } from "../utils/partnerEntity.js";
 import { isScannable } from "../utils/scannable.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
+import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
 const emptyNewFile = {
   partnerId: "",
@@ -30,6 +32,7 @@ const emptyNewFile = {
 
 export default function AdminPartnerFiles() {
   const { enabledFeatures } = useSettings();
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [scanning, setScanning] = useState(null); // the file being reviewed, or null
   const [files, setFiles] = useState([]);
   const [partners, setPartners] = useState([]);
@@ -107,7 +110,13 @@ export default function AdminPartnerFiles() {
 
   async function handleDelete(f) {
     const entity = entityFor(f);
-    if (!confirm(`Delete this file for ${entity.name}? This cannot be undone.`)) return;
+    const confirmed = await confirmDialog({
+      title: `Delete this file for ${entity.name}?`,
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
     await deletePartnerFile(f.id);
     reload();
   }
@@ -478,6 +487,7 @@ export default function AdminPartnerFiles() {
           onClose={() => setScanning(null)}
         />
       )}
+      {confirmElement}
     </div>
   );
 }

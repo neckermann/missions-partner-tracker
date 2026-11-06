@@ -6,7 +6,7 @@ const { requireFeature } = require("../middleware/requireFeature");
 const { matchesFileSignature } = require("../utils/fileSignature");
 const { FEATURES, FEATURE_KEYS, isFeatureEnabled } = require("../utils/features");
 const { encryptField, decryptField } = require("../utils/crypto");
-const { listGroups, listTopics } = require("../utils/groupme");
+const { listGroups, listTopics } = require("../utils/groupmeChannel");
 const { sendEmail } = require("../utils/email");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 
@@ -90,6 +90,17 @@ const settingsSchema = z.object({
   // opt-out of BackupReminder.jsx, distinct from that component's own
   // dismiss-for-30-days.
   backupReminderDisabled: z.boolean().optional(),
+  // This church's own IANA timezone -- see the field's own comment in
+  // schema.prisma for why this exists and what it drives. Validated
+  // against the real, current list of valid zone names (the same list
+  // AdminSettingsAbout.jsx's <select> is populated from via
+  // Intl.supportedValuesOf("timeZone")) rather than just "any non-empty
+  // string" -- a typo'd zone would otherwise silently fall back to UTC
+  // at server startup with no feedback to anyone.
+  timezone: z
+    .string()
+    .refine((tz) => Intl.supportedValuesOf("timeZone").includes(tz), "Not a valid IANA timezone")
+    .optional(),
 });
 
 // GET /api/settings (any logged-in role) — null if never configured yet.
@@ -498,40 +509,54 @@ router.post("/email/test", requireFeature("outboundEmail"), requireRole("admin")
   }
 });
 
-// Notification batching (see #129) -- the digest schedule and the
-// per-type queue switches, both admin-only church-wide config, same
-// shape of settings sub-resource as GroupMe/Email above (not gated by
-// requireFeature -- this page is useful to configure regardless of
-// which channel(s) happen to be on, same reasoning Enabled Features
-// itself is never gated). The pending queue and the manual flush action
-// itself live in routes/notifications.js, not here -- this is just the
-// configuration half.
+// Notifications -- the admin/public email digest's own schedule
+// (biweekly/monthly/quarterly), GroupMe's own daily-hour schedule,
+// GroupMe's three content-type mutes, the one cross-channel restricted-
+// partner safety gate, and digest customization -- all admin-only
+// church-wide config, same shape of settings sub-resource as GroupMe/
+// Email above (not gated by requireFeature -- this page is useful to
+// configure regardless of which channel(s) happen to be on, same
+// reasoning Enabled Features itself is never gated). The old church-wide
+// digestFrequency/digestDayOfWeek/digestDayOfMonth/digestHour mechanism
+// is retired entirely (see schema.prisma's own comment on what replaced
+// it) -- nothing here reads or writes those columns anymore. The pending
+// queue and the manual review flow live in routes/notifications.js, not
+// here -- this is just the configuration half.
 const notificationSettingsSelect = {
-  digestFrequency: true,
-  digestDayOfWeek: true,
-  digestDayOfMonth: true,
-  digestHour: true,
-  queueNotifyPrayerRequests: true,
-  queueNotifyOneTimeNeeds: true,
-  queueNotifyNewsletters: true,
-  queueNotifyRestrictedPartners: true,
+  notifyGroupMePrayerRequests: true,
+  notifyGroupMeOneTimeNeeds: true,
+  notifyGroupMeNewsletters: true,
+  allowRestrictedPartnerNotifications: true,
   digestSubjectTemplate: true,
   digestSignature: true,
   digestTemplate: true,
+  // The admin/public digest's own schedule -- three cadence tiers
+  // (biweekly/monthly/quarterly). Without these ever being set,
+  // notificationOrchestrator.js's clearNotifiableEvents() treats every
+  // tier as unscheduled and digestScheduler.js's three gate checks never
+  // fire -- see those files' own comments.
+  scopedDigestDayOfWeek: true,
+  scopedDigestDayOfMonth: true,
+  scopedDigestHour: true,
+  // GroupMe's own, independent daily-hour schedule -- see
+  // groupmeChannel.js's shouldFlushGroupMe and the field's own
+  // schema.prisma comment for why this isn't a tier pick like the three
+  // above.
+  groupmeDigestHour: true,
 };
 
 const notificationSettingsSchema = z.object({
-  digestFrequency: z.enum(["weekly", "biweekly", "monthly"]).nullable().optional(),
-  digestDayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
-  digestDayOfMonth: z.number().int().min(1).max(28).nullable().optional(),
-  digestHour: z.number().int().min(0).max(23).nullable().optional(),
-  queueNotifyPrayerRequests: z.boolean().optional(),
-  queueNotifyOneTimeNeeds: z.boolean().optional(),
-  queueNotifyNewsletters: z.boolean().optional(),
-  queueNotifyRestrictedPartners: z.boolean().optional(),
+  notifyGroupMePrayerRequests: z.boolean().optional(),
+  notifyGroupMeOneTimeNeeds: z.boolean().optional(),
+  notifyGroupMeNewsletters: z.boolean().optional(),
+  allowRestrictedPartnerNotifications: z.boolean().optional(),
   digestSubjectTemplate: z.string().optional().nullable(),
   digestSignature: z.string().optional().nullable(),
   digestTemplate: z.enum(["classic", "snapshot"]).optional().nullable(),
+  scopedDigestDayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
+  scopedDigestDayOfMonth: z.number().int().min(1).max(28).nullable().optional(),
+  scopedDigestHour: z.number().int().min(0).max(23).nullable().optional(),
+  groupmeDigestHour: z.number().int().min(0).max(23).nullable().optional(),
 });
 
 router.get("/notifications", requireRole("admin"), async (req, res, next) => {
@@ -542,17 +567,17 @@ router.get("/notifications", requireRole("admin"), async (req, res, next) => {
     });
     res.json(
       settings || {
-        digestFrequency: null,
-        digestDayOfWeek: null,
-        digestDayOfMonth: null,
-        digestHour: null,
-        queueNotifyPrayerRequests: true,
-        queueNotifyOneTimeNeeds: true,
-        queueNotifyNewsletters: true,
-        queueNotifyRestrictedPartners: true,
+        notifyGroupMePrayerRequests: true,
+        notifyGroupMeOneTimeNeeds: true,
+        notifyGroupMeNewsletters: true,
+        allowRestrictedPartnerNotifications: false,
         digestSubjectTemplate: null,
         digestSignature: null,
         digestTemplate: null,
+        scopedDigestDayOfWeek: null,
+        scopedDigestDayOfMonth: null,
+        scopedDigestHour: null,
+        groupmeDigestHour: null,
       }
     );
   } catch (err) {

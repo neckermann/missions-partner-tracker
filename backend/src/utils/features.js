@@ -88,15 +88,8 @@ const FEATURES = {
   // reasoning as every other integration here.
   outboundEmail: {
     label: "Email (Sending)",
-    description: "Send email through a configured Postmark account.",
-    defaultEnabled: false,
-    group: "admin",
-    section: "communications",
-  },
-  publicPrayerDigest: {
-    label: "Public prayer digest",
     description:
-      "Lets anyone subscribe (no login) to email digests of prayer-request updates, for all partners or specific ones they follow. Also requires Public directory and Email (Sending) to be on.",
+      "Send email through a configured Postmark account. On its own, this already lets any admin/editor/viewer set up their own digest (prayer requests, one-time needs, and newsletters) from their Account Settings -- no separate toggle for that.",
     defaultEnabled: false,
     group: "admin",
     section: "communications",
@@ -112,6 +105,18 @@ const FEATURES = {
     label: "GroupMe notifications",
     description:
       "Post new prayer requests, one-time needs, and newsletters to their own configured GroupMe Topics as they're added.",
+    defaultEnabled: false,
+    group: "admin",
+    section: "communications",
+  },
+  // Listed last -- unlike the three toggles above (each independently
+  // useful on its own), this one builds on top of outboundEmail (and
+  // publicDirectory, elsewhere), so it reads better after the thing it
+  // depends on rather than sandwiched in the middle of the Email pair.
+  publicPrayerDigest: {
+    label: "Public prayer digest",
+    description:
+      "Lets anyone subscribe (no login) to email digests of prayer-request updates, for all partners or specific ones they follow -- unlike the admin digest above, this is prayer requests only, never one-time needs or newsletters. Also requires Public directory and Email (Sending) to be on.",
     defaultEnabled: false,
     group: "admin",
     section: "communications",

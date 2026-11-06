@@ -12,7 +12,7 @@ router.use(requireAuth); // any logged-in role -- read-only, same "viewing is ha
 router.get("/summary", async (req, res, next) => {
   try {
     const [adminSubscribedCount, publicConfirmedCount, publicUnconfirmedCount] = await Promise.all([
-      prisma.user.count({ where: { digestFrequency: { not: null }, active: true } }),
+      prisma.user.count({ where: { cadence: { not: null }, active: true } }),
       prisma.publicSubscriber.count({ where: { confirmedAt: { not: null } } }),
       prisma.publicSubscriber.count({ where: { confirmedAt: null } }),
     ]);

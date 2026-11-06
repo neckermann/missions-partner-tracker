@@ -31,7 +31,8 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
     (enabledFeatures.groupme || enabledFeatures.outboundEmail) && {
       to: "/admin/notifications",
       title: "Pending Notifications",
-      description: "Review and send what's queued -- on a schedule, or on demand.",
+      description:
+        "Review what's queued and clear or approve restricted items -- sending itself happens on schedule, or right away for anything marked urgent.",
     },
     enabledFeatures.partnerFiles && {
       to: "/admin/partner-files",
@@ -145,7 +146,8 @@ function buildSiteAdminSections(enabledFeatures) {
     (enabledFeatures.groupme || enabledFeatures.outboundEmail) && {
       to: "/admin/settings/notifications",
       title: "Notifications",
-      description: "Schedule, queue toggles, and email digest appearance.",
+      description:
+        "Schedules, GroupMe's content-type mutes, the restricted-partner gate, and digest appearance.",
     },
   ].filter(Boolean);
   const integrations = [

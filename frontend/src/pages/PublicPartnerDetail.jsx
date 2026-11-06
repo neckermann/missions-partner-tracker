@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { fetchPublicPartner } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
+import PublicSubscribeForm from "../components/PublicSubscribeForm.jsx";
+import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
-import { formatDate, formatYear } from "../utils/format.js";
+import { formatYear } from "../utils/format.js";
 
 // Restricted partners simply won't have most of these keys in the API
 // response at all (see toPublicPartner in maskData.js), so the
@@ -19,24 +21,9 @@ const LINK_FIELDS = [
   ["linkedin", "LinkedIn"],
 ];
 
-function PublicHeader() {
-  const { logo, partnerTermPlural } = useSettings();
-  return (
-    <header className="app-header">
-      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-        {logo?.url && <img src={logo.url} alt="" className="header-logo" />}
-        <h1>Our {partnerTermPlural}</h1>
-      </div>
-      <Link to="/map" style={{ color: "white" }}>
-        View Map
-      </Link>
-    </header>
-  );
-}
-
 export default function PublicPartnerDetail() {
   const { id } = useParams();
-  const { enabledFeatures } = useSettings();
+  const { partnerTermPlural, enabledFeatures } = useSettings();
   const [partner, setPartner] = useState(null);
   const [notFound, setNotFound] = useState(false);
 
@@ -54,7 +41,7 @@ export default function PublicPartnerDetail() {
   if (notFound) {
     return (
       <div>
-        <PublicHeader />
+        <PublicSiteHeader title={`Our ${partnerTermPlural}`} />
         <div className="admin-shell">
           <p>Partner not found.</p>
           <Link to="/">&larr; Back to directory</Link>
@@ -80,7 +67,7 @@ export default function PublicPartnerDetail() {
 
   return (
     <div>
-      <PublicHeader />
+      <PublicSiteHeader title={`Our ${partnerTermPlural}`} />
       <div className="admin-shell">
         <Link to="/">&larr; Back to directory</Link>
 
@@ -152,25 +139,28 @@ export default function PublicPartnerDetail() {
           </>
         )}
 
-        {partner.prayerRequests?.length > 0 && (
-          <div style={{ marginTop: "1.5rem" }}>
-            <h3>Prayer Requests</h3>
-            {partner.prayerRequests.map((p, i) => (
-              <div key={i} style={{ marginTop: i === 0 ? 0 : "1rem" }}>
-                <p style={{ margin: 0 }}>{p.requestText}</p>
-                {/* Only ever calls out "answered" -- an open request just
-                    shows the request itself, no "still waiting" language
-                    or visual marker. See the PrayerRequest model comment
-                    in schema.prisma for why. */}
-                {p.status === "answered" && (
-                  <p style={{ margin: "0.25rem 0 0", fontSize: "0.9rem", color: "#666" }}>
-                    ✓ Answered{p.dateAnswered ? ` ${formatDate(p.dateAnswered, { fallback: "" })}` : ""}
-                    {p.answeredNote ? ` — ${p.answeredNote}` : ""}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
+        {enabledFeatures.publicPrayerDigest && (
+          <>
+            <PublicSubscribeForm
+              allPartners={false}
+              partnerIds={[partner.id]}
+              title={`Follow ${name}'s prayer requests`}
+              description={`Get an email when there's a new or answered prayer request we've received about ${name} -- gathered from their newsletters and other updates to us.`}
+            />
+            <p style={{ marginTop: "0.5rem", fontSize: "0.9rem", color: "#555" }}>
+              {partner.newsletterSignup && (
+                <>
+                  This doesn't replace {name}'s own newsletter —{" "}
+                  <a href={partner.newsletterSignup} target="_blank" rel="noopener noreferrer">
+                    sign up for that directly
+                  </a>{" "}
+                  to hear from them yourself.{" "}
+                </>
+              )}
+              Want to pray for more than just {name}?{" "}
+              <Link to="/subscribe">Pray for all of our {partnerTermPlural}, or pick several</Link>.
+            </p>
+          </>
         )}
 
         {enabledFeatures.joshuaProject && partner.fipsCountryCode && (

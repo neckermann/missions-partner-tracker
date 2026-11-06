@@ -125,54 +125,10 @@ describe("public partners: masking is applied by the route, not just available",
       method: "POST",
       body: { partnerId: p.id, amount: 500, effectiveDate: "2026-01-01" },
     });
-    await admin("/api/prayer-requests", {
-      method: "POST",
-      body: {
-        partnerId: p.id,
-        category: "situational",
-        requestText: "SITUATIONAL-SECRET",
-        dateReceived: "2026-01-01",
-      },
-    });
 
     const { body } = await anon(`/api/public/partners/${p.id}`);
     assert.ok(!("supportEntries" in body), "support history is admin-only");
     assert.ok(!("needRequests" in body), "one-time needs are admin-only");
-    assert.ok(
-      !JSON.stringify(body).includes("SITUATIONAL-SECRET"),
-      "a situational prayer request must never reach the public site"
-    );
-  });
-
-  test("only strategic prayer requests marked public are exposed", async () => {
-    const p = await createPartner({ isPublic: true });
-    await admin("/api/prayer-requests", {
-      method: "POST",
-      body: {
-        partnerId: p.id,
-        category: "strategic",
-        isPublic: false,
-        requestText: "NOT-PUBLIC-YET",
-        dateReceived: "2026-01-01",
-      },
-    });
-    await admin("/api/prayer-requests", {
-      method: "POST",
-      body: {
-        partnerId: p.id,
-        category: "strategic",
-        isPublic: true,
-        requestText: "SHAREABLE",
-        dateReceived: "2026-01-02",
-      },
-    });
-
-    const { body } = await anon(`/api/public/partners/${p.id}`);
-    const texts = body.prayerRequests.map((r) => r.requestText);
-    assert.ok(texts.includes("SHAREABLE"));
-    assert.ok(!texts.includes("NOT-PUBLIC-YET"), "a strategic request not marked public must stay private");
-    // The curated shape carries no admin bookkeeping.
-    assert.ok(!("notes" in body.prayerRequests[0]));
-    assert.ok(!("id" in body.prayerRequests[0]));
+    assert.ok(!("prayerRequests" in body), "prayer requests are admin-only on the public site");
   });
 });

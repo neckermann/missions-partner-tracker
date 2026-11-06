@@ -7,6 +7,9 @@ import {
   fetchCurrentUser,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
+import { FILE_KINDS } from "../utils/fileKinds.js";
+import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
 // The review queue for inbound emails the webhook (see routes/inboundEmail.js)
 // couldn't automatically match to exactly one partner -- zero matches, or
@@ -25,9 +28,14 @@ export default function AdminInboundEmailQueue() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   // Per-row UI state, keyed by email id -- the chosen partner in that
-  // row's picker, and which row (if any) is mid-request.
+  // row's picker, the chosen file kind (#206, defaults to "newsletter"
+  // same as the backend's own default), a free-typed label when kind is
+  // "other", and which row (if any) is mid-request.
   const [selections, setSelections] = useState({});
+  const [kindSelections, setKindSelections] = useState({});
+  const [customKindSelections, setCustomKindSelections] = useState({});
   const [busyId, setBusyId] = useState(null);
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
 
   function reload() {
     return fetchPendingInboundEmails()
@@ -55,10 +63,16 @@ export default function AdminInboundEmailQueue() {
       setError("Choose a partner before assigning.");
       return;
     }
+    const kind = kindSelections[email.id] || FILE_KINDS[0].value;
+    const customKind = customKindSelections[email.id] || "";
+    if (kind === "other" && !customKind.trim()) {
+      setError('Enter a kind label before assigning as "Other".');
+      return;
+    }
     setError("");
     setBusyId(email.id);
     try {
-      await assignInboundEmail(email.id, partnerId);
+      await assignInboundEmail(email.id, partnerId, kind, customKind);
       await reload();
     } catch (err) {
       setError(err.response?.data?.error || "Couldn't assign this email.");
@@ -68,7 +82,13 @@ export default function AdminInboundEmailQueue() {
   }
 
   async function handleDiscard(email) {
-    if (!confirm(`Discard this email from ${email.fromAddress}? This cannot be undone.`)) return;
+    const confirmed = await confirmDialog({
+      title: `Discard this email from ${email.fromAddress}?`,
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Discard",
+      danger: true,
+    });
+    if (!confirmed) return;
     setError("");
     setBusyId(email.id);
     try {
@@ -92,7 +112,7 @@ export default function AdminInboundEmailQueue() {
       <p style={{ color: "#555" }}>
         Inbound emails that couldn't be automatically matched to exactly one partner -- either no partner's
         contact or household-adult email matched the sender, or more than one did. Assign each to the right
-        partner (filed as a Newsletter) or discard it.
+        partner, picking what kind of file it actually is, or discard it.
       </p>
 
       {error && (
@@ -118,12 +138,9 @@ export default function AdminInboundEmailQueue() {
                 <td>{email.fromAddress}</td>
                 <td>{email.subject || "—"}</td>
                 <td>{new Date(email.receivedAt).toLocaleString()}</td>
-                <td className="table-actions">
-                  <button type="button" className="btn secondary small" onClick={() => handleViewRaw(email)}>
-                    View raw
-                  </button>
+                <td className="table-actions-stack">
                   {canAssign && (
-                    <>
+                    <div className="table-actions-row">
                       <PartnerSelect
                         partners={partners}
                         value={selections[email.id] || ""}
@@ -131,6 +148,43 @@ export default function AdminInboundEmailQueue() {
                         disabled={busy}
                         style={{ width: "auto", display: "inline-block" }}
                       />
+                      <span className="table-actions-as">as</span>
+                      <select
+                        aria-label="File kind"
+                        value={kindSelections[email.id] || FILE_KINDS[0].value}
+                        onChange={(e) => setKindSelections((s) => ({ ...s, [email.id]: e.target.value }))}
+                        disabled={busy}
+                        style={{ width: "auto", minWidth: "9.5rem" }}
+                      >
+                        {FILE_KINDS.map((k) => (
+                          <option key={k.value} value={k.value}>
+                            {k.label}
+                          </option>
+                        ))}
+                      </select>
+                      {(kindSelections[email.id] || FILE_KINDS[0].value) === "other" && (
+                        <input
+                          aria-label="Kind label"
+                          value={customKindSelections[email.id] || ""}
+                          onChange={(e) =>
+                            setCustomKindSelections((s) => ({ ...s, [email.id]: e.target.value }))
+                          }
+                          placeholder="e.g. Background Check"
+                          disabled={busy}
+                          style={{ width: "10rem" }}
+                        />
+                      )}
+                    </div>
+                  )}
+                  <div className="table-actions-row">
+                    <button
+                      type="button"
+                      className="btn secondary small"
+                      onClick={() => handleViewRaw(email)}
+                    >
+                      View raw
+                    </button>
+                    {canAssign && (
                       <button
                         type="button"
                         className="btn small"
@@ -139,18 +193,18 @@ export default function AdminInboundEmailQueue() {
                       >
                         {busy ? "Assigning..." : "Assign"}
                       </button>
-                    </>
-                  )}
-                  {canDiscard && (
-                    <button
-                      type="button"
-                      className="btn danger small"
-                      disabled={busy}
-                      onClick={() => handleDiscard(email)}
-                    >
-                      {busy ? "Discarding..." : "Discard"}
-                    </button>
-                  )}
+                    )}
+                    {canDiscard && (
+                      <button
+                        type="button"
+                        className="btn danger small"
+                        disabled={busy}
+                        onClick={() => handleDiscard(email)}
+                      >
+                        {busy ? "Discarding..." : "Discard"}
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             );
@@ -164,6 +218,7 @@ export default function AdminInboundEmailQueue() {
           )}
         </tbody>
       </table>
+      {confirmElement}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import "leaflet/dist/leaflet.css";
 import { fetchPublicPartners } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { formatYear } from "../utils/format.js";
+import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 
 // Marker images come from the installed leaflet package, not a CDN. Vite
 // rewrites these imports to hashed files it serves itself.
@@ -228,7 +229,7 @@ export default function PublicMap() {
   const intervalRef = useRef(null);
   const markerRefs = useRef({});
   const orgMarkerRefs = useRef({});
-  const { logo, partnerTermPlural, publicTagline } = useSettings();
+  const { partnerTermPlural, publicTagline } = useSettings();
   const tileSource = TILE_SOURCES[tileSourceIndex];
 
   // ?tourSeconds=15 slows down/speeds up the auto-tour; defaults to 30s.
@@ -298,23 +299,11 @@ export default function PublicMap() {
 
   return (
     <div>
-      <header className="app-header">
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          {logo?.url && <img src={logo.url} alt="" className="header-logo" />}
-          <div>
-            <h1>Our {partnerTermPlural} Around the World</h1>
-            {publicTagline && <p className="header-tagline">{publicTagline}</p>}
-          </div>
-        </div>
-        <div>
-          <Link to="/" style={{ color: "white", marginRight: "1rem" }}>
-            Partner Directory
-          </Link>
-          <button className="btn" onClick={() => setAutoScroll((v) => !v)} style={{ marginRight: "0.5rem" }}>
-            {autoScroll ? "Stop Tour" : "Start Tour"}
-          </button>
-        </div>
-      </header>
+      <PublicSiteHeader title={`Our ${partnerTermPlural} Around the World`} subtitle={publicTagline}>
+        <button className="btn" onClick={() => setAutoScroll((v) => !v)}>
+          {autoScroll ? "Stop Tour" : "Start Tour"}
+        </button>
+      </PublicSiteHeader>
 
       <div className={`map-layout ${autoScroll ? "tour-mode" : ""}`}>
         {/* Quick-identify-and-fly list — just enough to pick a pin. Full

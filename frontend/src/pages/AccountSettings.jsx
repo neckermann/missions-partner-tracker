@@ -6,6 +6,7 @@ import {
   verifyMfaSetup,
   disableMfa,
   updateNotifyByEmail,
+  fetchPartners,
 } from "../api/client.js";
 import { passwordsMatch } from "../utils/password.js";
 import { useSettings } from "../context/SettingsContext.jsx";
@@ -117,23 +118,48 @@ export default function AccountSettings() {
   );
 }
 
-// Self-service opt-in for the batched notification digest email (see
-// #129) -- same self-service-from-Account-Settings pattern as MFA
-// above, just a plain toggle instead of a real credential check (there's
-// nothing sensitive being turned on here). Turning it off here does the
-// same thing clicking "Unsubscribe" in a digest email's own footer
-// does -- this is just the in-app equivalent for someone who's already
-// logged in.
+// Self-service opt-in for the admin digest email -- same self-service-
+// from-Account-Settings pattern as MFA above. Turning the cadence to
+// "No automatic digest" here does the same thing clicking "Unsubscribe"
+// in a digest email's own footer does -- this is just the in-app
+// equivalent for someone who's already logged in. Besides whatever
+// cadence is picked below, this account may also receive an urgent
+// broadcast immediately, bypassing this schedule entirely -- see the
+// "Marking something urgent" note in USER_GUIDE.md.
 function NotificationsSection({ user, onChange }) {
+  const [partners, setPartners] = useState([]);
+  const [cadence, setCadence] = useState(user.cadence || "");
+  const [allPartners, setAllPartners] = useState(user.allPartners !== false);
+  const [partnerIds, setPartnerIds] = useState(user.followedPartnerIds || []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  async function handleToggle(e) {
-    const enabled = e.target.checked;
+  useEffect(() => {
+    setCadence(user.cadence || "");
+    setAllPartners(user.allPartners !== false);
+    setPartnerIds(user.followedPartnerIds || []);
+  }, [user]);
+
+  useEffect(() => {
+    fetchPartners({ archived: "false" }).then(setPartners);
+  }, []);
+
+  function togglePartner(id) {
+    setPartnerIds((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
+  }
+
+  async function handleSave() {
     setError("");
+    setSuccess("");
     setBusy(true);
     try {
-      await updateNotifyByEmail(enabled);
+      await updateNotifyByEmail({
+        cadence: cadence || null,
+        allPartners,
+        partnerIds,
+      });
+      setSuccess("Notification preference saved.");
       await onChange();
     } catch (err) {
       setError(err.response?.data?.error || "Couldn't update your notification preference");
@@ -146,16 +172,81 @@ function NotificationsSection({ user, onChange }) {
     <div className="admin-section">
       <h3>Email Notifications</h3>
       {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-      <div className="admin-checkbox-row">
-        <label>
-          <input type="checkbox" checked={user.notifyByEmail} onChange={handleToggle} disabled={busy} />
-          Email me the periodic notification digest
-        </label>
+      {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
+
+      <label style={{ display: "block", marginBottom: "0.75rem" }}>
+        Digest cadence
+        <select
+          value={cadence}
+          onChange={(e) => setCadence(e.target.value)}
+          disabled={busy}
+          style={{ display: "block", marginTop: "0.25rem" }}
+        >
+          <option value="">No automatic digest</option>
+          <option value="biweekly">Biweekly</option>
+          <option value="monthly">Monthly</option>
+          <option value="quarterly">Quarterly</option>
+        </select>
+      </label>
+
+      {cadence && (
+        <div style={{ marginBottom: "0.75rem" }}>
+          <div className="admin-checkbox-row">
+            <label>
+              <input
+                type="checkbox"
+                checked={allPartners}
+                onChange={(e) => setAllPartners(e.target.checked)}
+                disabled={busy}
+              />
+              Include all partners
+            </label>
+          </div>
+
+          {!allPartners && (
+            <div
+              style={{
+                marginTop: "0.5rem",
+                maxHeight: 200,
+                overflowY: "auto",
+                border: "1px solid #ddd",
+                borderRadius: 4,
+                padding: "0.5rem",
+              }}
+            >
+              {partners.length === 0 ? (
+                <p style={{ color: "#555", fontSize: "0.9rem", margin: 0 }}>No partners available.</p>
+              ) : (
+                partners.map((p) => (
+                  <div className="admin-checkbox-row" key={p.id}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={partnerIds.includes(p.id)}
+                        onChange={() => togglePartner(p.id)}
+                        disabled={busy}
+                      />
+                      {p.displayName}
+                    </label>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <button type="button" className="btn" onClick={handleSave} disabled={busy}>
+          {busy ? "Saving..." : "Save"}
+        </button>
       </div>
+
       <p style={{ color: "#555", fontSize: "0.9rem" }}>
-        A summary of new prayer requests, one-time needs, and newsletters, sent on whatever schedule Site
-        Administration has configured (or only when an admin manually sends one). You can also unsubscribe
-        directly from the link in any digest email.
+        A summary of new prayer requests, one-time needs, and newsletters, sent on whatever cadence you choose
+        above -- plus, occasionally, an urgent item an admin or editor marks for immediate sending, which
+        arrives right away regardless of this schedule. You can unsubscribe from the regular digest directly
+        from the link in any digest email.
       </p>
     </div>
   );

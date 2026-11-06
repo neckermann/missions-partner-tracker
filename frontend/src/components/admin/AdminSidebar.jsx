@@ -76,12 +76,14 @@ function buildSiteAdminLinks(enabledFeatures) {
       label: "Email",
     },
     enabledFeatures.groupme && { to: "/admin/settings/groupme", label: "GroupMe" },
-    // Schedule, queue toggles, and digest appearance only -- the actual
-    // queue (what's waiting to send) is its own top-level "Pending
-    // Notifications" link above, same "content, not settings" split
-    // Unmatched Emails already has from Email's own settings page (#187).
-    // Gated on groupme/outboundEmail specifically (not inboundEmail,
-    // which doesn't drive any notification sending) -- see #129.
+    // Schedule(s), GroupMe's content-type mutes, the restricted-partner
+    // safety gate, digest appearance, and (when the public digest is on)
+    // its subscriber counts -- all one page now. The actual queue (what's
+    // waiting to send) is its own top-level "Pending Notifications" link
+    // above, same "content, not settings" split Unmatched Emails already
+    // has from Email's own settings page. Gated on groupme/outboundEmail
+    // specifically (not inboundEmail, which doesn't drive any
+    // notification sending).
     (enabledFeatures.groupme || enabledFeatures.outboundEmail) && {
       to: "/admin/settings/notifications",
       label: "Notifications",

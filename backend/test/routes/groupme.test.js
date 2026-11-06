@@ -247,17 +247,17 @@ describe("GET /api/settings/groupme/groups and /groups/:id/topics", () => {
   });
 });
 
-// As of #129, record creation/outcome events no longer post to GroupMe
-// live -- they write a PendingNotification row instead (see
-// utils/notifications.js), flushed later by routes/notifications.js.
-// The actual GroupMe posting (topic routing, packing, truncation) is
-// tested against that flush route in test/routes/notifications.test.js,
-// which is also where it belongs now -- this file stays focused on
-// GroupMe's own settings routes. What's left to verify here is just the
-// dispatcher's own enqueue behavior: a row gets written with the right
-// type/partner/payload, and the per-type queueNotify* switch is actually
-// respected.
-describe("prayer request creation enqueues a PendingNotification instead of posting live", () => {
+// Record creation/outcome events never post to GroupMe live -- they
+// write a NotifiableEvent row instead (see utils/notificationRecording.js),
+// delivered later by groupmeChannel.js's own daily pass. The actual
+// GroupMe posting (topic routing, packing, truncation) is tested
+// separately; this file stays focused on GroupMe's own settings routes.
+// What's left to verify here is just the dispatcher's own recording
+// behavior: a row gets written with the right type/partner/payload, and
+// that a GroupMe-only content-type mute never blocks recording itself
+// (only allowRestrictedPartnerNotifications does that, and only for a
+// restricted partner).
+describe("prayer request creation enqueues a NotifiableEvent instead of posting live", () => {
   let partnerId;
 
   before(async () => {
@@ -269,7 +269,7 @@ describe("prayer request creation enqueues a PendingNotification instead of post
   });
 
   after(async () => {
-    await prisma.pendingNotification.deleteMany({ where: { partnerId } });
+    await prisma.notifiableEvent.deleteMany({ where: { partnerId } });
   });
 
   test("creating a prayer request never calls GroupMe directly and writes a queued row instead", async () => {
@@ -291,7 +291,7 @@ describe("prayer request creation enqueues a PendingNotification instead of post
       assert.equal(res.status, 201);
       assert.equal(called, false, "no live GroupMe call should happen at creation time");
 
-      const queued = await prisma.pendingNotification.findMany({ where: { partnerId } });
+      const queued = await prisma.notifiableEvent.findMany({ where: { partnerId } });
       assert.equal(queued.length, 1);
       assert.equal(queued[0].type, "prayerRequestCreated");
       assert.equal(queued[0].payload.requestText, `${FIXTURE_TAG} enqueues, doesn't post live`);
@@ -300,10 +300,17 @@ describe("prayer request creation enqueues a PendingNotification instead of post
     }
   });
 
-  test("queueNotifyPrayerRequests: false skips the queue entirely", async () => {
+  // This is the exact live bug the notification redesign fixed: under
+  // the old model, this GroupMe-only mute also blocked *recording*,
+  // which silently also starved the public digest of prayer requests
+  // (they share the same row). Under the current model, a GroupMe
+  // content-type mute only ever affects GroupMe's own delivery -- see
+  // notificationEligibility.js's isEligibleForChannel -- recording
+  // itself only ever depends on allowRestrictedPartnerNotifications.
+  test("notifyGroupMePrayerRequests: false still records the event -- it only affects GroupMe's own delivery, not recording", async () => {
     await prisma.churchSettings.update({
       where: { id: "singleton" },
-      data: { queueNotifyPrayerRequests: false },
+      data: { notifyGroupMePrayerRequests: false },
     });
     try {
       const res = await admin("/api/prayer-requests", {
@@ -311,28 +318,68 @@ describe("prayer request creation enqueues a PendingNotification instead of post
         body: {
           partnerId,
           category: "situational",
-          requestText: `${FIXTURE_TAG} should never queue`,
+          requestText: `${FIXTURE_TAG} still recorded despite the GroupMe mute`,
           dateReceived: "2026-01-01",
         },
       });
       assert.equal(res.status, 201);
-      const queued = await prisma.pendingNotification.findMany({
+      const queued = await prisma.notifiableEvent.findMany({
         where: { partnerId, type: "prayerRequestCreated" },
       });
       assert.ok(
-        !queued.some((row) => row.payload.requestText === `${FIXTURE_TAG} should never queue`),
-        "turning the queue type off should prevent a row from ever being written"
+        queued.some(
+          (row) => row.payload.requestText === `${FIXTURE_TAG} still recorded despite the GroupMe mute`
+        ),
+        "a GroupMe-only content-type mute must never prevent recording -- that would also starve the public digest of the same row"
       );
     } finally {
       await prisma.churchSettings.update({
         where: { id: "singleton" },
-        data: { queueNotifyPrayerRequests: true },
+        data: { notifyGroupMePrayerRequests: true },
       });
+    }
+  });
+
+  test("allowRestrictedPartnerNotifications: false skips recording entirely, for a restricted partner", async () => {
+    const restrictedPartner = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "missionary",
+        displayName: `${FIXTURE_TAG} restricted enqueue target`,
+        isRestricted: true,
+      },
+    });
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { allowRestrictedPartnerNotifications: false },
+    });
+    try {
+      const res = await admin("/api/prayer-requests", {
+        method: "POST",
+        body: {
+          partnerId: restrictedPartner.body.id,
+          category: "situational",
+          requestText: `${FIXTURE_TAG} never recorded, restricted and opted out`,
+          dateReceived: "2026-01-01",
+        },
+      });
+      assert.equal(res.status, 201);
+      const queued = await prisma.notifiableEvent.findMany({
+        where: { partnerId: restrictedPartner.body.id },
+      });
+      assert.equal(queued.length, 0, "a restricted partner's event is never recorded when this is off");
+    } finally {
+      await prisma.churchSettings.update({
+        where: { id: "singleton" },
+        data: { allowRestrictedPartnerNotifications: true },
+      });
+      await prisma.notifiableEvent.deleteMany({ where: { partnerId: restrictedPartner.body.id } });
+      await prisma.partner.delete({ where: { id: restrictedPartner.body.id } });
     }
   });
 });
 
-describe("support need creation enqueues a PendingNotification instead of posting live", () => {
+describe("support need creation enqueues a NotifiableEvent instead of posting live", () => {
   let partnerId;
 
   before(async () => {
@@ -344,7 +391,7 @@ describe("support need creation enqueues a PendingNotification instead of postin
   });
 
   after(async () => {
-    await prisma.pendingNotification.deleteMany({ where: { partnerId } });
+    await prisma.notifiableEvent.deleteMany({ where: { partnerId } });
   });
 
   test("creating a one-time need never calls GroupMe directly and writes a queued row instead", async () => {
@@ -366,7 +413,7 @@ describe("support need creation enqueues a PendingNotification instead of postin
       assert.equal(res.status, 201);
       assert.equal(called, false);
 
-      const queued = await prisma.pendingNotification.findMany({ where: { partnerId } });
+      const queued = await prisma.notifiableEvent.findMany({ where: { partnerId } });
       assert.equal(queued.length, 1);
       assert.equal(queued[0].type, "supportNeedCreated");
       assert.equal(queued[0].payload.description, `${FIXTURE_TAG} enqueues, doesn't post live`);
@@ -392,7 +439,7 @@ describe("recording a prayer request's answer enqueues, same transition-only rul
   });
 
   after(async () => {
-    await prisma.pendingNotification.deleteMany({ where: { partnerId } });
+    await prisma.notifiableEvent.deleteMany({ where: { partnerId } });
   });
 
   async function createOngoing(requestText) {
@@ -408,7 +455,7 @@ describe("recording a prayer request's answer enqueues, same transition-only rul
   // -- several tests in this block share one partner, so a bare
   // partnerId+type count would also see earlier tests' own rows.
   async function queuedAnsweredCountFor(requestText) {
-    const rows = await prisma.pendingNotification.findMany({
+    const rows = await prisma.notifiableEvent.findMany({
       where: { partnerId, type: "prayerRequestAnswered" },
     });
     return rows.filter((row) => row.payload.requestText === requestText).length;
@@ -474,7 +521,7 @@ describe("recording a one-time need's decision enqueues, same transition-only ru
   });
 
   after(async () => {
-    await prisma.pendingNotification.deleteMany({ where: { partnerId } });
+    await prisma.notifiableEvent.deleteMany({ where: { partnerId } });
   });
 
   async function createUndecided(description, requestedAmount) {
@@ -489,7 +536,7 @@ describe("recording a one-time need's decision enqueues, same transition-only ru
   // Scoped to this one record's own description, not just partnerId+type
   // -- several tests in this block share one partner.
   async function queuedDecidedCountFor(description) {
-    const rows = await prisma.pendingNotification.findMany({
+    const rows = await prisma.notifiableEvent.findMany({
       where: { partnerId, type: "supportNeedDecided" },
     });
     return rows.filter((row) => row.payload.description === description).length;
@@ -537,7 +584,7 @@ describe("recording a one-time need's decision enqueues, same transition-only ru
   });
 });
 
-describe("newsletter creation enqueues a PendingNotification instead of posting live", () => {
+describe("newsletter creation enqueues a NotifiableEvent instead of posting live", () => {
   let partnerId;
 
   function uploadForm(fields) {
@@ -556,7 +603,7 @@ describe("newsletter creation enqueues a PendingNotification instead of posting 
   });
 
   after(async () => {
-    await prisma.pendingNotification.deleteMany({ where: { partnerId } });
+    await prisma.notifiableEvent.deleteMany({ where: { partnerId } });
   });
 
   test("uploading a newsletter never calls GroupMe directly and writes a queued row instead", async () => {
@@ -573,7 +620,7 @@ describe("newsletter creation enqueues a PendingNotification instead of posting 
       assert.equal(created.status, 201);
       assert.equal(called, false);
 
-      const queued = await prisma.pendingNotification.findMany({
+      const queued = await prisma.notifiableEvent.findMany({
         where: { partnerId, type: "newsletterCreated" },
       });
       assert.equal(queued.length, 1);

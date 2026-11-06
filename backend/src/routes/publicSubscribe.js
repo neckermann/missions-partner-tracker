@@ -6,12 +6,12 @@ const jwt = require("jsonwebtoken");
 const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
 const { sendEmail } = require("../utils/email");
-const { buildSubscriberConfirmUrl } = require("../utils/scopedDigest");
+const { buildSubscriberConfirmUrl } = require("../utils/digestShell");
 const { renderSubscriberPage, escapeHtml, PRIVACY_LINE } = require("../utils/subscriberPage");
 
 const router = express.Router();
 
-const FREQUENCIES = ["weekly", "biweekly", "monthly"];
+const CADENCES = ["biweekly", "monthly", "quarterly"];
 
 // Public and anonymous subscription (#202): no login required, so the
 // visibility gate is purely the feature flag, not an auth check.
@@ -55,7 +55,7 @@ const subscribeLimiter = rateLimit({
 
 const subscribeSchema = z.object({
   email: z.string().email(),
-  frequency: z.enum(FREQUENCIES).optional(),
+  cadence: z.enum(CADENCES).optional(),
   allPartners: z.boolean().optional(),
   partnerIds: z.array(z.string()).optional(),
 });
@@ -65,7 +65,7 @@ const subscribeSchema = z.object({
 async function applySubscription(existing, email, data) {
   if (existing) await prisma.publicSubscriberPartner.deleteMany({ where: { subscriberId: existing.id } });
   const writeData = {
-    frequency: data.frequency || existing?.frequency || "weekly",
+    cadence: data.cadence || existing?.cadence || "biweekly",
     allPartners: data.allPartners ?? existing?.allPartners ?? true,
     scopedPartners: data.partnerIds.length
       ? { create: data.partnerIds.map((partnerId) => ({ partnerId })) }
@@ -111,7 +111,7 @@ router.post("/", subscribeLimiter, requireSubscribeDependencies, async (req, res
 
     const existing = await prisma.publicSubscriber.findUnique({ where: { email } });
     const subscriber = await applySubscription(existing, email, {
-      frequency: parsed.data.frequency,
+      cadence: parsed.data.cadence,
       allPartners: parsed.data.allPartners,
       partnerIds,
     });

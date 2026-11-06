@@ -14,7 +14,41 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
-Nothing yet.
+Assigning an email from the **Unmatched Emails** queue to a partner now
+lets you pick what kind of file it actually is — Newsletter, Survey
+Response, Signed Policy, Email Communication, Office Document, or Other
+with your own label — the same choices as uploading any file directly,
+instead of always filing it as a Newsletter. Newsletter stays the
+default, since that's still what most inbound mail turns out to be.
+
+## [1.3.0] - 2026-11-06
+
+Anyone can now opt in to email updates on prayer requests, with no
+account needed — either for every partner, several at once, or just
+one, from a new public **Subscribe** page, or for a single partner
+from that partner's own public page (which also points to the
+Subscribe page for anyone who wants more than just that one). Each
+subscriber picks weekly, biweekly, or monthly, confirms by
+email first (a plain double opt-in, no account), and can unsubscribe
+anytime from a link in every email — no admin-managed list. Public
+digests are prayer-requests only: never a one-time need, never a
+newsletter or a link back to one, and a restricted partner's content
+stays masked exactly as it already is everywhere else. Off by default,
+behind a new **Public prayer digest** feature toggle; also needs
+Public Directory and Email (Sending) turned on.
+
+Admins get the same cadence-and-scope choice for the existing
+notification digest, replacing the old all-or-nothing "email me the
+digest" checkbox — pick weekly/biweekly/monthly and either every
+partner or just the ones you follow, from your own Account Settings.
+Unlike the public digest, an admin's digest still includes one-time
+needs and newsletters, same as before. A new **Prayer Digest
+Schedule** section (Site Administration → Notifications) sets when
+these three cadence tiers actually go out — independent of the
+existing schedule, which still only governs GroupMe and the original
+church-wide email batch. A new **Prayer Digest Subscribers** page
+(Site Administration → Communications) shows how many admins and
+public visitors are subscribed, counts only, no email addresses.
 
 ## [1.2.0] - 2026-11-05
 

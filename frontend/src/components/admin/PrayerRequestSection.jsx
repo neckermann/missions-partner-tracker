@@ -1,10 +1,22 @@
 import React, { useState } from "react";
-import { createPrayerRequest, updatePrayerRequest, deletePrayerRequest } from "../../api/client.js";
+import {
+  createPrayerRequest,
+  updatePrayerRequest,
+  deletePrayerRequest,
+  fetchUrgentRecipientCount,
+} from "../../api/client.js";
 import { formatDate, todayInputValue, toDateInputValue } from "../../utils/format.js";
+import { urgentSendDescription } from "../../utils/urgentSend.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
+import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
+import useAllowRestrictedPartnerNotifications from "../../hooks/useAllowRestrictedPartnerNotifications.js";
+import { useSettings } from "../../context/SettingsContext.jsx";
 import SourceLink from "./SourceLink.jsx";
 import SourcePicker from "./SourcePicker.jsx";
 import LoadMoreButton from "../LoadMoreButton.jsx";
+import UrgentSendConfirmBody from "./UrgentSendConfirmBody.jsx";
+import ApproveRestrictedTextConfirmBody from "./ApproveRestrictedTextConfirmBody.jsx";
+import ConfirmMessageBody from "../ConfirmMessageBody.jsx";
 
 const emptyNewRequest = {
   category: "strategic",
@@ -13,6 +25,8 @@ const emptyNewRequest = {
   isPublic: false,
   includeInBooklet: false,
   untracked: false,
+  isUrgent: false,
+  approveNow: false,
   notes: "",
   sourceFileId: null,
 };
@@ -26,7 +40,30 @@ const emptyNewRequest = {
 // why: an open request isn't a problem to flag, it's just still open.
 // The only status this UI calls out at all is "answered", as a quiet
 // note, not a checklist item being marked off.
-export default function PrayerRequestSection({ partnerId, prayerRequests, files, onChange }) {
+export default function PrayerRequestSection({ partnerId, isRestricted, prayerRequests, files, onChange }) {
+  const { enabledFeatures } = useSettings();
+  // Whether any channel exists at all to ever deliver a recorded event --
+  // shared precondition for "Mark as urgent" below (nothing to
+  // broadcast urgently to otherwise, so the option isn't offered rather
+  // than silently doing nothing) and for "Review and approve now"
+  // (approving just clears the review hold; that's equally pointless if
+  // nothing would ever pick the row up once cleared). Named for what it
+  // actually checks, not for either specific checkbox that happens to
+  // depend on it -- calling this "canSendUrgent" while also using it to
+  // gate approve-now was confusing, since approving isn't about urgent
+  // sending at all.
+  const hasEnabledChannel = enabledFeatures.groupme || enabledFeatures.outboundEmail;
+  // "Approve now" additionally requires allowRestrictedPartnerNotifications
+  // -- when that's off, recordEvent drops a restricted partner's event
+  // before it's ever queued (see notificationRecording.js), so checking
+  // this box would silently do nothing.
+  const allowRestrictedPartnerNotifications = useAllowRestrictedPartnerNotifications();
+  const canApproveNow = isRestricted && hasEnabledChannel && allowRestrictedPartnerNotifications;
+  // Named confirmDialog, not confirm -- this file's only confirmation
+  // surface now (approve-now, urgent-send, and delete all route through
+  // it), and `confirm` would read as a reference to the native global
+  // this hook replaces.
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
   const [saving, setSaving] = useState(false);
@@ -40,6 +77,30 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, files,
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    if (newRequest.approveNow) {
+      const text = newRequest.requestText.trim();
+      const approved = await confirmDialog({
+        title: "Approve and send now?",
+        body: <ApproveRestrictedTextConfirmBody text={text} />,
+        confirmLabel: "Approve and save",
+      });
+      if (!approved) return;
+    }
+    if (newRequest.isUrgent) {
+      const { adminCount, publicCount } = await fetchUrgentRecipientCount(partnerId);
+      const sent = await confirmDialog({
+        title: "Send now?",
+        body: (
+          <UrgentSendConfirmBody
+            enabledFeatures={enabledFeatures}
+            adminCount={adminCount}
+            publicCount={publicCount}
+          />
+        ),
+        confirmLabel: "Send now",
+      });
+      if (!sent) return;
+    }
     setSaving(true);
     try {
       const isStrategic = newRequest.category === "strategic";
@@ -51,6 +112,8 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, files,
         isPublic: isStrategic ? newRequest.isPublic : false,
         includeInBooklet: isStrategic && newRequest.isPublic ? newRequest.includeInBooklet : false,
         status: newRequest.untracked ? "untracked" : "ongoing",
+        isUrgent: newRequest.isUrgent,
+        approveNow: newRequest.approveNow,
         notes: newRequest.notes || null,
         sourceFileId: newRequest.sourceFileId,
       });
@@ -84,7 +147,13 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, files,
   }
 
   async function handleDelete(request) {
-    if (!confirm("Delete this prayer request? This cannot be undone.")) return;
+    const confirmed = await confirmDialog({
+      title: "Delete this prayer request?",
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
     await deletePrayerRequest(request.id);
     await onChange();
   }
@@ -211,6 +280,43 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, files,
                 Not tracking this one for a specific answer
               </label>
             </div>
+            {hasEnabledChannel && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div className="admin-checkbox-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={newRequest.isUrgent}
+                      onChange={(e) => setNewRequest((f) => ({ ...f, isUrgent: e.target.checked }))}
+                    />
+                    Mark as urgent -- send right away
+                  </label>
+                </div>
+                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                  {urgentSendDescription(enabledFeatures)}
+                </p>
+              </div>
+            )}
+            {canApproveNow && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div className="admin-checkbox-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={newRequest.approveNow}
+                      onChange={(e) => setNewRequest((f) => ({ ...f, approveNow: e.target.checked }))}
+                    />
+                    Review and approve now
+                  </label>
+                </div>
+                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                  This partner is restricted, so nothing above sends anywhere until an admin or editor reviews
+                  it -- normally from the Pending Notifications page afterward. Checking this confirms, right
+                  now, that the text you just typed is safe to send verbatim, skipping that extra trip. You'll
+                  be asked to confirm the exact wording before saving.
+                </p>
+              </div>
+            )}
             <SourcePicker
               files={files}
               sourceFileId={newRequest.sourceFileId}
@@ -420,6 +526,7 @@ export default function PrayerRequestSection({ partnerId, prayerRequests, files,
         )}
         <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} size="small" />
       </div>
+      {confirmElement}
     </div>
   );
 }

@@ -7,13 +7,25 @@ import { useSettings } from "../context/SettingsContext.jsx";
 // this app), which isn't what a toggle row wants. The checkbox itself
 // renders as a pill switch via CSS alone (see index.css) -- same
 // input[type="checkbox"] every other form in this app uses.
-function FeatureToggleRow({ feature, checked, onToggle }) {
+function FeatureToggleRow({ feature, checked, onToggle, disabled = false, nested = false, disabledNote }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", marginTop: "0.9rem" }}>
-      <input type="checkbox" checked={checked} onChange={onToggle} />
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "0.75rem",
+        marginTop: "0.9rem",
+        marginLeft: nested ? "2.25rem" : 0,
+        opacity: disabled ? 0.6 : 1,
+      }}
+    >
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={onToggle} />
       <div>
         <strong>{feature.label}</strong>
         <div style={{ fontSize: "0.85rem", color: "#666" }}>{feature.description}</div>
+        {disabled && disabledNote && (
+          <div style={{ fontSize: "0.8rem", color: "#92400e", marginTop: "0.2rem" }}>{disabledNote}</div>
+        )}
       </div>
     </div>
   );
@@ -42,6 +54,21 @@ export default function AdminSettingsFeatures() {
     setSuccess("");
     setError("");
   }
+
+  const outboundEmailOn =
+    enabledFeatures.outboundEmail ?? featureRegistry.find((f) => f.key === "outboundEmail")?.defaultEnabled;
+
+  // publicPrayerDigest does nothing without outboundEmail actually sending
+  // mail -- rather than let an admin save that combination (a toggle that
+  // looks on but is inert, worse than off per this app's own convention
+  // elsewhere for a configured-looking-but-nonfunctional feature), force
+  // it back off the moment its one real prerequisite goes off, including
+  // right after a save that flips outboundEmail off.
+  useEffect(() => {
+    if (!outboundEmailOn && enabledFeatures.publicPrayerDigest) {
+      setEnabledFeatures((f) => ({ ...f, publicPrayerDigest: false }));
+    }
+  }, [outboundEmailOn, enabledFeatures.publicPrayerDigest]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -75,6 +102,11 @@ export default function AdminSettingsFeatures() {
   const coreAdminFeatures = featureRegistry.filter((f) => f.group === "admin" && !f.section);
   const communicationsFeatures = featureRegistry.filter((f) => f.section === "communications");
   const integrationsFeatures = featureRegistry.filter((f) => f.section === "integrations");
+  // Rendered nested under outboundEmail's own row below, not in its
+  // normal list position, since it's the one feature in this section
+  // with a real functional dependency on another toggle rather than just
+  // its own independent on/off switch.
+  const publicPrayerDigestFeature = communicationsFeatures.find((f) => f.key === "publicPrayerDigest");
 
   return (
     <div className="admin-shell form-has-floating-actions">
@@ -116,14 +148,27 @@ export default function AdminSettingsFeatures() {
         {communicationsFeatures.length > 0 && (
           <div className="admin-section">
             <h3>Communications</h3>
-            {communicationsFeatures.map((f) => (
-              <FeatureToggleRow
-                key={f.key}
-                feature={f}
-                checked={enabledFeatures[f.key] ?? f.defaultEnabled}
-                onToggle={() => toggleFeature(f.key)}
-              />
-            ))}
+            {communicationsFeatures
+              .filter((f) => f.key !== "publicPrayerDigest")
+              .map((f) => (
+                <React.Fragment key={f.key}>
+                  <FeatureToggleRow
+                    feature={f}
+                    checked={enabledFeatures[f.key] ?? f.defaultEnabled}
+                    onToggle={() => toggleFeature(f.key)}
+                  />
+                  {f.key === "outboundEmail" && publicPrayerDigestFeature && (
+                    <FeatureToggleRow
+                      feature={publicPrayerDigestFeature}
+                      checked={enabledFeatures.publicPrayerDigest ?? publicPrayerDigestFeature.defaultEnabled}
+                      onToggle={() => toggleFeature("publicPrayerDigest")}
+                      disabled={!outboundEmailOn}
+                      nested
+                      disabledNote="Requires Email (Sending) above to be turned on first."
+                    />
+                  )}
+                </React.Fragment>
+              ))}
           </div>
         )}
 

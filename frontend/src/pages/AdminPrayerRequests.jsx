@@ -6,16 +6,24 @@ import {
   updatePrayerRequest,
   deletePrayerRequest,
   fetchPartners,
+  fetchUrgentRecipientCount,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import SourceLink from "../components/admin/SourceLink.jsx";
 import SourcePicker from "../components/admin/SourcePicker.jsx";
 import { formatDate, todayInputValue } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
+import { urgentSendDescription } from "../utils/urgentSend.js";
 import { entityFor } from "../utils/partnerEntity.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import useSourceFiles from "../hooks/useSourceFiles.js";
+import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import useAllowRestrictedPartnerNotifications from "../hooks/useAllowRestrictedPartnerNotifications.js";
+import { useSettings } from "../context/SettingsContext.jsx";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
+import UrgentSendConfirmBody from "../components/admin/UrgentSendConfirmBody.jsx";
+import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
+import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
 const emptyNewRequest = {
   partnerId: "",
@@ -25,6 +33,8 @@ const emptyNewRequest = {
   isPublic: false,
   includeInBooklet: false,
   untracked: false,
+  isUrgent: false,
+  approveNow: false,
   notes: "",
   sourceFileId: null,
 };
@@ -35,8 +45,18 @@ const emptyNewRequest = {
 // in schema.prisma. The only status called out here at all is
 // "Answered", as a quiet note, not a checklist item.
 export default function AdminPrayerRequests() {
+  const { enabledFeatures } = useSettings();
+  // Whether any channel exists at all to ever deliver a recorded event --
+  // see PrayerRequestSection.jsx's own hasEnabledChannel for the full
+  // reasoning (shared precondition for "Mark as urgent" and
+  // canApproveNow below).
+  const hasEnabledChannel = enabledFeatures.groupme || enabledFeatures.outboundEmail;
   const [requests, setRequests] = useState([]);
   const [partners, setPartners] = useState([]);
+  // isRestricted isn't a prop here (there's no single partner this page
+  // is scoped to) -- looked up from whichever partner is currently
+  // selected in the add form instead, same list this page's own
+  // PartnerSelect already renders from.
   const [categoryFilter, setCategoryFilter] = useState("all"); // all | strategic | situational
   const [dateRangeFilter, setDateRangeFilter] = useState("all");
   const [showAddForm, setShowAddForm] = useState(false);
@@ -50,6 +70,17 @@ export default function AdminPrayerRequests() {
   // Scoped to whichever partner is selected in the add form, or whichever
   // request is being edited -- see the same hook used in AdminOneTimeNeeds.jsx.
   const { sourceFiles, loadSourceFiles } = useSourceFiles();
+  const selectedPartner = partners.find((p) => p.id === newRequest.partnerId);
+  // Also requires allowRestrictedPartnerNotifications -- see
+  // useAllowRestrictedPartnerNotifications's own comment.
+  const allowRestrictedPartnerNotifications = useAllowRestrictedPartnerNotifications();
+  const canApproveNow =
+    !!selectedPartner?.isRestricted && hasEnabledChannel && allowRestrictedPartnerNotifications;
+  // Named confirmDialog, not confirm -- this page's only confirmation
+  // surface now (approve-now, urgent-send, and delete all route through
+  // it), and `confirm` would read as a reference to the native global
+  // this hook replaces.
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
 
   function reload() {
     fetchPrayerRequests().then(setRequests).catch(console.error);
@@ -83,6 +114,30 @@ export default function AdminPrayerRequests() {
       setError("Choose a partner");
       return;
     }
+    if (newRequest.approveNow) {
+      const text = newRequest.requestText.trim();
+      const approved = await confirmDialog({
+        title: "Approve and send now?",
+        body: <ApproveRestrictedTextConfirmBody text={text} />,
+        confirmLabel: "Approve and save",
+      });
+      if (!approved) return;
+    }
+    if (newRequest.isUrgent) {
+      const { adminCount, publicCount } = await fetchUrgentRecipientCount(newRequest.partnerId);
+      const sent = await confirmDialog({
+        title: "Send now?",
+        body: (
+          <UrgentSendConfirmBody
+            enabledFeatures={enabledFeatures}
+            adminCount={adminCount}
+            publicCount={publicCount}
+          />
+        ),
+        confirmLabel: "Send now",
+      });
+      if (!sent) return;
+    }
     setSaving(true);
     try {
       const isStrategic = newRequest.category === "strategic";
@@ -94,6 +149,8 @@ export default function AdminPrayerRequests() {
         isPublic: isStrategic ? newRequest.isPublic : false,
         includeInBooklet: isStrategic && newRequest.isPublic ? newRequest.includeInBooklet : false,
         status: newRequest.untracked ? "untracked" : "ongoing",
+        isUrgent: newRequest.isUrgent,
+        approveNow: newRequest.approveNow,
         notes: newRequest.notes || null,
         sourceFileId: newRequest.sourceFileId,
       });
@@ -169,7 +226,13 @@ export default function AdminPrayerRequests() {
 
   async function handleDelete(request) {
     const entity = entityFor(request);
-    if (!confirm(`Delete this prayer request for ${entity.name}? This cannot be undone.`)) return;
+    const confirmed = await confirmDialog({
+      title: `Delete this prayer request for ${entity.name}?`,
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
     await deletePrayerRequest(request.id);
     reload();
   }
@@ -271,6 +334,43 @@ export default function AdminPrayerRequests() {
                 Not tracking this one for a specific answer
               </label>
             </div>
+            {hasEnabledChannel && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div className="admin-checkbox-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={newRequest.isUrgent}
+                      onChange={(e) => setNewRequest((f) => ({ ...f, isUrgent: e.target.checked }))}
+                    />
+                    Mark as urgent -- send right away
+                  </label>
+                </div>
+                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                  {urgentSendDescription(enabledFeatures)}
+                </p>
+              </div>
+            )}
+            {canApproveNow && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div className="admin-checkbox-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={newRequest.approveNow}
+                      onChange={(e) => setNewRequest((f) => ({ ...f, approveNow: e.target.checked }))}
+                    />
+                    Review and approve now
+                  </label>
+                </div>
+                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                  This partner is restricted, so nothing above sends anywhere until an admin or editor reviews
+                  it -- normally from the Pending Notifications page afterward. Checking this confirms, right
+                  now, that the text you just typed is safe to send verbatim, skipping that extra trip. You'll
+                  be asked to confirm the exact wording before saving.
+                </p>
+              </div>
+            )}
             <SourcePicker
               files={sourceFiles}
               sourceFileId={newRequest.sourceFileId}
@@ -537,6 +637,7 @@ export default function AdminPrayerRequests() {
         <p style={{ color: "#888", marginTop: "1rem" }}>No prayer requests on file.</p>
       )}
       <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+      {confirmElement}
     </div>
   );
 }

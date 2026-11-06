@@ -142,6 +142,28 @@ judgment on what's worth the added CI time.
   organization should probably follow the existing nullable dual-FK +
   CHECK-constraint pattern used by `SupportEntry`/`Newsletter`/`Document`/
   etc. (`backend/prisma/schema.prisma`), not a new join table shape.
+- **No `window.confirm()`, `confirm()`, or `prompt()` for anything a user
+  sees.** Use `frontend/src/hooks/useConfirmDialog.jsx` instead — a
+  styled, accessible dialog built on the app's own `Modal.jsx`, not the
+  native browser alert. Same call shape as `window.confirm`
+  (`if (!(await confirmDialog({...}))) return;`), so converting an
+  existing one is usually a small, local change. Reach for
+  `ConfirmMessageBody` (`frontend/src/components/ConfirmMessageBody.jsx`)
+  for a plain one-sentence confirmation (a delete, a discard), and the
+  hook's own `typedConfirmation` option for the rare action that should
+  require typing a word back, like permanently deleting a partner — don't
+  reach for `prompt()` for that either. If the new confirmation is itself
+  already rendered inside another `Modal` (editing something in a dialog
+  that then needs its own confirm step), don't nest a second `Modal` —
+  two `Modal` instances each register their own document-level Escape
+  listener, and neither's `stopPropagation()` stops the other's handler
+  from also firing, so Escape closes both at once. Confirm inline as a
+  second step of the same dialog instead; see
+  `components/admin/NotificationReviewModal.jsx` for the pattern.
+  Destructure the hook's function as something other than bare `confirm`
+  (e.g. `confirmDialog`) — the native global of the same name is exactly
+  what it replaces, and shadowing it in a file that still has another use
+  of the real one is an easy, silent bug.
 
 ## Extending the data model
 

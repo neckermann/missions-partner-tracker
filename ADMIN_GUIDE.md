@@ -124,11 +124,14 @@ admin turn off parts of the app a church isn't using — hides the corresponding
 link/section (and, for the public-site toggles, the site itself) without
 losing any data already on file. Enforced server-side too (not just hidden
 in the UI): a disabled feature's API routes 404, same as a route that was
-never built. Grouped in the UI by what a toggle actually affects — Public
-site (the two toggles a logged-out visitor can notice at all) vs. Admin
-features (everything else, which only changes a logged-in admin's own nav).
+never built. Grouped in the UI by what a toggle actually affects: **Public
+site** (the two toggles a logged-out visitor can notice at all), **Admin
+features** (everything else that only changes a logged-in admin's own
+nav), **Communications** (GroupMe and both halves of email, plus Public
+prayer digest nested under Email (Sending) since it depends on it), and
+**Integrations** (AI Features, Joshua Project).
 
-![The Enabled Features page, grouped into Public Site and Admin Features](docs/assets/screenshots/enabled-features.png)
+![The Enabled Features page, with Public prayer digest nested under Email (Sending) in the Communications section](docs/assets/screenshots/enabled-features.png)
 
 | Feature | Default | Notes |
 |---|---|---|
@@ -146,6 +149,7 @@ features (everything else, which only changes a logged-in admin's own nav).
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Site Administration → AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 | Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Site Administration → Email. Today's only sender is the batched notification digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
 | Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Site Administration → Email page as Sending, independently toggled. See [§ Email (Postmark)](#email-postmark) below. |
+| Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the public **Subscribe** page (`/subscribe`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on — shown nested under Email (Sending) on this page, and its checkbox can't be turned on until that one is. See [§ Notification batching & email digests](#notification-batching--email-digests) below. |
 
 The registry backing this list lives in `backend/src/utils/features.js` —
 adding a new toggle later is a one-line entry there plus a `requireFeature("key")`
@@ -156,7 +160,8 @@ the admin sidebar itself (not a separate page with its own tab bar) —
 click it to reveal About Church, Manage Users, Branding, Enabled
 Features, and Backups, then two further sub-groups shown only once
 their features are on: **Communications** (Email, GroupMe,
-Notifications) and **Integrations** (AI Features, Joshua Project). User
+Notifications, Prayer Digest Subscribers) and **Integrations** (AI
+Features, Joshua Project). User
 Management moved here from its own top-level nav link. Adding a new
 settings category later is a new entry in `buildSiteAdminLinks()`
 (`components/admin/AdminSidebar.jsx`) plus a new child route in
@@ -585,83 +590,176 @@ filed as a Newsletter or still sitting in the Unmatched Emails queue) is
 what persists afterward — a church shouldn't rely on Postmark itself as
 a second copy past that window.
 
-### Notification batching & email digests
+### Notifications: GroupMe, the admin digest, and the public digest
 
-New prayer requests, one-time needs, and newsletters — plus a prayer
-request's recorded answer and a one-time need's funding decision —
-queue in a shared `PendingNotification` table instead of posting the
-instant they happen. A flush (automatic, on the schedule below, or
-manual via **Send Pending Notifications Now**) sends each queued item
-to whichever channel(s) are currently on:
+Every event a partner generates — a prayer request created or
+answered, a one-time need created or decided, a newsletter arriving —
+is recorded once, in a shared `NotifiableEvent` table, with exactly one
+exception: a restricted partner's event is only recorded at all if
+**Restricted partners** (below) is on. Everything else about how it
+actually reaches someone is a question of *delivery*, answered
+identically by one shared rule regardless of channel: GroupMe, the
+admin digest, and the public digest each independently decide, at the
+moment they're about to send, whether a given recorded event belongs
+in their send. A recorded event clears (deletes) once every channel
+that could ever have delivered it either has, or permanently can't
+(a muted content type or an off feature counts as "permanently can't"
+the moment it's evaluated that way — turning it back on later only
+affects events recorded after that point, never a retroactive
+backlog).
 
 - **GroupMe** — full item text (never summarized), packed into as few
   messages as fit under GroupMe's 1,000-character limit, to each
-  type's own configured Topic exactly as before this existed.
-- **Email** — one HTML digest per user with `notifyByEmail` turned on
-  (self-service from their own Account Settings — there's no
-  admin-managed recipient list), grouped by partner, with a request/
-  need that came from a newsletter nested under that newsletter instead
-  of linking to it separately. Every digest carries a one-click
-  unsubscribe link (a signed, non-expiring token — no login needed to
-  use it).
+  type's own configured Topic. Fires once a day, at its own
+  admin-set hour (below) — a single daily batch, not a weekly/monthly
+  tier, since GroupMe is a near-real-time chat channel, not a periodic
+  email. Three content-type mutes (Prayer Requests / One-Time Needs /
+  Newsletters) let a church turn off any one type for GroupMe
+  specifically without affecting the admin or public digest at all.
+- **Admin digest** — one HTML email per user who's picked a cadence
+  (self-service from their own Account Settings), grouped by partner,
+  always including every content type it's allowed to (no mute
+  toggle — it's a periodic batched email, not a live feed). A request/
+  need sourced from a newsletter nests under that newsletter's own
+  block instead of linking to it separately.
+- **Public digest** — the same cadence/scope choice, open to anyone
+  with no login (see the next section), but structurally
+  **prayer-requests only** — never a one-time need, never a newsletter,
+  never a link back to a source document. That's enforced by the
+  renderer's own function signature having no parameter capable of
+  carrying a source link at all, not just a check that happens to leave
+  one out.
 
-A queued item only clears once **every currently-enabled channel** has
-sent it successfully — if one channel fails, the item stays queued and
-only retries that channel next time, never re-sending to a channel that
-already succeeded. Turning both channels off entirely just leaves the
-queue parked, rather than silently discarding it.
+Both email digests share one subject-line template, signature, and
+layout choice (Classic — text only, or Snapshot — adds each partner's
+photo/field/overview), all admin-configurable on the same Notifications
+page. Full walkthrough of each control: [USER_GUIDE.md § Digest
+Customization](USER_GUIDE.md#digest-customization).
 
-A restricted-access partner's items are masked on both channels — name
-reduced to initials, photo to a silhouette, no source link — computed
-fresh from the partner's *current* `isRestricted` value at send time,
-not from whatever it was when the item was first queued, so flipping
-that flag after something's already queued still takes effect. This
-exists because both channels leave the app's own auth boundary (a
-GroupMe group can include non-admin members; a digest email can sit in
-an inbox that gets forwarded) — the same exposure
-`isPublic`/`isRestricted` masking already guards against on the public
-site.
+A restricted-access partner's content is masked on every channel —
+name reduced to initials, photo to a silhouette, no source link —
+computed fresh from the partner's *current* `isRestricted` value at
+send time, not from whatever it was when the event was first recorded,
+so flipping that flag afterward still takes effect. A restricted
+partner's prayer request or one-time need additionally can't send **at
+all**, on any channel, until an admin has reviewed it — see
+[§ Restricted-partner notification review](#restricted-partner-notification-review)
+below. Masking itself is unconditional and unaffected by review state
+either way.
 
-A restricted partner's prayer request or one-time need additionally
-can't send **at all** — to either channel, manually or on schedule —
-until an admin has reviewed it: see [§ Restricted-partner notification
-review](#restricted-partner-notification-review) below. Masking itself
-(name, photo, source link) is unconditional and unaffected by review
-state either way.
+**Schedules.** The admin and public digests share three cadence tiers
+— biweekly, monthly, or quarterly — each admin and public subscriber
+picks for themselves; the church sets the actual day/time those tiers
+fire on the Notifications page. GroupMe's own daily hour is a
+completely separate, independent setting on the same page — a church
+can run GroupMe and the email tiers on entirely different schedules.
+Both are checked once a minute by their own in-process
+[`node-cron`](https://www.npmjs.com/package/node-cron) jobs started in
+`server.js`, not a separate Render Cron Job resource and not an
+external scheduler — a deliberate fit for this app's actual scale:
+`render.yaml` provisions exactly one web service instance, so there's
+no multi-instance double-fire risk to guard against. If this app is
+ever scaled to 2+ instances, that risk returns and needs addressing
+then — not a concern worth building for today. A deploy landing in the
+exact scheduled minute just skips that one occurrence, picking it up
+at the next.
 
-The email digest's own appearance — subject line (token-based, e.g.
-`{date} {church} - {term} Updates`), an optional signature line, and a
-choice between a plain Classic layout or a Snapshot layout (adds each
-partner's photo/field/overview to their card) — is admin-configurable on
-the same Notifications page, independent of the schedule/channel
-settings above. GroupMe's own messages are plain text and have no
-equivalent styling to configure. Full walkthrough of each control:
-[USER_GUIDE.md § Digest Customization](USER_GUIDE.md#digest-customization).
+Those schedules are interpreted in this church's own configured
+timezone (Site Administration → About Church → **Timezone**), not the
+server's. Every "send at hour N" field in this app depends on that
+setting — without it, "9" would mean 9am on the server (effectively
+UTC on Render, never a church's own local time). Changing the timezone
+takes effect on the next restart/deploy, not instantly.
 
-The schedule itself (Site Administration → Notifications) is a plain
-day/time an admin picks — weekly, biweekly, or monthly — checked once a
-minute by an in-process [`node-cron`](https://www.npmjs.com/package/node-cron)
-job started in `server.js`, not a separate Render Cron Job resource and
-not an external scheduler. That's a deliberate fit for this app's actual
-scale: `render.yaml` provisions exactly one web service instance, so
-there's no multi-instance double-fire risk to guard against. If this app
-is ever scaled to 2+ instances, that risk returns and needs addressing
-then (node-cron's own `distributed` option, a Redis coordinator, or
-moving the schedule check to a real Render Cron Job) — not a concern
-worth building for today. A deploy landing in the exact scheduled minute
-just skips that one occurrence, picking it up at the next; manual send
-is always available regardless of the schedule.
+### Urgent broadcast
+
+An admin or editor can mark a prayer request or one-time need **urgent**
+at the moment they create it (there's no equivalent for a newsletter —
+nothing creates one through a form a human fills out in the moment).
+Checking the box and saving shows a confirmation naming the real number
+of admins and public subscribers about to be notified, then — once
+confirmed — sends immediately to every notification channel this
+church has enabled, bypassing each recipient's own chosen schedule
+entirely.
+
+"Bypass the schedule" is the *only* thing urgent changes. It still
+calls the exact same delivery rule every scheduled send does: a
+restricted partner's urgent item still waits on human review before it
+sends anywhere, a muted GroupMe content type still suppresses an
+urgent GroupMe post, and an urgent one-time need still never reaches
+the public digest (structurally prayer-only, same as always). A
+subscriber's chosen cadence describes their *routine* updates, not a
+hard ceiling on everything they might receive — both cadence pickers
+disclose this at the point someone picks a tier.
+
+For a restricted partner specifically, a second checkbox — **Review
+and approve now** — appears alongside **Mark as urgent**, admin/editor
+only. Checking it confirms, at creation time, that the exact text just
+typed is safe to send verbatim, and clears the review hold right then
+instead of requiring a separate visit to Pending Notifications
+afterward. It's a shortcut for the same review step described in
+[§ Restricted-partner notification
+review](#restricted-partner-notification-review), not a send of its
+own: checking it alone doesn't push anything out anywhere. Reaching
+any channel still depends on that channel's own schedule firing next,
+or on also checking **Mark as urgent** for an immediate send.
+
+### Public prayer digest & the scoped-digest schedule
+
+Anyone, no login required, can subscribe to email updates on prayer
+requests — either every partner, several of them, or just one, all from
+a single dedicated **Subscribe** page (`/subscribe`), or from a "follow
+this partner" form on that partner's own public page (which also points
+back to the Subscribe page, for anyone who wants more than just that one
+partner). This rides the exact same `NotifiableEvent` rows and the same
+restricted-partner masking and review gate the previous section
+describes — a public digest is **prayer-requests only** by construction,
+same as stated above.
+
+A subscriber confirms by email first (double opt-in — nothing sends to
+an unconfirmed address) and picks biweekly, monthly, or quarterly; the
+same cadence + all-partners-or-specific-partners choice is also
+available to any admin/editor/viewer from their own [Account
+Settings](#your-account-settings) — unlike the public digest, an
+admin's own digest still includes one-time needs and newsletters, same
+as always. Turned on at Site Administration → Enabled Features
+(**Public prayer digest**, off by default); also needs Public
+directory and Email (Sending) on, since there's no public site to
+follow a partner from without the first and no way to send a
+confirmation without the second. Turning **Public prayer digest** off
+again stops delivery to already-confirmed subscribers immediately, not
+just new signups.
+
+A **Prayer Digest Subscribers** section on the same Notifications page
+(visible whenever the public digest is on) shows how many admins and
+public visitors are subscribed — counts only, never an email address.
+
+Because this is the only place the app collects an email address from
+an anonymous member of the public, both subscribe forms (and the
+confirm/unsubscribe pages reached from the email itself) carry a short,
+plain statement of what actually happens: the address is used only to
+send these updates, never shared, and unsubscribing is always
+one click. That's a real commitment, not boilerplate — nothing in this
+feature sends a subscriber's address anywhere except Postmark for
+delivery (same as every other email this app sends, and always one
+individually-addressed send per recipient — Postmark's batch send
+endpoint reduces API round-trips, never recipient count, and carries no
+Cc/Bcc of any kind), and the admin summary section above never exposes
+raw addresses. Worth keeping in mind before adding anything (analytics,
+a third-party integration, an export) that would make that statement
+stop being true.
 
 ### Restricted-partner notification review
 
 A restricted partner's prayer request/one-time need (new, answered, or
-decided) queues the same as anyone else's, but can't actually send to
-either channel — not manually, not on the automatic schedule — until an
-admin reviews it. This is on top of the structural masking above, which
-applies regardless: it's about whether the request/need **text itself**
-is safe to send verbatim, something only a human reading the real
-content can judge. Newsletters aren't affected — a restricted partner's
-newsletter notification is already fully suppressed, nothing to review.
+decided) is recorded the same as anyone else's, but can't actually send
+on any channel — not GroupMe, not either digest, not an urgent
+broadcast — until an admin reviews it. This is on top of the structural
+masking above, which applies regardless: it's about whether the
+request/need **text itself** is safe to send verbatim, something only a
+human reading the real content can judge. Newsletters aren't affected —
+a restricted partner's newsletter notification is already fully
+suppressed, nothing to review.
 
 On the Pending Notifications page, a held item shows an amber
 **Awaiting review** badge, and the row itself already shows the real
@@ -684,17 +782,18 @@ it's accepted, one of two ways:
 
 Either path writes the admin's reviewed text as the authoritative
 content going forward (overriding whatever would otherwise display),
-and the item becomes eligible for the next send, manual or scheduled,
-same as any other queued item. Editing again later overwrites the
+and the item becomes eligible for the next send on any channel, same
+as any other recorded event. Editing again later overwrites the
 previously reviewed text.
 
 A church that would rather not run a review step at all — fully
-automated, nobody checking a queue — can turn off the **Restricted
-partners** checkbox in "What queues for notification." With it off, a
-restricted partner's events are never written to the queue in the first
-place, for any of the three types above; there's nothing to hold and
-nothing to review, since there's nothing queued. The default is on,
-matching the behavior of the other three queue checkboxes.
+automated, nobody checking a queue — can leave **Restricted partners**
+off on the Notifications page (the default). With it off, a restricted
+partner's events are never recorded in the first place, for any type;
+there's nothing to hold and nothing to review, since there's nothing
+recorded. Turning it on takes on the review responsibility above in
+exchange for restricted partners' events reaching every channel like
+anyone else's.
 
 ### Database backups
 

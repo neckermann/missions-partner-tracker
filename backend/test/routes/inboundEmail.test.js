@@ -329,6 +329,65 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
     const newsletters = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
     assert.equal(newsletters.length, 1);
     assert.equal(newsletters[0].title, "Assign me", "the queued email's subject becomes the title");
+    assert.equal(newsletters[0].kind, "newsletter", "kind defaults to newsletter when omitted (#206)");
+  });
+
+  test("POST /:id/assign -- an explicit kind other than newsletter is honored (#206)", async () => {
+    const partner = await createPartner();
+    const created = await prisma.inboundEmail.create({
+      data: {
+        fromAddress: `survey@${FROM_DOMAIN}`,
+        subject: "Survey response",
+        bytes: Buffer.from("raw source"),
+        fileName: "inbound-survey.eml",
+      },
+    });
+
+    const res = await editor(`/api/inbound-email/${created.id}/assign`, {
+      method: "POST",
+      body: { partnerId: partner.id, kind: "survey_response" },
+    });
+    assert.equal(res.status, 201);
+
+    const files = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
+    assert.equal(files.length, 1);
+    assert.equal(files[0].kind, "survey_response");
+  });
+
+  test('POST /:id/assign -- kind "other" requires a customKind, and stores it (#206)', async () => {
+    const partner = await createPartner();
+    const createdNoCustom = await prisma.inboundEmail.create({
+      data: {
+        fromAddress: `other1@${FROM_DOMAIN}`,
+        subject: "Something else",
+        bytes: Buffer.from("raw source"),
+        fileName: "inbound-other1.eml",
+      },
+    });
+    const rejected = await editor(`/api/inbound-email/${createdNoCustom.id}/assign`, {
+      method: "POST",
+      body: { partnerId: partner.id, kind: "other" },
+    });
+    assert.equal(rejected.status, 400, 'kind "other" with no customKind is rejected');
+    await prisma.inboundEmail.deleteMany({ where: { id: createdNoCustom.id } });
+
+    const created = await prisma.inboundEmail.create({
+      data: {
+        fromAddress: `other2@${FROM_DOMAIN}`,
+        subject: "Something else, with a label",
+        bytes: Buffer.from("raw source"),
+        fileName: "inbound-other2.eml",
+      },
+    });
+    const res = await editor(`/api/inbound-email/${created.id}/assign`, {
+      method: "POST",
+      body: { partnerId: partner.id, kind: "other", customKind: "Board Minutes" },
+    });
+    assert.equal(res.status, 201);
+
+    const files = await prisma.partnerFile.findMany({ where: { partnerId: partner.id, kind: "other" } });
+    assert.equal(files.length, 1);
+    assert.equal(files[0].customKind, "Board Minutes");
   });
 
   test("POST /:id/assign to a partner that no longer exists is a 400", async () => {

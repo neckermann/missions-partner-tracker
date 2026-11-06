@@ -3,7 +3,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
-const { notifyPrayerRequestCreated, notifyPrayerRequestAnswered } = require("../utils/notifications");
+const { notifyPrayerRequestCreated, notifyPrayerRequestAnswered } = require("../utils/notificationRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
@@ -23,6 +23,18 @@ const prayerRequestSchema = z.object({
   dateReceived: z.coerce.date(),
   isPublic: z.boolean().optional(),
   includeInBooklet: z.boolean().optional(),
+  // Admin/editor-set at creation -- see notificationRecording.js's
+  // maybeBroadcastUrgent for what this actually triggers. Default
+  // false, same convention as isPublic/includeInBooklet above.
+  isUrgent: z.boolean().optional(),
+  // Not a PrayerRequest column -- stripped out below before the Prisma
+  // create. Only meaningful on creation, for a restricted partner: the
+  // admin/editor confirming inline that requestText itself (exactly as
+  // typed, nothing edited) is safe to send verbatim, same confirmation
+  // Pending Notifications' own Approve path already asks for, just
+  // without the extra trip there. See notificationRecording.js's own
+  // comment on notifyPrayerRequestCreated for what this actually sets.
+  approveNow: z.boolean().optional(),
   status: z.enum(["ongoing", "answered", "untracked"]).optional(),
   dateAnswered: z.coerce.date().optional().nullable(),
   answeredNote: z.string().optional().nullable(),
@@ -83,16 +95,18 @@ router.get("/", async (req, res, next) => {
 // POST /api/prayer-requests  (create — editor or admin)
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = prayerRequestSchema.refine(answeredDateGiven, ANSWERED_DATE_ISSUE).parse(req.body);
+    const { approveNow, ...data } = prayerRequestSchema
+      .refine(answeredDateGiven, ANSWERED_DATE_ISSUE)
+      .parse(req.body);
     const created = await prisma.prayerRequest.create({
       data,
       include: prayerRequestInclude,
     });
 
-    // Best-effort: notifyPrayerRequestCreated (utils/notifications.js)
+    // Best-effort: notifyPrayerRequestCreated (utils/notificationRecording.js)
     // never throws -- a broken notification channel must never block
     // saving the request itself.
-    await notifyPrayerRequestCreated(created);
+    await notifyPrayerRequestCreated(created, approveNow ? { reviewerId: req.user.id } : null);
 
     res.status(201).json(created);
   } catch (err) {

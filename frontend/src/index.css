@@ -557,6 +557,67 @@ a {
   margin-top: 1rem;
 }
 
+.public-subscribe-form {
+  background: #f7f5f0;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin: 1.5rem 0;
+}
+.public-subscribe-form h3 {
+  margin: 0 0 0.35rem;
+}
+.public-subscribe-description {
+  margin: 0 0 0.75rem;
+  color: #555;
+  font-size: 0.9rem;
+}
+.public-subscribe-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.public-subscribe-row input,
+.public-subscribe-row select {
+  padding: 0.5rem 0.6rem;
+  font-size: 0.9rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.public-subscribe-row input {
+  min-width: 220px;
+  flex: 1;
+}
+.public-subscribe-privacy {
+  margin: 0.6rem 0 0;
+  font-size: 0.8rem;
+  color: #777;
+}
+.public-subscribe-success {
+  margin: 0;
+  color: #2a5d3c;
+}
+
+.scripture-quote {
+  margin: 1.5rem 0;
+  padding: 1rem 1.5rem;
+  border-left: 4px solid var(--brand-color, #2a5d3c);
+  background: rgba(0, 0, 0, 0.02);
+  font-style: italic;
+  color: #333;
+}
+.scripture-quote p {
+  margin: 0 0 0.5rem;
+  line-height: 1.6;
+}
+.scripture-quote cite {
+  display: block;
+  font-style: normal;
+  font-size: 0.85rem;
+  color: #666;
+  letter-spacing: 0.02em;
+}
+
 .admin-shell {
   max-width: 1000px;
   margin: 2rem auto;
@@ -608,8 +669,28 @@ a {
 .table-actions {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  white-space: nowrap;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+/* Like .table-actions, but for a cell with more controls than fit one
+   tidy row (e.g. AdminInboundEmailQueue.jsx's partner+kind pickers above
+   its action buttons) -- stacks into deliberate, grouped rows instead of
+   one flex-wrap bag where unrelated controls wrap together unpredictably. */
+.table-actions-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.table-actions-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.5rem;
+}
+.table-actions-as {
+  color: #777;
+  font-size: 0.85rem;
 }
 
 .admin-shell label {

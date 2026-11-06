@@ -127,14 +127,14 @@ describe("POST /api/public/subscribe", () => {
 
     const res = await anon("/api/public/subscribe", {
       method: "POST",
-      body: { email, frequency: "monthly" },
+      body: { email, cadence: "monthly" },
     });
     assert.equal(res.status, 200);
     assert.ok(res.body.message, "same generic response shape as the new-subscriber case");
     assert.equal(postmarkCalls.length, 0, "an already-confirmed subscriber gets no new confirmation email");
 
     const updated = await prisma.publicSubscriber.findUnique({ where: { email } });
-    assert.equal(updated.frequency, "monthly", "scope/cadence still updates");
+    assert.equal(updated.cadence, "monthly", "scope/cadence still updates");
     assert.ok(updated.confirmedAt, "stays confirmed");
   });
 
@@ -169,6 +169,22 @@ describe("POST /api/public/subscribe", () => {
     });
     assert.equal(row.scopedPartners.length, 1);
     assert.equal(row.scopedPartners[0].partnerId, partner.id);
+  });
+
+  test("multiple valid partnerIds in one request are all kept", async () => {
+    const email = "route-test-sub-multipartner@example.test";
+    const [first, second] = await Promise.all([createPublicPartner({}), createPublicPartner({})]);
+    const res = await anon("/api/public/subscribe", {
+      method: "POST",
+      body: { email, allPartners: false, partnerIds: [first.id, second.id] },
+    });
+    assert.equal(res.status, 200);
+    const row = await prisma.publicSubscriber.findUnique({
+      where: { email },
+      include: { scopedPartners: true },
+    });
+    const keptIds = row.scopedPartners.map((p) => p.partnerId).sort();
+    assert.deepEqual(keptIds, [first.id, second.id].sort());
   });
 
   test("404s when publicPrayerDigest is off", async () => {

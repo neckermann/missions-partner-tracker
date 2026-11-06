@@ -918,6 +918,7 @@ export default function AdminPartnerDetail() {
             <h2 className="admin-group-heading">Financial</h2>
             <PartnerFinancialSection
               partnerId={p.id}
+              isRestricted={p.isRestricted}
               supportEntries={collections.supportEntries}
               needRequests={collections.needRequests}
               files={collections.files}
@@ -1050,6 +1051,7 @@ export default function AdminPartnerDetail() {
           {enabledFeatures.prayerRequests && (
             <PrayerRequestSection
               partnerId={p.id}
+              isRestricted={p.isRestricted}
               prayerRequests={collections.prayerRequests}
               files={collections.files}
               onChange={reload}
