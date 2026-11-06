@@ -1,7 +1,7 @@
 // Builds and sends the batched notification digest email (see #129) --
 // the first real consumer of utils/email.js's sendEmail() besides the
 // admin's own "Send Test Email" button. One email per opted-in
-// (`User.notifyByEmail`) active user, grouped by partner rather than by
+// (`User.digestFrequency` not null) active user, grouped by partner rather than by
 // flat type sections: a partner with a newsletter in this batch gets it
 // rendered as that block's own header (with a link to read the whole
 // thing), and any prayer-request/need blurbs sourced from that same

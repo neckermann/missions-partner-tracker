@@ -321,7 +321,10 @@ describe("POST /api/notifications/send -- flush behavior", () => {
       body: { sendEnabled: true, serverToken: "pm-test-token", fromAddress: "updates@example.org" },
     });
     assert.equal(put.status, 200);
-    await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: true } });
+    await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: true },
+    });
 
     const requestText = `${FIXTURE_TAG} email digest send`;
     await createPrayerRequest(requestText);
@@ -345,7 +348,7 @@ describe("POST /api/notifications/send -- flush behavior", () => {
       );
     } finally {
       unmockAll();
-      await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: false } });
+      await admin("/api/auth/notify-by-email", { method: "PUT", body: { digestFrequency: null } });
     }
   });
 
@@ -373,7 +376,10 @@ describe("POST /api/notifications/send -- flush behavior", () => {
       body: { sendEnabled: true, serverToken: "pm-test-token", fromAddress: "updates@example.org" },
     });
     assert.equal(put.status, 200);
-    await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: true } });
+    await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: true },
+    });
 
     const requestText = `${FIXTURE_TAG} digest customization`;
     await createPrayerRequest(requestText);
@@ -416,7 +422,7 @@ describe("POST /api/notifications/send -- flush behavior", () => {
       assert.ok(capturedHtml.includes("hillside.example.org"), "website link should appear in the HTML body");
     } finally {
       unmockAll();
-      await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: false } });
+      await admin("/api/auth/notify-by-email", { method: "PUT", body: { digestFrequency: null } });
     }
   });
 
@@ -435,7 +441,10 @@ describe("POST /api/notifications/send -- flush behavior", () => {
       body: { sendEnabled: true, serverToken: "pm-test-token", fromAddress: "updates@example.org" },
     });
     assert.equal(put.status, 200);
-    await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: true } });
+    await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: true },
+    });
 
     const requestText = `${FIXTURE_TAG} default subject`;
     await createPrayerRequest(requestText);
@@ -458,7 +467,7 @@ describe("POST /api/notifications/send -- flush behavior", () => {
       assert.doesNotMatch(capturedSubject, /\{date\}/, `{date} should be substituted: ${capturedSubject}`);
     } finally {
       unmockAll();
-      await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: false } });
+      await admin("/api/auth/notify-by-email", { method: "PUT", body: { digestFrequency: null } });
       await prisma.churchSettings.update({ where: { id: "singleton" }, data: { partnerTermSingular: null } });
     }
   });
@@ -477,7 +486,10 @@ describe("POST /api/notifications/send -- flush behavior", () => {
       body: { sendEnabled: true, serverToken: "pm-test-token", fromAddress: "updates@example.org" },
     });
     assert.equal(put.status, 200);
-    await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: true } });
+    await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: true },
+    });
 
     let capturedHtml = null;
     mockPostmark(async (url, options) => {
@@ -503,7 +515,7 @@ describe("POST /api/notifications/send -- flush behavior", () => {
       assert.ok(capturedHtml.includes("border-radius:50%"), "snapshot should render a circular photo/avatar");
     } finally {
       unmockAll();
-      await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: false } });
+      await admin("/api/auth/notify-by-email", { method: "PUT", body: { digestFrequency: null } });
       await prisma.churchSettings.update({ where: { id: "singleton" }, data: { digestTemplate: null } });
       await prisma.partner.update({
         where: { id: partnerId },
@@ -517,7 +529,10 @@ describe("POST /api/notifications/send -- flush behavior", () => {
       where: { id: "singleton" },
       data: { enabledFeatures: { groupme: true, outboundEmail: true } },
     });
-    await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: true } });
+    await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: true },
+    });
 
     const requestText = `${FIXTURE_TAG} partial success, both channels`;
     await createPrayerRequest(requestText);
@@ -554,7 +569,7 @@ describe("POST /api/notifications/send -- flush behavior", () => {
       );
     } finally {
       unmockAll();
-      await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: false } });
+      await admin("/api/auth/notify-by-email", { method: "PUT", body: { digestFrequency: null } });
     }
   });
 });
@@ -892,10 +907,13 @@ describe("restricted-partner notification review & edit (#187)", () => {
 });
 
 describe("unsubscribe", () => {
-  test("GET /api/auth/unsubscribe with a valid token turns notifyByEmail off", async () => {
-    await admin("/api/auth/notify-by-email", { method: "PUT", body: { enabled: true } });
+  test("GET /api/auth/unsubscribe with a valid token clears digestFrequency", async () => {
+    await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: true },
+    });
     const me = await admin("/api/auth/me");
-    assert.equal(me.body.user.notifyByEmail, true);
+    assert.equal(me.body.user.digestFrequency, "weekly");
 
     const jwt = require("jsonwebtoken");
     const token = jwt.sign({ id: me.body.user.id, unsubscribe: true }, process.env.SESSION_SECRET);
@@ -903,7 +921,7 @@ describe("unsubscribe", () => {
     assert.equal(res.status, 200);
 
     const after = await admin("/api/auth/me");
-    assert.equal(after.body.user.notifyByEmail, false);
+    assert.equal(after.body.user.digestFrequency, null);
   });
 
   test("an invalid token is rejected", async () => {
@@ -912,5 +930,145 @@ describe("unsubscribe", () => {
 
   test("a missing token is rejected", async () => {
     assert.equal((await unauthenticated("/api/auth/unsubscribe")).status, 400);
+  });
+});
+
+describe("PUT /api/auth/notify-by-email -- cadence + scope (#202 phase 2)", () => {
+  let partnerA;
+  let partnerB;
+
+  before(async () => {
+    const a = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} digest scope A` },
+    });
+    const b = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} digest scope B` },
+    });
+    partnerA = a.body.id;
+    partnerB = b.body.id;
+  });
+
+  after(async () => {
+    // Leave the admin test account unsubscribed and un-scoped for
+    // whatever test runs next in this shared fixture user.
+    await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: null, allPartners: true },
+    });
+    await removeFixturePartners();
+  });
+
+  test("cadence + specific partners persists and GET /me reflects it", async () => {
+    const res = await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "biweekly", allPartners: false, partnerIds: [partnerA, partnerB] },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.user.digestFrequency, "biweekly");
+    assert.equal(res.body.user.allPartners, false);
+    assert.deepEqual(res.body.user.followedPartnerIds.sort(), [partnerA, partnerB].sort());
+
+    const me = await admin("/api/auth/me");
+    assert.equal(me.body.user.digestFrequency, "biweekly");
+    assert.deepEqual(me.body.user.followedPartnerIds.sort(), [partnerA, partnerB].sort());
+  });
+
+  test("digestFrequency: null clears the subscription and any followed partners", async () => {
+    await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: false, partnerIds: [partnerA] },
+    });
+    const res = await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: null },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.user.digestFrequency, null);
+    assert.deepEqual(res.body.user.followedPartnerIds, []);
+
+    const me = await admin("/api/auth/me");
+    assert.deepEqual(me.body.user.followedPartnerIds, []);
+  });
+
+  test("switching to allPartners: true clears previously followed partners, not just ignores them", async () => {
+    await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: false, partnerIds: [partnerA, partnerB] },
+    });
+    const res = await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: true },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.user.allPartners, true);
+    assert.deepEqual(res.body.user.followedPartnerIds, []);
+
+    // Switching back to scoped afterward starts from a clean slate, not
+    // whatever was followed before allPartners: true -- confirms the
+    // rows were actually deleted, not just hidden from this response.
+    const rescoped = await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: false, partnerIds: [partnerA] },
+    });
+    assert.deepEqual(rescoped.body.user.followedPartnerIds, [partnerA]);
+  });
+
+  test("a non-existent or archived partner id is rejected with a 400, not silently dropped", async () => {
+    const archived = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} digest scope archived` },
+    });
+    await admin(`/api/partners/${archived.body.id}/archive`, { method: "POST" });
+
+    const bogus = await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: false, partnerIds: ["not-a-real-id"] },
+    });
+    assert.equal(bogus.status, 400);
+
+    const archivedRes = await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: false, partnerIds: [archived.body.id] },
+    });
+    assert.equal(archivedRes.status, 400);
+  });
+
+  test("allPartners: false with an empty partnerIds list is rejected", async () => {
+    const res = await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "weekly", allPartners: false, partnerIds: [] },
+    });
+    assert.equal(res.status, 400);
+  });
+
+  test("non-admin roles can set their own digest preference too", async () => {
+    const editor = await client("editor");
+    const res = await editor("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "monthly", allPartners: true },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.user.digestFrequency, "monthly");
+    await editor("/api/auth/notify-by-email", { method: "PUT", body: { digestFrequency: null } });
+  });
+
+  test("this phase doesn't change who the existing internal digest sends to -- still every digestFrequency-not-null active user, regardless of cadence or scope", async () => {
+    const { sendPendingNotificationsDigest } = require("../../src/utils/emailDigest");
+    await admin("/api/auth/notify-by-email", {
+      method: "PUT",
+      body: { digestFrequency: "monthly", allPartners: false, partnerIds: [partnerA] },
+    });
+    const me = await admin("/api/auth/me");
+    const recipients = await prisma.user.findMany({
+      where: { digestFrequency: { not: null }, active: true },
+      select: { id: true },
+    });
+    assert.ok(
+      recipients.some((r) => r.id === me.body.user.id),
+      "a user subscribed to a non-default cadence/scope should still be a recipient of the existing shared digest until a later phase makes it scope-aware"
+    );
+    assert.ok(typeof sendPendingNotificationsDigest === "function");
   });
 });

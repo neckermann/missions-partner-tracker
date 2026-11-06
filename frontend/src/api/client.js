@@ -515,11 +515,11 @@ export async function changePassword(currentPassword, newPassword) {
   return data;
 }
 
-// Self-service opt-in/out for the batched notification digest email
-// (see #129) -- same self-service-from-Account-Settings pattern as the
-// MFA enroll/disable calls above.
-export async function updateNotifyByEmail(enabled) {
-  const { data } = await api.put("/auth/notify-by-email", { enabled });
+// Self-service cadence + scope for the batched notification digest email
+// (see #129, extended for #202 phase 2) -- same self-service-from-
+// Account-Settings pattern as the MFA enroll/disable calls above.
+export async function updateNotifyByEmail({ digestFrequency, allPartners, partnerIds }) {
+  const { data } = await api.put("/auth/notify-by-email", { digestFrequency, allPartners, partnerIds });
   return data.user;
 }
 
