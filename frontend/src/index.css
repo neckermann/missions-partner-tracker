@@ -673,6 +673,26 @@ a {
   gap: 0.5rem 0.75rem;
 }
 
+/* Like .table-actions, but for a cell with more controls than fit one
+   tidy row (e.g. AdminInboundEmailQueue.jsx's partner+kind pickers above
+   its action buttons) -- stacks into deliberate, grouped rows instead of
+   one flex-wrap bag where unrelated controls wrap together unpredictably. */
+.table-actions-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.table-actions-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.5rem;
+}
+.table-actions-as {
+  color: #777;
+  font-size: 0.85rem;
+}
+
 .admin-shell label {
   display: flex;
   flex-direction: column;

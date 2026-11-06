@@ -129,12 +129,9 @@ export default function AdminInboundEmailQueue() {
                 <td>{email.fromAddress}</td>
                 <td>{email.subject || "—"}</td>
                 <td>{new Date(email.receivedAt).toLocaleString()}</td>
-                <td className="table-actions">
-                  <button type="button" className="btn secondary small" onClick={() => handleViewRaw(email)}>
-                    View raw
-                  </button>
+                <td className="table-actions-stack">
                   {canAssign && (
-                    <>
+                    <div className="table-actions-row">
                       <PartnerSelect
                         partners={partners}
                         value={selections[email.id] || ""}
@@ -142,6 +139,7 @@ export default function AdminInboundEmailQueue() {
                         disabled={busy}
                         style={{ width: "auto", display: "inline-block" }}
                       />
+                      <span className="table-actions-as">as</span>
                       <select
                         aria-label="File kind"
                         value={kindSelections[email.id] || FILE_KINDS[0].value}
@@ -167,6 +165,13 @@ export default function AdminInboundEmailQueue() {
                           style={{ width: "10rem" }}
                         />
                       )}
+                    </div>
+                  )}
+                  <div className="table-actions-row">
+                    <button type="button" className="btn secondary small" onClick={() => handleViewRaw(email)}>
+                      View raw
+                    </button>
+                    {canAssign && (
                       <button
                         type="button"
                         className="btn small"
@@ -175,18 +180,18 @@ export default function AdminInboundEmailQueue() {
                       >
                         {busy ? "Assigning..." : "Assign"}
                       </button>
-                    </>
-                  )}
-                  {canDiscard && (
-                    <button
-                      type="button"
-                      className="btn danger small"
-                      disabled={busy}
-                      onClick={() => handleDiscard(email)}
-                    >
-                      {busy ? "Discarding..." : "Discard"}
-                    </button>
-                  )}
+                    )}
+                    {canDiscard && (
+                      <button
+                        type="button"
+                        className="btn danger small"
+                        disabled={busy}
+                        onClick={() => handleDiscard(email)}
+                      >
+                        {busy ? "Discarding..." : "Discard"}
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             );

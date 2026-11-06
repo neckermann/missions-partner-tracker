@@ -93,14 +93,6 @@ const FEATURES = {
     group: "admin",
     section: "communications",
   },
-  publicPrayerDigest: {
-    label: "Public prayer digest",
-    description:
-      "Lets anyone subscribe (no login) to email digests of prayer-request updates, for all partners or specific ones they follow. Also requires Public directory and Email (Sending) to be on.",
-    defaultEnabled: false,
-    group: "admin",
-    section: "communications",
-  },
   inboundEmail: {
     label: "Email (Receiving)",
     description: "Receive email through a configured Postmark account, matched to partners automatically.",
@@ -112,6 +104,18 @@ const FEATURES = {
     label: "GroupMe notifications",
     description:
       "Post new prayer requests, one-time needs, and newsletters to their own configured GroupMe Topics as they're added.",
+    defaultEnabled: false,
+    group: "admin",
+    section: "communications",
+  },
+  // Listed last -- unlike the three toggles above (each independently
+  // useful on its own), this one builds on top of outboundEmail (and
+  // publicDirectory, elsewhere), so it reads better after the thing it
+  // depends on rather than sandwiched in the middle of the Email pair.
+  publicPrayerDigest: {
+    label: "Public prayer digest",
+    description:
+      "Lets anyone subscribe (no login) to email digests of prayer-request updates, for all partners or specific ones they follow. Also requires Public directory and Email (Sending) to be on.",
     defaultEnabled: false,
     group: "admin",
     section: "communications",
