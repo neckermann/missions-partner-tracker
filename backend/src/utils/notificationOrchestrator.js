@@ -1,17 +1,13 @@
 // Two cross-channel operations that don't belong to any single
-// channel's own file: clearNotifiableEvents() (deleting a row requires
-// knowing every channel's state at once, which no one channel's file
-// can determine alone) and sendUrgentBroadcast() (an immediate,
-// cadence-bypassing send across all three channels for one specific
-// row). Consolidates the cross-channel half of the old
-// notificationFlush.js, whose other half (GroupMe-specific logic) moved
-// into groupmeChannel.js instead.
+// channel's file: clearNotifiableEvents() (deleting a row needs every
+// channel's state at once) and sendUrgentBroadcast() (an immediate,
+// cadence-bypassing send across all three channels for one row).
+// Consolidates the cross-channel half of the old notificationFlush.js;
+// its GroupMe-specific half moved into groupmeChannel.js instead.
 //
-// Deliberately a one-way dependency on groupmeChannel.js/
-// digestDelivery.js (needs postToGroupMe/sendToRecipients), never the
-// other way -- digestScheduler.js is what composes "run a pass, then
-// clear" for both independent triggers, so neither pass's own file
-// ever needs to call back into this one.
+// One-way dependency on groupmeChannel.js/digestDelivery.js, never the
+// reverse -- digestScheduler.js composes "run a pass, then clear" for
+// both triggers, so neither pass's file needs to call back into this one.
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 const {
@@ -31,14 +27,12 @@ const TIER_STAMP_COLUMN = {
 };
 
 // Reads every row's current stamp columns across all channels and
-// deletes whatever is now fully resolved. A toggle or a feature being
-// off counts as *permanent* for that channel at the moment it's
-// evaluated here, not "could still change" -- re-enabling it later only
-// affects events recorded after that point, it never retroactively
-// resurrects an already-cleared row. The one universal exception:
-// needsReview blocks every channel at once (Rule 1 is Rule 1), so a
-// restricted-and-unreviewed row never clears for anything regardless of
-// any toggle state.
+// deletes whatever is now fully resolved. A toggle/feature being off
+// counts as *permanent* for that channel here, not "could still change"
+// -- re-enabling it later only affects events recorded after that
+// point. The one universal exception: needsReview blocks every channel
+// at once, so a restricted-and-unreviewed row never clears regardless
+// of toggle state.
 async function clearNotifiableEvents() {
   const rows = await prisma.notifiableEvent.findMany({ orderBy: { createdAt: "asc" } });
   if (rows.length === 0) return { cleared: 0 };
@@ -54,10 +48,9 @@ async function clearNotifiableEvents() {
   const emailOn = isFeatureEnabled(settings?.enabledFeatures, "outboundEmail");
   const publicDigestOn = isFeatureEnabled(settings?.enabledFeatures, "publicPrayerDigest");
 
-  // Per-tier subscriber counts, computed once for this whole check --
-  // whether a tier "applies" to a given row depends on both its own
-  // type (via isEligibleForChannel's Rule 2) and whether anyone's
-  // actually subscribed on that tier right now.
+  // Per-tier subscriber counts, computed once -- a tier "applies" to a
+  // row depends on both its type (Rule 2) and whether anyone's
+  // currently subscribed on that tier.
   const [adminTierCounts, publicTierCounts] = await Promise.all([
     prisma.user.groupBy({ by: ["cadence"], where: { cadence: { not: null }, active: true }, _count: true }),
     prisma.publicSubscriber.groupBy({ by: ["cadence"], where: { confirmedAt: { not: null } }, _count: true }),
@@ -85,19 +78,15 @@ async function clearNotifiableEvents() {
   const clearableIds = rows
     .filter((row) => {
       const partner = partnerById.get(row.partnerId);
-      // Universal: still waiting on human review blocks every channel
-      // at once, regardless of any toggle.
       if (needsReview(row, partner)) return false;
 
       const groupmeApplies =
         groupmeOn && isEligibleForChannel(row, CHANNELS.GROUPME, partner, settings, true);
       const tiers = Object.fromEntries(TIERS.map((tier) => [tier, tierApplies(row, tier, partner)]));
 
-      // Guards against the vacuous case where nothing could ever have
-      // been sent anywhere for this row -- without this, every
-      // "!applies" term below is trivially true for a channel that's
-      // off/has nobody subscribed, and the row would get deleted having
-      // never actually reached anyone.
+      // Guards the vacuous case: with every channel off/unsubscribed,
+      // every "!applies" term below is trivially true, which would
+      // delete a row that never actually reached anyone.
       if (!(groupmeApplies || Object.values(tiers).some(Boolean))) return false;
 
       return (
@@ -114,17 +103,14 @@ async function clearNotifiableEvents() {
   return { cleared: clearableIds.length, remaining: rows.length - clearableIds.length };
 }
 
-// How many admins and confirmed public subscribers would actually be
-// notified about this partner right now, cadence-blind -- used to
-// populate the confirm dialog's real numbers before an urgent send
-// actually fires. Approximate on purpose (scoped by partner only, not
-// by the specific row's type/settings) -- the confirm dialog's job is
-// to convey real scale, not predict eligibility down to the exact
-// toggle state. Both counts come back 0 when outboundEmail is off --
-// sendUrgentBroadcast() won't attempt any email send in that case
-// either (see its own gating), so the confirm dialog's numbers must
-// agree with what will actually happen, not just raw subscriber counts
-// that would overstate it.
+// How many admins and confirmed public subscribers would be notified
+// about this partner right now, cadence-blind -- populates the confirm
+// dialog's numbers before an urgent send fires. Approximate on purpose
+// (scoped by partner only, not the row's exact type/settings) -- the
+// dialog's job is to convey real scale, not predict eligibility
+// exactly. Both counts are 0 when outboundEmail is off, matching
+// sendUrgentBroadcast()'s own gating, so these numbers never overstate
+// what will actually happen.
 async function countUrgentRecipients(partnerId) {
   const settings = await getChurchSettings();
   if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
@@ -147,21 +133,18 @@ async function countUrgentRecipients(partnerId) {
   return { adminCount, publicCount };
 }
 
-// Immediate, cadence-bypassing send for one specific row, across all
-// three channels -- still calls isEligibleForChannel per channel
-// exactly like every scheduled pass does; only Rule 3's cadence-tier
-// matching is bypassed (replaced with a cadence-blind recipient query).
-// Rules 1 and 2 run completely unchanged: a restricted-and-unreviewed
-// row still never sends anywhere, a muted GroupMe content-type still
-// suppresses an urgent GroupMe post, and an urgent one-time need still
-// never reaches the public digest.
+// Immediate, cadence-bypassing send for one row, across all three
+// channels -- still calls isEligibleForChannel per channel like every
+// scheduled pass; only Rule 3's cadence-tier matching is bypassed (a
+// cadence-blind recipient query instead). Rules 1 and 2 run unchanged:
+// a restricted-and-unreviewed row still never sends, a muted GroupMe
+// content-type still suppresses an urgent post, an urgent one-time need
+// still never reaches the public digest.
 //
-// Deliberately re-fetches isRestricted/isPublic fresh by id rather than
-// trusting whatever shape the caller's own partner object has -- the
-// caller (notificationRecording.js) only ever has a route's own
+// Re-fetches isRestricted/isPublic fresh by id rather than trusting the
+// caller's partner shape -- notificationRecording.js only has a route's
 // partnerRefSelect on hand ({ id, kind, displayName }), not these two
-// fields, and Rules 1/2 above are safety-critical. Same reasoning as
-// notificationRecording.js's own recordEvent().
+// safety-critical fields.
 async function sendUrgentBroadcast(row, { id: partnerId }) {
   const [settings, partner] = await Promise.all([
     getChurchSettings(),
@@ -185,20 +168,15 @@ async function sendUrgentBroadcast(row, { id: partnerId }) {
     }
   }
 
-  // Cadence-blind: every active admin and every confirmed public
-  // subscriber, regardless of their own chosen tier or whether that
-  // tier's schedule has fired today -- reuses digestDelivery.js's exact
-  // recipient-normalization and send/chunking logic, just fed a
-  // different (unfiltered) recipient query. Gated on outboundEmail,
-  // same as the GroupMe half above is gated on groupme -- sendToRecipients
-  // itself has no awareness of feature flags (sendDigestTier's own
-  // caller checks this instead for the scheduled path), so this call
-  // site has to check it directly, or an urgent send would quietly keep
-  // emailing even with Email (Sending) turned off.
+  // Cadence-blind: every active admin and confirmed public subscriber,
+  // regardless of tier or whether that tier's schedule fired today --
+  // reuses digestDelivery.js's recipient-normalization and send/chunking,
+  // just fed an unfiltered recipient query. sendToRecipients has no
+  // awareness of feature flags, so this call site gates outboundEmail/
+  // publicPrayerDigest itself, the same two gates the scheduled path
+  // checks before ever calling it -- otherwise an urgent send would
+  // keep emailing with either feature turned off.
   const emailOn = isFeatureEnabled(settings?.enabledFeatures, "outboundEmail");
-  // Same publicPrayerDigest gate sendDigestTier applies -- an urgent
-  // send must not reach public subscribers either when that feature's
-  // off, even though outboundEmail (the admin digest's own gate) is on.
   const publicDigestOn = isFeatureEnabled(settings?.enabledFeatures, "publicPrayerDigest");
   let admins = [];
   let publicSubscribers = [];
