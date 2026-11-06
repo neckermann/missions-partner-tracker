@@ -176,8 +176,10 @@ CREATE TABLE "SupportNeed" (
     "requestDate" DATE NOT NULL,
     "approvedAmount" INTEGER,
     "approvedDate" DATE,
+    "decisionNote" TEXT,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "isUrgent" BOOLEAN NOT NULL DEFAULT false,
     "sourceFileId" TEXT,
 
     CONSTRAINT "SupportNeed_pkey" PRIMARY KEY ("id")
@@ -195,6 +197,7 @@ CREATE TABLE "PrayerRequest" (
     "status" TEXT NOT NULL DEFAULT 'ongoing',
     "dateAnswered" DATE,
     "answeredNote" TEXT,
+    "isUrgent" BOOLEAN NOT NULL DEFAULT false,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "sourceFileId" TEXT,
@@ -234,22 +237,21 @@ CREATE TABLE "InboundEmail" (
 );
 
 -- CreateTable
-CREATE TABLE "PendingNotification" (
+CREATE TABLE "NotifiableEvent" (
     "id" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "partnerId" TEXT NOT NULL,
     "payload" JSONB NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "groupmeSentAt" TIMESTAMP(3),
-    "emailSentAt" TIMESTAMP(3),
     "reviewedAt" TIMESTAMP(3),
     "reviewedById" TEXT,
     "reviewedText" TEXT,
-    "weeklyDigestSentAt" TIMESTAMP(3),
     "biweeklyDigestSentAt" TIMESTAMP(3),
     "monthlyDigestSentAt" TIMESTAMP(3),
+    "quarterlyDigestSentAt" TIMESTAMP(3),
 
-    CONSTRAINT "PendingNotification_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "NotifiableEvent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -302,21 +304,19 @@ CREATE TABLE "ChurchSettings" (
     "inboundEmailWebhookPassword" TEXT,
     "enabledFeatures" JSONB NOT NULL DEFAULT '{}',
     "backupReminderDisabled" BOOLEAN NOT NULL DEFAULT false,
-    "digestFrequency" TEXT,
-    "digestDayOfWeek" INTEGER,
-    "digestDayOfMonth" INTEGER,
-    "digestHour" INTEGER,
-    "lastDigestSentAt" TIMESTAMP(3),
     "scopedDigestDayOfWeek" INTEGER,
     "scopedDigestDayOfMonth" INTEGER,
     "scopedDigestHour" INTEGER,
-    "lastWeeklyScopedDigestSentAt" TIMESTAMP(3),
     "lastBiweeklyScopedDigestSentAt" TIMESTAMP(3),
     "lastMonthlyScopedDigestSentAt" TIMESTAMP(3),
-    "queueNotifyPrayerRequests" BOOLEAN NOT NULL DEFAULT true,
-    "queueNotifyOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
-    "queueNotifyNewsletters" BOOLEAN NOT NULL DEFAULT true,
-    "queueNotifyRestrictedPartners" BOOLEAN NOT NULL DEFAULT true,
+    "lastQuarterlyScopedDigestSentAt" TIMESTAMP(3),
+    "groupmeDigestHour" INTEGER,
+    "lastGroupmeDigestSentAt" TIMESTAMP(3),
+    "timezone" TEXT NOT NULL DEFAULT 'UTC',
+    "notifyGroupMePrayerRequests" BOOLEAN NOT NULL DEFAULT true,
+    "notifyGroupMeOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
+    "notifyGroupMeNewsletters" BOOLEAN NOT NULL DEFAULT true,
+    "allowRestrictedPartnerNotifications" BOOLEAN NOT NULL DEFAULT false,
     "digestSubjectTemplate" TEXT,
     "digestSignature" TEXT,
     "digestTemplate" TEXT,
@@ -342,7 +342,7 @@ CREATE TABLE "User" (
     "mfaSecret" TEXT,
     "mfaLastTimeStep" INTEGER,
     "mfaSetupRequired" BOOLEAN NOT NULL DEFAULT false,
-    "digestFrequency" TEXT,
+    "cadence" TEXT,
     "allPartners" BOOLEAN NOT NULL DEFAULT true,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
@@ -362,7 +362,7 @@ CREATE TABLE "PublicSubscriber" (
     "email" TEXT NOT NULL,
     "confirmedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "frequency" TEXT NOT NULL DEFAULT 'weekly',
+    "cadence" TEXT NOT NULL DEFAULT 'biweekly',
     "allPartners" BOOLEAN NOT NULL DEFAULT true,
 
     CONSTRAINT "PublicSubscriber_pkey" PRIMARY KEY ("id")
@@ -431,10 +431,10 @@ CREATE INDEX "PartnerFile_partnerId_idx" ON "PartnerFile"("partnerId");
 CREATE INDEX "PartnerFile_kind_idx" ON "PartnerFile"("kind");
 
 -- CreateIndex
-CREATE INDEX "PendingNotification_type_idx" ON "PendingNotification"("type");
+CREATE INDEX "NotifiableEvent_type_idx" ON "NotifiableEvent"("type");
 
 -- CreateIndex
-CREATE INDEX "PendingNotification_partnerId_idx" ON "PendingNotification"("partnerId");
+CREATE INDEX "NotifiableEvent_partnerId_idx" ON "NotifiableEvent"("partnerId");
 
 -- CreateIndex
 CREATE INDEX "Photo_partnerId_idx" ON "Photo"("partnerId");
@@ -497,7 +497,7 @@ ALTER TABLE "PrayerRequest" ADD CONSTRAINT "PrayerRequest_sourceFileId_fkey" FOR
 ALTER TABLE "PartnerFile" ADD CONSTRAINT "PartnerFile_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "PendingNotification" ADD CONSTRAINT "PendingNotification_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "NotifiableEvent" ADD CONSTRAINT "NotifiableEvent_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Photo" ADD CONSTRAINT "Photo_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
