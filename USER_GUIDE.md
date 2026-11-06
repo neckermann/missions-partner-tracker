@@ -1023,6 +1023,8 @@ Schedule** section specifically — see
 You can also turn it off directly from the unsubscribe link in any
 digest email, without logging in.
 
+![Account settings, Email Notifications: a weekly cadence picked, with the specific-partners scope list expanded](docs/assets/screenshots/account-settings-digest.png)
+
 ![Account settings, mid-enrollment: the QR code step of enabling two-factor authentication](docs/assets/screenshots/mfa-enrollment.png)
 
 ## The public site
@@ -1056,7 +1058,7 @@ entirely by what you check in the admin dashboard:
   [Serving Location](#editing-a-partner) field offers on the
   admin side, here for visitors.
 
-  ![A public partner profile with Joshua Project country statistics expanded](docs/assets/screenshots/public-partner-detail.png)
+  ![A public partner profile, with the per-partner "follow this partner" subscribe form and Joshua Project country statistics expanded](docs/assets/screenshots/public-partner-detail.png)
 - **Subscribe** (`/subscribe`) — only shown once an admin turns on
   [Public prayer digest](ADMIN_GUIDE.md#feature-toggles). A dedicated page
   for getting prayer-request updates by email: no login, just an email
@@ -1065,7 +1067,11 @@ entirely by what you check in the admin dashboard:
   in a confirmation email before anything actually sends (double
   opt-in — nothing goes out to an address nobody confirmed), and every
   digest they get after that carries its own one-click unsubscribe
-  link. A matching, smaller "Follow this partner's prayer requests"
+  link. This public digest is **prayer requests only** — never a
+  one-time need, never a newsletter or a link back to one — unlike the
+  digest an admin can opt into from their own Account Settings below,
+  which still includes both. A matching, smaller "Follow this partner's
+  prayer requests"
   form sits on each partner's own detail page, for subscribing to just
   that one partner instead of everyone — it also points back to this
   page, and, when that partner has their own newsletter signup link,

@@ -124,11 +124,14 @@ admin turn off parts of the app a church isn't using — hides the corresponding
 link/section (and, for the public-site toggles, the site itself) without
 losing any data already on file. Enforced server-side too (not just hidden
 in the UI): a disabled feature's API routes 404, same as a route that was
-never built. Grouped in the UI by what a toggle actually affects — Public
-site (the two toggles a logged-out visitor can notice at all) vs. Admin
-features (everything else, which only changes a logged-in admin's own nav).
+never built. Grouped in the UI by what a toggle actually affects: **Public
+site** (the two toggles a logged-out visitor can notice at all), **Admin
+features** (everything else that only changes a logged-in admin's own
+nav), **Communications** (GroupMe and both halves of email, plus Public
+prayer digest nested under Email (Sending) since it depends on it), and
+**Integrations** (AI Features, Joshua Project).
 
-![The Enabled Features page, grouped into Public Site and Admin Features](docs/assets/screenshots/enabled-features.png)
+![The Enabled Features page, with Public prayer digest nested under Email (Sending) in the Communications section](docs/assets/screenshots/enabled-features.png)
 
 | Feature | Default | Notes |
 |---|---|---|
@@ -146,7 +149,7 @@ features (everything else, which only changes a logged-in admin's own nav).
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Site Administration → AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 | Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Site Administration → Email. Today's only sender is the batched notification digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
 | Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Site Administration → Email page as Sending, independently toggled. See [§ Email (Postmark)](#email-postmark) below. |
-| Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the public **Subscribe** page (`/subscribe`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on. See [§ Notification batching & email digests](#notification-batching--email-digests) below. |
+| Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the public **Subscribe** page (`/subscribe`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on — shown nested under Email (Sending) on this page, and its checkbox can't be turned on until that one is. See [§ Notification batching & email digests](#notification-batching--email-digests) below. |
 
 The registry backing this list lives in `backend/src/utils/features.js` —
 adding a new toggle later is a one-line entry there plus a `requireFeature("key")`
