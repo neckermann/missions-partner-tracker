@@ -1,9 +1,9 @@
 const { test, describe, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
-const prisma = require("../src/prismaClient");
-const { encryptField } = require("../src/utils/crypto");
-const { sendScopedDigest } = require("../src/utils/scopedDigest");
+const prisma = require("../../src/prismaClient");
+const { encryptField } = require("../../src/utils/crypto");
+const { sendScopedDigest } = require("../../src/utils/scopedDigest");
 
 // Same mock-the-whole-domain technique test/routes/notifications.test.js
 // and test/routes/publicSubscribe.test.js each already use for Postmark
