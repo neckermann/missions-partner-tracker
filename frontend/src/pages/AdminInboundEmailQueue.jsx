@@ -168,7 +168,11 @@ export default function AdminInboundEmailQueue() {
                     </div>
                   )}
                   <div className="table-actions-row">
-                    <button type="button" className="btn secondary small" onClick={() => handleViewRaw(email)}>
+                    <button
+                      type="button"
+                      className="btn secondary small"
+                      onClick={() => handleViewRaw(email)}
+                    >
                       View raw
                     </button>
                     {canAssign && (
