@@ -291,6 +291,7 @@ export default function AdminPartners() {
         </button>
       </div>
 
+      <div className="table-scroll">
       <table className="admin-table" style={{ marginTop: "0.75rem" }}>
         <thead>
           <tr>
@@ -363,6 +364,7 @@ export default function AdminPartners() {
           ))}
         </tbody>
       </table>
+      </div>
       {confirmElement}
     </div>
   );

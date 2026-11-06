@@ -330,6 +330,7 @@ export default function AdminPartnerFiles() {
         </div>
       </div>
 
+      <div className="table-scroll">
       <table className="admin-table" style={{ marginTop: "1rem" }}>
         <thead>
           <tr>
@@ -475,6 +476,7 @@ export default function AdminPartnerFiles() {
           )}
         </tbody>
       </table>
+      </div>
       <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
 
       {scanning && (

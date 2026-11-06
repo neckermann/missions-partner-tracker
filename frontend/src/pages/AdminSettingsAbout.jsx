@@ -124,7 +124,11 @@ export default function AdminSettingsAbout() {
             </label>
             <label>
               Phone
-              <input value={form.phone || ""} onChange={(e) => update("phone", e.target.value)} />
+              <input
+                value={form.phone || ""}
+                onChange={(e) => update("phone", e.target.value)}
+                autoComplete="off"
+              />
             </label>
             <label>
               Contact Name
