@@ -8,6 +8,8 @@ import {
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { FILE_KINDS } from "../utils/fileKinds.js";
+import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
 // The review queue for inbound emails the webhook (see routes/inboundEmail.js)
 // couldn't automatically match to exactly one partner -- zero matches, or
@@ -33,6 +35,7 @@ export default function AdminInboundEmailQueue() {
   const [kindSelections, setKindSelections] = useState({});
   const [customKindSelections, setCustomKindSelections] = useState({});
   const [busyId, setBusyId] = useState(null);
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
 
   function reload() {
     return fetchPendingInboundEmails()
@@ -79,7 +82,13 @@ export default function AdminInboundEmailQueue() {
   }
 
   async function handleDiscard(email) {
-    if (!confirm(`Discard this email from ${email.fromAddress}? This cannot be undone.`)) return;
+    const confirmed = await confirmDialog({
+      title: `Discard this email from ${email.fromAddress}?`,
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Discard",
+      danger: true,
+    });
+    if (!confirmed) return;
     setError("");
     setBusyId(email.id);
     try {
@@ -209,6 +218,7 @@ export default function AdminInboundEmailQueue() {
           )}
         </tbody>
       </table>
+      {confirmElement}
     </div>
   );
 }

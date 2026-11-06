@@ -36,11 +36,13 @@ export default function PublicSubscribe() {
             put on the breastplate of righteousness, and, as shoes for your feet, having put on the readiness
             given by the gospel of peace. In all circumstances take up the shield of faith, with which you can
             extinguish all the flaming darts of the evil one; and take the helmet of salvation, and the sword
-            of the Spirit, which is the word of God, praying at all times in the Spirit, with all prayer and
-            supplication. To that end, keep alert with all perseverance, making supplication for all the
-            saints, and also for me, that words may be given to me in opening my mouth boldly to proclaim the
-            mystery of the gospel, for which I am an ambassador in chains, that I may declare it boldly, as I
-            ought to speak.
+            of the Spirit, which is the word of God,{" "}
+            <strong>
+              praying at all times in the Spirit, with all prayer and supplication. To that end, keep alert
+              with all perseverance, making supplication for all the saints, and also for me, that words may
+              be given to me in opening my mouth boldly to proclaim the mystery of the gospel, for which I am
+              an ambassador in chains, that I may declare it boldly, as I ought to speak.
+            </strong>
           </p>
           <cite>— Ephesians 6:13–20 (ESV)</cite>
         </blockquote>

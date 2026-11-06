@@ -111,9 +111,12 @@ test.describe("user management", () => {
     await page.click('button[type="submit"]');
     await expect(page.locator("tr", { hasText: email })).toContainText("editor");
 
-    // Delete, through the native confirm the page uses.
-    page.once("dialog", (d) => d.accept());
+    // Delete: opens a styled confirm dialog (see useConfirmDialog.jsx),
+    // not a native confirm() -- click its own Delete button, scoped to
+    // the dialog role since the row's own trigger button has the same
+    // name.
     await page.locator("tr", { hasText: email }).getByRole("button", { name: "Delete" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
     await expect(page.locator("tr", { hasText: email })).toHaveCount(0);
   });
 });

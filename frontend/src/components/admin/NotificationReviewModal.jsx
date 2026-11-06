@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Modal from "../Modal.jsx";
 import { revealPendingNotification, updatePendingNotification } from "../../api/client.js";
+import ApproveRestrictedTextConfirmBody from "./ApproveRestrictedTextConfirmBody.jsx";
 
 // Lets an admin see the real (unmasked) text behind a queued
 // notification and edit it before it sends (#187) -- available on any
@@ -19,6 +20,15 @@ export default function NotificationReviewModal({ blurb, onSaved, onClose }) {
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  // Confirming the exact text swaps this modal's own body in place,
+  // rather than opening a second Modal on top of this one -- two Modal
+  // instances would both register their own document-level Escape
+  // listener, and neither's stopPropagation() stops the other's handler
+  // from also firing (they're both listeners on the same document
+  // target), so Escape would close both at once. One dialog, two steps,
+  // is correct here even though the other three approve flows (which
+  // aren't already inside a Modal) use the shared useConfirmDialog hook.
+  const [confirmingApproval, setConfirmingApproval] = useState(false);
 
   useEffect(() => {
     revealPendingNotification(blurb.id)
@@ -41,20 +51,11 @@ export default function NotificationReviewModal({ blurb, onSaved, onClose }) {
     // for a held restricted row, saving here is what clears it to send,
     // so it gets the same confirm gate and the same "here's the exact
     // text" framing, even though it's already visible above -- the
-    // confirm dialog should stand on its own as the final checkpoint.
-    if (
-      blurb.needsReview &&
-      !window.confirm(
-        "This partner is restricted. Save and Approve marks this reviewed and eligible to send to any " +
-          "enabled notification channel -- their name, photo, and any source-file link stay masked regardless, " +
-          "but the exact wording below is what goes out as-is. Check it for anything else that could " +
-          "identify them or their location (a specific place, date, or detail only they'd be tied to) " +
-          "before approving.\n\n" +
-          `Text to send:\n"${text.trim()}"\n\n` +
-          "Save and Approve: send this exact wording?"
-      )
-    )
+    // confirm step should stand on its own as the final checkpoint.
+    if (blurb.needsReview && !confirmingApproval) {
+      setConfirmingApproval(true);
       return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -77,7 +78,33 @@ export default function NotificationReviewModal({ blurb, onSaved, onClose }) {
         </p>
       )}
 
-      {status === "ready" && (
+      {status === "ready" && confirmingApproval && (
+        <>
+          <ApproveRestrictedTextConfirmBody text={text.trim()} />
+
+          {error && (
+            <p style={{ color: "#b91c1c" }} role="alert">
+              {error}
+            </p>
+          )}
+
+          <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem" }}>
+            <button type="button" className="btn small" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : "Save and Approve"}
+            </button>
+            <button
+              type="button"
+              className="btn secondary small"
+              onClick={() => setConfirmingApproval(false)}
+              disabled={saving}
+            >
+              Back
+            </button>
+          </div>
+        </>
+      )}
+
+      {status === "ready" && !confirmingApproval && (
         <>
           {blurb.isRestricted ? (
             <p style={{ color: "#555", fontSize: "0.9rem" }}>

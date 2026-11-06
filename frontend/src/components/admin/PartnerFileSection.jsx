@@ -12,6 +12,8 @@ import { formatDate, todayInputValue, toDateInputValue, formatFileSize } from ".
 import { isScannable } from "../../utils/scannable.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
 import LoadMoreButton from "../LoadMoreButton.jsx";
+import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
+import ConfirmMessageBody from "../ConfirmMessageBody.jsx";
 
 // Reused as-is (not duplicated) on both AdminMissionaryDetail.jsx and
 // AdminOrganizationDetail.jsx — unlike the small presentational Field/
@@ -20,6 +22,7 @@ import LoadMoreButton from "../LoadMoreButton.jsx";
 // rather than something worth copy-pasting twice.
 export default function PartnerFileSection({ partnerId, files, onChange }) {
   const { enabledFeatures } = useSettings();
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [scanning, setScanning] = useState(null); // the file being reviewed, or null
   const [showAddForm, setShowAddForm] = useState(false);
   const [kind, setKind] = useState(FILE_KINDS[0].value);
@@ -86,7 +89,13 @@ export default function PartnerFileSection({ partnerId, files, onChange }) {
   }
 
   async function handleDelete(f) {
-    if (!confirm(`Delete "${f.title || f.fileName}"? This cannot be undone.`)) return;
+    const confirmed = await confirmDialog({
+      title: `Delete "${f.title || f.fileName}"?`,
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
     await deletePartnerFile(f.id);
     await onChange();
   }
@@ -327,6 +336,7 @@ export default function PartnerFileSection({ partnerId, files, onChange }) {
           onClose={() => setScanning(null)}
         />
       )}
+      {confirmElement}
     </div>
   );
 }

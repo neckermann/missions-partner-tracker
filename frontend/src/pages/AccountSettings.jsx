@@ -118,15 +118,17 @@ export default function AccountSettings() {
   );
 }
 
-// Self-service opt-in for the batched notification digest email (see
-// #129, extended for #202 phase 2 with cadence + partner scoping) --
-// same self-service-from-Account-Settings pattern as MFA above.
-// Turning the cadence to "No automatic digest" here does the same thing
-// clicking "Unsubscribe" in a digest email's own footer does -- this is
-// just the in-app equivalent for someone who's already logged in.
+// Self-service opt-in for the admin digest email -- same self-service-
+// from-Account-Settings pattern as MFA above. Turning the cadence to
+// "No automatic digest" here does the same thing clicking "Unsubscribe"
+// in a digest email's own footer does -- this is just the in-app
+// equivalent for someone who's already logged in. Besides whatever
+// cadence is picked below, this account may also receive an urgent
+// broadcast immediately, bypassing this schedule entirely -- see the
+// "Marking something urgent" note in USER_GUIDE.md.
 function NotificationsSection({ user, onChange }) {
   const [partners, setPartners] = useState([]);
-  const [digestFrequency, setDigestFrequency] = useState(user.digestFrequency || "");
+  const [cadence, setCadence] = useState(user.cadence || "");
   const [allPartners, setAllPartners] = useState(user.allPartners !== false);
   const [partnerIds, setPartnerIds] = useState(user.followedPartnerIds || []);
   const [busy, setBusy] = useState(false);
@@ -134,7 +136,7 @@ function NotificationsSection({ user, onChange }) {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    setDigestFrequency(user.digestFrequency || "");
+    setCadence(user.cadence || "");
     setAllPartners(user.allPartners !== false);
     setPartnerIds(user.followedPartnerIds || []);
   }, [user]);
@@ -153,7 +155,7 @@ function NotificationsSection({ user, onChange }) {
     setBusy(true);
     try {
       await updateNotifyByEmail({
-        digestFrequency: digestFrequency || null,
+        cadence: cadence || null,
         allPartners,
         partnerIds,
       });
@@ -173,21 +175,21 @@ function NotificationsSection({ user, onChange }) {
       {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
 
       <label style={{ display: "block", marginBottom: "0.75rem" }}>
-        Digest frequency
+        Digest cadence
         <select
-          value={digestFrequency}
-          onChange={(e) => setDigestFrequency(e.target.value)}
+          value={cadence}
+          onChange={(e) => setCadence(e.target.value)}
           disabled={busy}
           style={{ display: "block", marginTop: "0.25rem" }}
         >
           <option value="">No automatic digest</option>
-          <option value="weekly">Weekly</option>
           <option value="biweekly">Biweekly</option>
           <option value="monthly">Monthly</option>
+          <option value="quarterly">Quarterly</option>
         </select>
       </label>
 
-      {digestFrequency && (
+      {cadence && (
         <div style={{ marginBottom: "0.75rem" }}>
           <div className="admin-checkbox-row">
             <label>
@@ -242,7 +244,9 @@ function NotificationsSection({ user, onChange }) {
 
       <p style={{ color: "#555", fontSize: "0.9rem" }}>
         A summary of new prayer requests, one-time needs, and newsletters, sent on whatever cadence you choose
-        above. You can also unsubscribe directly from the link in any digest email.
+        above -- plus, occasionally, an urgent item an admin or editor marks for immediate sending, which
+        arrives right away regardless of this schedule. You can unsubscribe from the regular digest directly
+        from the link in any digest email.
       </p>
     </div>
   );

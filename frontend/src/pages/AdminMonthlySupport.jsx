@@ -4,6 +4,8 @@ import { fetchPartners, fetchSupportEntries, createSupportEntry, deleteSupportEn
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { formatDate, todayInputValue, formatCurrency as formatMoney } from "../utils/format.js";
 import { partnerKindLabel } from "../utils/partnerEntity.js";
+import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
 // Thin binding so the call sites below stay unchanged; the formatting
 // itself lives in utils/format.js, which is also where the em-dash
@@ -13,6 +15,7 @@ const formatCurrency = (amount) => formatMoney(amount, { fallback: "—" });
 const emptyNewEntry = { partnerId: "", amount: "", effectiveDate: todayInputValue(), notes: "" };
 
 export default function AdminMonthlySupport() {
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [partners, setPartners] = useState([]);
   const [includeArchived, setIncludeArchived] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -110,12 +113,13 @@ export default function AdminMonthlySupport() {
   }
 
   async function handleDeleteEntry(entry) {
-    if (
-      !confirm(
-        `Delete the ${formatCurrency(entry.amount)} entry effective ${formatDate(entry.effectiveDate)}? This cannot be undone.`
-      )
-    )
-      return;
+    const confirmed = await confirmDialog({
+      title: `Delete the ${formatCurrency(entry.amount)} entry effective ${formatDate(entry.effectiveDate)}?`,
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
     await deleteSupportEntry(entry.id);
     reload();
   }
@@ -221,6 +225,7 @@ export default function AdminMonthlySupport() {
           {rows.map((r) => (
             <React.Fragment key={r.id}>
               <tr
+                data-partner-id={r.id}
                 onClick={() => navigate(r.link)}
                 style={{ cursor: "pointer" }}
                 title="Click to view details"
@@ -286,6 +291,7 @@ export default function AdminMonthlySupport() {
           )}
         </tbody>
       </table>
+      {confirmElement}
     </div>
   );
 }

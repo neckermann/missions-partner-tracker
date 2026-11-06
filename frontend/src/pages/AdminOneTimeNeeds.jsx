@@ -6,17 +6,25 @@ import {
   updateSupportNeed,
   deleteSupportNeed,
   fetchPartners,
+  fetchUrgentRecipientCount,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import SourceLink from "../components/admin/SourceLink.jsx";
 import SourcePicker from "../components/admin/SourcePicker.jsx";
 import { formatDate, formatCurrency as formatMoney } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
+import { urgentSendDescription } from "../utils/urgentSend.js";
 import { entityFor } from "../utils/partnerEntity.js";
 import { supportNeedStatus as statusFor } from "../utils/supportNeedStatus.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import useSourceFiles from "../hooks/useSourceFiles.js";
+import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import useAllowRestrictedPartnerNotifications from "../hooks/useAllowRestrictedPartnerNotifications.js";
+import { useSettings } from "../context/SettingsContext.jsx";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
+import UrgentSendConfirmBody from "../components/admin/UrgentSendConfirmBody.jsx";
+import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
+import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
 // Thin binding so the call sites below stay unchanged; the formatting
 // itself lives in utils/format.js, which is also where the em-dash
@@ -29,10 +37,18 @@ const emptyNewNeed = {
   requestedAmount: "",
   requestDate: "",
   notes: "",
+  isUrgent: false,
+  approveNow: false,
   sourceFileId: null,
 };
 
 export default function AdminOneTimeNeeds() {
+  const { enabledFeatures } = useSettings();
+  // Whether any channel exists at all to ever deliver a recorded event --
+  // see PrayerRequestSection.jsx's own hasEnabledChannel for the full
+  // reasoning (shared precondition for "Mark as urgent" and
+  // canApproveNow below).
+  const hasEnabledChannel = enabledFeatures.groupme || enabledFeatures.outboundEmail;
   const [needs, setNeeds] = useState([]);
   const [partners, setPartners] = useState([]);
   const [statusFilter, setStatusFilter] = useState("all"); // all | pending | decided
@@ -42,12 +58,25 @@ export default function AdminOneTimeNeeds() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [decidingId, setDecidingId] = useState(null);
-  const [decision, setDecision] = useState({ approvedAmount: "", approvedDate: "" });
+  const [decision, setDecision] = useState({ approvedAmount: "", approvedDate: "", decisionNote: "" });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   // Scoped to whichever partner is selected in the add form, or whichever
   // need is being edited -- see the same hook used in AdminPrayerRequests.jsx.
   const { sourceFiles, loadSourceFiles } = useSourceFiles();
+  // No single partnerId prop here -- looked up from whichever partner is
+  // currently selected in the add form, same list PartnerSelect renders.
+  const selectedPartner = partners.find((p) => p.id === newNeed.partnerId);
+  // Also requires allowRestrictedPartnerNotifications -- see
+  // useAllowRestrictedPartnerNotifications's own comment.
+  const allowRestrictedPartnerNotifications = useAllowRestrictedPartnerNotifications();
+  const canApproveNow =
+    !!selectedPartner?.isRestricted && hasEnabledChannel && allowRestrictedPartnerNotifications;
+  // Named confirmDialog, not confirm -- this page's only confirmation
+  // surface now (approve-now, urgent-send, and delete all route through
+  // it), and `confirm` would read as a reference to the native global
+  // this hook replaces.
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
 
   function reload() {
     fetchSupportNeeds().then(setNeeds).catch(console.error);
@@ -80,6 +109,26 @@ export default function AdminOneTimeNeeds() {
       setError("Choose a partner");
       return;
     }
+    if (newNeed.approveNow) {
+      const text = newNeed.description.trim();
+      const approved = await confirmDialog({
+        title: "Approve and send now?",
+        body: <ApproveRestrictedTextConfirmBody text={text} />,
+        confirmLabel: "Approve and save",
+      });
+      if (!approved) return;
+    }
+    if (newNeed.isUrgent) {
+      const { adminCount, publicCount } = await fetchUrgentRecipientCount(newNeed.partnerId);
+      const sent = await confirmDialog({
+        title: "Send now?",
+        body: (
+          <UrgentSendConfirmBody enabledFeatures={enabledFeatures} adminCount={adminCount} publicCount={publicCount} />
+        ),
+        confirmLabel: "Send now",
+      });
+      if (!sent) return;
+    }
     setSaving(true);
     try {
       await createSupportNeed({
@@ -88,6 +137,8 @@ export default function AdminOneTimeNeeds() {
         requestedAmount: Number(newNeed.requestedAmount),
         requestDate: newNeed.requestDate,
         notes: newNeed.notes || null,
+        approveNow: newNeed.approveNow,
+        isUrgent: newNeed.isUrgent,
         sourceFileId: newNeed.sourceFileId,
       });
       setNewNeed(emptyNewNeed);
@@ -103,7 +154,7 @@ export default function AdminOneTimeNeeds() {
 
   function startDecision(need) {
     setDecidingId(need.id);
-    setDecision({ approvedAmount: "", approvedDate: "" });
+    setDecision({ approvedAmount: "", approvedDate: "", decisionNote: "" });
   }
 
   async function submitDecision(needId) {
@@ -111,6 +162,7 @@ export default function AdminOneTimeNeeds() {
       await updateSupportNeed(needId, {
         approvedAmount: Number(decision.approvedAmount),
         approvedDate: decision.approvedDate,
+        decisionNote: decision.decisionNote || null,
       });
       setDecidingId(null);
       reload();
@@ -153,7 +205,13 @@ export default function AdminOneTimeNeeds() {
 
   async function handleDelete(need) {
     const entity = entityFor(need);
-    if (!confirm(`Delete this need request for ${entity.name}? This cannot be undone.`)) return;
+    const confirmed = await confirmDialog({
+      title: `Delete this need request for ${entity.name}?`,
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
     await deleteSupportNeed(need.id);
     reload();
   }
@@ -222,6 +280,43 @@ export default function AdminOneTimeNeeds() {
                 onChange={(e) => setNewNeed((f) => ({ ...f, notes: e.target.value }))}
               />
             </label>
+            {hasEnabledChannel && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div className="admin-checkbox-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={newNeed.isUrgent}
+                      onChange={(e) => setNewNeed((f) => ({ ...f, isUrgent: e.target.checked }))}
+                    />
+                    Mark as urgent -- send right away
+                  </label>
+                </div>
+                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                  {urgentSendDescription(enabledFeatures)}
+                </p>
+              </div>
+            )}
+            {canApproveNow && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div className="admin-checkbox-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={newNeed.approveNow}
+                      onChange={(e) => setNewNeed((f) => ({ ...f, approveNow: e.target.checked }))}
+                    />
+                    Review and approve now
+                  </label>
+                </div>
+                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                  This partner is restricted, so nothing above sends anywhere until an admin or editor reviews
+                  it -- normally from the Pending Notifications page afterward. Checking this confirms, right
+                  now, that the text you just typed is safe to send verbatim, skipping that extra trip. You'll
+                  be asked to confirm the exact wording before saving.
+                </p>
+              </div>
+            )}
           </div>
           {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
           <div style={{ marginTop: "1rem" }}>
@@ -393,6 +488,14 @@ export default function AdminOneTimeNeeds() {
                       <div>{need.notes}</div>
                     </div>
                   )}
+                  {need.decisionNote && (
+                    <div>
+                      <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
+                        Decision Note
+                      </div>
+                      <div>{need.decisionNote}</div>
+                    </div>
+                  )}
                 </div>
                 <SourceLink sourceFile={need.sourceFile} />
               </>
@@ -401,35 +504,52 @@ export default function AdminOneTimeNeeds() {
             {need.approvedAmount == null && (
               <div style={{ marginTop: "0.75rem" }}>
                 {decidingId === need.id ? (
-                  <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
-                    <label>
-                      Approved Amount ($)
-                      <input
-                        type="number"
-                        min="0"
-                        value={decision.approvedAmount}
-                        onChange={(e) => setDecision((d) => ({ ...d, approvedAmount: e.target.value }))}
+                  <div>
+                    <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
+                      <label>
+                        Approved Amount ($)
+                        <input
+                          type="number"
+                          min="0"
+                          value={decision.approvedAmount}
+                          onChange={(e) => setDecision((d) => ({ ...d, approvedAmount: e.target.value }))}
+                        />
+                      </label>
+                      <label>
+                        Approved Date
+                        <input
+                          type="date"
+                          value={decision.approvedDate}
+                          onChange={(e) => setDecision((d) => ({ ...d, approvedDate: e.target.value }))}
+                        />
+                      </label>
+                    </div>
+                    <label style={{ display: "block", marginTop: "0.75rem", maxWidth: "28rem" }}>
+                      Decision Note (optional)
+                      <textarea
+                        rows={2}
+                        value={decision.decisionNote}
+                        onChange={(e) => setDecision((d) => ({ ...d, decisionNote: e.target.value }))}
+                        placeholder="Why this amount -- declined, partially funded, etc. Shown in the admin notification."
                       />
                     </label>
-                    <label>
-                      Approved Date
-                      <input
-                        type="date"
-                        value={decision.approvedDate}
-                        onChange={(e) => setDecision((d) => ({ ...d, approvedDate: e.target.value }))}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="btn small"
-                      onClick={() => submitDecision(need.id)}
-                      disabled={decision.approvedAmount === "" || !decision.approvedDate}
-                    >
-                      Save Decision
-                    </button>
-                    <button type="button" className="btn secondary small" onClick={() => setDecidingId(null)}>
-                      Cancel
-                    </button>
+                    <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.75rem" }}>
+                      <button
+                        type="button"
+                        className="btn small"
+                        onClick={() => submitDecision(need.id)}
+                        disabled={decision.approvedAmount === "" || !decision.approvedDate}
+                      >
+                        Save Decision
+                      </button>
+                      <button
+                        type="button"
+                        className="btn secondary small"
+                        onClick={() => setDecidingId(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <button type="button" className="btn secondary small" onClick={() => startDecision(need)}>
@@ -443,6 +563,7 @@ export default function AdminOneTimeNeeds() {
       })}
       {filteredNeeds.length === 0 && <p style={{ color: "#888", marginTop: "1rem" }}>No needs on file.</p>}
       <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+      {confirmElement}
     </div>
   );
 }

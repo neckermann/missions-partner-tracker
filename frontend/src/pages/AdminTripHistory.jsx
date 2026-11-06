@@ -8,6 +8,8 @@ import { formatDate, toDateInputValue } from "../utils/format.js";
 import { partnerKindLabel } from "../utils/partnerEntity.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
+import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
 // The API returns full ISO datetime strings for date-only columns --
 function yearOf(value) {
@@ -52,6 +54,7 @@ const emptyFilters = {
 };
 
 export default function AdminTripHistory() {
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [records, setRecords] = useState([]);
   const [partners, setPartners] = useState([]);
   const [filters, setFilters] = useState(emptyFilters);
@@ -209,7 +212,13 @@ export default function AdminTripHistory() {
   }
 
   async function handleDelete(trip) {
-    if (!confirm(`Delete this trip for ${trip.entityName}? This cannot be undone.`)) return;
+    const confirmed = await confirmDialog({
+      title: `Delete this trip for ${trip.entityName}?`,
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
     await deleteTrip(trip.id);
     reload();
   }
@@ -586,6 +595,7 @@ export default function AdminTripHistory() {
         </tbody>
       </table>
       <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+      {confirmElement}
     </div>
   );
 }

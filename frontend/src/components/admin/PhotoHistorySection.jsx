@@ -1,12 +1,15 @@
 import React, { useState } from "react";
 import { uploadPartnerImage, deletePartnerPhoto } from "../../api/client.js";
 import { formatDate, todayInputValue } from "../../utils/format.js";
+import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
+import ConfirmMessageBody from "../ConfirmMessageBody.jsx";
 
 // Uploading always adds a new photo rather than replacing the current one;
 // photos is expected pre-sorted newest-received-first (see
 // partnerRecordInclude in backend/src/routes/partners.js), so photos[0] is
 // "current."
 export default function PhotoHistorySection({ partnerId, photos, onChange }) {
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [showAddForm, setShowAddForm] = useState(false);
   const [receivedDate, setReceivedDate] = useState(todayInputValue());
   const [file, setFile] = useState(null);
@@ -35,8 +38,13 @@ export default function PhotoHistorySection({ partnerId, photos, onChange }) {
   }
 
   async function handleDelete(p) {
-    if (!confirm(`Delete this photo (received ${formatDate(p.receivedDate)})? This cannot be undone.`))
-      return;
+    const confirmed = await confirmDialog({
+      title: `Delete this photo (received ${formatDate(p.receivedDate)})?`,
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
     await deletePartnerPhoto(partnerId, p.id);
     await onChange();
   }
@@ -131,6 +139,7 @@ export default function PhotoHistorySection({ partnerId, photos, onChange }) {
           <p style={{ color: "#888" }}>No photos on file.</p>
         )}
       </div>
+      {confirmElement}
     </div>
   );
 }

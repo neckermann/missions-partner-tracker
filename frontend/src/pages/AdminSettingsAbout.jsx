@@ -17,8 +17,17 @@ const emptyForm = {
   contactName: "",
   contactEmail: "",
   websiteLink: "",
+  timezone: "UTC",
   address: { ...emptyAddress },
 };
+
+// A real built-in, no library needed -- returns every valid IANA zone
+// name, so an admin can only ever pick a value that's actually valid.
+// A typo'd free-text value (e.g. "America/New York" with a space, or a
+// non-IANA abbreviation like "EST") would otherwise silently fall back
+// to UTC server-side with no feedback to anyone -- see this field's own
+// comment in schema.prisma.
+const TIMEZONES = Intl.supportedValuesOf("timeZone");
 
 // Settings is a singleton — GET returns { featureRegistry } with everything
 // else absent before it's ever been saved (see routes/settings.js), so
@@ -132,7 +141,21 @@ export default function AdminSettingsAbout() {
               Website
               <input value={form.websiteLink || ""} onChange={(e) => update("websiteLink", e.target.value)} />
             </label>
+            <label>
+              Timezone
+              <select value={form.timezone || "UTC"} onChange={(e) => update("timezone", e.target.value)}>
+                {TIMEZONES.map((tz) => (
+                  <option key={tz} value={tz}>
+                    {tz}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
+          <p style={{ color: "#666", fontSize: "0.85rem", marginTop: "-0.5rem" }}>
+            Drives every scheduled send in this app (email digests, GroupMe) so "send at 9" actually means 9am
+            here, not UTC. Changing this takes effect the next time the app restarts, not instantly.
+          </p>
           <h4>Address</h4>
           <AddressFields value={form.address} onChange={(addr) => update("address", addr)} />
         </div>

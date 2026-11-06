@@ -5,6 +5,8 @@ import AlbumLinkField from "./AlbumLinkField.jsx";
 import { formatDate, toDateInputValue } from "../../utils/format.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
 import LoadMoreButton from "../LoadMoreButton.jsx";
+import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
+import ConfirmMessageBody from "../ConfirmMessageBody.jsx";
 
 // Trips for one partner, on that partner's own page. Same records and same
 // endpoints as the consolidated Trip History page -- this is just the view
@@ -37,6 +39,7 @@ const emptyForm = {
 };
 
 export default function PartnerTripSection({ partnerId, trips, onChange }) {
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
@@ -112,7 +115,13 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
   }
 
   async function handleDelete(trip) {
-    if (!confirm(`Delete this trip? This cannot be undone.`)) return;
+    const confirmed = await confirmDialog({
+      title: "Delete this trip?",
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
     await deleteTrip(trip.id);
     await onChange();
   }
@@ -296,6 +305,7 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
         )}
         <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} size="small" />
       </div>
+      {confirmElement}
     </div>
   );
 }

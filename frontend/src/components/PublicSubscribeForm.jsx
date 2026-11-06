@@ -10,7 +10,7 @@ import { fetchPublicPartners, subscribeToDigest } from "../api/client.js";
 // and lets the visitor choose all partners or several specific ones.
 export default function PublicSubscribeForm({ allPartners, partnerIds, title, description, picker = false }) {
   const [email, setEmail] = useState("");
-  const [frequency, setFrequency] = useState("weekly");
+  const [cadence, setCadence] = useState("biweekly");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -47,7 +47,7 @@ export default function PublicSubscribeForm({ allPartners, partnerIds, title, de
     try {
       const { message } = await subscribeToDigest({
         email,
-        frequency,
+        cadence,
         allPartners: effectiveAllPartners,
         partnerIds: effectivePartnerIds,
       });
@@ -126,13 +126,13 @@ export default function PublicSubscribeForm({ allPartners, partnerIds, title, de
             />
             <select
               aria-label="How often"
-              value={frequency}
-              onChange={(e) => setFrequency(e.target.value)}
+              value={cadence}
+              onChange={(e) => setCadence(e.target.value)}
               disabled={busy}
             >
-              <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
               <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
             </select>
             <button type="submit" className="btn" disabled={busy}>
               {busy ? "Subscribing..." : "Subscribe"}
@@ -145,7 +145,8 @@ export default function PublicSubscribeForm({ allPartners, partnerIds, title, de
           )}
           <p className="public-subscribe-privacy">
             Your email is used only to send these updates — we never share it with anyone else, and you can
-            unsubscribe anytime.
+            unsubscribe anytime. Besides your chosen schedule, you may occasionally receive an urgent update
+            right away.
           </p>
         </form>
       )}

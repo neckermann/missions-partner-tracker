@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchUsers, deleteUser, fetchCurrentUser, resetUserMfa } from "../api/client.js";
+import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
 export default function AdminUsers() {
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -16,7 +19,13 @@ export default function AdminUsers() {
   }, []);
 
   async function handleDelete(id, email) {
-    if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
+    const confirmed = await confirmDialog({
+      title: `Delete user ${email}?`,
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
     try {
       await deleteUser(id);
       reload();
@@ -28,7 +37,12 @@ export default function AdminUsers() {
   // Recovery path for a lost/broken authenticator device — clears MFA so
   // the user can log in with just their password and re-enroll themselves.
   async function handleResetMfa(id, email) {
-    if (!confirm(`Reset two-factor authentication for ${email}? They will need to re-enroll.`)) return;
+    const confirmed = await confirmDialog({
+      title: `Reset two-factor authentication for ${email}?`,
+      body: <ConfirmMessageBody>They will need to re-enroll.</ConfirmMessageBody>,
+      confirmLabel: "Reset",
+    });
+    if (!confirmed) return;
     try {
       await resetUserMfa(id);
       reload();
@@ -99,6 +113,7 @@ export default function AdminUsers() {
           ))}
         </tbody>
       </table>
+      {confirmElement}
     </div>
   );
 }

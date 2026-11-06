@@ -6,6 +6,8 @@ import { getContinent } from "../utils/countryContinents.js";
 import { matchesSearch } from "../utils/search.js";
 import { formatCurrency, formatDate } from "../utils/format.js";
 import { addressByType } from "../utils/addresses.js";
+import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
 // Same field as backend/src/utils/maskData.js's public `country` -- the
 // physical address's country, nothing else. fipsCountryCode is for Joshua
@@ -36,6 +38,7 @@ function lastVisit(churchVisits) {
 // UI first; they're one underlying record now too, so the merging this
 // page used to do client-side is gone.
 export default function AdminPartners() {
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [partners, setPartners] = useState([]);
   const [showArchived, setShowArchived] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all"); // all | missionary | organization
@@ -136,12 +139,18 @@ export default function AdminPartners() {
   }
 
   async function handleArchive(row) {
-    if (
-      !confirm(
-        `Archive ${row.name}? This removes them from the public site and zeros out their monthly support, but keeps their full history. You can unarchive at any time.`
-      )
-    )
-      return;
+    const confirmed = await confirmDialog({
+      title: `Archive ${row.name}?`,
+      body: (
+        <ConfirmMessageBody>
+          This removes them from the public site and zeros out their monthly support, but keeps their
+          full history. You can unarchive at any time.
+        </ConfirmMessageBody>
+      ),
+      confirmLabel: "Archive",
+      danger: true,
+    });
+    if (!confirmed) return;
     await archivePartner(row.id);
     reload();
   }
@@ -154,12 +163,17 @@ export default function AdminPartners() {
   // Archiving is the deliberate first step — the backend rejects DELETE for
   // anything not already archived, so the UI only ever offers the button
   // once that's true. Typing "confirm" back is extra friction on top of
-  // that, since this step is genuinely permanent.
+  // that, since this step is genuinely permanent -- see useConfirmDialog's
+  // own typedConfirmation option, built for exactly this one case.
   async function handleDelete(row) {
-    const typed = prompt(
-      `This permanently deletes ${row.name} and cannot be undone. Type "confirm" to proceed:`
-    );
-    if (typed?.trim().toLowerCase() !== "confirm") return;
+    const confirmed = await confirmDialog({
+      title: `Permanently delete ${row.name}?`,
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Delete permanently",
+      danger: true,
+      typedConfirmation: { word: "confirm", label: 'Type "confirm" to proceed' },
+    });
+    if (!confirmed) return;
     await deletePartner(row.id);
     reload();
   }
@@ -349,6 +363,7 @@ export default function AdminPartners() {
           ))}
         </tbody>
       </table>
+      {confirmElement}
     </div>
   );
 }
