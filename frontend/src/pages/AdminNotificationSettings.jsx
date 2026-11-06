@@ -142,8 +142,8 @@ export default function AdminNotificationSettings() {
           <p style={{ color: "#555", fontSize: "0.9rem" }}>
             A separate schedule for the scoped prayer digest (#202) -- the weekly/biweekly/monthly cadence
             each admin picks for themselves on their own <a href="/admin/account">Account Settings</a> page,
-            and each public subscriber picks when they follow a partner or use the Subscribe page. All three cadence
-            tiers run on this one schedule, not the schedule above (which only governs GroupMe and the
+            and each public subscriber picks when they follow a partner or use the Subscribe page. All three
+            cadence tiers run on this one schedule, not the schedule above (which only governs GroupMe and the
             original church-wide email batch) -- weekly and biweekly share the same day of week, and fire for
             whichever subscribers picked that specific cadence.
           </p>

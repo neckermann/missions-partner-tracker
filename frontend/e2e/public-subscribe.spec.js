@@ -42,18 +42,18 @@ test.describe("Public subscribe page", () => {
 
   test("renders with 'Include all partners' checked and no checklist visible", async ({ page }) => {
     await page.goto("/subscribe");
-    const allCheckbox = page.locator(".admin-checkbox-row", { hasText: "Include all partners" }).locator(
-      'input[type="checkbox"]'
-    );
+    const allCheckbox = page
+      .locator(".admin-checkbox-row", { hasText: "Include all partners" })
+      .locator('input[type="checkbox"]');
     await expect(allCheckbox).toBeChecked();
     await expect(page.locator(".admin-checkbox-row")).toHaveCount(1);
   });
 
   test("unchecking 'Include all partners' reveals a partner checklist", async ({ page }) => {
     await page.goto("/subscribe");
-    const allCheckbox = page.locator(".admin-checkbox-row", { hasText: "Include all partners" }).locator(
-      'input[type="checkbox"]'
-    );
+    const allCheckbox = page
+      .locator(".admin-checkbox-row", { hasText: "Include all partners" })
+      .locator('input[type="checkbox"]');
     await allCheckbox.uncheck();
     // At least 2 (the "all partners" row plus one real partner) --
     // exact count depends on local seed data, which varies by environment.
@@ -62,9 +62,9 @@ test.describe("Public subscribe page", () => {
 
   test("picking a partner and submitting a valid email succeeds", async ({ page }) => {
     await page.goto("/subscribe");
-    const allCheckbox = page.locator(".admin-checkbox-row", { hasText: "Include all partners" }).locator(
-      'input[type="checkbox"]'
-    );
+    const allCheckbox = page
+      .locator(".admin-checkbox-row", { hasText: "Include all partners" })
+      .locator('input[type="checkbox"]');
     await allCheckbox.uncheck();
     await page.locator(".admin-checkbox-row input[type='checkbox']").nth(1).check();
     await page.getByPlaceholder("you@example.com").fill(`e2e-subscribe-${Date.now()}@example.test`);
@@ -74,9 +74,9 @@ test.describe("Public subscribe page", () => {
 
   test("submitting with nothing selected shows a validation error, no API call", async ({ page }) => {
     await page.goto("/subscribe");
-    const allCheckbox = page.locator(".admin-checkbox-row", { hasText: "Include all partners" }).locator(
-      'input[type="checkbox"]'
-    );
+    const allCheckbox = page
+      .locator(".admin-checkbox-row", { hasText: "Include all partners" })
+      .locator('input[type="checkbox"]');
     await allCheckbox.uncheck();
     await page.getByPlaceholder("you@example.com").fill(`e2e-subscribe-empty-${Date.now()}@example.test`);
     await page.click('button:has-text("Subscribe")');
