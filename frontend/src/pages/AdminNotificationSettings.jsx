@@ -283,9 +283,9 @@ export default function AdminNotificationSettings() {
         <div className="admin-section" style={{ marginTop: "1rem" }}>
           <h3>Digest Customization</h3>
           <p style={{ color: "#555", fontSize: "0.9rem" }}>
-            Applies to the digest above and to admins' own scoped digest from Account Settings -- never to
-            the public prayer digest, which always uses its own fixed layout, subject line, and branding
-            colors regardless of what's set here.
+            Applies to the digest above and to admins' own scoped digest from Account Settings -- never to the
+            public prayer digest, which always uses its own fixed layout, subject line, and branding colors
+            regardless of what's set here.
           </p>
           <label>
             Layout
