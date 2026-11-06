@@ -15,12 +15,12 @@ export default function ApproveRestrictedTextConfirmBody({ text }) {
     <div>
       <p style={{ marginTop: 0 }}>
         This partner is restricted. Approving marks this reviewed and eligible to send to any enabled
-        notification channel -- their name, photo, and any source-file link stay masked regardless, but
-        the exact wording below is what's sent.
+        notification channel -- their name, photo, and any source-file link stay masked regardless, but the
+        exact wording below is what's sent.
       </p>
       <p>
-        Check it for anything else that could identify them or their location (a specific place, date,
-        or detail only they'd be tied to) before approving.
+        Check it for anything else that could identify them or their location (a specific place, date, or
+        detail only they'd be tied to) before approving.
       </p>
       <blockquote
         style={{

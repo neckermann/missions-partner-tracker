@@ -115,12 +115,12 @@ export default function AdminNotificationSettings() {
         <div className="admin-section" style={{ marginTop: "1rem" }}>
           <h3>Restricted Partners</h3>
           <p style={{ color: "#555", fontSize: "0.9rem" }}>
-            The one safety setting that applies equally to every notification channel this church has
-            enabled, not just one. Off (default) means a restricted-access partner's events are never
-            recorded at all -- nothing to hold, nothing to review, since nothing's queued. On records them
-            like anyone else, subject to review -- either from the Pending Notifications page afterward, or
-            right away with the "Review and approve now" checkbox when the prayer request or one-time need
-            is first created. Either path clears a row for every channel at once, including an urgent send.
+            The one safety setting that applies equally to every notification channel this church has enabled,
+            not just one. Off (default) means a restricted-access partner's events are never recorded at all
+            -- nothing to hold, nothing to review, since nothing's queued. On records them like anyone else,
+            subject to review -- either from the Pending Notifications page afterward, or right away with the
+            "Review and approve now" checkbox when the prayer request or one-time need is first created.
+            Either path clears a row for every channel at once, including an urgent send.
           </p>
           <div className="admin-checkbox-row">
             <label>
@@ -141,8 +141,8 @@ export default function AdminNotificationSettings() {
             <h3>Digest Customization</h3>
             <p style={{ color: "#555", fontSize: "0.9rem" }}>
               Shared by the admin digest and the public digest -- subject line, signature, and layout look the
-              same for both audiences. The admin digest always includes every item it's allowed to; the
-              public digest is always prayer-requests-only.
+              same for both audiences. The admin digest always includes every item it's allowed to; the public
+              digest is always prayer-requests-only.
             </p>
             <label>
               Layout

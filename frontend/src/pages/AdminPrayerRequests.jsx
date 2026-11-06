@@ -128,7 +128,11 @@ export default function AdminPrayerRequests() {
       const sent = await confirmDialog({
         title: "Send now?",
         body: (
-          <UrgentSendConfirmBody enabledFeatures={enabledFeatures} adminCount={adminCount} publicCount={publicCount} />
+          <UrgentSendConfirmBody
+            enabledFeatures={enabledFeatures}
+            adminCount={adminCount}
+            publicCount={publicCount}
+          />
         ),
         confirmLabel: "Send now",
       });

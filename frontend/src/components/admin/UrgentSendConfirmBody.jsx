@@ -18,8 +18,8 @@ export default function UrgentSendConfirmBody({ enabledFeatures, adminCount, pub
       </p>
       <div className="field-warning">
         Still waits on review if this partner is restricted
-        {reach.groupme && ", and still respects a muted GroupMe content type"} -- urgent only skips the
-        wait, never those safety rules.
+        {reach.groupme && ", and still respects a muted GroupMe content type"} -- urgent only skips the wait,
+        never those safety rules.
       </div>
     </div>
   );

@@ -149,7 +149,11 @@ export default function PartnerFinancialSection({
       const sent = await confirmDialog({
         title: "Send now?",
         body: (
-          <UrgentSendConfirmBody enabledFeatures={enabledFeatures} adminCount={adminCount} publicCount={publicCount} />
+          <UrgentSendConfirmBody
+            enabledFeatures={enabledFeatures}
+            adminCount={adminCount}
+            publicCount={publicCount}
+          />
         ),
         confirmLabel: "Send now",
       });
@@ -465,7 +469,11 @@ export default function PartnerFinancialSection({
                           className="btn secondary small"
                           onClick={() => {
                             setDecidingId(decidingId === row.id ? null : row.id);
-                            setDecision({ approvedAmount: "", approvedDate: todayInputValue(), decisionNote: "" });
+                            setDecision({
+                              approvedAmount: "",
+                              approvedDate: todayInputValue(),
+                              decisionNote: "",
+                            });
                             setError("");
                           }}
                         >

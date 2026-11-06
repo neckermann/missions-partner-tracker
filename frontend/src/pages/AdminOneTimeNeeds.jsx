@@ -123,7 +123,11 @@ export default function AdminOneTimeNeeds() {
       const sent = await confirmDialog({
         title: "Send now?",
         body: (
-          <UrgentSendConfirmBody enabledFeatures={enabledFeatures} adminCount={adminCount} publicCount={publicCount} />
+          <UrgentSendConfirmBody
+            enabledFeatures={enabledFeatures}
+            adminCount={adminCount}
+            publicCount={publicCount}
+          />
         ),
         confirmLabel: "Send now",
       });
@@ -505,7 +509,9 @@ export default function AdminOneTimeNeeds() {
               <div style={{ marginTop: "0.75rem" }}>
                 {decidingId === need.id ? (
                   <div>
-                    <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
+                    <div
+                      style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}
+                    >
                       <label>
                         Approved Amount ($)
                         <input

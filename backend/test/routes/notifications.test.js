@@ -326,7 +326,11 @@ describe("GET /api/notifications/urgent-recipient-count", () => {
       data: { enabledFeatures: { outboundEmail: true, publicPrayerDigest: false } },
     });
     const sub = await prisma.publicSubscriber.create({
-      data: { email: "urgent-count-test-nopublicdigest@example.test", confirmedAt: new Date(), allPartners: true },
+      data: {
+        email: "urgent-count-test-nopublicdigest@example.test",
+        confirmedAt: new Date(),
+        allPartners: true,
+      },
     });
     try {
       const res = await admin(`/api/notifications/urgent-recipient-count?partnerId=${partnerId}`);

@@ -91,7 +91,11 @@ export default function PrayerRequestSection({ partnerId, isRestricted, prayerRe
       const sent = await confirmDialog({
         title: "Send now?",
         body: (
-          <UrgentSendConfirmBody enabledFeatures={enabledFeatures} adminCount={adminCount} publicCount={publicCount} />
+          <UrgentSendConfirmBody
+            enabledFeatures={enabledFeatures}
+            adminCount={adminCount}
+            publicCount={publicCount}
+          />
         ),
         confirmLabel: "Send now",
       });

@@ -31,7 +31,8 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
     (enabledFeatures.groupme || enabledFeatures.outboundEmail) && {
       to: "/admin/notifications",
       title: "Pending Notifications",
-      description: "Review what's queued and clear or approve restricted items -- sending itself happens on schedule, or right away for anything marked urgent.",
+      description:
+        "Review what's queued and clear or approve restricted items -- sending itself happens on schedule, or right away for anything marked urgent.",
     },
     enabledFeatures.partnerFiles && {
       to: "/admin/partner-files",

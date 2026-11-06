@@ -143,8 +143,8 @@ export default function AdminPartners() {
       title: `Archive ${row.name}?`,
       body: (
         <ConfirmMessageBody>
-          This removes them from the public site and zeros out their monthly support, but keeps their
-          full history. You can unarchive at any time.
+          This removes them from the public site and zeros out their monthly support, but keeps their full
+          history. You can unarchive at any time.
         </ConfirmMessageBody>
       ),
       confirmLabel: "Archive",
