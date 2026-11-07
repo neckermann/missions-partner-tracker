@@ -7,26 +7,22 @@ const { countUrgentRecipients } = require("../utils/notificationOrchestrator");
 
 // The review queue for recorded events -- a row is written by
 // notificationRecording.js the instant something happens, and leaves
-// this queue once every applicable channel's own pass has handled it
-// (GroupMe's own daily schedule, or one of the three email cadence
-// tiers) -- see notificationOrchestrator.js's clearNotifiableEvents().
-// There's no manual "send now" action anymore: the old one force-sent
-// the now-retired church-wide email digest alongside GroupMe, and that
-// mechanism has no equivalent once every recipient has their own
-// cadence -- see the plan this was built from for why it was removed
-// outright rather than redesigned.
+// this queue once every applicable channel's pass has handled it
+// (GroupMe's daily schedule, or one of the three email cadence tiers)
+// -- see notificationOrchestrator.js's clearNotifiableEvents(). No
+// manual "send now" action anymore: the old one force-sent the
+// now-retired church-wide digest, which has no equivalent once every
+// recipient has their own cadence.
 const router = express.Router();
 router.use(requireAuth);
 
 // GET /api/notifications/pending -- any logged-in role, same "viewing is
 // harmless" reasoning as GET /api/partner-files/GET /api/inbound-email.
-// Reuses buildBlurb so the admin sees the exact same summary text that
-// would actually go out, not a second, hand-maintained description of
-// it. Deliberately unfiltered -- every row shows here regardless of
-// which channel(s) it's actually relevant to (e.g. a prayer request
-// muted on GroupMe but still relevant to the public digest still shows),
-// since this page was never scoped to any one channel's relevance in
-// the first place.
+// Reuses buildBlurb so the admin sees the exact same text that would
+// actually go out. Deliberately unfiltered -- every row shows here
+// regardless of which channel(s) it's relevant to (e.g. a prayer
+// request muted on GroupMe but still relevant to the public digest
+// still shows), since this page was never scoped to one channel.
 router.get("/pending", async (req, res, next) => {
   try {
     const rows = await prisma.notifiableEvent.findMany({ orderBy: { createdAt: "asc" } });
@@ -36,15 +32,10 @@ router.get("/pending", async (req, res, next) => {
     });
     const partnerById = new Map(partners.map((p) => [p.id, p]));
     // Not role-gated: GET /api/prayer-requests and GET /api/support-needs
-    // already return a restricted partner's real request/need text to
-    // every logged-in role with no masking at all (this app's "auth is
-    // the boundary" rule -- see ADMIN_GUIDE.md § Who can see what), so
-    // hiding it specifically in this list behind a role check wouldn't
-    // protect anything a viewer couldn't already read on those pages --
-    // it would just make this one list inconsistent with the rest of the
-    // app for no real reason. Showing it here too means an admin/editor
-    // reviewing a held row can read it and hit Approve without opening
-    // Edit first.
+    // already return a restricted partner's real text to every logged-in
+    // role unmasked (this app's "auth is the boundary" rule -- see
+    // ADMIN_GUIDE.md § Who can see what), so gating it here too would
+    // just make this list inconsistent for no real protection.
     const items = rows
       .map((row) => {
         const blurb = buildBlurb(row, partnerById.get(row.partnerId));
@@ -57,17 +48,12 @@ router.get("/pending", async (req, res, next) => {
         return {
           ...blurb,
           bodyText,
-          // Surfaced separately from the masking itself (the blurb's own
-          // fields are already masked above) so the admin reviewing the
-          // queue can see at a glance which rows are from a restricted
-          // partner, without this route handing back anything it
-          // wouldn't otherwise.
+          // So the admin can see at a glance which rows are restricted,
+          // without this route handing back anything new.
           isRestricted: !!partnerById.get(row.partnerId)?.isRestricted,
-          // Whether this row is currently held out of every channel --
-          // restricted real-content row, never yet edited/confirmed. An
-          // urgent send is held exactly the same way; there's no
-          // separate flag for that, urgent just means "don't wait for a
-          // schedule," never "skip review."
+          // Held out of every channel -- restricted, never yet
+          // edited/confirmed. Urgent is held the same way: it means
+          // "don't wait for a schedule," never "skip review."
           needsReview: held,
           reviewedAt: row.reviewedAt,
           groupmeSentAt: row.groupmeSentAt,
@@ -85,15 +71,12 @@ router.get("/pending", async (req, res, next) => {
 });
 
 // GET /api/notifications/pending/:id -- admin or editor, not the bare
-// requireAuth every role gets for the masked list above: this exposes
-// the REAL unmasked text, a restricted partner's included, so it's
-// gated the same as everything else that mutates/reveals more than the
-// list view (#187). Reuses buildBlurb against a synthetic
-// isRestricted:false view of the partner, instead of duplicating each
-// type's own text-composition logic (note concatenation, amount
-// wording, etc.) here -- never returns the partner's real name/photo,
-// since masking those stays out of scope for this feature and the admin
-// already knows who this row is for from the page's own grouping.
+// requireAuth above: this returns the REAL unmasked text, a restricted
+// partner's included, so it's gated like everything else that reveals
+// more than the list view (#187). Reuses buildBlurb against a synthetic
+// isRestricted:false partner rather than duplicating each type's own
+// text composition here -- never returns the real name/photo, which
+// stays out of scope since the admin already knows who this row is for.
 router.get("/pending/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const row = await prisma.notifiableEvent.findUnique({ where: { id: req.params.id } });
@@ -109,15 +92,11 @@ router.get("/pending/:id", requireRole("admin", "editor"), async (req, res, next
   }
 });
 
-// PUT /api/notifications/pending/:id -- admin or editor, same gate as
-// every other queue-mutating route. Available on any row regardless of
-// type or restriction -- an admin might want to tidy up the wording on
-// anything before it sends, not just a restricted partner's held row
-// (#187). For a restricted real-content row specifically, saving here is
-// also what satisfies notificationEligibility.js's needsReview() gate;
-// for every other row it's purely a content edit with no send-
-// eligibility consequence. Re-callable: saving again overwrites the
-// previous edit.
+// PUT /api/notifications/pending/:id -- admin or editor. Available on
+// any row, not just a restricted partner's held one (#187) -- an admin
+// might want to tidy up wording generally. For a restricted row
+// specifically, saving here also satisfies needsReview(); for every
+// other row it's purely a content edit. Re-callable.
 router.put("/pending/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";

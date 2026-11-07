@@ -1,29 +1,25 @@
 // In-process scheduler for both independent triggers: the admin/public
 // email digest's three cadence tiers, and GroupMe's own daily-hour
-// schedule. Runs inside this app's own single web service instance --
-// no Render Cron Job resource, no separate process -- confirmed safe at
-// this app's actual scale: render.yaml provisions exactly one web
-// service (no horizontal scaling today), so there's no multi-instance
-// double-fire risk to guard against yet. If this app is ever scaled to
-// 2+ instances, node-cron's own `distributed: true` option (env-var
-// flag out of the box, a Redis coordinator for real HA) is the fix --
-// not built now since it isn't needed yet.
+// schedule. Runs inside this app's single web service instance -- no
+// Render Cron Job, no separate process -- safe at this app's scale
+// (render.yaml provisions exactly one instance, no horizontal scaling,
+// so no multi-instance double-fire risk yet). If ever scaled to 2+
+// instances, node-cron's `distributed: true` option is the fix, not
+// built now since it isn't needed yet.
 //
-// Two independent registrations below, even though both happen to tick
-// every minute -- they check entirely different schedule fields and
-// must stay independent if either one's cadence ever changes without
-// touching the other. Both call clearNotifiableEvents() at the end of
-// their own run: either trigger can be the one that finally makes a row
-// clearable, and clearNotifiableEvents() doesn't care which pass just
-// ran, it only reads whatever stamp state exists right now. Neither
-// trigger calls the other; notificationOrchestrator.js doesn't call
-// either pass either -- this file is the one place that composes
-// "run a pass, then see what can clear" for both.
+// Two independent registrations below, even though both tick every
+// minute -- they check entirely different schedule fields and must
+// stay independent if either cadence changes without touching the
+// other. Both call clearNotifiableEvents() at the end of their own run:
+// either trigger can be what finally makes a row clearable, and that
+// function doesn't care which pass just ran. Neither trigger calls the
+// other, and notificationOrchestrator.js calls neither -- this file is
+// the one place composing "run a pass, then see what can clear."
 //
-// "Server-local hour/day" below reads via plain Date getters (getDay(),
-// getHours()), which depend on process.env.TZ actually matching this
-// church's real local time -- see server.js's startup read of
-// ChurchSettings.timezone and that field's own schema.prisma comment.
+// Hour/day checks below read via plain Date getters (getDay(),
+// getHours()), which depend on process.env.TZ matching this church's
+// real local time -- see server.js's startup read of
+// ChurchSettings.timezone.
 const cron = require("node-cron");
 const prisma = require("../prismaClient");
 const { sendDigestTier } = require("./digestDelivery");

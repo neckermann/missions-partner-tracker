@@ -1,29 +1,22 @@
 // Channel-neutral notification text, shared by GroupMe and both digest
 // audiences -- built once here instead of each channel re-implementing
-// its own wording. This is the real, load-bearing masking authority in
-// the whole system: groupmeChannel.js, adminDigestContent.js, and
-// publicDigestContent.js all build their output by calling buildBlurb()
-// on every row before rendering anything from it, never reading a raw
-// NotifiableEvent row's fields directly. A "blurb" is one
-// NotifiableEvent row turned into everything any channel needs: GroupMe
-// wants one ready-to-pack message string per topic; both digest
-// audiences want the same content as structured fields so they can
-// render real HTML (headings, nested items, an amount styled on its
-// own) and group by partner instead of by flat type.
+// its own wording. This is the load-bearing masking authority in the
+// system: groupmeChannel.js, adminDigestContent.js, and
+// publicDigestContent.js all call buildBlurb() on every row before
+// rendering anything, never reading a raw NotifiableEvent row's fields
+// directly. A "blurb" turns one row into everything any channel needs:
+// GroupMe wants one ready-to-pack message string per topic; both
+// digests want structured fields so they can render real HTML and
+// group by partner.
 //
-// Masking: GroupMe posts and digest emails all leave this app's own
-// auth boundary -- a GroupMe group can include non-admin members, and a
-// digest email can sit in an inbox that gets forwarded or auto-synced
-// somewhere public. That's the same exposure utils/maskData.js's
-// toPublicPartner() already guards against for the public website, so a
-// restricted partner's notifications get the same treatment here: an
-// initialed name and a generic "details withheld" line instead of the
-// real name and the specific request/need/newsletter content, and no
-// link to the actual file (even though the download routes are
-// auth-gated, a restricted partner's notification should never hint at
-// specific content to begin with). isRestricted is read fresh from the
-// partner at build time, not from the payload's own frozen snapshot --
-// the flag can change after a notification was already recorded.
+// Masking: GroupMe and digest emails all leave this app's auth boundary
+// (a GroupMe group can include non-admins; a digest email can get
+// forwarded) -- the same exposure maskData.js's toPublicPartner() guards
+// against for the public website, so a restricted partner gets an
+// initialed name and a generic "details withheld" line here too, and no
+// link to the actual file. isRestricted is read fresh from the partner
+// at build time, not the payload's frozen snapshot -- the flag can
+// change after a notification was already recorded.
 const { toInitials } = require("./maskData");
 
 const RESTRICTED_NOTICE =
@@ -52,17 +45,17 @@ const REVIEW_GATED_TYPES = new Set([
 // isEligibleForChannel for where this is used.
 const PUBLIC_DIGEST_TYPES = new Set(["prayerRequestCreated", "prayerRequestAnswered"]);
 
-// Same reasoning/placement as groupme.js's own appBaseUrl(): resolves to
-// "" when neither env var is set, so a link just isn't built rather than
-// pointing at nothing.
+// Same reasoning/placement as groupmeChannel.js's own appBaseUrl():
+// resolves to "" when neither env var is set, so a link just isn't
+// built rather than pointing at nothing.
 function appBaseUrl() {
   return (process.env.APP_BASE_URL || process.env.RENDER_EXTERNAL_URL || "").replace(/\/+$/, "");
 }
 
-// Same wording/behavior as groupme.js's own sourceLinkLine(), operating on
-// the payload's own sourceFileId instead of a live Prisma include (the
-// row's payload is a frozen snapshot -- see the schema.prisma comment on
-// PendingNotification for why).
+// Same wording/behavior as groupmeChannel.js's own sourceLinkLine(),
+// operating on the payload's own sourceFileId instead of a live Prisma
+// include -- the row's payload is a frozen snapshot (see schema.prisma's
+// NotifiableEvent comment).
 function sourceLinkLine(payload) {
   const base = appBaseUrl();
   if (!base || !payload.sourceFileId) return "";
@@ -75,9 +68,10 @@ function sourceLinkUrl(payload) {
   return `${base}/api/partner-files/${payload.sourceFileId}/download`;
 }
 
-// Same labels/thresholds as groupme.js's own supportNeedOutcomeLabel()
-// (which matches statusFor() in AdminOneTimeNeeds.jsx and needStatus()
-// in PartnerFinancialSection.jsx).
+// Same labels/thresholds as groupmeChannel.js's own
+// supportNeedOutcomeLabel() (matches statusFor() in
+// AdminOneTimeNeeds.jsx and needStatus() in
+// PartnerFinancialSection.jsx).
 function supportNeedOutcomeLabel(payload) {
   if (payload.approvedAmount === 0) return "Declined";
   if (payload.approvedAmount < payload.requestedAmount) return "Partially Funded";
@@ -85,23 +79,19 @@ function supportNeedOutcomeLabel(payload) {
 }
 
 // Builds one blurb from a NotifiableEvent row. `partner` is the current
-// Partner record (just { displayName, isRestricted } is enough) -- pass
-// null/undefined when it's unavailable (e.g. the partner was since
-// deleted) and masking is simply skipped, same as before this existed.
-// Returns null for a type this function doesn't recognize (defensive --
-// should never happen since `type` is only ever written by
-// notificationRecording.js) rather than throwing and taking down an
-// entire pass over one bad row.
+// Partner record ({ displayName, isRestricted } is enough) -- pass
+// null/undefined when unavailable (e.g. deleted) and masking is simply
+// skipped. Returns null for an unrecognized type (defensive -- `type`
+// is only ever written by notificationRecording.js) rather than
+// throwing and taking down a whole pass over one bad row.
 //
-// row.reviewedAt/row.reviewedText (#187): any row can carry an admin's
-// saved edit, which -- once set -- is simply the authoritative body text
-// for that row, full stop, overriding whatever would otherwise be
-// computed. For a restricted partner's real-content row specifically,
-// this is also what "reveals" the real content in place of
-// RESTRICTED_NOTICE; for every other row it's just whatever edit the
-// admin made. Whether an un-reviewed restricted row is actually allowed
-// to *send* yet is a separate question this function has no opinion on
-// -- see notificationEligibility.js's needsReview().
+// row.reviewedAt/row.reviewedText (#187): once set, an admin's saved
+// edit is the authoritative body text, overriding whatever would
+// otherwise be computed -- for a restricted row this is also what
+// "reveals" real content in place of RESTRICTED_NOTICE. Whether an
+// un-reviewed restricted row is allowed to *send* yet is a separate
+// question this function has no opinion on -- see
+// notificationEligibility.js's needsReview().
 function buildBlurb(row, partner) {
   const { type, payload } = row;
   const restricted = !!partner?.isRestricted;
