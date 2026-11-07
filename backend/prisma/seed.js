@@ -25,6 +25,15 @@ const MISSIONARY_COUNT = process.env.SEED_MISSIONARY_COUNT ? Number(process.env.
 const ORGANIZATION_COUNT = process.env.SEED_ORGANIZATION_COUNT
   ? Number(process.env.SEED_ORGANIZATION_COUNT)
   : 12;
+// On by default (local `npm run seed`, the live demo reset) -- unmatched
+// inbound emails, extra admin/editor/viewer users, and a sample pending-
+// notifications queue, all of which a fresh route-test/CI database must
+// NOT have: those suites assert on InboundEmail/NotifiableEvent/User
+// tables assuming nothing but their own fixtures touched them (see
+// CONTRIBUTING.md § Local development data for this exact hazard).
+// CI's e2e job and scripts/test-db.js both set this to "false" before
+// calling this script for that reason -- see each one's own comment.
+const SEED_DEMO_EXTRAS = process.env.SEED_DEMO_EXTRAS !== "false";
 
 // --- tiny random helpers ---
 function pick(arr) {
@@ -872,8 +881,13 @@ function buildOverview(name, fieldInfo, focusList, year, isFamily = true) {
   return { overview, overviewShort };
 }
 
+const ALBUM_PROVIDERS = ["google_photos", "icloud", "other"];
+
+// 0-3 rather than 0-2 -- a seeded partner with a longer relationship
+// history should sometimes show three or more past trips, not cap out
+// at two, so Trip History has real variety to scroll through.
 function buildTrips(participantNamePool) {
-  const count = randInt(0, 2);
+  const count = randInt(0, 3);
   const trips = [];
   for (let i = 0; i < count; i++) {
     const start = dateBetween(4, 0);
@@ -886,12 +900,15 @@ function buildTrips(participantNamePool) {
       phone: chance(0.5) ? fakePhone() : null,
       email: chance(0.5) ? `${name.toLowerCase().replace(/\s+/g, ".")}@example.com` : null,
     }));
+    const hasAlbum = chance(0.3);
     trips.push({
       startDate: start,
       endDate: end,
       tripType: pick(TRIP_TYPES),
       description: `Team served alongside the field, focusing on ${pick(FOCUS_POOL)}.`,
       notes: chance(0.4) ? pick(TRIP_NOTES) : null,
+      albumProvider: hasAlbum ? pick(ALBUM_PROVIDERS) : null,
+      albumUrl: hasAlbum ? "https://photos.example.com/album/trip" : null,
       participants: { create: participants },
     });
   }
@@ -974,19 +991,52 @@ function buildPrayerRequests() {
   });
 }
 
+const NEED_DECISION_NOTES = {
+  full: [
+    "Approved in full at the last missions committee meeting.",
+    "Covered entirely from this quarter's designated giving.",
+    "Full funding approved -- a clear, time-sensitive need.",
+  ],
+  partial: [
+    "Partially funded from the general missions budget; the rest is being raised separately.",
+    "Approved at half the requested amount, pending additional designated gifts.",
+    "Partial funding approved this cycle, to be revisited next quarter.",
+  ],
+  declined: [
+    "Declined this cycle -- outside what the missions budget can cover right now.",
+    "Not approved; committee asked for more detail before reconsidering.",
+    "Declined -- already covered through another source.",
+  ],
+};
+
+// Higher chance and sometimes more than one, so a seeded partner's
+// one-time-need history reads like an actual multi-year relationship
+// rather than at most a single isolated ask -- and both the
+// requested-amount view (undecided) and the decision/approved view
+// (decided, every outcome) get real, varied examples to show off,
+// not just whichever one the dice happened to land on.
 function buildNeedRequests() {
-  if (!chance(0.35)) return [];
-  const requested = randInt(4, 40) * 50;
-  const decided = chance(0.65);
-  let approvedAmount = null;
-  let approvedDate = null;
-  if (decided) {
-    approvedDate = dateBetween(1, 0);
-    const outcome = pick(["full", "partial", "declined"]);
-    approvedAmount = outcome === "full" ? requested : outcome === "partial" ? Math.round(requested * 0.5) : 0;
-  }
-  return [
-    {
+  if (!chance(0.55)) return [];
+  const count = chance(0.25) ? 2 : 1;
+  return Array.from({ length: count }, () => {
+    const requested = randInt(4, 40) * 50;
+    const decided = chance(0.65);
+    let approvedAmount = null;
+    let approvedDate = null;
+    let decisionNote = null;
+    if (decided) {
+      approvedDate = dateBetween(1, 0);
+      const outcome = pick(["full", "partial", "declined"]);
+      approvedAmount =
+        outcome === "full" ? requested : outcome === "partial" ? Math.round(requested * 0.5) : 0;
+      // decisionNote documents *why* the decision came out this way --
+      // separate from the general `notes` field below, same reasoning
+      // as the schema.prisma comment on SupportNeed.decisionNote.
+      // Populated most of the time a decision exists, not every time,
+      // so a seeded instance also shows the "decided, no note" case.
+      decisionNote = chance(0.75) ? pick(NEED_DECISION_NOTES[outcome]) : null;
+    }
+    return {
       description: pick([
         "Replacement laptop for translation work",
         "Vehicle repairs for field travel",
@@ -1000,6 +1050,7 @@ function buildNeedRequests() {
       requestDate: dateBetween(1, 0),
       approvedAmount,
       approvedDate,
+      decisionNote,
       notes: chance(0.3)
         ? pick([
             "Discussed with the missions committee before approval.",
@@ -1007,8 +1058,8 @@ function buildNeedRequests() {
             "Follow-up request from a previous conversation.",
           ])
         : null,
-    },
-  ];
+    };
+  });
 }
 
 function buildChurchVisits() {
@@ -1018,6 +1069,168 @@ function buildChurchVisits() {
     visits.push({ visitDate: dateBetween(3, 0), notes: chance(0.3) ? pick(CHURCH_VISIT_NOTES) : null });
   }
   return { create: visits };
+}
+
+const UNMATCHED_EMAIL_SENDERS = [
+  { name: "Pastor Mike Reynolds", email: "mike.reynolds@gracefellowship.example.org" },
+  { name: "Linda Thompson", email: "linda.thompson@example.com" },
+  { name: "ABWE Partner Care", email: "partnercare@abwe.example.org" },
+  { name: "David Okafor", email: "d.okafor@example.com" },
+  { name: "Wycliffe Finance Office", email: "finance@wycliffe.example.org" },
+];
+const UNMATCHED_EMAIL_SUBJECTS = [
+  "Question about our giving statement",
+  "New missionary family looking for a sending church",
+  "Update on partnership opportunity",
+  "Re: Field visit next spring",
+  "Checking in -- it's been a while!",
+];
+const UNMATCHED_EMAIL_OPENERS = [
+  "Just wanted to reach out and reconnect.",
+  "Wondering if you could help point us in the right direction.",
+  "Following up on our conversation from a few weeks back.",
+];
+
+// The Unmatched Emails admin queue (routes/inboundEmail.js) is always
+// empty after a reset/seed otherwise -- nothing else in this file ever
+// creates an InboundEmail row, since every newsletter/document above is
+// created already assigned to a partner. fromAddress is deliberately
+// unrelated to any seeded partner's own contact/adult email, same as a
+// real stranger's message landing in the review queue.
+async function seedUnmatchedEmails() {
+  const count = randInt(3, 5);
+  console.log(`Seeding ${count} unmatched inbound emails...`);
+  for (let i = 0; i < count; i++) {
+    const sender = pick(UNMATCHED_EMAIL_SENDERS);
+    const subject = pick(UNMATCHED_EMAIL_SUBJECTS);
+    const receivedAt = new Date(Date.now() - randInt(1, 21) * 24 * 60 * 60 * 1000);
+    const body = `Hi,\n\nI hope this finds you well. ${pick(UNMATCHED_EMAIL_OPENERS)}\n\nThanks,\n${sender.name}`;
+    const eml = [
+      `From: ${sender.name} <${sender.email}>`,
+      `To: missions@example.org`,
+      `Subject: ${subject}`,
+      `Date: ${receivedAt.toUTCString()}`,
+      `Content-Type: text/plain; charset="utf-8"`,
+      ``,
+      body,
+      ``,
+    ].join("\r\n");
+    const buffer = Buffer.from(eml, "utf-8");
+    await prisma.inboundEmail.create({
+      data: {
+        fromAddress: sender.email,
+        subject,
+        bytes: buffer,
+        fileName: "email.eml",
+        receivedAt,
+      },
+    });
+  }
+}
+
+const ADDITIONAL_USERS = [
+  { name: "Pat Reynolds", role: "editor", cadence: "biweekly", active: true, mfaSetupRequired: false },
+  { name: "Jordan Lee", role: "editor", cadence: null, active: true, mfaSetupRequired: true },
+  { name: "Casey Nguyen", role: "viewer", cadence: "monthly", active: true, mfaSetupRequired: false },
+  { name: "Morgan Patel", role: "admin", cadence: "quarterly", active: false, mfaSetupRequired: false },
+];
+
+// Beyond the one env-var-driven demo admin (createAdmin.js), a handful
+// more across roles/active-state/cadence-pick/MFA-required -- so Manage
+// Users and the admin cadence picker have real variety to show, not
+// just a single row. mfaSetupRequired (forces enrollment at next
+// login), not mfaEnabled, for the MFA example -- mfaEnabled with no
+// real TOTP secret would leave that account permanently unable to
+// complete login. Fixed, obviously-fake password -- these exist to
+// populate the list, not to be logged into for the demo.
+async function seedAdditionalUsers() {
+  console.log(`Seeding ${ADDITIONAL_USERS.length} additional admin users...`);
+  const bcrypt = require("bcryptjs");
+  const passwordHash = await bcrypt.hash("SeedDemoUser2026!", 12);
+  for (const u of ADDITIONAL_USERS) {
+    const email = `${slugify(u.name)}@example.org`;
+    await prisma.user.upsert({
+      where: { email },
+      update: {},
+      create: {
+        email,
+        name: u.name,
+        passwordHash,
+        role: u.role,
+        active: u.active,
+        mfaSetupRequired: u.mfaSetupRequired,
+        cadence: u.cadence,
+        lastLoginAt: u.active ? dateBetween(0, 0) : null,
+      },
+    });
+  }
+}
+
+// A curated handful of NotifiableEvent rows against partners already
+// seeded above, covering the states Pending Notifications should show
+// off: an ordinary sendable prayer request, an answered one, a
+// restricted partner's prayer request left deliberately unreviewed
+// (the "awaiting review" badge -- #218, the one state a fresh reset
+// otherwise never demonstrates), an undecided one-time need, a decided
+// one, and a newsletter. Reuses the real notify* functions
+// (notificationRecording.js) rather than hand-building NotifiableEvent
+// payloads here, so a seeded row is byte-identical in shape to what a
+// real create would have produced and can't silently drift out of sync
+// with the real payload shape. None of this risks an actual send:
+// these functions only ever enqueue a row (isUrgent is never set true
+// by anything above), and whether a scheduled pass could later pick one
+// up depends entirely on ChurchSettings' own schedule fields, which the
+// demo reset deliberately leaves unset -- see reset-demo-data.js.
+async function seedNotificationQueue() {
+  console.log("Seeding a sample pending-notifications queue...");
+  const {
+    notifyPrayerRequestCreated,
+    notifyPrayerRequestAnswered,
+    notifySupportNeedCreated,
+    notifySupportNeedDecided,
+    notifyNewsletterCreated,
+  } = require("../src/utils/notificationRecording");
+  const partnerSelect = { id: true, displayName: true, isRestricted: true };
+
+  const ongoingPrayers = await prisma.prayerRequest.findMany({
+    where: { status: "ongoing", partner: { isRestricted: false } },
+    take: 3,
+    include: { partner: { select: partnerSelect } },
+  });
+  for (const pr of ongoingPrayers) await notifyPrayerRequestCreated(pr);
+
+  const answeredPrayer = await prisma.prayerRequest.findFirst({
+    where: { status: "answered", partner: { isRestricted: false } },
+    include: { partner: { select: partnerSelect } },
+  });
+  if (answeredPrayer) await notifyPrayerRequestAnswered(answeredPrayer);
+
+  const restrictedPrayer = await prisma.prayerRequest.findFirst({
+    where: { partner: { isRestricted: true } },
+    include: { partner: { select: partnerSelect } },
+  });
+  if (restrictedPrayer) await notifyPrayerRequestCreated(restrictedPrayer);
+
+  const undecidedNeed = await prisma.supportNeed.findFirst({
+    where: { approvedAmount: null, partner: { isRestricted: false } },
+    include: { partner: { select: partnerSelect } },
+  });
+  if (undecidedNeed) await notifySupportNeedCreated(undecidedNeed);
+
+  const decidedNeed = await prisma.supportNeed.findFirst({
+    where: { approvedAmount: { not: null }, partner: { isRestricted: false } },
+    include: { partner: { select: partnerSelect } },
+  });
+  if (decidedNeed) {
+    await notifySupportNeedCreated(decidedNeed);
+    await notifySupportNeedDecided(decidedNeed);
+  }
+
+  const newsletter = await prisma.partnerFile.findFirst({
+    where: { kind: "newsletter", partner: { isRestricted: false } },
+    include: { partner: { select: partnerSelect } },
+  });
+  if (newsletter) await notifyNewsletterCreated(newsletter);
 }
 
 async function main() {
@@ -1336,6 +1549,14 @@ async function main() {
 
     await maybeAddNewsletter({ partnerId: created.id, name, slug: slugify(name), field: fieldInfo.field });
     await maybeAddDocument({ partnerId: created.id, name, slug: slugify(name), field: fieldInfo.field });
+  }
+
+  if (SEED_DEMO_EXTRAS) {
+    await seedUnmatchedEmails();
+    await seedAdditionalUsers();
+    // Last -- reads back the prayer requests/needs/newsletters just
+    // created above, so it needs them to already exist.
+    await seedNotificationQueue();
   }
 
   const finalMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });

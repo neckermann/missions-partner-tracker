@@ -195,6 +195,12 @@ jobs:
         run: cd frontend && npm ci
 
       - name: Apply migrations and seed
+        # SEED_DEMO_EXTRAS=false -- the route tests run next, against this
+        # same database, and assume nothing but their own fixtures have
+        # touched InboundEmail/NotifiableEvent/User (see seed.js's own
+        # comment on this flag).
+        env:
+          SEED_DEMO_EXTRAS: "false"
         run: |
           cd backend
           npx prisma migrate deploy
