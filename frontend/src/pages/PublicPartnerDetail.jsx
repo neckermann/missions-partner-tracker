@@ -139,6 +139,12 @@ export default function PublicPartnerDetail() {
           </>
         )}
 
+        {enabledFeatures.joshuaProject && partner.fipsCountryCode && (
+          <div style={{ marginTop: "1.5rem" }}>
+            <CountryStats countryCode={partner.fipsCountryCode} />
+          </div>
+        )}
+
         {enabledFeatures.publicPrayerDigest && (
           <>
             <PublicSubscribeForm
@@ -161,12 +167,6 @@ export default function PublicPartnerDetail() {
               <Link to="/subscribe">Pray for all of our {partnerTermPlural}, or pick several</Link>.
             </p>
           </>
-        )}
-
-        {enabledFeatures.joshuaProject && partner.fipsCountryCode && (
-          <div style={{ marginTop: "1.5rem" }}>
-            <CountryStats countryCode={partner.fipsCountryCode} />
-          </div>
         )}
       </div>
     </div>

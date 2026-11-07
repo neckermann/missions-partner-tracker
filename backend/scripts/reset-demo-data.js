@@ -221,6 +221,12 @@ async function resetDemoData() {
     publicTagline: "Supporting our missionary and organization partners around the world",
     aboutText:
       "We partner with missionaries and organizations serving around the world, supporting them in prayer, finances, and care.",
+    // Set explicitly rather than left to schema.prisma's own default --
+    // this demo is itself a real example of a US-based church, so it
+    // should show a real US timezone, not whatever the schema default
+    // happens to be at the moment (which exists for a church that's never
+    // touched this setting at all, a different case from this one).
+    timezone: "America/Chicago",
     // Defaults to false for a real church (see schema.prisma's own
     // comment on this field) -- turned on here so a demo visitor can
     // actually see the restricted-partner review workflow in Pending

@@ -330,151 +330,155 @@ export default function AdminPartnerFiles() {
         </div>
       </div>
 
-      <table className="admin-table" style={{ marginTop: "1rem" }}>
-        <thead>
-          <tr>
-            <th>Partner</th>
-            <th>Type</th>
-            <th>Kind</th>
-            <th>Title</th>
-            <th>Received</th>
-            <th>File</th>
-            <th>Notes</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {visibleFiles.map((f) => {
-            const entity = entityFor(f);
-            return (
-              <React.Fragment key={f.id}>
-                <tr>
-                  <td>{entity.link ? <Link to={entity.link}>{entity.name}</Link> : entity.name}</td>
-                  <td>{entity.type}</td>
-                  <td>{fileKindLabel(f)}</td>
-                  <td>{f.title || "—"}</td>
-                  <td>
-                    {editingId === f.id ? formatDate(editForm.receivedDate) : formatDate(f.receivedDate)}
-                  </td>
-                  <td>
-                    {f.fileName}
-                    {f.fileSize != null && (
-                      <span style={{ color: "#888", fontSize: "0.85rem" }}>
-                        {" "}
-                        ({formatFileSize(f.fileSize)})
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ maxWidth: "16rem" }}>
-                    {editingId === f.id ? editForm.notes || "—" : f.notes || "—"}
-                  </td>
-                  <td className="table-actions">
-                    <button type="button" className="btn secondary small" onClick={() => handleView(f)}>
-                      View
-                    </button>
-                    {enabledFeatures.aiExtraction && isScannable(f) && (
-                      <button type="button" className="btn secondary small" onClick={() => setScanning(f)}>
-                        Scan for requests
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="btn secondary small"
-                      onClick={() => (editingId === f.id ? (setEditingId(null), setError("")) : startEdit(f))}
-                    >
-                      {editingId === f.id ? "Cancel" : "Edit"}
-                    </button>
-                    <button type="button" className="btn danger small" onClick={() => handleDelete(f)}>
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-                {editingId === f.id && (
+      <div className="table-scroll">
+        <table className="admin-table" style={{ marginTop: "1rem" }}>
+          <thead>
+            <tr>
+              <th>Partner</th>
+              <th>Type</th>
+              <th>Kind</th>
+              <th>Title</th>
+              <th>Received</th>
+              <th>File</th>
+              <th>Notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleFiles.map((f) => {
+              const entity = entityFor(f);
+              return (
+                <React.Fragment key={f.id}>
                   <tr>
-                    <td colSpan={8}>
-                      <div className="form-grid">
-                        <label
-                          style={{ gridColumn: "1 / -1" }}
-                          title="Everything but the file itself can be edited."
-                        >
-                          Partner
-                          <PartnerSelect
-                            partners={partners}
-                            value={editForm.partnerId}
-                            onChange={(partnerId) => setEditForm((f) => ({ ...f, partnerId }))}
-                            required
-                          />
-                        </label>
-                        <label>
-                          Kind
-                          <select
-                            value={editForm.kind}
-                            onChange={(e) => setEditForm((f) => ({ ...f, kind: e.target.value }))}
+                    <td>{entity.link ? <Link to={entity.link}>{entity.name}</Link> : entity.name}</td>
+                    <td>{entity.type}</td>
+                    <td>{fileKindLabel(f)}</td>
+                    <td>{f.title || "—"}</td>
+                    <td>
+                      {editingId === f.id ? formatDate(editForm.receivedDate) : formatDate(f.receivedDate)}
+                    </td>
+                    <td>
+                      {f.fileName}
+                      {f.fileSize != null && (
+                        <span style={{ color: "#888", fontSize: "0.85rem" }}>
+                          {" "}
+                          ({formatFileSize(f.fileSize)})
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ maxWidth: "16rem" }}>
+                      {editingId === f.id ? editForm.notes || "—" : f.notes || "—"}
+                    </td>
+                    <td className="table-actions">
+                      <button type="button" className="btn secondary small" onClick={() => handleView(f)}>
+                        View
+                      </button>
+                      {enabledFeatures.aiExtraction && isScannable(f) && (
+                        <button type="button" className="btn secondary small" onClick={() => setScanning(f)}>
+                          Scan for requests
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn secondary small"
+                        onClick={() =>
+                          editingId === f.id ? (setEditingId(null), setError("")) : startEdit(f)
+                        }
+                      >
+                        {editingId === f.id ? "Cancel" : "Edit"}
+                      </button>
+                      <button type="button" className="btn danger small" onClick={() => handleDelete(f)}>
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                  {editingId === f.id && (
+                    <tr>
+                      <td colSpan={8}>
+                        <div className="form-grid">
+                          <label
+                            style={{ gridColumn: "1 / -1" }}
+                            title="Everything but the file itself can be edited."
                           >
-                            {FILE_KINDS.map((k) => (
-                              <option key={k.value} value={k.value}>
-                                {k.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        {editForm.kind === "other" && (
-                          <label>
-                            Kind label
-                            <input
-                              value={editForm.customKind}
-                              onChange={(e) => setEditForm((f) => ({ ...f, customKind: e.target.value }))}
-                              placeholder="e.g. Background Check"
+                            Partner
+                            <PartnerSelect
+                              partners={partners}
+                              value={editForm.partnerId}
+                              onChange={(partnerId) => setEditForm((f) => ({ ...f, partnerId }))}
                               required
                             />
                           </label>
-                        )}
-                        <label>
-                          Title
-                          <input
-                            value={editForm.title}
-                            onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                            placeholder="e.g. Summer 2026 Update"
-                          />
-                        </label>
-                        <label>
-                          Received Date
-                          <input
-                            type="date"
-                            value={editForm.receivedDate}
-                            onChange={(e) => setEditForm((f) => ({ ...f, receivedDate: e.target.value }))}
-                            required
-                          />
-                        </label>
-                        <label style={{ gridColumn: "1 / -1" }}>
-                          Notes
-                          <input
-                            value={editForm.notes}
-                            onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-                          />
-                        </label>
-                      </div>
-                      {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-                      <div style={{ marginTop: "0.5rem" }}>
-                        <button type="button" className="btn small" onClick={() => submitEdit(f.id)}>
-                          Save
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
-            );
-          })}
-          {filtered.length === 0 && (
-            <tr>
-              <td colSpan={8} style={{ color: "#888" }}>
-                No files on record.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+                          <label>
+                            Kind
+                            <select
+                              value={editForm.kind}
+                              onChange={(e) => setEditForm((f) => ({ ...f, kind: e.target.value }))}
+                            >
+                              {FILE_KINDS.map((k) => (
+                                <option key={k.value} value={k.value}>
+                                  {k.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          {editForm.kind === "other" && (
+                            <label>
+                              Kind label
+                              <input
+                                value={editForm.customKind}
+                                onChange={(e) => setEditForm((f) => ({ ...f, customKind: e.target.value }))}
+                                placeholder="e.g. Background Check"
+                                required
+                              />
+                            </label>
+                          )}
+                          <label>
+                            Title
+                            <input
+                              value={editForm.title}
+                              onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                              placeholder="e.g. Summer 2026 Update"
+                            />
+                          </label>
+                          <label>
+                            Received Date
+                            <input
+                              type="date"
+                              value={editForm.receivedDate}
+                              onChange={(e) => setEditForm((f) => ({ ...f, receivedDate: e.target.value }))}
+                              required
+                            />
+                          </label>
+                          <label style={{ gridColumn: "1 / -1" }}>
+                            Notes
+                            <input
+                              value={editForm.notes}
+                              onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                            />
+                          </label>
+                        </div>
+                        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+                        <div style={{ marginTop: "0.5rem" }}>
+                          <button type="button" className="btn small" onClick={() => submitEdit(f.id)}>
+                            Save
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={8} style={{ color: "#888" }}>
+                  No files on record.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
       <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
 
       {scanning && (

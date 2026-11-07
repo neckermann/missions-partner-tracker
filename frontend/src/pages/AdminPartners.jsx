@@ -291,78 +291,80 @@ export default function AdminPartners() {
         </button>
       </div>
 
-      <table className="admin-table" style={{ marginTop: "0.75rem" }}>
-        <thead>
-          <tr>
-            <th>Photo</th>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Field</th>
-            <th>Public</th>
-            <th>Restricted</th>
-            <th>{sentByLabel}</th>
-            <th>Monthly Support</th>
-            <th>Last Visit</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((row) => (
-            <tr
-              key={`${row.type}-${row.id}`}
-              onClick={() => navigate(row.detailLink)}
-              style={{ cursor: "pointer", opacity: row.archived ? 0.6 : 1 }}
-              title="Click to view details"
-            >
-              <td>
-                {row.photo && (
-                  <img
-                    src={row.photo}
-                    alt={row.name}
-                    className="missionary-thumb"
-                    onError={(e) => (e.target.style.display = "none")}
-                  />
-                )}
-              </td>
-              <td>
-                {row.name}
-                {row.archived && (
-                  <span className="status-pill warn" style={{ marginLeft: "0.5rem" }}>
-                    Archived
-                  </span>
-                )}
-              </td>
-              <td>{row.typeLabel}</td>
-              <td>{row.field}</td>
-              <td>{row.isPublic ? "Yes" : "No"}</td>
-              <td>{row.isRestricted ? "Yes" : "No"}</td>
-              <td>{row.type === "missionary" ? (row.sentByOurChurch ? "Yes" : "No") : "—"}</td>
-              <td>{currentSupport(row.supportEntries)}</td>
-              <td>{lastVisit(row.churchVisits)}</td>
-              <td className="table-actions" onClick={(e) => e.stopPropagation()}>
-                {/* The whole row is clickable, but this stays as the
+      <div className="table-scroll">
+        <table className="admin-table" style={{ marginTop: "0.75rem" }}>
+          <thead>
+            <tr>
+              <th>Photo</th>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Field</th>
+              <th>Public</th>
+              <th>Restricted</th>
+              <th>{sentByLabel}</th>
+              <th>Monthly Support</th>
+              <th>Last Visit</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((row) => (
+              <tr
+                key={`${row.type}-${row.id}`}
+                onClick={() => navigate(row.detailLink)}
+                style={{ cursor: "pointer", opacity: row.archived ? 0.6 : 1 }}
+                title="Click to view details"
+              >
+                <td>
+                  {row.photo && (
+                    <img
+                      src={row.photo}
+                      alt={row.name}
+                      className="missionary-thumb"
+                      onError={(e) => (e.target.style.display = "none")}
+                    />
+                  )}
+                </td>
+                <td>
+                  {row.name}
+                  {row.archived && (
+                    <span className="status-pill warn" style={{ marginLeft: "0.5rem" }}>
+                      Archived
+                    </span>
+                  )}
+                </td>
+                <td>{row.typeLabel}</td>
+                <td>{row.field}</td>
+                <td>{row.isPublic ? "Yes" : "No"}</td>
+                <td>{row.isRestricted ? "Yes" : "No"}</td>
+                <td>{row.type === "missionary" ? (row.sentByOurChurch ? "Yes" : "No") : "—"}</td>
+                <td>{currentSupport(row.supportEntries)}</td>
+                <td>{lastVisit(row.churchVisits)}</td>
+                <td className="table-actions" onClick={(e) => e.stopPropagation()}>
+                  {/* The whole row is clickable, but this stays as the
                       keyboard-reachable way in -- and editing now happens on
                       the partner's own page, so there's nowhere else to go. */}
-                <Link to={row.detailLink}>Open</Link>
-                {row.archived ? (
-                  <>
-                    <button className="btn secondary small" onClick={() => handleUnarchive(row)}>
-                      Unarchive
+                  <Link to={row.detailLink}>Open</Link>
+                  {row.archived ? (
+                    <>
+                      <button className="btn secondary small" onClick={() => handleUnarchive(row)}>
+                        Unarchive
+                      </button>
+                      <button className="btn danger small" onClick={() => handleDelete(row)}>
+                        Delete
+                      </button>
+                    </>
+                  ) : (
+                    <button className="btn secondary small" onClick={() => handleArchive(row)}>
+                      Archive
                     </button>
-                    <button className="btn danger small" onClick={() => handleDelete(row)}>
-                      Delete
-                    </button>
-                  </>
-                ) : (
-                  <button className="btn secondary small" onClick={() => handleArchive(row)}>
-                    Archive
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {confirmElement}
     </div>
   );

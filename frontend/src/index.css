@@ -627,6 +627,28 @@ a {
   width: 100%;
   border-collapse: collapse;
 }
+/* Lets a wide table (many columns, a cramped last Actions column) scroll
+   horizontally instead of squeezing every column to fit the container --
+   width: auto + min-width: 100% means the table only grows past its
+   container when its own content actually needs to, so a short/narrow
+   table still fills the width exactly like plain .admin-table does. */
+.table-scroll {
+  overflow-x: auto;
+}
+.table-scroll .admin-table {
+  width: auto;
+  min-width: 100%;
+}
+/* Without this, the automatic table-layout algorithm treats
+   .table-actions' own flex-wrap as permission to shrink that column down
+   to a single button's width (wrapping the rest onto new lines) instead
+   of ever growing the table -- which defeats the scroll wrapper above
+   entirely, since the table never actually needs to overflow. Forcing
+   one row here is what makes the column's real min-width visible to that
+   algorithm, so a too-narrow container scrolls horizontally instead. */
+.table-scroll .table-actions {
+  flex-wrap: nowrap;
+}
 .admin-table th,
 .admin-table td {
   text-align: left;

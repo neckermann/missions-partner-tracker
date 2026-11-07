@@ -128,6 +128,24 @@ real deployment does. If you're adding a new page or admin flow, adding
 e2e coverage for it is welcome, but not required for every PR — use your
 judgment on what's worth the added CI time.
 
+## Local development data
+
+Beyond the automated suites above, a feature is worth hand-reviewing in a
+browser before calling it done — against a throwaway local database
+seeded with realistic fixture data (`cd backend && npm run seed`), not a
+bare minimal record or two. Realistic data is what actually surfaces
+layout and edge-case problems a single hand-typed fixture won't.
+
+**Standing hazard**: the same local database doubles as the automated
+test suite's own database when you point `DATABASE_URL` at it (see
+[Running tests](#running-tests) above). Fixtures left over from manual
+clicking-through — a prayer request, a public subscriber, a
+`NotifiableEvent` row — can silently break a test that assumes an
+empty or isolated table. Clean up anything you added for manual review
+once you're done with it, or reset the database (`npm run test:db down`
+then `up` again, or `npx prisma migrate reset --force`) before running
+the suite.
+
 ## Code style
 
 - No enforced linter/formatter currently — match the style of the
@@ -375,6 +393,40 @@ against, established by the existing screenshots (see
   and/or `ADMIN_GUIDE.md` means recapturing it once and confirming every
   reference to that file still matches, as part of the same PR that
   changed the UI — not a follow-up to get to later.
+- **A nav or sidebar layout change means retaking essentially every
+  sidebar-visible screenshot, not just the pages that obviously relate to
+  what changed.** The sidebar (or top nav) appears in nearly every admin
+  screenshot, so a single added/removed/renamed nav entry makes all of
+  them stale at once, even ones for pages you didn't touch.
+- **Capture at a fixed viewport, not `fullPage`,** and keep each page's
+  own documented dimensions consistent across recaptures — a screenshot
+  that's a different height/width than its last version is a visible
+  regression in the docs even when the content itself is correct.
+- **Dismiss or disable the backup-reminder banner before capturing
+  anything with the admin header visible** — it's real, dynamic app
+  chrome (see `BackupReminder.jsx`), not fixture data, and it isn't part
+  of the product surface these docs are meant to show.
+- **Before publishing a batch, check every capture for leaked
+  identity**: the signed-in-as indicator, any user list, and any real API
+  response visible on screen must never show the live demo's own
+  `demo@missionspartnertracker.com` admin account or any email domain
+  other than this fixture's own (see the church-name rule above) — those
+  belong to the separate public demo deployment, not to documentation.
+
+## Standing conventions across sessions
+
+This project's actual day-to-day conventions — which corrections have
+already been made once and shouldn't need making again, which decisions
+were deliberate rather than oversights — are worth keeping somewhere
+durable rather than only in one person's head or one session's context.
+Whatever tool you use for that (a notes file, a project wiki, an
+assistant's own persistent memory), the idea is the same: consult it
+before repeating a judgment call this project has already made, and add
+to it when you make a new one worth not re-litigating. This document is
+the project-level home for conventions specific enough to write down
+once and reference — like the screenshot-capture rules above — rather
+than a session-scoped note that only one person or one tool ever sees
+again.
 
 ## Pull requests
 
@@ -387,3 +439,9 @@ against, established by the existing screenshots (see
 - If it affects deployment (`.github/workflows/`, `backend/.platform/`),
   call that out explicitly in the PR description, since it's the part of
   the repo hardest to test outside a real deploy.
+- If your change is visible in the UI or changes behavior, check whether
+  `USER_GUIDE.md`, `ADMIN_GUIDE.md`, or `docs/` need updating in the same
+  PR — not as a follow-up. Stale docs (an old model described as current,
+  a removed button still documented, a screenshot that no longer matches)
+  are easy to miss until a reader hits them; catching staleness at review
+  time is cheaper than finding it later.
