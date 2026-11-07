@@ -32,7 +32,7 @@ async function client() {
   };
 }
 
-// Unlike groupme.js's notifyGroupMe (which swallows its own failures
+// Unlike groupmeChannel.js's postToGroupMe (which swallows its own failures
 // because nothing has ever depended on a GroupMe post actually landing),
 // this throws on failure -- no consumer exists yet (see #71's scope), and
 // whatever calls this later gets to decide whether a failed send is

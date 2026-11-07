@@ -1,24 +1,16 @@
 // Channel-neutral entry points for every record-lifecycle event a route
-// notifies on: a prayer request, one-time need, or newsletter being
-// created, plus a prayer request getting answered or a one-time need
-// getting a funding decision. Every route that notifies on an event
-// calls one of the functions below, never a specific channel's notify
-// function directly.
+// notifies on: a prayer request/one-time need/newsletter created, or a
+// prayer request answered / one-time need decided. Every notifying
+// route calls one of these, never a specific channel's notify function.
 //
-// Renamed from notifications.js for consistency -- every other
-// notification*.js file now names what it specifically does
-// (Eligibility, Blurbs, Orchestrator); a bare "notifications.js" stood
-// out as the one generically-named file in a group that otherwise names
-// its own narrow job.
+// Renamed from notifications.js for consistency with this file group's
+// naming (Eligibility, Blurbs, Orchestrator).
 //
-// Every event is recorded, with exactly one exception: a restricted
-// partner's event is only recorded at all if the church has
-// allowRestrictedPartnerNotifications on (see
-// notificationEligibility.js's isRestrictedPartnerBlocked). Every other
-// setting -- GroupMe's content-type mutes, cadence tiers, anything else
-// -- only ever affects delivery, never recording; see
-// notificationEligibility.js's isEligibleForChannel, which each channel
-// calls at send time instead.
+// Every event is recorded, with one exception: a restricted partner's
+// event is only recorded if allowRestrictedPartnerNotifications is on
+// (see notificationEligibility.js's isRestrictedPartnerBlocked). Every
+// other setting only ever affects delivery, never recording -- see
+// isEligibleForChannel, which each channel calls at send time instead.
 const prisma = require("../prismaClient");
 const { isRestrictedPartnerBlocked, getChurchSettings } = require("./notificationEligibility");
 const { sendUrgentBroadcast } = require("./notificationOrchestrator");
@@ -35,14 +27,11 @@ async function safeNotify(label, fn) {
   }
 }
 
-// `review`, when given, is { reviewedById, reviewedText } -- written in
-// the same create call rather than a later PUT. This is the inline
-// "approve now" path from the creation form: the admin who just typed
-// this text can confirm, right then, that it's safe to send verbatim,
-// instead of always needing a separate trip to Pending Notifications
-// afterward. Harmless to pass for a non-restricted partner's row (or
-// any type outside REVIEW_GATED_TYPES) -- needsReview() never even
-// looks at reviewedAt in that case, so it's simply never consulted.
+// `review`, when given, is { reviewedById, reviewedText } -- the inline
+// "approve now" path from the creation form, written in the same
+// create call rather than a later PUT. Harmless to pass for a
+// non-restricted partner (or a type outside REVIEW_GATED_TYPES) --
+// needsReview() simply never looks at reviewedAt in that case.
 async function enqueue(type, partnerId, payload, review) {
   const reviewFields = review
     ? { reviewedAt: new Date(), reviewedById: review.reviewedById, reviewedText: review.reviewedText }
@@ -50,19 +39,12 @@ async function enqueue(type, partnerId, payload, review) {
   return prisma.notifiableEvent.create({ data: { type, partnerId, payload, ...reviewFields } });
 }
 
-// The one place recording still depends on a setting, and it's
-// deliberately narrow: only restricted-partner events, only this one
-// setting. Every other event type, for every other reason, is always
-// recorded.
-//
-// Deliberately re-fetches isRestricted fresh by id rather than trusting
-// whatever shape the caller's own partner object happens to have --
-// this is the one safety-critical check in the whole system, and every
-// call site here passes through a route's own partnerRefSelect (just
-// { id, kind, displayName }, built for rendering responses, not for
-// this check), not a guaranteed { isRestricted } shape. Trusting that
-// shape silently never gates anything, exactly the bug this re-fetch
-// exists to rule out.
+// The one place recording still depends on a setting -- restricted-
+// partner events only. Re-fetches isRestricted fresh by id rather than
+// trusting the caller's partner shape: every call site here only has a
+// route's own partnerRefSelect ({ id, kind, displayName }) on hand, not
+// a guaranteed isRestricted, and this is the one safety-critical check
+// in the system.
 async function recordEvent(type, partner, payload, review) {
   const [settings, freshPartner] = await Promise.all([
     getChurchSettings(),
@@ -72,14 +54,11 @@ async function recordEvent(type, partner, payload, review) {
   return enqueue(type, partner.id, payload, review);
 }
 
-// If `created.isUrgent` is set, fires the immediate cross-channel
-// broadcast in addition to normal recording -- sendUrgentBroadcast
-// itself still calls isEligibleForChannel per channel (restricted-
-// partner review, GroupMe content-type mutes, the public digest's
-// prayer-only structural rule all still apply; only each channel's own
-// cadence/schedule wait is bypassed). Awaited, not fire-and-forget --
-// see "Urgent broadcast" in the plan for why the creation request waits
-// on this.
+// Fires the immediate cross-channel broadcast when isUrgent is set --
+// sendUrgentBroadcast still calls isEligibleForChannel per channel
+// (restricted-partner review, GroupMe mutes, the public digest's
+// prayer-only rule all still apply; only each channel's cadence/
+// schedule wait is bypassed). Awaited, not fire-and-forget.
 async function maybeBroadcastUrgent(row, partner, isUrgent) {
   if (!row || !isUrgent) return;
   await sendUrgentBroadcast(row, partner);
@@ -88,10 +67,8 @@ async function maybeBroadcastUrgent(row, partner, isUrgent) {
 // `approval`, when given, is { reviewerId } -- set when the admin/editor
 // checked "Review and approve now" on the creation form instead of
 // leaving this for Pending Notifications later. reviewedText is always
-// exactly what they just typed (requestText itself), never a separate
-// edited version -- that's the deliberate scope of this inline path;
-// a different broadcast wording still goes through Pending
-// Notifications' own Edit flow after the fact.
+// exactly what they just typed, never an edited version -- a different
+// wording still goes through Pending Notifications' own Edit flow.
 async function notifyPrayerRequestCreated(prayerRequest, approval) {
   await safeNotify("Prayer request created", async () => {
     const review = approval

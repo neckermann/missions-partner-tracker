@@ -2,21 +2,19 @@
 // Newsletters each to their own configured Topic), its own independent
 // daily-hour schedule, and its own stamping. Consolidates the old
 // groupme.js (posting/API-client logic, unchanged) and the GroupMe half
-// of notificationFlush.js (which also covered the now-retired old email
-// mechanism and the cross-channel clearing step -- see
-// notificationOrchestrator.js for where that half went instead) into
-// one file that's genuinely just GroupMe's own channel logic end to
-// end, matching its new name.
+// of notificationFlush.js (the other half -- the now-retired email
+// mechanism and the cross-channel clearing step -- went to
+// notificationOrchestrator.js instead) into one file matching its name.
 //
 // Posts as the admin's own GroupMe identity via the Messages API
 // (X-Access-Token + POST /groups/:id/messages), not a bot -- the Bots
 // API has no awareness of Topics at all, and Topics are the whole point
-// here. Topics are undocumented in GroupMe's public API reference but
-// real and confirmed working: each Topic (a "group chat inside your
-// group chat," per GroupMe's own user-facing docs) is internally a
-// "subgroup" with its own id (GET /groups/:groupId/subgroups), and the
-// ordinary messages endpoint posts into it when pointed at that id
-// instead of the parent group's.
+// here. Undocumented in GroupMe's public API reference but real and
+// confirmed working: each Topic ("a group chat inside your group chat,"
+// per GroupMe's own user-facing docs) is internally a "subgroup" with
+// its own id (GET /groups/:groupId/subgroups), and the ordinary
+// messages endpoint posts into it when pointed at that id instead of
+// the parent group's.
 const crypto = require("crypto");
 const prisma = require("../prismaClient");
 const { decryptField } = require("./crypto");
@@ -156,17 +154,13 @@ function shouldFlushGroupMe(settings, now) {
   return sinceLast >= MIN_GAP_MS_DAILY;
 }
 
-// GroupMe's own schedule check + pass, with no awareness of the
-// cross-channel clearing step that must run after it -- that
-// orchestration lives in digestScheduler.js instead (which registers
-// this as its own, independent cron alongside the email tiers' own
-// tick), specifically so this file and notificationOrchestrator.js stay
-// a one-way dependency (orchestrator needs postToGroupMe for an urgent
-// broadcast; this file has no need to call back into orchestrator for
-// clearing). If the feature's off or the hour/dedupe gate doesn't pass,
-// this is a no-op. Returns nothing -- callers that need to know what
-// was stamped read it back via the usual NotifiableEvent query, same as
-// any other pass.
+// GroupMe's own schedule check + pass -- no awareness of the
+// cross-channel clearing step that must run after it; that lives in
+// digestScheduler.js instead (registers this as its own independent
+// cron alongside the email tiers' tick), so this file and
+// notificationOrchestrator.js stay a one-way dependency. A no-op if the
+// feature's off or the hour/dedupe gate doesn't pass. Returns nothing
+// -- callers read back what was stamped via the usual query.
 async function runGroupMePass(settings, now) {
   if (!isFeatureEnabled(settings?.enabledFeatures, "groupme")) return;
   if (!shouldFlushGroupMe(settings, now)) return;

@@ -11,7 +11,7 @@ import {
 // undocumented in GroupMe's public API but real: each one is a
 // "subgroup" with its own id, and the ordinary messages endpoint posts
 // into it when pointed at that id instead of the parent group's -- see
-// backend/src/utils/groupme.js for the detail.
+// backend/src/utils/groupmeChannel.js for the detail.
 //
 // The access token is write-only by design, same as a password field:
 // the backend never returns a stored value, only whether one exists
