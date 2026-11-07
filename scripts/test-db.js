@@ -126,7 +126,11 @@ async function up() {
   run("npx", ["prisma", "migrate", "deploy"]);
 
   console.log("\nseeding...");
-  run("node", ["prisma/seed.js"]);
+  // SEED_DEMO_EXTRAS=false -- this database is what npm run test:routes
+  // and the Playwright suite run against next, and both assume nothing
+  // but their own fixtures have touched InboundEmail/NotifiableEvent/
+  // User (see seed.js's own comment on this flag).
+  run("node", ["prisma/seed.js"], { SEED_DEMO_EXTRAS: "false" });
 
   console.log("\ncreating the admin the tests log in as...");
   run("node", ["prisma/createAdmin.js", ADMIN_EMAIL, ADMIN_PASSWORD]);
