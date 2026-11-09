@@ -648,6 +648,14 @@ backlog).
   carrying a source link at all, not just a check that happens to leave
   one out.
 
+Same batch of events, rendered for each audience, side by side — notice
+the admin version's source link, decision amount, and newsletter title,
+all structurally absent from the public one:
+
+| Admin digest | Public digest |
+| --- | --- |
+| ![An example admin digest email, with a source link and a one-time need's requested/approved amounts](docs/assets/screenshots/digest-email-admin.png) | ![The same batch of events rendered for the public digest -- prayer requests only, no source link, no amount](docs/assets/screenshots/digest-email-public.png) |
+
 Both email digests share one subject-line template, signature, and
 layout choice (Classic — text only, or Snapshot — adds each partner's
 photo/field/overview), all admin-configurable on the same Notifications

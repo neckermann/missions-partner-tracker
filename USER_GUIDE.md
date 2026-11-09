@@ -904,6 +904,15 @@ you can see exactly what changes between the two before picking one.
 | --- | --- |
 | ![An example Classic-layout digest email](docs/assets/screenshots/digest-email-classic.png) | ![An example Snapshot-layout digest email, including a restricted partner's masked card](docs/assets/screenshots/digest-email-snapshot.png) |
 
+The layout choice above is shared by both audiences, but what each one
+actually *receives* isn't — a public subscriber's email only ever
+includes prayer requests, with no source link and no one-time-need
+amount, regardless of layout. See [ADMIN_GUIDE.md § Notifications:
+GroupMe, the admin digest, and the public
+digest](ADMIN_GUIDE.md#notifications-groupme-the-admin-digest-and-the-public-digest)
+for a side-by-side example of the same batch of events rendered for
+each audience.
+
 #### Email Schedule
 
 The one shared schedule for both the admin digest and the public
