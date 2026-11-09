@@ -6,6 +6,22 @@ and ongoing operations. If you're looking for how to actually *use* the
 app day-to-day (adding partners, tracking support, exporting the booklet),
 see [USER_GUIDE.md](USER_GUIDE.md) instead.
 
+**Contents**
+
+- [Architecture at a glance](#architecture-at-a-glance)
+- [Getting your church running (Render)](#getting-your-church-running-render)
+- [Environment variables](#environment-variables)
+- [Feature toggles](#feature-toggles)
+- [Authentication setup](#authentication-setup)
+- [File storage](#file-storage)
+- [Rate limiting](#rate-limiting)
+- [Local development setup](#local-development-setup)
+- [Deploying to production](#deploying-to-production)
+- [Upgrading a fork](#upgrading-a-fork)
+- [Security](#security)
+- [Operations](#operations)
+- [Troubleshooting](#troubleshooting)
+
 ## Architecture at a glance
 
 Two pieces: a Postgres database, and the app itself — one Node/Express
@@ -444,7 +460,7 @@ Settings/env vars rather than hand-edited code (see
 flagged as breaking (`MAJOR` version bump) usually mean a required
 migration or a new required env var.
 
-## Security operations
+## Security
 
 ### Who can see what
 
@@ -515,6 +531,8 @@ periodically: the defaults are reasonable, but you know which fields are
 genuinely safe to show for your specific restricted-access partners. This
 file is the single place to adjust that policy. Full explanation of what
 gets masked: [USER_GUIDE.md § Understanding restricted-access partners](USER_GUIDE.md#understanding-restricted-access-partners).
+
+## Operations
 
 ### Email (Postmark)
 
