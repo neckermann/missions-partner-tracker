@@ -19,6 +19,10 @@ frontend/test-results/
 frontend/playwright-report/
 frontend/blob-report/
 
+# scripts/preview-digest.js's own rendered output -- regenerate with
+# `npm run preview:digest`, never meant to be committed
+backend/scripts/output/
+
 # OS/editor cruft
 .DS_Store
 Thumbs.db
