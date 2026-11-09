@@ -9,7 +9,18 @@ instead.
 Screens and actions that require the `admin` role are marked **(Admin
 only)** below — see [Understanding your role](#understanding-your-role).
 
-## Logging in
+**Contents**
+
+- [Getting started](#getting-started)
+- [Managing partners & support](#managing-partners--support)
+- [Site Administration](#site-administration)
+- [Communications](#communications)
+- [Integrations](#integrations)
+- [Your account & the public site](#your-account--the-public-site)
+
+## Getting started
+
+### Logging in
 
 Go to `/login` and sign in with your email and password. There's no
 single sign-on — see
@@ -24,7 +35,7 @@ admin has *required* MFA on your account but you haven't set it up yet,
 you'll be walked through enrollment (scan a QR code, confirm a code)
 before you can do anything else.
 
-## Understanding your role
+### Understanding your role
 
 Every user has one of three roles:
 
@@ -53,7 +64,7 @@ If something you expect to see isn't there (a nav link, a button), it's
 almost always a role thing, not a bug — check with whoever manages users
 at your church.
 
-## Dashboard overview
+### Dashboard overview
 
 The sidebar (and the Home page's card grid, which mirrors it) lists:
 **Home**, [**Partners**](#the-partners-list) (or your church's custom
@@ -99,9 +110,11 @@ Missionaries and organizations share one combined **Partners** list —
 there's no separate nav entry for each; you pick which kind to add from
 the list page itself.
 
-## Managing partners (missionaries & organizations)
+## Managing partners & support
 
-### The Partners list
+### Managing partners (missionaries & organizations)
+
+#### The Partners list
 
 Filter by Type (missionary/organization), Public (yes/no), Restricted
 (yes/no), Continent, and Country — the continent/country dropdowns only
@@ -119,7 +132,7 @@ any row to view that partner's detail page.
 
 ![The Partners list, filterable by type, public/restricted status, continent, and country](docs/assets/screenshots/admin-partners.png)
 
-### Creating a missionary
+#### Creating a missionary
 
 **+ Add Missionary** opens a short form asking just for what can't be
 filled in later from the record itself, plus a couple of fields that are
@@ -139,14 +152,14 @@ field's label for a tip on what it means and how it's used.
 
 ![The New Partner form, with Preferred Contact Method and Supporting Since alongside the basics](docs/assets/screenshots/new-partner-form.png)
 
-### Creating an organization
+#### Creating an organization
 
 **+ Add Organization** is the same short form, with **Organization
 Name** and an **Organization Type** dropdown (Local/National) in place
 of Display Name, and no "Safe to contact" or "Sent by" checkboxes —
 those are person-specific.
 
-### Editing a partner
+#### Editing a partner
 
 There's no single "edit form" holding the whole record — each section on
 a partner's **detail page** edits in place. Click that section's own
@@ -267,7 +280,7 @@ Visits, Furlough — shows only its 3 most recent entries by default, with
 a **Load More** button (showing how many more there are) to reveal the
 rest. Nothing is hidden permanently; it's just not all rendered at once.
 
-### The partner detail page
+#### The partner detail page
 
 Shows every section described in [Editing a partner](#editing-a-partner)
 above, grouped as listed there — sections with no data are hidden
@@ -283,7 +296,7 @@ edit happens — each section's own **Edit** button, not a separate form
 
 ![The top of a partner detail page -- Photo History, Status & Visibility, and Ministry Overview](docs/assets/screenshots/admin-partner-detail-preview.png)
 
-### Photo history
+#### Photo history
 
 Every photo/logo ever uploaded is kept, not just the current one — the
 detail page's **Photo History** section lists them all, newest received
@@ -297,7 +310,7 @@ current photo, whichever remains with the next-latest Received Date
 automatically becomes current. There's no "restore" — re-upload a
 deleted photo if you need it back.
 
-### Archiving vs. deleting
+#### Archiving vs. deleting
 
 **Archive** and **Delete** are row actions on the **Partners list**, not
 on the partner's own detail page. **Archive** removes a partner from the
@@ -311,7 +324,7 @@ decisions to make again once someone's actually back, from
 an already-archived record, is permanent, and requires typing "confirm"
 to proceed. When in doubt, archive.
 
-### Understanding restricted-access partners
+#### Understanding restricted-access partners
 
 Two checkboxes on every missionary/organization control what the public
 site can see, independently of each other:
@@ -342,7 +355,7 @@ show for your specific restricted-access partners.
 
 ![A restricted-access missionary's public page -- initials, a silhouette, a country-level pin, and a generic overview](docs/assets/screenshots/restricted-partner-masked.png)
 
-## Financial support & one-time needs
+### Financial support & one-time needs
 
 **Monthly Support** shows every partner with at least one support entry,
 their current monthly amount, and a running total — archived partners
@@ -382,7 +395,7 @@ urgent](#marking-something-urgent).
 
 ![A one-time need showing its "From: ..." source link](docs/assets/screenshots/support-need-source-link.png)
 
-## Prayer Requests
+### Prayer Requests
 
 Meant as a long-term record of what's been prayed for and how it was
 answered — not a checklist. Add one from a partner's detail page or the
@@ -435,7 +448,7 @@ approving it at creation instead of from Pending Notifications, see
 
 ![A prayer request showing its "From: ..." source link](docs/assets/screenshots/prayer-request-source-link.png)
 
-## Trip history & trip opportunities
+### Trip history & trip opportunities
 
 These are two different things:
 - **Trip History** is a filterable log of trips that already happened,
@@ -460,7 +473,7 @@ These are two different things:
 
 ![Trip Opportunities, a capacity search by team size and trip type](docs/assets/screenshots/trip-opportunities.png)
 
-## Newsletters & Docs
+### Newsletters & Docs
 
 One place for every file a partner sends — a newsletter update, a
 completed survey, a returned signed policy acknowledgment, an email
@@ -493,7 +506,7 @@ flag.
 
 ![The central Newsletters & Docs page, listing uploads across every partner with their Kind](docs/assets/screenshots/partner-files.png)
 
-## Printable partner booklet
+### Printable partner booklet
 
 **Print Booklet** builds a print-formatted directory: pick a **Look &
 Feel** template — Classic (warm accent-colored circles and a tinted
@@ -532,7 +545,7 @@ prayer/support directory for your congregation.
 
 ![One page of the resulting booklet, in the Classic template](docs/assets/screenshots/booklet.png)
 
-## Reports
+### Reports
 
 Read-only views over data already in the tracker, for anyone who needs
 numbers rather than a record-by-record browse. Pick a report, set its
@@ -564,7 +577,9 @@ the two exceptions, since neither has a feature of its own to tie to.
 
 ![The Reports page, with the Prayer Requests report run](docs/assets/screenshots/reports-preview.png)
 
-## Church Settings (Admin only)
+## Site Administration
+
+### Church Settings (Admin only)
 
 One record controls the whole instance's branding, split across two pages
 under Site Administration — changes on either take effect immediately,
@@ -603,7 +618,7 @@ everywhere, with no code changes needed:
 
 ![The Branding page, with Public Site, Logo, and Partner Terminology](docs/assets/screenshots/branding-settings.png)
 
-## User management (Admin only)
+### User management (Admin only)
 
 **Manage Users** lists everyone with access — email, role, active status,
 MFA status, last login. **+ Add User** creates one: email, role, and a
@@ -622,7 +637,7 @@ one way back in.
 
 ![The Manage Users page, listing role, auth provider, and MFA status](docs/assets/screenshots/manage-users.png)
 
-## Database Backups (Admin only)
+### Database Backups (Admin only)
 
 **Backups**, under Site Administration, lets any admin download a full
 backup of everything in the database — every partner, user, and uploaded
@@ -642,7 +657,7 @@ checking that box requires a deliberate save, not just a casual dismiss.
 
 ![The Backups page: a Back up now button and the opt-out for the periodic reminder](docs/assets/screenshots/backups-settings.png)
 
-## System Info (Admin only)
+### System Info (Admin only)
 
 **System Info**, right below Backups, is a read-only page showing
 what's actually running on this instance: the app version (plus the
@@ -655,7 +670,9 @@ or any credential.
 
 ![The System Info page: app, runtime, database, and deployment details](docs/assets/screenshots/system-info.png)
 
-## GroupMe notifications (Admin only)
+## Communications
+
+### GroupMe notifications (Admin only)
 
 Posts new prayer requests, one-time needs, and newsletters to GroupMe so
 a team sees them without checking the admin dashboard. A prayer request
@@ -717,7 +734,7 @@ several queued items packed into as few messages as fit GroupMe's
 
 ![A new newsletter notification, with a direct link to the letter](docs/assets/screenshots/groupme-notification-newsletter.png)
 
-## Pending Notifications
+### Pending Notifications
 
 The **Pending Notifications** page (in the main menu, alongside
 Unmatched Emails) is where every prayer request, one-time need, and
@@ -796,7 +813,7 @@ this way.
 Any item, restricted or not, reviewed or not, can be removed from the
 queue without sending it with the **Clear** button on its row.
 
-## Marking something urgent
+### Marking something urgent
 
 A **Mark as urgent** checkbox is available to admins and editors when
 creating a prayer request or one-time need (not when answering/deciding
@@ -827,7 +844,7 @@ review hold; it doesn't by itself make anything send immediately — that
 still needs "Mark as urgent" too, or whatever channel's own regular
 schedule picks the item up next.
 
-## Notification Settings (Admin only)
+### Notification Settings (Admin only)
 
 The **Notifications** page under Site Administration → Communications
 holds every schedule, GroupMe's own content-type mutes, the one
@@ -835,7 +852,7 @@ restricted-partner safety gate, and the email digest's own appearance —
 separate from the actual queue above, same split Email already has
 between its own settings page and Unmatched Emails. Top to bottom:
 
-### Prayer Digest Subscribers
+#### Prayer Digest Subscribers
 
 A read-only section at the top of the page (only shown once [Public
 prayer digest](ADMIN_GUIDE.md#feature-toggles) is turned on) showing
@@ -844,7 +861,7 @@ Settings, how many public visitors have confirmed their subscription,
 and how many are still waiting on their confirmation email. Counts
 only — no email addresses, here or anywhere else an admin can see.
 
-### Restricted Partners
+#### Restricted Partners
 
 One checkbox, off by default: turned on, a restricted-access partner's
 prayer requests and one-time needs are recorded and can reach GroupMe
@@ -857,7 +874,7 @@ restricted partners' content reaching every channel like anyone else's.
 
 ![The Notification Settings page: subscriber counts, the Restricted Partners gate, digest customization, email schedule, and GroupMe](docs/assets/screenshots/notifications-settings.png)
 
-### Digest Customization
+#### Digest Customization
 
 Everything here controls the **email digest specifically** — GroupMe's
 own message format doesn't change, since GroupMe is plain text and has
@@ -887,7 +904,7 @@ you can see exactly what changes between the two before picking one.
 | --- | --- |
 | ![An example Classic-layout digest email](docs/assets/screenshots/digest-email-classic.png) | ![An example Snapshot-layout digest email, including a restricted partner's masked card](docs/assets/screenshots/digest-email-snapshot.png) |
 
-### Email Schedule
+#### Email Schedule
 
 The one shared schedule for both the admin digest and the public
 digest — each admin picks their own cadence on their own [Account
@@ -900,7 +917,7 @@ all three — each tier only fires once its own day/time is set; leaving
 all three unset (the default) means nobody's individual cadence choice
 ever actually sends, regardless of what they picked for themselves.
 
-### GroupMe
+#### GroupMe
 
 Two things, both GroupMe-specific (see [GroupMe
 notifications](#groupme-notifications-admin-only) above for the
@@ -916,7 +933,7 @@ connection setup itself, on its own page):
   gets recorded at all, so the email digest and the restricted-partner
   review queue are completely unaffected by any of these three.
 
-## Email (Admin only)
+### Email (Admin only)
 
 One **Email** page under Site Administration, with two independent
 halves — **Sending** and **Receiving** — each with its own on/off switch.
@@ -929,7 +946,7 @@ the digest doesn't need Receiving on, and vice versa.
 
 ![The Email settings page, Sending and Receiving both configured](docs/assets/screenshots/email-settings.png)
 
-### Sending
+#### Sending
 
 Once turned on, this is the email half of the
 [Pending Notifications](#pending-notifications) queue above — an
@@ -967,7 +984,7 @@ This is also what Sending powers for the public **Subscribe** page — see
 [§ The public site](#the-public-site) below — once [Public prayer
 digest](ADMIN_GUIDE.md#feature-toggles) is turned on.
 
-### Receiving
+#### Receiving
 
 Lets a missionary or organization email an update straight into the app
 instead of you having to download and upload it yourself. Point partners
@@ -1001,7 +1018,9 @@ or anything that was never meant to be filed at all.
 
 ![The Unmatched Emails queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
 
-## Joshua Project (Admin only)
+## Integrations
+
+### Joshua Project (Admin only)
 
 Shows country-level unreached-people-group statistics — population,
 primary religion, percent evangelical, how reached the country is — on a
@@ -1021,7 +1040,7 @@ A key alone doesn't show anything — turn on **Joshua Project stats** in
 it shows up everywhere it always has: a partner's admin page and public
 page, wherever a Country Code is on file.
 
-## AI Features (Admin only)
+### AI Features (Admin only)
 
 Adds a **Scan for requests** button on each newsletter/document that's
 PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one
@@ -1061,7 +1080,9 @@ A key alone doesn't turn anything on — turn on **AI Features**
 in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) to actually show
 the Scan for requests button.
 
-## Your account settings
+## Your account & the public site
+
+### Your account settings
 
 **My Account** is where you manage your own login, regardless of role.
 You can change your password (current password required) and
@@ -1088,7 +1109,7 @@ urgent](#marking-something-urgent).
 
 ![Account settings, mid-enrollment: the QR code step of enabling two-factor authentication](docs/assets/screenshots/mfa-enrollment.png)
 
-## The public site
+### The public site
 
 Worth understanding what visitors actually see, since it's driven
 entirely by what you check in the admin dashboard:
@@ -1145,7 +1166,7 @@ entirely by what you check in the admin dashboard:
 
   ![The public Subscribe page, with the all-partners/specific-partners picker](docs/assets/screenshots/subscribe-page.png)
 
-### The public map's auto-tour
+#### The public map's auto-tour
 
 The map can automatically cycle through missionary pins, flying to each
 one and opening its popup — useful for an unattended display (e.g. a
