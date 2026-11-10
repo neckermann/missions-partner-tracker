@@ -144,6 +144,60 @@ async function countUrgentRecipients(partnerId) {
   return { adminCount, publicCount };
 }
 
+// The two chat-channel branches of sendUrgentBroadcast below, split out
+// so they can run concurrently (Promise.all) rather than one after the
+// other -- they're already fully independent (separate settings gate,
+// separate sentAt column), so there's no reason an urgent send should
+// pay the sum of GroupMe's HTTP round trip and WhatsApp's anti-ban-
+// delayed socket send instead of the max of the two. Each one also now
+// catches its own failure: previously neither call had a try/catch at
+// all, so a GroupMe error (a revoked token, a network blip) would throw
+// out of sendUrgentBroadcast entirely and silently skip WhatsApp and
+// email too -- exactly the "a provider failure must not block the
+// other" guarantee #242's own acceptance criteria call for, which this
+// function wasn't actually providing.
+async function sendGroupMeUrgent(row, partner, partnerById, settings, now) {
+  if (
+    !isFeatureEnabled(settings?.enabledFeatures, "groupme") ||
+    !isEligibleForChannel(row, CHANNELS.GROUPME, partner, settings, true)
+  ) {
+    return false;
+  }
+  try {
+    const sentIds = await postToGroupMe([row], partnerById, settings);
+    const posted = sentIds.has(row.id);
+    if (posted) {
+      await prisma.notifiableEvent.update({ where: { id: row.id }, data: { groupmeSentAt: now } });
+    }
+    return posted;
+  } catch (err) {
+    console.error("Urgent GroupMe send failed:", err.message);
+    return false;
+  }
+}
+
+async function sendWhatsAppUrgent(row, partner, partnerById, settings, now) {
+  if (
+    !isFeatureEnabled(settings?.enabledFeatures, "whatsapp") ||
+    !hasWhatsAppTarget(row, settings) ||
+    !isEligibleForChannel(row, CHANNELS.WHATSAPP, partner, settings, true) ||
+    whatsappClient.getStatus().status !== "connected"
+  ) {
+    return false;
+  }
+  try {
+    const sentIds = await postToWhatsApp([row], partnerById, settings);
+    const posted = sentIds.has(row.id);
+    if (posted) {
+      await prisma.notifiableEvent.update({ where: { id: row.id }, data: { whatsappSentAt: now } });
+    }
+    return posted;
+  } catch (err) {
+    console.error("Urgent WhatsApp send failed:", err.message);
+    return false;
+  }
+}
+
 // Immediate, cadence-bypassing send for one row, across all three
 // channels -- still calls isEligibleForChannel per channel like every
 // scheduled pass; only Rule 3's cadence-tier matching is bypassed (a
@@ -167,31 +221,10 @@ async function sendUrgentBroadcast(row, { id: partnerId }) {
   const partnerById = new Map([[partner.id, partner]]);
   const now = new Date();
 
-  let groupmePosted = false;
-  if (
-    isFeatureEnabled(settings?.enabledFeatures, "groupme") &&
-    isEligibleForChannel(row, CHANNELS.GROUPME, partner, settings, true)
-  ) {
-    const sentIds = await postToGroupMe([row], partnerById, settings);
-    groupmePosted = sentIds.has(row.id);
-    if (groupmePosted) {
-      await prisma.notifiableEvent.update({ where: { id: row.id }, data: { groupmeSentAt: now } });
-    }
-  }
-
-  let whatsappPosted = false;
-  if (
-    isFeatureEnabled(settings?.enabledFeatures, "whatsapp") &&
-    hasWhatsAppTarget(row, settings) &&
-    isEligibleForChannel(row, CHANNELS.WHATSAPP, partner, settings, true) &&
-    whatsappClient.getStatus().status === "connected"
-  ) {
-    const sentIds = await postToWhatsApp([row], partnerById, settings);
-    whatsappPosted = sentIds.has(row.id);
-    if (whatsappPosted) {
-      await prisma.notifiableEvent.update({ where: { id: row.id }, data: { whatsappSentAt: now } });
-    }
-  }
+  const [groupmePosted, whatsappPosted] = await Promise.all([
+    sendGroupMeUrgent(row, partner, partnerById, settings, now),
+    sendWhatsAppUrgent(row, partner, partnerById, settings, now),
+  ]);
 
   // Cadence-blind: every active admin and confirmed public subscriber,
   // regardless of tier or whether that tier's schedule fired today --

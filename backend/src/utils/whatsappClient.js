@@ -64,6 +64,12 @@ const runtime = {
   // database -- the session table is deliberately never backed up).
   pairingRequested: false,
   lastError: null,
+  // Bumped at the start of every real connect() attempt (see below).
+  // handleLoggedOut() captures this before its own awaits and checks it
+  // again after -- if a new connect()/pairing has started in the
+  // meantime, this cleanup is for a session that's already superseded,
+  // and must not wipe what the new attempt just wrote.
+  generation: 0,
   attempts: 0,
   reconnectTimer: null,
   pairingTimer: null,
@@ -88,9 +94,18 @@ function makeSilentLogger() {
 
 // ---- advisory lock ------------------------------------------------------
 
+// A hung TCP handshake with no timeout would block indefinitely -- this
+// is the one specific hang point the digestScheduler.js's own timeout
+// wrapper can't distinguish from a hung Baileys handshake, so it's
+// worth bounding here too as defense in depth.
+const LOCK_CONNECT_TIMEOUT_MS = 10 * 1000;
+
 async function acquireAdvisoryLock() {
   if (runtime.lockClient) return true;
-  const client = new Client(parseDatabaseUrl(process.env.DATABASE_URL));
+  const client = new Client({
+    ...parseDatabaseUrl(process.env.DATABASE_URL),
+    connectionTimeoutMillis: LOCK_CONNECT_TIMEOUT_MS,
+  });
   // Must be handled: an unhandled 'error' on a pg client crashes the
   // process. If the connection drops, the lock is gone with it, so stop
   // using the session rather than risk two holders.
@@ -177,6 +192,15 @@ async function recordPaired(user) {
 // WhatsApp, or WhatsApp revoked it): wipe local state so the next pairing
 // starts clean, and clear the "paired" markers the admin UI reads.
 async function handleLoggedOut() {
+  // Both a "connection.update" close event (DisconnectReason.loggedOut)
+  // and unlink()'s own explicit call can reach this function for the
+  // same logout, close together in time. Captured once, up front: if a
+  // NEW connect()/startPairing() has already bumped this by the time
+  // this invocation actually gets to the destructive calls below, that
+  // means a new session attempt is already underway and this cleanup is
+  // stale -- proceeding would wipe the auth state or paired markers the
+  // new attempt just wrote, out from under it.
+  const generation = runtime.generation;
   runtime.wantConnected = false;
   runtime.pairingRequested = false;
   clearTimers();
@@ -184,8 +208,10 @@ async function handleLoggedOut() {
   runtime.status = "logged_out";
   runtime.qrDataUrl = null;
   runtime.pairingCode = null;
+  if (runtime.generation !== generation) return;
   try {
     await clearAuthState();
+    if (runtime.generation !== generation) return;
     await prisma.churchSettings.updateMany({
       where: { id: "singleton" },
       data: { whatsappPairedAt: null, whatsappPhoneNumber: null },
@@ -193,6 +219,7 @@ async function handleLoggedOut() {
   } catch (err) {
     console.error("WhatsApp logout cleanup failed:", err.message);
   }
+  if (runtime.generation !== generation) return;
   await deps.releaseLock();
 }
 
@@ -251,19 +278,37 @@ async function handleConnectionUpdate(baileys, update) {
   }
 }
 
+// Checked after every await inside connect() below. A concurrent
+// disconnect()/unlink() that runs while connect() is mid-flight only
+// flips runtime.wantConnected -- it can't cancel this already-in-progress
+// attempt, so without this check connect() would finish and leave
+// WhatsApp connected right after an admin explicitly disconnected it.
+// Releases the lock itself if it had already been acquired, since the
+// caller never reaches its own cleanup once this aborts early.
+async function abortIfConnectionNoLongerWanted() {
+  if (runtime.wantConnected) return false;
+  await deps.releaseLock();
+  runtime.status = "disconnected";
+  return true;
+}
+
 async function connect() {
   runtime.wantConnected = true;
   if (runtime.rawSock || runtime.connecting) return;
   runtime.connecting = true;
+  runtime.generation += 1;
   try {
     if (!(await deps.acquireLock())) {
       runtime.status = "locked_elsewhere";
       scheduleReconnect(LOCK_RETRY_MS);
       return;
     }
+    if (await abortIfConnectionNoLongerWanted()) return;
     const baileys = await deps.loadBaileys();
+    if (await abortIfConnectionNoLongerWanted()) return;
     const { wrapSocket } = deps.loadAntiban();
     const { state, saveCreds } = await useDbAuthState(baileys);
+    if (await abortIfConnectionNoLongerWanted()) return;
 
     if (!state.creds.registered && !runtime.pairingRequested) {
       // Settings say "paired" but there's no session to open: don't spin

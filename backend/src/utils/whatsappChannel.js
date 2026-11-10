@@ -22,6 +22,7 @@ const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 const { buildBlurb } = require("./notificationBlurbs");
 const { CHANNELS, isEligibleForChannel } = require("./notificationEligibility");
+const { shouldFlushDailyChatChannel } = require("./chatSchedule");
 const whatsappClient = require("./whatsappClient");
 
 // WhatsApp's documented text limit through the Business API is 4,096
@@ -30,22 +31,35 @@ const whatsappClient = require("./whatsappClient");
 // authoritative, so stay safely under the documented figure.
 const MAX_MESSAGE_LENGTH = 4000;
 
-// Which ChurchSettings group column each notification type posts to,
-// keyed by the NotifiableEvent row type (for eligibility/clearing, which
-// look at rows) and by the blurb's topicKey (for posting, which looks at
-// blurbs).
-const GROUP_FIELD_BY_EVENT_TYPE = {
-  prayerRequestCreated: "whatsappPrayerGroupId",
-  prayerRequestAnswered: "whatsappPrayerGroupId",
-  supportNeedCreated: "whatsappOneTimeNeedGroupId",
-  supportNeedDecided: "whatsappOneTimeNeedGroupId",
-  newsletterCreated: "whatsappNewsletterGroupId",
-};
-const GROUP_FIELD_BY_TOPIC_KEY = {
-  groupmePrayerTopicId: "whatsappPrayerGroupId",
-  groupmeOneTimeNeedTopicId: "whatsappOneTimeNeedGroupId",
-  groupmeNewsletterTopicId: "whatsappNewsletterGroupId",
-};
+// Single source of truth for which ChurchSettings group column serves
+// which notification type. GROUP_FIELD_BY_EVENT_TYPE (keyed by the
+// NotifiableEvent row type, for eligibility/clearing which look at raw
+// rows) and GROUP_FIELD_BY_TOPIC_KEY (keyed by a blurb's topicKey --
+// GroupMe's own ChurchSettings field name, reused as a channel-neutral
+// label -- for posting, which looks at blurbs) are both DERIVED from
+// this one list so the two can never drift out of sync with each other
+// the way two hand-maintained copies could.
+const GROUP_MAPPINGS = [
+  {
+    whatsappField: "whatsappPrayerGroupId",
+    topicKey: "groupmePrayerTopicId",
+    eventTypes: ["prayerRequestCreated", "prayerRequestAnswered"],
+  },
+  {
+    whatsappField: "whatsappOneTimeNeedGroupId",
+    topicKey: "groupmeOneTimeNeedTopicId",
+    eventTypes: ["supportNeedCreated", "supportNeedDecided"],
+  },
+  {
+    whatsappField: "whatsappNewsletterGroupId",
+    topicKey: "groupmeNewsletterTopicId",
+    eventTypes: ["newsletterCreated"],
+  },
+];
+const GROUP_FIELD_BY_EVENT_TYPE = Object.fromEntries(
+  GROUP_MAPPINGS.flatMap((m) => m.eventTypes.map((type) => [type, m.whatsappField]))
+);
+const GROUP_FIELD_BY_TOPIC_KEY = Object.fromEntries(GROUP_MAPPINGS.map((m) => [m.topicKey, m.whatsappField]));
 
 // True when WhatsApp is paired and this row's notification type has a
 // group picked. Unlike GroupMe there is no "main conversation" fallback,
@@ -166,16 +180,10 @@ async function postToWhatsApp(eligibleRows, partnerById, settings) {
   return sentIds;
 }
 
-const MIN_GAP_MS_DAILY = 20 * 60 * 60 * 1000; // ~20h, not a full 24h, so a slightly-early tick never skips a day
-
-// Pure (no I/O, no Date.now()) so it's directly unit-testable with a fixed
-// `now`. Same daily-hour rule as GroupMe's shouldFlushGroupMe, reading the
-// shared hour but WhatsApp's own cursor.
+// Same daily-hour rule as GroupMe's shouldFlushGroupMe (shared via
+// chatSchedule.js), reading the shared hour but WhatsApp's own cursor.
 function shouldFlushWhatsApp(settings, now) {
-  if (settings?.groupmeDigestHour == null) return false; // no chat schedule configured yet
-  if (now.getHours() !== settings.groupmeDigestHour) return false;
-  const sinceLast = settings.lastWhatsappDigestSentAt ? now - settings.lastWhatsappDigestSentAt : Infinity;
-  return sinceLast >= MIN_GAP_MS_DAILY;
+  return shouldFlushDailyChatChannel(settings, now, "lastWhatsappDigestSentAt");
 }
 
 // WhatsApp's schedule check + pass. A no-op if the feature's off, the
