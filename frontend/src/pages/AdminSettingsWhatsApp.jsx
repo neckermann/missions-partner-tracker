@@ -393,7 +393,7 @@ export default function AdminSettingsWhatsApp() {
                 <p style={{ margin: 0, color: "#555" }}>
                   On that phone: WhatsApp → Settings → Linked Devices → Link a Device, then scan:
                 </p>
-                <img src={pairStatus.qrDataUrl} alt="WhatsApp pairing QR code" width="280" height="280" />
+                <img src={pairStatus.qrDataUrl} alt="WhatsApp pairing QR code" width="400" height="400" />
               </div>
             )}
             {pairStatus?.error && <p className="form-error">{pairStatus.error}</p>}

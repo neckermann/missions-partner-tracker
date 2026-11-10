@@ -236,7 +236,11 @@ async function handleConnectionUpdate(baileys, update) {
         runtime.lastError = `Couldn't get a pairing code: ${err.message}`;
       }
     } else if (!runtime.pairingPhone) {
-      runtime.qrDataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 280 });
+      // margin stays at the QR spec's recommended 4-module quiet zone --
+      // shrinking it (an earlier version of this code used margin: 1) can
+      // stop a phone camera from locking onto the finder patterns at all,
+      // especially scanning off a monitor rather than a printed code.
+      runtime.qrDataUrl = await QRCode.toDataURL(qr, { margin: 4, width: 400 });
     }
   }
 
