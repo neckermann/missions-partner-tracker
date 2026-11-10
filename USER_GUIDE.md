@@ -734,6 +734,46 @@ several queued items packed into as few messages as fit GroupMe's
 
 ![A new newsletter notification, with a direct link to the letter](docs/assets/screenshots/groupme-notification-newsletter.png)
 
+
+### WhatsApp notifications (Admin only)
+
+Posts the same new prayer requests, one-time needs, and newsletters to
+WhatsApp — each type to its own group inside one WhatsApp community.
+It's an alternative or addition to [GroupMe](#groupme-notifications-admin-only):
+a church can use either or both. Off by default — turn it on in [Enabled
+Features](ADMIN_GUIDE.md#feature-toggles), then set it up on the
+**WhatsApp** page under Site Administration (it only appears once the
+feature is on). **Read [ADMIN_GUIDE.md § Notifications:
+WhatsApp](ADMIN_GUIDE.md#notifications-whatsapp) first** — this is an
+unofficial connection and you'll want a dedicated phone number for it.
+
+It runs on GroupMe's same daily send hour and content-type mutes (the
+[Notifications](#notification-settings-admin-only) page shows one shared
+section for whichever chat channels are on), and an item marked
+**urgent** posts right away. Items waiting for the same group go out
+together in one message.
+
+Setup builds up in steps:
+
+1. **Link the number** — enter the dedicated number with its country code
+   and click **Get Pairing Code**. On that phone open WhatsApp → Settings
+   → Linked Devices → Link a Device → *Link with phone number instead*,
+   and type the code shown. (**Use a QR Code Instead** shows a QR code to
+   scan from the same screen.) The page shows whether the number is
+   connected, and warns if WhatsApp has flagged it. **Unlink Number**
+   removes it and clears your choices below.
+2. **Community** — once connected, **Load My Communities**, pick yours,
+   **Use This Community**. The number must already be a member.
+3. **Groups** — **Load Groups** once to pull the community's real groups,
+   then pick a group and **Use This Group** for each of **Prayer
+   Requests**, **One-Time Needs**, and **Newsletters** you want. Unlike
+   GroupMe there's no fallback: a type with no group picked isn't sent
+   over WhatsApp. Picking a different community clears the group picks.
+
+If WhatsApp is disconnected or rejects a post, whatever you were saving
+still saves normally; the notification stays queued and goes out on the
+next send.
+
 ### Pending Notifications
 
 The **Pending Notifications** page (in the main menu, alongside

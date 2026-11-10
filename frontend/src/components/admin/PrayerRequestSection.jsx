@@ -52,7 +52,8 @@ export default function PrayerRequestSection({ partnerId, isRestricted, prayerRe
   // depend on it -- calling this "canSendUrgent" while also using it to
   // gate approve-now was confusing, since approving isn't about urgent
   // sending at all.
-  const hasEnabledChannel = enabledFeatures.groupme || enabledFeatures.outboundEmail;
+  const hasEnabledChannel =
+    enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
   // "Approve now" additionally requires allowRestrictedPartnerNotifications
   // -- when that's off, recordEvent drops a restricted partner's event
   // before it's ever queued (see notificationRecording.js), so checking

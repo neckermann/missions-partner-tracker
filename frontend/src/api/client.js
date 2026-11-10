@@ -177,6 +177,51 @@ export async function fetchGroupMeTopics(groupId) {
   return data;
 }
 
+// WhatsApp integration -- admin-only AND behind the `whatsapp` feature on
+// the backend (404 when it's off), so these only ever succeed from
+// AdminSettingsWhatsApp.jsx. There is no token: the linked session lives
+// encrypted server-side and is never returned. fetchWhatsAppSettings()
+// returns { paired, phoneNumber, communityId/Name, prayerGroupId/Name,
+// oneTimeNeedGroupId/Name, newsletterGroupId/Name, connection }.
+export async function fetchWhatsAppSettings() {
+  const { data } = await api.get("/settings/whatsapp");
+  return data;
+}
+
+export async function updateWhatsAppSettings(payload) {
+  const { data } = await api.put("/settings/whatsapp", payload);
+  return data;
+}
+
+// Starts pairing; read the result back by polling fetchWhatsAppPairStatus().
+// Pass a phone number (digits, with country code) for an 8-character
+// code, or nothing for a QR code.
+export async function startWhatsAppPairing(phoneNumber) {
+  const { data } = await api.post("/settings/whatsapp/pair", phoneNumber ? { phoneNumber } : {});
+  return data;
+}
+
+export async function fetchWhatsAppPairStatus() {
+  const { data } = await api.get("/settings/whatsapp/pair/status");
+  return data; // { status, qrDataUrl, pairingCode, error, health }
+}
+
+// Live lookups against the linked WhatsApp account, for the pickers.
+export async function fetchWhatsAppCommunities() {
+  const { data } = await api.get("/settings/whatsapp/communities");
+  return data;
+}
+
+export async function fetchWhatsAppGroups(communityId) {
+  const { data } = await api.get(`/settings/whatsapp/communities/${encodeURIComponent(communityId)}/groups`);
+  return data;
+}
+
+export async function unlinkWhatsApp() {
+  const { data } = await api.post("/settings/whatsapp/unlink");
+  return data;
+}
+
 // Joshua Project integration -- admin-only on the backend, same pattern as
 // GroupMe above. fetchJoshuaProjectSettings() returns { configured }; the
 // API key itself never appears in any response.

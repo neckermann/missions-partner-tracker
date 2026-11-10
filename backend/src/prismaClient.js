@@ -1,5 +1,6 @@
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
+const { parseDatabaseUrl } = require("./utils/databaseUrl");
 
 // Prisma 7 requires a driver adapter for every database, not just some --
 // see prisma.config.js's comment for why the connection string itself
@@ -13,21 +14,6 @@ const { PrismaPg } = require("@prisma/adapter-pg");
 // the same credentials as discrete fields instead sidesteps whatever is
 // going wrong in the adapter's own connectionString parsing, and is the
 // one difference between a failing and a working connection here.
-function parseDatabaseUrl(connectionString) {
-  const url = new URL(connectionString);
-  return {
-    host: url.hostname,
-    port: url.port ? Number(url.port) : 5432,
-    user: decodeURIComponent(url.username),
-    password: decodeURIComponent(url.password),
-    database: url.pathname.replace(/^\//, ""),
-    // Neon/Azure etc. require TLS (sslmode=require in the URL); a bare
-    // local Postgres has no sslmode param at all, so this stays undefined
-    // (no TLS) rather than defaulting one way for every environment.
-    ssl: url.searchParams.get("sslmode") === "require" ? { rejectUnauthorized: false } : undefined,
-  };
-}
-
 const adapter = new PrismaPg(parseDatabaseUrl(process.env.DATABASE_URL));
 
 // Single shared Prisma instance (avoids exhausting DB connections in dev

@@ -66,7 +66,8 @@ export default function PartnerFinancialSection({
   // name this was renamed from). canApproveNow additionally requires
   // allowRestrictedPartnerNotifications -- see
   // useAllowRestrictedPartnerNotifications's own comment.
-  const hasEnabledChannel = enabledFeatures.groupme || enabledFeatures.outboundEmail;
+  const hasEnabledChannel =
+    enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
   const allowRestrictedPartnerNotifications = useAllowRestrictedPartnerNotifications();
   const canApproveNow = isRestricted && hasEnabledChannel && allowRestrictedPartnerNotifications;
   // Named confirmDialog, not confirm -- this file's only confirmation

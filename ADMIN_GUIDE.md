@@ -161,6 +161,7 @@ prayer digest nested under Email (Sending) since it depends on it), and
 | Print booklet | On | The printable prayer & support directory generator. |
 | Reports | On | Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history, furlough — with CSV download and a print view. |
 | GroupMe notifications | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Site Administration → Notifications, or via manual send from Pending Notifications. Configured entirely in the UI (Site Administration → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only). |
+| WhatsApp notifications | **Off** | The same three notification types as GroupMe, posted to their own groups inside one WhatsApp community, on the same daily schedule and content-type mutes as GroupMe (a church can run either or both). Configured entirely in the UI (Site Administration → WhatsApp): link a **dedicated** phone number with a pairing code or QR code, pick the community, then a group per notification type. Off by default because it's an **unofficial** connection — see [Notifications: WhatsApp](#notifications-whatsapp) below before turning it on. See [USER_GUIDE.md § WhatsApp notifications](USER_GUIDE.md#whatsapp-notifications-admin-only). |
 | Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Site Administration → Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Site Administration → AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 | Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Site Administration → Email. Today's only sender is the batched notification digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
@@ -607,6 +608,53 @@ purged from their side; this app's own copy (the stored `.eml`, whether
 filed as a Newsletter or still sitting in the Unmatched Emails queue) is
 what persists afterward — a church shouldn't rely on Postmark itself as
 a second copy past that window.
+
+### Notifications: WhatsApp
+
+WhatsApp has no bot API for existing groups and communities. The official
+WhatsApp Business API only supports groups it creates itself, so this
+feature instead links a phone number to the app as a **linked device** —
+the same mechanism as WhatsApp Web — using the open-source
+[Baileys](https://github.com/WhiskeySockets/Baileys) library, wrapped in
+[baileys-antiban](https://github.com/kobie3717/baileys-antiban). Things to
+know before turning it on:
+
+- **It's unofficial, and WhatsApp can ban the number.** Use a **dedicated
+  number** (a prepaid SIM or a second line that can receive WhatsApp's
+  one-time verification), never anyone's personal WhatsApp. Keep the
+  volume low — a handful of messages a day is what it's built for. The
+  anti-ban layer spaces sends out like a person would, blocks identical
+  repeats, and **pauses sending automatically** if the number's ban risk
+  climbs (the Site Administration → WhatsApp page shows a warning, and
+  anything not sent simply stays queued for the next daily send). It
+  reduces the risk; it can't remove it.
+- **The number must be a member** of the community and of every group you
+  map (and an admin of any group where only admins can post).
+- **What's stored.** The linked session lives in the database, encrypted
+  with `FIELD_ENCRYPTION_KEY` (the same protection as the GroupMe token),
+  and is never sent to the browser. It is deliberately **not** in
+  backups: after restoring a backup onto a new instance, the app notices
+  the missing session and asks you to link again. Losing
+  `FIELD_ENCRYPTION_KEY` has the same effect. Unlinking from the app (or
+  removing the device in WhatsApp) wipes it. Message text is never
+  written to the logs.
+- **Data exposure**, same honesty as GroupMe: what you post travels
+  through WhatsApp (end-to-end encrypted between the linked number and the
+  group's members, as with any WhatsApp message) and is readable by every
+  member of the group it posts to. A restricted partner's items are masked
+  and held for review exactly as they are for GroupMe.
+- **Hosting.** The connection runs inside the existing web service — no
+  extra Render service. It needs an always-on instance (the `starter`
+  plan in `render.yaml` is; free web services sleep and would drop the
+  connection). Only one copy of the app may hold the session at a time:
+  during a deploy the new instance waits (a minute or two) for the old one
+  to let go, handled automatically with a database lock.
+- **Schedule and message size.** WhatsApp shares GroupMe's daily send hour
+  and content-type mutes (Site Administration → Notifications) but tracks
+  its own sent state, so one channel being down never blocks the other.
+  Related items going to the same group are combined into one message
+  (kept under 4,000 characters); a single item longer than that is split
+  into consecutive messages rather than cut off.
 
 ### Notifications: GroupMe, the admin digest, and the public digest
 

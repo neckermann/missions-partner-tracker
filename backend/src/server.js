@@ -37,6 +37,8 @@ const publicSubscribeRoutes = require("./routes/publicSubscribe");
 const publicUnsubscribeRoutes = require("./routes/publicUnsubscribe");
 const adminScopedDigestRoutes = require("./routes/adminScopedDigest");
 const { startDigestScheduler, startGroupMeScheduler } = require("./utils/digestScheduler");
+const whatsappClient = require("./utils/whatsappClient");
+const { isFeatureEnabled } = require("./utils/features");
 const prisma = require("./prismaClient");
 
 const app = express();
@@ -272,11 +274,33 @@ if (require.main === module) {
       process.env.TZ = process.env.TZ || "UTC";
     }
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`Missionary Tracker API listening on port ${PORT}`);
     });
     startDigestScheduler();
     startGroupMeScheduler();
+
+    // Open the WhatsApp session now (if the feature is on and a number is
+    // paired) rather than waiting up to a minute for the first scheduler
+    // tick. A no-op for a church that doesn't use WhatsApp.
+    prisma.churchSettings
+      .findUnique({ where: { id: "singleton" } })
+      .then((settings) =>
+        whatsappClient.syncWithSettings(settings, isFeatureEnabled(settings?.enabledFeatures, "whatsapp"))
+      )
+      .catch((err) => console.error("Couldn't start the WhatsApp connection at startup:", err));
+
+    // Render runs the old and new instance side by side during a deploy,
+    // and only one may hold the WhatsApp session. Closing the socket and
+    // releasing its advisory lock on SIGTERM lets the new instance take
+    // over right away instead of waiting out its retry interval.
+    const shutdown = async () => {
+      await whatsappClient.shutdown().catch(() => {});
+      server.close(() => process.exit(0));
+      setTimeout(() => process.exit(0), 8000).unref();
+    };
+    process.once("SIGTERM", shutdown);
+    process.once("SIGINT", shutdown);
   })();
 }
 
