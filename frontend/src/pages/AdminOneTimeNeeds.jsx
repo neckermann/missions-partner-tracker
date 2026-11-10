@@ -48,7 +48,8 @@ export default function AdminOneTimeNeeds() {
   // see PrayerRequestSection.jsx's own hasEnabledChannel for the full
   // reasoning (shared precondition for "Mark as urgent" and
   // canApproveNow below).
-  const hasEnabledChannel = enabledFeatures.groupme || enabledFeatures.outboundEmail;
+  const hasEnabledChannel =
+    enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
   const [needs, setNeeds] = useState([]);
   const [partners, setPartners] = useState([]);
   const [statusFilter, setStatusFilter] = useState("all"); // all | pending | decided

@@ -1,5 +1,5 @@
 import React from "react";
-import { urgentRecipientSummary, reachableUrgentChannels } from "../../utils/urgentSend.js";
+import { urgentRecipientSummary, reachableUrgentChannels, chatChannelNames } from "../../utils/urgentSend.js";
 
 // The urgent-send confirm dialog's body -- replaces a single window.confirm
 // string with a real lead sentence plus a visually distinct safety-rules
@@ -10,6 +10,7 @@ import { urgentRecipientSummary, reachableUrgentChannels } from "../../utils/urg
 export default function UrgentSendConfirmBody({ enabledFeatures, adminCount, publicCount }) {
   const reach = reachableUrgentChannels(enabledFeatures);
   const summary = urgentRecipientSummary(enabledFeatures, { adminCount, publicCount });
+  const chatNames = chatChannelNames(reach);
 
   return (
     <div>
@@ -18,8 +19,8 @@ export default function UrgentSendConfirmBody({ enabledFeatures, adminCount, pub
       </p>
       <div className="field-warning">
         Still waits on review if this partner is restricted
-        {reach.groupme && ", and still respects a muted GroupMe content type"} -- urgent only skips the wait,
-        never those safety rules.
+        {chatNames.length > 0 && `, and still respects a muted ${chatNames.join("/")} content type`} -- urgent
+        only skips the wait, never those safety rules.
       </div>
     </div>
   );

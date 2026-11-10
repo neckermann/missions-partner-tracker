@@ -50,7 +50,8 @@ export default function AdminPrayerRequests() {
   // see PrayerRequestSection.jsx's own hasEnabledChannel for the full
   // reasoning (shared precondition for "Mark as urgent" and
   // canApproveNow below).
-  const hasEnabledChannel = enabledFeatures.groupme || enabledFeatures.outboundEmail;
+  const hasEnabledChannel =
+    enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
   const [requests, setRequests] = useState([]);
   const [partners, setPartners] = useState([]);
   // isRestricted isn't a prop here (there's no single partner this page

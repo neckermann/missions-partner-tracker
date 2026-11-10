@@ -24,6 +24,9 @@ const cron = require("node-cron");
 const prisma = require("../prismaClient");
 const { sendDigestTier } = require("./digestDelivery");
 const { runGroupMePass } = require("./groupmeChannel");
+const { runWhatsAppPass } = require("./whatsappChannel");
+const whatsappClient = require("./whatsappClient");
+const { isFeatureEnabled } = require("./features");
 const { clearNotifiableEvents } = require("./notificationOrchestrator");
 
 // Biweekly shares scopedDigestDayOfWeek; only the minimum gap below
@@ -124,14 +127,43 @@ async function checkAndMaybeFlushDigest() {
   }
 }
 
+// The shared chat tick: GroupMe and WhatsApp run off the same daily hour
+// (ChurchSettings.groupmeDigestHour), each with its own cursor and stamps.
+// Each pass has its own try/catch so one channel failing -- WhatsApp
+// disconnected, GroupMe's token revoked -- never skips the other or the
+// clearing step. (Kept under its original name: it was GroupMe's tick
+// first, and renaming exports would break anything importing it.)
 async function checkAndMaybeFlushGroupMe() {
   try {
     const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
     const now = new Date();
-    await runGroupMePass(settings, now);
+
+    try {
+      // Keeps the WhatsApp socket in step with the settings (opens it
+      // when the feature is on and a number is paired, closes it when the
+      // feature is turned off) -- a no-op for a church not using WhatsApp.
+      await whatsappClient.syncWithSettings(
+        settings,
+        isFeatureEnabled(settings?.enabledFeatures, "whatsapp")
+      );
+    } catch (err) {
+      console.error("WhatsApp connection sync failed:", err);
+    }
+
+    try {
+      await runGroupMePass(settings, now);
+    } catch (err) {
+      console.error("GroupMe pass failed:", err);
+    }
+    try {
+      await runWhatsAppPass(settings, now);
+    } catch (err) {
+      console.error("WhatsApp pass failed:", err);
+    }
+
     await clearNotifiableEvents();
   } catch (err) {
-    console.error("GroupMe schedule check failed:", err);
+    console.error("Chat schedule check failed:", err);
   }
 }
 

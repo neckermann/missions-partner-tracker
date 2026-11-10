@@ -17,6 +17,8 @@ const {
   getChurchSettings,
 } = require("./notificationEligibility");
 const { postToGroupMe } = require("./groupmeChannel");
+const { postToWhatsApp, hasWhatsAppTarget } = require("./whatsappChannel");
+const whatsappClient = require("./whatsappClient");
 const { normalizeRecipient, sendToRecipients } = require("./digestDelivery");
 
 const TIERS = ["biweekly", "monthly", "quarterly"];
@@ -45,6 +47,7 @@ async function clearNotifiableEvents() {
   const partnerById = new Map(partners.map((p) => [p.id, p]));
 
   const groupmeOn = isFeatureEnabled(settings?.enabledFeatures, "groupme");
+  const whatsappOn = isFeatureEnabled(settings?.enabledFeatures, "whatsapp");
   const emailOn = isFeatureEnabled(settings?.enabledFeatures, "outboundEmail");
   const publicDigestOn = isFeatureEnabled(settings?.enabledFeatures, "publicPrayerDigest");
 
@@ -82,15 +85,23 @@ async function clearNotifiableEvents() {
 
       const groupmeApplies =
         groupmeOn && isEligibleForChannel(row, CHANNELS.GROUPME, partner, settings, true);
+      // WhatsApp only "applies" once it's paired and this row's type has
+      // a group picked -- otherwise the row would wait forever for a
+      // channel that can never take it (there's no main-group fallback).
+      const whatsappApplies =
+        whatsappOn &&
+        hasWhatsAppTarget(row, settings) &&
+        isEligibleForChannel(row, CHANNELS.WHATSAPP, partner, settings, true);
       const tiers = Object.fromEntries(TIERS.map((tier) => [tier, tierApplies(row, tier, partner)]));
 
       // Guards the vacuous case: with every channel off/unsubscribed,
       // every "!applies" term below is trivially true, which would
       // delete a row that never actually reached anyone.
-      if (!(groupmeApplies || Object.values(tiers).some(Boolean))) return false;
+      if (!(groupmeApplies || whatsappApplies || Object.values(tiers).some(Boolean))) return false;
 
       return (
         (!groupmeApplies || row.groupmeSentAt) &&
+        (!whatsappApplies || row.whatsappSentAt) &&
         TIERS.every((tier) => !tiers[tier] || row[TIER_STAMP_COLUMN[tier]])
       );
     })
@@ -168,6 +179,20 @@ async function sendUrgentBroadcast(row, { id: partnerId }) {
     }
   }
 
+  let whatsappPosted = false;
+  if (
+    isFeatureEnabled(settings?.enabledFeatures, "whatsapp") &&
+    hasWhatsAppTarget(row, settings) &&
+    isEligibleForChannel(row, CHANNELS.WHATSAPP, partner, settings, true) &&
+    whatsappClient.getStatus().status === "connected"
+  ) {
+    const sentIds = await postToWhatsApp([row], partnerById, settings);
+    whatsappPosted = sentIds.has(row.id);
+    if (whatsappPosted) {
+      await prisma.notifiableEvent.update({ where: { id: row.id }, data: { whatsappSentAt: now } });
+    }
+  }
+
   // Cadence-blind: every active admin and confirmed public subscriber,
   // regardless of tier or whether that tier's schedule fired today --
   // reuses digestDelivery.js's recipient-normalization and send/chunking,
@@ -224,6 +249,7 @@ async function sendUrgentBroadcast(row, { id: partnerId }) {
 
   return {
     groupmePosted,
+    whatsappPosted,
     emailSent,
     adminCount: admins.length,
     publicCount: publicSubscribers.length,

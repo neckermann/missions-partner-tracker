@@ -18,8 +18,8 @@ function pluralize(count, singular, plural = `${singular}s`) {
 }
 
 // Mirrors the backend's own channel-level gating
-// (notificationOrchestrator.js's sendUrgentBroadcast): GroupMe needs its
-// own feature; admins need outboundEmail; public subscribers need BOTH
+// (notificationOrchestrator.js's sendUrgentBroadcast): GroupMe and
+// WhatsApp each need their own feature; admins need outboundEmail; public subscribers need BOTH
 // outboundEmail and publicPrayerDigest, since turning the public digest
 // off must stop their mail even while the admin digest keeps sending.
 // The one place this is decided -- both the checkbox's own description
@@ -28,9 +28,15 @@ function pluralize(count, singular, plural = `${singular}s`) {
 export function reachableUrgentChannels(enabledFeatures) {
   return {
     groupme: !!enabledFeatures.groupme,
+    whatsapp: !!enabledFeatures.whatsapp,
     admins: !!enabledFeatures.outboundEmail,
     publicSubscribers: !!(enabledFeatures.outboundEmail && enabledFeatures.publicPrayerDigest),
   };
+}
+
+// The chat channels (GroupMe/WhatsApp) that share the content-type mutes.
+export function chatChannelNames(reach) {
+  return [reach.groupme && "GroupMe", reach.whatsapp && "WhatsApp"].filter(Boolean);
 }
 
 // The "Mark as urgent" checkbox's own helper text -- settings-only, no
@@ -40,16 +46,18 @@ export function urgentSendDescription(enabledFeatures) {
   const reach = reachableUrgentChannels(enabledFeatures);
   const audiences = [];
   if (reach.groupme) audiences.push("GroupMe");
+  if (reach.whatsapp) audiences.push("WhatsApp");
   if (reach.admins) audiences.push("admins");
   if (reach.publicSubscribers) audiences.push("public subscribers");
 
-  const groupmeClause = reach.groupme
-    ? ", and still respects a muted GroupMe content type -- urgent only skips the wait, never those safety rules."
-    : " -- urgent only skips the wait, never that safety rule.";
+  const chatClause =
+    chatChannelNames(reach).length > 0
+      ? `, and still respects a muted ${chatChannelNames(reach).join("/")} content type -- urgent only skips the wait, never those safety rules.`
+      : " -- urgent only skips the wait, never that safety rule.";
   return (
     `Sends immediately to ${joinWithAnd(audiences)}, bypassing everyone's own schedule -- you'll be asked to ` +
     `confirm the real recipient counts before it actually sends. Still waits on review if this partner ` +
-    `is restricted${groupmeClause}`
+    `is restricted${chatClause}`
   );
 }
 
@@ -62,6 +70,7 @@ export function urgentRecipientSummary(enabledFeatures, { adminCount, publicCoun
   const reach = reachableUrgentChannels(enabledFeatures);
   const parts = [];
   if (reach.groupme) parts.push("GroupMe");
+  if (reach.whatsapp) parts.push("WhatsApp");
   if (reach.admins) parts.push(pluralize(adminCount, "admin"));
   if (reach.publicSubscribers) parts.push(pluralize(publicCount, "public subscriber"));
   return joinWithAnd(parts);

@@ -524,6 +524,13 @@ model NotifiableEvent {
   // successfully posts this row, or immediately by sendUrgentBroadcast.
   groupmeSentAt DateTime?
 
+  // WhatsApp's own stamp -- same convention as groupmeSentAt above, set
+  // by whatsappChannel.js's postToWhatsApp (or immediately by
+  // sendUrgentBroadcast). Its own column, not shared with GroupMe's: a
+  // church can run both channels at once, and one being down or
+  // disconnected must never mark the other's delivery as done.
+  whatsappSentAt DateTime?
+
   // Admin-edited body text (#187) -- any recorded event can be edited
   // before it sends, restricted or not; see routes/notifications.js's
   // PUT /pending/:id. reviewedAt null means "never edited," same
@@ -675,6 +682,30 @@ model ChurchSettings {
   groupmeNewsletterTopicId    String?
   groupmeNewsletterTopicName  String?
 
+  // WhatsApp integration (see backend/src/utils/whatsappChannel.js and
+  // whatsappClient.js). Unlike GroupMe there is no token to store: the
+  // credential is a whole Baileys session (creds plus many Signal keys),
+  // which lives in the WhatsAppAuthEntry table below, encrypted per row.
+  // Nothing in this block is a secret -- they're display labels and the
+  // ids picked from live lists in the admin UI (never hand-typed), same
+  // as groupmeGroupName etc.
+  //
+  // One WhatsApp *community* containing several groups, mapped onto the
+  // same three notification types GroupMe maps onto Topics. There is no
+  // "default group" fallback like GroupMe's: a type with no group picked
+  // is simply not sent (and never held in the queue either -- see
+  // notificationOrchestrator.js's clearNotifiableEvents).
+  whatsappPhoneNumber          String? // digits only, the dedicated number the app is paired as
+  whatsappPairedAt             DateTime?
+  whatsappCommunityId          String?
+  whatsappCommunityName        String?
+  whatsappPrayerGroupId        String?
+  whatsappPrayerGroupName      String?
+  whatsappOneTimeNeedGroupId   String?
+  whatsappOneTimeNeedGroupName String?
+  whatsappNewsletterGroupId    String?
+  whatsappNewsletterGroupName  String?
+
   // Joshua Project API key (see backend/src/utils/joshuaProject.js) --
   // country-level unreached-people-group stats shown on a partner's page,
   // admin-managed on its own settings page like every other optional
@@ -770,6 +801,13 @@ model ChurchSettings {
   // groupmeChannel.js's shouldFlushGroupMe.
   groupmeDigestHour       Int? // 0 - 23, in this church's configured timezone
   lastGroupmeDigestSentAt DateTime?
+  // WhatsApp shares groupmeDigestHour above (and the three
+  // notifyGroupMe* content-type mutes) -- one chat schedule, not two --
+  // but keeps its own dedupe cursor. A shared cursor would let whichever
+  // channel ran first on a tick stamp it and block the other from ever
+  // sending that day. The column names stay "groupme*" so existing forks
+  // upgrade without a rename; only the admin UI labels say "chat".
+  lastWhatsappDigestSentAt DateTime?
 
   // This church's own IANA timezone (e.g. "America/New_York"), applied
   // to process.env.TZ once at server startup (see server.js) -- every
@@ -964,4 +1002,18 @@ model PublicSubscriberPartner {
 
   @@id([subscriberId, partnerId])
   @@index([partnerId])
+}
+
+// The WhatsApp (Baileys) session, one row per auth-state key: "creds"
+// plus a row per Signal key ("pre-key-12", "session-<jid>", ...). Lives in
+// the database, not on disk, because Render's web-service filesystem is
+// ephemeral -- a file-based session would be wiped on every deploy and
+// force a re-pair. `value` is always an encryptField() ciphertext (the
+// serialized JSON never touches the table in plaintext), so losing
+// FIELD_ENCRYPTION_KEY means re-pairing, exactly like losing the GroupMe
+// token. Never selected into any API response -- see whatsappAuthState.js.
+model WhatsAppAuthEntry {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

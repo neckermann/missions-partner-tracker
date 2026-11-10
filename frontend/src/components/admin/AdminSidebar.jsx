@@ -19,7 +19,7 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
     { to: "/admin", label: "Home", end: true },
     { to: "/admin/partners", label: usePartnerTermInAdmin ? partnerTermPlural : "Partners" },
     enabledFeatures.inboundEmail && { to: "/admin/inbound-email", label: "Unmatched Emails" },
-    (enabledFeatures.groupme || enabledFeatures.outboundEmail) && {
+    (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
       to: "/admin/notifications",
       label: "Pending Notifications",
     },
@@ -67,7 +67,10 @@ function buildSiteAdminLinks(enabledFeatures) {
     { to: "/admin/settings/features", label: "Enabled Features" },
     { to: "/admin/settings/backups", label: "Backups" },
     { to: "/admin/settings/system-info", label: "System Info" },
-    (enabledFeatures.groupme || enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
+    (enabledFeatures.groupme ||
+      enabledFeatures.whatsapp ||
+      enabledFeatures.outboundEmail ||
+      enabledFeatures.inboundEmail) && {
       label: "Communications",
       isLabel: true,
     },
@@ -76,15 +79,16 @@ function buildSiteAdminLinks(enabledFeatures) {
       label: "Email",
     },
     enabledFeatures.groupme && { to: "/admin/settings/groupme", label: "GroupMe" },
+    enabledFeatures.whatsapp && { to: "/admin/settings/whatsapp", label: "WhatsApp" },
     // Schedule(s), GroupMe's content-type mutes, the restricted-partner
     // safety gate, digest appearance, and (when the public digest is on)
     // its subscriber counts -- all one page now. The actual queue (what's
     // waiting to send) is its own top-level "Pending Notifications" link
     // above, same "content, not settings" split Unmatched Emails already
-    // has from Email's own settings page. Gated on groupme/outboundEmail
+    // has from Email's own settings page. Gated on groupme/whatsapp/outboundEmail
     // specifically (not inboundEmail, which doesn't drive any
     // notification sending).
-    (enabledFeatures.groupme || enabledFeatures.outboundEmail) && {
+    (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
       to: "/admin/settings/notifications",
       label: "Notifications",
     },
