@@ -471,10 +471,20 @@ async function sendText(jid, text) {
   await runtime.sock.sendMessage(jid, { text });
 }
 
+// Baileys' own communityFetchAllParticipating() sends the identical wire
+// query as groupFetchAllParticipating() but then parses the response for
+// a <communities>/<community> wrapper the server never actually sends for
+// this query -- it always comes back as <groups>/<group>, same as the
+// plain group fetch. That makes communityFetchAllParticipating() silently
+// return {} every time, no error. groupFetchAllParticipating() is the one
+// that actually gets real data back; filter it down to isCommunity (set
+// from the <parent> tag in that same response) to get just communities.
 async function listCommunities() {
   requireConnected();
-  const all = await runtime.rawSock.communityFetchAllParticipating();
-  return Object.values(all || {}).map((c) => ({ id: c.id, name: c.subject || "(unnamed community)" }));
+  const all = await runtime.rawSock.groupFetchAllParticipating();
+  return Object.values(all || {})
+    .filter((g) => g.isCommunity)
+    .map((c) => ({ id: c.id, name: c.subject || "(unnamed community)" }));
 }
 
 async function listCommunityGroups(communityJid) {

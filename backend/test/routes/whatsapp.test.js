@@ -35,8 +35,9 @@ function makeFakeSocket() {
     ended: false,
     requestPairingCode: async () => "ABCD1234",
     sendMessage: async (jid, content) => sock.sent.push({ jid, content }),
-    communityFetchAllParticipating: async () => ({
-      "100@g.us": { id: "100@g.us", subject: "Our Church Community" },
+    groupFetchAllParticipating: async () => ({
+      "100@g.us": { id: "100@g.us", subject: "Our Church Community", isCommunity: true },
+      "999@g.us": { id: "999@g.us", subject: "Some Plain Group", isCommunity: false },
     }),
     communityFetchLinkedGroups: async () => ({
       linkedGroups: [
