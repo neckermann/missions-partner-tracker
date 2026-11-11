@@ -77,6 +77,35 @@ async function resetDemoData() {
     throw new Error("DEMO_ADMIN_EMAIL and DEMO_ADMIN_PASSWORD must both be set to reset demo data");
   }
 
+  // #245: snapshot the live WhatsApp session before `migrate reset` wipes
+  // it, so a throwaway dev/demo site that resets its own database in
+  // place doesn't force a fresh QR scan on every single reset. Scoped
+  // narrowly to this script's own self-reset flow, not a general
+  // backup/restore feature -- a real backup/restore deliberately never
+  // carries this forward (see ADMIN_GUIDE.md: a leaked backup file must
+  // not let someone silently hijack a live linked device elsewhere).
+  // `whatsappPairedAt` is the signal for "there's an actual session worth
+  // keeping" -- a church/demo that's never paired has nothing to snapshot.
+  const existingAuthEntries = await prisma.whatsAppAuthEntry.findMany({ select: { key: true, value: true } });
+  const existingWhatsAppSettings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: {
+      whatsappPhoneNumber: true,
+      whatsappPairedAt: true,
+      whatsappCommunityId: true,
+      whatsappCommunityName: true,
+      whatsappAnnouncementGroupId: true,
+      whatsappAnnouncementGroupName: true,
+      whatsappPrayerGroupId: true,
+      whatsappPrayerGroupName: true,
+      whatsappOneTimeNeedGroupId: true,
+      whatsappOneTimeNeedGroupName: true,
+      whatsappNewsletterGroupId: true,
+      whatsappNewsletterGroupName: true,
+    },
+  });
+  const whatsappSnapshot = existingWhatsAppSettings?.whatsappPairedAt ? existingWhatsAppSettings : null;
+
   // Drops and recreates the schema from migrations — simpler and more
   // robust than hand-maintaining a cascade-aware deleteMany order that
   // could drift as the schema evolves. `npx` is a .cmd file on Windows,
@@ -251,9 +280,18 @@ async function resetDemoData() {
 
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
-    create: { id: "singleton", ...churchDetails, enabledFeatures, ...integrationKeys },
-    update: { ...churchDetails, enabledFeatures, ...integrationKeys },
+    create: { id: "singleton", ...churchDetails, enabledFeatures, ...integrationKeys, ...whatsappSnapshot },
+    update: { ...churchDetails, enabledFeatures, ...integrationKeys, ...whatsappSnapshot },
   });
+
+  // #245: restore the WhatsApp session snapshotted before the reset above
+  // -- the table is empty again post-reset, so this is a plain recreate,
+  // not an upsert. Each `value` is already an encryptField() ciphertext
+  // (see whatsappAuthState.js), copied through as-is; `updatedAt` is left
+  // for Prisma to set fresh rather than preserved, since nothing reads it.
+  if (whatsappSnapshot && existingAuthEntries.length > 0) {
+    await prisma.whatsAppAuthEntry.createMany({ data: existingAuthEntries });
+  }
 
   // Seeded last, now that both the admin and Church Settings above exist
   // for it to read.

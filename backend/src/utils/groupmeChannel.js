@@ -22,10 +22,15 @@ const { isFeatureEnabled } = require("./features");
 const { buildBlurb } = require("./notificationBlurbs");
 const { CHANNELS, isEligibleForChannel } = require("./notificationEligibility");
 const { shouldFlushDailyChatChannel } = require("./chatSchedule");
+const { packMessages } = require("./messagePacking");
 
 const BASE_URL = "https://api.groupme.com/v3";
 // GroupMe rejects message text over 1,000 characters outright --
-// truncated here rather than left for the API to 400 on.
+// packMessages (below) guarantees every message it hands to postMessage
+// is already under this, splitting a single over-long blurb across
+// several messages rather than truncating it (#244 was this exact bug:
+// a blurb over 1,000 chars got silently cut to 999 chars + "…", dropping
+// the rest of the text, yet the row was still stamped sent).
 const MAX_MESSAGE_LENGTH = 1000;
 
 // Every GroupMe response is wrapped in { response, meta } -- success has
@@ -58,31 +63,19 @@ async function listTopics(accessToken, groupId) {
   return (topics || []).map((t) => ({ id: String(t.id), name: t.topic || t.name || "(untitled topic)" }));
 }
 
+// Throws rather than silently truncating -- packMessages (messagePacking.js)
+// already guarantees every message it produces is under MAX_MESSAGE_LENGTH,
+// so this firing loudly would mean that guarantee broke, not that this
+// function should paper over it by cutting text again (the exact failure
+// mode #244 was -- a truncation here silently dropping text that packMessages
+// should already have split out).
 async function postMessage(accessToken, targetId, text) {
-  const trimmed = text.length > MAX_MESSAGE_LENGTH ? `${text.slice(0, MAX_MESSAGE_LENGTH - 1)}…` : text;
-  await groupmeRequest(accessToken, "POST", `/groups/${encodeURIComponent(targetId)}/messages`, {
-    message: { source_guid: crypto.randomUUID(), text: trimmed },
-  });
-}
-
-// Greedily packs a topic's own blurbs into as-few messages as fit under
-// MAX_MESSAGE_LENGTH, joining whole blurbs with a blank line -- never
-// splits one blurb's text across two messages.
-function packMessages(blurbs) {
-  const messages = []; // [{ text, blurbIds }]
-  let current = null;
-
-  for (const blurb of blurbs) {
-    const candidateText = current ? `${current.text}\n\n${blurb.groupmeText}` : blurb.groupmeText;
-    if (current && candidateText.length > MAX_MESSAGE_LENGTH) {
-      messages.push(current);
-      current = { text: blurb.groupmeText, blurbIds: [blurb.id] };
-    } else {
-      current = { text: candidateText, blurbIds: [...(current?.blurbIds || []), blurb.id] };
-    }
+  if (text.length > MAX_MESSAGE_LENGTH) {
+    throw new Error(`postMessage received ${text.length} chars, over the ${MAX_MESSAGE_LENGTH} limit`);
   }
-  if (current) messages.push(current);
-  return messages;
+  await groupmeRequest(accessToken, "POST", `/groups/${encodeURIComponent(targetId)}/messages`, {
+    message: { source_guid: crypto.randomUUID(), text },
+  });
 }
 
 // Takes already-eligible NotifiableEvent rows (the caller already
@@ -121,14 +114,22 @@ async function postToGroupMe(eligibleRows, partnerById, settings) {
     const targetId = settings[topicKey] || settings.groupmeGroupId;
     if (!targetId) continue; // nothing configured to send to -- stays queued
 
-    for (const { text, blurbIds } of packMessages(topicBlurbs)) {
+    // failedParts tracks a split blurb's own id once one of its pieces
+    // fails -- every later piece of that same blurb is then skipped
+    // (message.partOf matches it) rather than posting an out-of-order
+    // fragment, leaving the whole blurb queued for the next pass instead
+    // of stamping it sent on a partial delivery (#244).
+    const failedParts = new Set();
+    for (const message of packMessages(topicBlurbs, MAX_MESSAGE_LENGTH)) {
+      if (message.partOf && failedParts.has(message.partOf)) continue;
       try {
-        await postMessage(accessToken, targetId, text);
-        blurbIds.forEach((id) => sentIds.add(id));
+        await postMessage(accessToken, targetId, message.text);
+        message.completes.forEach((id) => sentIds.add(id));
       } catch (err) {
         // One message's failure must never stop the rest of the pass --
         // those rows just stay queued for the next one.
         console.error("GroupMe post failed:", err);
+        if (message.partOf) failedParts.add(message.partOf);
       }
     }
   }
@@ -186,6 +187,7 @@ async function runGroupMePass(settings, now) {
 }
 
 module.exports = {
+  MAX_MESSAGE_LENGTH,
   listGroups,
   listTopics,
   postMessage,
