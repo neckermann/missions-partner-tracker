@@ -1129,20 +1129,26 @@ async function seedUnmatchedEmails() {
 }
 
 const ADDITIONAL_USERS = [
-  { name: "Pat Reynolds", role: "editor", cadence: "biweekly", active: true, mfaSetupRequired: false },
+  { name: "Pat Reynolds", role: "editor", cadence: null, active: true, mfaSetupRequired: false },
   { name: "Jordan Lee", role: "editor", cadence: null, active: true, mfaSetupRequired: true },
-  { name: "Casey Nguyen", role: "viewer", cadence: "monthly", active: true, mfaSetupRequired: false },
-  { name: "Morgan Patel", role: "admin", cadence: "quarterly", active: false, mfaSetupRequired: false },
+  { name: "Casey Nguyen", role: "viewer", cadence: null, active: true, mfaSetupRequired: false },
+  { name: "Morgan Patel", role: "admin", cadence: null, active: false, mfaSetupRequired: false },
 ];
 
 // Beyond the one env-var-driven demo admin (createAdmin.js), a handful
-// more across roles/active-state/cadence-pick/MFA-required -- so Manage
-// Users and the admin cadence picker have real variety to show, not
-// just a single row. mfaSetupRequired (forces enrollment at next
-// login), not mfaEnabled, for the MFA example -- mfaEnabled with no
-// real TOTP secret would leave that account permanently unable to
-// complete login. Fixed, obviously-fake password -- these exist to
-// populate the list, not to be logged into for the demo.
+// more across roles/active-state/MFA-required -- so Manage Users has
+// real variety to show, not just a single row. mfaSetupRequired (forces
+// enrollment at next login), not mfaEnabled, for the MFA example --
+// mfaEnabled with no real TOTP secret would leave that account
+// permanently unable to complete login. Fixed, obviously-fake password
+// -- these exist to populate the list, not to be logged into for the
+// demo. None are ever given a cadence: every one of these accounts'
+// email is a generated @example.org address nobody reads, and
+// example.org is a reserved, non-deliverable domain (RFC 2606) -- but a
+// scheduled digest actually attempting to send there is still exactly
+// the kind of thing a demo reset must never do by default. The admin
+// cadence picker's own UI is enough to demonstrate the feature; seeded
+// data doesn't need to exercise the send path too.
 async function seedAdditionalUsers() {
   console.log(`Seeding ${ADDITIONAL_USERS.length} additional admin users...`);
   const bcrypt = require("bcryptjs");
