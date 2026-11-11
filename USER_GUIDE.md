@@ -780,6 +780,8 @@ Setup builds up in steps:
    all. Picking a different community clears the group picks and
    re-detects the new community's Announcements group.
 
+![The WhatsApp settings page, with the number linked and every step configured](docs/assets/screenshots/whatsapp-settings.png)
+
 If WhatsApp is disconnected or rejects a post, whatever you were saving
 still saves normally; the dispatch stays queued and goes out on the
 next send.
@@ -932,7 +934,7 @@ type — nothing to hold, nothing to review, because nothing's queued.
 Turning it on takes on that review responsibility in exchange for
 restricted partners' content reaching every channel like anyone else's.
 
-![The Dispatch Settings page: subscriber counts, the Restricted Partners gate, digest customization, email schedule, and GroupMe](docs/assets/screenshots/notifications-settings.png)
+![The Dispatch Settings page: subscriber counts, the Restricted Partners gate, digest customization, email schedule, and the GroupMe/WhatsApp chat schedule](docs/assets/screenshots/notifications-settings.png)
 
 #### Email Dispatch Customization
 
