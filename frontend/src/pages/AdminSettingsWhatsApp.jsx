@@ -344,8 +344,8 @@ export default function AdminSettingsWhatsApp() {
           <>
             {connection.status === "logged_out" && <p className="form-error">{STATUS_TEXT.logged_out}</p>}
             <p style={{ color: "#555", fontSize: "0.9rem" }}>
-              On the dedicated phone, open WhatsApp → Settings → Linked Devices → Link a Device, then scan
-              the QR code below.
+              On the dedicated phone, open WhatsApp → Settings → Linked Devices → Link a Device, then scan the
+              QR code below.
             </p>
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
               <button type="button" className="btn" onClick={handleStartPairing} disabled={busy || pairing}>
@@ -376,8 +376,9 @@ export default function AdminSettingsWhatsApp() {
             <p style={{ color: "#555", fontSize: "0.9rem" }}>
               {settings.announcementGroupName ? (
                 <>
-                  Announcements group (detected automatically): <strong>{settings.announcementGroupName}</strong>{" "}
-                  — used for any notification type below with no group of its own picked.
+                  Announcements group (detected automatically):{" "}
+                  <strong>{settings.announcementGroupName}</strong> — used for any notification type below
+                  with no group of its own picked.
                 </>
               ) : (
                 "No Announcements group was detected for this community -- a notification type with no group of its own picked below won't be sent."

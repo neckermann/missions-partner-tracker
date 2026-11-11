@@ -267,7 +267,9 @@ async function handleConnectionUpdate(baileys, update) {
       // revoked the linked device (the admin removed it, or -- the known
       // risk this file's header comment describes -- it saw a conflicting
       // second connection during a deploy's old/new instance overlap).
-      console.error("WhatsApp logged this device out (DisconnectReason.loggedOut) -- clearing the saved session.");
+      console.error(
+        "WhatsApp logged this device out (DisconnectReason.loggedOut) -- clearing the saved session."
+      );
       await handleLoggedOut();
       return;
     }
@@ -347,7 +349,9 @@ async function connect() {
       // repeated attempts: don't spin up a socket that would just emit QR
       // codes nobody is scanning. Clear the paired markers so the admin
       // UI offers pairing again.
-      console.error(`WhatsApp session still not found after ${runtime.unregisteredStreak} attempts -- treating it as gone.`);
+      console.error(
+        `WhatsApp session still not found after ${runtime.unregisteredStreak} attempts -- treating it as gone.`
+      );
       await handleLoggedOut();
       return;
     }

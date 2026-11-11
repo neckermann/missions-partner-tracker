@@ -253,17 +253,15 @@ describe("postToWhatsApp", () => {
   test("a type with no group picked routes to the Announcements fallback instead", async () => {
     const sent = [];
     mock.method(whatsappClient, "sendText", async (jid, text) => sent.push({ jid, text }));
-    const newsletter = {
-      id: "n",
-      type: "newsletterCreated",
-      partnerId: "p1",
-      payload: { partnerName: "Jane Doe", newsletterId: "f1", title: "Fall" },
-    };
-    const ids = await postToWhatsApp(
-      [newsletter],
-      partnerById,
-      { ...settings, whatsappAnnouncementGroupId: "announce@g.us" }
-    );
+    // A prayer request, not the newsletter used above -- newsletterCreated's
+    // own groupmeText is independently null without APP_BASE_URL set (no
+    // link, nothing worth sending -- see notificationBlurbs.js), which
+    // would filter this row out before ever reaching the fallback logic
+    // this test is actually about, passing locally (APP_BASE_URL set in
+    // backend/.env) but not in CI (unset there). prayerRequestCreated's
+    // groupmeText has no such external dependency.
+    const noPrayerGroup = { whatsappPairedAt: new Date(), whatsappAnnouncementGroupId: "announce@g.us" };
+    const ids = await postToWhatsApp([prayer("a", "Pray for safety")], partnerById, noPrayerGroup);
     assert.equal(ids.size, 1);
     assert.equal(sent.length, 1);
     assert.equal(sent[0].jid, "announce@g.us");
