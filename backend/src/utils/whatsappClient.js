@@ -479,9 +479,18 @@ function requireConnected() {
 // the send (human-like spacing) or reject it outright while the health
 // monitor has the number paused -- callers treat a throw as "leave the row
 // queued and retry next pass".
+//
+// The third ({}) argument is required even though baileys-antiban's own
+// type signature marks it optional and its README shows calling without
+// it: its wrapped sendMessage does `if (options.circuitBreaker)` with no
+// guard for `options` itself being undefined, so a real 2-argument call
+// (the library's own documented shape) throws "Cannot read properties of
+// undefined (reading 'circuitBreaker')" before ever reaching Baileys --
+// every send fails, caught and logged one layer up in whatsappChannel.js,
+// with nothing posted and no error surfaced anywhere but the server log.
 async function sendText(jid, text) {
   requireConnected();
-  await runtime.sock.sendMessage(jid, { text });
+  await runtime.sock.sendMessage(jid, { text }, {});
 }
 
 // Baileys' own communityFetchAllParticipating() sends the identical wire
