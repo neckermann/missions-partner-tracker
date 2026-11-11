@@ -630,6 +630,12 @@ know before turning it on:
   reduces the risk; it can't remove it.
 - **The number must be a member** of the community and of every group you
   map (and an admin of any group where only admins can post).
+- **Announcements fallback.** Same idea as GroupMe's main conversation:
+  every WhatsApp community has a built-in Announcements group, detected
+  automatically the moment you pick the community (no picker for it —
+  the WhatsApp settings page just shows which one it found). A
+  notification type with no group of its own mapped posts there instead;
+  only with neither set does it not go out over WhatsApp.
 - **What's stored.** The linked session lives in the database, encrypted
   with `FIELD_ENCRYPTION_KEY` (the same protection as the GroupMe token),
   and is never sent to the browser. It is deliberately **not** in

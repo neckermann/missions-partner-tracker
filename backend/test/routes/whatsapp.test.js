@@ -37,6 +37,13 @@ function makeFakeSocket() {
     groupFetchAllParticipating: async () => ({
       "100@g.us": { id: "100@g.us", subject: "Our Church Community", isCommunity: true },
       "999@g.us": { id: "999@g.us", subject: "Some Plain Group", isCommunity: false },
+      "444@g.us": {
+        id: "444@g.us",
+        subject: "Announcements",
+        isCommunity: false,
+        isCommunityAnnounce: true,
+        linkedParent: "100@g.us",
+      },
     }),
     communityFetchLinkedGroups: async () => ({
       linkedGroups: [
@@ -278,6 +285,16 @@ describe("WhatsApp pairing flow (fake socket)", () => {
     );
   });
 
+  test("picking a community auto-resolves its Announcements group", async () => {
+    const res = await admin("/api/settings/whatsapp", {
+      method: "PUT",
+      body: { communityId: "100@g.us", communityName: "Our Church Community" },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.announcementGroupId, "444@g.us");
+    assert.equal(res.body.announcementGroupName, "Announcements");
+  });
+
   test("sendText goes out through the (wrapped) socket", async () => {
     await whatsappClient.sendText("111@g.us", "hello");
     assert.deepEqual(sockets[0].sent, [{ jid: "111@g.us", content: { text: "hello" } }]);
@@ -300,6 +317,8 @@ describe("WhatsApp pairing flow (fake socket)", () => {
     assert.equal(res.body.paired, false);
     assert.equal(res.body.phoneNumber, null);
     assert.equal(res.body.communityId, null);
+    assert.equal(res.body.announcementGroupId, null);
+    assert.equal(res.body.announcementGroupName, null);
     assert.equal(sockets[0].loggedOut, true);
     assert.equal(await prisma.whatsAppAuthEntry.count(), 0);
   });

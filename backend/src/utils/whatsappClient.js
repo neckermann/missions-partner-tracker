@@ -528,6 +528,22 @@ async function listCommunityGroups(communityJid) {
     .map((g) => ({ id: g.id, name: g.subject || "(unnamed group)" }));
 }
 
+// Every WhatsApp community has one built-in Announcements group --
+// Baileys flags it via isCommunityAnnounce (the <default_sub_group> tag
+// in that group's own metadata), linkedParent pointing back at the
+// community. Auto-resolved, never hand-picked: it's a structural
+// property of the community, same data source as listCommunities (see
+// that function's own comment on why groupFetchAllParticipating is the
+// one that actually returns real data, unlike communityFetchAllParticipating).
+async function findAnnouncementGroup(communityJid) {
+  requireConnected();
+  const all = await runtime.rawSock.groupFetchAllParticipating();
+  const match = Object.values(all || {}).find(
+    (g) => g.linkedParent === communityJid && g.isCommunityAnnounce
+  );
+  return match ? { id: match.id, name: match.subject || "(unnamed group)" } : null;
+}
+
 // Called from SIGTERM: stop the socket and release the lock promptly so
 // the incoming instance can take over instead of waiting out its retry.
 async function shutdown() {
@@ -547,6 +563,7 @@ module.exports = {
   sendText,
   listCommunities,
   listCommunityGroups,
+  findAnnouncementGroup,
   shutdown,
   // exported for tests only
   _deps: deps,

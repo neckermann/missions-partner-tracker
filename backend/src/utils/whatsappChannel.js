@@ -61,30 +61,48 @@ const GROUP_FIELD_BY_EVENT_TYPE = Object.fromEntries(
 );
 const GROUP_FIELD_BY_TOPIC_KEY = Object.fromEntries(GROUP_MAPPINGS.map((m) => [m.topicKey, m.whatsappField]));
 
-// True when this row's notification type has a WhatsApp group picked.
-// Unlike GroupMe there is no "main conversation" fallback, so a type
-// with no group is simply not a WhatsApp notification at all --
+// The group a content-type field resolves to: its own picked group, or
+// -- same idea as GroupMe's main-group fallback -- the community's
+// Announcements group (whatsappAnnouncementGroupId, auto-resolved when
+// the community is picked; see whatsappClient.js's
+// findAnnouncementGroup and routes/settings.js's PUT /whatsapp). Only
+// with neither set does a type have nowhere to go. Shared by
+// hasWhatsAppTarget (keyed by row.type via GROUP_FIELD_BY_EVENT_TYPE)
+// and postToWhatsApp (keyed by a blurb's topicKey via
+// GROUP_FIELD_BY_TOPIC_KEY) -- same fallback rule, two different lookup
+// keys into the same settings fields.
+function effectiveGroupId(field, settings) {
+  if (!field) return null;
+  return settings?.[field] || settings?.whatsappAnnouncementGroupId || null;
+}
+
+function resolveWhatsAppGroupId(row, settings) {
+  return effectiveGroupId(GROUP_FIELD_BY_EVENT_TYPE[row.type], settings);
+}
+
+// True when this row's notification type resolves to some WhatsApp
+// group -- its own pick or the Announcements fallback.
 // notificationOrchestrator.js's clearNotifiableEvents uses this to avoid
-// holding such rows in the queue forever.
+// holding a row in the queue forever when neither is ever going to
+// exist.
 //
 // Deliberately does NOT check whether WhatsApp is *currently* paired --
 // an earlier version did, and it was a real bug: every deploy causes a
 // brief, normal reconnect window where whatsappPairedAt is momentarily
 // null even though the number is coming right back, and clearing
 // treated that exactly like a deliberate, permanent "off." A real
-// deliberate unlink already clears every group field too (see
-// routes/settings.js's POST /whatsapp/unlink), so "a group is picked"
-// is the correct, stable signal for "this church still wants this
-// channel for this content type" -- it survives a transient reconnect
-// and correctly goes false on a real unlink. The one caller that
-// actually needs "is it connected right now" (runWhatsAppPass) already
-// has its own separate, more precise whatsappClient.getStatus() check
-// upstream of this one, same as sendWhatsAppUrgent in
-// notificationOrchestrator.js -- this function was never their only
-// guard against sending while disconnected.
+// deliberate unlink already clears every group field (including the
+// Announcements fallback) too (see routes/settings.js's POST
+// /whatsapp/unlink), so "a group resolves" is the correct, stable
+// signal for "this church still wants this channel for this content
+// type" -- it survives a transient reconnect and correctly goes false
+// on a real unlink. The one caller that actually needs "is it connected
+// right now" (runWhatsAppPass) already has its own separate, more
+// precise whatsappClient.getStatus() check upstream of this one, same
+// as sendWhatsAppUrgent in notificationOrchestrator.js -- this function
+// was never their only guard against sending while disconnected.
 function hasWhatsAppTarget(row, settings) {
-  const field = GROUP_FIELD_BY_EVENT_TYPE[row.type];
-  return Boolean(field && settings?.[field]);
+  return Boolean(resolveWhatsAppGroupId(row, settings));
 }
 
 // Splits one over-long text into pieces under `max`, preferring paragraph
@@ -169,8 +187,8 @@ async function postToWhatsApp(eligibleRows, partnerById, settings) {
   const byGroup = new Map();
   for (const blurb of blurbs) {
     const field = GROUP_FIELD_BY_TOPIC_KEY[blurb.topicKey];
-    const groupId = field && settings?.[field];
-    if (!groupId) continue; // no group picked for this type -- not sent
+    const groupId = effectiveGroupId(field, settings);
+    if (!groupId) continue; // no group picked, and no Announcements fallback -- not sent
     if (!byGroup.has(groupId)) byGroup.set(groupId, []);
     byGroup.get(groupId).push(blurb);
   }

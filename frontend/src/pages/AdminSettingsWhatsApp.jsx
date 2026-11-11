@@ -22,9 +22,11 @@ import {
 // lists, never hand-typed.
 //
 // One WhatsApp community holds several groups, so the three notification
-// types each get their own group, mirroring GroupMe's three Topics. Unlike
-// GroupMe there is no "main conversation" fallback: a type with no group
-// picked simply isn't sent over WhatsApp.
+// types each get their own group, mirroring GroupMe's three Topics. Same
+// idea as GroupMe's main-group fallback: a type with no group of its own
+// picked posts to the community's built-in Announcements group instead
+// (detected automatically, never hand-picked -- see the Community
+// section below). Only with neither set is it not sent over WhatsApp.
 const GROUP_TYPES = [
   {
     number: 4,
@@ -115,6 +117,8 @@ export default function AdminSettingsWhatsApp() {
     phoneNumber: null,
     communityId: null,
     communityName: null,
+    announcementGroupId: null,
+    announcementGroupName: null,
     prayerGroupId: null,
     prayerGroupName: null,
     oneTimeNeedGroupId: null,
@@ -367,7 +371,19 @@ export default function AdminSettingsWhatsApp() {
       <div className="admin-section">
         <h3>2. Community</h3>
         {settings.communityName ? (
-          <p style={{ color: "#555" }}>Currently: {settings.communityName}</p>
+          <>
+            <p style={{ color: "#555" }}>Currently: {settings.communityName}</p>
+            <p style={{ color: "#555", fontSize: "0.9rem" }}>
+              {settings.announcementGroupName ? (
+                <>
+                  Announcements group (detected automatically): <strong>{settings.announcementGroupName}</strong>{" "}
+                  — used for any notification type below with no group of its own picked.
+                </>
+              ) : (
+                "No Announcements group was detected for this community -- a notification type with no group of its own picked below won't be sent."
+              )}
+            </p>
+          </>
         ) : (
           <p style={{ color: "#555" }}>No community selected yet.</p>
         )}

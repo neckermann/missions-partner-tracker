@@ -380,6 +380,8 @@ const whatsappSettingsSelect = {
   whatsappPairedAt: true,
   whatsappCommunityId: true,
   whatsappCommunityName: true,
+  whatsappAnnouncementGroupId: true,
+  whatsappAnnouncementGroupName: true,
   whatsappPrayerGroupId: true,
   whatsappPrayerGroupName: true,
   whatsappOneTimeNeedGroupId: true,
@@ -395,6 +397,8 @@ function shapeWhatsAppSettings(settings) {
     phoneNumber: settings?.whatsappPhoneNumber || null,
     communityId: settings?.whatsappCommunityId || null,
     communityName: settings?.whatsappCommunityName || null,
+    announcementGroupId: settings?.whatsappAnnouncementGroupId || null,
+    announcementGroupName: settings?.whatsappAnnouncementGroupName || null,
     prayerGroupId: settings?.whatsappPrayerGroupId || null,
     prayerGroupName: settings?.whatsappPrayerGroupName || null,
     oneTimeNeedGroupId: settings?.whatsappOneTimeNeedGroupId || null,
@@ -460,9 +464,36 @@ router.put("/whatsapp", ...whatsappGate, async (req, res, next) => {
     const prayer = groupPick(body.prayerGroupId, body.prayerGroupName);
     const needs = groupPick(body.oneTimeNeedGroupId, body.oneTimeNeedGroupName);
     const newsletter = groupPick(body.newsletterGroupId, body.newsletterGroupName);
+
+    // The Announcements group is auto-resolved, never hand-picked (see
+    // whatsappClient.js's findAnnouncementGroup) -- when the community
+    // changes, re-resolve it from the new one instead of just clearing
+    // it like the three explicit picks above. Best-effort: a momentary
+    // disconnect here must not block saving the community pick itself --
+    // leave it null and the admin can tell from the page that none was
+    // detected, same resilience as every other live-socket call in this
+    // file.
+    let announcement = {
+      id: current?.whatsappAnnouncementGroupId ?? null,
+      name: current?.whatsappAnnouncementGroupName ?? null,
+    };
+    if (communityChanged) {
+      announcement = { id: null, name: null };
+      if (body.communityId) {
+        try {
+          const found = await whatsappClient.findAnnouncementGroup(body.communityId);
+          if (found) announcement = { id: found.id, name: found.name };
+        } catch {
+          // left null -- see comment above.
+        }
+      }
+    }
+
     const fields = {
       whatsappCommunityId: body.communityId,
       whatsappCommunityName: body.communityName,
+      whatsappAnnouncementGroupId: announcement.id,
+      whatsappAnnouncementGroupName: announcement.name,
       whatsappPrayerGroupId: prayer.id,
       whatsappPrayerGroupName: prayer.name,
       whatsappOneTimeNeedGroupId: needs.id,
@@ -540,6 +571,8 @@ router.post("/whatsapp/unlink", ...whatsappGate, async (req, res, next) => {
       data: {
         whatsappCommunityId: null,
         whatsappCommunityName: null,
+        whatsappAnnouncementGroupId: null,
+        whatsappAnnouncementGroupName: null,
         whatsappPrayerGroupId: null,
         whatsappPrayerGroupName: null,
         whatsappOneTimeNeedGroupId: null,

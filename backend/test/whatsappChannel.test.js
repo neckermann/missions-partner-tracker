@@ -94,9 +94,19 @@ describe("hasWhatsAppTarget", () => {
     assert.equal(hasWhatsAppTarget({ type: "prayerRequestAnswered" }, settings), true);
   });
 
-  test("false for a type with no group picked -- there is no main-group fallback", () => {
+  test("false for a type with no group picked and no Announcements fallback configured", () => {
     assert.equal(hasWhatsAppTarget({ type: "supportNeedCreated" }, settings), false);
     assert.equal(hasWhatsAppTarget({ type: "newsletterCreated" }, settings), false);
+  });
+
+  test("true for a type with no group picked when the Announcements fallback is configured", () => {
+    assert.equal(
+      hasWhatsAppTarget(
+        { type: "newsletterCreated" },
+        { ...settings, whatsappAnnouncementGroupId: "announce@g.us" }
+      ),
+      true
+    );
   });
 
   test("still true during a momentary disconnect -- a group pick, not live pairing, is the signal", () => {
@@ -238,6 +248,25 @@ describe("postToWhatsApp", () => {
     const ids = await postToWhatsApp([newsletter], partnerById, settings);
     assert.equal(ids.size, 0);
     assert.equal(sent.length, 0);
+  });
+
+  test("a type with no group picked routes to the Announcements fallback instead", async () => {
+    const sent = [];
+    mock.method(whatsappClient, "sendText", async (jid, text) => sent.push({ jid, text }));
+    const newsletter = {
+      id: "n",
+      type: "newsletterCreated",
+      partnerId: "p1",
+      payload: { partnerName: "Jane Doe", newsletterId: "f1", title: "Fall" },
+    };
+    const ids = await postToWhatsApp(
+      [newsletter],
+      partnerById,
+      { ...settings, whatsappAnnouncementGroupId: "announce@g.us" }
+    );
+    assert.equal(ids.size, 1);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].jid, "announce@g.us");
   });
 
   test("one group failing leaves only its rows unsent", async () => {

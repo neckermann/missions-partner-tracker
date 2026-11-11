@@ -761,12 +761,18 @@ Setup builds up in steps:
    warns if WhatsApp has flagged it. **Unlink Number** removes it and
    clears your choices below.
 2. **Community** — once connected, **Load My Communities**, pick yours,
-   **Use This Community**. The number must already be a member.
+   **Use This Community**. The number must already be a member. The
+   community's built-in **Announcements group** is detected
+   automatically at this point (no picker for it — it's shown read-only)
+   and works the same way GroupMe's main conversation does: it's where a
+   notification type with no group of its own posts instead.
 3. **Groups** — **Load Groups** once to pull the community's real groups,
    then pick a group and **Use This Group** for each of **Prayer
-   Requests**, **One-Time Needs**, and **Newsletters** you want. Unlike
-   GroupMe there's no fallback: a type with no group picked isn't sent
-   over WhatsApp. Picking a different community clears the group picks.
+   Requests**, **One-Time Needs**, and **Newsletters** you want. A type
+   with no group of its own picked posts to the Announcements group
+   instead; only if neither is set does it not go out over WhatsApp at
+   all. Picking a different community clears the group picks and
+   re-detects the new community's Announcements group.
 
 If WhatsApp is disconnected or rejects a post, whatever you were saving
 still saves normally; the notification stays queued and goes out on the

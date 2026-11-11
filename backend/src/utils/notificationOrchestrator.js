@@ -85,9 +85,13 @@ async function clearNotifiableEvents() {
 
       const groupmeApplies =
         groupmeOn && isEligibleForChannel(row, CHANNELS.GROUPME, partner, settings, true);
-      // WhatsApp only "applies" once it's paired and this row's type has
-      // a group picked -- otherwise the row would wait forever for a
-      // channel that can never take it (there's no main-group fallback).
+      // WhatsApp only "applies" once this row's type resolves to some
+      // group -- its own pick or the community's Announcements fallback
+      // (see whatsappChannel.js's hasWhatsAppTarget) -- otherwise the
+      // row would wait forever for a channel that can never take it.
+      // Deliberately not gated on live pairing state here -- see
+      // hasWhatsAppTarget's own comment on why that would wrongly treat
+      // a momentary reconnect the same as a permanent "off."
       const whatsappApplies =
         whatsappOn &&
         hasWhatsAppTarget(row, settings) &&

@@ -691,20 +691,29 @@ model ChurchSettings {
   // as groupmeGroupName etc.
   //
   // One WhatsApp *community* containing several groups, mapped onto the
-  // same three notification types GroupMe maps onto Topics. There is no
-  // "default group" fallback like GroupMe's: a type with no group picked
-  // is simply not sent (and never held in the queue either -- see
-  // notificationOrchestrator.js's clearNotifiableEvents).
-  whatsappPhoneNumber          String? // digits only, the dedicated number the app is paired as
-  whatsappPairedAt             DateTime?
-  whatsappCommunityId          String?
-  whatsappCommunityName        String?
-  whatsappPrayerGroupId        String?
-  whatsappPrayerGroupName      String?
-  whatsappOneTimeNeedGroupId   String?
-  whatsappOneTimeNeedGroupName String?
-  whatsappNewsletterGroupId    String?
-  whatsappNewsletterGroupName  String?
+  // same three notification types GroupMe maps onto Topics. Unlike an
+  // earlier version of this comment claimed, there IS a fallback, same
+  // idea as GroupMe's main-group fallback: every WhatsApp community has
+  // a built-in Announcements group (Baileys flags it as
+  // isCommunityAnnounce), auto-resolved and stored here the moment a
+  // community is picked (see routes/settings.js's PUT /whatsapp and
+  // whatsappClient.js's findAnnouncementGroup) -- never hand-picked,
+  // since it's a structural property of the community, not a choice.
+  // A type with no group of its own posts there instead; only with
+  // neither set is it not sent (see whatsappChannel.js's
+  // hasWhatsAppTarget/postToWhatsApp).
+  whatsappPhoneNumber           String? // digits only, the dedicated number the app is paired as
+  whatsappPairedAt              DateTime?
+  whatsappCommunityId           String?
+  whatsappCommunityName         String?
+  whatsappAnnouncementGroupId   String?
+  whatsappAnnouncementGroupName String?
+  whatsappPrayerGroupId         String?
+  whatsappPrayerGroupName       String?
+  whatsappOneTimeNeedGroupId    String?
+  whatsappOneTimeNeedGroupName  String?
+  whatsappNewsletterGroupId     String?
+  whatsappNewsletterGroupName   String?
 
   // Joshua Project API key (see backend/src/utils/joshuaProject.js) --
   // country-level unreached-people-group stats shown on a partner's page,
