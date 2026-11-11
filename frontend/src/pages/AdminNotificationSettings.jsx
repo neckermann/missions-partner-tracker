@@ -264,12 +264,10 @@ export default function AdminNotificationSettings() {
 
         {(enabledFeatures.groupme || enabledFeatures.whatsapp) && (
           <div className="admin-section" style={{ marginTop: "1rem" }}>
-            <h3>{chatLabel}</h3>
+            <h3>{chatLabel} Schedule</h3>
             <p style={{ color: "#555", fontSize: "0.9rem" }}>
               A single daily batch time, not a weekly/monthly tier --{" "}
-              {chatNames.length > 1
-                ? `${chatLabel} are near-real-time, chat-style channels sharing this one schedule`
-                : `${chatLabel} is a near-real-time, chat-style channel`}
+              {chatNames.length > 1 ? "these are near-real-time, chat-style channels" : "this is a near-real-time, chat-style channel"}
               , so posts are collected and sent once a day rather than on a longer email-style schedule.
             </p>
             <label htmlFor="groupme-digest-hour">
