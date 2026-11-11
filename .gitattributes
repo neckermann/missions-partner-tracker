@@ -1,0 +1,20 @@
+# Normalize every text file to LF, both in the repo and on checkout --
+# regardless of a contributor's own core.autocrlf setting. Without this,
+# a Windows checkout (core.autocrlf=true, Git's own Windows default)
+# gets CRLF line endings in the working tree, and Prettier (which
+# defaults to LF) then flags every single text file as unformatted --
+# not a real issue, just working-tree noise that made a real 4-file CI
+# failure impossible to distinguish from ~440 false positives when
+# checked locally (see CONTRIBUTING.md's "Before you push" section).
+* text=auto eol=lf
+
+# Binary assets Git should never try to diff or normalize line endings
+# for -- autodetection usually gets these right, but spelling them out
+# removes any doubt.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.svg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

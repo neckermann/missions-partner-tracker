@@ -1,0 +1,149 @@
+# Not the public one-click "Deploy to Render" blueprint -- that one lives
+# at the repo root and must never carry demo-only secrets, since every
+# church self-hosting their own instance from it would see them. This is
+# specifically the one live public demo's own config (see this folder's
+# README.md), kept here for record-keeping -- Render isn't actively
+# syncing from this file, it's what to restore from if the demo's
+# services were ever deleted and had to be rebuilt. See
+# https://render.com/docs/blueprint-spec for the format itself.
+#
+# Deliberately minimal: one web service (serves both the API and the
+# built frontend, same as every other deployment target this app
+# supports — see backend/src/server.js) and one Postgres database, which
+# also holds every uploaded photo/newsletter/document (see the comment on
+# the Newsletter model in backend/prisma/schema.prisma) — nothing else to
+# provision.
+#
+# Plan values below (`starter` / `0.1c-256mb`) are the cheapest paid
+# tiers Render offers, verified against a real deploy — about $13/mo
+# combined. Free-tier equivalents exist but aren't viable for anything
+# beyond a quick check: free web services sleep after 15min idle
+# (30-60s cold start on the next request) and free Postgres instances
+# expire and get deleted after 90 days.
+#
+# Region is `oregon`, which is also Render's own default -- so a Blueprint
+# deploy puts everything exactly where Render would have put it anyway, and
+# nobody gets a surprise. Valid values: oregon, ohio, virginia, frankfurt,
+# singapore. The database and web service must use the same region.
+#
+# To deploy elsewhere, set it before your first deploy:
+#   npm run name-instance -- <your-church-name> <region>
+# Render's Blueprint UI has no region picker -- it only prompts for
+# `sync: false` env vars -- so it has to be in this file beforehand.
+#
+# WARNING: changing this on an instance that is ALREADY DEPLOYED does not
+# move anything. Render's spec: "You can't modify this value after
+# creation." What actually happens is that every subsequent Blueprint sync
+# fails silently -- the services keep running, so nothing looks broken, and
+# you find out weeks later. This project's demo lost two weeks of blueprint
+# syncs to exactly that, after a well-meant change of this default.
+#
+# Which is why the default is now the platform's own: a default that
+# matches what Render does anyway can't quietly break someone downstream.
+databases:
+  - name: missions-partner-tracker-db
+    plan: 0.1c-256mb
+    region: oregon
+    databaseName: missions_partner_tracker
+
+services:
+  - name: missions-partner-tracker
+    type: web
+    runtime: node
+    plan: starter
+    region: oregon
+    # --include=dev on both installs: NODE_ENV is set below (needed at
+    # runtime) and is visible during the build too, and npm's default
+    # behavior is to silently skip devDependencies whenever
+    # NODE_ENV=production is set. On the frontend that's where Vite
+    # lives (the build fails outright with "vite: not found" without
+    # this). On the backend it's where the `prisma` CLI lives -- without
+    # it, `npx prisma migrate deploy`/`migrate reset` still "work" by
+    # silently downloading prisma fresh from the registry every time
+    # instead of using the pinned version already in package-lock.json,
+    # which is slower and not actually reproducible.
+    buildCommand: cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install --include=dev
+    startCommand: cd backend && node src/server.js
+    # Runs after the build above but before the new version takes
+    # traffic -- applies any pending schema changes first, so a rolling
+    # deploy never has new code running against an old schema. Only
+    # additive/backwards-compatible migrations should ever ship, since
+    # the previous app version keeps serving traffic against the new
+    # schema for the short window until the new version is live.
+    preDeployCommand: cd backend && npx prisma migrate deploy
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: missions-partner-tracker-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      # Generated automatically at deploy time -- nothing to fill in.
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: FIELD_ENCRYPTION_KEY
+        generateValue: true
+      # Optional. Shown in a user's authenticator app when they enroll in
+      # MFA. Leave blank to use the default ("Missions Partner Tracker
+      # Admin").
+      - key: MFA_ISSUER
+        sync: false
+      # Optional but recommended. Nominatim's (the free geocoding
+      # service this app uses) usage policy requires identifying
+      # requests with a real contact email.
+      - key: NOMINATIM_CONTACT
+        sync: false
+
+      # --- Demo-only, not in upstream's blueprint ---------------------
+      # These four existed only in Render's dashboard until now, which
+      # meant rebuilding this service from the blueprint would have come
+      # back with no reset endpoint, no login, and no seed photos.
+      #
+      # DEMO_RESET_TOKEN is what makes POST /api/demo/reset exist at all
+      # (see backend/src/server.js) -- the route isn't mounted without it.
+      # That endpoint wipes the database and reseeds fake data, which is
+      # correct here and catastrophic anywhere else. It must never be set
+      # on a real church's instance.
+      - key: DEMO_RESET_TOKEN
+        sync: false
+      # The login the demo publishes on its own about page.
+      - key: DEMO_ADMIN_EMAIL
+        sync: false
+      - key: DEMO_ADMIN_PASSWORD
+        sync: false
+      # Real stock photos for seeded partners; without it seeding falls
+      # back to generated silhouettes.
+      - key: PEXELS_API_KEY
+        sync: false
+
+  # --- Demo reset schedule, not in upstream's blueprint ----------------
+  # Captured from the running cron job, which existed only in Render's
+  # dashboard -- so its schedule lived nowhere in version control and a
+  # rebuild would have silently dropped it.
+  #
+  # It does nothing but POST to the web service's reset endpoint with the
+  # shared token; all the actual work happens in the app
+  # (backend/scripts/reset-demo-data.js), so this stays a one-liner rather
+  # than a second copy of the app that needs its own database access.
+  - name: missions-partner-tracker-demo-reset
+    type: cron
+    runtime: node
+    plan: starter
+    region: oregon
+    # 08:00 UTC daily.
+    schedule: "0 8 * * *"
+    # Nothing to build; the command below is self-contained.
+    buildCommand: "true"
+    startCommand: >-
+      node -e "fetch(process.env.RESET_URL,{method:'POST',headers:{Authorization:'Bearer
+      '+process.env.DEMO_RESET_TOKEN}}).then(r=>{if(!r.ok){console.error('status',r.status);process.exit(1)}console.log('reset
+      ok')}).catch(e=>{console.error(e);process.exit(1)})"
+    envVars:
+      # The web service's own URL + /api/demo/reset. Set at deploy time
+      # because it depends on the service name Render ends up assigning.
+      - key: RESET_URL
+        sync: false
+      # Must match DEMO_RESET_TOKEN on the web service above.
+      - key: DEMO_RESET_TOKEN
+        sync: false
