@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { fetchPartners, fetchChurchSettings } from "../api/client.js";
+import { fetchPartners } from "../api/client.js";
 import "../styles/booklet.css";
 import { useSettings } from "../context/SettingsContext.jsx";
+import useChurchSettings from "../hooks/useChurchSettings.js";
 import { formatDateLong } from "../utils/format.js";
 import { addressByType } from "../utils/addresses.js";
 
@@ -522,10 +523,17 @@ export default function AdminBooklet() {
   // record set rather than summary rows.
   useEffect(() => {
     fetchPartners({ include: "full" }).then(setPartners).catch(console.error);
-    fetchChurchSettings()
-      .then((s) => setChurchContact({ address: s.address, phone: s.phone, websiteLink: s.websiteLink }))
-      .catch(console.error);
   }, []);
+  const { settings: churchSettings } = useChurchSettings();
+  useEffect(() => {
+    if (churchSettings) {
+      setChurchContact({
+        address: churchSettings.address,
+        phone: churchSettings.phone,
+        websiteLink: churchSettings.websiteLink,
+      });
+    }
+  }, [churchSettings]);
 
   const missionaries = useMemo(() => partners.filter((p) => p.kind === "missionary"), [partners]);
   const organizations = useMemo(() => partners.filter((p) => p.kind === "organization"), [partners]);

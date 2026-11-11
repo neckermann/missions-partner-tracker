@@ -9,7 +9,7 @@ import { formatDate, todayInputValue, toDateInputValue } from "../../utils/forma
 import { urgentSendDescription } from "../../utils/urgentSend.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
-import useAllowRestrictedPartnerNotifications from "../../hooks/useAllowRestrictedPartnerNotifications.js";
+import useChurchSettings from "../../hooks/useChurchSettings.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import SourceLink from "./SourceLink.jsx";
 import SourcePicker from "./SourcePicker.jsx";
@@ -57,8 +57,11 @@ export default function PrayerRequestSection({ partnerId, isRestricted, prayerRe
   // "Approve now" additionally requires allowRestrictedPartnerNotifications
   // -- when that's off, recordEvent drops a restricted partner's event
   // before it's ever queued (see notificationRecording.js), so checking
-  // this box would silently do nothing.
-  const allowRestrictedPartnerNotifications = useAllowRestrictedPartnerNotifications();
+  // this box would silently do nothing. Defaults to true while loading --
+  // a UI convenience gate only, so briefly over-showing the control is
+  // harmless; the real check is still enforced server-side regardless.
+  const { settings } = useChurchSettings();
+  const allowRestrictedPartnerNotifications = settings?.allowRestrictedPartnerNotifications !== false;
   const canApproveNow = isRestricted && hasEnabledChannel && allowRestrictedPartnerNotifications;
   // Named confirmDialog, not confirm -- this file's only confirmation
   // surface now (approve-now, urgent-send, and delete all route through

@@ -19,7 +19,7 @@ import { supportNeedStatus as statusFor } from "../utils/supportNeedStatus.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import useSourceFiles from "../hooks/useSourceFiles.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
-import useAllowRestrictedPartnerNotifications from "../hooks/useAllowRestrictedPartnerNotifications.js";
+import useChurchSettings from "../hooks/useChurchSettings.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import UrgentSendConfirmBody from "../components/admin/UrgentSendConfirmBody.jsx";
@@ -68,9 +68,11 @@ export default function AdminOneTimeNeeds() {
   // No single partnerId prop here -- looked up from whichever partner is
   // currently selected in the add form, same list PartnerSelect renders.
   const selectedPartner = partners.find((p) => p.id === newNeed.partnerId);
-  // Also requires allowRestrictedPartnerNotifications -- see
-  // useAllowRestrictedPartnerNotifications's own comment.
-  const allowRestrictedPartnerNotifications = useAllowRestrictedPartnerNotifications();
+  // Also requires allowRestrictedPartnerNotifications, defaulting to true
+  // while loading -- a UI convenience gate only, the real check is still
+  // enforced server-side regardless.
+  const { settings } = useChurchSettings();
+  const allowRestrictedPartnerNotifications = settings?.allowRestrictedPartnerNotifications !== false;
   const canApproveNow =
     !!selectedPartner?.isRestricted && hasEnabledChannel && allowRestrictedPartnerNotifications;
   // Named confirmDialog, not confirm -- this page's only confirmation

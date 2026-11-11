@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { fetchChurchSettings, updateChurchSettings } from "../api/client.js";
+import { updateChurchSettings } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
+import useChurchSettings from "../hooks/useChurchSettings.js";
 
 // A plain div, not <label> -- .admin-shell label forces flex-direction:
 // column (stacked, for the usual label-above-input fields elsewhere in
@@ -39,14 +40,16 @@ export default function AdminSettingsFeatures() {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
+  const { settings, error: settingsError } = useChurchSettings();
   useEffect(() => {
-    fetchChurchSettings()
-      .then((s) => {
-        setEnabledFeatures(s?.enabledFeatures || {});
-        setFeatureRegistry(s?.featureRegistry || []);
-      })
-      .catch(() => setError("Couldn't load feature settings."));
-  }, []);
+    if (settings) {
+      setEnabledFeatures(settings?.enabledFeatures || {});
+      setFeatureRegistry(settings?.featureRegistry || []);
+    }
+  }, [settings]);
+  useEffect(() => {
+    if (settingsError) setError("Couldn't load feature settings.");
+  }, [settingsError]);
 
   function toggleFeature(key) {
     const current = enabledFeatures[key] ?? featureRegistry.find((f) => f.key === key)?.defaultEnabled;
