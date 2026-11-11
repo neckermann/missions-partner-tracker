@@ -61,15 +61,30 @@ const GROUP_FIELD_BY_EVENT_TYPE = Object.fromEntries(
 );
 const GROUP_FIELD_BY_TOPIC_KEY = Object.fromEntries(GROUP_MAPPINGS.map((m) => [m.topicKey, m.whatsappField]));
 
-// True when WhatsApp is paired and this row's notification type has a
-// group picked. Unlike GroupMe there is no "main conversation" fallback,
-// so a type with no group is simply not a WhatsApp notification at all --
-// and notificationOrchestrator.js's clearNotifiableEvents uses this to
-// avoid holding such rows in the queue forever.
+// True when this row's notification type has a WhatsApp group picked.
+// Unlike GroupMe there is no "main conversation" fallback, so a type
+// with no group is simply not a WhatsApp notification at all --
+// notificationOrchestrator.js's clearNotifiableEvents uses this to avoid
+// holding such rows in the queue forever.
+//
+// Deliberately does NOT check whether WhatsApp is *currently* paired --
+// an earlier version did, and it was a real bug: every deploy causes a
+// brief, normal reconnect window where whatsappPairedAt is momentarily
+// null even though the number is coming right back, and clearing
+// treated that exactly like a deliberate, permanent "off." A real
+// deliberate unlink already clears every group field too (see
+// routes/settings.js's POST /whatsapp/unlink), so "a group is picked"
+// is the correct, stable signal for "this church still wants this
+// channel for this content type" -- it survives a transient reconnect
+// and correctly goes false on a real unlink. The one caller that
+// actually needs "is it connected right now" (runWhatsAppPass) already
+// has its own separate, more precise whatsappClient.getStatus() check
+// upstream of this one, same as sendWhatsAppUrgent in
+// notificationOrchestrator.js -- this function was never their only
+// guard against sending while disconnected.
 function hasWhatsAppTarget(row, settings) {
-  if (!settings?.whatsappPairedAt) return false;
   const field = GROUP_FIELD_BY_EVENT_TYPE[row.type];
-  return Boolean(field && settings[field]);
+  return Boolean(field && settings?.[field]);
 }
 
 // Splits one over-long text into pieces under `max`, preferring paragraph

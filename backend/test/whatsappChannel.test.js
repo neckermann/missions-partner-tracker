@@ -99,11 +99,19 @@ describe("hasWhatsAppTarget", () => {
     assert.equal(hasWhatsAppTarget({ type: "newsletterCreated" }, settings), false);
   });
 
-  test("false when no number is paired, even with groups saved", () => {
+  test("still true during a momentary disconnect -- a group pick, not live pairing, is the signal", () => {
+    // A transient reconnect (every deploy causes one) must not look the
+    // same as a deliberate unlink to clearNotifiableEvents -- a real
+    // unlink clears the group fields too (see routes/settings.js's POST
+    // /whatsapp/unlink), so "group picked" alone is what's actually
+    // stable here.
     assert.equal(
       hasWhatsAppTarget({ type: "prayerRequestCreated" }, { ...settings, whatsappPairedAt: null }),
-      false
+      true
     );
+  });
+
+  test("false with no settings at all", () => {
     assert.equal(hasWhatsAppTarget({ type: "prayerRequestCreated" }, null), false);
   });
 
