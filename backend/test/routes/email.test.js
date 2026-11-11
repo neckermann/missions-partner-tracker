@@ -106,6 +106,8 @@ describe("GET/PUT /api/settings/email -- admin gate", () => {
       inboundConfigured: false,
       webhookUsername: null,
       webhookPath: "/api/inbound-email/postmark",
+      // Trips (#252) -- purely informational, not a credential.
+      inboundEmailAddress: null,
     });
   });
 });

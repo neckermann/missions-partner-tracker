@@ -196,40 +196,247 @@ model Address {
   @@unique([partnerId, type])
 }
 
-// A past team trip to visit this partner — history for reference, not a
-// capacity/preference profile (that lives on Partner.tripTypesSupported etc).
+// A trip to visit a partner -- covers the whole lifecycle (recruiting,
+// active, historical) via `status`, not a separate concept per stage. A
+// purely historical backfill is just a trip created already `completed`,
+// skipping the recruiting/application stages; an actively-recruited trip
+// starts `planning` and moves through `accepting_applications`/`closed`.
+// Not a capacity/preference profile -- that lives on
+// Partner.tripTypesSupported etc, which this trip's own fields are
+// pre-filled from at creation but can then diverge from per-instance.
 model Trip {
-  id            String            @id @default(uuid())
-  partnerId     String
-  partner       Partner           @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  startDate     DateTime?         @db.Date
-  endDate       DateTime?         @db.Date
-  tripType      String? // e.g. "Construction", "Medical/Dental" — preset or custom
-  description   String?           @db.Text // what the team did
-  notes         String?           @db.Text
+  id        String  @id @default(uuid())
+  partnerId String?
+  partner   Partner? @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  // e.g. "Summer 2026 Guatemala Build Team" -- optional, a quick
+  // historical backfill may just use type/description like before this
+  // field existed, with no formal name.
+  name String?
+
+  // "planning" | "accepting_applications" | "closed" | "completed".
+  // Defaults to "completed" deliberately -- the dominant real-world case
+  // is a quick backfill of a trip that already happened; a new
+  // actively-recruited trip's own creation form explicitly picks
+  // "planning", overriding this default for that specific flow.
+  status String @default("completed")
+
+  startDate   DateTime? @db.Date
+  endDate     DateTime? @db.Date
+  // Renamed from tripType -- Trip.tripType stutters against its own
+  // model name; bare `type` is unambiguous within Trip, same precedent
+  // SendingParty.type already sets. Partner.tripTypesSupported keeps its
+  // "trip" qualifier since it lives on a model with many unrelated
+  // fields, where dropping the prefix would be ambiguous.
+  type        String? // e.g. "Construction", "Medical/Dental" — preset or custom
+  description String? @db.Text // what the team did/will do -- doubles as the public trip overview when isPublic is on
+  notes       String? @db.Text // admin-only
+
+  teamSizeMin      Int? // pre-filled from Partner.tripTeamSizeMin at creation, then editable per-instance
+  teamSizeMax      Int?
+  fundraisingGoal  Int? // whole-dollar team total, matching SupportEntry.amount's existing Int convention
+
+  // Gates this trip's discovery-page listing and whether its plain,
+  // id-addressed public application route will accept a submission at
+  // all (see publicTrips.js/tripEligibility.js). Does NOT gate a
+  // participant's own fundraising/self-service page -- those stay
+  // reachable via shareToken/access token regardless. Off by default.
+  isPublic Boolean @default(false)
+
+  // Null until staff explicitly generate a private application link for
+  // this trip -- a dedicated secret, same shape as
+  // TripParticipant.shareToken below, deliberately not this row's own
+  // id (already visible throughout the admin UI to every logged-in
+  // user, so never a real secret). Regenerating overwrites the old
+  // value, immediately invalidating any link built from it. The
+  // "Generate" action itself only exists when
+  // ChurchSettings.allowPrivateApplicationLinks is on.
+  applicationShareToken String? @unique
+
+  // Entered once by an admin/editor after booking group travel, free
+  // text (flight shapes vary too much for rigid fields to help more
+  // than fight the admin). Shown on the participant's own self-service
+  // page only -- never on the public fundraising page.
+  flightDetails String? @db.Text
+
+  // An admin-defined, ordered list of plain free-text-answer questions
+  // specific to this trip -- [{ id, label, required }]. Never a fixed
+  // hardcoded starter set (CONTRIBUTING.md's "keep forks upgradable").
+  applicationQuestions Json?
+
   // External album link only -- never in-app file storage (see #130).
   // albumProvider is app-validated in trips.js, not a DB enum, matching
-  // every other String-typed preset field in this schema (tripType etc).
+  // every other String-typed preset field in this schema (type etc).
   albumProvider String? // "google_photos" | "icloud" | "other"
   albumUrl      String?
+
   participants  TripParticipant[]
+  applications  TripApplication[]
+  meetings      TripMeeting[]
+  documents     TripDocument[]
+  documentRequirements TripDocumentRequirement[]
+  contributions TripContribution[]
 
   @@index([partnerId])
+  @@index([status])
 }
 
-// Individual person on a Trip. isLeader marks the trip leader(s) rather
-// than keeping a separate, potentially-inconsistent "leader name" field.
+// One row serves both purposes: a freeform backfilled/admin-added entry
+// (applicationId: null, no fundraising fields populated) and a roster
+// member who came through an approved application.
 model TripParticipant {
   id       String  @id @default(uuid())
   tripId   String
   trip     Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  name     String
+
+  // New participant/applicant records use split name fields (issue
+  // #257's broader uplift is separate, later work) -- this model's own
+  // first/last columns don't wait on that.
+  firstName String?
+  lastName  String?
+
   role     String? // e.g. "Medical", "Construction", "Translator"
   isLeader Boolean @default(false)
   phone    String?
   email    String?
 
+  // Null for a backfilled or directly-admin-added participant; set when
+  // created via application approval.
+  applicationId String?          @unique
+  application   TripApplication? @relation(fields: [applicationId], references: [id])
+
+  fundraisingGoal Int? // null/unused for a historical-only row
+
+  // Short random secret for this participant's public fundraising URL --
+  // a private share-secret functioning as the page's access control, not
+  // a human-readable slug, and not this row's own id either (so the URL
+  // never exposes a sequential/guessable link between participants).
+  // Not auto-generated at creation -- see ChurchSettings.allowPublicFundraisingLinks.
+  shareToken String? @unique
+  story      String? @db.Text // what shows on their public fundraising page
+
+  // Bumped to invalidate every previously-issued self-service link at
+  // once -- same revocation reasoning as User.mfaLastTimeStep's replay
+  // protection, applied to a link instead of a TOTP code.
+  accessTokenVersion Int @default(0)
+
+  documents     TripDocument[]
+  contributions TripContribution[]
+
   @@index([tripId])
+}
+
+// A submitted application to a Trip whose status is accepting_applications.
+// responses is keyed by each question's id from that trip's own
+// applicationQuestions -- { "<id>": "<answer text>" } -- since the
+// question set itself is per-trip and admin-defined, not a fixed schema
+// this app could widen a column for.
+model TripApplication {
+  id     String @id @default(uuid())
+  tripId String
+  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+
+  status    String   @default("pending") // "pending" | "approved" | "declined" | "withdrawn"
+  responses Json?
+
+  submittedAt  DateTime  @default(now())
+  reviewedAt   DateTime?
+  reviewedById String?
+
+  participant TripParticipant?
+
+  @@index([tripId])
+}
+
+// A scheduled prep/planning meeting for a trip's roster.
+model TripMeeting {
+  id             String    @id @default(uuid())
+  tripId         String
+  trip           Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  startAt        DateTime
+  location       String?
+  notes          String?   @db.Text
+  // Guards the day-before reminder against double-sending -- same
+  // "stamp once sent" precedent DispatchRecord's own per-channel columns
+  // already use.
+  reminderSentAt DateTime?
+
+  @@index([tripId])
+}
+
+// An admin-defined, ordered, free-text list of documents a trip needs
+// from each participant (e.g. "Signed Waiver," "Passport Photo" --
+// illustrative examples only, never a fixed/hardcoded list). A real
+// child model, not JSON -- TripDocument.requirementId needs an actual
+// foreign key for the fulfillment anti-join to work.
+model TripDocumentRequirement {
+  id     String @id @default(uuid())
+  tripId String
+  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  label  String
+
+  documents TripDocument[]
+
+  @@index([tripId])
+}
+
+// Identical storage shape to PartnerFile -- bytes in the row, no
+// separate file storage (see that model's own comment). participantId:
+// null means a trip-wide shared document (itinerary, packing list); set
+// means a document specific to one participant (their own signed
+// waiver, passport photo, health clearance). requirementId is nullable
+// since not every document fulfills a tracked requirement.
+model TripDocument {
+  id            String                   @id @default(uuid())
+  tripId        String
+  trip          Trip                     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  participantId String?
+  participant   TripParticipant?         @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  requirementId String?
+  requirement   TripDocumentRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+
+  title       String?
+  bytes       Bytes
+  fileName    String
+  contentType String
+
+  createdAt DateTime @default(now())
+
+  @@index([tripId])
+  @@index([participantId])
+}
+
+// A manual ledger entry for an offline gift (check/cash) toward a trip
+// or a specific participant -- payment processing is explicitly out of
+// scope (PCI compliance is a large, independent decision). donorName
+// stays a single field: it's a donor-ledger entry, not a
+// participant/applicant record. donorEmail/donorPhone are both
+// optional and only ever shown when ChurchSettings.collectDonorContactInfo
+// is on.
+model TripContribution {
+  id            String           @id @default(uuid())
+  tripId        String
+  trip          Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  participantId String?
+  participant   TripParticipant? @relation(fields: [participantId], references: [id], onDelete: SetNull)
+
+  donorName  String
+  donorEmail String?
+  donorPhone String?
+  amount     Int // whole dollars, matching SupportEntry.amount
+  method     String // "check" | "cash" | "other"
+  reference  String?
+  receivedDate DateTime @db.Date
+
+  createdAt DateTime @default(now())
+
+  @@index([tripId])
+  @@index([participantId])
 }
 
 // A period of time a missionary is off the field and in their home
@@ -885,6 +1092,37 @@ model ChurchSettings {
   // Null/unset means "classic", so every church's email dispatch looks
   // exactly the same as before this field existed until one opts in.
   emailDispatchLayout          String? // "classic" | "snapshot"
+
+  // Trips (#252) -- church-level, not per-trip. A church's online giving
+  // platform and how it's configured doesn't change trip-to-trip.
+  onlineGivingUrl          String? // link to the church's own external online giving platform, if it has one
+  onlineGivingInstructions String? @db.Text // which fund/category to pick, how to include the participant's name
+
+  // Opt-in gate for TripContribution.donorEmail/donorPhone -- off by
+  // default, since this is extra PII about a third party a church might
+  // not want to collect at all. Purely a UI-surfacing switch, not a
+  // schema gate -- the columns stay regardless of this toggle's state.
+  collectDonorContactInfo Boolean @default(false)
+
+  // Church-wide gate on the "Generate private application link" action
+  // -- without this on, no Trip.applicationShareToken can ever be
+  // created, and a privately-recruited trip is admin-entry-only.
+  allowPrivateApplicationLinks Boolean @default(false)
+  // Church-wide gate on whether a TripParticipant.shareToken is ever
+  // generated at all -- a church that wants roster/meeting/document/
+  // contribution management but no individual public-facing fundraising
+  // pages leaves this off.
+  allowPublicFundraisingLinks Boolean @default(false)
+
+  // Not trip-specific at all -- the address partners/participants were
+  // told (outside this app) to send mail to, under whatever inbound
+  // domain was configured in Postmark's own dashboard. Purely
+  // informational/display, same as emailFromAddress being informational
+  // about a domain verified entirely in Postmark's own UI. Lets a
+  // document-request email (tripEmails.js) set a real Reply-To header,
+  // and gives admins an in-app place to see/share the address partners
+  // already send newsletters to.
+  inboundEmailAddress String?
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

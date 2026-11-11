@@ -30,11 +30,27 @@ const {
 
 let admin;
 let partner;
+let originalEnabledFeatures;
 
 before(async () => {
+  const prisma = require("../../src/prismaClient");
   await ensureTestUsers();
   admin = await client("admin");
   await removeFixturePartners();
+
+  // trips defaults to off (#252); this file's one trips case needs it on
+  // to reach its own validation (400), not requireFeature's 404.
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
+  originalEnabledFeatures = settings?.enabledFeatures ?? {};
+  await prisma.churchSettings.upsert({
+    where: { id: "singleton" },
+    update: { enabledFeatures: { ...originalEnabledFeatures, trips: true } },
+    create: { id: "singleton", enabledFeatures: { trips: true } },
+  });
+
   const created = await admin("/api/partners", {
     method: "POST",
     body: { kind: "missionary", displayName: `${FIXTURE_TAG} error host` },
@@ -43,8 +59,14 @@ before(async () => {
 });
 
 after(async () => {
+  const prisma = require("../../src/prismaClient");
   await removeFixturePartners();
   await removeTestUsers();
+  await prisma.churchSettings.upsert({
+    where: { id: "singleton" },
+    update: { enabledFeatures: originalEnabledFeatures },
+    create: { id: "singleton", enabledFeatures: originalEnabledFeatures },
+  });
   await stopServer();
 });
 
@@ -66,10 +88,10 @@ function invalidBodyCases() {
       expect: /displayName/,
     },
     {
-      name: "trips: missing partnerId",
+      name: "trips: bad status enum",
       path: "/api/trips",
-      body: { tripType: "Construction" },
-      expect: /partnerId/,
+      body: { partnerId: () => partner.id, status: "not-a-status" },
+      expect: /status/,
     },
     {
       name: "support-entries: amount is not a number",

@@ -109,7 +109,19 @@ router.post("/postmark", async (req, res, next) => {
       select: { id: true },
     });
 
-    if (matches.length === 1) {
+    // Trips (#252) -- when trips is on, TripParticipant.email also
+    // counts toward the match total. Tie-break rule: combined match
+    // count across both identity types, not a separate ambiguity check
+    // per type -- auto-file only when that combined total is exactly 1.
+    const tripsOn = isFeatureEnabled(settings.enabledFeatures, "trips");
+    const participantMatches = tripsOn
+      ? await prisma.tripParticipant.findMany({
+          where: { email: { equals: fromAddress, mode: "insensitive" } },
+          select: { id: true },
+        })
+      : [];
+
+    if (matches.length === 1 && participantMatches.length === 0) {
       const created = await prisma.partnerFile.create({
         data: {
           partnerId: matches[0].id,
@@ -132,8 +144,23 @@ router.post("/postmark", async (req, res, next) => {
       return res.status(200).json({ matched: true });
     }
 
-    // Zero matches, or more than one distinct partner shares this
-    // address (ambiguous) -- either way, don't guess. Queue it.
+    if (matches.length === 0 && participantMatches.length === 1) {
+      await prisma.tripDocument.create({
+        data: {
+          tripId: (await prisma.tripParticipant.findUnique({ where: { id: participantMatches[0].id }, select: { tripId: true } })).tripId,
+          participantId: participantMatches[0].id,
+          title: subject,
+          bytes,
+          fileName,
+          contentType: "message/rfc822",
+        },
+      });
+      return res.status(200).json({ matched: true });
+    }
+
+    // Zero matches, more than one match of either type, or exactly one
+    // of each (which would each individually look unambiguous in
+    // isolation) -- don't guess. Queue it.
     await prisma.inboundEmail.create({ data: { fromAddress, subject, bytes, fileName } });
     res.status(200).json({ matched: false });
   } catch (err) {
@@ -184,15 +211,26 @@ router.get("/:id/raw", async (req, res, next) => {
 // metaSchema, mirrored here rather than reusing that schema directly
 // since this route only ever sets these two fields, not the rest of
 // PartnerFile's create shape.
+// Trips (#252): partnerId XOR tripParticipantId -- exactly one of the
+// two, same style of zod refine this route already uses for its own
+// kind/customKind rule. requirementId is optional even when filing as a
+// TripDocument -- a trip-wide document or one that doesn't map to any
+// tracked requirement is still perfectly valid to file.
 const assignSchema = z
   .object({
-    partnerId: z.string(),
+    partnerId: z.string().optional(),
+    tripParticipantId: z.string().optional(),
+    requirementId: z.string().optional().nullable(),
     kind: z.enum(FILE_KINDS).default("newsletter"),
     customKind: z.string().optional().nullable(),
   })
   .refine((data) => data.kind !== "other" || Boolean(data.customKind?.trim()), {
     message: 'customKind is required when kind is "other"',
     path: ["customKind"],
+  })
+  .refine((data) => Boolean(data.partnerId) !== Boolean(data.tripParticipantId), {
+    message: "Provide exactly one of partnerId or tripParticipantId",
+    path: ["partnerId"],
   });
 
 // POST /api/inbound-email/:id/assign (editor or admin, matches
@@ -200,23 +238,49 @@ const assignSchema = z
 // admin picked (#206) -- defaults to newsletter if the caller omits it.
 router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const { partnerId, kind, customKind } = assignSchema.parse(req.body);
+    const { partnerId, tripParticipantId, requirementId, kind, customKind } = assignSchema.parse(req.body);
+
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { enabledFeatures: true },
+    });
+
+    const record = await prisma.inboundEmail.findUnique({ where: { id: req.params.id } });
+    if (!record) return res.status(404).json({ error: "Not found" });
+
+    if (tripParticipantId) {
+      if (!isFeatureEnabled(settings?.enabledFeatures, "trips")) {
+        return res.status(404).json({ error: "Not found" });
+      }
+      const participant = await prisma.tripParticipant.findUnique({
+        where: { id: tripParticipantId },
+        select: { id: true, tripId: true },
+      });
+      if (!participant) return res.status(400).json({ error: "That participant no longer exists" });
+
+      const created = await prisma.tripDocument.create({
+        data: {
+          tripId: participant.tripId,
+          participantId: participant.id,
+          requirementId: requirementId || null,
+          title: record.subject,
+          bytes: record.bytes,
+          fileName: record.fileName,
+          contentType: "message/rfc822",
+        },
+      });
+      await prisma.inboundEmail.delete({ where: { id: req.params.id } });
+      return res.status(200).json({ ...created, bytes: undefined });
+    }
 
     // Must be on too -- not just "inboundEmail" (checked by the
     // router.use above), since an admin shouldn't be able to file a row
     // into a feature that's disabled. Same 404 semantics as
     // requireFeature itself: a disabled feature looks like this action
     // doesn't exist, not like a validation error.
-    const settings = await prisma.churchSettings.findUnique({
-      where: { id: "singleton" },
-      select: { enabledFeatures: true },
-    });
     if (!isFeatureEnabled(settings?.enabledFeatures, "partnerFiles")) {
       return res.status(404).json({ error: "Not found" });
     }
-
-    const record = await prisma.inboundEmail.findUnique({ where: { id: req.params.id } });
-    if (!record) return res.status(404).json({ error: "Not found" });
 
     const partner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { id: true } });
     if (!partner) return res.status(400).json({ error: "That partner no longer exists" });

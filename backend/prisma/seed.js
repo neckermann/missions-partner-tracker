@@ -14,6 +14,7 @@ const {
   familySilhouette,
   buildingSilhouette,
 } = require("../src/utils/silhouette");
+const { generateShareToken } = require("../src/utils/tripAccessToken");
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
@@ -902,18 +903,23 @@ function buildTrips(participantNamePool) {
     const start = dateBetween(4, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + randInt(5, 12));
-    const participants = pickN(participantNamePool, randInt(2, 5)).map((name, idx) => ({
-      name,
-      role: pick(TRIP_ROLES),
-      isLeader: idx === 0,
-      phone: chance(0.5) ? fakePhone() : null,
-      email: chance(0.5) ? `${name.toLowerCase().replace(/\s+/g, ".")}@example.com` : null,
-    }));
+    const participants = pickN(participantNamePool, randInt(2, 5)).map((name, idx) => {
+      const [firstName, ...rest] = name.split(" ");
+      return {
+        firstName,
+        lastName: rest.join(" ") || null,
+        role: pick(TRIP_ROLES),
+        isLeader: idx === 0,
+        phone: chance(0.5) ? fakePhone() : null,
+        email: chance(0.5) ? `${name.toLowerCase().replace(/\s+/g, ".")}@example.com` : null,
+      };
+    });
     const hasAlbum = chance(0.3);
     trips.push({
+      status: "completed",
       startDate: start,
       endDate: end,
-      tripType: pick(TRIP_TYPES),
+      type: pick(TRIP_TYPES),
       description: `Team served alongside the field, focusing on ${pick(FOCUS_POOL)}.`,
       notes: chance(0.4) ? pick(TRIP_NOTES) : null,
       albumProvider: hasAlbum ? pick(ALBUM_PROVIDERS) : null,
@@ -1158,6 +1164,129 @@ const ADDITIONAL_USERS = [
 // the kind of thing a demo reset must never do by default. The admin
 // cadence picker's own UI is enough to demonstrate the feature; seeded
 // data doesn't need to exercise the send path too.
+// Trips (#252) demo data -- a handful of hand-crafted trips layered on
+// top of whatever partners buildTrips() already gave random historical
+// trips to, so the new recruiting/roster/fundraising feature has
+// something real to click through: one actively-recruiting (public)
+// trip with a pending application and a partial roster, one
+// roster-finalized (closed) trip, and one restricted-partner trip using
+// the private-link mechanism instead of public discovery. shareToken/
+// applicationShareToken are generated here regardless of
+// ChurchSettings.allowPublicFundraisingLinks/allowPrivateApplicationLinks
+// (both off by default) -- an admin flips those settings on to actually
+// use the links this seed already created, same as toggling any other
+// feature on against existing data.
+async function seedTripsDemo() {
+  console.log("Seeding Trips (#252) demo data...");
+  const [openPartner, closedPartner, restrictedPartner] = await Promise.all([
+    prisma.partner.findFirst({ where: { archived: false, isRestricted: false }, orderBy: { displayName: "asc" } }),
+    prisma.partner.findFirst({
+      where: { archived: false, isRestricted: false },
+      orderBy: { displayName: "desc" },
+    }),
+    prisma.partner.findFirst({ where: { archived: false, isRestricted: true } }),
+  ]);
+  if (!openPartner || !closedPartner) return;
+
+  const openStart = dateBetween(-1, -2);
+  const openEnd = new Date(openStart);
+  openEnd.setDate(openEnd.getDate() + randInt(5, 10));
+  const closedStart = dateBetween(-2, -3);
+  const closedEnd = new Date(closedStart);
+  closedEnd.setDate(closedEnd.getDate() + randInt(5, 10));
+
+  const openTrip = await prisma.trip.create({
+    data: {
+      partnerId: openPartner.id,
+      name: `${openPartner.displayName.split(" ")[0]}'s Summer Team`,
+      status: "accepting_applications",
+      isPublic: true,
+      type: pick(TRIP_TYPES),
+      description: `Join a short-term team serving alongside ${openPartner.displayName}.`,
+      startDate: openStart,
+      endDate: openEnd,
+      teamSizeMin: 4,
+      teamSizeMax: 10,
+      fundraisingGoal: 1200,
+      applicationQuestions: [
+        { id: "q1", label: "Do you have any dietary restrictions?", required: false },
+        { id: "q2", label: "Emergency contact name and phone", required: true },
+        { id: "q3", label: "Do you have a valid passport?", required: true },
+      ],
+      applications: {
+        create: [
+          {
+            firstName: "James",
+            lastName: "Okonkwo",
+            email: "james.okonkwo@example.org",
+            responses: { q2: "Grace Okonkwo, 555-0142", q3: "Yes" },
+          },
+        ],
+      },
+    },
+  });
+  await prisma.tripParticipant.create({
+    data: {
+      trip: { connect: { id: openTrip.id } },
+      firstName: "Priya",
+      lastName: "Krishnan",
+      email: "priya.krishnan@example.org",
+      isLeader: true,
+      fundraisingGoal: 1200,
+      shareToken: generateShareToken(),
+      story: "I'm excited to serve this summer and would love your support!",
+      contributions: {
+        create: [
+          {
+            trip: { connect: { id: openTrip.id } },
+            donorName: "Family friend",
+            amount: 200,
+            method: "check",
+            receivedDate: dateBetween(0, 0),
+          },
+        ],
+      },
+    },
+  });
+
+  await prisma.trip.create({
+    data: {
+      partnerId: closedPartner.id,
+      name: `${closedPartner.displayName.split(" ")[0]}'s Fall Build Team`,
+      status: "closed",
+      type: pick(TRIP_TYPES),
+      description: `A roster is finalized for this team serving with ${closedPartner.displayName}.`,
+      startDate: closedStart,
+      endDate: closedEnd,
+      teamSizeMax: 6,
+      participants: {
+        create: [
+          { firstName: "Marcus", lastName: "Thibodeaux", isLeader: true, email: "marcus.t@example.org" },
+          { firstName: "Sarah", lastName: "Oyelaran", email: "sarah.o@example.org" },
+        ],
+      },
+    },
+  });
+
+  if (restrictedPartner) {
+    await prisma.trip.create({
+      data: {
+        partnerId: restrictedPartner.id,
+        name: "Trip to a sensitive-access field",
+        status: "accepting_applications",
+        isPublic: false,
+        applicationShareToken: generateShareToken(),
+        type: pick(TRIP_TYPES),
+        description: "A short-term team supporting an ongoing restricted-access ministry.",
+        teamSizeMin: 3,
+        teamSizeMax: 6,
+        fundraisingGoal: 1200,
+        applicationQuestions: [{ id: "q1", label: "Do you have a valid passport?", required: true }],
+      },
+    });
+  }
+}
+
 async function seedAdditionalUsers() {
   console.log(`Seeding ${ADDITIONAL_USERS.length} additional admin users...`);
   const bcrypt = require("bcryptjs");
@@ -1569,6 +1698,7 @@ async function main() {
   if (SEED_DEMO_EXTRAS) {
     await seedUnmatchedEmails();
     await seedAdditionalUsers();
+    await seedTripsDemo();
     // Last -- reads back the prayer requests/needs/newsletters just
     // created above, so it needs them to already exist.
     await seedNotificationQueue();

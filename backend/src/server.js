@@ -36,7 +36,9 @@ const dispatchRoutes = require("./routes/dispatches");
 const publicSubscribeRoutes = require("./routes/publicSubscribe");
 const publicUnsubscribeRoutes = require("./routes/publicUnsubscribe");
 const adminScopedDigestRoutes = require("./routes/adminScopedDigest");
+const publicTripRoutes = require("./routes/publicTrips");
 const { startEmailDispatchScheduler, startGroupMeScheduler } = require("./utils/emailDispatchScheduler");
+const { startTripReminderScheduler } = require("./utils/tripReminderScheduler");
 const whatsappClient = require("./utils/whatsappClient");
 const { isFeatureEnabled } = require("./utils/features");
 const prisma = require("./prismaClient");
@@ -219,6 +221,7 @@ app.use("/api/dispatches", dispatchRoutes); // protected (any role for read, adm
 app.use("/api/public/subscribe", publicSubscribeRoutes); // open (public, feature-gated -- see that file's own comment)
 app.use("/api/public/unsubscribe", publicUnsubscribeRoutes); // open (public, feature-gated -- sibling of publicSubscribe, not nested under it)
 app.use("/api/scoped-digest", adminScopedDigestRoutes); // protected (any role for read)
+app.use("/api/public/trips", publicTripRoutes); // open (public, feature-gated -- see that file's own comment)
 
 // Only exists at all if DEMO_RESET_TOKEN is configured — absent in every
 // normal deployment. See ADMIN_GUIDE.md § Demo mode.
@@ -288,6 +291,7 @@ if (require.main === module) {
     });
     startEmailDispatchScheduler();
     startGroupMeScheduler();
+    startTripReminderScheduler();
 
     // Open the WhatsApp session now (if the feature is on and a number is
     // paired) rather than waiting up to a minute for the first scheduler

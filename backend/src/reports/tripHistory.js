@@ -55,9 +55,9 @@ module.exports = {
   // /api/reports (the picker), not per report run, so this is one cheap
   // distinct query against a table that's a few hundred rows at most.
   async resolveFields(prisma) {
-    const trips = await prisma.trip.findMany({ select: { tripType: true, startDate: true } });
+    const trips = await prisma.trip.findMany({ select: { type: true, startDate: true } });
 
-    const tripTypes = [...new Set(trips.map((t) => t.tripType).filter(Boolean))].sort();
+    const tripTypes = [...new Set(trips.map((t) => t.type).filter(Boolean))].sort();
     const years = [...new Set(trips.map((t) => t.startDate?.getUTCFullYear()).filter(Boolean))].sort(
       (a, b) => b - a
     );
@@ -99,7 +99,7 @@ module.exports = {
   async run(params, prisma) {
     const where = {};
     if (params.entityType !== "all") where.partner = { kind: params.entityType.toLowerCase() };
-    if (params.tripType !== "all") where.tripType = params.tripType;
+    if (params.tripType !== "all") where.type = params.tripType;
     if (params.year !== "all") {
       where.startDate = {
         gte: new Date(Date.UTC(params.year, 0, 1)),
@@ -113,10 +113,10 @@ module.exports = {
         id: true,
         startDate: true,
         endDate: true,
-        tripType: true,
+        type: true,
         description: true,
         partner: { select: { id: true, displayName: true, kind: true } },
-        participants: { select: { name: true, isLeader: true } },
+        participants: { select: { firstName: true, lastName: true, isLeader: true } },
       },
       orderBy: [{ startDate: "desc" }],
     });
@@ -134,12 +134,12 @@ module.exports = {
         partnerId: t.partner.id,
         partnerName: t.partner.displayName,
         partnerType: t.partner.kind === "organization" ? "Organization" : "Missionary",
-        tripType: t.tripType || null,
+        tripType: t.type || null,
         teamSize: t.participants.length,
         leaders:
           t.participants
             .filter((p) => p.isLeader)
-            .map((p) => p.name)
+            .map((p) => [p.firstName, p.lastName].filter(Boolean).join(" "))
             .join(", ") || null,
         description: t.description,
       }))

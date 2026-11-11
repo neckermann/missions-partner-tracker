@@ -39,7 +39,15 @@ async function client() {
 // fire-and-log (a report email) or something to surface directly (a
 // future password-reset email, where silently failing would be actively
 // harmful).
-async function sendEmail({ to, subject, text, html }) {
+// replyTo (#252) -- optional, so every existing caller is unaffected
+// (Postmark simply omits the header when it's not set, same as today).
+// The one caller that needs it is trips.js's document-request send --
+// everything else in this app's email still replies to the From
+// address, which is what every caller before this one wanted anyway.
+// attachments (#252) -- [{ Name, Content (base64), ContentType }],
+// Postmark's own shape, passed straight through. Only the trip-meeting/
+// roster-invite .ics sends use this today.
+async function sendEmail({ to, subject, text, html, replyTo, attachments }) {
   const { postmark, fromAddress } = await client();
   return postmark.sendEmail({
     From: fromAddress,
@@ -47,6 +55,8 @@ async function sendEmail({ to, subject, text, html }) {
     Subject: subject,
     TextBody: text,
     HtmlBody: html,
+    ReplyTo: replyTo || undefined,
+    Attachments: attachments || undefined,
   });
 }
 

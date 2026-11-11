@@ -610,6 +610,7 @@ const emailSettingsSelect = {
   emailFromAddress: true,
   inboundEmailWebhookUsername: true,
   inboundEmailWebhookPassword: true,
+  inboundEmailAddress: true,
   enabledFeatures: true,
 };
 
@@ -622,6 +623,10 @@ function shapeEmailSettings(settings) {
     inboundConfigured: Boolean(
       settings?.inboundEmailWebhookUsername && settings?.inboundEmailWebhookPassword
     ),
+    // Purely informational (#252) -- the address partners/participants
+    // were told, outside this app, to send mail to. Not involved in
+    // routing the webhook itself.
+    inboundEmailAddress: settings?.inboundEmailAddress || null,
     // The username alone is meaningless without the password (see the
     // schema.prisma comment), so it's safe to echo back -- useful for an
     // admin to confirm what they set without re-typing it. webhookPath is
@@ -644,6 +649,8 @@ const emailSchema = z.object({
   receiveEnabled: z.boolean().optional(),
   webhookUsername: z.string().trim().min(1).optional(),
   webhookPassword: z.string().trim().min(1).optional(),
+  // Plain text, not a secret -- the address partners send mail to (#252).
+  inboundEmailAddress: z.string().trim().email().optional().nullable(),
 });
 
 // GET /api/settings/email -- unlike GroupMe/Joshua Project/AI Extraction
@@ -679,14 +686,22 @@ router.put(
   requireRole("admin"),
   async (req, res, next) => {
     try {
-      const { sendEnabled, serverToken, fromAddress, receiveEnabled, webhookUsername, webhookPassword } =
-        emailSchema.parse(req.body);
+      const {
+        sendEnabled,
+        serverToken,
+        fromAddress,
+        receiveEnabled,
+        webhookUsername,
+        webhookPassword,
+        inboundEmailAddress,
+      } = emailSchema.parse(req.body);
 
       const fields = {};
       if (serverToken) fields.postmarkServerToken = encryptField(serverToken);
       if (fromAddress !== undefined) fields.emailFromAddress = fromAddress;
       if (webhookUsername) fields.inboundEmailWebhookUsername = webhookUsername;
       if (webhookPassword) fields.inboundEmailWebhookPassword = encryptField(webhookPassword);
+      if (inboundEmailAddress !== undefined) fields.inboundEmailAddress = inboundEmailAddress;
 
       // enabledFeatures is one JSON blob shared with every other
       // integration's own flag (GroupMe, Joshua Project, ...) and with
@@ -736,6 +751,63 @@ router.post("/email/test", requireFeature("outboundEmail"), requireRole("admin")
     // this is exactly the call an admin makes to find out their settings
     // don't work. Same reasoning as GroupMe's live-check routes above.
     res.status(err.status === 400 ? 400 : 502).json({ error: err.message });
+  }
+});
+
+// Trips (#252) -- church-wide settings for the whole feature area: the
+// donation-instructions fields (§13), the donor-contact opt-in (§6), and
+// the two private-link gates (§4/§6). Gated by requireFeature("trips")
+// alone -- reachable to configure as soon as the backend feature is on,
+// same posture GroupMe/Joshua Project settings already take (configurable
+// before the more specific public-facing bits are turned on).
+const tripsSettingsSelect = {
+  onlineGivingUrl: true,
+  onlineGivingInstructions: true,
+  collectDonorContactInfo: true,
+  allowPrivateApplicationLinks: true,
+  allowPublicFundraisingLinks: true,
+};
+
+const tripsSettingsSchema = z.object({
+  onlineGivingUrl: z.string().trim().optional().nullable(),
+  onlineGivingInstructions: z.string().optional().nullable(),
+  collectDonorContactInfo: z.boolean().optional(),
+  allowPrivateApplicationLinks: z.boolean().optional(),
+  allowPublicFundraisingLinks: z.boolean().optional(),
+});
+
+router.get("/trips", requireFeature("trips"), async (req, res, next) => {
+  try {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: tripsSettingsSelect,
+    });
+    res.json(
+      settings || {
+        onlineGivingUrl: null,
+        onlineGivingInstructions: null,
+        collectDonorContactInfo: false,
+        allowPrivateApplicationLinks: false,
+        allowPublicFundraisingLinks: false,
+      }
+    );
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/trips", requireFeature("trips"), requireRole("admin"), async (req, res, next) => {
+  try {
+    const data = tripsSettingsSchema.parse(req.body);
+    const updated = await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      create: { id: "singleton", ...data, updatedById: req.user.id },
+      update: { ...data, updatedById: req.user.id },
+      select: tripsSettingsSelect,
+    });
+    res.json(updated);
+  } catch (err) {
+    next(err);
   }
 });
 

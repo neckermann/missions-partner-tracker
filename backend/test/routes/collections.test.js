@@ -25,6 +25,7 @@ let viewer;
 let anon;
 let partner;
 let otherPartner;
+let originalEnabledFeatures;
 
 before(async () => {
   await ensureTestUsers();
@@ -35,6 +36,22 @@ before(async () => {
     client(null),
   ]);
   await removeFixturePartners();
+
+  // trips defaults to off (#252) -- every other collection tested here
+  // (support-needs, prayer-requests, support-entries) still defaults on,
+  // so this suite never had to touch enabledFeatures before. Explicitly
+  // turn trips on for the duration, restoring whatever was there after,
+  // same pattern reports.test.js's own feature-gate describe already uses.
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
+  originalEnabledFeatures = settings?.enabledFeatures ?? {};
+  await prisma.churchSettings.upsert({
+    where: { id: "singleton" },
+    update: { enabledFeatures: { ...originalEnabledFeatures, trips: true } },
+    create: { id: "singleton", enabledFeatures: { trips: true } },
+  });
 
   const a = await admin("/api/partners", {
     method: "POST",
@@ -51,6 +68,11 @@ before(async () => {
 after(async () => {
   await removeFixturePartners();
   await removeTestUsers();
+  await prisma.churchSettings.upsert({
+    where: { id: "singleton" },
+    update: { enabledFeatures: originalEnabledFeatures },
+    create: { id: "singleton", enabledFeatures: originalEnabledFeatures },
+  });
   await stopServer();
 });
 
@@ -62,10 +84,16 @@ function collectionCases() {
     {
       name: "trips",
       path: "/api/trips",
-      create: () => ({ partnerId: partner.id, tripType: "Construction", description: "initial" }),
+      create: () => ({ partnerId: partner.id, type: "Construction", description: "initial" }),
       patch: { description: "edited" },
       readBack: (r) => r.description,
       expectAfterPatch: "edited",
+      // Trip.partnerId became nullable in #252 -- a standalone trip with
+      // no linked partner is now a valid, real case (§3's own "a Trip with
+      // no partnerId never appears on the planning page" decision assumes
+      // this is creatable at all), so this collection doesn't belong in
+      // the shared "rejects a create with no partnerId" loop below.
+      partnerIdOptional: true,
     },
     {
       name: "support-needs",
@@ -154,15 +182,25 @@ describe("collections: CRUD and partner scoping", () => {
       assert.equal((await admin(`${c.path}/${created.body.id}`, { method: "DELETE" })).status, 204);
     });
 
-    test(`${c.name}: rejects a create with no partnerId`, async () => {
-      const { partnerId, ...withoutPartner } = c.create();
-      const res = await admin(c.path, { method: "POST", body: withoutPartner });
-      assert.equal(res.status, 400);
-      // A string, not Zod's issues array -- the frontend renders this value
-      // directly, so an object here blanks the page. See middleware/errors.js.
-      assert.equal(typeof res.body.error, "string", `expected a string, got ${JSON.stringify(res.body)}`);
-      assert.match(res.body.error, /partnerId/);
-    });
+    if (c.partnerIdOptional) {
+      test(`${c.name}: a create with no partnerId succeeds (standalone trip)`, async () => {
+        const { partnerId, ...withoutPartner } = c.create();
+        const res = await admin(c.path, { method: "POST", body: withoutPartner });
+        assert.equal(res.status, 201);
+        assert.equal(res.body.partnerId, null);
+        await admin(`${c.path}/${res.body.id}`, { method: "DELETE" });
+      });
+    } else {
+      test(`${c.name}: rejects a create with no partnerId`, async () => {
+        const { partnerId, ...withoutPartner } = c.create();
+        const res = await admin(c.path, { method: "POST", body: withoutPartner });
+        assert.equal(res.status, 400);
+        // A string, not Zod's issues array -- the frontend renders this value
+        // directly, so an object here blanks the page. See middleware/errors.js.
+        assert.equal(typeof res.body.error, "string", `expected a string, got ${JSON.stringify(res.body)}`);
+        assert.match(res.body.error, /partnerId/);
+      });
+    }
   }
 });
 
@@ -365,8 +403,8 @@ describe("trips: participants", () => {
       method: "POST",
       body: {
         partnerId: partner.id,
-        tripType: "Medical/Dental",
-        participants: [{ name: "Alice", isLeader: true }, { name: "Bob" }],
+        type: "Medical/Dental",
+        participants: [{ firstName: "Alice", isLeader: true }, { firstName: "Bob" }],
       },
     });
     assert.equal(created.status, 201);
@@ -377,10 +415,10 @@ describe("trips: participants", () => {
     // they carry nothing that recreating them loses.
     const updated = await admin(`/api/trips/${created.body.id}`, {
       method: "PUT",
-      body: { participants: [{ name: "Carol", role: "Translator" }] },
+      body: { participants: [{ firstName: "Carol", role: "Translator" }] },
     });
     assert.equal(updated.body.participants.length, 1);
-    assert.equal(updated.body.participants[0].name, "Carol");
+    assert.equal(updated.body.participants[0].firstName, "Carol");
 
     // Omitting participants entirely leaves them alone.
     const untouched = await admin(`/api/trips/${created.body.id}`, {
@@ -388,7 +426,7 @@ describe("trips: participants", () => {
       body: { description: "just the description" },
     });
     assert.equal(untouched.body.participants.length, 1);
-    assert.equal(untouched.body.participants[0].name, "Carol");
+    assert.equal(untouched.body.participants[0].firstName, "Carol");
 
     await admin(`/api/trips/${created.body.id}`, { method: "DELETE" });
   });
@@ -396,7 +434,7 @@ describe("trips: participants", () => {
   test("deleting a trip removes its participants", async () => {
     const created = await admin("/api/trips", {
       method: "POST",
-      body: { partnerId: partner.id, participants: [{ name: "Temp" }] },
+      body: { partnerId: partner.id, participants: [{ firstName: "Temp" }] },
     });
     const tripId = created.body.id;
     assert.equal(await prisma.tripParticipant.count({ where: { tripId } }), 1);
@@ -404,17 +442,17 @@ describe("trips: participants", () => {
     assert.equal(await prisma.tripParticipant.count({ where: { tripId } }), 0);
   });
 
-  test("year and tripType filters narrow the cross-partner list", async () => {
+  test("year and type filters narrow the cross-partner list", async () => {
     const a = await admin("/api/trips", {
       method: "POST",
-      body: { partnerId: partner.id, tripType: "Prayer", startDate: "2021-06-01" },
+      body: { partnerId: partner.id, type: "Prayer", startDate: "2021-06-01" },
     });
     const b = await admin("/api/trips", {
       method: "POST",
-      body: { partnerId: partner.id, tripType: "Construction", startDate: "2024-06-01" },
+      body: { partnerId: partner.id, type: "Construction", startDate: "2024-06-01" },
     });
 
-    const byType = await admin("/api/trips?tripType=Prayer");
+    const byType = await admin("/api/trips?type=Prayer");
     assert.ok(byType.body.some((t) => t.id === a.body.id));
     assert.ok(!byType.body.some((t) => t.id === b.body.id));
 
@@ -571,7 +609,7 @@ describe("collections: cascade", () => {
     });
     const id = created.body.id;
 
-    await admin("/api/trips", { method: "POST", body: { partnerId: id, tripType: "Prayer" } });
+    await admin("/api/trips", { method: "POST", body: { partnerId: id, type: "Prayer" } });
     await admin("/api/support-entries", {
       method: "POST",
       body: { partnerId: id, amount: 50, effectiveDate: "2026-01-01" },
