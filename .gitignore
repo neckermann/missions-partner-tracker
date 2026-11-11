@@ -31,3 +31,8 @@ Thumbs.db
 
 # Root tooling deps (eslint/prettier) -- see the root package.json
 /node_modules/
+
+# An isolated agent worktree's full checked-out copy -- machine-local,
+# never meant to be committed. Previously excluded only via one machine's
+# own .git/info/exclude, which a different machine/agent wouldn't see.
+.claude/worktrees/

@@ -71,6 +71,16 @@ See [WORKFLOW.md](WORKFLOW.md) for the normal path (push to
 from the Render dashboard, or revert the merge commit on `main`. No
 automated rollback exists.
 
+**A push touching `schema.prisma` needs the build cache cleared on
+that redeploy, not reused** — Render's dashboard calls this "Clear
+build cache & deploy" (Manual Deploy menu on the service); the Render
+API's equivalent deploy call takes `clearCache: "clear"`. A cached
+build can silently skip `prisma generate`, so the running process's
+generated client doesn't know about the new columns even though the
+database does. Do this for both `dev-test` and the production demo
+whenever `schema.prisma` changed, not just whichever one you happened
+to be testing against.
+
 ## Common failures
 
 **Deploy stuck at `pre_deploy_failed` after a schema change.** Expected

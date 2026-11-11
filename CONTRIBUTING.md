@@ -461,6 +461,13 @@ once and reference — like the screenshot-capture rules above — rather
 than a session-scoped note that only one person or one tool ever sees
 again.
 
+For conventions specific to an AI agent working in this repo rather
+than a human contributor (git/commit hygiene an agent needs that a
+person doesn't, CI-polling cadence, approval gates for autonomous
+action), see [AGENTS.md](AGENTS.md) instead — that's the concrete
+answer to "whatever tool you use for that" for agent-specific
+knowledge.
+
 ## Pull requests
 
 - Base them on `main` and raise them from `dev` (see
