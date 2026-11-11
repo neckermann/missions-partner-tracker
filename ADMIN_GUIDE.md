@@ -176,7 +176,7 @@ All of this lives under **Site Administration**, an expandable group in
 the admin sidebar itself (not a separate page with its own tab bar) —
 click it to reveal About Church, Manage Users, Branding, Enabled
 Features, and Backups, then two further sub-groups shown only once
-their features are on: **Communications** (Email, GroupMe,
+their features are on: **Communications** (Email, GroupMe, WhatsApp,
 Dispatch Settings, Email Dispatch Subscribers) and **Integrations** (AI
 Features, Joshua Project). User
 Management moved here from its own top-level nav link. Adding a new
@@ -630,12 +630,14 @@ know before turning it on:
   reduces the risk; it can't remove it.
 - **The number must be a member** of the community and of every group you
   map (and an admin of any group where only admins can post).
-- **Announcements fallback.** Same idea as GroupMe's main conversation:
-  every WhatsApp community has a built-in Announcements group, detected
-  automatically the moment you pick the community (no picker for it —
-  the WhatsApp settings page just shows which one it found). A
-  dispatch type with no group of its own mapped posts there instead;
-  only with neither set does it not go out over WhatsApp.
+- **Announcements fallback.** Every WhatsApp community has a built-in
+  Announcements group, detected automatically the moment you pick the
+  community (no picker for it — the WhatsApp settings page just shows
+  which one it found). A dispatch type with no group of its own mapped
+  posts there instead; only with neither set does it not go out over
+  WhatsApp. GroupMe's main conversation plays the same role for
+  GroupMe — each channel has its own independent fallback target, not
+  a shared one.
 - **What's stored.** The linked session lives in the database, encrypted
   with `FIELD_ENCRYPTION_KEY` (the same protection as the GroupMe token),
   and is never sent to the browser. It is deliberately **not** in
@@ -655,12 +657,19 @@ know before turning it on:
   connection). Only one copy of the app may hold the session at a time:
   during a deploy the new instance waits (a minute or two) for the old one
   to let go, handled automatically with a database lock.
-- **Schedule and message size.** WhatsApp shares GroupMe's daily send hour
-  and content-type mutes (Site Administration → Dispatch Settings) but tracks
-  its own sent state, so one channel being down never blocks the other.
-  Related items going to the same group are combined into one message
-  (kept under 4,000 characters); a single item longer than that is split
-  into consecutive messages rather than cut off.
+- **Schedule and message size.** WhatsApp sends once a day, at an
+  admin-set hour, with three independent content-type mutes (Prayer
+  Requests / One-Time Needs / Newsletters) — both configured on Site
+  Administration → Dispatch Settings. GroupMe and WhatsApp are both
+  chat-style, near-real-time channels, which is why they're scheduled
+  on that one shared daily-hour field and the same three mutes rather
+  than each getting its own — not because WhatsApp borrows GroupMe's
+  settings. Each channel still tracks its own sent state with its own
+  dedupe cursor, so one being down, muted, or off never blocks or
+  double-stamps the other. Related items going to the same group are
+  combined into one message (kept under 4,000 characters); a single
+  item longer than that is split into consecutive messages rather than
+  cut off.
 
 ### Dispatch: GroupMe, the admin digest, and the public digest
 
@@ -682,12 +691,23 @@ backlog).
 
 - **GroupMe** — full item text (never summarized), packed into as few
   messages as fit under GroupMe's 1,000-character limit, to each
-  type's own configured Topic. Fires once a day, at its own
-  admin-set hour (below) — a single daily batch, not a weekly/monthly
-  tier, since GroupMe is a near-real-time chat channel, not a periodic
-  email. Three content-type mutes (Prayer Requests / One-Time Needs /
-  Newsletters) let a church turn off any one type for GroupMe
-  specifically without affecting the admin or public digest at all.
+  type's own configured Topic. Fires once a day, at an admin-set hour
+  shared with WhatsApp (below) — a single daily batch, not a
+  weekly/monthly tier, since GroupMe is a near-real-time chat channel,
+  not a periodic email. Three content-type mutes (Prayer Requests /
+  One-Time Needs / Newsletters), also shared with WhatsApp, let a
+  church turn off any one type for both chat channels at once without
+  affecting the admin or public digest at all.
+- **WhatsApp** — the same three item types, posted to their own group
+  inside one WhatsApp community (or the community's Announcements
+  group, for a type with no group mapped). GroupMe and WhatsApp share
+  one daily-hour field and the same three content-type mutes
+  specifically because both are chat-style, near-real-time channels —
+  not because either one depends on or copies the other's settings.
+  Each still has its own independent on/off state, its own
+  connection/target configuration, and its own delivery and sent-state
+  tracking: turning one off, muting it, or its service being
+  unreachable never affects the other.
 - **Admin digest** — one HTML email per user who's picked a cadence
   (self-service from their own Account Settings), grouped by partner,
   always including every content type it's allowed to (no mute
@@ -722,7 +742,8 @@ computed fresh from the partner's *current* `isRestricted` value at
 send time, not from whatever it was when the event was first recorded,
 so flipping that flag afterward still takes effect. A restricted
 partner's prayer request or one-time need additionally can't send **at
-all**, on any channel, until an admin has reviewed it — see
+all**, on any channel — GroupMe, WhatsApp, or either digest — until an
+admin has reviewed it — see
 [§ Restricted-partner dispatch review](#restricted-partner-dispatch-review)
 below. Masking itself is unconditional and unaffected by review state
 either way.
@@ -730,9 +751,10 @@ either way.
 **Schedules.** The admin and public digests share three cadence tiers
 — biweekly, monthly, or quarterly — each admin and public subscriber
 picks for themselves; the church sets the actual day/time those tiers
-fire on the Dispatch Settings page. GroupMe's own daily hour is a
-completely separate, independent setting on the same page — a church
-can run GroupMe and the email tiers on entirely different schedules.
+fire on the Dispatch Settings page. GroupMe and WhatsApp's shared
+daily hour is a completely separate, independent setting on the same
+page — a church can run the chat channels and the email tiers on
+entirely different schedules.
 Both are checked once a minute by their own in-process
 [`node-cron`](https://www.npmjs.com/package/node-cron) jobs started in
 `server.js`, not a separate Render Cron Job resource and not an
@@ -833,8 +855,8 @@ stop being true.
 
 A restricted partner's prayer request/one-time need (new, answered, or
 decided) is recorded the same as anyone else's, but can't actually send
-on any channel — not GroupMe, not either digest, not an urgent
-dispatch — until an admin reviews it. This is on top of the structural
+on any channel — not GroupMe, not WhatsApp, not either digest, not an
+urgent dispatch — until an admin reviews it. This is on top of the structural
 masking above, which applies regardless: it's about whether the
 request/need **text itself** is safe to send verbatim, something only a
 human reading the real content can judge. Newsletters aren't affected —

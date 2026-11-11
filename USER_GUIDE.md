@@ -747,11 +747,17 @@ feature is on). **Read [ADMIN_GUIDE.md § Dispatch:
 WhatsApp](ADMIN_GUIDE.md#dispatch-whatsapp) first** — this is an
 unofficial connection and you'll want a dedicated phone number for it.
 
-It runs on GroupMe's same daily send hour and content-type mutes (the
-[Dispatch Settings](#dispatch-settings-admin-only) page shows one shared
-section for whichever chat channels are on), and an item marked
-**urgent** posts right away. Items waiting for the same group go out
-together in one message.
+WhatsApp sends once a day, at an admin-set hour, and has its own three
+content-type mutes (Prayer Requests / One-Time Needs / Newsletters) —
+both set on the [Dispatch Settings](#dispatch-settings-admin-only)
+page. GroupMe shares that same daily-hour field and the same three
+mutes, because both are chat-style, near-real-time channels — not
+because WhatsApp depends on or borrows GroupMe's settings — but
+WhatsApp's own on/off state, community/group configuration, and
+delivery are entirely its own; turning GroupMe off, or it being
+unreachable, never affects WhatsApp. An item marked **urgent** posts
+right away. Items waiting for the same group go out together in one
+message.
 
 Setup builds up in steps:
 
@@ -900,8 +906,9 @@ schedule picks the item up next.
 ### Dispatch Settings (Admin only)
 
 The **Dispatch Settings** page under Site Administration → Communications
-holds every schedule, GroupMe's own content-type mutes, the one
-restricted-partner safety gate, and the email dispatch's own appearance —
+holds every schedule, the chat channels' (GroupMe and WhatsApp) shared
+content-type mutes, the one restricted-partner safety gate, and the
+email dispatch's own appearance —
 separate from the actual queue above, same split Email already has
 between its own settings page and Unmatched Emails. Top to bottom:
 
@@ -917,8 +924,8 @@ only — no email addresses, here or anywhere else an admin can see.
 #### Restricted Partners
 
 One checkbox, off by default: turned on, a restricted-access partner's
-prayer requests and one-time needs are recorded and can reach GroupMe
-and both email digests, subject to the review requirement described in
+prayer requests and one-time needs are recorded and can reach GroupMe,
+WhatsApp, and both email digests, subject to the review requirement described in
 [Pending Dispatches](#pending-dispatches) above. Left off (the
 default), their events are never recorded in the first place, for any
 type — nothing to hold, nothing to review, because nothing's queued.
@@ -929,9 +936,10 @@ restricted partners' content reaching every channel like anyone else's.
 
 #### Email Dispatch Customization
 
-Everything here controls the **email digest specifically** — GroupMe's
-own message format doesn't change, since GroupMe is plain text and has
-no layout/subject/signature of its own to customize:
+Everything here controls the **email digest specifically** — GroupMe
+and WhatsApp's own message format doesn't change, since both are
+plain text and have no layout/subject/signature of their own to
+customize:
 
 - **Layout** — **Classic** (plain text-only partner cards) or
   **Snapshot** (adds each partner's photo — or a generic silhouette if
@@ -979,21 +987,25 @@ all three — each tier only fires once its own day/time is set; leaving
 all three unset (the default) means nobody's individual cadence choice
 ever actually sends, regardless of what they picked for themselves.
 
-#### GroupMe
+#### Chat channels (GroupMe & WhatsApp)
 
-Two things, both GroupMe-specific (see [GroupMe
-dispatch](#groupme-dispatch-admin-only) above for the
-connection setup itself, on its own page):
+One shared daily-hour field and three shared mutes, used by whichever
+chat channel(s) are on (see [GroupMe dispatch](#groupme-dispatch-admin-only)
+and [WhatsApp dispatch](#whatsapp-dispatch-admin-only) above for each
+channel's own connection setup, on its own page):
 
-- **Time** — a single daily hour. GroupMe is a near-real-time chat
-  channel, not a periodic email, so there's no weekly/monthly tier
-  here — whatever's queued gets packed into as few messages as fit and
-  posted once a day, at whichever hour you set.
+- **Time** — a single daily hour. GroupMe and WhatsApp are both
+  near-real-time chat channels, not a periodic email, so there's no
+  weekly/monthly tier here — whatever's queued for either one gets
+  packed into as few messages as fit and posted once a day, at
+  whichever hour you set. One field, shared by both — there's no way
+  to give them different hours.
 - **Mute Prayer Requests / One-Time Needs / Newsletters** — three
-  independent checkboxes, GroupMe-only. Muting one just stops *that
-  type* from posting to GroupMe; it never affects whether that type
-  gets recorded at all, so the email digest and the restricted-partner
-  review queue are completely unaffected by any of these three.
+  independent checkboxes, shared by GroupMe and WhatsApp. Muting one
+  just stops *that type* from posting to either chat channel; it never
+  affects whether that type gets recorded at all, so the email digest
+  and the restricted-partner review queue are completely unaffected by
+  any of these three.
 
 ### Email (Admin only)
 
