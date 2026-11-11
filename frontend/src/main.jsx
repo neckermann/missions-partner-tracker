@@ -4,6 +4,10 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom
 import PublicDirectory from "./pages/PublicDirectory.jsx";
 import PublicPartnerDetail from "./pages/PublicPartnerDetail.jsx";
 import PublicSubscribe from "./pages/PublicSubscribe.jsx";
+import PublicTripOpportunities from "./pages/PublicTripOpportunities.jsx";
+import PublicTripApplication from "./pages/PublicTripApplication.jsx";
+import PublicTripParticipant from "./pages/PublicTripParticipant.jsx";
+import PublicTripAccessRecovery from "./pages/PublicTripAccessRecovery.jsx";
 import Login from "./pages/Login.jsx";
 import Setup from "./pages/Setup.jsx";
 import RequireAdminAuth from "./components/RequireAdminAuth.jsx";
@@ -54,8 +58,11 @@ const AdminSystemInfo = lazy(() => import("./pages/AdminSystemInfo.jsx"));
 const AdminMonthlySupport = lazy(() => import("./pages/AdminMonthlySupport.jsx"));
 const AdminOneTimeNeeds = lazy(() => import("./pages/AdminOneTimeNeeds.jsx"));
 const AdminPrayerRequests = lazy(() => import("./pages/AdminPrayerRequests.jsx"));
-const AdminTripHistory = lazy(() => import("./pages/AdminTripHistory.jsx"));
-const AdminTripOpportunities = lazy(() => import("./pages/AdminTripOpportunities.jsx"));
+const AdminTrips = lazy(() => import("./pages/AdminTrips.jsx"));
+const AdminTripPlanning = lazy(() => import("./pages/AdminTripPlanning.jsx"));
+const AdminTripDetail = lazy(() => import("./pages/AdminTripDetail.jsx"));
+const AdminTripDashboard = lazy(() => import("./pages/AdminTripDashboard.jsx"));
+const AdminSettingsTrips = lazy(() => import("./pages/AdminSettingsTrips.jsx"));
 const AdminPartnerFiles = lazy(() => import("./pages/AdminPartnerFiles.jsx"));
 
 // Chunks are served same-origin from this app, so the gap is a network hop
@@ -107,6 +114,28 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   </RequirePublicSite>
                 }
               />
+              <Route
+                path="/trips"
+                element={
+                  <RequirePublicSite feature="publicTripDiscovery">
+                    <PublicTripOpportunities />
+                  </RequirePublicSite>
+                }
+              />
+              {/* Trips (#252) public application/fundraising/recovery pages
+              are NOT wrapped in RequirePublicSite -- unlike /trips (the
+              broadly-discoverable listing), these are reached only via a
+              direct link (plain, or the private applicationShareToken/
+              shareToken/access-token links), and the backend route itself
+              is what enforces every eligibility rule (status/isPublic/
+              publicTripDiscovery/restricted-partner) per trip -- there's no
+              single church-wide flag that correctly gates all of them at
+              once the way RequirePublicSite's single-feature check assumes. */}
+              <Route path="/apply/:id" element={<PublicTripApplication />} />
+              <Route path="/apply/by-token/:token" element={<PublicTripApplication />} />
+              <Route path="/trip-fundraising/:shareToken" element={<PublicTripParticipant />} />
+              <Route path="/my-trip" element={<PublicTripParticipant />} />
+              <Route path="/trip-access-recovery" element={<PublicTripAccessRecovery />} />
               <Route path="/login" element={<Login />} />
               <Route path="/setup" element={<Setup />} />
 
@@ -170,15 +199,31 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   path="trips"
                   element={
                     <RequireAdminFeature feature="trips">
-                      <AdminTripHistory />
+                      <AdminTrips />
                     </RequireAdminFeature>
                   }
                 />
                 <Route
-                  path="trips/opportunities"
+                  path="trips/planning"
                   element={
                     <RequireAdminFeature feature="trips">
-                      <AdminTripOpportunities />
+                      <AdminTripPlanning />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
+                  path="trips/dashboard"
+                  element={
+                    <RequireAdminFeature feature="trips">
+                      <AdminTripDashboard />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
+                  path="trips/:id"
+                  element={
+                    <RequireAdminFeature feature="trips">
+                      <AdminTripDetail />
                     </RequireAdminFeature>
                   }
                 />
@@ -238,6 +283,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   <Route path="joshua-project" element={<AdminSettingsJoshuaProject />} />
                   <Route path="ai-extraction" element={<AdminSettingsAiExtraction />} />
                   <Route path="email" element={<AdminSettingsEmail />} />
+                  <Route
+                    path="trips"
+                    element={
+                      <RequireAdminFeature feature="trips">
+                        <AdminSettingsTrips />
+                      </RequireAdminFeature>
+                    }
+                  />
                   <Route
                     path="dispatches"
                     element={

@@ -26,11 +26,11 @@ const TRIP_TYPE_PRESETS = [
   "Administrative/Support",
 ];
 
-const emptyParticipant = { name: "", role: "", isLeader: false, phone: "", email: "" };
+const emptyParticipant = { firstName: "", lastName: "", role: "", isLeader: false, phone: "", email: "" };
 const emptyForm = {
   startDate: "",
   endDate: "",
-  tripType: "",
+  type: "",
   description: "",
   notes: "",
   albumProvider: null,
@@ -79,7 +79,7 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
     setForm({
       startDate: toDateInputValue(trip.startDate),
       endDate: toDateInputValue(trip.endDate),
-      tripType: trip.tripType || "",
+      type: trip.type || "",
       description: trip.description || "",
       notes: trip.notes || "",
       albumProvider: trip.albumProvider || null,
@@ -95,12 +95,14 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
     const payload = {
       startDate: form.startDate || null,
       endDate: form.endDate || null,
-      tripType: form.tripType || null,
+      type: form.type || null,
       description: form.description || null,
       notes: form.notes || null,
       albumProvider: form.albumProvider || null,
       albumUrl: form.albumUrl || null,
-      participants: form.participants.map((p) => ({ ...p, name: p.name.trim() })).filter((p) => p.name),
+      participants: form.participants
+        .map((p) => ({ ...p, firstName: p.firstName.trim() }))
+        .filter((p) => p.firstName),
     };
     try {
       if (editingId) await updateTrip(editingId, payload);
@@ -155,8 +157,8 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
             <label>
               Trip Type
               <PresetOrCustomSelect
-                value={form.tripType}
-                onChange={(v) => set("tripType", v)}
+                value={form.type}
+                onChange={(v) => set("type", v)}
                 presets={TRIP_TYPE_PRESETS}
                 placeholder="e.g. Photography"
               />
@@ -196,8 +198,18 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
               </button>
               <div className="form-grid">
                 <label>
-                  Name
-                  <input value={p.name} onChange={(e) => updateParticipant(i, "name", e.target.value)} />
+                  First Name
+                  <input
+                    value={p.firstName}
+                    onChange={(e) => updateParticipant(i, "firstName", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Last Name
+                  <input
+                    value={p.lastName || ""}
+                    onChange={(e) => updateParticipant(i, "lastName", e.target.value)}
+                  />
                 </label>
                 <label>
                   Role
@@ -253,7 +265,9 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
       <div style={{ marginTop: "1rem" }}>
         {trips?.length > 0 ? (
           visible.map((t) => {
-            const leaders = (t.participants || []).filter((p) => p.isLeader).map((p) => p.name);
+            const leaders = (t.participants || [])
+              .filter((p) => p.isLeader)
+              .map((p) => [p.firstName, p.lastName].filter(Boolean).join(" "));
             return (
               <div key={t.id} className="repeatable-row">
                 <div
@@ -265,7 +279,7 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
                   }}
                 >
                   <div>
-                    <strong>{t.tripType || "Trip"}</strong>
+                    <strong>{t.type || "Trip"}</strong>
                     <div style={{ fontSize: "0.85rem", color: "#666" }}>
                       {t.startDate || t.endDate
                         ? `${formatDate(t.startDate) || "?"} – ${formatDate(t.endDate) || "?"}`

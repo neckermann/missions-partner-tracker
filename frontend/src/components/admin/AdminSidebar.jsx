@@ -27,8 +27,9 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
     enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
     enabledFeatures.oneTimeNeeds && { to: "/admin/support/needs", label: "One-Time Needs" },
     enabledFeatures.monthlySupport && { to: "/admin/support/monthly", label: "Monthly Support" },
-    enabledFeatures.trips && { to: "/admin/trips", label: "Trip History", end: true },
-    enabledFeatures.trips && { to: "/admin/trips/opportunities", label: "Trip Opportunities" },
+    enabledFeatures.trips && { to: "/admin/trips", label: "Trips", end: true },
+    enabledFeatures.trips && { to: "/admin/trips/planning", label: "Trip Planning" },
+    enabledFeatures.trips && { to: "/admin/trips/dashboard", label: "Trips Dashboard" },
     enabledFeatures.booklet && { to: "/admin/booklet", label: "Print Booklet" },
     enabledFeatures.reports && { to: "/admin/reports", label: "Reports" },
   ].filter(Boolean);
@@ -78,6 +79,7 @@ function buildSiteAdminLinks(enabledFeatures) {
       to: "/admin/settings/email",
       label: "Email",
     },
+    enabledFeatures.trips && { to: "/admin/settings/trips", label: "Trips Settings" },
     enabledFeatures.groupme && { to: "/admin/settings/groupme", label: "GroupMe" },
     enabledFeatures.whatsapp && { to: "/admin/settings/whatsapp", label: "WhatsApp" },
     // Schedule(s), GroupMe's content-type mutes, the restricted-partner

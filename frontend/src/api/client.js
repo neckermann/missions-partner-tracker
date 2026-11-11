@@ -458,6 +458,117 @@ export async function deleteTrip(id) {
   await api.delete(`/trips/${id}`);
 }
 
+// Trips (#252) -- admin-side additions beyond the plain CRUD above.
+export async function fetchTripPlanning() {
+  const { data } = await api.get("/trips/planning");
+  return data;
+}
+export async function fetchTripDashboard() {
+  const { data } = await api.get("/trips/dashboard");
+  return data;
+}
+export async function fetchTrip(id) {
+  const { data } = await api.get(`/trips/${id}`);
+  return data;
+}
+export async function cloneTrip(id) {
+  const { data } = await api.post(`/trips/${id}/clone`);
+  return data;
+}
+export async function generateApplicationLink(tripId) {
+  const { data } = await api.post(`/trips/${tripId}/generate-application-link`);
+  return data;
+}
+export async function fetchTripApplications(tripId) {
+  const { data } = await api.get(`/trips/${tripId}/applications`);
+  return data;
+}
+export async function reviewTripApplication(applicationId, status) {
+  const { data } = await api.put(`/trips/applications/${applicationId}`, { status });
+  return data;
+}
+export async function addTripParticipant(tripId, payload) {
+  const { data } = await api.post(`/trips/${tripId}/participants`, payload);
+  return data;
+}
+export async function generateFundraisingLink(participantId) {
+  const { data } = await api.post(`/trips/participants/${participantId}/generate-fundraising-link`);
+  return data;
+}
+export async function resendParticipantAccessLink(participantId) {
+  const { data } = await api.post(`/trips/participants/${participantId}/request-access-link`);
+  return data;
+}
+export async function addTripDocumentRequirement(tripId, label) {
+  const { data } = await api.post(`/trips/${tripId}/document-requirements`, { label });
+  return data;
+}
+export async function deleteTripDocumentRequirement(id) {
+  await api.delete(`/trips/document-requirements/${id}`);
+}
+export async function requestTripDocuments(tripId, participantId, message) {
+  const { data } = await api.post(`/trips/${tripId}/participants/${participantId}/request-documents`, { message });
+  return data;
+}
+export async function addTripContribution(tripId, payload) {
+  const { data } = await api.post(`/trips/${tripId}/contributions`, payload);
+  return data;
+}
+export async function scheduleTripMeeting(tripId, payload) {
+  const { data } = await api.post(`/trips/${tripId}/meetings`, payload);
+  return data;
+}
+export async function updateTripMeeting(id, payload) {
+  const { data } = await api.put(`/trips/meetings/${id}`, payload);
+  return data;
+}
+
+// Trips church-wide settings (giving instructions, donor-contact opt-in,
+// the two private-link gates) -- its own dedicated sub-route, same
+// pattern as fetchJoshuaProjectSettings/updateJoshuaProjectSettings above.
+export async function fetchTripsSettings() {
+  const { data } = await api.get("/settings/trips");
+  return data;
+}
+export async function updateTripsSettings(payload) {
+  const { data } = await api.put("/settings/trips", payload);
+  return data;
+}
+
+// Trips public surfaces (#252) -- no auth, feature-gated server-side.
+export async function fetchPublicTrips() {
+  const { data } = await api.get("/public/trips");
+  return data;
+}
+export async function fetchPublicTrip(id) {
+  const { data } = await api.get(`/public/trips/${id}`);
+  return data;
+}
+export async function fetchPublicTripByToken(token) {
+  const { data } = await api.get(`/public/trips/by-token/${token}`);
+  return data;
+}
+export async function submitTripApplication(id, payload) {
+  const { data } = await api.post(`/public/trips/${id}/apply`, payload);
+  return data;
+}
+export async function submitTripApplicationByToken(token, payload) {
+  const { data } = await api.post(`/public/trips/by-token/${token}/apply`, payload);
+  return data;
+}
+export async function fetchPublicTripParticipantByToken(shareToken) {
+  const { data } = await api.get(`/public/trips/participants/by-token/${shareToken}`);
+  return data;
+}
+export async function fetchTripParticipantSelfService(accessToken) {
+  const { data } = await api.get(`/public/trips/participants/access`, { params: { token: accessToken } });
+  return data;
+}
+export async function requestTripParticipantAccessLink(email) {
+  const { data } = await api.post(`/public/trips/participants/request-access-link`, { email });
+  return data;
+}
+
 export async function fetchPrayerRequests(params = {}) {
   const { data } = await api.get("/prayer-requests", { params });
   return data;
