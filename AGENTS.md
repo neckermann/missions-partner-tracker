@@ -81,6 +81,45 @@ environment you're pointed at — see
 Informational, not a hard gate: the test data itself is synthetic and
 reset routinely either way.
 
+## Git/commit hygiene specific to an agent
+
+A human contributor mostly doesn't need these written down; an agent
+does, since nothing else in this repo states them and a different
+tool/session has no way to infer them:
+
+- Always create a new commit; never `--amend` after a pre-commit hook
+  failure — the commit didn't happen, so `--amend` would silently touch
+  the *previous* commit instead.
+- Never skip hooks (`--no-verify`) or bypass commit signing without an
+  explicit, one-time ask.
+- Never force-push to `main`.
+- **Merge permission is granted per-PR, not blanket.** A prior "merge it
+  all" covering one batch of work doesn't carry over to a PR opened
+  later for an unrelated reason — ask again rather than assuming it
+  still applies.
+- If a merge is blocked for a reason outside this repo's control (see
+  "Approval gates for autonomous action" above), don't retry or work
+  around it — surface that it's green and ready, and wait.
+
+## CI-polling cadence
+
+The four checks (`lint`, `backend-tests`, `frontend-build`, `e2e`) take
+roughly 3-4 minutes combined, `e2e` being the long pole (it boots the
+real app against a fresh Postgres). Don't sleep before the first poll —
+check immediately, then poll every 20-30s. Avoid a plain fixed-interval
+loop that reprints identical output on every tick; only emit when the
+check states actually change, or you'll spam duplicate updates for the
+whole 3-4 minutes.
+
+## Schema changes and redeploy caches
+
+A `schema.prisma` change landing on a deploy that reuses a build cache
+(dev-test, the production demo) can silently skip `prisma generate` and
+serve a stale generated client against the new columns. Clear the
+build cache on that redeploy rather than reusing it whenever a push
+touches `schema.prisma` — see [RUNBOOK.md](RUNBOOK.md) for where that's
+done.
+
 ## Starter brief template
 
 When delegating a task to a fresh agent in this repo, include:
