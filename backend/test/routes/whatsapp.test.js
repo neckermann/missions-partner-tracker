@@ -377,6 +377,53 @@ describe("keeping the socket in step with the settings", () => {
     });
   });
 
+  test("a QR-paired session resumes on restart even though registered is still false", async () => {
+    // Baileys sets creds.registered = true in exactly one place in the
+    // whole library (messages-recv.js), gated to the phone-number
+    // pairing-code completion path -- QR pairing (this app's only method)
+    // never sets it, ever, even for a real, successfully-linked session.
+    // Confirmed live against a production dev-test deploy: a freshly
+    // QR-paired, currently-connected session's persisted row had
+    // registered: false the whole time. me.id is what's actually
+    // reliable -- real Baileys populates it for both pairing methods via
+    // socket.js's own `Object.assign(creds, update)` on every
+    // creds.update, and initAuthCreds() leaves it unset for a genuinely
+    // fresh, never-paired session.
+    await whatsappClient.shutdown();
+    const { encryptField } = require("../../src/utils/crypto");
+    const creds = {
+      ...realBaileys.initAuthCreds(),
+      me: { id: "15551234567:9@s.whatsapp.net", name: "Test" },
+    };
+    const serialized = encryptField(JSON.stringify(creds, realBaileys.BufferJSON.replacer));
+    await prisma.whatsAppAuthEntry.upsert({
+      where: { key: "creds" },
+      create: { key: "creds", value: serialized },
+      update: { value: serialized },
+    });
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { whatsappPairedAt: new Date(), whatsappPhoneNumber: "15551234567" },
+    });
+    const before = sockets.length;
+    whatsappClient._runtime.wantConnected = true;
+    whatsappClient._runtime.unregisteredStreak = 0;
+    whatsappClient._runtime.rawSock = null;
+    whatsappClient._runtime.connecting = false;
+    clearTimeout(whatsappClient._runtime.reconnectTimer);
+    whatsappClient._runtime.reconnectTimer = null;
+    await whatsappClient._connect();
+    assert.equal(sockets.length, before + 1, "a real me.id must resume the session, not wipe it");
+    const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
+    assert.ok(settings.whatsappPairedAt, "must not have been wiped");
+    await whatsappClient.shutdown();
+    await prisma.whatsAppAuthEntry.deleteMany({});
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { whatsappPairedAt: null, whatsappPhoneNumber: null },
+    });
+  });
+
   test("turning the feature off closes a connected socket", async () => {
     // Re-establish a genuinely paired, connected session via the real flow.
     await setWhatsAppFeature(true);

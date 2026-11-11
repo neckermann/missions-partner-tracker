@@ -317,7 +317,18 @@ async function connect() {
     const { state, saveCreds } = await useDbAuthState(baileys);
     if (await abortIfConnectionNoLongerWanted()) return;
 
-    if (!state.creds.registered && !runtime.pairingRequested) {
+    // creds.registered is NOT a reliable "is there a session to resume"
+    // signal: in this Baileys version it's set true in exactly one place
+    // in the whole library (messages-recv.js), gated to the phone-number
+    // pairing-code completion path -- QR pairing (our only method) never
+    // sets it, ever, even on a fully successful, currently-connected
+    // session. Confirmed live: a freshly QR-paired, connected session's
+    // persisted row had `registered: false` the whole time. me.id, by
+    // contrast, is genuinely only set once a real identity is linked
+    // (initAuthCreds() leaves it undefined) and gets persisted correctly
+    // for both pairing methods -- see socket.js's own `Object.assign(creds,
+    // update)` on every creds.update, confirmed against the same live row.
+    if (!state.creds.me?.id && !runtime.pairingRequested) {
       runtime.unregisteredStreak += 1;
       if (runtime.unregisteredStreak < UNREGISTERED_WIPE_THRESHOLD) {
         // Settings say "paired" and this might just be a deploy-restart
