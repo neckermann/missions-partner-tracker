@@ -61,6 +61,15 @@ app.set("trust proxy", 1);
 // publicSettings.js), already covered by 'self'. Marker pins don't either:
 // they're bundled as data: URIs (see PublicMap.jsx).
 //
+// This is about what THIS app's own pages may load (CSP). The opposite
+// direction -- what OTHER origins may embed FROM this app, e.g. a webmail
+// client rendering a digest email's <img> tags -- is helmet()'s separate
+// `Cross-Origin-Resource-Policy` default (`same-origin`, left as-is here
+// for defense-in-depth everywhere else), relaxed per-route instead on
+// photos.js's /:id/raw, silhouette.js, and publicSettings.js's /logo/raw
+// specifically, the only three routes meant to be embedded cross-origin
+// (#246).
+//
 // These MUST cover every entry in TILE_SOURCES in PublicMap.jsx, which
 // the map falls through in order when a provider blocks a visitor. That
 // coupling is the trap: a tile URL lives in the frontend and its

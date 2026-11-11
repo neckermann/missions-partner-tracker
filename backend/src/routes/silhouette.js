@@ -15,6 +15,10 @@ const router = express.Router();
 // what this route exists to provide. Deterministic per category/color,
 // so safe to cache aggressively like a real photo.
 router.get("/:category.svg", (req, res) => {
+  // Same reasoning as photos.js's /:id/raw -- without this, helmet()'s
+  // global same-origin Cross-Origin-Resource-Policy blocks a webmail
+  // client from embedding this inline (#246).
+  res.set("Cross-Origin-Resource-Policy", "cross-origin");
   res.set("Cache-Control", "public, max-age=31536000, immutable");
   res.set("Content-Type", "image/svg+xml");
   res.send(silhouetteMarkup(req.params.category));
