@@ -1,5 +1,5 @@
 // Public-only digest content building -- narrow function signatures, no
-// source-link parameter at all, mirroring adminDigestContent.js's role
+// source-link parameter at all, mirroring adminEmailDispatchContent.js's role
 // for symmetry. The structural guarantee this plan calls for: the
 // per-item renderer below only ever destructures { emoji, summary,
 // bodyText } from a blurb -- sourceLinkUrl/sourceFileId are not
@@ -7,10 +7,10 @@
 // unused. A future edit can't accidentally introduce a link without
 // first widening this function's own signature, which is a much
 // louder, more reviewable change than adding a line inside it.
-const { escapeHtml, nl2br, typeLabel } = require("./digestShell");
+const { escapeHtml, nl2br, typeLabel } = require("./emailDispatchShell");
 
 // Groups a public subscriber's eligible prayer-request blurbs by
-// partner -- simpler than adminDigestContent.js's own groupByPartner,
+// partner -- simpler than adminEmailDispatchContent.js's own groupByPartner,
 // since the public audience never gets newsletterCreated rows to nest
 // anything under (only prayer-request types are ever eligible here).
 function groupByPartnerForPublic(blurbs) {
@@ -88,7 +88,7 @@ function renderPartnerText(group, tile) {
   return lines;
 }
 
-function buildPublicDigestContent(blurbs, partnerDetailsById, churchSettings) {
+function buildPublicEmailDispatchContent(blurbs, partnerDetailsById, churchSettings) {
   const groups = groupByPartnerForPublic(blurbs);
   const highlightColor = churchSettings?.highlightColor || "#a6540f";
   const itemsHtml = groups
@@ -98,4 +98,4 @@ function buildPublicDigestContent(blurbs, partnerDetailsById, churchSettings) {
   return { itemsHtml, textLines, subtitleLine: "Prayer Updates" };
 }
 
-module.exports = { buildPublicDigestContent, groupByPartnerForPublic };
+module.exports = { buildPublicEmailDispatchContent, groupByPartnerForPublic };

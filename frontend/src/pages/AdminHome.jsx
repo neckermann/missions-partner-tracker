@@ -29,8 +29,8 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       description: "Inbound emails that couldn't be automatically matched to a partner -- assign or discard.",
     },
     (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
-      to: "/admin/notifications",
-      title: "Pending Notifications",
+      to: "/admin/pending-dispatches",
+      title: "Pending Dispatches",
       description:
         "Review what's queued and clear or approve restricted items -- sending itself happens on schedule, or right away for anything marked urgent.",
     },
@@ -149,9 +149,10 @@ function buildSiteAdminSections(enabledFeatures) {
       description: "Post new prayer requests, needs, and newsletters to your WhatsApp community groups.",
     },
     (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
-      to: "/admin/settings/notifications",
-      title: "Notifications",
-      description: "Schedules, chat content-type mutes, the restricted-partner gate, and digest appearance.",
+      to: "/admin/settings/dispatches",
+      title: "Dispatch Settings",
+      description:
+        "Schedules, chat content-type mutes, the restricted-partner gate, and email dispatch appearance.",
     },
   ].filter(Boolean);
   const integrations = [

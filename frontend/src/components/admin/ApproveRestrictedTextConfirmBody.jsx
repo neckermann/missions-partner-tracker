@@ -2,7 +2,7 @@ import React from "react";
 
 // Shared by every place an admin approves a restricted partner's exact
 // text to send/save as-is: the creation-time "approve now" checkbox, the
-// Pending Notifications page's Quick Approve, and NotificationReviewModal's
+// Pending Dispatches page's Quick Approve, and DispatchReviewModal's
 // own Save and Approve. All three used to carry their own near-identical
 // window.confirm string (same warning, same masking guarantee, same
 // quoted text, differing only in which verb their own flow used) --
@@ -15,7 +15,7 @@ export default function ApproveRestrictedTextConfirmBody({ text }) {
     <div>
       <p style={{ marginTop: 0 }}>
         This partner is restricted. Approving marks this reviewed and eligible to send to any enabled
-        notification channel -- their name, photo, and any source-file link stay masked regardless, but the
+        dispatch channel -- their name, photo, and any source-file link stay masked regardless, but the
         exact wording below is what's sent.
       </p>
       <p>

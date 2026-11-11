@@ -143,7 +143,7 @@ async function resetDemoData() {
   // different: DEMO_ADMIN_EMAIL is a real inbox this demo's own operator
   // actually reads, so defaulting it to subscribed is exactly what lets
   // a reset double as a live end-to-end send test, the same way seeded
-  // NotifiableEvent rows exist so GroupMe/WhatsApp have something to
+  // DispatchRecord rows exist so GroupMe/WhatsApp have something to
   // post on their own schedule. The other seeded users deliberately stay
   // unsubscribed (see seed.js's own ADDITIONAL_USERS comment) -- their
   // emails are fake @example.org addresses nobody reads.
@@ -274,8 +274,8 @@ async function resetDemoData() {
     // Defaults to false for a real church (see schema.prisma's own
     // comment on this field) -- turned on here so a demo visitor can
     // actually see the restricted-partner review workflow in Pending
-    // Notifications instead of that content being silently unrecorded.
-    allowRestrictedPartnerNotifications: true,
+    // Dispatches instead of that content being silently unrecorded.
+    allowRestrictedPartnerDispatch: true,
   };
 
   await prisma.churchSettings.upsert({

@@ -18,7 +18,7 @@ function pluralize(count, singular, plural = `${singular}s`) {
 }
 
 // Mirrors the backend's own channel-level gating
-// (notificationOrchestrator.js's sendUrgentBroadcast): GroupMe and
+// (dispatchOrchestrator.js's sendUrgentDispatch): GroupMe and
 // WhatsApp each need their own feature; admins need outboundEmail; public subscribers need BOTH
 // outboundEmail and publicPrayerDigest, since turning the public digest
 // off must stop their mail even while the admin digest keeps sending.

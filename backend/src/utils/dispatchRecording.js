@@ -3,17 +3,14 @@
 // prayer request answered / one-time need decided. Every notifying
 // route calls one of these, never a specific channel's notify function.
 //
-// Renamed from notifications.js for consistency with this file group's
-// naming (Eligibility, Blurbs, Orchestrator).
-//
 // Every event is recorded, with one exception: a restricted partner's
-// event is only recorded if allowRestrictedPartnerNotifications is on
-// (see notificationEligibility.js's isRestrictedPartnerBlocked). Every
+// event is only recorded if allowRestrictedPartnerDispatch is on
+// (see dispatchEligibility.js's isRestrictedPartnerBlocked). Every
 // other setting only ever affects delivery, never recording -- see
 // isEligibleForChannel, which each channel calls at send time instead.
 const prisma = require("../prismaClient");
-const { isRestrictedPartnerBlocked, getChurchSettings } = require("./notificationEligibility");
-const { sendUrgentBroadcast } = require("./notificationOrchestrator");
+const { isRestrictedPartnerBlocked, getChurchSettings } = require("./dispatchEligibility");
+const { sendUrgentDispatch } = require("./dispatchOrchestrator");
 
 // Every function below is best-effort: a broken write must never block
 // the save that triggered it (a corrupted ChurchSettings row, a
@@ -31,12 +28,16 @@ async function safeNotify(label, fn) {
 // "approve now" path from the creation form, written in the same
 // create call rather than a later PUT. Harmless to pass for a
 // non-restricted partner (or a type outside REVIEW_GATED_TYPES) --
-// needsReview() simply never looks at reviewedAt in that case.
+// needsReview() simply never looks at dispatchReviewedAt in that case.
 async function enqueue(type, partnerId, payload, review) {
   const reviewFields = review
-    ? { reviewedAt: new Date(), reviewedById: review.reviewedById, reviewedText: review.reviewedText }
+    ? {
+        dispatchReviewedAt: new Date(),
+        dispatchReviewedById: review.reviewedById,
+        dispatchReviewedText: review.reviewedText,
+      }
     : {};
-  return prisma.notifiableEvent.create({ data: { type, partnerId, payload, ...reviewFields } });
+  return prisma.dispatchRecord.create({ data: { type, partnerId, payload, ...reviewFields } });
 }
 
 // The one place recording still depends on a setting -- restricted-
@@ -45,7 +46,7 @@ async function enqueue(type, partnerId, payload, review) {
 // route's own partnerRefSelect ({ id, kind, displayName }) on hand, not
 // a guaranteed isRestricted, and this is the one safety-critical check
 // in the system.
-async function recordEvent(type, partner, payload, review) {
+async function createDispatchRecord(type, partner, payload, review) {
   const [settings, freshPartner] = await Promise.all([
     getChurchSettings(),
     prisma.partner.findUnique({ where: { id: partner.id }, select: { isRestricted: true } }),
@@ -54,27 +55,27 @@ async function recordEvent(type, partner, payload, review) {
   return enqueue(type, partner.id, payload, review);
 }
 
-// Fires the immediate cross-channel broadcast when isUrgent is set --
-// sendUrgentBroadcast still calls isEligibleForChannel per channel
-// (restricted-partner review, GroupMe mutes, the public digest's
-// prayer-only rule all still apply; only each channel's cadence/
-// schedule wait is bypassed). Awaited, not fire-and-forget.
-async function maybeBroadcastUrgent(row, partner, isUrgent) {
+// Fires the immediate cross-channel dispatch when isUrgent is set --
+// sendUrgentDispatch still calls isEligibleForChannel per channel
+// (restricted-partner review, chat-channel mutes, the public email
+// dispatch's prayer-only rule all still apply; only each channel's
+// cadence/schedule wait is bypassed). Awaited, not fire-and-forget.
+async function maybeDispatchUrgent(row, partner, isUrgent) {
   if (!row || !isUrgent) return;
-  await sendUrgentBroadcast(row, partner);
+  await sendUrgentDispatch(row, partner);
 }
 
 // `approval`, when given, is { reviewerId } -- set when the admin/editor
 // checked "Review and approve now" on the creation form instead of
-// leaving this for Pending Notifications later. reviewedText is always
+// leaving this for Pending Dispatches later. reviewedText is always
 // exactly what they just typed, never an edited version -- a different
-// wording still goes through Pending Notifications' own Edit flow.
+// wording still goes through Pending Dispatches' own Edit flow.
 async function notifyPrayerRequestCreated(prayerRequest, approval) {
   await safeNotify("Prayer request created", async () => {
     const review = approval
       ? { reviewedById: approval.reviewerId, reviewedText: prayerRequest.requestText }
       : null;
-    const row = await recordEvent(
+    const row = await createDispatchRecord(
       "prayerRequestCreated",
       prayerRequest.partner,
       {
@@ -84,13 +85,13 @@ async function notifyPrayerRequestCreated(prayerRequest, approval) {
       },
       review
     );
-    await maybeBroadcastUrgent(row, prayerRequest.partner, prayerRequest.isUrgent);
+    await maybeDispatchUrgent(row, prayerRequest.partner, prayerRequest.isUrgent);
   });
 }
 
 async function notifyPrayerRequestAnswered(prayerRequest) {
   await safeNotify("Prayer request answered", async () => {
-    await recordEvent("prayerRequestAnswered", prayerRequest.partner, {
+    await createDispatchRecord("prayerRequestAnswered", prayerRequest.partner, {
       partnerName: prayerRequest.partner?.displayName || "A partner",
       requestText: prayerRequest.requestText,
       answeredNote: prayerRequest.answeredNote || null,
@@ -106,28 +107,28 @@ async function notifySupportNeedCreated(supportNeed, approval) {
     const review = approval
       ? { reviewedById: approval.reviewerId, reviewedText: supportNeed.description }
       : null;
-    const row = await recordEvent(
+    const row = await createDispatchRecord(
       "supportNeedCreated",
       supportNeed.partner,
       {
         partnerName: supportNeed.partner?.displayName || "A partner",
         description: supportNeed.description,
-        // One-time needs never reach the public digest (not in
-        // notificationBlurbs.js's PUBLIC_DIGEST_TYPES) -- admin-only, so
-        // the requested amount is safe to surface in the notification
+        // One-time needs never reach the public email dispatch (not in
+        // dispatchBlurbs.js's PUBLIC_EMAIL_DISPATCH_TYPES) -- admin-only, so
+        // the requested amount is safe to surface in the dispatch
         // itself rather than requiring a trip to the One-Time Needs page.
         requestedAmount: supportNeed.requestedAmount,
         sourceFileId: supportNeed.sourceFile?.id || null,
       },
       review
     );
-    await maybeBroadcastUrgent(row, supportNeed.partner, supportNeed.isUrgent);
+    await maybeDispatchUrgent(row, supportNeed.partner, supportNeed.isUrgent);
   });
 }
 
 async function notifySupportNeedDecided(supportNeed) {
   await safeNotify("Support need decided", async () => {
-    await recordEvent("supportNeedDecided", supportNeed.partner, {
+    await createDispatchRecord("supportNeedDecided", supportNeed.partner, {
       partnerName: supportNeed.partner?.displayName || "A partner",
       description: supportNeed.description,
       approvedAmount: supportNeed.approvedAmount,
@@ -142,7 +143,7 @@ async function notifySupportNeedDecided(supportNeed) {
 
 async function notifyNewsletterCreated(newsletter) {
   await safeNotify("Newsletter created", async () => {
-    await recordEvent("newsletterCreated", newsletter.partner, {
+    await createDispatchRecord("newsletterCreated", newsletter.partner, {
       partnerName: newsletter.partner?.displayName || "A partner",
       newsletterId: newsletter.id,
       title: newsletter.title || null,

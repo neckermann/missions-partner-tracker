@@ -56,11 +56,11 @@ async function sendEmail({ to, subject, text, html }) {
 // so this never reduces the number of emails sent or billed, and no
 // recipient is ever visible to another -- there's no Cc/Bcc involved,
 // just fewer HTTP round-trips for the same N sends. Callers chunk to
-// <=250 per call themselves (see digestDelivery.js), well under
+// <=250 per call themselves (see emailDispatchDelivery.js), well under
 // Postmark's 500-message/50MB cap, to leave real headroom. `messages`
 // are { To, Subject, HtmlBody, TextBody } objects, matching sendEmail's
 // own shape plus the capitalized Postmark field names batch expects
-// directly (digestShell.js's buildDigestMessage already returns this
+// directly (emailDispatchShell.js's buildEmailDispatchMessage already returns this
 // exact shape). Returns one response entry per message, in the same
 // order submitted, each with its own ErrorCode -- callers check that
 // per-entry rather than relying on the call as a whole succeeding or

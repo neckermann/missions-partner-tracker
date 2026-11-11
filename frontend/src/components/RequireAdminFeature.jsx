@@ -11,8 +11,8 @@ import { useSettings } from "../context/SettingsContext.jsx";
 // `feature` is a single key, or an array for "reachable as long as at
 // least one is on" -- same any-of semantics as the backend's own
 // requireFeature(keyOrKeys) (see middleware/requireFeature.js), used
-// here for pages like Notifications that make sense if either GroupMe
-// or Email is on, not strictly both.
+// here for pages like Dispatch Settings that make sense if either
+// GroupMe or Email is on, not strictly both.
 export default function RequireAdminFeature({ feature, children }) {
   const { enabledFeatures } = useSettings();
   const enabled = Array.isArray(feature)

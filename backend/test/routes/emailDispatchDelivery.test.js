@@ -3,9 +3,9 @@ const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
 const { encryptField } = require("../../src/utils/crypto");
-const { sendDigestTier } = require("../../src/utils/digestDelivery");
+const { sendDigestTier } = require("../../src/utils/emailDispatchDelivery");
 
-// Same mock-the-whole-domain technique test/routes/notifications.test.js
+// Same mock-the-whole-domain technique test/routes/dispatches.test.js
 // and test/routes/publicSubscribe.test.js each already use for Postmark
 // -- no real email ever sends in this suite. No Express server is
 // started here at all -- sendDigestTier() only ever touches Prisma and
@@ -46,10 +46,10 @@ global.fetch = (url, options) => {
   return realFetch(url, options);
 };
 
-const FIXTURE_TAG = "ZZTEST-digestDelivery";
+const FIXTURE_TAG = "ZZTEST-emailDispatchDelivery";
 
 async function cleanup() {
-  await prisma.notifiableEvent.deleteMany({
+  await prisma.dispatchRecord.deleteMany({
     where: { partner: { displayName: { contains: FIXTURE_TAG } } },
   });
   await prisma.userFollowedPartner.deleteMany({
@@ -70,7 +70,7 @@ function createPartner(overrides) {
 }
 
 function createRow(partnerId, type, payload) {
-  return prisma.notifiableEvent.create({ data: { partnerId, type, payload } });
+  return prisma.dispatchRecord.create({ data: { partnerId, type, payload } });
 }
 
 function createAdminUser(overrides) {
@@ -107,18 +107,18 @@ before(async () => {
     update: {
       enabledFeatures: { outboundEmail: true, publicPrayerDigest: true },
       // Defaults off now -- this file's own restricted-partner review-gate
-      // tests need it on, same as notifications.test.js/groupme.test.js
+      // tests need it on, same as dispatches.test.js/groupme.test.js
       // already set explicitly rather than relying on the schema default.
-      allowRestrictedPartnerNotifications: true,
+      allowRestrictedPartnerDispatch: true,
       postmarkServerToken: encryptField("pm-test-token"),
       emailFromAddress: "updates@example.test",
       churchName: "Hillside Community Church",
-      digestTemplate: null,
+      emailDispatchLayout: null,
     },
     create: {
       id: "singleton",
       enabledFeatures: { outboundEmail: true, publicPrayerDigest: true },
-      allowRestrictedPartnerNotifications: true,
+      allowRestrictedPartnerDispatch: true,
       postmarkServerToken: encryptField("pm-test-token"),
       emailFromAddress: "updates@example.test",
       churchName: "Hillside Community Church",
@@ -236,9 +236,9 @@ describe("sendDigestTier -- restricted-partner review gate (#187)", () => {
       partnerName: partner.displayName,
       requestText: "SECRET-ORIGINAL-TEXT",
     });
-    await prisma.notifiableEvent.update({
+    await prisma.dispatchRecord.update({
       where: { id: row.id },
-      data: { reviewedAt: new Date(), reviewedById: admin.id, reviewedText: "Reviewed, safe wording." },
+      data: { dispatchReviewedAt: new Date(), dispatchReviewedById: admin.id, dispatchReviewedText: "Reviewed, safe wording." },
     });
     try {
       const result = await sendDigestTier("biweekly", await getSettings());

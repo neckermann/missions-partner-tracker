@@ -32,11 +32,11 @@ const systemInfoRoutes = require("./routes/systemInfo");
 const backupCheckRoutes = require("./routes/backupCheck");
 const backupsRoutes = require("./routes/backups");
 const inboundEmailRoutes = require("./routes/inboundEmail");
-const notificationRoutes = require("./routes/notifications");
+const dispatchRoutes = require("./routes/dispatches");
 const publicSubscribeRoutes = require("./routes/publicSubscribe");
 const publicUnsubscribeRoutes = require("./routes/publicUnsubscribe");
 const adminScopedDigestRoutes = require("./routes/adminScopedDigest");
-const { startDigestScheduler, startGroupMeScheduler } = require("./utils/digestScheduler");
+const { startEmailDispatchScheduler, startGroupMeScheduler } = require("./utils/emailDispatchScheduler");
 const whatsappClient = require("./utils/whatsappClient");
 const { isFeatureEnabled } = require("./utils/features");
 const prisma = require("./prismaClient");
@@ -206,7 +206,7 @@ app.use("/api/system-info", systemInfoRoutes); // protected (admin role only)
 app.use("/api/backup-check", backupCheckRoutes); // protected (admin role only)
 app.use("/api/backups", backupsRoutes); // protected (admin role only)
 app.use("/api/inbound-email", inboundEmailRoutes); // mixed -- see that file's own comment
-app.use("/api/notifications", notificationRoutes); // protected (any role for read, admin/editor to review/edit)
+app.use("/api/dispatches", dispatchRoutes); // protected (any role for read, admin/editor to review/edit)
 app.use("/api/public/subscribe", publicSubscribeRoutes); // open (public, feature-gated -- see that file's own comment)
 app.use("/api/public/unsubscribe", publicUnsubscribeRoutes); // open (public, feature-gated -- sibling of publicSubscribe, not nested under it)
 app.use("/api/scoped-digest", adminScopedDigestRoutes); // protected (any role for read)
@@ -246,7 +246,7 @@ app.use(errorHandler);
 // Guarded so this file can be require()'d by the route tests, which boot
 // the real app on an ephemeral port rather than mocking it -- same reason
 // prisma/seed.js has the same guard. Running it directly still listens
-// exactly as before. The two notification schedulers (digestScheduler.js)
+// exactly as before. The two dispatch schedulers (emailDispatchScheduler.js)
 // are started here too, under the same guard -- a once-a-minute
 // cron.schedule() timer would otherwise keep every route test file's own
 // process alive indefinitely (each test file boots this whole app fresh
@@ -277,7 +277,7 @@ if (require.main === module) {
     const server = app.listen(PORT, () => {
       console.log(`Missionary Tracker API listening on port ${PORT}`);
     });
-    startDigestScheduler();
+    startEmailDispatchScheduler();
     startGroupMeScheduler();
 
     // Open the WhatsApp session now (if the feature is on and a number is

@@ -2,12 +2,12 @@
 // digest -- masthead/card/footer markup, brand color/logo resolution,
 // the partner-photo-tile header, the subject-line template, the
 // signature block, and the plain-text fallback renderer. Everything
-// genuinely audience-agnostic lives here; adminDigestContent.js and
-// publicDigestContent.js each build their own `content` (an
+// genuinely audience-agnostic lives here; adminEmailDispatchContent.js and
+// publicEmailDispatchContent.js each build their own `content` (an
 // { itemsHtml, textLines, subtitleLine } shape) and hand it to
-// buildDigestMessage below, which wraps it in this shared shell.
+// buildEmailDispatchMessage below, which wraps it in this shared shell.
 const jwt = require("jsonwebtoken");
-const { appBaseUrl } = require("./notificationBlurbs");
+const { appBaseUrl } = require("./dispatchBlurbs");
 const { missionaryHouseholdCategory } = require("./maskData");
 const { silhouetteFor } = require("./silhouette");
 const { withPhotoUrl } = require("./photoUrls");
@@ -186,12 +186,12 @@ function renderText(textLines, unsubscribeUrl, greetingName, signature, contactL
 }
 
 // The one exported entry point. `recipient` is { email, name?, kind,
-// cadence }, `content` is whatever adminDigestContent.js/
-// publicDigestContent.js built ({ itemsHtml, textLines, subtitleLine }),
+// cadence }, `content` is whatever adminEmailDispatchContent.js/
+// publicEmailDispatchContent.js built ({ itemsHtml, textLines, subtitleLine }),
 // `settings` is the full ChurchSettings row. Returns a plain
 // { To, Subject, HtmlBody, TextBody } object -- the exact shape
 // sendEmailBatch expects. Doesn't send anything itself.
-function buildDigestMessage(recipient, content, settings, unsubscribeUrl) {
+function buildEmailDispatchMessage(recipient, content, settings, unsubscribeUrl) {
   const churchName = settings?.churchName || "Missions Partner Tracker";
   const headerColor = settings?.headerColor || HEADER_FALLBACK_COLOR;
   const accentColor = settings?.primaryColor || ACCENT_FALLBACK_COLOR;
@@ -203,7 +203,7 @@ function buildDigestMessage(recipient, content, settings, unsubscribeUrl) {
       ? `<img src="${base}/api/public/settings/logo/raw" alt="${escapeHtml(churchName)}" style="max-height:40px;width:auto;max-width:240px;margin-bottom:10px;">`
       : "";
   const greeting = recipient.name ? `Hi ${escapeHtml(recipient.name)},` : "Hi there,";
-  const signature = settings?.digestSignature || null;
+  const signature = settings?.emailDispatchSignature || null;
   const signatureHtml = signature
     ? `<div style="margin:28px 4px 0;">
          <div style="width:36px;border-top:2px solid ${highlightColor};margin-bottom:14px;"></div>
@@ -240,7 +240,7 @@ function buildDigestMessage(recipient, content, settings, unsubscribeUrl) {
   return {
     To: recipient.email,
     Subject: buildSubject(
-      settings?.digestSubjectTemplate,
+      settings?.emailDispatchSubjectTemplate,
       churchName,
       settings,
       recipient.name,
@@ -263,5 +263,5 @@ module.exports = {
   buildSubscriberUnsubscribeToken,
   buildSubscriberConfirmUrl,
   buildSubscriberUnsubscribeUrl,
-  buildDigestMessage,
+  buildEmailDispatchMessage,
 };

@@ -68,13 +68,13 @@ export default function AdminOneTimeNeeds() {
   // No single partnerId prop here -- looked up from whichever partner is
   // currently selected in the add form, same list PartnerSelect renders.
   const selectedPartner = partners.find((p) => p.id === newNeed.partnerId);
-  // Also requires allowRestrictedPartnerNotifications, defaulting to true
+  // Also requires allowRestrictedPartnerDispatch, defaulting to true
   // while loading -- a UI convenience gate only, the real check is still
   // enforced server-side regardless.
   const { settings } = useChurchSettings();
-  const allowRestrictedPartnerNotifications = settings?.allowRestrictedPartnerNotifications !== false;
+  const allowRestrictedPartnerDispatch = settings?.allowRestrictedPartnerDispatch !== false;
   const canApproveNow =
-    !!selectedPartner?.isRestricted && hasEnabledChannel && allowRestrictedPartnerNotifications;
+    !!selectedPartner?.isRestricted && hasEnabledChannel && allowRestrictedPartnerDispatch;
   // Named confirmDialog, not confirm -- this page's only confirmation
   // surface now (approve-now, urgent-send, and delete all route through
   // it), and `confirm` would read as a reference to the native global
@@ -318,7 +318,7 @@ export default function AdminOneTimeNeeds() {
                 </div>
                 <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
                   This partner is restricted, so nothing above sends anywhere until an admin or editor reviews
-                  it -- normally from the Pending Notifications page afterward. Checking this confirms, right
+                  it -- normally from the Pending Dispatches page afterward. Checking this confirms, right
                   now, that the text you just typed is safe to send verbatim, skipping that extra trip. You'll
                   be asked to confirm the exact wording before saving.
                 </p>

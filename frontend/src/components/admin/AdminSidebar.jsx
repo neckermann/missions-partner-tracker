@@ -20,8 +20,8 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
     { to: "/admin/partners", label: usePartnerTermInAdmin ? partnerTermPlural : "Partners" },
     enabledFeatures.inboundEmail && { to: "/admin/inbound-email", label: "Unmatched Emails" },
     (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
-      to: "/admin/notifications",
-      label: "Pending Notifications",
+      to: "/admin/pending-dispatches",
+      label: "Pending Dispatches",
     },
     enabledFeatures.partnerFiles && { to: "/admin/partner-files", label: "Newsletters & Docs" },
     enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
@@ -83,14 +83,14 @@ function buildSiteAdminLinks(enabledFeatures) {
     // Schedule(s), GroupMe's content-type mutes, the restricted-partner
     // safety gate, digest appearance, and (when the public digest is on)
     // its subscriber counts -- all one page now. The actual queue (what's
-    // waiting to send) is its own top-level "Pending Notifications" link
+    // waiting to send) is its own top-level "Pending Dispatches" link
     // above, same "content, not settings" split Unmatched Emails already
     // has from Email's own settings page. Gated on groupme/whatsapp/outboundEmail
     // specifically (not inboundEmail, which doesn't drive any
-    // notification sending).
+    // dispatch sending).
     (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
-      to: "/admin/settings/notifications",
-      label: "Notifications",
+      to: "/admin/settings/dispatches",
+      label: "Dispatch Settings",
     },
     (enabledFeatures.joshuaProject || enabledFeatures.aiExtraction) && {
       label: "Integrations",

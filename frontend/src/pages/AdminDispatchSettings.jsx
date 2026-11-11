@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
-  fetchNotificationSettings,
-  updateNotificationSettings,
+  fetchDispatchSettings,
+  updateDispatchSettings,
   fetchScopedDigestSummary,
 } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
@@ -28,14 +28,15 @@ function HourSelect({ id, value, onChange }) {
   );
 }
 
-// Settings governing the admin+public email digest's own schedule,
-// GroupMe's own independent daily schedule and content-type mutes, the
-// one cross-channel restricted-partner safety gate, digest appearance,
-// and (merged in here, not a separate page) public digest subscriber
-// counts. The actual review queue (what's waiting to send) is its own
-// top-level "Pending Notifications" page, same "content, not settings"
-// split Unmatched Emails already has from Email's own settings page.
-export default function AdminNotificationSettings() {
+// Settings governing the admin+public email dispatch's own schedule,
+// the chat channels' own independent daily schedule and content-type
+// mutes, the one cross-channel restricted-partner safety gate, email
+// dispatch appearance, and (merged in here, not a separate page) public
+// digest subscriber counts. The actual review queue (what's waiting to
+// send) is its own top-level "Pending Dispatches" page, same "content,
+// not settings" split Unmatched Emails already has from Email's own
+// settings page.
+export default function AdminDispatchSettings() {
   const { enabledFeatures } = useSettings();
   // GroupMe and WhatsApp share one schedule and one set of content-type
   // mutes, so this section is shown (and named) for whichever of the two
@@ -53,14 +54,14 @@ export default function AdminNotificationSettings() {
 
   useEffect(() => {
     Promise.all([
-      fetchNotificationSettings(),
+      fetchDispatchSettings(),
       enabledFeatures.publicPrayerDigest ? fetchScopedDigestSummary() : Promise.resolve(null),
     ])
-      .then(([notificationSettings, summaryResult]) => {
-        setSettings(notificationSettings);
+      .then(([dispatchSettings, summaryResult]) => {
+        setSettings(dispatchSettings);
         setSummary(summaryResult);
       })
-      .catch((err) => setError(err.response?.data?.error || "Couldn't load notification settings."))
+      .catch((err) => setError(err.response?.data?.error || "Couldn't load dispatch settings."))
       .finally(() => setLoading(false));
   }, [enabledFeatures.publicPrayerDigest]);
 
@@ -70,11 +71,11 @@ export default function AdminNotificationSettings() {
     setError("");
     setSuccess("");
     try {
-      const updated = await updateNotificationSettings(settings);
+      const updated = await updateDispatchSettings(settings);
       setSettings(updated);
       setSuccess("Saved.");
     } catch (err) {
-      setError(err.response?.data?.error || "Couldn't save notification settings.");
+      setError(err.response?.data?.error || "Couldn't save dispatch settings.");
     } finally {
       setSaving(false);
     }
@@ -84,17 +85,18 @@ export default function AdminNotificationSettings() {
 
   return (
     <div className="admin-shell form-has-floating-actions">
-      <h2>Notifications</h2>
+      <h2>Dispatch Settings</h2>
       <p style={{ color: "#555" }}>
-        Schedules for the admin/public email digest and for GroupMe, GroupMe's own content-type mutes, the
-        restricted-partner safety gate, and digest appearance. To review or edit what's currently queued, see
-        the <strong>Pending Notifications</strong> page in the main menu.
+        Schedules for the admin/public email dispatch and for {chatLabel || "GroupMe/WhatsApp"}, the chat
+        channels' own content-type mutes, the restricted-partner safety gate, and email dispatch appearance. To
+        review or edit what's currently queued, see the <strong>Pending Dispatches</strong> page in the main
+        menu.
       </p>
 
       <form onSubmit={handleSave} className="admin-form">
         {enabledFeatures.publicPrayerDigest && (
           <div className="admin-section">
-            <h3>Prayer Digest Subscribers</h3>
+            <h3>Email Dispatch Subscribers</h3>
             <p style={{ color: "#555", fontSize: "0.9rem" }}>
               Who's subscribed to the email prayer digest -- admins via Account Settings, and the public via
               the Subscribe page or a partner's own public page. Counts only, no email addresses.
@@ -123,10 +125,10 @@ export default function AdminNotificationSettings() {
         <div className="admin-section" style={{ marginTop: "1rem" }}>
           <h3>Restricted Partners</h3>
           <p style={{ color: "#555", fontSize: "0.9rem" }}>
-            The one safety setting that applies equally to every notification channel this church has enabled,
+            The one safety setting that applies equally to every dispatch channel this church has enabled,
             not just one. Off (default) means a restricted-access partner's events are never recorded at all
             -- nothing to hold, nothing to review, since nothing's queued. On records them like anyone else,
-            subject to review -- either from the Pending Notifications page afterward, or right away with the
+            subject to review -- either from the Pending Dispatches page afterward, or right away with the
             "Review and approve now" checkbox when the prayer request or one-time need is first created.
             Either path clears a row for every channel at once, including an urgent send.
           </p>
@@ -134,9 +136,9 @@ export default function AdminNotificationSettings() {
             <label>
               <input
                 type="checkbox"
-                checked={settings.allowRestrictedPartnerNotifications}
+                checked={settings.allowRestrictedPartnerDispatch}
                 onChange={(e) =>
-                  setSettings((s) => ({ ...s, allowRestrictedPartnerNotifications: e.target.checked }))
+                  setSettings((s) => ({ ...s, allowRestrictedPartnerDispatch: e.target.checked }))
                 }
               />
               Restricted partners
@@ -146,17 +148,17 @@ export default function AdminNotificationSettings() {
 
         {enabledFeatures.outboundEmail && (
           <div className="admin-section" style={{ marginTop: "1rem" }}>
-            <h3>Digest Customization</h3>
+            <h3>Email Dispatch Customization</h3>
             <p style={{ color: "#555", fontSize: "0.9rem" }}>
-              Shared by the admin digest and the public digest -- subject line, signature, and layout look the
-              same for both audiences. The admin digest always includes every item it's allowed to; the public
-              digest is always prayer-requests-only.
+              Shared by the admin email and the public email -- subject line, signature, and layout look the
+              same for both audiences. The admin email always includes every item it's allowed to; the public
+              email is always prayer-requests-only.
             </p>
             <label>
               Layout
               <select
-                value={settings.digestTemplate || "classic"}
-                onChange={(e) => setSettings((s) => ({ ...s, digestTemplate: e.target.value }))}
+                value={settings.emailDispatchLayout || "classic"}
+                onChange={(e) => setSettings((s) => ({ ...s, emailDispatchLayout: e.target.value }))}
                 style={{ width: "auto" }}
               >
                 <option value="classic">Classic -- text only</option>
@@ -166,14 +168,14 @@ export default function AdminNotificationSettings() {
             <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
               Snapshot shows each partner's photo (or a generic silhouette if they don't have one, or if
               they're a restricted-access partner), field, "Supporting since" year, and short overview above
-              their items -- for both the admin digest and the public digest.
+              their items -- for both the admin email and the public email.
             </p>
             <label style={{ marginTop: "1rem" }}>
               Subject line
               <input
-                value={settings.digestSubjectTemplate || ""}
+                value={settings.emailDispatchSubjectTemplate || ""}
                 onChange={(e) =>
-                  setSettings((s) => ({ ...s, digestSubjectTemplate: e.target.value || null }))
+                  setSettings((s) => ({ ...s, emailDispatchSubjectTemplate: e.target.value || null }))
                 }
                 placeholder="e.g. Your {cadence} Update -- {month} {year}"
               />
@@ -190,8 +192,10 @@ export default function AdminNotificationSettings() {
               Signature
               <textarea
                 rows={3}
-                value={settings.digestSignature || ""}
-                onChange={(e) => setSettings((s) => ({ ...s, digestSignature: e.target.value || null }))}
+                value={settings.emailDispatchSignature || ""}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, emailDispatchSignature: e.target.value || null }))
+                }
                 placeholder="An optional closing line -- a verse, a closing phrase, 'Questions? Contact us', etc."
               />
             </label>
@@ -209,11 +213,11 @@ export default function AdminNotificationSettings() {
             <label>
               Day of week (biweekly)
               <select
-                value={settings.scopedDigestDayOfWeek ?? ""}
+                value={settings.emailDispatchDayOfWeek ?? ""}
                 onChange={(e) =>
                   setSettings((s) => ({
                     ...s,
-                    scopedDigestDayOfWeek: e.target.value === "" ? null : Number(e.target.value),
+                    emailDispatchDayOfWeek: e.target.value === "" ? null : Number(e.target.value),
                   }))
                 }
                 style={{ width: "auto" }}
@@ -229,11 +233,11 @@ export default function AdminNotificationSettings() {
             <label style={{ marginTop: "1rem" }}>
               Day of month (monthly & quarterly)
               <select
-                value={settings.scopedDigestDayOfMonth ?? ""}
+                value={settings.emailDispatchDayOfMonth ?? ""}
                 onChange={(e) =>
                   setSettings((s) => ({
                     ...s,
-                    scopedDigestDayOfMonth: e.target.value === "" ? null : Number(e.target.value),
+                    emailDispatchDayOfMonth: e.target.value === "" ? null : Number(e.target.value),
                   }))
                 }
                 style={{ width: "auto" }}
@@ -246,15 +250,15 @@ export default function AdminNotificationSettings() {
                 ))}
               </select>
             </label>
-            <label htmlFor="scoped-digest-hour" style={{ marginTop: "1rem" }}>
+            <label htmlFor="email-dispatch-hour" style={{ marginTop: "1rem" }}>
               Time (shared by all three tiers)
               <HourSelect
-                id="scoped-digest-hour"
-                value={settings.scopedDigestHour}
+                id="email-dispatch-hour"
+                value={settings.emailDispatchHour}
                 onChange={(e) =>
                   setSettings((s) => ({
                     ...s,
-                    scopedDigestHour: e.target.value === "" ? null : Number(e.target.value),
+                    emailDispatchHour: e.target.value === "" ? null : Number(e.target.value),
                   }))
                 }
               />
@@ -272,22 +276,22 @@ export default function AdminNotificationSettings() {
                 : "this is a near-real-time, chat-style channel"}
               , so posts are collected and sent once a day rather than on a longer email-style schedule.
             </p>
-            <label htmlFor="groupme-digest-hour">
+            <label htmlFor="chat-dispatch-hour">
               Time
               <HourSelect
-                id="groupme-digest-hour"
-                value={settings.groupmeDigestHour}
+                id="chat-dispatch-hour"
+                value={settings.chatDispatchHour}
                 onChange={(e) =>
                   setSettings((s) => ({
                     ...s,
-                    groupmeDigestHour: e.target.value === "" ? null : Number(e.target.value),
+                    chatDispatchHour: e.target.value === "" ? null : Number(e.target.value),
                   }))
                 }
               />
             </label>
 
             <p style={{ margin: "1.25rem 0 0.5rem", color: "#555", fontSize: "0.9rem" }}>
-              Mute any content type you don't want posted to {chatLabel} -- unlike the email digests, which
+              Mute any content type you don't want posted to {chatLabel} -- unlike the email dispatches, which
               always include everything they're allowed to, chat benefits from finer control since it's a live
               conversation, not a periodic email.
             </p>
@@ -295,9 +299,9 @@ export default function AdminNotificationSettings() {
               <label>
                 <input
                   type="checkbox"
-                  checked={settings.notifyGroupMePrayerRequests}
+                  checked={settings.chatDispatchPrayerRequests}
                   onChange={(e) =>
-                    setSettings((s) => ({ ...s, notifyGroupMePrayerRequests: e.target.checked }))
+                    setSettings((s) => ({ ...s, chatDispatchPrayerRequests: e.target.checked }))
                   }
                 />
                 Prayer Requests
@@ -305,9 +309,9 @@ export default function AdminNotificationSettings() {
               <label>
                 <input
                   type="checkbox"
-                  checked={settings.notifyGroupMeOneTimeNeeds}
+                  checked={settings.chatDispatchOneTimeNeeds}
                   onChange={(e) =>
-                    setSettings((s) => ({ ...s, notifyGroupMeOneTimeNeeds: e.target.checked }))
+                    setSettings((s) => ({ ...s, chatDispatchOneTimeNeeds: e.target.checked }))
                   }
                 />
                 One-Time Needs
@@ -315,8 +319,8 @@ export default function AdminNotificationSettings() {
               <label>
                 <input
                   type="checkbox"
-                  checked={settings.notifyGroupMeNewsletters}
-                  onChange={(e) => setSettings((s) => ({ ...s, notifyGroupMeNewsletters: e.target.checked }))}
+                  checked={settings.chatDispatchNewsletters}
+                  onChange={(e) => setSettings((s) => ({ ...s, chatDispatchNewsletters: e.target.checked }))}
                 />
                 Newsletters
               </label>

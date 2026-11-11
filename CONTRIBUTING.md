@@ -140,7 +140,7 @@ layout and edge-case problems a single hand-typed fixture won't.
 test suite's own database when you point `DATABASE_URL` at it (see
 [Running tests](#running-tests) above). Fixtures left over from manual
 clicking-through — a prayer request, a public subscriber, a
-`NotifiableEvent` row — can silently break a test that assumes an
+`DispatchRecord` row — can silently break a test that assumes an
 empty or isolated table. Clean up anything you added for manual review
 once you're done with it, or reset the database (`npm run test:db down`
 then `up` again, or `npx prisma migrate reset --force`) before running
@@ -181,7 +181,7 @@ the suite.
   listener, and neither's `stopPropagation()` stops the other's handler
   from also firing, so Escape closes both at once. Confirm inline as a
   second step of the same dialog instead; see
-  `components/admin/NotificationReviewModal.jsx` for the pattern.
+  `components/admin/DispatchReviewModal.jsx` for the pattern.
   Destructure the hook's function as something other than bare `confirm`
   (e.g. `confirmDialog`) — the native global of the same name is exactly
   what it replaces, and shadowing it in a file that still has another use

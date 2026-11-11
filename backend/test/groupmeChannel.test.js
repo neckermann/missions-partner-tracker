@@ -100,7 +100,7 @@ describe("postToGroupMe", () => {
     };
     // A need, not a newsletter -- newsletterCreated's own groupmeText is
     // independently null without APP_BASE_URL set (no link, nothing
-    // worth sending -- see notificationBlurbs.js), which would filter
+    // worth sending -- see dispatchBlurbs.js), which would filter
     // this row out before ever reaching the fallback logic this test is
     // actually about. need()'s groupmeText has no such external
     // dependency. See whatsappChannel.test.js's identical note on its

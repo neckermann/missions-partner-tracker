@@ -38,17 +38,17 @@ before(async () => {
     where: { id: "singleton" },
     select: {
       enabledFeatures: true,
-      notifyGroupMePrayerRequests: true,
-      notifyGroupMeOneTimeNeeds: true,
-      notifyGroupMeNewsletters: true,
-      allowRestrictedPartnerNotifications: true,
-      digestSubjectTemplate: true,
-      digestSignature: true,
-      digestTemplate: true,
-      scopedDigestDayOfWeek: true,
-      scopedDigestDayOfMonth: true,
-      scopedDigestHour: true,
-      groupmeDigestHour: true,
+      chatDispatchPrayerRequests: true,
+      chatDispatchOneTimeNeeds: true,
+      chatDispatchNewsletters: true,
+      allowRestrictedPartnerDispatch: true,
+      emailDispatchSubjectTemplate: true,
+      emailDispatchSignature: true,
+      emailDispatchLayout: true,
+      emailDispatchDayOfWeek: true,
+      emailDispatchDayOfMonth: true,
+      emailDispatchHour: true,
+      chatDispatchHour: true,
       churchName: true,
       address: true,
       phone: true,
@@ -60,14 +60,14 @@ before(async () => {
     where: { id: "singleton" },
     update: {
       enabledFeatures: {},
-      notifyGroupMePrayerRequests: true,
-      notifyGroupMeOneTimeNeeds: true,
-      notifyGroupMeNewsletters: true,
-      allowRestrictedPartnerNotifications: true,
-      scopedDigestDayOfWeek: null,
-      scopedDigestDayOfMonth: null,
-      scopedDigestHour: null,
-      groupmeDigestHour: null,
+      chatDispatchPrayerRequests: true,
+      chatDispatchOneTimeNeeds: true,
+      chatDispatchNewsletters: true,
+      allowRestrictedPartnerDispatch: true,
+      emailDispatchDayOfWeek: null,
+      emailDispatchDayOfMonth: null,
+      emailDispatchHour: null,
+      chatDispatchHour: null,
     },
     create: { id: "singleton" },
   });
@@ -83,7 +83,7 @@ before(async () => {
 });
 
 after(async () => {
-  await prisma.notifiableEvent.deleteMany({ where: { partnerId } });
+  await prisma.dispatchRecord.deleteMany({ where: { partnerId } });
   if (originalSettings) {
     await prisma.churchSettings.update({ where: { id: "singleton" }, data: originalSettings });
   }
@@ -92,105 +92,105 @@ after(async () => {
   await stopServer();
 });
 
-describe("GET/PUT /api/settings/notifications -- admin gate and defaults", () => {
+describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
   test("unauthenticated is rejected", async () => {
-    assert.equal((await unauthenticated("/api/settings/notifications")).status, 401);
+    assert.equal((await unauthenticated("/api/settings/dispatches")).status, 401);
   });
 
   test("editor is rejected", async () => {
-    assert.equal((await editor("/api/settings/notifications")).status, 403);
+    assert.equal((await editor("/api/settings/dispatches")).status, 403);
   });
 
   test("admin sees the defaults on an unconfigured instance", async () => {
     await prisma.churchSettings.update({
       where: { id: "singleton" },
       data: {
-        notifyGroupMePrayerRequests: true,
-        notifyGroupMeOneTimeNeeds: true,
-        notifyGroupMeNewsletters: true,
-        allowRestrictedPartnerNotifications: true,
-        digestSubjectTemplate: null,
-        digestSignature: null,
-        digestTemplate: null,
-        scopedDigestDayOfWeek: null,
-        scopedDigestDayOfMonth: null,
-        scopedDigestHour: null,
-        groupmeDigestHour: null,
+        chatDispatchPrayerRequests: true,
+        chatDispatchOneTimeNeeds: true,
+        chatDispatchNewsletters: true,
+        allowRestrictedPartnerDispatch: true,
+        emailDispatchSubjectTemplate: null,
+        emailDispatchSignature: null,
+        emailDispatchLayout: null,
+        emailDispatchDayOfWeek: null,
+        emailDispatchDayOfMonth: null,
+        emailDispatchHour: null,
+        chatDispatchHour: null,
       },
     });
-    const res = await admin("/api/settings/notifications");
+    const res = await admin("/api/settings/dispatches");
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, {
-      notifyGroupMePrayerRequests: true,
-      notifyGroupMeOneTimeNeeds: true,
-      notifyGroupMeNewsletters: true,
-      allowRestrictedPartnerNotifications: true,
-      digestSubjectTemplate: null,
-      digestSignature: null,
-      digestTemplate: null,
-      scopedDigestDayOfWeek: null,
-      scopedDigestDayOfMonth: null,
-      scopedDigestHour: null,
-      groupmeDigestHour: null,
+      chatDispatchPrayerRequests: true,
+      chatDispatchOneTimeNeeds: true,
+      chatDispatchNewsletters: true,
+      allowRestrictedPartnerDispatch: true,
+      emailDispatchSubjectTemplate: null,
+      emailDispatchSignature: null,
+      emailDispatchLayout: null,
+      emailDispatchDayOfWeek: null,
+      emailDispatchDayOfMonth: null,
+      emailDispatchHour: null,
+      chatDispatchHour: null,
     });
   });
 
   test("a partial PUT can also set the scoped-digest schedule, independent of the fields above", async () => {
-    const res = await admin("/api/settings/notifications", {
+    const res = await admin("/api/settings/dispatches", {
       method: "PUT",
-      body: { scopedDigestDayOfWeek: 3, scopedDigestHour: 9 },
+      body: { emailDispatchDayOfWeek: 3, emailDispatchHour: 9 },
     });
     assert.equal(res.status, 200);
-    assert.equal(res.body.scopedDigestDayOfWeek, 3);
-    assert.equal(res.body.scopedDigestHour, 9);
-    assert.equal(res.body.scopedDigestDayOfMonth, null);
+    assert.equal(res.body.emailDispatchDayOfWeek, 3);
+    assert.equal(res.body.emailDispatchHour, 9);
+    assert.equal(res.body.emailDispatchDayOfMonth, null);
 
-    await admin("/api/settings/notifications", {
+    await admin("/api/settings/dispatches", {
       method: "PUT",
-      body: { scopedDigestDayOfWeek: null, scopedDigestHour: null },
+      body: { emailDispatchDayOfWeek: null, emailDispatchHour: null },
     });
   });
 
   test("a partial PUT can also set GroupMe's own daily hour, independent of the email tiers above", async () => {
-    const res = await admin("/api/settings/notifications", {
+    const res = await admin("/api/settings/dispatches", {
       method: "PUT",
-      body: { groupmeDigestHour: 8 },
+      body: { chatDispatchHour: 8 },
     });
     assert.equal(res.status, 200);
-    assert.equal(res.body.groupmeDigestHour, 8);
-    await admin("/api/settings/notifications", { method: "PUT", body: { groupmeDigestHour: null } });
+    assert.equal(res.body.chatDispatchHour, 8);
+    await admin("/api/settings/dispatches", { method: "PUT", body: { chatDispatchHour: null } });
   });
 
   test("a partial PUT only touches the fields it sends", async () => {
-    const first = await admin("/api/settings/notifications", {
+    const first = await admin("/api/settings/dispatches", {
       method: "PUT",
-      body: { scopedDigestDayOfWeek: 1, scopedDigestHour: 9 },
+      body: { emailDispatchDayOfWeek: 1, emailDispatchHour: 9 },
     });
     assert.equal(first.status, 200);
-    assert.equal(first.body.scopedDigestDayOfWeek, 1);
+    assert.equal(first.body.emailDispatchDayOfWeek, 1);
 
-    const second = await admin("/api/settings/notifications", {
+    const second = await admin("/api/settings/dispatches", {
       method: "PUT",
-      body: { notifyGroupMeNewsletters: false },
+      body: { chatDispatchNewsletters: false },
     });
     assert.equal(second.status, 200);
-    assert.equal(second.body.notifyGroupMeNewsletters, false);
-    assert.equal(second.body.scopedDigestDayOfWeek, 1, "the earlier schedule save must survive");
+    assert.equal(second.body.chatDispatchNewsletters, false);
+    assert.equal(second.body.emailDispatchDayOfWeek, 1, "the earlier schedule save must survive");
 
-    await admin("/api/settings/notifications", {
+    await admin("/api/settings/dispatches", {
       method: "PUT",
-      body: { scopedDigestDayOfWeek: null, scopedDigestHour: null, notifyGroupMeNewsletters: true },
+      body: { emailDispatchDayOfWeek: null, emailDispatchHour: null, chatDispatchNewsletters: true },
     });
   });
 });
 
-describe("GET /api/notifications/pending -- any logged-in role", () => {
+describe("GET /api/dispatches/pending -- any logged-in role", () => {
   test("a viewer can list the queue", async () => {
     await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
     const requestText = `${FIXTURE_TAG} viewer can see this`;
     await createPrayerRequest(requestText);
 
-    const res = await viewer("/api/notifications/pending");
+    const res = await viewer("/api/dispatches/pending");
     assert.equal(res.status, 200);
     assert.ok(res.body.some((item) => item.bodyText === requestText));
     assert.ok(
@@ -216,7 +216,7 @@ describe("GET /api/notifications/pending -- any logged-in role", () => {
 
     try {
       for (const asRole of [admin, editor, viewer]) {
-        const res = await asRole("/api/notifications/pending");
+        const res = await asRole("/api/dispatches/pending");
         assert.equal(res.status, 200);
         const item = res.body.find((i) => i.partnerId === restrictedId);
         assert.ok(item, "the restricted partner's notification should still be queued and visible");
@@ -228,10 +228,10 @@ describe("GET /api/notifications/pending -- any logged-in role", () => {
         assert.equal(item.bodyText, requestText, "the real text should show, not the generic placeholder");
         assert.equal(item.sourceLinkUrl, null, "no source link for a restricted partner's notification");
         assert.equal(item.needsReview, true);
-        assert.equal(item.reviewedAt, null);
+        assert.equal(item.dispatchReviewedAt, null);
       }
     } finally {
-      await prisma.notifiableEvent.deleteMany({ where: { partnerId: restrictedId } });
+      await prisma.dispatchRecord.deleteMany({ where: { partnerId: restrictedId } });
       await prisma.partner.delete({ where: { id: restrictedId } }).catch(() => {});
     }
   });
@@ -246,7 +246,7 @@ describe("GET /api/notifications/pending -- any logged-in role", () => {
       },
     });
     const restrictedId = restrictedPartner.body.id;
-    const row = await prisma.notifiableEvent.create({
+    const row = await prisma.dispatchRecord.create({
       data: {
         partnerId: restrictedId,
         type: "newsletterCreated",
@@ -254,25 +254,25 @@ describe("GET /api/notifications/pending -- any logged-in role", () => {
       },
     });
     try {
-      const res = await admin("/api/notifications/pending");
+      const res = await admin("/api/dispatches/pending");
       const item = res.body.find((i) => i.id === row.id);
       assert.ok(item, "the row should still be listed");
       assert.equal(item.needsReview, false, "newsletters are review-exempt even for a restricted partner");
     } finally {
-      await prisma.notifiableEvent.deleteMany({ where: { partnerId: restrictedId } });
+      await prisma.dispatchRecord.deleteMany({ where: { partnerId: restrictedId } });
       await prisma.partner.delete({ where: { id: restrictedId } }).catch(() => {});
     }
   });
 });
 
-describe("GET /api/notifications/urgent-recipient-count", () => {
+describe("GET /api/dispatches/urgent-recipient-count", () => {
   test("requires admin or editor", async () => {
     assert.equal(
-      (await unauthenticated(`/api/notifications/urgent-recipient-count?partnerId=${partnerId}`)).status,
+      (await unauthenticated(`/api/dispatches/urgent-recipient-count?partnerId=${partnerId}`)).status,
       401
     );
     assert.equal(
-      (await viewer(`/api/notifications/urgent-recipient-count?partnerId=${partnerId}`)).status,
+      (await viewer(`/api/dispatches/urgent-recipient-count?partnerId=${partnerId}`)).status,
       403
     );
   });
@@ -286,7 +286,7 @@ describe("GET /api/notifications/urgent-recipient-count", () => {
       data: { email: "urgent-count-test@example.test", confirmedAt: new Date(), allPartners: true },
     });
     try {
-      const res = await admin(`/api/notifications/urgent-recipient-count?partnerId=${partnerId}`);
+      const res = await admin(`/api/dispatches/urgent-recipient-count?partnerId=${partnerId}`);
       assert.equal(res.status, 200);
       assert.ok(typeof res.body.adminCount === "number");
       assert.ok(res.body.publicCount >= 1);
@@ -296,9 +296,9 @@ describe("GET /api/notifications/urgent-recipient-count", () => {
     }
   });
 
-  // The confirm dialog's numbers must agree with what sendUrgentBroadcast
+  // The confirm dialog's numbers must agree with what sendUrgentDispatch
   // will actually do -- with outboundEmail off, it never attempts an
-  // email send at all (see notificationOrchestrator.js's own gating), so
+  // email send at all (see dispatchOrchestrator.js's own gating), so
   // showing real subscriber counts here would overstate what's about to
   // happen.
   test("returns 0 for both counts when outboundEmail is off, even with real subscribers on file", async () => {
@@ -307,7 +307,7 @@ describe("GET /api/notifications/urgent-recipient-count", () => {
       data: { email: "urgent-count-test-off@example.test", confirmedAt: new Date(), allPartners: true },
     });
     try {
-      const res = await admin(`/api/notifications/urgent-recipient-count?partnerId=${partnerId}`);
+      const res = await admin(`/api/dispatches/urgent-recipient-count?partnerId=${partnerId}`);
       assert.equal(res.status, 200);
       assert.equal(res.body.adminCount, 0);
       assert.equal(res.body.publicCount, 0);
@@ -333,7 +333,7 @@ describe("GET /api/notifications/urgent-recipient-count", () => {
       },
     });
     try {
-      const res = await admin(`/api/notifications/urgent-recipient-count?partnerId=${partnerId}`);
+      const res = await admin(`/api/dispatches/urgent-recipient-count?partnerId=${partnerId}`);
       assert.equal(res.status, 200);
       assert.ok(typeof res.body.adminCount === "number");
       assert.equal(res.body.publicCount, 0);
@@ -344,26 +344,26 @@ describe("GET /api/notifications/urgent-recipient-count", () => {
   });
 });
 
-describe("DELETE /api/notifications/pending/:id", () => {
+describe("DELETE /api/dispatches/pending/:id", () => {
   test("viewer is rejected, admin can clear a queued row without sending it", async () => {
     const requestText = `${FIXTURE_TAG} cleared before it ever goes out`;
     await createPrayerRequest(requestText);
-    const row = await prisma.notifiableEvent.findFirst({
+    const row = await prisma.dispatchRecord.findFirst({
       where: { partnerId, payload: { path: ["requestText"], equals: requestText } },
     });
     assert.ok(row, "fixture setup: the row should be queued");
 
-    assert.equal((await viewer(`/api/notifications/pending/${row.id}`, { method: "DELETE" })).status, 403);
+    assert.equal((await viewer(`/api/dispatches/pending/${row.id}`, { method: "DELETE" })).status, 403);
 
-    const res = await admin(`/api/notifications/pending/${row.id}`, { method: "DELETE" });
+    const res = await admin(`/api/dispatches/pending/${row.id}`, { method: "DELETE" });
     assert.equal(res.status, 204);
 
-    const stillThere = await prisma.notifiableEvent.findUnique({ where: { id: row.id } });
+    const stillThere = await prisma.dispatchRecord.findUnique({ where: { id: row.id } });
     assert.equal(stillThere, null, "the row should be gone, not just marked sent");
   });
 
   test("clearing an already-gone id 404s instead of throwing", async () => {
-    const res = await admin("/api/notifications/pending/not-a-real-id", { method: "DELETE" });
+    const res = await admin("/api/dispatches/pending/not-a-real-id", { method: "DELETE" });
     assert.equal(res.status, 404);
   });
 });
@@ -380,12 +380,12 @@ describe("restricted-partner notification review & edit (#187)", () => {
     restrictedPartnerId = restrictedPartner.body.id;
     await prisma.churchSettings.update({
       where: { id: "singleton" },
-      data: { allowRestrictedPartnerNotifications: true },
+      data: { allowRestrictedPartnerDispatch: true },
     });
   });
 
   after(async () => {
-    await prisma.notifiableEvent.deleteMany({ where: { partnerId: restrictedPartnerId } });
+    await prisma.dispatchRecord.deleteMany({ where: { partnerId: restrictedPartnerId } });
     await prisma.partner.delete({ where: { id: restrictedPartnerId } }).catch(() => {});
   });
 
@@ -403,7 +403,7 @@ describe("restricted-partner notification review & edit (#187)", () => {
   }
 
   function findPendingRow(requestText) {
-    return prisma.notifiableEvent.findFirst({
+    return prisma.dispatchRecord.findFirst({
       where: { partnerId: restrictedPartnerId, payload: { path: ["requestText"], equals: requestText } },
     });
   }
@@ -413,10 +413,10 @@ describe("restricted-partner notification review & edit (#187)", () => {
     await createRestrictedPrayerRequest(requestText);
     const row = await findPendingRow(requestText);
     assert.ok(row);
-    const res = await admin("/api/notifications/pending");
+    const res = await admin("/api/dispatches/pending");
     const item = res.body.find((i) => i.id === row.id);
     assert.equal(item.needsReview, true);
-    assert.equal(row.groupmeSentAt, null);
+    assert.equal(row.groupmeDispatchedAt, null);
   });
 
   test("PUT with edited text clears the hold -- needsReview: false afterward", async () => {
@@ -426,7 +426,7 @@ describe("restricted-partner notification review & edit (#187)", () => {
     assert.ok(row);
 
     const editedText = "Pray for wisdom in an upcoming transition.";
-    const putRes = await admin(`/api/notifications/pending/${row.id}`, {
+    const putRes = await admin(`/api/dispatches/pending/${row.id}`, {
       method: "PUT",
       body: { text: editedText },
     });
@@ -435,20 +435,20 @@ describe("restricted-partner notification review & edit (#187)", () => {
     assert.ok(!putRes.body.bodyText.includes(requestText));
     assert.ok(!putRes.body.partnerName?.includes("review flow partner"));
 
-    const updated = await prisma.notifiableEvent.findUnique({ where: { id: row.id } });
-    assert.equal(updated.reviewedText, editedText);
+    const updated = await prisma.dispatchRecord.findUnique({ where: { id: row.id } });
+    assert.equal(updated.dispatchReviewedText, editedText);
   });
 
   test("editing a non-restricted row's text takes effect, with no prior hold", async () => {
     const requestText = `${FIXTURE_TAG} non-restricted, will be edited`;
     await createPrayerRequest(requestText);
-    const row = await prisma.notifiableEvent.findFirst({
+    const row = await prisma.dispatchRecord.findFirst({
       where: { partnerId, payload: { path: ["requestText"], equals: requestText } },
     });
     assert.ok(row);
 
     const editedText = "Edited wording for the team to see.";
-    const putRes = await admin(`/api/notifications/pending/${row.id}`, {
+    const putRes = await admin(`/api/dispatches/pending/${row.id}`, {
       method: "PUT",
       body: { text: editedText },
     });
@@ -463,13 +463,13 @@ describe("restricted-partner notification review & edit (#187)", () => {
     const row = await findPendingRow(requestText);
     assert.ok(row);
 
-    assert.equal((await viewer(`/api/notifications/pending/${row.id}`)).status, 403);
+    assert.equal((await viewer(`/api/dispatches/pending/${row.id}`)).status, 403);
 
-    const res = await admin(`/api/notifications/pending/${row.id}`);
+    const res = await admin(`/api/dispatches/pending/${row.id}`);
     assert.equal(res.status, 200);
     assert.equal(res.body.rawText, requestText, "reveal must return the real text, not the placeholder");
 
-    assert.equal((await admin("/api/notifications/pending/not-a-real-id")).status, 404);
+    assert.equal((await admin("/api/dispatches/pending/not-a-real-id")).status, 404);
   });
 
   test("PUT /pending/:id -- validation", async () => {
@@ -479,50 +479,50 @@ describe("restricted-partner notification review & edit (#187)", () => {
     assert.ok(row);
 
     assert.equal(
-      (await admin(`/api/notifications/pending/${row.id}`, { method: "PUT", body: { text: "" } })).status,
+      (await admin(`/api/dispatches/pending/${row.id}`, { method: "PUT", body: { text: "" } })).status,
       400
     );
     assert.equal(
-      (await viewer(`/api/notifications/pending/${row.id}`, { method: "PUT", body: { text: "fine" } }))
+      (await viewer(`/api/dispatches/pending/${row.id}`, { method: "PUT", body: { text: "fine" } }))
         .status,
       403
     );
     assert.equal(
-      (await admin("/api/notifications/pending/not-a-real-id", { method: "PUT", body: { text: "fine" } }))
+      (await admin("/api/dispatches/pending/not-a-real-id", { method: "PUT", body: { text: "fine" } }))
         .status,
       404
     );
   });
 
-  test("editing a restricted row twice overwrites reviewedText/reviewedById/reviewedAt each time", async () => {
+  test("editing a restricted row twice overwrites dispatchReviewedText/dispatchReviewedById/dispatchReviewedAt each time", async () => {
     const requestText = `${FIXTURE_TAG} edited twice`;
     await createRestrictedPrayerRequest(requestText);
     const row = await findPendingRow(requestText);
     assert.ok(row);
 
-    const first = await admin(`/api/notifications/pending/${row.id}`, {
+    const first = await admin(`/api/dispatches/pending/${row.id}`, {
       method: "PUT",
       body: { text: "First edit." },
     });
     assert.equal(first.status, 200);
-    const afterFirst = await prisma.notifiableEvent.findUnique({ where: { id: row.id } });
-    assert.equal(afterFirst.reviewedText, "First edit.");
-    assert.ok(afterFirst.reviewedById, "reviewedById should be set");
+    const afterFirst = await prisma.dispatchRecord.findUnique({ where: { id: row.id } });
+    assert.equal(afterFirst.dispatchReviewedText, "First edit.");
+    assert.ok(afterFirst.dispatchReviewedById, "dispatchReviewedById should be set");
 
-    const second = await admin(`/api/notifications/pending/${row.id}`, {
+    const second = await admin(`/api/dispatches/pending/${row.id}`, {
       method: "PUT",
       body: { text: "Second edit, cleaner." },
     });
     assert.equal(second.status, 200);
-    const afterSecond = await prisma.notifiableEvent.findUnique({ where: { id: row.id } });
-    assert.equal(afterSecond.reviewedText, "Second edit, cleaner.");
-    assert.ok(afterSecond.reviewedAt.getTime() >= afterFirst.reviewedAt.getTime());
+    const afterSecond = await prisma.dispatchRecord.findUnique({ where: { id: row.id } });
+    assert.equal(afterSecond.dispatchReviewedText, "Second edit, cleaner.");
+    assert.ok(afterSecond.dispatchReviewedAt.getTime() >= afterFirst.dispatchReviewedAt.getTime());
   });
 
-  test("allowRestrictedPartnerNotifications: false -- a restricted partner's event is never recorded at all", async () => {
+  test("allowRestrictedPartnerDispatch: false -- a restricted partner's event is never recorded at all", async () => {
     await prisma.churchSettings.update({
       where: { id: "singleton" },
-      data: { allowRestrictedPartnerNotifications: false },
+      data: { allowRestrictedPartnerDispatch: false },
     });
     try {
       const requestText = `${FIXTURE_TAG} should never be recorded`;
@@ -538,31 +538,31 @@ describe("restricted-partner notification review & edit (#187)", () => {
       assert.equal(res.status, 201);
 
       const row = await findPendingRow(requestText);
-      assert.equal(row, null, "no NotifiableEvent row should ever be created");
+      assert.equal(row, null, "no DispatchRecord row should ever be created");
     } finally {
       await prisma.churchSettings.update({
         where: { id: "singleton" },
-        data: { allowRestrictedPartnerNotifications: true },
+        data: { allowRestrictedPartnerDispatch: true },
       });
     }
   });
 
-  test("allowRestrictedPartnerNotifications: true -- the row is created and starts needing review", async () => {
+  test("allowRestrictedPartnerDispatch: true -- the row is created and starts needing review", async () => {
     const requestText = `${FIXTURE_TAG} queued normally, needs review`;
     await createRestrictedPrayerRequest(requestText);
     const row = await findPendingRow(requestText);
     assert.ok(row, "row should be queued");
 
-    const listed = await admin("/api/notifications/pending");
+    const listed = await admin("/api/dispatches/pending");
     const item = listed.body.find((i) => i.id === row.id);
     assert.ok(item);
     assert.equal(item.needsReview, true);
-    assert.equal(item.reviewedAt, null);
+    assert.equal(item.dispatchReviewedAt, null);
   });
 
   // The inline "approve now" path from the creation form, bypassing the
   // separate trip to Pending Notifications -- POST /prayer-requests
-  // itself accepts approveNow and threads it through to recordEvent.
+  // itself accepts approveNow and threads it through to createDispatchRecord.
   test("approveNow: true on creation records the row already reviewed, with requestText as the reviewed text", async () => {
     const requestText = `${FIXTURE_TAG} approved inline at creation`;
     const res = await admin("/api/prayer-requests", {
@@ -579,11 +579,11 @@ describe("restricted-partner notification review & edit (#187)", () => {
 
     const row = await findPendingRow(requestText);
     assert.ok(row, "row should be queued");
-    assert.ok(row.reviewedAt, "reviewedAt should already be set");
-    assert.equal(row.reviewedText, requestText);
-    assert.ok(row.reviewedById);
+    assert.ok(row.dispatchReviewedAt, "dispatchReviewedAt should already be set");
+    assert.equal(row.dispatchReviewedText, requestText);
+    assert.ok(row.dispatchReviewedById);
 
-    const listed = await admin("/api/notifications/pending");
+    const listed = await admin("/api/dispatches/pending");
     const item = listed.body.find((i) => i.id === row.id);
     assert.equal(item.needsReview, false, "already reviewed -- not held");
   });
@@ -604,13 +604,13 @@ describe("restricted-partner notification review & edit (#187)", () => {
 
     const row = await findPendingRow(requestText);
     assert.ok(row);
-    assert.equal(row.reviewedAt, null);
+    assert.equal(row.dispatchReviewedAt, null);
   });
 });
 
 describe("unsubscribe", () => {
   test("GET /api/auth/unsubscribe with a valid token clears cadence", async () => {
-    await admin("/api/auth/notify-by-email", {
+    await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
       body: { cadence: "biweekly", allPartners: true },
     });
@@ -635,7 +635,7 @@ describe("unsubscribe", () => {
   });
 });
 
-describe("PUT /api/auth/notify-by-email -- cadence + scope", () => {
+describe("PUT /api/auth/dispatch-by-email -- cadence + scope", () => {
   let partnerA;
   let partnerB;
 
@@ -653,12 +653,12 @@ describe("PUT /api/auth/notify-by-email -- cadence + scope", () => {
   });
 
   after(async () => {
-    await admin("/api/auth/notify-by-email", { method: "PUT", body: { cadence: null, allPartners: true } });
+    await admin("/api/auth/dispatch-by-email", { method: "PUT", body: { cadence: null, allPartners: true } });
     await removeFixturePartners();
   });
 
   test("cadence + specific partners persists and GET /me reflects it", async () => {
-    const res = await admin("/api/auth/notify-by-email", {
+    const res = await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
       body: { cadence: "biweekly", allPartners: false, partnerIds: [partnerA, partnerB] },
     });
@@ -673,11 +673,11 @@ describe("PUT /api/auth/notify-by-email -- cadence + scope", () => {
   });
 
   test("cadence: null clears the subscription and any followed partners", async () => {
-    await admin("/api/auth/notify-by-email", {
+    await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
       body: { cadence: "monthly", allPartners: false, partnerIds: [partnerA] },
     });
-    const res = await admin("/api/auth/notify-by-email", { method: "PUT", body: { cadence: null } });
+    const res = await admin("/api/auth/dispatch-by-email", { method: "PUT", body: { cadence: null } });
     assert.equal(res.status, 200);
     assert.equal(res.body.user.cadence, null);
     assert.deepEqual(res.body.user.followedPartnerIds, []);
@@ -687,11 +687,11 @@ describe("PUT /api/auth/notify-by-email -- cadence + scope", () => {
   });
 
   test("switching to allPartners: true clears previously followed partners, not just ignores them", async () => {
-    await admin("/api/auth/notify-by-email", {
+    await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
       body: { cadence: "monthly", allPartners: false, partnerIds: [partnerA, partnerB] },
     });
-    const res = await admin("/api/auth/notify-by-email", {
+    const res = await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
       body: { cadence: "monthly", allPartners: true },
     });
@@ -699,7 +699,7 @@ describe("PUT /api/auth/notify-by-email -- cadence + scope", () => {
     assert.equal(res.body.user.allPartners, true);
     assert.deepEqual(res.body.user.followedPartnerIds, []);
 
-    const rescoped = await admin("/api/auth/notify-by-email", {
+    const rescoped = await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
       body: { cadence: "monthly", allPartners: false, partnerIds: [partnerA] },
     });
@@ -713,13 +713,13 @@ describe("PUT /api/auth/notify-by-email -- cadence + scope", () => {
     });
     await admin(`/api/partners/${archived.body.id}/archive`, { method: "POST" });
 
-    const bogus = await admin("/api/auth/notify-by-email", {
+    const bogus = await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
       body: { cadence: "monthly", allPartners: false, partnerIds: ["not-a-real-id"] },
     });
     assert.equal(bogus.status, 400);
 
-    const archivedRes = await admin("/api/auth/notify-by-email", {
+    const archivedRes = await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
       body: { cadence: "monthly", allPartners: false, partnerIds: [archived.body.id] },
     });
@@ -727,7 +727,7 @@ describe("PUT /api/auth/notify-by-email -- cadence + scope", () => {
   });
 
   test("allPartners: false with an empty partnerIds list is rejected", async () => {
-    const res = await admin("/api/auth/notify-by-email", {
+    const res = await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
       body: { cadence: "monthly", allPartners: false, partnerIds: [] },
     });
@@ -735,18 +735,18 @@ describe("PUT /api/auth/notify-by-email -- cadence + scope", () => {
   });
 
   test("an invalid cadence is rejected", async () => {
-    const res = await admin("/api/auth/notify-by-email", { method: "PUT", body: { cadence: "weekly" } });
+    const res = await admin("/api/auth/dispatch-by-email", { method: "PUT", body: { cadence: "weekly" } });
     assert.equal(res.status, 400);
   });
 
   test("non-admin roles can set their own digest preference too", async () => {
     const editorClient = await client("editor");
-    const res = await editorClient("/api/auth/notify-by-email", {
+    const res = await editorClient("/api/auth/dispatch-by-email", {
       method: "PUT",
       body: { cadence: "quarterly", allPartners: true },
     });
     assert.equal(res.status, 200);
     assert.equal(res.body.user.cadence, "quarterly");
-    await editorClient("/api/auth/notify-by-email", { method: "PUT", body: { cadence: null } });
+    await editorClient("/api/auth/dispatch-by-email", { method: "PUT", body: { cadence: null } });
   });
 });

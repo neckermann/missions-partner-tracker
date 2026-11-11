@@ -8,8 +8,8 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireAuthOrMfaSetup } = require("../middleware/requireAuth");
 const { setSessionCookie, clearSessionCookie } = require("../utils/jwt");
 const { encryptField, decryptField } = require("../utils/crypto");
-const { appBaseUrl } = require("../utils/notificationBlurbs");
-const { escapeHtml } = require("../utils/digestShell");
+const { appBaseUrl } = require("../utils/dispatchBlurbs");
+const { escapeHtml } = require("../utils/emailDispatchShell");
 
 const router = express.Router();
 const MFA_PENDING_TTL = "5m";
@@ -329,7 +329,7 @@ const digestSubscriptionSchema = z.object({
   allPartners: z.boolean().optional().default(true),
   partnerIds: z.array(z.string()).optional().default([]),
 });
-router.put("/notify-by-email", requireAuth, async (req, res, next) => {
+router.put("/dispatch-by-email", requireAuth, async (req, res, next) => {
   try {
     const parsed = digestSubscriptionSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -387,7 +387,7 @@ router.put("/notify-by-email", requireAuth, async (req, res, next) => {
 });
 
 // GET /api/auth/unsubscribe -- public, no requireAuth, reached straight
-// from a link in a digest email (see utils/digestShell.js's
+// from a link in a digest email (see utils/emailDispatchShell.js's
 // buildUnsubscribeUrl). Verifies the same { id, unsubscribe: true }
 // token shape/signing as the MFA-pending/MFA-setup tokens above, minted
 // fresh per recipient per email, deliberately with no expiry (an old,
@@ -396,7 +396,7 @@ router.put("/notify-by-email", requireAuth, async (req, res, next) => {
 // their mail client, not an API call.
 router.get("/unsubscribe", async (req, res) => {
   // Branded to match the digest email's own header-band treatment (see
-  // utils/digestShell.js) -- same three colors/font, same fallbacks, so
+  // utils/emailDispatchShell.js) -- same three colors/font, same fallbacks, so
   // this doesn't look like a different, unbranded app once clicked into
   // from the email.
   const settings = await prisma.churchSettings.findUnique({
@@ -438,7 +438,7 @@ router.get("/unsubscribe", async (req, res) => {
   }
 
   // Same "don't leave stale scope data around" reasoning as PUT
-  // /notify-by-email's own cadence: null handling above.
+  // /dispatch-by-email's own cadence: null handling above.
   await prisma.$transaction([
     prisma.user.updateMany({ where: { id: decoded.id }, data: { cadence: null } }),
     prisma.userFollowedPartner.deleteMany({ where: { userId: decoded.id } }),

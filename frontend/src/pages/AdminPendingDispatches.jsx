@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from "react";
 import {
-  fetchPendingNotifications,
-  deletePendingNotification,
-  updatePendingNotification,
+  fetchPendingDispatches,
+  deletePendingDispatch,
+  updatePendingDispatch,
 } from "../api/client.js";
-import NotificationReviewModal from "../components/admin/NotificationReviewModal.jsx";
+import DispatchReviewModal from "../components/admin/DispatchReviewModal.jsx";
 import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 
 // Groups blurbs by partner, nesting a request/need under the newsletter
-// blurb it was sourced from -- same structure adminDigestContent.js
+// blurb it was sourced from -- same structure adminEmailDispatchContent.js
 // renders, so this preview matches what actually goes out. Duplicated
 // here rather than shared with the backend since it's purely a display
 // concern, not a contract either side depends on the other to honor.
@@ -44,9 +44,13 @@ function groupByPartner(blurbs) {
 
 function SentStatus({ blurb }) {
   const parts = [];
-  if (blurb.groupmeSentAt) parts.push("GroupMe ✓");
-  if (blurb.whatsappSentAt) parts.push("WhatsApp ✓");
-  if (blurb.biweeklyDigestSentAt || blurb.monthlyDigestSentAt || blurb.quarterlyDigestSentAt) {
+  if (blurb.groupmeDispatchedAt) parts.push("GroupMe ✓");
+  if (blurb.whatsappDispatchedAt) parts.push("WhatsApp ✓");
+  if (
+    blurb.biweeklyEmailDispatchSentAt ||
+    blurb.monthlyEmailDispatchSentAt ||
+    blurb.quarterlyEmailDispatchSentAt
+  ) {
     parts.push("Email ✓");
   }
   if (parts.length === 0) return null;
@@ -123,7 +127,7 @@ function BlurbRow({ blurb, onClear, clearing, onEdit, onQuickApprove, approving 
         </strong>
         <SentStatus blurb={blurb} />
         {blurb.needsReview && <AwaitingReviewBadge />}
-        {blurb.isRestricted && blurb.reviewedAt && !blurb.needsReview && (
+        {blurb.isRestricted && blurb.dispatchReviewedAt && !blurb.needsReview && (
           <span style={{ color: "#2a5d3c", fontSize: "0.8rem", marginLeft: "0.5rem" }}>Reviewed ✓</span>
         )}
         <p style={{ margin: "0.25rem 0 0", color: "#555" }}>{blurb.bodyText}</p>
@@ -164,13 +168,13 @@ function BlurbRow({ blurb, onClear, clearing, onEdit, onQuickApprove, approving 
   );
 }
 
-// The actual notification queue -- what's waiting to go out, and the
+// The actual dispatch queue -- what's waiting to go out, and the
 // review/approve/edit/clear actions on it. Schedule, queue toggles, and
-// digest appearance live on their own settings page (Site
-// Administration -> Notifications, see AdminNotificationSettings.jsx)
+// email dispatch appearance live on their own settings page (Site
+// Administration -> Dispatch Settings, see AdminDispatchSettings.jsx)
 // -- same "content, not settings" split Unmatched Emails already has
 // from Email's own settings page.
-export default function AdminPendingNotifications() {
+export default function AdminPendingDispatches() {
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [clearingId, setClearingId] = useState(null);
@@ -181,12 +185,12 @@ export default function AdminPendingNotifications() {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
 
   function reloadPending() {
-    return fetchPendingNotifications().then(setPending);
+    return fetchPendingDispatches().then(setPending);
   }
 
   useEffect(() => {
     reloadPending()
-      .catch((err) => setError(err.response?.data?.error || "Couldn't load pending notifications."))
+      .catch((err) => setError(err.response?.data?.error || "Couldn't load pending dispatches."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -199,10 +203,10 @@ export default function AdminPendingNotifications() {
     setError("");
     setSuccess("");
     try {
-      await deletePendingNotification(id);
+      await deletePendingDispatch(id);
       await reloadPending();
     } catch (err) {
-      setError(err.response?.data?.error || "Couldn't clear that notification.");
+      setError(err.response?.data?.error || "Couldn't clear that dispatch.");
     } finally {
       setClearingId(null);
     }
@@ -237,10 +241,10 @@ export default function AdminPendingNotifications() {
     setError("");
     setSuccess("");
     try {
-      const updated = await updatePendingNotification(blurb.id, blurb.bodyText);
+      const updated = await updatePendingDispatch(blurb.id, blurb.bodyText);
       setPending((list) => list.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
     } catch (err) {
-      setError(err.response?.data?.error || "Couldn't approve that notification.");
+      setError(err.response?.data?.error || "Couldn't approve that dispatch.");
     } finally {
       setApprovingId(null);
     }
@@ -253,12 +257,12 @@ export default function AdminPendingNotifications() {
 
   return (
     <div className="admin-shell">
-      <h2>Pending Notifications</h2>
+      <h2>Pending Dispatches</h2>
       <p style={{ color: "#555" }}>
         New prayer requests, one-time needs, and newsletters queue here instead of posting immediately -- each
-        one clears once every channel it's relevant to (GroupMe, the admin digest, the public digest) has
-        handled it, on its own schedule. For schedules, GroupMe's content-type mutes, and email digest
-        appearance, see Site Administration → Notifications.
+        one clears once every channel it's relevant to (GroupMe, WhatsApp, the admin email, the public email)
+        has handled it, on its own schedule. For schedules, the chat channels' content-type mutes, and email
+        dispatch appearance, see Site Administration → Dispatch Settings.
       </p>
 
       <div className="admin-section" style={{ marginTop: "1rem" }}>
@@ -325,7 +329,7 @@ export default function AdminPendingNotifications() {
       </div>
 
       {editingBlurb && (
-        <NotificationReviewModal
+        <DispatchReviewModal
           blurb={editingBlurb}
           onSaved={handleEditSaved}
           onClose={() => setEditingBlurb(null)}

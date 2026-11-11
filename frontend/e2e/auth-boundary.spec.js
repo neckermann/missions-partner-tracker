@@ -137,7 +137,7 @@ test.describe("first-run setup", () => {
 
 test.describe("login redirect for direct links to authenticated files", () => {
   // #124: a cold click on a direct link to a requireAuth-gated route (a
-  // GroupMe notification, etc.) with no session used to show bare JSON.
+  // GroupMe dispatch, etc.) with no session used to show bare JSON.
   // Each test gets Playwright's default fresh, cookie-less context.
   test("a direct link with no session redirects to /login and returns to the original path after signing in", async ({
     page,

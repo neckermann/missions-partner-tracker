@@ -289,35 +289,35 @@ export async function discardInboundEmail(id) {
   await api.delete(`/inbound-email/${id}`);
 }
 
-// Notifications -- the email digest's own cadence-tier schedule,
-// GroupMe's own daily-hour schedule, GroupMe's content-type mutes, and
-// digest appearance are all church-wide ChurchSettings, fetched/updated
-// the same write-whole-object-back pattern as every other settings
-// sub-resource here. fetchPendingNotifications works the actual review
-// queue -- there's no manual "send now" override anymore; every channel
-// only ever sends on its own schedule, or immediately via an urgent
-// broadcast triggered from the prayer-request/one-time-need forms
+// Dispatches -- the email dispatch's own cadence-tier schedule, the
+// shared chat-channel daily-hour schedule, the chat channels' content-type
+// mutes, and email dispatch appearance are all church-wide ChurchSettings,
+// fetched/updated the same write-whole-object-back pattern as every other
+// settings sub-resource here. fetchPendingDispatches works the actual
+// review queue -- there's no manual "send now" override anymore; every
+// channel only ever sends on its own schedule, or immediately via an
+// urgent dispatch triggered from the prayer-request/one-time-need forms
 // themselves.
-export async function fetchNotificationSettings() {
-  const { data } = await api.get("/settings/notifications");
+export async function fetchDispatchSettings() {
+  const { data } = await api.get("/settings/dispatches");
   return data;
 }
 
-export async function updateNotificationSettings(payload) {
-  const { data } = await api.put("/settings/notifications", payload);
+export async function updateDispatchSettings(payload) {
+  const { data } = await api.put("/settings/dispatches", payload);
   return data;
 }
 
 // Counts-only admin visibility into the digest subscriber base -- no
 // email addresses in this response, see that route's own comment. Any
-// logged-in role can read it, same as fetchPendingNotifications.
+// logged-in role can read it, same as fetchPendingDispatches.
 export async function fetchScopedDigestSummary() {
   const { data } = await api.get("/scoped-digest/summary");
   return data; // { adminSubscribedCount, publicConfirmedCount, publicUnconfirmedCount }
 }
 
-export async function fetchPendingNotifications() {
-  const { data } = await api.get("/notifications/pending");
+export async function fetchPendingDispatches() {
+  const { data } = await api.get("/dispatches/pending");
   return data;
 }
 
@@ -325,35 +325,35 @@ export async function fetchPendingNotifications() {
 // always shows the masked/placeholder version for a restricted partner,
 // same as what would actually send; this is the separate "let an admin
 // look before editing" lookup (#187).
-export async function revealPendingNotification(id) {
-  const { data } = await api.get(`/notifications/pending/${id}`);
+export async function revealPendingDispatch(id) {
+  const { data } = await api.get(`/dispatches/pending/${id}`);
   return data;
 }
 
 // Saves an admin's edit to a queued row's text -- available on any row,
 // not just a restricted partner's. For a restricted real-content row
 // specifically, saving here is also what clears it to send (see
-// notificationEligibility.js's needsReview()); for every other row it's
+// dispatchEligibility.js's needsReview()); for every other row it's
 // purely a content edit.
 //
 // Any caller that clears a `needsReview` row through this function must
 // confirm the exact text first, same as every other path that does --
 // see components/admin/ApproveRestrictedTextConfirmBody.jsx and
 // hooks/useConfirmDialog.jsx (or, if already inside another Modal, a
-// same-dialog confirm step like NotificationReviewModal.jsx's own, since
+// same-dialog confirm step like DispatchReviewModal.jsx's own, since
 // nesting a second Modal on top breaks Escape -- see that file's
 // comment). Don't write a new window.confirm() for this; every existing
 // one for this exact confirmation was intentionally replaced.
-export async function updatePendingNotification(id, text) {
-  const { data } = await api.put(`/notifications/pending/${id}`, { text });
+export async function updatePendingDispatch(id, text) {
+  const { data } = await api.put(`/dispatches/pending/${id}`, { text });
   return data;
 }
 
-// Discards one queued notification without sending it on any channel --
+// Discards one queued dispatch without sending it on any channel --
 // e.g. a restricted partner's update the admin decides shouldn't go out
 // this round.
-export async function deletePendingNotification(id) {
-  await api.delete(`/notifications/pending/${id}`);
+export async function deletePendingDispatch(id) {
+  await api.delete(`/dispatches/pending/${id}`);
 }
 
 // Real admin/public subscriber counts for a partner, cadence-blind --
@@ -366,7 +366,7 @@ export async function deletePendingNotification(id) {
 // composes the right audience list from enabledFeatures (utils/urgentSend.js)
 // so it can't go stale the way four independent copies did before.
 export async function fetchUrgentRecipientCount(partnerId) {
-  const { data } = await api.get("/notifications/urgent-recipient-count", { params: { partnerId } });
+  const { data } = await api.get("/dispatches/urgent-recipient-count", { params: { partnerId } });
   return data; // { adminCount, publicCount }
 }
 
@@ -600,7 +600,7 @@ export async function changePassword(currentPassword, newPassword) {
 // self-service-from-Account-Settings pattern as the MFA enroll/disable
 // calls above.
 export async function updateNotifyByEmail({ cadence, allPartners, partnerIds }) {
-  const { data } = await api.put("/auth/notify-by-email", { cadence, allPartners, partnerIds });
+  const { data } = await api.put("/auth/dispatch-by-email", { cadence, allPartners, partnerIds });
   return data.user;
 }
 

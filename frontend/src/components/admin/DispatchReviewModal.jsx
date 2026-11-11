@@ -1,21 +1,21 @@
 import React, { useEffect, useState } from "react";
 import Modal from "../Modal.jsx";
-import { revealPendingNotification, updatePendingNotification } from "../../api/client.js";
+import { revealPendingDispatch, updatePendingDispatch } from "../../api/client.js";
 import ApproveRestrictedTextConfirmBody from "./ApproveRestrictedTextConfirmBody.jsx";
 
-// Lets an admin see the real (unmasked) text behind a queued
-// notification and edit it before it sends (#187) -- available on any
-// row, not just a restricted partner's. For a restricted row that's
-// still `needsReview`, saving here is what clears it to send (see
-// notificationFlush.js's own needsReview()); for everything else it's
+// Lets an admin see the real (unmasked) text behind a queued dispatch
+// and edit it before it sends (#187) -- available on any row, not just
+// a restricted partner's. For a restricted row that's still
+// `needsReview`, saving here is what clears it to send (see
+// dispatchEligibility.js's own needsReview()); for everything else it's
 // purely a content edit with no effect on whether/when it sends.
 //
-// `blurb` is the row object as already loaded in AdminPendingNotifications.jsx's
+// `blurb` is the row object as already loaded in AdminPendingDispatches.jsx's
 // `pending` list (needs at least `id`, `isRestricted`, `needsReview`) --
 // the real text itself is fetched fresh on mount via
-// revealPendingNotification rather than trusting the already-masked
+// revealPendingDispatch rather than trusting the already-masked
 // `bodyText` the list carries.
-export default function NotificationReviewModal({ blurb, onSaved, onClose }) {
+export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [text, setText] = useState("");
   const [error, setError] = useState("");
@@ -31,13 +31,13 @@ export default function NotificationReviewModal({ blurb, onSaved, onClose }) {
   const [confirmingApproval, setConfirmingApproval] = useState(false);
 
   useEffect(() => {
-    revealPendingNotification(blurb.id)
+    revealPendingDispatch(blurb.id)
       .then((result) => {
         setText(result.rawText || "");
         setStatus("ready");
       })
       .catch((err) => {
-        setError(err.response?.data?.error || "Failed to load this notification's text");
+        setError(err.response?.data?.error || "Failed to load this dispatch's text");
         setStatus("error");
       });
   }, [blurb.id]);
@@ -59,7 +59,7 @@ export default function NotificationReviewModal({ blurb, onSaved, onClose }) {
     setSaving(true);
     setError("");
     try {
-      const updated = await updatePendingNotification(blurb.id, text.trim());
+      const updated = await updatePendingDispatch(blurb.id, text.trim());
       onSaved(updated);
       onClose();
     } catch (err) {
@@ -70,7 +70,7 @@ export default function NotificationReviewModal({ blurb, onSaved, onClose }) {
   }
 
   return (
-    <Modal title="Edit notification" onClose={onClose}>
+    <Modal title="Edit dispatch" onClose={onClose}>
       {status === "loading" && <p style={{ color: "#555" }}>Loading...</p>}
       {status === "error" && (
         <p style={{ color: "#b91c1c" }} role="alert">
