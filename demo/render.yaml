@@ -124,8 +124,14 @@ services:
   #
   # It does nothing but POST to the web service's reset endpoint with the
   # shared token; all the actual work happens in the app
-  # (backend/scripts/reset-demo-data.js), so this stays a one-liner rather
-  # than a second copy of the app that needs its own database access.
+  # (backend/scripts/reset-demo-data.js). The command itself used to be an
+  # inline `node -e "..."` string typed directly into Render's dashboard --
+  # moved to the repo-root `trigger-remote-reset` script (scripts/
+  # trigger-remote-reset.js) specifically because this one field is the
+  # part of this whole file Render never actually syncs from (see this
+  # file's own header comment), so an inline string was the one piece of
+  # this pipeline with no version history and no review. A committed
+  # script can't drift the same way.
   - name: missions-partner-tracker-demo-reset
     type: cron
     runtime: node
@@ -133,12 +139,10 @@ services:
     region: oregon
     # 08:00 UTC daily.
     schedule: "0 8 * * *"
-    # Nothing to build; the command below is self-contained.
+    # Nothing to build -- the script only uses Node's built-in fetch, no
+    # dependencies to install.
     buildCommand: "true"
-    startCommand: >-
-      node -e "fetch(process.env.RESET_URL,{method:'POST',headers:{Authorization:'Bearer
-      '+process.env.DEMO_RESET_TOKEN}}).then(r=>{if(!r.ok){console.error('status',r.status);process.exit(1)}console.log('reset
-      ok')}).catch(e=>{console.error(e);process.exit(1)})"
+    startCommand: yarn trigger-remote-reset
     envVars:
       # The web service's own URL + /api/demo/reset. Set at deploy time
       # because it depends on the service name Render ends up assigning.
