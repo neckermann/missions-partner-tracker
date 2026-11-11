@@ -767,10 +767,19 @@ const PEXELS_MISSIONARY_QUERIES = {
   family_with_kids: ["mother father and children portrait", "mom dad kids family outdoor portrait"],
   large_family: ["mom dad grandparents family group portrait", "parents children large family portrait"],
 };
-const PEXELS_ORG_LOGO_QUERIES = [
-  "abstract logo design",
-  "minimalist brand logo",
-  "nonprofit organization logo",
+// Deliberately NOT "logo"/"brand" terms -- stock libraries tag essentially
+// any designed product photography (packaging, merchandise, ads, across
+// every industry with zero regard for appropriateness) under those same
+// generic branding keywords, and a real reseed against a real Pexels
+// account surfaced exactly that kind of unrelated, inappropriate product
+// photo for a missions app showing a church's partners. These queries ask
+// for photographic content specific to a church/missions context instead
+// of a generic "org" concept, so results land in the same narrow, fitting
+// neighborhood this app actually depicts.
+const PEXELS_ORG_QUERIES = [
+  "church building exterior",
+  "mission trip volunteers serving community",
+  "world map globe",
 ];
 
 // Mirrors exactly how `adults`/`children` are built above: one adult with
@@ -833,7 +842,7 @@ async function buildPhotoPools() {
     console.log(`  ${category}: ${urls.length} photos`);
   }
   let orgUrls = [];
-  for (const q of PEXELS_ORG_LOGO_QUERIES) orgUrls = orgUrls.concat(await fetchPexelsPhotos(q));
+  for (const q of PEXELS_ORG_QUERIES) orgUrls = orgUrls.concat(await fetchPexelsPhotos(q));
   pools.org = { urls: shuffled(orgUrls), next: 0 };
   console.log(`  org: ${orgUrls.length} photos`);
   return pools;
