@@ -778,6 +778,15 @@ If WhatsApp is disconnected or rejects a post, whatever you were saving
 still saves normally; the notification stays queued and goes out on the
 next send.
 
+![A WhatsApp community's groups, including the built-in Announcements group used as the fallback](docs/assets/screenshots/whatsapp-community-groups.png)
+
+What a church's members actually see once messages go out — a Prayer
+Requests group with new and answered requests, and a One-Time Needs
+group with new and decided needs:
+
+![The Prayer Requests group showing new and answered prayer requests](docs/assets/screenshots/whatsapp-prayer-requests-group.png)
+![The One-Time Needs group showing new and decided one-time needs](docs/assets/screenshots/whatsapp-one-time-needs-group.png)
+
 ### Pending Notifications
 
 The **Pending Notifications** page (in the main menu, alongside
@@ -798,7 +807,7 @@ that newsletter instead of repeated separately. There's no manual
 go out right away, check **urgent** on it when you create it instead,
 see [Marking something urgent](#marking-something-urgent).
 
-![The Pending Notifications page: one held restricted item and two sendable items, grouped by partner](docs/assets/screenshots/pending-notifications.png)
+![The Pending Notifications page: a regular partner's prayer requests and one-time needs (new and answered/decided), grouped with a restricted partner's already-reviewed items below](docs/assets/screenshots/pending-notifications.png)
 
 A queued item only clears once every currently-enabled channel has
 actually sent it — if GroupMe is down but email goes out fine, that item
