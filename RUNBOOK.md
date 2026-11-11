@@ -51,14 +51,24 @@ deployment): `TZ` (deliberately non-UTC — see the job's own comment),
 `SEED_DEMO_EXTRAS`, `E2E_BASE_URL`, `E2E_ADMIN_EMAIL`,
 `E2E_ADMIN_PASSWORD`.
 
-Three names that appear in `demo/.env` but are **not** read anywhere
-in `backend/src/` (confirmed via grep, including a check for dynamic
-`process.env[...]` access): `WEBHOOK_URL`, `WHATSAPP_PHONE_NUMBER`,
-`RENDER_API_KEY`. The last is a maintainer/tooling credential for
-calling Render's own API directly, not something the app itself reads;
-the other two appear to be leftovers. TODO: confirm with whoever
-maintains `demo/.env` whether `WEBHOOK_URL`/`WHATSAPP_PHONE_NUMBER` are
-safe to remove.
+Two names that appear in `demo/.env` but are **not** read anywhere in
+`backend/src/` (confirmed via grep, including a check for dynamic
+`process.env[...]` access) — neither is dead, both are just not
+app-config:
+
+- `RENDER_API_KEY` — a maintainer/tooling credential for calling
+  Render's own API directly, not something the app itself reads.
+- `WEBHOOK_URL` — not an input to the app; it's a saved record of the
+  exact URL (built from `WEBHOOK_USERNAME`/`WEBHOOK_PASSWORD`, which
+  *are* read by the app) that's pasted into Postmark's own dashboard
+  as the inbound stream's webhook target — see
+  [ADMIN_GUIDE.md § Email (Postmark)](ADMIN_GUIDE.md#email-postmark)
+  step 4. Kept here so whoever maintains this instance's Postmark
+  setup doesn't have to reconstruct it from Postmark's UI.
+
+`WHATSAPP_PHONE_NUMBER`, previously flagged here as maybe-dead, was
+confirmed actually dead and removed — WhatsApp pairing needs no env
+var (below), so there was never a config value for this to hold.
 
 WhatsApp pairing itself needs no env var — it's QR-paired through the
 admin UI and stored in the database, same as every other per-instance
@@ -119,5 +129,3 @@ regardless of project policy.
 ## TODO
 
 - [ ] Confirm dev-test's exact Render URL and fill in the table above.
-- [ ] Confirm whether `WEBHOOK_URL`/`WHATSAPP_PHONE_NUMBER` in
-  `demo/.env` are dead and safe to remove.
