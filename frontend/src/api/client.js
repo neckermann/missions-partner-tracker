@@ -194,16 +194,14 @@ export async function updateWhatsAppSettings(payload) {
 }
 
 // Starts pairing; read the result back by polling fetchWhatsAppPairStatus().
-// Pass a phone number (digits, with country code) for an 8-character
-// code, or nothing for a QR code.
-export async function startWhatsAppPairing(phoneNumber) {
-  const { data } = await api.post("/settings/whatsapp/pair", phoneNumber ? { phoneNumber } : {});
+export async function startWhatsAppPairing() {
+  const { data } = await api.post("/settings/whatsapp/pair", {});
   return data;
 }
 
 export async function fetchWhatsAppPairStatus() {
   const { data } = await api.get("/settings/whatsapp/pair/status");
-  return data; // { status, qrDataUrl, pairingCode, error, health }
+  return data; // { status, qrDataUrl, error, health }
 }
 
 // Live lookups against the linked WhatsApp account, for the pickers.

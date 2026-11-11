@@ -755,13 +755,11 @@ together in one message.
 
 Setup builds up in steps:
 
-1. **Link the number** — enter the dedicated number with its country code
-   and click **Get Pairing Code**. On that phone open WhatsApp → Settings
-   → Linked Devices → Link a Device → *Link with phone number instead*,
-   and type the code shown. (**Use a QR Code Instead** shows a QR code to
-   scan from the same screen.) The page shows whether the number is
-   connected, and warns if WhatsApp has flagged it. **Unlink Number**
-   removes it and clears your choices below.
+1. **Link the number** — click **Show QR Code**. On the dedicated phone
+   open WhatsApp → Settings → Linked Devices → Link a Device, and scan
+   the code shown. The page shows whether the number is connected, and
+   warns if WhatsApp has flagged it. **Unlink Number** removes it and
+   clears your choices below.
 2. **Community** — once connected, **Load My Communities**, pick yours,
    **Use This Community**. The number must already be a member.
 3. **Groups** — **Load Groups** once to pull the community's real groups,

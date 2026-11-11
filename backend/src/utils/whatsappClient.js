@@ -64,8 +64,6 @@ const runtime = {
   wantConnected: false,
   connecting: false,
   qrDataUrl: null,
-  pairingCode: null,
-  pairingPhone: null,
   // True only while an admin has actively started a pairing from the UI.
   // A connect() with no registered session and this unset means the
   // session is gone (e.g. settings restored from a backup onto a fresh
@@ -219,7 +217,6 @@ async function handleLoggedOut() {
   stopSocket();
   runtime.status = "logged_out";
   runtime.qrDataUrl = null;
-  runtime.pairingCode = null;
   if (runtime.generation !== generation) return;
   try {
     await clearAuthState();
@@ -239,21 +236,11 @@ async function handleConnectionUpdate(baileys, update) {
   const { connection, lastDisconnect, qr } = update;
 
   if (qr) {
-    if (runtime.pairingPhone && !runtime.pairingCode && runtime.rawSock) {
-      // Phone-number pairing: the socket is ready to request a code once
-      // it has emitted its first QR.
-      try {
-        runtime.pairingCode = await runtime.rawSock.requestPairingCode(runtime.pairingPhone);
-      } catch (err) {
-        runtime.lastError = `Couldn't get a pairing code: ${err.message}`;
-      }
-    } else if (!runtime.pairingPhone) {
-      // margin stays at the QR spec's recommended 4-module quiet zone --
-      // shrinking it (an earlier version of this code used margin: 1) can
-      // stop a phone camera from locking onto the finder patterns at all,
-      // especially scanning off a monitor rather than a printed code.
-      runtime.qrDataUrl = await QRCode.toDataURL(qr, { margin: 4, width: 400 });
-    }
+    // margin stays at the QR spec's recommended 4-module quiet zone --
+    // shrinking it (an earlier version of this code used margin: 1) can
+    // stop a phone camera from locking onto the finder patterns at all,
+    // especially scanning off a monitor rather than a printed code.
+    runtime.qrDataUrl = await QRCode.toDataURL(qr, { margin: 4, width: 400 });
   }
 
   if (connection === "open") {
@@ -261,8 +248,6 @@ async function handleConnectionUpdate(baileys, update) {
     runtime.attempts = 0;
     runtime.unregisteredStreak = 0;
     runtime.qrDataUrl = null;
-    runtime.pairingCode = null;
-    runtime.pairingPhone = null;
     runtime.pairingRequested = false;
     runtime.lastError = null;
     clearTimeout(runtime.pairingTimer);
@@ -290,7 +275,7 @@ async function handleConnectionUpdate(baileys, update) {
       runtime.status = "disconnected";
       return;
     }
-    runtime.status = runtime.pairingPhone || runtime.qrDataUrl ? "pairing" : "connecting";
+    runtime.status = runtime.qrDataUrl ? "pairing" : "connecting";
     runtime.lastError = lastDisconnect?.error?.message || null;
     // 515 ("restart required") is expected right after a successful
     // pairing: reconnect immediately. Anything else backs off.
@@ -422,15 +407,11 @@ async function syncWithSettings(settings, featureEnabled) {
   }
 }
 
-// Starts a pairing session. With a phone number, WhatsApp shows an
-// 8-character code to type under Linked Devices > Link with phone number;
-// without one, a QR code is produced instead. Either way the result is
-// read back by polling getStatus().
-async function startPairing({ phoneNumber } = {}) {
+// Starts a pairing session: a QR code is produced, read back by polling
+// getStatus(), for the admin to scan under Linked Devices > Link a Device.
+async function startPairing() {
   await disconnect(); // drop any half-finished earlier attempt
   runtime.pairingRequested = true;
-  runtime.pairingPhone = phoneNumber ? String(phoneNumber).replace(/\D/g, "") : null;
-  runtime.pairingCode = null;
   runtime.qrDataUrl = null;
   runtime.lastError = null;
   runtime.status = "pairing";
@@ -453,8 +434,6 @@ async function disconnect() {
   stopSocket();
   runtime.status = "disconnected";
   runtime.qrDataUrl = null;
-  runtime.pairingCode = null;
-  runtime.pairingPhone = null;
   runtime.pairingRequested = false;
   await deps.releaseLock();
 }
@@ -485,7 +464,6 @@ function getStatus() {
   return {
     status: runtime.status,
     qrDataUrl: runtime.qrDataUrl,
-    pairingCode: runtime.pairingCode,
     error: runtime.lastError,
     health,
   };

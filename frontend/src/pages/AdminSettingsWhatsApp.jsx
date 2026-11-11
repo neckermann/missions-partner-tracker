@@ -15,9 +15,8 @@ import {
 // WhatsApp can ban numbers used this way, so the page insists on a
 // dedicated number and the Admin Guide spells out the risks.
 //
-// There is no token to paste. Linking works by pairing: either an
-// 8-character code typed into WhatsApp (Linked Devices > Link with phone
-// number instead), or a QR code scanned from it. The linked session is
+// There is no token to paste. Linking works by pairing: a QR code scanned
+// from WhatsApp (Linked Devices > Link a Device). The linked session is
 // stored encrypted on the server and never sent back here -- the page only
 // ever sees a status. The community and each group are picked from live
 // lists, never hand-typed.
@@ -124,7 +123,6 @@ export default function AdminSettingsWhatsApp() {
     newsletterGroupName: null,
     connection: { status: "disconnected", health: null, error: null },
   });
-  const [phoneInput, setPhoneInput] = useState("");
   const [pairing, setPairing] = useState(false);
   const [pairStatus, setPairStatus] = useState(null);
 
@@ -176,13 +174,13 @@ export default function AdminSettingsWhatsApp() {
     return () => clearInterval(timer);
   }, [pairing]);
 
-  async function handleStartPairing(useQr) {
+  async function handleStartPairing() {
     setBusy(true);
     setSuccess("");
     setError("");
     setPairStatus(null);
     try {
-      await startWhatsAppPairing(useQr ? "" : phoneInput.trim());
+      await startWhatsAppPairing();
       setPairing(true);
     } catch (err) {
       setError(err.response?.data?.error || "Couldn't start pairing.");
@@ -342,51 +340,16 @@ export default function AdminSettingsWhatsApp() {
           <>
             {connection.status === "logged_out" && <p className="form-error">{STATUS_TEXT.logged_out}</p>}
             <p style={{ color: "#555", fontSize: "0.9rem" }}>
-              Enter the dedicated number with its country code (digits only, e.g. 15551234567) to get a
-              pairing code. Then on that phone, open WhatsApp → Settings → Linked Devices → Link a Device →
-              “Link with phone number instead” and type the code.
+              On the dedicated phone, open WhatsApp → Settings → Linked Devices → Link a Device, then scan
+              the QR code below.
             </p>
-            <label>
-              Phone number
-              <input
-                type="tel"
-                value={phoneInput}
-                onChange={(e) => setPhoneInput(e.target.value)}
-                placeholder="15551234567"
-                autoComplete="off"
-                disabled={pairing}
-              />
-            </label>
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => handleStartPairing(false)}
-                disabled={busy || pairing || !phoneInput.trim()}
-              >
-                Get Pairing Code
-              </button>
-              <button
-                type="button"
-                className="btn secondary"
-                onClick={() => handleStartPairing(true)}
-                disabled={busy || pairing}
-              >
-                Use a QR Code Instead
+              <button type="button" className="btn" onClick={handleStartPairing} disabled={busy || pairing}>
+                Show QR Code
               </button>
             </div>
-            {pairing && !pairStatus?.pairingCode && !pairStatus?.qrDataUrl && (
+            {pairing && !pairStatus?.qrDataUrl && (
               <p style={{ color: "#555" }}>Starting… this can take a few seconds.</p>
-            )}
-            {pairStatus?.pairingCode && (
-              <div style={{ marginTop: "1rem" }}>
-                <p style={{ margin: 0, color: "#555" }}>Enter this code in WhatsApp:</p>
-                <p
-                  style={{ fontSize: "1.8rem", letterSpacing: "0.2em", fontWeight: 700, margin: "0.25rem 0" }}
-                >
-                  {pairStatus.pairingCode}
-                </p>
-              </div>
             )}
             {pairStatus?.qrDataUrl && (
               <div style={{ marginTop: "1rem" }}>

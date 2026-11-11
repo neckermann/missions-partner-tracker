@@ -423,19 +423,6 @@ const whatsappSchema = z.object({
   newsletterGroupName: whatsappLabel,
 });
 
-const whatsappPairSchema = z.object({
-  // Optional: with a number WhatsApp shows an 8-character code to type
-  // under Linked Devices > Link with phone number; without one, a QR code.
-  phoneNumber: z
-    .string()
-    .trim()
-    .transform((value) => value.replace(/\D/g, ""))
-    .refine((digits) => digits === "" || (digits.length >= 8 && digits.length <= 15), {
-      message: "Enter the full number including country code, e.g. 15551234567",
-    })
-    .optional(),
-});
-
 // Anyone who scans a live QR code links their phone to this app's
 // session, so pairing starts are throttled; the status poll is not (it's
 // polled every couple of seconds while the pairing screen is open).
@@ -495,10 +482,9 @@ router.put("/whatsapp", ...whatsappGate, async (req, res, next) => {
   }
 });
 
-// Starts pairing; the code/QR is read back from /whatsapp/pair/status.
+// Starts pairing; the QR is read back from /whatsapp/pair/status.
 router.post("/whatsapp/pair", whatsappPairLimiter, ...whatsappGate, async (req, res, next) => {
   try {
-    const { phoneNumber } = whatsappPairSchema.parse(req.body || {});
     const current = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
       select: { whatsappPairedAt: true },
@@ -507,7 +493,7 @@ router.post("/whatsapp/pair", whatsappPairLimiter, ...whatsappGate, async (req, 
       return res.status(409).json({ error: "A WhatsApp number is already linked. Unlink it first." });
     }
     try {
-      await whatsappClient.startPairing({ phoneNumber: phoneNumber || undefined });
+      await whatsappClient.startPairing();
     } catch (err) {
       return res.status(502).json({ error: err.message });
     }

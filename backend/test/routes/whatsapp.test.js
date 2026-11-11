@@ -33,7 +33,6 @@ function makeFakeSocket() {
     sent: [],
     loggedOut: false,
     ended: false,
-    requestPairingCode: async () => "ABCD1234",
     sendMessage: async (jid, content) => sock.sent.push({ jid, content }),
     groupFetchAllParticipating: async () => ({
       "100@g.us": { id: "100@g.us", subject: "Our Church Community", isCommunity: true },
@@ -231,20 +230,17 @@ describe("WhatsApp settings routes -- picks", () => {
 describe("WhatsApp pairing flow (fake socket)", () => {
   before(() => setWhatsAppFeature(true));
 
-  test("phone-number pairing returns a code, then links on connection", async () => {
-    const start = await admin("/api/settings/whatsapp/pair", {
-      method: "POST",
-      body: { phoneNumber: "+1 (555) 123-4567" },
-    });
+  test("QR pairing returns a QR code, then links on connection", async () => {
+    const start = await admin("/api/settings/whatsapp/pair", { method: "POST", body: {} });
     assert.equal(start.status, 200);
     assert.equal(sockets.length, 1);
 
     sockets[0].ev.emit("connection.update", { qr: "RAW-QR" });
     const status = await until(async () => {
       const res = await admin("/api/settings/whatsapp/pair/status");
-      return res.body.pairingCode ? res : null;
+      return res.body.qrDataUrl ? res : null;
     });
-    assert.equal(status.body.pairingCode, "ABCD1234");
+    assert.match(status.body.qrDataUrl, /^data:image\/png;base64,/);
     assert.equal(status.body.status, "pairing");
     assert.equal(status.headers.get("cache-control"), "no-store");
 
@@ -308,7 +304,7 @@ describe("WhatsApp pairing flow (fake socket)", () => {
     assert.equal(await prisma.whatsAppAuthEntry.count(), 0);
   });
 
-  test("QR pairing (no phone number) produces a QR image", async () => {
+  test("a fresh pairing attempt after unlink produces a new QR image", async () => {
     const before = sockets.length;
     const start = await admin("/api/settings/whatsapp/pair", { method: "POST", body: {} });
     assert.equal(start.status, 200);
@@ -318,14 +314,6 @@ describe("WhatsApp pairing flow (fake socket)", () => {
       return res.body.qrDataUrl ? res : null;
     });
     assert.match(status.body.qrDataUrl, /^data:image\/png;base64,/);
-    assert.equal(status.body.pairingCode, null);
-  });
-
-  test("a bad phone number is rejected before any socket is opened", async () => {
-    const before = sockets.length;
-    const res = await admin("/api/settings/whatsapp/pair", { method: "POST", body: { phoneNumber: "12" } });
-    assert.equal(res.status, 400);
-    assert.equal(sockets.length, before);
   });
 });
 
@@ -392,7 +380,7 @@ describe("keeping the socket in step with the settings", () => {
   test("turning the feature off closes a connected socket", async () => {
     // Re-establish a genuinely paired, connected session via the real flow.
     await setWhatsAppFeature(true);
-    await admin("/api/settings/whatsapp/pair", { method: "POST", body: { phoneNumber: "15551234567" } });
+    await admin("/api/settings/whatsapp/pair", { method: "POST", body: {} });
     const sock = sockets.at(-1);
     sock.ev.emit("creds.update", {});
     sock.ev.emit("connection.update", { connection: "open" });
