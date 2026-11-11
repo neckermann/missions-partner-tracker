@@ -359,11 +359,16 @@ not visibility:
 - **No per-resource ownership model** — there is no "editor can only edit
   their own partners" concept anywhere in the schema or routes.
 
-## 6. The notification system (#202 redesign)
+## 6. The notification system (#202 redesign + WhatsApp)
+
+Visual diagram, with the admin-vs-public and GroupMe-vs-WhatsApp
+screenshot comparisons: [docs/notification-pipeline.html](docs/notification-pipeline.html).
 
 Verified directly against the current code — matches the published
-design closely; the one real addition beyond it is an inline "approve
-now" path at creation time (see below).
+design closely; the two real additions beyond it are an inline "approve
+now" path at creation time (see 6.5) and a fourth channel, WhatsApp,
+added afterward as a sibling of GroupMe rather than a new kind of thing
+(see 6.2a).
 
 ### 6.1 The model
 
@@ -371,11 +376,11 @@ Every event is **always recorded**, with exactly one exception: a
 restricted partner's event is only recorded at all if
 `ChurchSettings.allowRestrictedPartnerNotifications` is on (checked once,
 at `recordEvent()`, re-fetching `isRestricted` fresh by id rather than
-trusting the caller's own partner shape). Every other setting — GroupMe's
-content-type mutes, cadence tiers, review state — only ever affects
-*delivery*, never recording.
+trusting the caller's own partner shape). Every other setting — the chat
+channels' content-type mutes, cadence tiers, review state — only ever
+affects *delivery*, never recording.
 
-Once recorded (`NotifiableEvent`), three channels each independently
+Once recorded (`NotifiableEvent`), four channels each independently
 decide, at send time, whether a given row belongs in their send, via one
 shared function:
 
@@ -385,9 +390,10 @@ isEligibleForChannel(row, channel, partner, settings, hasEligibleRecipient)
                        for the types REVIEW_GATED_TYPES covers (newsletters
                        are exempt — buildBlurb() already suppresses them
                        to nothing regardless of review state)
-  Rule 2 (per-channel): GroupMe's content-type mutes; the public digest's
-                       structural prayer-requests-only + isPublic check;
-                       the admin digest has no Rule 2 at all
+  Rule 2 (per-channel): GroupMe's and WhatsApp's shared content-type
+                       mutes; the public digest's structural
+                       prayer-requests-only + isPublic check; the admin
+                       digest has no Rule 2 at all
   Rule 3: is anyone actually there to receive it right now (computed by
           the caller, per channel)
 ```
@@ -396,41 +402,102 @@ A row clears (is deleted) once every channel's requirement is either
 permanently resolved (ineligible by type/structure, or a toggle/feature
 that was off when evaluated — also permanent, not retried if re-enabled
 later) or actually sent (that channel's own stamp column is set).
+`clearNotifiableEvents()` (`notificationOrchestrator.js`) is also where
+a WhatsApp-specific wrinkle lives: a row only counts as WhatsApp-
+applicable once its content type resolves to *some* WhatsApp group (its
+own pick or the community's Announcements fallback — see 6.2a); a type
+with nowhere to go would otherwise wait in the queue forever for a
+channel that can never take it.
 
-### 6.2 The three channels
+### 6.2 The four channels
 
 | Channel | Schedule | Content | Recipients |
 |---|---|---|---|
-| **GroupMe** | Its own daily hour (`groupmeDigestHour`), independent of email | All 5 event types, each content-type independently mutable | One church-wide group, split across up to 3 Topics (prayer/needs/newsletters) |
+| **GroupMe** | Shared daily chat hour (`groupmeDigestHour`) | All 5 event types, each content-type independently mutable | One church-wide group, split across up to 3 Topics (prayer/needs/newsletters) |
+| **WhatsApp** | Same shared daily chat hour, own cursor (`lastWhatsappDigestSentAt`) | Same 5 types, same mutes (shared with GroupMe — see 6.2a) | One WhatsApp community, split across up to 3 groups (prayer/needs/newsletters) |
 | **Admin digest** | 3 cadence tiers: biweekly/monthly/quarterly (`scopedDigestHour` + day fields) | Every type, no content-type toggle | Each `User` with `cadence` set, scoped to `allPartners` or `followedPartners` |
 | **Public digest** | Same 3 tiers, shared schedule with admin | Structurally prayer-requests-only (`prayerRequestCreated`/`Answered`), never a source link | Each confirmed `PublicSubscriber`, scoped to `allPartners` or `scopedPartners` |
 
 Admin and public recipients are normalized into one shape and run through
 one shared send loop (`digestDelivery.js`'s `sendToRecipients`), chunked
-at 250 messages per Postmark batch call. GroupMe is a genuinely separate
-pass (no per-recipient loop — its only "recipient" is the group itself).
+at 250 messages per Postmark batch call. GroupMe and WhatsApp are each a
+genuinely separate pass (no per-recipient loop — their only "recipient"
+is the group/community itself).
+
+### 6.2a GroupMe and WhatsApp are siblings, not one feeding the other
+
+WhatsApp was added after the original three-channel design, as the same
+*kind* of channel as GroupMe rather than a new category — both are
+chat-style and close to real-time, so both earned the daily-hour model
+email's weekly/monthly tiers were never a fit for. The two channels are
+fully independent features (separately toggled, separately configured,
+separately paired/connected) that happen to share two things on purpose,
+plus one thing by coincidence of naming:
+
+- **The schedule itself**: `chatSchedule.js`'s `shouldFlushDailyChatChannel()`
+  is the one function both `groupmeChannel.js` and `whatsappChannel.js`
+  call, reading the shared `ChurchSettings.groupmeDigestHour` but each
+  channel's own dedupe cursor (`lastGroupmeDigestSentAt` vs.
+  `lastWhatsappDigestSentAt`) and own per-row stamp (`groupmeSentAt` vs.
+  `whatsappSentAt`). One channel being down (a revoked GroupMe token, a
+  disconnected WhatsApp number) never blocks or double-stamps the other
+  — `sendGroupMeUrgent`/`sendWhatsAppUrgent` in
+  `notificationOrchestrator.js` even run concurrently, each in its own
+  try/catch, specifically so one provider's failure can't silently skip
+  the others (a real bug this fixed — see that file's own comment).
+- **The three content-type mutes**: `notifyGroupMePrayerRequests`/
+  `OneTimeNeeds`/`Newsletters` gate both GroupMe and WhatsApp identically
+  (`notificationEligibility.js`'s Rule 2 checks `channel === GROUPME ||
+  channel === WHATSAPP` against the same three columns). The column
+  names stay GroupMe-specific on purpose — renaming them would force
+  every existing fork to migrate on upgrade — only the admin UI's label
+  changed, to "chat channels."
+- **Coincidence, not sharing**: the text each channel posts both come
+  from `buildBlurb()`'s `groupmeText` field (see 6.3) — a historical
+  name for what's actually channel-neutral chat content, reused by
+  WhatsApp with no WhatsApp-specific rendering logic needed. Packing
+  differs: WhatsApp allows much longer messages (4,000 chars vs.
+  GroupMe's shorter limit), so `whatsappChannel.js` has its own
+  `packMessages`/`splitLongText`.
+
+WhatsApp's own targeting model has no GroupMe equivalent: each content
+type picks its own WhatsApp group (`whatsappPrayerGroupId`/
+`OneTimeNeedGroupId`/`NewsletterGroupId`), falling back to the
+community's Announcements group (`whatsappAnnouncementGroupId`,
+auto-resolved when the community is picked — `whatsappClient.js`'s
+`findAnnouncementGroup`) when a specific group isn't set. Resolving
+"does this row have anywhere to go" (`hasWhatsAppTarget()`) deliberately
+checks only whether a group resolves, never whether the number is
+*currently* connected — a live-pairing check was tried and reverted: it
+treated a normal brief reconnect window on every deploy the same as a
+deliberate, permanent unlink, which isn't what a transient disconnect
+means.
 
 ### 6.3 Masking authority
 
 `notificationBlurbs.js`'s `buildBlurb()` is the single place every channel
-gets its rendered content from — none of GroupMe/admin-digest/public-
-digest ever reads a raw `NotifiableEvent` field directly. For a restricted
-partner, it substitutes initials for the real name and a generic
-"details withheld" line for the real content, and never includes a
+gets its rendered content from — none of GroupMe/WhatsApp/admin-digest/
+public-digest ever reads a raw `NotifiableEvent` field directly. For a
+restricted partner, it substitutes initials for the real name and a
+generic "details withheld" line for the real content, and never includes a
 source-file link. `isRestricted` is read fresh at build time, not from
 the event's frozen payload, so a flag flipped after recording still takes
-effect.
+effect. WhatsApp inherits all of this with zero WhatsApp-specific masking
+code — it reads the same `groupmeText` field GroupMe does (see 6.2a).
 
 ### 6.4 Urgent broadcast
 
 `PrayerRequest.isUrgent`/`SupportNeed.isUrgent` (admin/editor-settable at
 creation) trigger `sendUrgentBroadcast()` — an immediate, cadence-
-bypassing send across all three channels for that one row. It still calls
-`isEligibleForChannel` per channel exactly like a scheduled pass; only
-Rule 3's cadence-tier matching is bypassed (every eligible recipient,
-regardless of tier). The restricted-partner review gate and every
-content-type/structural rule still apply — "urgent" only skips waiting
-for a schedule.
+bypassing send across all four channels for that one row (GroupMe and
+WhatsApp concurrently via `sendGroupMeUrgent`/`sendWhatsAppUrgent`, plus
+email). It still calls `isEligibleForChannel` per channel exactly like a
+scheduled pass; only Rule 3's cadence-tier matching is bypassed (every
+eligible recipient, regardless of tier). The restricted-partner review
+gate and every content-type/structural rule still apply — "urgent" only
+skips waiting for a schedule. Each channel's send is wrapped in its own
+try/catch so one provider failing (GroupMe, WhatsApp, or email) can't
+silently suppress the others.
 
 ### 6.5 Divergence from the original design doc
 
@@ -440,11 +507,14 @@ reviewedText }` straight into `recordEvent`, writing `reviewedAt`/
 `reviewedById`/`reviewedText` in the same create call — letting an
 admin/editor who just typed a restricted partner's text confirm it's
 safe to send immediately, instead of always needing a separate trip to
-the Pending Notifications queue. Otherwise the as-shipped system matches
-the design doc's model, naming, file organization, and schema changes
-precisely (verified file-by-file: `notificationRecording.js`,
-`notificationEligibility.js`, `notificationOrchestrator.js`,
-`groupmeChannel.js`, `digestDelivery.js`, `digestScheduler.js`,
+the Pending Notifications queue. The other divergence is WhatsApp
+itself (6.2a) — not in the original three-channel design at all, added
+later as a sibling of GroupMe rather than a redesign of anything.
+Otherwise the as-shipped system matches the design doc's model, naming,
+file organization, and schema changes precisely (verified file-by-file:
+`notificationRecording.js`, `notificationEligibility.js`,
+`notificationOrchestrator.js`, `groupmeChannel.js`, `whatsappChannel.js`,
+`chatSchedule.js`, `digestDelivery.js`, `digestScheduler.js`,
 `digestShell.js`, `adminDigestContent.js`, `publicDigestContent.js`).
 
 ## 7. Public vs. admin surface boundary
