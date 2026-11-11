@@ -14,7 +14,12 @@ function getChurchSettings() {
 
 // Real constant, not magic strings -- a typo fails loudly instead of
 // silently never matching.
-const CHANNELS = { GROUPME: "groupme", ADMIN_DIGEST: "adminDigest", PUBLIC_DIGEST: "publicDigest" };
+const CHANNELS = {
+  GROUPME: "groupme",
+  WHATSAPP: "whatsapp",
+  ADMIN_DIGEST: "adminDigest",
+  PUBLIC_DIGEST: "publicDigest",
+};
 
 // Shared with PUBLIC_DIGEST_TYPES (notificationBlurbs.js) -- one source
 // for "which row types count as a one-time need."
@@ -49,12 +54,16 @@ function isEligibleForChannel(row, channel, partner, settings, hasEligibleRecipi
   if (isRestrictedPartnerBlocked(partner, settings)) return false;
   if (needsReview(row, partner)) return false;
 
-  // Rule 2 -- content-type preference, GroupMe only. The admin digest
+  // Rule 2 -- content-type preference, chat channels (GroupMe/WhatsApp) only. The admin digest
   // always includes everything it's allowed to (periodic batched email,
   // no real noise problem to mute); the public digest is structurally
   // prayer-requests-only, not a preference it checks.
   const isPrayerRequestType = PUBLIC_DIGEST_TYPES.has(row.type);
-  if (channel === CHANNELS.GROUPME) {
+  // WhatsApp is the same kind of chat channel, so it shares GroupMe's
+  // three content-type mutes (the column names stay notifyGroupMe* so
+  // existing forks upgrade without a rename -- only the admin UI calls
+  // them "chat" now).
+  if (channel === CHANNELS.GROUPME || channel === CHANNELS.WHATSAPP) {
     if (isPrayerRequestType && settings?.notifyGroupMePrayerRequests === false) return false;
     if (ONE_TIME_NEED_TYPES.has(row.type) && settings?.notifyGroupMeOneTimeNeeds === false) return false;
     if (row.type === "newsletterCreated" && settings?.notifyGroupMeNewsletters === false) return false;

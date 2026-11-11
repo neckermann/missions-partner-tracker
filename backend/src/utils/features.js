@@ -109,6 +109,14 @@ const FEATURES = {
     group: "admin",
     section: "communications",
   },
+  whatsapp: {
+    label: "WhatsApp notifications",
+    description:
+      "Post new prayer requests, one-time needs, and newsletters to their own configured WhatsApp community groups, on the same daily schedule as GroupMe. Uses a dedicated WhatsApp number linked to this app -- an unofficial connection, so see the Admin Guide before turning it on.",
+    defaultEnabled: false,
+    group: "admin",
+    section: "communications",
+  },
   // Listed last -- unlike the three toggles above (each independently
   // useful on its own), this one builds on top of outboundEmail (and
   // publicDirectory, elsewhere), so it reads better after the thing it

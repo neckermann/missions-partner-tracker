@@ -14,6 +14,27 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+New **WhatsApp notifications** option alongside GroupMe: new prayer
+requests, one-time needs, and newsletters (plus a prayer request's
+answer and a one-time need's decision) can post to their own groups
+inside one WhatsApp community. It runs on the same daily send hour and
+the same content-type mutes as GroupMe — a church can run either or both
+— and several related items go out together in one message instead of
+one post each. Off by default, behind a new **WhatsApp notifications**
+feature toggle; set up entirely in the UI (Site Administration →
+WhatsApp): link a dedicated phone number with a pairing code or QR code,
+pick the community, then pick a group for each notification type.
+
+Worth knowing before turning it on: this is an unofficial connection
+(the number is linked the way WhatsApp Web is), so WhatsApp can ban
+numbers used this way — use a dedicated number, never a personal one.
+The linked session is stored encrypted in the database (it isn't included
+in backups, so restoring onto a new instance means linking again), and
+sends go through ban-risk protection that spaces messages out and pauses
+them if the number looks flagged. Needs one new schema migration
+(additive only) and runs inside the existing web service — no new Render
+service.
+
 Assigning an email from the **Unmatched Emails** queue to a partner now
 lets you pick what kind of file it actually is — Newsletter, Survey
 Response, Signed Policy, Email Communication, Office Document, or Other

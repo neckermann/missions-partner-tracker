@@ -5,6 +5,7 @@ import {
   fetchScopedDigestSummary,
 } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
+import { joinWithAnd } from "../utils/urgentSend.js";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -36,6 +37,13 @@ function HourSelect({ id, value, onChange }) {
 // split Unmatched Emails already has from Email's own settings page.
 export default function AdminNotificationSettings() {
   const { enabledFeatures } = useSettings();
+  // GroupMe and WhatsApp share one schedule and one set of content-type
+  // mutes, so this section is shown (and named) for whichever of the two
+  // are enabled.
+  const chatNames = [enabledFeatures.groupme && "GroupMe", enabledFeatures.whatsapp && "WhatsApp"].filter(
+    Boolean
+  );
+  const chatLabel = joinWithAnd(chatNames);
   const [settings, setSettings] = useState(null);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -254,13 +262,15 @@ export default function AdminNotificationSettings() {
           </div>
         )}
 
-        {enabledFeatures.groupme && (
+        {(enabledFeatures.groupme || enabledFeatures.whatsapp) && (
           <div className="admin-section" style={{ marginTop: "1rem" }}>
-            <h3>GroupMe</h3>
+            <h3>{chatLabel} Schedule</h3>
             <p style={{ color: "#555", fontSize: "0.9rem" }}>
-              A single daily batch time, not a weekly/monthly tier -- GroupMe is a near-real-time, chat-style
-              channel, so posts are collected and sent once a day rather than on a longer email-style
-              schedule.
+              A single daily batch time, not a weekly/monthly tier --{" "}
+              {chatNames.length > 1
+                ? "these are near-real-time, chat-style channels"
+                : "this is a near-real-time, chat-style channel"}
+              , so posts are collected and sent once a day rather than on a longer email-style schedule.
             </p>
             <label htmlFor="groupme-digest-hour">
               Time
@@ -277,9 +287,9 @@ export default function AdminNotificationSettings() {
             </label>
 
             <p style={{ margin: "1.25rem 0 0.5rem", color: "#555", fontSize: "0.9rem" }}>
-              Mute any content type you don't want posted to GroupMe -- unlike the email digests, which always
-              include everything they're allowed to, GroupMe benefits from finer control since it's a live
-              chat, not a periodic email.
+              Mute any content type you don't want posted to {chatLabel} -- unlike the email digests, which
+              always include everything they're allowed to, chat benefits from finer control since it's a live
+              conversation, not a periodic email.
             </p>
             <div className="admin-checkbox-row">
               <label>

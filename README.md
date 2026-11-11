@@ -22,7 +22,7 @@ organization partners.
   of hardcoded copy.
 - **Notifications**: new prayer requests, one-time needs, and newsletters
   queue for review instead of posting instantly, then go out together —
-  on a schedule or on demand — to GroupMe and/or a branded email digest
+  on a schedule or on demand — to GroupMe, WhatsApp, and/or a branded email digest
   (via Postmark; also handles inbound email, auto-filing a reply as a
   Newsletter when it matches a partner). A restricted-access partner's
   items are masked on both channels, the same way they are on the public

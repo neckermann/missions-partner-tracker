@@ -108,6 +108,21 @@ async function resetDemoData() {
   // very last step.
   run("node", ["prisma/createAdmin.js", email, password]);
 
+  // createAdmin.js itself never sets a cadence -- it's shared with a
+  // real church's own first-admin bootstrap, which must never auto-
+  // subscribe someone to email they didn't ask for. The demo admin is
+  // different: DEMO_ADMIN_EMAIL is a real inbox this demo's own operator
+  // actually reads, so defaulting it to subscribed is exactly what lets
+  // a reset double as a live end-to-end send test, the same way seeded
+  // NotifiableEvent rows exist so GroupMe/WhatsApp have something to
+  // post on their own schedule. The other seeded users deliberately stay
+  // unsubscribed (see seed.js's own ADDITIONAL_USERS comment) -- their
+  // emails are fake @example.org addresses nobody reads.
+  await prisma.user.update({
+    where: { email: email.toLowerCase().trim() },
+    data: { cadence: "biweekly" },
+  });
+
   // The "this is a live demo, here's how to log in" message is no longer
   // stuffed into aboutText -- it's rendered by DemoBanner.jsx instead,
   // from DEMO_RESET_TOKEN/DEMO_ADMIN_EMAIL/DEMO_ADMIN_PASSWORD directly

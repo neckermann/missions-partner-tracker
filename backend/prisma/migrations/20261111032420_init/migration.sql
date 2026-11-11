@@ -244,6 +244,7 @@ CREATE TABLE "NotifiableEvent" (
     "payload" JSONB NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "groupmeSentAt" TIMESTAMP(3),
+    "whatsappSentAt" TIMESTAMP(3),
     "reviewedAt" TIMESTAMP(3),
     "reviewedById" TEXT,
     "reviewedText" TEXT,
@@ -296,6 +297,18 @@ CREATE TABLE "ChurchSettings" (
     "groupmeOneTimeNeedTopicName" TEXT,
     "groupmeNewsletterTopicId" TEXT,
     "groupmeNewsletterTopicName" TEXT,
+    "whatsappPhoneNumber" TEXT,
+    "whatsappPairedAt" TIMESTAMP(3),
+    "whatsappCommunityId" TEXT,
+    "whatsappCommunityName" TEXT,
+    "whatsappAnnouncementGroupId" TEXT,
+    "whatsappAnnouncementGroupName" TEXT,
+    "whatsappPrayerGroupId" TEXT,
+    "whatsappPrayerGroupName" TEXT,
+    "whatsappOneTimeNeedGroupId" TEXT,
+    "whatsappOneTimeNeedGroupName" TEXT,
+    "whatsappNewsletterGroupId" TEXT,
+    "whatsappNewsletterGroupName" TEXT,
     "joshuaProjectApiKey" TEXT,
     "anthropicApiKey" TEXT,
     "postmarkServerToken" TEXT,
@@ -312,6 +325,7 @@ CREATE TABLE "ChurchSettings" (
     "lastQuarterlyScopedDigestSentAt" TIMESTAMP(3),
     "groupmeDigestHour" INTEGER,
     "lastGroupmeDigestSentAt" TIMESTAMP(3),
+    "lastWhatsappDigestSentAt" TIMESTAMP(3),
     "timezone" TEXT NOT NULL DEFAULT 'America/Chicago',
     "notifyGroupMePrayerRequests" BOOLEAN NOT NULL DEFAULT true,
     "notifyGroupMeOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
@@ -374,6 +388,15 @@ CREATE TABLE "PublicSubscriberPartner" (
     "partnerId" TEXT NOT NULL,
 
     CONSTRAINT "PublicSubscriberPartner_pkey" PRIMARY KEY ("subscriberId","partnerId")
+);
+
+-- CreateTable
+CREATE TABLE "WhatsAppAuthEntry" (
+    "key" TEXT NOT NULL,
+    "value" TEXT NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "WhatsAppAuthEntry_pkey" PRIMARY KEY ("key")
 );
 
 -- CreateIndex

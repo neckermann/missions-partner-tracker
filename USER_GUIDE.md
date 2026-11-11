@@ -734,6 +734,59 @@ several queued items packed into as few messages as fit GroupMe's
 
 ![A new newsletter notification, with a direct link to the letter](docs/assets/screenshots/groupme-notification-newsletter.png)
 
+
+### WhatsApp notifications (Admin only)
+
+Posts the same new prayer requests, one-time needs, and newsletters to
+WhatsApp — each type to its own group inside one WhatsApp community.
+It's an alternative or addition to [GroupMe](#groupme-notifications-admin-only):
+a church can use either or both. Off by default — turn it on in [Enabled
+Features](ADMIN_GUIDE.md#feature-toggles), then set it up on the
+**WhatsApp** page under Site Administration (it only appears once the
+feature is on). **Read [ADMIN_GUIDE.md § Notifications:
+WhatsApp](ADMIN_GUIDE.md#notifications-whatsapp) first** — this is an
+unofficial connection and you'll want a dedicated phone number for it.
+
+It runs on GroupMe's same daily send hour and content-type mutes (the
+[Notifications](#notification-settings-admin-only) page shows one shared
+section for whichever chat channels are on), and an item marked
+**urgent** posts right away. Items waiting for the same group go out
+together in one message.
+
+Setup builds up in steps:
+
+1. **Link the number** — click **Show QR Code**. On the dedicated phone
+   open WhatsApp → Settings → Linked Devices → Link a Device, and scan
+   the code shown. The page shows whether the number is connected, and
+   warns if WhatsApp has flagged it. **Unlink Number** removes it and
+   clears your choices below.
+2. **Community** — once connected, **Load My Communities**, pick yours,
+   **Use This Community**. The number must already be a member. The
+   community's built-in **Announcements group** is detected
+   automatically at this point (no picker for it — it's shown read-only)
+   and works the same way GroupMe's main conversation does: it's where a
+   notification type with no group of its own posts instead.
+3. **Groups** — **Load Groups** once to pull the community's real groups,
+   then pick a group and **Use This Group** for each of **Prayer
+   Requests**, **One-Time Needs**, and **Newsletters** you want. A type
+   with no group of its own picked posts to the Announcements group
+   instead; only if neither is set does it not go out over WhatsApp at
+   all. Picking a different community clears the group picks and
+   re-detects the new community's Announcements group.
+
+If WhatsApp is disconnected or rejects a post, whatever you were saving
+still saves normally; the notification stays queued and goes out on the
+next send.
+
+![A WhatsApp community's groups, including the built-in Announcements group used as the fallback](docs/assets/screenshots/whatsapp-community-groups.png)
+
+What a church's members actually see once messages go out — a Prayer
+Requests group with new and answered requests, and a One-Time Needs
+group with new and decided needs:
+
+![The Prayer Requests group showing new and answered prayer requests](docs/assets/screenshots/whatsapp-prayer-requests-group.png)
+![The One-Time Needs group showing new and decided one-time needs](docs/assets/screenshots/whatsapp-one-time-needs-group.png)
+
 ### Pending Notifications
 
 The **Pending Notifications** page (in the main menu, alongside
@@ -754,7 +807,7 @@ that newsletter instead of repeated separately. There's no manual
 go out right away, check **urgent** on it when you create it instead,
 see [Marking something urgent](#marking-something-urgent).
 
-![The Pending Notifications page: one held restricted item and two sendable items, grouped by partner](docs/assets/screenshots/pending-notifications.png)
+![The Pending Notifications page: a regular partner's prayer requests and one-time needs (new and answered/decided), grouped with a restricted partner's already-reviewed items below](docs/assets/screenshots/pending-notifications.png)
 
 A queued item only clears once every currently-enabled channel has
 actually sent it — if GroupMe is down but email goes out fine, that item

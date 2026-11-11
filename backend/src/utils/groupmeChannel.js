@@ -21,6 +21,7 @@ const { decryptField } = require("./crypto");
 const { isFeatureEnabled } = require("./features");
 const { buildBlurb } = require("./notificationBlurbs");
 const { CHANNELS, isEligibleForChannel } = require("./notificationEligibility");
+const { shouldFlushDailyChatChannel } = require("./chatSchedule");
 
 const BASE_URL = "https://api.groupme.com/v3";
 // GroupMe rejects message text over 1,000 characters outright --
@@ -137,21 +138,15 @@ async function postToGroupMe(eligibleRows, partnerById, settings) {
 
 // Weekly/biweekly/monthly's own minimum-gap constants live in
 // digestScheduler.js now (GroupMe no longer shares any of those tiers);
-// this is GroupMe's own, much simpler daily check.
-const MIN_GAP_MS_DAILY = 20 * 60 * 60 * 1000; // ~20h, not a full 24h, so a slightly-early tick never skips a day
-
-// Pure (no I/O, no Date.now()) so it's directly unit-testable with a
-// fixed `now`, independent of the host machine's actual timezone -- see
+// this is GroupMe's own, much simpler daily check, shared with
+// WhatsApp's identical one via chatSchedule.js -- see
 // test/groupmeChannel.test.js. GroupMe never actually had its own
 // schedule before this (see schema.prisma's own comment on
 // groupmeDigestHour) -- a single daily batch hour, not a tier pick,
 // fits a chat-style channel better than any weekly/monthly tier would
 // have.
 function shouldFlushGroupMe(settings, now) {
-  if (settings?.groupmeDigestHour == null) return false; // not configured yet -- never blocks anything
-  if (now.getHours() !== settings.groupmeDigestHour) return false;
-  const sinceLast = settings.lastGroupmeDigestSentAt ? now - settings.lastGroupmeDigestSentAt : Infinity;
-  return sinceLast >= MIN_GAP_MS_DAILY;
+  return shouldFlushDailyChatChannel(settings, now, "lastGroupmeDigestSentAt");
 }
 
 // GroupMe's own schedule check + pass -- no awareness of the

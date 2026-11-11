@@ -38,7 +38,10 @@
     "otplib": "^13.5.0",
     "postmark": "^5.1.0",
     "qrcode": "^1.5.4",
-    "zod": "^4.5.4"
+    "zod": "^4.5.4",
+    "baileys": "7.0.0-rc14",
+    "baileys-antiban": "4.10.0",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.4",
@@ -46,5 +49,10 @@
   },
   "prisma": {
     "seed": "node prisma/seed.js"
+  },
+  "overrides": {
+    "baileys-antiban": {
+      "baileys": "$baileys"
+    }
   }
 }

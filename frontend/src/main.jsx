@@ -42,6 +42,7 @@ const AdminSettingsAbout = lazy(() => import("./pages/AdminSettingsAbout.jsx"));
 const AdminSettingsBranding = lazy(() => import("./pages/AdminSettingsBranding.jsx"));
 const AdminSettingsFeatures = lazy(() => import("./pages/AdminSettingsFeatures.jsx"));
 const AdminSettingsGroupMe = lazy(() => import("./pages/AdminSettingsGroupMe.jsx"));
+const AdminSettingsWhatsApp = lazy(() => import("./pages/AdminSettingsWhatsApp.jsx"));
 const AdminSettingsJoshuaProject = lazy(() => import("./pages/AdminSettingsJoshuaProject.jsx"));
 const AdminSettingsAiExtraction = lazy(() => import("./pages/AdminSettingsAiExtraction.jsx"));
 const AdminSettingsEmail = lazy(() => import("./pages/AdminSettingsEmail.jsx"));
@@ -200,7 +201,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 <Route
                   path="notifications"
                   element={
-                    <RequireAdminFeature feature={["groupme", "outboundEmail"]}>
+                    <RequireAdminFeature feature={["groupme", "whatsapp", "outboundEmail"]}>
                       <AdminPendingNotifications />
                     </RequireAdminFeature>
                   }
@@ -226,13 +227,21 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   <Route path="branding" element={<AdminSettingsBranding />} />
                   <Route path="features" element={<AdminSettingsFeatures />} />
                   <Route path="groupme" element={<AdminSettingsGroupMe />} />
+                  <Route
+                    path="whatsapp"
+                    element={
+                      <RequireAdminFeature feature="whatsapp">
+                        <AdminSettingsWhatsApp />
+                      </RequireAdminFeature>
+                    }
+                  />
                   <Route path="joshua-project" element={<AdminSettingsJoshuaProject />} />
                   <Route path="ai-extraction" element={<AdminSettingsAiExtraction />} />
                   <Route path="email" element={<AdminSettingsEmail />} />
                   <Route
                     path="notifications"
                     element={
-                      <RequireAdminFeature feature={["groupme", "outboundEmail"]}>
+                      <RequireAdminFeature feature={["groupme", "whatsapp", "outboundEmail"]}>
                         <AdminNotificationSettings />
                       </RequireAdminFeature>
                     }

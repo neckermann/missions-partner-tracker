@@ -57,6 +57,7 @@ router.get("/pending", async (req, res, next) => {
           needsReview: held,
           reviewedAt: row.reviewedAt,
           groupmeSentAt: row.groupmeSentAt,
+          whatsappSentAt: row.whatsappSentAt,
           biweeklyDigestSentAt: row.biweeklyDigestSentAt,
           monthlyDigestSentAt: row.monthlyDigestSentAt,
           quarterlyDigestSentAt: row.quarterlyDigestSentAt,

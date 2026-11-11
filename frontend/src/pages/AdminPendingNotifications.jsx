@@ -45,6 +45,7 @@ function groupByPartner(blurbs) {
 function SentStatus({ blurb }) {
   const parts = [];
   if (blurb.groupmeSentAt) parts.push("GroupMe ✓");
+  if (blurb.whatsappSentAt) parts.push("WhatsApp ✓");
   if (blurb.biweeklyDigestSentAt || blurb.monthlyDigestSentAt || blurb.quarterlyDigestSentAt) {
     parts.push("Email ✓");
   }

@@ -15,6 +15,13 @@ const { APP_VERSION } = require("./versionCheck");
 // those two have a non-deferrable FK into it (sourceFileId), so it must
 // already exist by the time a request/need referencing one is inserted
 // inside this same transaction (see restore-backup.js's restoreRows).
+//
+// WhatsAppAuthEntry (the WhatsApp session) is deliberately NOT here: it's
+// live credential material tied to one running socket, and a restored copy
+// would be stale at best -- or, restored onto a second instance, fight the
+// real session and get it logged out. After a restore the admin re-pairs
+// (the app notices the missing session and clears the "paired" state on
+// its own -- see whatsappClient.js).
 const MODELS = [
   "partner",
   "adult",
