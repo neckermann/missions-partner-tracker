@@ -4,7 +4,7 @@
 
 For an agent/subagent picking up work in this repo. Project basics
 (what this is, hard rules, key commands) are in
-[CLAUDE.md](../CLAUDE.md) — read that first. This doc covers approval
+[CLAUDE.md](CLAUDE.md) — read that first. This doc covers approval
 gates, the repo map, and a starter-brief template for delegating a
 task.
 
@@ -18,13 +18,13 @@ backend/
   test/              node:test unit tests; test/routes/ needs a real Postgres (see e2e job)
 frontend/
   src/pages/         one file per admin/public page
-  src/components/    shared building blocks (forms, modals, review UI — see docs/STYLE-GUIDE.md)
+  src/components/    shared building blocks (forms, modals, review UI — see STYLE-GUIDE.md)
   e2e/               Playwright suite
 demo/                operational details (real secrets, Render blueprint) for the one live public demo — see demo/README.md
-docs/                this doc set + the published marketing/docs site (docs/index.html) + screenshots
+docs/                the published marketing/docs site only (docs/index.html) + screenshots — contributor/agent docs live at repo root, alongside this file
 ```
 
-Full data model and backend/frontend structure: [SPEC.md](../SPEC.md).
+Full data model and backend/frontend structure: [SPEC.md](SPEC.md).
 
 ## Approval gates for autonomous action
 
@@ -70,14 +70,14 @@ project's control, not a formality.
   full, never commit it.
 - Any `.env`/`.env.*` file, anywhere in the repo.
 - Don't invent a church-specific value in application code — see
-  [CONTRIBUTING.md § The one rule that matters most](../CONTRIBUTING.md#the-one-rule-that-matters-most-keep-forks-upgradable).
+  [CONTRIBUTING.md § The one rule that matters most](CONTRIBUTING.md#the-one-rule-that-matters-most-keep-forks-upgradable).
 
 ## Notification safety
 
 Forcing a notification schedule to fire sends on real channels (email,
 GroupMe, WhatsApp) to whatever's actually configured on the
 environment you're pointed at — see
-[docs/WORKFLOW.md § Testing live sends](WORKFLOW.md#testing-live-sends).
+[WORKFLOW.md § Testing live sends](WORKFLOW.md#testing-live-sends).
 Informational, not a hard gate: the test data itself is synthetic and
 reset routinely either way.
 
@@ -93,8 +93,8 @@ When delegating a task to a fresh agent in this repo, include:
   diff/PR for review.
 - Links to the specific doc sections relevant to the task (not just
   "read CLAUDE.md") — e.g. "adding a new notification channel, see
-  [SPEC.md § 6](../SPEC.md) and
-  [CONTRIBUTING.md § Code style](../CONTRIBUTING.md#code-style)."
+  [SPEC.md § 6](SPEC.md) and
+  [CONTRIBUTING.md § Code style](CONTRIBUTING.md#code-style)."
 
 ## TODO
 

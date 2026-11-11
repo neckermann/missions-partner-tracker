@@ -38,16 +38,16 @@ Full local setup: [ADMIN_GUIDE.md § Local development setup](ADMIN_GUIDE.md#loc
   [CONTRIBUTING.md § Code style](CONTRIBUTING.md#code-style).
 - Forcing a notification schedule to fire early sends for real, on real
   channels (WhatsApp/GroupMe/email) — see
-  [docs/WORKFLOW.md](docs/WORKFLOW.md#testing-live-sends).
+  [WORKFLOW.md](WORKFLOW.md#testing-live-sends).
 
 ## Where to go next
 
 | Need | Doc |
 |---|---|
-| The full idea-to-production pipeline | [docs/WORKFLOW.md](docs/WORKFLOW.md) |
-| Working here as an agent/subagent: approval gates, repo map, starter brief | [docs/AGENTS.md](docs/AGENTS.md) |
-| Design tokens, component patterns, copy tone | [docs/STYLE-GUIDE.md](docs/STYLE-GUIDE.md) |
-| Data model, backend/frontend structure, "where does X change go" | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [SPEC.md](SPEC.md) |
-| Environment URLs, env vars, deploy/rollback, common failures | [docs/RUNBOOK.md](docs/RUNBOOK.md) |
+| The full idea-to-production pipeline | [WORKFLOW.md](WORKFLOW.md) |
+| Working here as an agent/subagent: approval gates, repo map, starter brief | [AGENTS.md](AGENTS.md) |
+| Design tokens, component patterns, copy tone | [STYLE-GUIDE.md](STYLE-GUIDE.md) |
+| Data model, backend/frontend structure, "where does X change go" | [ARCHITECTURE.md](ARCHITECTURE.md), [SPEC.md](SPEC.md) |
+| Environment URLs, env vars, deploy/rollback, common failures | [RUNBOOK.md](RUNBOOK.md) |
 | Contribution process, migrations, dependency policy, screenshot rules | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Operating the live public demo specifically | [demo/README.md](demo/README.md) |

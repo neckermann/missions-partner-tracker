@@ -3,8 +3,8 @@
 **Last verified**: 2026-11-11 · **Owner**: @neckermann
 
 How a change gets from a local edit to the live public demo. See
-[docs/AGENTS.md](AGENTS.md) for what an agent/subagent is and isn't
-allowed to do at each stage, and [CONTRIBUTING.md](../CONTRIBUTING.md)
+[AGENTS.md](AGENTS.md) for what an agent/subagent is and isn't
+allowed to do at each stage, and [CONTRIBUTING.md](CONTRIBUTING.md)
 for the underlying rules (migrations, dependencies, screenshots) this
 pipeline assumes.
 
@@ -18,7 +18,7 @@ local build/test  →  [feature branch → PR into dev]  →  push to dev  →  
 ### 1. Local build/test
 
 Before committing anything non-trivial, run it locally — see
-[ADMIN_GUIDE.md § Local development setup](../ADMIN_GUIDE.md#local-development-setup)
+[ADMIN_GUIDE.md § Local development setup](ADMIN_GUIDE.md#local-development-setup)
 to get the backend/frontend running, then:
 
 ```bash
@@ -28,7 +28,7 @@ cd frontend && npm run test:e2e
 
 This is the fast loop — no deploy, no real notification channels, a
 throwaway or Docker-local Postgres (see
-[CONTRIBUTING.md § Running tests](../CONTRIBUTING.md#running-tests)).
+[CONTRIBUTING.md § Running tests](CONTRIBUTING.md#running-tests)).
 
 ### 2. Push to `dev` → dev-test
 
@@ -50,13 +50,13 @@ straight to `dev` — branch off it and PR into `dev` instead (CI already
 runs on a PR targeting `dev`, not just `main`). Otherwise dev-test sits
 broken or half-finished between commits for as long as the feature
 takes. See
-[CONTRIBUTING.md § Feature branches for larger work](../CONTRIBUTING.md#feature-branches-for-larger-work)
+[CONTRIBUTING.md § Feature branches for larger work](CONTRIBUTING.md#feature-branches-for-larger-work)
 for the exact commands.
 
 If the push changed `schema.prisma`, the next deploy's
 `preDeployCommand` (`prisma migrate deploy`) can fail if dev-test's
 database doesn't have a matching migration history — see
-[demo/README.md § Recovering after a migration squash](../demo/README.md#recovering-after-a-migration-squash)
+[demo/README.md § Recovering after a migration squash](demo/README.md#recovering-after-a-migration-squash)
 for the recovery procedure (the same one applies to dev-test's own
 database, not just the demo's).
 
@@ -77,17 +77,17 @@ even as a draft to get a CI run — nothing runs on a bare push to `dev`.
 Merging the PR deploys automatically — Render's production
 `missions-partner-tracker` service tracks `main`. **A merge into
 `main` is a release**, not a checkpoint (see
-[CONTRIBUTING.md § Branches and releasing](../CONTRIBUTING.md#branches-and-releasing)).
+[CONTRIBUTING.md § Branches and releasing](CONTRIBUTING.md#branches-and-releasing)).
 
 Same migration-squash caveat as step 2 applies here, against the
-production database — see [demo/README.md](../demo/README.md).
+production database — see [demo/README.md](demo/README.md).
 
 ### Rollback
 
 Render keeps prior deploys — redeploy an older commit from the
 service's dashboard, or revert the merge commit on `main` and push (a
 direct push requires temporarily lifting branch protection; see
-[CONTRIBUTING.md](../CONTRIBUTING.md#branches-and-releasing)). There is
+[CONTRIBUTING.md](CONTRIBUTING.md#branches-and-releasing)). There is
 no automated rollback step.
 
 ## Testing live sends
@@ -103,9 +103,9 @@ This isn't a hard gate — the actual stakes are the channels themselves
 (a WhatsApp number's ban risk, a real GroupMe group getting test
 noise, a real inbox), not the data (dev-test and the demo are reset
 and reseeded with synthetic data routinely; see
-[demo/README.md](../demo/README.md)). Know which environment you're
+[demo/README.md](demo/README.md)). Know which environment you're
 pointed at and which real-world recipients/groups are wired to it
-before forcing a send — see [docs/RUNBOOK.md](RUNBOOK.md) for which
+before forcing a send — see [RUNBOOK.md](RUNBOOK.md) for which
 integrations are live on which environment.
 
 ## TODO

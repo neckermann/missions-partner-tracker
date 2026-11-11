@@ -4,20 +4,20 @@
 
 Environment URLs, env vars, deploy/rollback, and common failures. For
 the pipeline these environments sit in, see
-[docs/WORKFLOW.md](WORKFLOW.md). For deployment topology/rationale,
-see [SPEC.md § 8](../SPEC.md).
+[WORKFLOW.md](WORKFLOW.md). For deployment topology/rationale,
+see [SPEC.md § 8](SPEC.md).
 
 ## Environments
 
 | Environment | URL | Branch | Purpose |
 |---|---|---|---|
-| Local | `http://localhost:5173` (frontend dev server, proxies `/api` to `:4000`) | — | Fast local loop, see [ADMIN_GUIDE.md § Local development setup](../ADMIN_GUIDE.md#local-development-setup) |
+| Local | `http://localhost:5173` (frontend dev server, proxies `/api` to `:4000`) | — | Fast local loop, see [ADMIN_GUIDE.md § Local development setup](ADMIN_GUIDE.md#local-development-setup) |
 | Pre-prod test (`dev-missions-partner-tracker`) | TODO — confirm exact URL in the Render dashboard | `dev` | Live pre-release check, auto-deploys every push |
 | Production / live public demo (`missions-partner-tracker`) | `https://missions-partner-tracker.onrender.com` | `main` | What a real visitor sees, auto-deploys on merge |
 
-Both Render services are described in [SPEC.md § 8.2](../SPEC.md); the
+Both Render services are described in [SPEC.md § 8.2](SPEC.md); the
 demo's own operational details (real secrets, its Blueprint) live in
-[demo/README.md](../demo/README.md) and `demo/.env` (gitignored, never
+[demo/README.md](demo/README.md) and `demo/.env` (gitignored, never
 commit).
 
 ## Environment variables (names only — see `backend/.env.example` for what each one does)
@@ -62,11 +62,11 @@ safe to remove.
 
 WhatsApp pairing itself needs no env var — it's QR-paired through the
 admin UI and stored in the database, same as every other per-instance
-integration (see [CONTRIBUTING.md § The one rule that matters most](../CONTRIBUTING.md#the-one-rule-that-matters-most-keep-forks-upgradable)).
+integration (see [CONTRIBUTING.md § The one rule that matters most](CONTRIBUTING.md#the-one-rule-that-matters-most-keep-forks-upgradable)).
 
 ## Deploy / rollback
 
-See [docs/WORKFLOW.md](WORKFLOW.md) for the normal path (push to
+See [WORKFLOW.md](WORKFLOW.md) for the normal path (push to
 `dev`, PR to `main`, merge deploys). Rollback: redeploy an older build
 from the Render dashboard, or revert the merge commit on `main`. No
 automated rollback exists.
@@ -78,7 +78,7 @@ during this project's pre-1.0 migration-squash convention — the
 squashed migration's `CREATE TABLE`s collide with a database that has
 the old migration history. Render doesn't cut over on a failed
 pre-deploy, so the live site stays up on the old version the whole
-time. Fix: [demo/README.md § Recovering after a migration squash](../demo/README.md#recovering-after-a-migration-squash).
+time. Fix: [demo/README.md § Recovering after a migration squash](demo/README.md#recovering-after-a-migration-squash).
 Applies to **either** Render service independently — fixing it on the
 demo doesn't fix dev-test, and vice versa; both need their own reset
 if both received the squashed migration.
@@ -101,7 +101,7 @@ not a real problem, just a line-ending mismatch. `.gitattributes`
 is still in place before assuming ~400 files actually need reformatting.
 
 **An agent's Render API call or database reset is refused.** Not a
-bug — see [docs/AGENTS.md § Approval gates for autonomous action](AGENTS.md#approval-gates-for-autonomous-action)
+bug — see [AGENTS.md § Approval gates for autonomous action](AGENTS.md#approval-gates-for-autonomous-action)
 for the two tooling-level safety gates (Prisma's AI-consent
 requirement, the acting agent's own safety classifier) that apply
 regardless of project policy.

@@ -5,13 +5,13 @@
 Design tokens, component patterns, and copy tone for this app. For
 contribution process/code-style rules (no linter note, comment
 philosophy, migrations), see
-[CONTRIBUTING.md § Code style](../CONTRIBUTING.md#code-style).
+[CONTRIBUTING.md § Code style](CONTRIBUTING.md#code-style).
 
 ## Design tokens
 
 Branding is entirely church-configurable — never hardcode a value
 these tokens cover (see
-[CONTRIBUTING.md § The one rule that matters most](../CONTRIBUTING.md#the-one-rule-that-matters-most-keep-forks-upgradable)).
+[CONTRIBUTING.md § The one rule that matters most](CONTRIBUTING.md#the-one-rule-that-matters-most-keep-forks-upgradable)).
 Defined as CSS custom properties in `frontend/src/index.css`, each with
 a hardcoded fallback for a church that hasn't set one:
 
@@ -31,7 +31,7 @@ text.
 
 - **Confirmations**: `useConfirmDialog` (`frontend/src/hooks/useConfirmDialog.jsx`),
   never `window.confirm`/`prompt`. See
-  [CONTRIBUTING.md § Code style](../CONTRIBUTING.md#code-style) for the
+  [CONTRIBUTING.md § Code style](CONTRIBUTING.md#code-style) for the
   call shape, `ConfirmMessageBody` for plain one-sentence confirms, and
   the nested-`Modal` Escape-key pitfall it documents.
 - **Forms**: `PartnerSelect`, `AddressFields`, `SendingPartySection`,
@@ -42,11 +42,11 @@ text.
 - **New record types**: follow the existing nullable dual-FK +
   CHECK-constraint pattern (`SupportEntry`/`Newsletter`/`Document` in
   `backend/prisma/schema.prisma`) rather than a new join-table shape —
-  see [CONTRIBUTING.md § Extending the data model](../CONTRIBUTING.md#extending-the-data-model).
+  see [CONTRIBUTING.md § Extending the data model](CONTRIBUTING.md#extending-the-data-model).
 - **Admin page shell**: `AdminLayout`/`AdminSidebar`. A page gated by a
   feature flag uses `RequireAdminFeature` client-side as a UX
   convenience only — the real enforcement is backend `requireFeature`
-  (404, not a UI state). See [SPEC.md § 3.3](../SPEC.md) and § 4 for
+  (404, not a UI state). See [SPEC.md § 3.3](SPEC.md) and § 4 for
   the feature flag registry.
 - **Section-level editing**: `EditableSection` — lets one part of a
   detail page save independently rather than one giant form.
@@ -55,7 +55,7 @@ text.
   pattern to extend for any new content needing a human-review step
   before it reaches someone.
 
-Full inventory of named shared components: [SPEC.md § 3.3](../SPEC.md).
+Full inventory of named shared components: [SPEC.md § 3.3](SPEC.md).
 
 ## Copy tone
 
@@ -70,7 +70,7 @@ product being sold to them.
 
 Covered by an automated axe-core pass in the e2e suite
 (`frontend/e2e/`) against the public-facing pages and the admin
-dashboard — see [CONTRIBUTING.md § End-to-end tests](../CONTRIBUTING.md#end-to-end-tests-frontende2e).
+dashboard — see [CONTRIBUTING.md § End-to-end tests](CONTRIBUTING.md#end-to-end-tests-frontende2e).
 Run it before shipping a new page rather than relying on manual
 inspection alone.
 

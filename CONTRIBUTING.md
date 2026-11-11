@@ -251,7 +251,7 @@ gh pr create --base dev --head feature/your-feature-name   # CI runs here too
 or `dev` (`on: pull_request: branches: [main, dev]`), so this gets the
 same four-check gate with no change to CI needed. The concrete reason
 to bother: `dev-test` (Render's pre-prod service — see
-[docs/RUNBOOK.md](docs/RUNBOOK.md)) auto-deploys on every push to
+[RUNBOOK.md](RUNBOOK.md)) auto-deploys on every push to
 `dev`. Pushing a multi-commit feature straight to `dev` leaves dev-test
 broken or half-finished between commits until the feature's done; a
 feature branch keeps `dev` — and dev-test — always reflecting a
