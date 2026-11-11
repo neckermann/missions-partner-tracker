@@ -128,7 +128,7 @@ async function up() {
   console.log("\nseeding...");
   // SEED_DEMO_EXTRAS=false -- this database is what npm run test:routes
   // and the Playwright suite run against next, and both assume nothing
-  // but their own fixtures have touched InboundEmail/NotifiableEvent/
+  // but their own fixtures have touched InboundEmail/DispatchRecord/
   // User (see seed.js's own comment on this flag).
   run("node", ["prisma/seed.js"], { SEED_DEMO_EXTRAS: "false" });
 

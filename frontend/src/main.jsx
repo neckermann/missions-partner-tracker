@@ -47,8 +47,8 @@ const AdminSettingsJoshuaProject = lazy(() => import("./pages/AdminSettingsJoshu
 const AdminSettingsAiExtraction = lazy(() => import("./pages/AdminSettingsAiExtraction.jsx"));
 const AdminSettingsEmail = lazy(() => import("./pages/AdminSettingsEmail.jsx"));
 const AdminInboundEmailQueue = lazy(() => import("./pages/AdminInboundEmailQueue.jsx"));
-const AdminPendingNotifications = lazy(() => import("./pages/AdminPendingNotifications.jsx"));
-const AdminNotificationSettings = lazy(() => import("./pages/AdminNotificationSettings.jsx"));
+const AdminPendingDispatches = lazy(() => import("./pages/AdminPendingDispatches.jsx"));
+const AdminDispatchSettings = lazy(() => import("./pages/AdminDispatchSettings.jsx"));
 const AdminSettingsBackups = lazy(() => import("./pages/AdminSettingsBackups.jsx"));
 const AdminSystemInfo = lazy(() => import("./pages/AdminSystemInfo.jsx"));
 const AdminMonthlySupport = lazy(() => import("./pages/AdminMonthlySupport.jsx"));
@@ -199,10 +199,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   }
                 />
                 <Route
-                  path="notifications"
+                  path="pending-dispatches"
                   element={
                     <RequireAdminFeature feature={["groupme", "whatsapp", "outboundEmail"]}>
-                      <AdminPendingNotifications />
+                      <AdminPendingDispatches />
                     </RequireAdminFeature>
                   }
                 />
@@ -239,10 +239,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   <Route path="ai-extraction" element={<AdminSettingsAiExtraction />} />
                   <Route path="email" element={<AdminSettingsEmail />} />
                   <Route
-                    path="notifications"
+                    path="dispatches"
                     element={
                       <RequireAdminFeature feature={["groupme", "whatsapp", "outboundEmail"]}>
-                        <AdminNotificationSettings />
+                        <AdminDispatchSettings />
                       </RequireAdminFeature>
                     }
                   />

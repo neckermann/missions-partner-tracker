@@ -2,8 +2,8 @@
 // with titles, nesting a request/need under the newsletter it was
 // sourced from. Renamed from emailDigest.js: that name suggested it
 // owned "the email digest" generally, which stopped being true once the
-// public digest got its own content-builder (publicDigestContent.js).
-const { escapeHtml, nl2br, typeLabel, brandButton } = require("./digestShell");
+// public digest got its own content-builder (publicEmailDispatchContent.js).
+const { escapeHtml, nl2br, typeLabel, brandButton } = require("./emailDispatchShell");
 
 // Groups blurbs by partner, and within each partner, nests a
 // request/need under the newsletter blurb it was sourced from when that
@@ -58,7 +58,7 @@ function renderBlurbHtml(blurb, accentColor, highlightColor) {
 }
 
 // The newsletter block's own title line (new -- see buildBlurb's
-// newsletterCreated case in notificationBlurbs.js) renders right under
+// newsletterCreated case in dispatchBlurbs.js) renders right under
 // the "New Newsletter" label, above the "Read the full newsletter"
 // button. Masked to nothing for a restricted partner's newsletter, same
 // as every other identifying field on that row.
@@ -143,12 +143,12 @@ function renderPartnerText(group, tile) {
   return lines;
 }
 
-// `eligibleRows` are the NotifiableEvent rows already filtered through
-// isEligibleForChannel for CHANNELS.ADMIN_DIGEST, already turned into
-// blurbs via buildBlurb (notificationBlurbs.js) by the caller
-// (digestDelivery.js). `tile` lookup is partnerDetailsById -- undefined
+// `eligibleRows` are the DispatchRecord rows already filtered through
+// isEligibleForChannel for CHANNELS.EMAIL_ADMIN, already turned into
+// blurbs via buildBlurb (dispatchBlurbs.js) by the caller
+// (emailDispatchDelivery.js). `tile` lookup is partnerDetailsById -- undefined
 // entries fall back to the classic, tile-less layout.
-function buildAdminDigestContent(blurbs, partnerDetailsById, churchSettings) {
+function buildAdminEmailDispatchContent(blurbs, partnerDetailsById, churchSettings) {
   const groups = groupByPartner(blurbs);
   const accentColor = churchSettings?.primaryColor || "#2a5d3c";
   const highlightColor = churchSettings?.highlightColor || "#a6540f";
@@ -160,4 +160,4 @@ function buildAdminDigestContent(blurbs, partnerDetailsById, churchSettings) {
   return { itemsHtml, textLines, subtitleLine };
 }
 
-module.exports = { buildAdminDigestContent, groupByPartner };
+module.exports = { buildAdminEmailDispatchContent, groupByPartner };

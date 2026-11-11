@@ -1,35 +1,36 @@
-// Channel-neutral notification text, shared by GroupMe and both digest
-// audiences -- built once here instead of each channel re-implementing
-// its own wording. This is the load-bearing masking authority in the
-// system: groupmeChannel.js, adminDigestContent.js, and
-// publicDigestContent.js all call buildBlurb() on every row before
-// rendering anything, never reading a raw NotifiableEvent row's fields
-// directly. A "blurb" turns one row into everything any channel needs:
-// GroupMe wants one ready-to-pack message string per topic; both
-// digests want structured fields so they can render real HTML and
-// group by partner.
+// Channel-neutral dispatch text, shared by GroupMe, WhatsApp, and both
+// email dispatch audiences -- built once here instead of each channel
+// re-implementing its own wording. This is the load-bearing masking
+// authority in the system: groupmeChannel.js, whatsappChannel.js,
+// adminEmailDispatchContent.js, and publicEmailDispatchContent.js all
+// call buildBlurb() on every row before rendering anything, never
+// reading a raw DispatchRecord row's fields directly. A "blurb" turns
+// one row into everything any channel needs: GroupMe/WhatsApp want one
+// ready-to-pack message string per topic/group; both email dispatches
+// want structured fields so they can render real HTML and group by
+// partner.
 //
-// Masking: GroupMe and digest emails all leave this app's auth boundary
-// (a GroupMe group can include non-admins; a digest email can get
-// forwarded) -- the same exposure maskData.js's toPublicPartner() guards
-// against for the public website, so a restricted partner gets an
-// initialed name and a generic "details withheld" line here too, and no
-// link to the actual file. isRestricted is read fresh from the partner
-// at build time, not the payload's frozen snapshot -- the flag can
-// change after a notification was already recorded.
+// Masking: GroupMe, WhatsApp, and email dispatches all leave this app's
+// auth boundary (a GroupMe group or WhatsApp group can include
+// non-admins; a dispatch email can get forwarded) -- the same exposure
+// maskData.js's toPublicPartner() guards against for the public website,
+// so a restricted partner gets an initialed name and a generic "details
+// withheld" line here too, and no link to the actual file. isRestricted
+// is read fresh from the partner at build time, not the payload's frozen
+// snapshot -- the flag can change after a dispatch was already recorded.
 const { toInitials } = require("./maskData");
 
 const RESTRICTED_NOTICE =
   "Specific details are withheld for security -- please pray for this partner's safety and ministry.";
 
 // The 4 "real content" event types -- the ones a restricted partner's
-// notification needs manual review for before it's eligible to send at
-// all (#187; see notificationEligibility.js's needsReview()).
+// dispatch needs manual review for before it's eligible to send at
+// all (#187; see dispatchEligibility.js's needsReview()).
 // newsletterCreated is deliberately excluded: it already fully
 // suppresses for a restricted partner (bodyText/groupmeText both come
 // back masked-to-nothing below), so there's no real content there to
-// ever gate. Exported so notificationEligibility.js's
-// isEligibleForChannel and routes/notifications.js share this exact
+// ever gate. Exported so dispatchEligibility.js's
+// isEligibleForChannel and routes/dispatches.js share this exact
 // list instead of each re-deriving "which types are real content" and
 // drifting apart.
 const REVIEW_GATED_TYPES = new Set([
@@ -39,11 +40,11 @@ const REVIEW_GATED_TYPES = new Set([
   "supportNeedDecided",
 ]);
 
-// The subset of types eligible for the public digest audience
+// The subset of types eligible for the public email dispatch audience
 // specifically -- admin (User) recipients aren't restricted by this set
-// at all, they keep every type. See notificationEligibility.js's
+// at all, they keep every type. See dispatchEligibility.js's
 // isEligibleForChannel for where this is used.
-const PUBLIC_DIGEST_TYPES = new Set(["prayerRequestCreated", "prayerRequestAnswered"]);
+const PUBLIC_EMAIL_DISPATCH_TYPES = new Set(["prayerRequestCreated", "prayerRequestAnswered"]);
 
 // Same reasoning/placement as groupmeChannel.js's own appBaseUrl():
 // resolves to "" when neither env var is set, so a link just isn't
@@ -55,7 +56,7 @@ function appBaseUrl() {
 // Same wording/behavior as groupmeChannel.js's own sourceLinkLine(),
 // operating on the payload's own sourceFileId instead of a live Prisma
 // include -- the row's payload is a frozen snapshot (see schema.prisma's
-// NotifiableEvent comment).
+// DispatchRecord comment).
 function sourceLinkLine(payload) {
   const base = appBaseUrl();
   if (!base || !payload.sourceFileId) return "";
@@ -78,20 +79,20 @@ function supportNeedOutcomeLabel(payload) {
   return "Fully Funded";
 }
 
-// Builds one blurb from a NotifiableEvent row. `partner` is the current
+// Builds one blurb from a DispatchRecord row. `partner` is the current
 // Partner record ({ displayName, isRestricted } is enough) -- pass
 // null/undefined when unavailable (e.g. deleted) and masking is simply
 // skipped. Returns null for an unrecognized type (defensive -- `type`
-// is only ever written by notificationRecording.js) rather than
+// is only ever written by dispatchRecording.js) rather than
 // throwing and taking down a whole pass over one bad row.
 //
-// row.reviewedAt/row.reviewedText (#187): once set, an admin's saved
-// edit is the authoritative body text, overriding whatever would
-// otherwise be computed -- for a restricted row this is also what
-// "reveals" real content in place of RESTRICTED_NOTICE. Whether an
-// un-reviewed restricted row is allowed to *send* yet is a separate
-// question this function has no opinion on -- see
-// notificationEligibility.js's needsReview().
+// row.dispatchReviewedAt/row.dispatchReviewedText (#187): once set, an
+// admin's saved edit is the authoritative body text, overriding
+// whatever would otherwise be computed -- for a restricted row this is
+// also what "reveals" real content in place of RESTRICTED_NOTICE.
+// Whether an un-reviewed restricted row is allowed to *send* yet is a
+// separate question this function has no opinion on -- see
+// dispatchEligibility.js's needsReview().
 function buildBlurb(row, partner) {
   const { type, payload } = row;
   const restricted = !!partner?.isRestricted;
@@ -107,8 +108,8 @@ function buildBlurb(row, partner) {
 
   switch (type) {
     case "prayerRequestCreated": {
-      const bodyText = row.reviewedAt
-        ? row.reviewedText
+      const bodyText = row.dispatchReviewedAt
+        ? row.dispatchReviewedText
         : restricted
           ? RESTRICTED_NOTICE
           : payload.requestText;
@@ -132,8 +133,8 @@ function buildBlurb(row, partner) {
 
     case "prayerRequestAnswered": {
       const note = payload.answeredNote?.trim() || "(no note added)";
-      const bodyText = row.reviewedAt
-        ? row.reviewedText
+      const bodyText = row.dispatchReviewedAt
+        ? row.dispatchReviewedText
         : restricted
           ? RESTRICTED_NOTICE
           : `"${payload.requestText}"\n\n${note}`;
@@ -156,13 +157,13 @@ function buildBlurb(row, partner) {
     }
 
     case "supportNeedCreated": {
-      const bodyText = row.reviewedAt
-        ? row.reviewedText
+      const bodyText = row.dispatchReviewedAt
+        ? row.dispatchReviewedText
         : restricted
           ? RESTRICTED_NOTICE
           : payload.description;
       // One-time needs never reach the public digest -- not in
-      // PUBLIC_DIGEST_TYPES above, admin-only on every channel -- so the
+      // PUBLIC_EMAIL_DISPATCH_TYPES above, admin-only on every channel -- so the
       // requested amount is safe to surface here the same way the
       // approved amount already is on the decided case below.
       // Restricted-partner masking still applies to the partner's
@@ -198,8 +199,8 @@ function buildBlurb(row, partner) {
     case "supportNeedDecided": {
       const label = supportNeedOutcomeLabel(payload);
       const amount = `$${Number(payload.approvedAmount).toLocaleString()}`;
-      const bodyText = row.reviewedAt
-        ? row.reviewedText
+      const bodyText = row.dispatchReviewedAt
+        ? row.dispatchReviewedText
         : restricted
           ? RESTRICTED_NOTICE
           : `"${payload.description}"`;
@@ -266,4 +267,4 @@ function buildBlurb(row, partner) {
   }
 }
 
-module.exports = { buildBlurb, appBaseUrl, REVIEW_GATED_TYPES, PUBLIC_DIGEST_TYPES };
+module.exports = { buildBlurb, appBaseUrl, REVIEW_GATED_TYPES, PUBLIC_EMAIL_DISPATCH_TYPES };

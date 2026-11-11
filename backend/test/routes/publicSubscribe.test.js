@@ -12,7 +12,7 @@ const {
   FIXTURE_TAG,
 } = require("./helpers");
 
-// Same mock-the-whole-domain technique notifications.test.js already
+// Same mock-the-whole-domain technique dispatches.test.js already
 // uses for Postmark -- monkey-patch global.fetch, matching only the
 // Postmark host, so no real email ever sends in this suite.
 const realFetch = global.fetch;

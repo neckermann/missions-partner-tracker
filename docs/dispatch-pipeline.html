@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Notification Pipeline — Missions Partner Tracker</title>
+    <title>Dispatch Pipeline — Missions Partner Tracker</title>
     <meta
       name="description"
       content="How a prayer request, one-time need, or newsletter flows from creation to GroupMe, WhatsApp, the admin digest, and the public prayer digest — one recording rule, one shared eligibility check, four channels."
@@ -246,7 +246,7 @@ flowchart TD
     URGENT{"Marked urgent?\n(isUrgent -- admin/editor\nset at creation)"}
     REC --> URGENT
 
-    URGENTNOW["sendUrgentBroadcast() --\nfires on every channel\nright now, no waiting"]
+    URGENTNOW["sendUrgentDispatch() --\nfires on every channel\nright now, no waiting"]
     SCHED["Each channel's own\nschedule tick fires --\nchat: shared daily hour.\nemail: cadence tier"]
     URGENT -- yes --> URGENTNOW
     URGENT -- no --> SCHED
@@ -316,7 +316,7 @@ flowchart TD
             <dd>
               Applies to every channel equally. A restricted partner's real content is ineligible everywhere
               until a human reviews that specific item, and ineligible everywhere at all if the church has
-              turned restricted-partner notifications off outright.
+              turned restricted-partner dispatch off outright.
             </dd>
           </div>
           <div>
@@ -389,14 +389,14 @@ flowchart TD
           <a href="assets/screenshots/groupme-notification.png" target="_blank" rel="noreferrer">
             <img
               src="assets/screenshots/groupme-notification.png"
-              alt="A new prayer request notification, as it lands in the GroupMe app"
+              alt="A new prayer request dispatch, as it lands in the GroupMe app"
               loading="lazy"
             />
           </a>
           <a href="assets/screenshots/whatsapp-prayer-requests-group.png" target="_blank" rel="noreferrer">
             <img
               src="assets/screenshots/whatsapp-prayer-requests-group.png"
-              alt="Prayer request and answered-prayer notifications, as they land in the WhatsApp group"
+              alt="Prayer request and answered-prayer dispatches, as they land in the WhatsApp group"
               loading="lazy"
             />
           </a>
@@ -416,7 +416,7 @@ flowchart TD
             <a href="assets/screenshots/groupme-topics-app.png" target="_blank" rel="noreferrer">
               <img
                 src="assets/screenshots/groupme-topics-app.png"
-                alt="A GroupMe community with its own Topic per notification type"
+                alt="A GroupMe community with its own Topic per dispatch type"
                 loading="lazy"
               />
             </a>
@@ -426,7 +426,7 @@ flowchart TD
             <a href="assets/screenshots/whatsapp-community-groups.png" target="_blank" rel="noreferrer">
               <img
                 src="assets/screenshots/whatsapp-community-groups.png"
-                alt="A WhatsApp community with its own group per notification type, plus an Announcements group"
+                alt="A WhatsApp community with its own group per dispatch type, plus an Announcements group"
                 loading="lazy"
               />
             </a>
@@ -445,7 +445,7 @@ flowchart TD
         </p>
         <div class="links">
           <a
-            href="https://github.com/neckermann/missions-partner-tracker/blob/main/SPEC.md#6-the-notification-system-202-redesign--whatsapp"
+            href="https://github.com/neckermann/missions-partner-tracker/blob/main/SPEC.md#6-the-dispatch-system-202-redesign--whatsapp"
             target="_blank"
             rel="noreferrer"
             >Read SPEC.md § 6</a

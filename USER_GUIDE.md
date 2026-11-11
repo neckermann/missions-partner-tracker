@@ -71,7 +71,7 @@ The sidebar (and the Home page's card grid, which mirrors it) lists:
 term, e.g. "Go Team Partners," if enabled in Branding),
 [**Unmatched Emails**](#receiving) (inbound email only — see
 [Email](#email-admin-only) below),
-[**Pending Notifications**](#pending-notifications) (GroupMe and/or
+[**Pending Dispatches**](#pending-dispatches) (GroupMe and/or
 email sending only),
 [**Monthly Support**](#financial-support--one-time-needs),
 [**One-Time Needs**](#financial-support--one-time-needs),
@@ -92,11 +92,11 @@ Info**](#system-info-admin-only) up front, then two further sub-groups
 that only appear once their own features are on:
 
 - **Communications** — [**Email**](#email-admin-only),
-  [**GroupMe**](#groupme-notifications-admin-only), and
-  [**Notifications**](#notification-settings-admin-only) (schedules,
+  [**GroupMe**](#groupme-dispatch-admin-only), and
+  [**Dispatch Settings**](#dispatch-settings-admin-only) (schedules,
   GroupMe's content-type mutes, the restricted-partner safety gate,
   digest appearance, and subscriber counts — the queue itself is
-  [**Pending Notifications**](#pending-notifications) in the main menu).
+  [**Pending Dispatches**](#pending-dispatches) in the main menu).
 - **Integrations** — [**AI Features**](#ai-features-admin-only) and
   [**Joshua Project**](#joshua-project-admin-only).
 
@@ -388,7 +388,7 @@ leave it as "None." A need pointed at a source this way, or added
 automatically by [AI Features](#ai-features-admin-only), shows a
 "From: ..." link back to that file, rendered the same either way. For
 marking a new need urgent, or (for a restricted partner) approving it at
-creation instead of from Pending Notifications, see [Marking something
+creation instead of from Pending Dispatches, see [Marking something
 urgent](#marking-something-urgent).
 
 ![The One-Time Needs page, with status pills per need](docs/assets/screenshots/one-time-needs.png)
@@ -441,7 +441,7 @@ been answered so far. A request pointed at a source this way, or added
 automatically by [AI Features](#ai-features-admin-only),
 shows a "From: ..." link back to that file, rendered the same either
 way. For marking a new request urgent, or (for a restricted partner)
-approving it at creation instead of from Pending Notifications, see
+approving it at creation instead of from Pending Dispatches, see
 [Marking something urgent](#marking-something-urgent).
 
 ![The central Prayer Requests page, newest first across every partner](docs/assets/screenshots/prayer-requests-list.png)
@@ -672,7 +672,7 @@ or any credential.
 
 ## Communications
 
-### GroupMe notifications (Admin only)
+### GroupMe dispatch (Admin only)
 
 Posts new prayer requests, one-time needs, and newsletters to GroupMe so
 a team sees them without checking the admin dashboard. A prayer request
@@ -683,11 +683,11 @@ in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) once it's set up
 here.
 
 These don't post the instant they happen — GroupMe has its own daily
-batch time (set on the Notifications page), and an item marked
+batch time (set on the Dispatch Settings page), and an item marked
 **urgent** posts right away regardless of that schedule — see [Marking
 something urgent](#marking-something-urgent). See [Pending
-Notifications](#pending-notifications) for the queue itself, and
-[Notification Settings](#notification-settings-admin-only) for the
+Dispatches](#pending-dispatches) for the queue itself, and
+[Dispatch Settings](#dispatch-settings-admin-only) for the
 schedule.
 
 Setup, on the **GroupMe** page under Site Administration, builds up in
@@ -703,9 +703,9 @@ steps:
 3. **Topics** — click **Load Topics** once to pull that group's real
    Topics. The three sections below (**Prayer Requests Topic**,
    **One-Time Needs Topic**, **Newsletters Topic**) all share that same
-   list — pick a topic and **Use This Topic** for whichever notification
+   list — pick a topic and **Use This Topic** for whichever dispatch
    types you want; skip any you don't. Until a topic is picked for a
-   given type, that notification posts to the group's main conversation
+   given type, that dispatch posts to the group's main conversation
    instead.
 
 ![The GroupMe settings page, with all steps configured](docs/assets/screenshots/groupme-settings.png)
@@ -713,9 +713,9 @@ steps:
 If GroupMe itself is unreachable or rejects a post, whatever you were
 saving — a prayer request, a one-time need, a newsletter, an answer, a
 decision — still saves normally; it just queues for the next send
-attempt. The notification is best-effort and never blocks your own work.
+attempt. The dispatch is best-effort and never blocks your own work.
 
-The newsletter notification includes a direct link to the letter (the
+The newsletter dispatch includes a direct link to the letter (the
 same link **View** opens on the newsletter's own page) — this only
 appears once `APP_BASE_URL` is set, or automatically on Render (see
 [ADMIN_GUIDE.md § Environment variables](ADMIN_GUIDE.md#environment-variables)).
@@ -728,30 +728,36 @@ other message, with the full request/need text (not a summary) and
 several queued items packed into as few messages as fit GroupMe's
 1,000-character limit:
 
-![A new prayer request notification, as it actually appears in the GroupMe app](docs/assets/screenshots/groupme-notification.png)
+![A new prayer request dispatch, as it actually appears in the GroupMe app](docs/assets/screenshots/groupme-notification.png)
 
-![A new one-time need notification, with the prayer/meeting-prep note above the need itself](docs/assets/screenshots/groupme-notification-need.png)
+![A new one-time need dispatch, with the prayer/meeting-prep note above the need itself](docs/assets/screenshots/groupme-notification-need.png)
 
-![A new newsletter notification, with a direct link to the letter](docs/assets/screenshots/groupme-notification-newsletter.png)
+![A new newsletter dispatch, with a direct link to the letter](docs/assets/screenshots/groupme-notification-newsletter.png)
 
 
-### WhatsApp notifications (Admin only)
+### WhatsApp dispatch (Admin only)
 
 Posts the same new prayer requests, one-time needs, and newsletters to
 WhatsApp — each type to its own group inside one WhatsApp community.
-It's an alternative or addition to [GroupMe](#groupme-notifications-admin-only):
+It's an alternative or addition to [GroupMe](#groupme-dispatch-admin-only):
 a church can use either or both. Off by default — turn it on in [Enabled
 Features](ADMIN_GUIDE.md#feature-toggles), then set it up on the
 **WhatsApp** page under Site Administration (it only appears once the
-feature is on). **Read [ADMIN_GUIDE.md § Notifications:
-WhatsApp](ADMIN_GUIDE.md#notifications-whatsapp) first** — this is an
+feature is on). **Read [ADMIN_GUIDE.md § Dispatch:
+WhatsApp](ADMIN_GUIDE.md#dispatch-whatsapp) first** — this is an
 unofficial connection and you'll want a dedicated phone number for it.
 
-It runs on GroupMe's same daily send hour and content-type mutes (the
-[Notifications](#notification-settings-admin-only) page shows one shared
-section for whichever chat channels are on), and an item marked
-**urgent** posts right away. Items waiting for the same group go out
-together in one message.
+WhatsApp sends once a day, at an admin-set hour, and has its own three
+content-type mutes (Prayer Requests / One-Time Needs / Newsletters) —
+both set on the [Dispatch Settings](#dispatch-settings-admin-only)
+page. GroupMe shares that same daily-hour field and the same three
+mutes, because both are chat-style, near-real-time channels — not
+because WhatsApp depends on or borrows GroupMe's settings — but
+WhatsApp's own on/off state, community/group configuration, and
+delivery are entirely its own; turning GroupMe off, or it being
+unreachable, never affects WhatsApp. An item marked **urgent** posts
+right away. Items waiting for the same group go out together in one
+message.
 
 Setup builds up in steps:
 
@@ -765,7 +771,7 @@ Setup builds up in steps:
    community's built-in **Announcements group** is detected
    automatically at this point (no picker for it — it's shown read-only)
    and works the same way GroupMe's main conversation does: it's where a
-   notification type with no group of its own posts instead.
+   dispatch type with no group of its own posts instead.
 3. **Groups** — **Load Groups** once to pull the community's real groups,
    then pick a group and **Use This Group** for each of **Prayer
    Requests**, **One-Time Needs**, and **Newsletters** you want. A type
@@ -774,8 +780,10 @@ Setup builds up in steps:
    all. Picking a different community clears the group picks and
    re-detects the new community's Announcements group.
 
+![The WhatsApp settings page, with the number linked and every step configured](docs/assets/screenshots/whatsapp-settings.png)
+
 If WhatsApp is disconnected or rejects a post, whatever you were saving
-still saves normally; the notification stays queued and goes out on the
+still saves normally; the dispatch stays queued and goes out on the
 next send.
 
 ![A WhatsApp community's groups, including the built-in Announcements group used as the fallback](docs/assets/screenshots/whatsapp-community-groups.png)
@@ -787,18 +795,18 @@ group with new and decided needs:
 ![The Prayer Requests group showing new and answered prayer requests](docs/assets/screenshots/whatsapp-prayer-requests-group.png)
 ![The One-Time Needs group showing new and decided one-time needs](docs/assets/screenshots/whatsapp-one-time-needs-group.png)
 
-### Pending Notifications
+### Pending Dispatches
 
-The **Pending Notifications** page (in the main menu, alongside
+The **Pending Dispatches** page (in the main menu, alongside
 Unmatched Emails) is where every prayer request, one-time need, and
 newsletter queues before going out — the shared review-and-send queue
-behind both GroupMe notifications above and email digests below. Only
-shows up once GroupMe notifications or Email (Sending) is turned on —
+behind both GroupMe dispatch above and email digests below. Only
+shows up once GroupMe dispatch or Email (Sending) is turned on —
 no point reviewing a queue neither channel will ever read. Visible to
 any logged-in role; only an admin or editor can actually edit, approve,
 or clear an item. For the schedules, GroupMe's content-type mutes, the
-restricted-partner safety gate, and email digest appearance, see
-[Notification Settings](#notification-settings-admin-only) below.
+restricted-partner safety gate, and email dispatch appearance, see
+[Dispatch Settings](#dispatch-settings-admin-only) below.
 
 The list shows everything currently queued, grouped by partner, with a
 prayer request or need that came from a newsletter nested right under
@@ -807,7 +815,7 @@ that newsletter instead of repeated separately. There's no manual
 go out right away, check **urgent** on it when you create it instead,
 see [Marking something urgent](#marking-something-urgent).
 
-![The Pending Notifications page: a regular partner's prayer requests and one-time needs (new and answered/decided), grouped with a restricted partner's already-reviewed items below](docs/assets/screenshots/pending-notifications.png)
+![The Pending Dispatches page: a regular partner's prayer requests and one-time needs (new and answered/decided), grouped with a restricted partner's already-reviewed items below](docs/assets/screenshots/pending-notifications.png)
 
 A queued item only clears once every currently-enabled channel has
 actually sent it — if GroupMe is down but email goes out fine, that item
@@ -871,7 +879,7 @@ queue without sending it with the **Clear** button on its row.
 A **Mark as urgent** checkbox is available to admins and editors when
 creating a prayer request or one-time need (not when answering/deciding
 one, and not for newsletters — there's no form to check it on). It only
-appears once at least one notification channel is actually turned on;
+appears once at least one dispatch channel is actually turned on;
 with GroupMe and Email (Sending) both off, there's nothing for it to
 reach, so it isn't offered at all rather than doing nothing silently.
 
@@ -883,7 +891,7 @@ and public subscribers about to be notified before it actually sends.
 
 What it doesn't bypass: a restricted partner's item still waits on
 review exactly as it would without the checkbox (see [Reviewing a
-restricted partner's request or need](#pending-notifications) above),
+restricted partner's request or need](#pending-dispatches) above),
 and a muted GroupMe content type still blocks that one channel — urgent
 only skips waiting for a schedule, never either of those safety rules.
 
@@ -891,21 +899,22 @@ only skips waiting for a schedule, never either of those safety rules.
 second checkbox appears alongside "Mark as urgent": **Review and
 approve now**. Checking it confirms, right then, that the text you just
 typed is safe to send out exactly as written — the same confirmation
-[Pending Notifications](#pending-notifications)'s own **Approve** does,
+[Pending Dispatches](#pending-dispatches)'s own **Approve** does,
 just at creation time instead of a second visit later. It clears the
 review hold; it doesn't by itself make anything send immediately — that
 still needs "Mark as urgent" too, or whatever channel's own regular
 schedule picks the item up next.
 
-### Notification Settings (Admin only)
+### Dispatch Settings (Admin only)
 
-The **Notifications** page under Site Administration → Communications
-holds every schedule, GroupMe's own content-type mutes, the one
-restricted-partner safety gate, and the email digest's own appearance —
+The **Dispatch Settings** page under Site Administration → Communications
+holds every schedule, the chat channels' (GroupMe and WhatsApp) shared
+content-type mutes, the one restricted-partner safety gate, and the
+email dispatch's own appearance —
 separate from the actual queue above, same split Email already has
 between its own settings page and Unmatched Emails. Top to bottom:
 
-#### Prayer Digest Subscribers
+#### Email Dispatch Subscribers
 
 A read-only section at the top of the page (only shown once [Public
 prayer digest](ADMIN_GUIDE.md#feature-toggles) is turned on) showing
@@ -917,21 +926,22 @@ only — no email addresses, here or anywhere else an admin can see.
 #### Restricted Partners
 
 One checkbox, off by default: turned on, a restricted-access partner's
-prayer requests and one-time needs are recorded and can reach GroupMe
-and both email digests, subject to the review requirement described in
-[Pending Notifications](#pending-notifications) above. Left off (the
+prayer requests and one-time needs are recorded and can reach GroupMe,
+WhatsApp, and both email digests, subject to the review requirement described in
+[Pending Dispatches](#pending-dispatches) above. Left off (the
 default), their events are never recorded in the first place, for any
 type — nothing to hold, nothing to review, because nothing's queued.
 Turning it on takes on that review responsibility in exchange for
 restricted partners' content reaching every channel like anyone else's.
 
-![The Notification Settings page: subscriber counts, the Restricted Partners gate, digest customization, email schedule, and GroupMe](docs/assets/screenshots/notifications-settings.png)
+![The Dispatch Settings page: subscriber counts, the Restricted Partners gate, digest customization, email schedule, and the GroupMe/WhatsApp chat schedule](docs/assets/screenshots/notifications-settings.png)
 
-#### Digest Customization
+#### Email Dispatch Customization
 
-Everything here controls the **email digest specifically** — GroupMe's
-own message format doesn't change, since GroupMe is plain text and has
-no layout/subject/signature of its own to customize:
+Everything here controls the **email digest specifically** — GroupMe
+and WhatsApp's own message format doesn't change, since both are
+plain text and have no layout/subject/signature of their own to
+customize:
 
 - **Layout** — **Classic** (plain text-only partner cards) or
   **Snapshot** (adds each partner's photo — or a generic silhouette if
@@ -960,9 +970,9 @@ you can see exactly what changes between the two before picking one.
 The layout choice above is shared by both audiences, but what each one
 actually *receives* isn't — a public subscriber's email only ever
 includes prayer requests, with no source link and no one-time-need
-amount, regardless of layout. See [ADMIN_GUIDE.md § Notifications:
+amount, regardless of layout. See [ADMIN_GUIDE.md § Dispatch:
 GroupMe, the admin digest, and the public
-digest](ADMIN_GUIDE.md#notifications-groupme-the-admin-digest-and-the-public-digest)
+digest](ADMIN_GUIDE.md#dispatch-groupme-the-admin-digest-and-the-public-digest)
 for a side-by-side example of the same batch of events rendered for
 each audience.
 
@@ -979,21 +989,25 @@ all three — each tier only fires once its own day/time is set; leaving
 all three unset (the default) means nobody's individual cadence choice
 ever actually sends, regardless of what they picked for themselves.
 
-#### GroupMe
+#### Chat channels (GroupMe & WhatsApp)
 
-Two things, both GroupMe-specific (see [GroupMe
-notifications](#groupme-notifications-admin-only) above for the
-connection setup itself, on its own page):
+One shared daily-hour field and three shared mutes, used by whichever
+chat channel(s) are on (see [GroupMe dispatch](#groupme-dispatch-admin-only)
+and [WhatsApp dispatch](#whatsapp-dispatch-admin-only) above for each
+channel's own connection setup, on its own page):
 
-- **Time** — a single daily hour. GroupMe is a near-real-time chat
-  channel, not a periodic email, so there's no weekly/monthly tier
-  here — whatever's queued gets packed into as few messages as fit and
-  posted once a day, at whichever hour you set.
+- **Time** — a single daily hour. GroupMe and WhatsApp are both
+  near-real-time chat channels, not a periodic email, so there's no
+  weekly/monthly tier here — whatever's queued for either one gets
+  packed into as few messages as fit and posted once a day, at
+  whichever hour you set. One field, shared by both — there's no way
+  to give them different hours.
 - **Mute Prayer Requests / One-Time Needs / Newsletters** — three
-  independent checkboxes, GroupMe-only. Muting one just stops *that
-  type* from posting to GroupMe; it never affects whether that type
-  gets recorded at all, so the email digest and the restricted-partner
-  review queue are completely unaffected by any of these three.
+  independent checkboxes, shared by GroupMe and WhatsApp. Muting one
+  just stops *that type* from posting to either chat channel; it never
+  affects whether that type gets recorded at all, so the email digest
+  and the restricted-partner review queue are completely unaffected by
+  any of these three.
 
 ### Email (Admin only)
 
@@ -1011,7 +1025,7 @@ the digest doesn't need Receiving on, and vice versa.
 #### Sending
 
 Once turned on, this is the email half of the
-[Pending Notifications](#pending-notifications) queue above — an
+[Pending Dispatches](#pending-dispatches) queue above — an
 opted-in user gets one digest email covering everything currently
 queued, instead of one email per item. Setup builds up in steps:
 
@@ -1153,21 +1167,21 @@ scanning a QR code and confirming a code; disabling requires your current
 password.
 
 If [Email (Sending)](#email-admin-only) is turned on for the church,
-there's also an **Email Notifications** section here: a cadence
+there's also an **Email Dispatch** section here: a cadence
 (biweekly, monthly, quarterly, or no automatic digest — off by
 default) and, once a cadence is picked, a choice between every
 partner or just the ones you check from a list. The digest itself
 still includes prayer requests, one-time needs, and newsletters, same
 as before — picking a cadence and scope here doesn't narrow what you
 get, just when and for whom. It sends on whatever [Email
-Schedule](#notification-settings-admin-only) the admin set up at Site
-Administration → Notifications. You can also turn it off directly from
+Schedule](#dispatch-settings-admin-only) the admin set up at Site
+Administration → Dispatch Settings. You can also turn it off directly from
 the unsubscribe link in any digest email, without logging in. Besides
 your chosen cadence, you may occasionally get an item right away
 outside that schedule — see [Marking something
 urgent](#marking-something-urgent).
 
-![Account settings, Email Notifications: a biweekly cadence picked, with the specific-partners scope list expanded](docs/assets/screenshots/account-settings-digest.png)
+![Account settings, Email Dispatch: a biweekly cadence picked, with the specific-partners scope list expanded](docs/assets/screenshots/account-settings-digest.png)
 
 ![Account settings, mid-enrollment: the QR code step of enabling two-factor authentication](docs/assets/screenshots/mfa-enrollment.png)
 

@@ -128,7 +128,7 @@ full file with inline comments):
 | `FIELD_ENCRYPTION_KEY` | Recommended | Encrypts two-factor (MFA) secrets at rest. Generate with `npm run generate-secrets`. Without it the app still runs, but MFA enrollment fails. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
-| `APP_BASE_URL` | No | This app's own public URL, no trailing slash — needed for the notification queue's own links: the GroupMe newsletter notification's link, the email digest's "read the source" / "read the full newsletter" links, and the digest's own unsubscribe link (see [GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only) and [Pending Notifications](USER_GUIDE.md#pending-notifications)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`; set it explicitly elsewhere. Leave unset and those links just don't appear. |
+| `APP_BASE_URL` | No | This app's own public URL, no trailing slash — needed for the dispatch queue's own links: the GroupMe newsletter dispatch's link, the email digest's "read the source" / "read the full newsletter" links, and the digest's own unsubscribe link (see [GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only) and [Pending Dispatches](USER_GUIDE.md#pending-dispatches)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`; set it explicitly elsewhere. Leave unset and those links just don't appear. |
 
 There's nothing to configure for the frontend separately — it's served by
 the backend and always calls `/api` on its own origin.
@@ -160,13 +160,13 @@ prayer digest nested under Email (Sending) since it depends on it), and
 | Mission trips | On | The Trip History and Trip Opportunities pages. |
 | Print booklet | On | The printable prayer & support directory generator. |
 | Reports | On | Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history, furlough — with CSV download and a print view. |
-| GroupMe notifications | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Site Administration → Notifications, or via manual send from Pending Notifications. Configured entirely in the UI (Site Administration → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe notifications](USER_GUIDE.md#groupme-notifications-admin-only). |
-| WhatsApp notifications | **Off** | The same three notification types as GroupMe, posted to their own groups inside one WhatsApp community, on the same daily schedule and content-type mutes as GroupMe (a church can run either or both). Configured entirely in the UI (Site Administration → WhatsApp): link a **dedicated** phone number by scanning a QR code, pick the community, then a group per notification type. Off by default because it's an **unofficial** connection — see [Notifications: WhatsApp](#notifications-whatsapp) below before turning it on. See [USER_GUIDE.md § WhatsApp notifications](USER_GUIDE.md#whatsapp-notifications-admin-only). |
+| GroupMe dispatch | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Site Administration → Dispatch Settings, or via manual send from Pending Dispatches. Configured entirely in the UI (Site Administration → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only). |
+| WhatsApp dispatch | **Off** | The same three dispatch types as GroupMe, posted to their own groups inside one WhatsApp community, on the same daily schedule and content-type mutes as GroupMe (a church can run either or both). Configured entirely in the UI (Site Administration → WhatsApp): link a **dedicated** phone number by scanning a QR code, pick the community, then a group per dispatch type. Off by default because it's an **unofficial** connection — see [Dispatch: WhatsApp](#dispatch-whatsapp) below before turning it on. See [USER_GUIDE.md § WhatsApp dispatch](USER_GUIDE.md#whatsapp-dispatch-admin-only). |
 | Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Site Administration → Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Site Administration → AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
-| Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Site Administration → Email. Today's only sender is the batched notification digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
+| Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Site Administration → Email. Today's only sender is the batched dispatch digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
 | Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Site Administration → Email page as Sending, independently toggled. See [§ Email (Postmark)](#email-postmark) below. |
-| Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the public **Subscribe** page (`/subscribe`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on — shown nested under Email (Sending) on this page, and its checkbox can't be turned on until that one is. See [§ Notification batching & email digests](#notification-batching--email-digests) below. |
+| Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the public **Subscribe** page (`/subscribe`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on — shown nested under Email (Sending) on this page, and its checkbox can't be turned on until that one is. See [§ Dispatch: GroupMe, the admin digest, and the public digest](#dispatch-groupme-the-admin-digest-and-the-public-digest) below. |
 
 The registry backing this list lives in `backend/src/utils/features.js` —
 adding a new toggle later is a one-line entry there plus a `requireFeature("key")`
@@ -176,8 +176,8 @@ All of this lives under **Site Administration**, an expandable group in
 the admin sidebar itself (not a separate page with its own tab bar) —
 click it to reveal About Church, Manage Users, Branding, Enabled
 Features, and Backups, then two further sub-groups shown only once
-their features are on: **Communications** (Email, GroupMe,
-Notifications, Prayer Digest Subscribers) and **Integrations** (AI
+their features are on: **Communications** (Email, GroupMe, WhatsApp,
+Dispatch Settings, Email Dispatch Subscribers) and **Integrations** (AI
 Features, Joshua Project). User
 Management moved here from its own top-level nav link. Adding a new
 settings category later is a new entry in `buildSiteAdminLinks()`
@@ -493,9 +493,9 @@ login. In practice that means:
 
 If you need staff who can see *some* partners but not others, this app
 can't express that, and pretending otherwise with roles would be worse
-than saying so plainly. The Pending Notifications page's own held-row
-text (see [§ Restricted-partner notification
-review](#restricted-partner-notification-review)) follows this same
+than saying so plainly. The Pending Dispatches page's own held-row
+text (see [§ Restricted-partner dispatch
+review](#restricted-partner-dispatch-review)) follows this same
 rule — it's not role-gated, since `GET /api/prayer-requests` and `GET
 /api/support-needs` already show that same text to any logged-in role
 with no masking at all; hiding it specifically in one list would be
@@ -609,7 +609,7 @@ filed as a Newsletter or still sitting in the Unmatched Emails queue) is
 what persists afterward — a church shouldn't rely on Postmark itself as
 a second copy past that window.
 
-### Notifications: WhatsApp
+### Dispatch: WhatsApp
 
 WhatsApp has no bot API for existing groups and communities. The official
 WhatsApp Business API only supports groups it creates itself, so this
@@ -630,12 +630,14 @@ know before turning it on:
   reduces the risk; it can't remove it.
 - **The number must be a member** of the community and of every group you
   map (and an admin of any group where only admins can post).
-- **Announcements fallback.** Same idea as GroupMe's main conversation:
-  every WhatsApp community has a built-in Announcements group, detected
-  automatically the moment you pick the community (no picker for it —
-  the WhatsApp settings page just shows which one it found). A
-  notification type with no group of its own mapped posts there instead;
-  only with neither set does it not go out over WhatsApp.
+- **Announcements fallback.** Every WhatsApp community has a built-in
+  Announcements group, detected automatically the moment you pick the
+  community (no picker for it — the WhatsApp settings page just shows
+  which one it found). A dispatch type with no group of its own mapped
+  posts there instead; only with neither set does it not go out over
+  WhatsApp. GroupMe's main conversation plays the same role for
+  GroupMe — each channel has its own independent fallback target, not
+  a shared one.
 - **What's stored.** The linked session lives in the database, encrypted
   with `FIELD_ENCRYPTION_KEY` (the same protection as the GroupMe token),
   and is never sent to the browser. It is deliberately **not** in
@@ -655,18 +657,25 @@ know before turning it on:
   connection). Only one copy of the app may hold the session at a time:
   during a deploy the new instance waits (a minute or two) for the old one
   to let go, handled automatically with a database lock.
-- **Schedule and message size.** WhatsApp shares GroupMe's daily send hour
-  and content-type mutes (Site Administration → Notifications) but tracks
-  its own sent state, so one channel being down never blocks the other.
-  Related items going to the same group are combined into one message
-  (kept under 4,000 characters); a single item longer than that is split
-  into consecutive messages rather than cut off.
+- **Schedule and message size.** WhatsApp sends once a day, at an
+  admin-set hour, with three independent content-type mutes (Prayer
+  Requests / One-Time Needs / Newsletters) — both configured on Site
+  Administration → Dispatch Settings. GroupMe and WhatsApp are both
+  chat-style, near-real-time channels, which is why they're scheduled
+  on that one shared daily-hour field and the same three mutes rather
+  than each getting its own — not because WhatsApp borrows GroupMe's
+  settings. Each channel still tracks its own sent state with its own
+  dedupe cursor, so one being down, muted, or off never blocks or
+  double-stamps the other. Related items going to the same group are
+  combined into one message (kept under 4,000 characters); a single
+  item longer than that is split into consecutive messages rather than
+  cut off.
 
-### Notifications: GroupMe, the admin digest, and the public digest
+### Dispatch: GroupMe, the admin digest, and the public digest
 
 Every event a partner generates — a prayer request created or
 answered, a one-time need created or decided, a newsletter arriving —
-is recorded once, in a shared `NotifiableEvent` table, with exactly one
+is recorded once, in a shared `DispatchRecord` table, with exactly one
 exception: a restricted partner's event is only recorded at all if
 **Restricted partners** (below) is on. Everything else about how it
 actually reaches someone is a question of *delivery*, answered
@@ -682,12 +691,23 @@ backlog).
 
 - **GroupMe** — full item text (never summarized), packed into as few
   messages as fit under GroupMe's 1,000-character limit, to each
-  type's own configured Topic. Fires once a day, at its own
-  admin-set hour (below) — a single daily batch, not a weekly/monthly
-  tier, since GroupMe is a near-real-time chat channel, not a periodic
-  email. Three content-type mutes (Prayer Requests / One-Time Needs /
-  Newsletters) let a church turn off any one type for GroupMe
-  specifically without affecting the admin or public digest at all.
+  type's own configured Topic. Fires once a day, at an admin-set hour
+  shared with WhatsApp (below) — a single daily batch, not a
+  weekly/monthly tier, since GroupMe is a near-real-time chat channel,
+  not a periodic email. Three content-type mutes (Prayer Requests /
+  One-Time Needs / Newsletters), also shared with WhatsApp, let a
+  church turn off any one type for both chat channels at once without
+  affecting the admin or public digest at all.
+- **WhatsApp** — the same three item types, posted to their own group
+  inside one WhatsApp community (or the community's Announcements
+  group, for a type with no group mapped). GroupMe and WhatsApp share
+  one daily-hour field and the same three content-type mutes
+  specifically because both are chat-style, near-real-time channels —
+  not because either one depends on or copies the other's settings.
+  Each still has its own independent on/off state, its own
+  connection/target configuration, and its own delivery and sent-state
+  tracking: turning one off, muting it, or its service being
+  unreachable never affects the other.
 - **Admin digest** — one HTML email per user who's picked a cadence
   (self-service from their own Account Settings), grouped by partner,
   always including every content type it's allowed to (no mute
@@ -712,9 +732,9 @@ all structurally absent from the public one:
 
 Both email digests share one subject-line template, signature, and
 layout choice (Classic — text only, or Snapshot — adds each partner's
-photo/field/overview), all admin-configurable on the same Notifications
-page. Full walkthrough of each control: [USER_GUIDE.md § Digest
-Customization](USER_GUIDE.md#digest-customization).
+photo/field/overview), all admin-configurable on the same Dispatch
+Settings page. Full walkthrough of each control: [USER_GUIDE.md § Email Dispatch
+Customization](USER_GUIDE.md#email-dispatch-customization).
 
 A restricted-access partner's content is masked on every channel —
 name reduced to initials, photo to a silhouette, no source link —
@@ -722,17 +742,19 @@ computed fresh from the partner's *current* `isRestricted` value at
 send time, not from whatever it was when the event was first recorded,
 so flipping that flag afterward still takes effect. A restricted
 partner's prayer request or one-time need additionally can't send **at
-all**, on any channel, until an admin has reviewed it — see
-[§ Restricted-partner notification review](#restricted-partner-notification-review)
+all**, on any channel — GroupMe, WhatsApp, or either digest — until an
+admin has reviewed it — see
+[§ Restricted-partner dispatch review](#restricted-partner-dispatch-review)
 below. Masking itself is unconditional and unaffected by review state
 either way.
 
 **Schedules.** The admin and public digests share three cadence tiers
 — biweekly, monthly, or quarterly — each admin and public subscriber
 picks for themselves; the church sets the actual day/time those tiers
-fire on the Notifications page. GroupMe's own daily hour is a
-completely separate, independent setting on the same page — a church
-can run GroupMe and the email tiers on entirely different schedules.
+fire on the Dispatch Settings page. GroupMe and WhatsApp's shared
+daily hour is a completely separate, independent setting on the same
+page — a church can run the chat channels and the email tiers on
+entirely different schedules.
 Both are checked once a minute by their own in-process
 [`node-cron`](https://www.npmjs.com/package/node-cron) jobs started in
 `server.js`, not a separate Render Cron Job resource and not an
@@ -751,14 +773,14 @@ setting — without it, "9" would mean 9am on the server (effectively
 UTC on Render, never a church's own local time). Changing the timezone
 takes effect on the next restart/deploy, not instantly.
 
-### Urgent broadcast
+### Urgent dispatch
 
 An admin or editor can mark a prayer request or one-time need **urgent**
 at the moment they create it (there's no equivalent for a newsletter —
 nothing creates one through a form a human fills out in the moment).
 Checking the box and saving shows a confirmation naming the real number
 of admins and public subscribers about to be notified, then — once
-confirmed — sends immediately to every notification channel this
+confirmed — sends immediately to every dispatch channel this
 church has enabled, bypassing each recipient's own chosen schedule
 entirely.
 
@@ -776,10 +798,10 @@ For a restricted partner specifically, a second checkbox — **Review
 and approve now** — appears alongside **Mark as urgent**, admin/editor
 only. Checking it confirms, at creation time, that the exact text just
 typed is safe to send verbatim, and clears the review hold right then
-instead of requiring a separate visit to Pending Notifications
+instead of requiring a separate visit to Pending Dispatches
 afterward. It's a shortcut for the same review step described in
-[§ Restricted-partner notification
-review](#restricted-partner-notification-review), not a send of its
+[§ Restricted-partner dispatch
+review](#restricted-partner-dispatch-review), not a send of its
 own: checking it alone doesn't push anything out anywhere. Reaching
 any channel still depends on that channel's own schedule firing next,
 or on also checking **Mark as urgent** for an immediate send.
@@ -791,7 +813,7 @@ requests — either every partner, several of them, or just one, all from
 a single dedicated **Subscribe** page (`/subscribe`), or from a "follow
 this partner" form on that partner's own public page (which also points
 back to the Subscribe page, for anyone who wants more than just that one
-partner). This rides the exact same `NotifiableEvent` rows and the same
+partner). This rides the exact same `DispatchRecord` rows and the same
 restricted-partner masking and review gate the previous section
 describes — a public digest is **prayer-requests only** by construction,
 same as stated above.
@@ -810,7 +832,7 @@ confirmation without the second. Turning **Public prayer digest** off
 again stops delivery to already-confirmed subscribers immediately, not
 just new signups.
 
-A **Prayer Digest Subscribers** section on the same Notifications page
+An **Email Dispatch Subscribers** section on the same Dispatch Settings page
 (visible whenever the public digest is on) shows how many admins and
 public visitors are subscribed — counts only, never an email address.
 
@@ -829,19 +851,19 @@ raw addresses. Worth keeping in mind before adding anything (analytics,
 a third-party integration, an export) that would make that statement
 stop being true.
 
-### Restricted-partner notification review
+### Restricted-partner dispatch review
 
 A restricted partner's prayer request/one-time need (new, answered, or
 decided) is recorded the same as anyone else's, but can't actually send
-on any channel — not GroupMe, not either digest, not an urgent
-broadcast — until an admin reviews it. This is on top of the structural
+on any channel — not GroupMe, not WhatsApp, not either digest, not an
+urgent dispatch — until an admin reviews it. This is on top of the structural
 masking above, which applies regardless: it's about whether the
 request/need **text itself** is safe to send verbatim, something only a
 human reading the real content can judge. Newsletters aren't affected —
-a restricted partner's newsletter notification is already fully
+a restricted partner's newsletter dispatch is already fully
 suppressed, nothing to review.
 
-On the Pending Notifications page, a held item shows an amber
+On the Pending Dispatches page, a held item shows an amber
 **Awaiting review** badge, and the row itself already shows the real
 (unmasked) text — not the generic placeholder — regardless of who's
 looking; that text was never actually protected by hiding it here, since
@@ -855,7 +877,7 @@ it's accepted, one of two ways:
   Shows the real text in the confirmation prompt, nothing to edit.
 - **Edit** — opens the same reveal-and-edit view available on any
   queued item (see [USER_GUIDE.md § Pending
-  Notifications](USER_GUIDE.md#pending-notifications)), but for a held
+  Dispatches](USER_GUIDE.md#pending-dispatches)), but for a held
   item, saving carries the same confirmation and also clears the hold —
   the button reads **Save and Approve** rather than plain **Save** to
   make that consequence explicit.
@@ -868,7 +890,7 @@ previously reviewed text.
 
 A church that would rather not run a review step at all — fully
 automated, nobody checking a queue — can leave **Restricted partners**
-off on the Notifications page (the default). With it off, a restricted
+off on the Dispatch Settings page (the default). With it off, a restricted
 partner's events are never recorded in the first place, for any type;
 there's nothing to hold and nothing to review, since there's nothing
 recorded. Turning it on takes on the review responsibility above in

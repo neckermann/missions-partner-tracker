@@ -2,7 +2,7 @@ const { test, describe, mock, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
 // whatsappChannel.js transitively requires prismaClient.js, which reads
 // DATABASE_URL eagerly at require time -- same reason
-// digestScheduler.test.js needs this. Everything exercised here is pure or
+// emailDispatchScheduler.test.js needs this. Everything exercised here is pure or
 // mocks the WhatsApp client; no DB is touched.
 require("dotenv").config({ quiet: true });
 const whatsappClient = require("../src/utils/whatsappClient");
@@ -14,7 +14,7 @@ const {
   postToWhatsApp,
   shouldFlushWhatsApp,
 } = require("../src/utils/whatsappChannel");
-const { CHANNELS, isEligibleForChannel } = require("../src/utils/notificationEligibility");
+const { CHANNELS, isEligibleForChannel } = require("../src/utils/dispatchEligibility");
 
 afterEach(() => mock.restoreAll());
 
@@ -111,7 +111,7 @@ describe("hasWhatsAppTarget", () => {
 
   test("still true during a momentary disconnect -- a group pick, not live pairing, is the signal", () => {
     // A transient reconnect (every deploy causes one) must not look the
-    // same as a deliberate unlink to clearNotifiableEvents -- a real
+    // same as a deliberate unlink to clearDispatchRecords -- a real
     // unlink clears the group fields too (see routes/settings.js's POST
     // /whatsapp/unlink), so "group picked" alone is what's actually
     // stable here.
@@ -134,25 +134,31 @@ describe("shouldFlushWhatsApp", () => {
   const NINE_AM = new Date(2026, 0, 7, 9, 0, 0);
 
   test("not configured (no shared chat hour) never fires", () => {
-    assert.equal(shouldFlushWhatsApp({ groupmeDigestHour: null }, NINE_AM), false);
+    assert.equal(shouldFlushWhatsApp({ chatDispatchHour: null }, NINE_AM), false);
     assert.equal(shouldFlushWhatsApp(null, NINE_AM), false);
   });
 
   test("fires at the shared hour, once per ~day, on its own cursor", () => {
-    const settings = { groupmeDigestHour: 9, lastWhatsappDigestSentAt: null };
+    const settings = { chatDispatchHour: 9, lastWhatsappChatDispatchSentAt: null };
     assert.equal(shouldFlushWhatsApp(settings, NINE_AM), true);
-    assert.equal(shouldFlushWhatsApp({ ...settings, groupmeDigestHour: 10 }, NINE_AM), false);
+    assert.equal(shouldFlushWhatsApp({ ...settings, chatDispatchHour: 10 }, NINE_AM), false);
     const sixHoursAgo = new Date(NINE_AM - 6 * 60 * 60 * 1000);
-    assert.equal(shouldFlushWhatsApp({ ...settings, lastWhatsappDigestSentAt: sixHoursAgo }, NINE_AM), false);
+    assert.equal(
+      shouldFlushWhatsApp({ ...settings, lastWhatsappChatDispatchSentAt: sixHoursAgo }, NINE_AM),
+      false
+    );
     const yesterday = new Date(NINE_AM - 24 * 60 * 60 * 1000);
-    assert.equal(shouldFlushWhatsApp({ ...settings, lastWhatsappDigestSentAt: yesterday }, NINE_AM), true);
+    assert.equal(
+      shouldFlushWhatsApp({ ...settings, lastWhatsappChatDispatchSentAt: yesterday }, NINE_AM),
+      true
+    );
   });
 
   test("GroupMe having already sent this hour never blocks WhatsApp", () => {
     const settings = {
-      groupmeDigestHour: 9,
-      lastGroupmeDigestSentAt: NINE_AM,
-      lastWhatsappDigestSentAt: null,
+      chatDispatchHour: 9,
+      lastGroupmeChatDispatchSentAt: NINE_AM,
+      lastWhatsappChatDispatchSentAt: null,
     };
     assert.equal(shouldFlushWhatsApp(settings, NINE_AM), true);
   });
@@ -166,9 +172,9 @@ describe("WhatsApp shares GroupMe's content-type mutes", () => {
 
   test("each mute suppresses WhatsApp exactly as it does GroupMe", () => {
     const muted = {
-      notifyGroupMePrayerRequests: false,
-      notifyGroupMeOneTimeNeeds: false,
-      notifyGroupMeNewsletters: false,
+      chatDispatchPrayerRequests: false,
+      chatDispatchOneTimeNeeds: false,
+      chatDispatchNewsletters: false,
     };
     for (const row of [prayerRow, needRow, newsRow]) {
       assert.equal(isEligibleForChannel(row, CHANNELS.WHATSAPP, partner, muted, true), false);
@@ -179,14 +185,20 @@ describe("WhatsApp shares GroupMe's content-type mutes", () => {
 
   test("a restricted partner's unreviewed row is held on WhatsApp too", () => {
     const restricted = { isRestricted: true, isPublic: false };
-    const settings = { allowRestrictedPartnerNotifications: true };
+    const settings = { allowRestrictedPartnerDispatch: true };
     assert.equal(
-      isEligibleForChannel({ ...prayerRow, reviewedAt: null }, CHANNELS.WHATSAPP, restricted, settings, true),
+      isEligibleForChannel(
+        { ...prayerRow, dispatchReviewedAt: null },
+        CHANNELS.WHATSAPP,
+        restricted,
+        settings,
+        true
+      ),
       false
     );
     assert.equal(
       isEligibleForChannel(
-        { ...prayerRow, reviewedAt: new Date() },
+        { ...prayerRow, dispatchReviewedAt: new Date() },
         CHANNELS.WHATSAPP,
         restricted,
         settings,
@@ -255,7 +267,7 @@ describe("postToWhatsApp", () => {
     mock.method(whatsappClient, "sendText", async (jid, text) => sent.push({ jid, text }));
     // A prayer request, not the newsletter used above -- newsletterCreated's
     // own groupmeText is independently null without APP_BASE_URL set (no
-    // link, nothing worth sending -- see notificationBlurbs.js), which
+    // link, nothing worth sending -- see dispatchBlurbs.js), which
     // would filter this row out before ever reaching the fallback logic
     // this test is actually about, passing locally (APP_BASE_URL set in
     // backend/.env) but not in CI (unset there). prayerRequestCreated's
@@ -298,7 +310,7 @@ describe("postToWhatsApp", () => {
     const sent = [];
     mock.method(whatsappClient, "sendText", async (jid, text) => sent.push(text));
     const restricted = new Map([["p1", { id: "p1", displayName: "Jane Doe", isRestricted: true }]]);
-    const row = { ...prayer("a", "Secret location details"), reviewedAt: null };
+    const row = { ...prayer("a", "Secret location details"), dispatchReviewedAt: null };
     // postToWhatsApp trusts the caller's eligibility filter, but buildBlurb
     // masks regardless of review state.
     await postToWhatsApp([row], restricted, settings);

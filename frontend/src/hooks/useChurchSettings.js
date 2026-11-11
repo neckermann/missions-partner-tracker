@@ -5,7 +5,7 @@ import { fetchChurchSettings } from "../api/client.js";
 // role restriction), replacing what used to be five independent
 // hand-rolled useState/useEffect pairs across the Site Administration
 // pages plus a one-off hook built for a single boolean
-// (useAllowRestrictedPartnerNotifications, now folded into this). Each
+// (useAllowRestrictedPartnerDispatch, now folded into this). Each
 // caller still derives its own local form/display state from `settings`
 // exactly as before -- this hook only replaces the fetch mechanism, not
 // any page's downstream shape, error copy, or save logic.

@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
 const { sendEmail } = require("../utils/email");
-const { buildSubscriberConfirmUrl } = require("../utils/digestShell");
+const { buildSubscriberConfirmUrl } = require("../utils/emailDispatchShell");
 const { renderSubscriberPage, escapeHtml, PRIVACY_LINE } = require("../utils/subscriberPage");
 
 const router = express.Router();

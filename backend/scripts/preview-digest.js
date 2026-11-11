@@ -4,8 +4,8 @@
 // sending a real one through Postmark. Pure template rendering -- no
 // database, no network, no API key needed.
 //
-// The fixture rows are NotifiableEvent-shaped and run through the same
-// buildBlurb() every real channel calls (notificationBlurbs.js), not
+// The fixture rows are DispatchRecord-shaped and run through the same
+// buildBlurb() every real channel calls (dispatchBlurbs.js), not
 // hand-written blurb objects -- so this stays honest about what the
 // real pipeline actually produces instead of drifting from it the
 // first time buildBlurb's output shape changes.
@@ -16,21 +16,21 @@
 // scripts/output/ (gitignored).
 const fs = require("fs");
 const path = require("path");
-const { buildBlurb } = require("../src/utils/notificationBlurbs");
-const { buildAdminDigestContent } = require("../src/utils/adminDigestContent");
-const { buildPublicDigestContent } = require("../src/utils/publicDigestContent");
-const { buildDigestMessage } = require("../src/utils/digestShell");
+const { buildBlurb } = require("../src/utils/dispatchBlurbs");
+const { buildAdminEmailDispatchContent } = require("../src/utils/adminEmailDispatchContent");
+const { buildPublicEmailDispatchContent } = require("../src/utils/publicEmailDispatchContent");
+const { buildEmailDispatchMessage } = require("../src/utils/emailDispatchShell");
 const { silhouetteFor } = require("../src/utils/silhouette");
 const { missionaryHouseholdCategory } = require("../src/utils/maskData");
 
-// Set before anything calls appBaseUrl() (notificationBlurbs.js,
-// digestShell.js both read it lazily) so the admin preview actually
+// Set before anything calls appBaseUrl() (dispatchBlurbs.js,
+// emailDispatchShell.js both read it lazily) so the admin preview actually
 // renders a "Read the source" button -- without this, sourceLinkUrl
 // resolves to null and the one real visual difference #221/#222 asked
 // about (admin gets source links, public structurally never does)
 // wouldn't show up in the preview at all. Pointed at the real live demo
 // rather than a placeholder domain so partnerTileDetails' silhouette
-// image (digestShell.js -- routes/silhouette.js is public, generic,
+// image (emailDispatchShell.js -- routes/silhouette.js is public, generic,
 // category-only, no partner data) actually resolves in a screenshot
 // instead of rendering as a broken image; the "Read the source" link
 // itself still won't resolve to a real file (fixture ids), which is
@@ -46,7 +46,7 @@ const CHURCH_SETTINGS = {
   highlightColor: "#a6540f",
   partnerTermPlural: "Missionaries",
   partnerTermSingular: "Missionary",
-  digestSignature: "Grateful for your partnership,\nPastor Dave",
+  emailDispatchSignature: "Grateful for your partnership,\nPastor Dave",
 };
 
 const PARTNERS = {
@@ -89,15 +89,15 @@ const PARTNERS_BY_ID = new Map(Object.values(PARTNERS).map((p) => [p.id, p]));
 
 // One row per real event type the app actually records -- a prayer
 // request, a one-time need at both its creation and decision, and a
-// newsletter with a title (see #222/notificationBlurbs.js's
+// newsletter with a title (see #222/dispatchBlurbs.js's
 // newsletterCreated case for why the title matters here).
 const ROWS = [
   {
     id: "fixture-1",
     type: "prayerRequestCreated",
     partnerId: PARTNERS.johnson.id,
-    reviewedAt: null,
-    reviewedText: null,
+    dispatchReviewedAt: null,
+    dispatchReviewedText: null,
     payload: {
       partnerName: PARTNERS.johnson.displayName,
       requestText: "Pray for safety as our family travels to a remote village for a two-week outreach trip.",
@@ -108,8 +108,8 @@ const ROWS = [
     id: "fixture-2",
     type: "supportNeedCreated",
     partnerId: PARTNERS.martinez.id,
-    reviewedAt: null,
-    reviewedText: null,
+    dispatchReviewedAt: null,
+    dispatchReviewedText: null,
     payload: {
       partnerName: PARTNERS.martinez.displayName,
       description: "Our vehicle's transmission failed and needs replacing before the rainy season starts.",
@@ -121,8 +121,8 @@ const ROWS = [
     id: "fixture-3",
     type: "supportNeedDecided",
     partnerId: PARTNERS.martinez.id,
-    reviewedAt: null,
-    reviewedText: null,
+    dispatchReviewedAt: null,
+    dispatchReviewedText: null,
     payload: {
       partnerName: PARTNERS.martinez.displayName,
       description: "Our vehicle's transmission failed and needs replacing before the rainy season starts.",
@@ -136,8 +136,8 @@ const ROWS = [
     id: "fixture-4",
     type: "newsletterCreated",
     partnerId: PARTNERS.osei.id,
-    reviewedAt: null,
-    reviewedText: null,
+    dispatchReviewedAt: null,
+    dispatchReviewedText: null,
     payload: {
       partnerName: PARTNERS.osei.displayName,
       title: "Spring Update: New Believers and a Building Project",
@@ -147,9 +147,9 @@ const ROWS = [
 ];
 
 // Mirrors isEligibleForChannel's own structural rule for the public
-// digest (notificationEligibility.js): only prayer-request types are
+// digest (dispatchEligibility.js): only prayer-request types are
 // ever eligible there. Filtering here, not just relying on
-// publicDigestContent.js's narrow renderItemHtml signature, keeps this
+// publicEmailDispatchContent.js's narrow renderItemHtml signature, keeps this
 // preview honest about *which rows* the public audience would ever see
 // in the first place, not just how the ones it does see get rendered.
 function eligibleForAudience(row, audience) {
@@ -157,7 +157,7 @@ function eligibleForAudience(row, audience) {
   return row.type === "prayerRequestCreated" || row.type === "prayerRequestAnswered";
 }
 
-// A trimmed, local stand-in for digestShell.js's own partnerTileDetails --
+// A trimmed, local stand-in for emailDispatchShell.js's own partnerTileDetails --
 // that function resolves the photo to a live /api/silhouette/*.svg URL
 // whenever APP_BASE_URL is set (the right choice for a real email, where
 // most clients refuse a data: URI), but this script's own output is a
@@ -185,14 +185,14 @@ function render(audience) {
 
   const content =
     audience === "admin"
-      ? buildAdminDigestContent(blurbs, partnerDetailsById, CHURCH_SETTINGS)
-      : buildPublicDigestContent(blurbs, partnerDetailsById, CHURCH_SETTINGS);
+      ? buildAdminEmailDispatchContent(blurbs, partnerDetailsById, CHURCH_SETTINGS)
+      : buildPublicEmailDispatchContent(blurbs, partnerDetailsById, CHURCH_SETTINGS);
 
   const recipient = { email: "preview@example.org", name: "Preview", kind: audience, cadence: "monthly" };
   // "#" as a placeholder unsubscribe link -- just enough for the footer
   // to render realistically, not a real token (no SESSION_SECRET needed
   // since we never call buildUnsubscribeToken/buildSubscriberUnsubscribeToken).
-  return buildDigestMessage(recipient, content, CHURCH_SETTINGS, "#");
+  return buildEmailDispatchMessage(recipient, content, CHURCH_SETTINGS, "#");
 }
 
 function main() {

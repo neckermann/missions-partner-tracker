@@ -6,16 +6,16 @@
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 const { sendEmailBatch } = require("./email");
-const { buildBlurb } = require("./notificationBlurbs");
-const { CHANNELS, isEligibleForChannel } = require("./notificationEligibility");
+const { buildBlurb } = require("./dispatchBlurbs");
+const { CHANNELS, isEligibleForChannel } = require("./dispatchEligibility");
 const {
-  buildDigestMessage,
+  buildEmailDispatchMessage,
   buildUnsubscribeUrl,
   buildSubscriberUnsubscribeUrl,
   partnerTileDetails,
-} = require("./digestShell");
-const { buildAdminDigestContent } = require("./adminDigestContent");
-const { buildPublicDigestContent } = require("./publicDigestContent");
+} = require("./emailDispatchShell");
+const { buildAdminEmailDispatchContent } = require("./adminEmailDispatchContent");
+const { buildPublicEmailDispatchContent } = require("./publicEmailDispatchContent");
 
 // Sent in chunks of 250 -- well under Postmark's documented 500-message/
 // 50MB cap per call to POST /email/batch, leaving headroom so a chunk
@@ -34,11 +34,11 @@ function normalizeRecipient(source, kind) {
     id: source.id,
     email: source.email,
     name: source.name || null,
-    kind, // CHANNELS.ADMIN_DIGEST | CHANNELS.PUBLIC_DIGEST
+    kind, // CHANNELS.EMAIL_ADMIN | CHANNELS.EMAIL_PUBLIC
     cadence: source.cadence,
     allPartners: source.allPartners,
     partnerIds:
-      kind === CHANNELS.ADMIN_DIGEST
+      kind === CHANNELS.EMAIL_ADMIN
         ? source.followedPartners.map((fp) => fp.partnerId)
         : source.scopedPartners.map((sp) => sp.partnerId),
   };
@@ -64,8 +64,8 @@ async function fetchPartnerTileDetailsById(partnerIds) {
 
 // The reusable core: given a set of rows and an already-assembled
 // recipient list (tier-filtered for the scheduled send, cadence-blind
-// for an urgent broadcast -- see notificationOrchestrator.js's
-// sendUrgentBroadcast), builds every recipient's personalized message
+// for an urgent dispatch -- see dispatchOrchestrator.js's
+// sendUrgentDispatch), builds every recipient's personalized message
 // and dispatches them in chunks. Returns the Set of row ids actually
 // included in at least one recipient's send -- the caller stamps
 // whichever column(s) apply.
@@ -73,7 +73,7 @@ async function sendToRecipients(rows, partnerById, recipients, settings) {
   const consideredIds = new Set();
   if (recipients.length === 0) return consideredIds;
 
-  const needsTiles = settings?.digestTemplate === "snapshot";
+  const needsTiles = settings?.emailDispatchLayout === "snapshot";
   const partnerDetailsById = needsTiles
     ? await fetchPartnerTileDetailsById([...new Set(rows.map((row) => row.partnerId))])
     : undefined;
@@ -100,15 +100,15 @@ async function sendToRecipients(rows, partnerById, recipients, settings) {
 
     const blurbs = eligibleRows.map((row) => buildBlurb(row, partnerById.get(row.partnerId))).filter(Boolean);
     const content =
-      recipient.kind === CHANNELS.ADMIN_DIGEST
-        ? buildAdminDigestContent(blurbs, partnerDetailsById, settings)
-        : buildPublicDigestContent(blurbs, partnerDetailsById, settings);
+      recipient.kind === CHANNELS.EMAIL_ADMIN
+        ? buildAdminEmailDispatchContent(blurbs, partnerDetailsById, settings)
+        : buildPublicEmailDispatchContent(blurbs, partnerDetailsById, settings);
 
     const unsubscribeUrl =
-      recipient.kind === CHANNELS.ADMIN_DIGEST
+      recipient.kind === CHANNELS.EMAIL_ADMIN
         ? buildUnsubscribeUrl(recipient.id)
         : buildSubscriberUnsubscribeUrl(recipient.id);
-    messages.push(buildDigestMessage(recipient, content, settings, unsubscribeUrl));
+    messages.push(buildEmailDispatchMessage(recipient, content, settings, unsubscribeUrl));
   }
 
   for (let i = 0; i < messages.length; i += BATCH_CHUNK_SIZE) {
@@ -122,7 +122,7 @@ async function sendToRecipients(rows, partnerById, recipients, settings) {
     const results = await sendEmailBatch(chunk);
     results.forEach((result, idx) => {
       if (result.ErrorCode !== 0) {
-        console.error(`Digest email to ${chunk[idx].To} failed:`, result.Message);
+        console.error(`Email dispatch to ${chunk[idx].To} failed:`, result.Message);
       }
     });
   }
@@ -132,13 +132,13 @@ async function sendToRecipients(rows, partnerById, recipients, settings) {
 
 // The scheduled send pass for one cadence tier
 // ("biweekly"|"monthly"|"quarterly"). Returns { consideredIds } --
-// digestScheduler.js stamps exactly these ids with this tier's column.
+// emailDispatchScheduler.js stamps exactly these ids with this tier's column.
 // Returns { consideredIds: [] } without touching anything if
 // outboundEmail is off or there's simply nothing to send.
 async function sendDigestTier(tier, settings) {
   if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) return { consideredIds: [] };
 
-  const rows = await prisma.notifiableEvent.findMany({ orderBy: { createdAt: "asc" } });
+  const rows = await prisma.dispatchRecord.findMany({ orderBy: { createdAt: "asc" } });
   if (rows.length === 0) return { consideredIds: [] };
 
   const partners = await prisma.partner.findMany({
@@ -183,8 +183,8 @@ async function sendDigestTier(tier, settings) {
       : [],
   ]);
   const recipients = [
-    ...admins.map((u) => normalizeRecipient(u, CHANNELS.ADMIN_DIGEST)),
-    ...publicSubscribers.map((s) => normalizeRecipient(s, CHANNELS.PUBLIC_DIGEST)),
+    ...admins.map((u) => normalizeRecipient(u, CHANNELS.EMAIL_ADMIN)),
+    ...publicSubscribers.map((s) => normalizeRecipient(s, CHANNELS.EMAIL_PUBLIC)),
   ];
 
   const consideredIds = await sendToRecipients(rows, partnerById, recipients, settings);

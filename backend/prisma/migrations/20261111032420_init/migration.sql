@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateTable
 CREATE TABLE "Partner" (
     "id" TEXT NOT NULL,
@@ -237,22 +240,22 @@ CREATE TABLE "InboundEmail" (
 );
 
 -- CreateTable
-CREATE TABLE "NotifiableEvent" (
+CREATE TABLE "DispatchRecord" (
     "id" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "partnerId" TEXT NOT NULL,
     "payload" JSONB NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "groupmeSentAt" TIMESTAMP(3),
-    "whatsappSentAt" TIMESTAMP(3),
-    "reviewedAt" TIMESTAMP(3),
-    "reviewedById" TEXT,
-    "reviewedText" TEXT,
-    "biweeklyDigestSentAt" TIMESTAMP(3),
-    "monthlyDigestSentAt" TIMESTAMP(3),
-    "quarterlyDigestSentAt" TIMESTAMP(3),
+    "groupmeDispatchedAt" TIMESTAMP(3),
+    "whatsappDispatchedAt" TIMESTAMP(3),
+    "dispatchReviewedAt" TIMESTAMP(3),
+    "dispatchReviewedById" TEXT,
+    "dispatchReviewedText" TEXT,
+    "biweeklyEmailDispatchSentAt" TIMESTAMP(3),
+    "monthlyEmailDispatchSentAt" TIMESTAMP(3),
+    "quarterlyEmailDispatchSentAt" TIMESTAMP(3),
 
-    CONSTRAINT "NotifiableEvent_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "DispatchRecord_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -317,23 +320,23 @@ CREATE TABLE "ChurchSettings" (
     "inboundEmailWebhookPassword" TEXT,
     "enabledFeatures" JSONB NOT NULL DEFAULT '{}',
     "backupReminderDisabled" BOOLEAN NOT NULL DEFAULT false,
-    "scopedDigestDayOfWeek" INTEGER,
-    "scopedDigestDayOfMonth" INTEGER,
-    "scopedDigestHour" INTEGER,
-    "lastBiweeklyScopedDigestSentAt" TIMESTAMP(3),
-    "lastMonthlyScopedDigestSentAt" TIMESTAMP(3),
-    "lastQuarterlyScopedDigestSentAt" TIMESTAMP(3),
-    "groupmeDigestHour" INTEGER,
-    "lastGroupmeDigestSentAt" TIMESTAMP(3),
-    "lastWhatsappDigestSentAt" TIMESTAMP(3),
+    "emailDispatchDayOfWeek" INTEGER,
+    "emailDispatchDayOfMonth" INTEGER,
+    "emailDispatchHour" INTEGER,
+    "lastBiweeklyEmailDispatchSentAt" TIMESTAMP(3),
+    "lastMonthlyEmailDispatchSentAt" TIMESTAMP(3),
+    "lastQuarterlyEmailDispatchSentAt" TIMESTAMP(3),
+    "chatDispatchHour" INTEGER,
+    "lastGroupmeChatDispatchSentAt" TIMESTAMP(3),
+    "lastWhatsappChatDispatchSentAt" TIMESTAMP(3),
     "timezone" TEXT NOT NULL DEFAULT 'America/Chicago',
-    "notifyGroupMePrayerRequests" BOOLEAN NOT NULL DEFAULT true,
-    "notifyGroupMeOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
-    "notifyGroupMeNewsletters" BOOLEAN NOT NULL DEFAULT true,
-    "allowRestrictedPartnerNotifications" BOOLEAN NOT NULL DEFAULT false,
-    "digestSubjectTemplate" TEXT,
-    "digestSignature" TEXT,
-    "digestTemplate" TEXT,
+    "chatDispatchPrayerRequests" BOOLEAN NOT NULL DEFAULT true,
+    "chatDispatchOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
+    "chatDispatchNewsletters" BOOLEAN NOT NULL DEFAULT true,
+    "allowRestrictedPartnerDispatch" BOOLEAN NOT NULL DEFAULT false,
+    "emailDispatchSubjectTemplate" TEXT,
+    "emailDispatchSignature" TEXT,
+    "emailDispatchLayout" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "updatedById" TEXT,
@@ -454,10 +457,10 @@ CREATE INDEX "PartnerFile_partnerId_idx" ON "PartnerFile"("partnerId");
 CREATE INDEX "PartnerFile_kind_idx" ON "PartnerFile"("kind");
 
 -- CreateIndex
-CREATE INDEX "NotifiableEvent_type_idx" ON "NotifiableEvent"("type");
+CREATE INDEX "DispatchRecord_type_idx" ON "DispatchRecord"("type");
 
 -- CreateIndex
-CREATE INDEX "NotifiableEvent_partnerId_idx" ON "NotifiableEvent"("partnerId");
+CREATE INDEX "DispatchRecord_partnerId_idx" ON "DispatchRecord"("partnerId");
 
 -- CreateIndex
 CREATE INDEX "Photo_partnerId_idx" ON "Photo"("partnerId");
@@ -520,7 +523,7 @@ ALTER TABLE "PrayerRequest" ADD CONSTRAINT "PrayerRequest_sourceFileId_fkey" FOR
 ALTER TABLE "PartnerFile" ADD CONSTRAINT "PartnerFile_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "NotifiableEvent" ADD CONSTRAINT "NotifiableEvent_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "DispatchRecord" ADD CONSTRAINT "DispatchRecord_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Photo" ADD CONSTRAINT "Photo_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;

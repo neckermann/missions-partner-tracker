@@ -41,7 +41,7 @@ function splitLongText(text, max) {
 // every piece of a split blurb (so a failed piece skips the rest of that
 // blurb and leaves it queued, rather than stamping a half-sent item).
 // `textField` is the blurb property to read (both channels currently use
-// the same channel-neutral `groupmeText` field -- see notificationBlurbs.js).
+// the same channel-neutral `groupmeText` field -- see dispatchBlurbs.js).
 function packMessages(blurbs, max, textField = "groupmeText") {
   const messages = [];
   let current = null;

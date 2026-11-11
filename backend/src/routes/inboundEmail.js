@@ -7,7 +7,7 @@ const { requireFeature } = require("../middleware/requireFeature");
 const { decryptField } = require("../utils/crypto");
 const { isFeatureEnabled } = require("../utils/features");
 const { sendStoredFile } = require("../utils/fileResponse");
-const { notifyNewsletterCreated } = require("../utils/notificationRecording");
+const { notifyNewsletterCreated } = require("../utils/dispatchRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 const { FILE_KINDS } = require("./fileKinds");
 

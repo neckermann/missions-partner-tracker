@@ -244,13 +244,26 @@ jobs:
       # change needed to the command below -- just restoring the cache
       # ahead of it.
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
 
+      # The browser binary itself is cached above, but --with-deps always
+      # hits apt for Ubuntu-level font/library packages regardless -- that
+      # part of the runner VM isn't cacheable. A transient DNS blip
+      # resolving the Ubuntu mirrors (seen repeatedly in practice) fails
+      # apt for several minutes before giving up, costing a full e2e run
+      # over something that clears up within seconds on retry.
       - name: Install Playwright browsers
-        run: cd frontend && npx playwright install --with-deps chromium
+        run: |
+          cd frontend
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "Playwright install failed (attempt $attempt/3), retrying in 15s..."
+            sleep 15
+          done
+          exit 1
 
       - name: Run e2e suite
         run: cd frontend && npx playwright test

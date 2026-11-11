@@ -54,15 +54,15 @@ export default function PrayerRequestSection({ partnerId, isRestricted, prayerRe
   // sending at all.
   const hasEnabledChannel =
     enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
-  // "Approve now" additionally requires allowRestrictedPartnerNotifications
-  // -- when that's off, recordEvent drops a restricted partner's event
-  // before it's ever queued (see notificationRecording.js), so checking
+  // "Approve now" additionally requires allowRestrictedPartnerDispatch
+  // -- when that's off, createDispatchRecord drops a restricted partner's
+  // event before it's ever queued (see dispatchRecording.js), so checking
   // this box would silently do nothing. Defaults to true while loading --
   // a UI convenience gate only, so briefly over-showing the control is
   // harmless; the real check is still enforced server-side regardless.
   const { settings } = useChurchSettings();
-  const allowRestrictedPartnerNotifications = settings?.allowRestrictedPartnerNotifications !== false;
-  const canApproveNow = isRestricted && hasEnabledChannel && allowRestrictedPartnerNotifications;
+  const allowRestrictedPartnerDispatch = settings?.allowRestrictedPartnerDispatch !== false;
+  const canApproveNow = isRestricted && hasEnabledChannel && allowRestrictedPartnerDispatch;
   // Named confirmDialog, not confirm -- this file's only confirmation
   // surface now (approve-now, urgent-send, and delete all route through
   // it), and `confirm` would read as a reference to the native global
@@ -315,7 +315,7 @@ export default function PrayerRequestSection({ partnerId, isRestricted, prayerRe
                 </div>
                 <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
                   This partner is restricted, so nothing above sends anywhere until an admin or editor reviews
-                  it -- normally from the Pending Notifications page afterward. Checking this confirms, right
+                  it -- normally from the Pending Dispatches page afterward. Checking this confirms, right
                   now, that the text you just typed is safe to send verbatim, skipping that extra trip. You'll
                   be asked to confirm the exact wording before saving.
                 </p>

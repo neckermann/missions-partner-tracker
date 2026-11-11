@@ -102,7 +102,7 @@ const FEATURES = {
     section: "communications",
   },
   groupme: {
-    label: "GroupMe notifications",
+    label: "GroupMe dispatch",
     description:
       "Post new prayer requests, one-time needs, and newsletters to their own configured GroupMe Topics as they're added.",
     defaultEnabled: false,
@@ -110,7 +110,7 @@ const FEATURES = {
     section: "communications",
   },
   whatsapp: {
-    label: "WhatsApp notifications",
+    label: "WhatsApp dispatch",
     description:
       "Post new prayer requests, one-time needs, and newsletters to their own configured WhatsApp community groups, on the same daily schedule as GroupMe. Uses a dedicated WhatsApp number linked to this app -- an unofficial connection, so see the Admin Guide before turning it on.",
     defaultEnabled: false,

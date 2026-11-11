@@ -121,7 +121,7 @@ model Partner {
   // The "current" photo (what the admin UI and public site show) is
   // whichever has the latest receivedDate, not just the latest upload.
   photos                   Photo[]
-  notifiableEvents         NotifiableEvent[]
+  dispatchRecords          DispatchRecord[]
   // Scoped-digest follows (#202) -- who's opted into updates for just
   // this partner, rather than every partner. Two sources, same shape.
   followedByUsers          UserFollowedPartner[]
@@ -329,8 +329,8 @@ model SupportNeed {
   // recorded, not at creation -- separate from the general `notes` field
   // below (settable any time, about anything), same reasoning
   // PrayerRequest.answeredNote is kept separate from a general notes
-  // field. Surfaced in the supportNeedDecided notification -- see
-  // notificationBlurbs.js.
+  // field. Surfaced in the supportNeedDecided dispatch -- see
+  // dispatchBlurbs.js.
   decisionNote    String?   @db.Text
   notes           String?   @db.Text
   createdAt       DateTime  @default(now())
@@ -387,13 +387,13 @@ model PrayerRequest {
   dateAnswered DateTime? @db.Date
   answeredNote String?   @db.Text
 
-  // Admin/editor-set at creation (see notificationRecording.js's
-  // sendUrgentBroadcast): bypasses every recipient's own cadence,
-  // broadcasting immediately to GroupMe, admins, and public subscribers
+  // Admin/editor-set at creation (see dispatchOrchestrator.js's
+  // sendUrgentDispatch): bypasses every recipient's own cadence,
+  // dispatching immediately to GroupMe, admins, and public subscribers
   // alike. Does not bypass the restricted-partner review gate below, or
   // either channel's own content-type/structural eligibility rules --
-  // see notificationEligibility.js's isEligibleForChannel, which
-  // sendUrgentBroadcast calls exactly like every scheduled pass does.
+  // see dispatchEligibility.js's isEligibleForChannel, which
+  // sendUrgentDispatch calls exactly like every scheduled pass does.
   isUrgent Boolean @default(false)
 
   notes     String?  @db.Text
@@ -486,18 +486,20 @@ model InboundEmail {
   createdAt   DateTime @default(now())
 }
 
-// A recorded event, capable of independently producing up to three
-// deliveries -- GroupMe, the admin digest, the public digest -- each
-// tracked by its own stamp column below (see notificationEligibility.js's
-// isEligibleForChannel, the one function all three channels call
-// identically). Renamed from PendingNotification: that name implied one
-// row is one notification, which stopped being true once a single row
-// could independently reach up to three different channels.
+// A recorded event, capable of independently producing up to four
+// dispatches -- GroupMe, WhatsApp, the admin email dispatch, the public
+// email dispatch -- each tracked by its own stamp column below (see
+// dispatchEligibility.js's isEligibleForChannel, the one function all
+// four channels call identically). Named DispatchRecord rather than an
+// "event"-based name on purpose: a future in-app notification feature is
+// exactly the kind of thing that would want to build itself around
+// "events," and this record is the thing each of those four channels
+// dispatches from, not an event in that sense.
 //
 // A row's mere existence means "recorded, not yet fully delivered," same
 // InboundEmail convention above, but deletion here is per-channel-aware
-// rather than unconditional -- see notificationOrchestrator.js's
-// clearNotifiableEvents(): a row is only deleted once every channel's
+// rather than unconditional -- see dispatchOrchestrator.js's
+// clearDispatchRecords(): a row is only deleted once every channel's
 // answer is either permanently resolved (ineligible by type/structure, or
 // a toggle/feature that was off at the pass where it was evaluated --
 // also permanent, not retried if the toggle flips back on) or actually
@@ -505,13 +507,13 @@ model InboundEmail {
 // failed leaves its own stamp null, so the next pass retries only that
 // channel without re-sending to one that already succeeded.
 //
-// `payload` holds whatever this event type's notification text needs to
+// `payload` holds whatever this event type's dispatch text needs to
 // render later (requestText/description/approvedAmount/etc., plus
 // sourceFileId for the source-file cross-link) --
 // a `type` + `payload Json` shape instead of a column per event type,
 // since the 5 event shapes genuinely differ and none of it needs to be
 // relationally queried later, only read back whole at send time.
-model NotifiableEvent {
+model DispatchRecord {
   id        String   @id @default(uuid())
   // "prayerRequestCreated" | "prayerRequestAnswered" | "supportNeedCreated" | "supportNeedDecided" | "newsletterCreated"
   type      String
@@ -521,38 +523,38 @@ model NotifiableEvent {
   createdAt DateTime @default(now())
 
   // GroupMe's own stamp -- set once groupmeChannel.js's postToGroupMe
-  // successfully posts this row, or immediately by sendUrgentBroadcast.
-  groupmeSentAt DateTime?
+  // successfully posts this row, or immediately by sendUrgentDispatch.
+  groupmeDispatchedAt DateTime?
 
-  // WhatsApp's own stamp -- same convention as groupmeSentAt above, set
-  // by whatsappChannel.js's postToWhatsApp (or immediately by
-  // sendUrgentBroadcast). Its own column, not shared with GroupMe's: a
+  // WhatsApp's own stamp -- same convention as groupmeDispatchedAt
+  // above, set by whatsappChannel.js's postToWhatsApp (or immediately by
+  // sendUrgentDispatch). Its own column, not shared with GroupMe's: a
   // church can run both channels at once, and one being down or
   // disconnected must never mark the other's delivery as done.
-  whatsappSentAt DateTime?
+  whatsappDispatchedAt DateTime?
 
   // Admin-edited body text (#187) -- any recorded event can be edited
-  // before it sends, restricted or not; see routes/notifications.js's
-  // PUT /pending/:id. reviewedAt null means "never edited," same
-  // one-nullable-timestamp convention as groupmeSentAt above, not a
-  // separate boolean that could disagree with it. reviewedById is
+  // before it sends, restricted or not; see routes/dispatches.js's
+  // PUT /pending/:id. dispatchReviewedAt null means "never edited," same
+  // one-nullable-timestamp convention as groupmeDispatchedAt above, not a
+  // separate boolean that could disagree with it. dispatchReviewedById is
   // audit-only, no FK, same convention as Partner's own
-  // createdById/updatedById. reviewedText, once set, overrides the
-  // computed body text for any row -- see notificationBlurbs.js. For a
-  // RESTRICTED partner's real-content notification specifically,
-  // reviewedAt null also means "held, not eligible to send yet" for the
-  // types REVIEW_GATED_TYPES actually covers (prayer requests, one-time
-  // needs) -- see notificationEligibility.js's isEligibleForChannel --
-  // but that hold is a separate concern layered on top of this plain
+  // createdById/updatedById. dispatchReviewedText, once set, overrides
+  // the computed body text for any row -- see dispatchBlurbs.js. For a
+  // RESTRICTED partner's real-content dispatch specifically,
+  // dispatchReviewedAt null also means "held, not eligible to send yet"
+  // for the types REVIEW_GATED_TYPES actually covers (prayer requests,
+  // one-time needs) -- see dispatchEligibility.js's isEligibleForChannel
+  // -- but that hold is a separate concern layered on top of this plain
   // edit mechanism, not a property of these columns themselves. A
   // restricted partner's newsletter is exempt from this gate entirely:
   // buildBlurb() already fully suppresses its content regardless of
   // review state, so there's nothing left to protect by holding it.
   // Structural masking (name/photo/source link) stays in effect
   // regardless of edit state either way. Re-editing overwrites all three.
-  reviewedAt   DateTime?
-  reviewedById String?
-  reviewedText String?   @db.Text
+  dispatchReviewedAt   DateTime?
+  dispatchReviewedById String?
+  dispatchReviewedText String?   @db.Text
 
   // One stamp per email cadence tier, not one per audience -- a single
   // tier's send pass considers every User and PublicSubscriber on that
@@ -561,14 +563,14 @@ model NotifiableEvent {
   // stamp set by whichever tier fires first would permanently suppress
   // the slower tiers from ever receiving the row at all, not just delay
   // them -- that's why there are three of these, not one. See
-  // digestDelivery.js's send loop for what writes them, and
-  // notificationOrchestrator.js's clearNotifiableEvents() for the
+  // emailDispatchDelivery.js's send loop for what writes them, and
+  // dispatchOrchestrator.js's clearDispatchRecords() for the
   // per-row, per-tier eligibility check these pair with. Tiers are
   // biweekly/monthly/quarterly -- weekly was retired along with the old
   // church-wide batch mechanism (see ChurchSettings' own comment).
-  biweeklyDigestSentAt  DateTime?
-  monthlyDigestSentAt   DateTime?
-  quarterlyDigestSentAt DateTime?
+  biweeklyEmailDispatchSentAt  DateTime?
+  monthlyEmailDispatchSentAt   DateTime?
+  quarterlyEmailDispatchSentAt DateTime?
 
   @@index([type])
   @@index([partnerId])
@@ -674,7 +676,7 @@ model ChurchSettings {
   // Phase 1 mapped Prayer Requests only -- this is that later phase.
   // One-Time Needs and Newsletters each get their own groupme*TopicId/
   // Name pair, not a single generic "topic" field that would need
-  // renaming once there's more than one notification type.
+  // renaming once there's more than one dispatch content type.
   groupmePrayerTopicId        String?
   groupmePrayerTopicName      String?
   groupmeOneTimeNeedTopicId   String?
@@ -691,7 +693,7 @@ model ChurchSettings {
   // as groupmeGroupName etc.
   //
   // One WhatsApp *community* containing several groups, mapped onto the
-  // same three notification types GroupMe maps onto Topics. Unlike an
+  // same three content types GroupMe maps onto Topics. Unlike an
   // earlier version of this comment claimed, there IS a fallback, same
   // idea as GroupMe's main-group fallback: every WhatsApp community has
   // a built-in Announcements group (Baileys flags it as
@@ -779,44 +781,45 @@ model ChurchSettings {
   // otherwise, not silently opted out by a missing value.
   backupReminderDisabled Boolean @default(false)
 
-  // Schedule for the admin/public digest's three cadence tiers --
+  // Schedule for the admin/public email dispatch's three cadence tiers --
   // biweekly/monthly/quarterly (weekly was retired along with the old
-  // church-wide batch mechanism this replaced; see digestDelivery.js
-  // and digestScheduler.js). Biweekly shares scopedDigestDayOfWeek with
-  // nothing else now, kept the same field name rather than renaming for
-  // a tier-set change alone; monthly and quarterly both read
-  // scopedDigestDayOfMonth (capped at 1-28 specifically to dodge the
+  // church-wide batch mechanism this replaced; see emailDispatchDelivery.js
+  // and emailDispatchScheduler.js). Biweekly shares emailDispatchDayOfWeek
+  // with nothing else now, kept the same field name rather than renaming
+  // for a tier-set change alone; monthly and quarterly both read
+  // emailDispatchDayOfMonth (capped at 1-28 specifically to dodge the
   // "the 31st doesn't exist in February" class of edge case), told
   // apart only by each tier's own minimum-gap check against its own
   // lastSentAt cursor below -- no separate "which cycle" state needed.
   // A separate cursor per tier, not one shared one, since the three
   // fire on different cycles and must each independently dedupe within
   // their own matching hour.
-  scopedDigestDayOfWeek           Int? // 0 (Sun) - 6 (Sat) -- biweekly
-  scopedDigestDayOfMonth          Int? // 1 - 28 -- monthly/quarterly
-  scopedDigestHour                Int? // 0 - 23, in this church's configured timezone (see `timezone` below)
-  lastBiweeklyScopedDigestSentAt  DateTime?
-  lastMonthlyScopedDigestSentAt   DateTime?
-  lastQuarterlyScopedDigestSentAt DateTime?
+  emailDispatchDayOfWeek           Int? // 0 (Sun) - 6 (Sat) -- biweekly
+  emailDispatchDayOfMonth          Int? // 1 - 28 -- monthly/quarterly
+  emailDispatchHour                Int? // 0 - 23, in this church's configured timezone (see `timezone` below)
+  lastBiweeklyEmailDispatchSentAt  DateTime?
+  lastMonthlyEmailDispatchSentAt   DateTime?
+  lastQuarterlyEmailDispatchSentAt DateTime?
 
   // GroupMe's own schedule -- a single daily batch hour, not a tier
   // pick. GroupMe never actually had an independent schedule before
   // this (it silently rode the old church-wide digest's now-retired
   // schedule) -- a weekly/monthly tier wouldn't fit a chat-style,
-  // near-real-time channel anyway. lastGroupmeDigestSentAt is this
-  // schedule's own dedupe guard, mirroring the scopedDigest cursors
+  // near-real-time channel anyway, which is also why this field says
+  // "chat dispatch," not "digest" -- GroupMe/WhatsApp are real-time chat
+  // posts, never batched. lastGroupmeChatDispatchSentAt is this
+  // schedule's own dedupe guard, mirroring the email-dispatch cursors
   // above but at daily granularity -- no day-of-week/day-of-month field
   // needed, since there's no larger period to pick a day within. See
   // groupmeChannel.js's shouldFlushGroupMe.
-  groupmeDigestHour       Int? // 0 - 23, in this church's configured timezone
-  lastGroupmeDigestSentAt DateTime?
-  // WhatsApp shares groupmeDigestHour above (and the three
-  // notifyGroupMe* content-type mutes) -- one chat schedule, not two --
+  chatDispatchHour            Int? // 0 - 23, in this church's configured timezone
+  lastGroupmeChatDispatchSentAt DateTime?
+  // WhatsApp shares chatDispatchHour above (and the three
+  // chatDispatch* content-type mutes) -- one chat schedule, not two --
   // but keeps its own dedupe cursor. A shared cursor would let whichever
   // channel ran first on a tick stamp it and block the other from ever
-  // sending that day. The column names stay "groupme*" so existing forks
-  // upgrade without a rename; only the admin UI labels say "chat".
-  lastWhatsappDigestSentAt DateTime?
+  // sending that day.
+  lastWhatsappChatDispatchSentAt DateTime?
 
   // This church's own IANA timezone (e.g. "America/New_York"), applied
   // to process.env.TZ once at server startup (see server.js) -- every
@@ -834,58 +837,54 @@ model ChurchSettings {
   // it mid-process is documented as unreliable.
   timezone String @default("America/Chicago")
 
-  // Per-channel content-type mutes, GroupMe only -- the admin digest
-  // always includes every content type it's allowed to (no toggle), and
-  // the public digest was never toggle-based either (structurally
-  // prayer-requests-only regardless). GroupMe is different: it's a
-  // chat-style, near-real-time channel, where muting one content type
-  // while keeping others is a real, worthwhile control. Renamed from
-  // queueNotify* -- those names implied blocking *recording*, which
-  // none of these three do; only allowRestrictedPartnerNotifications
-  // below still works that way. Default true (matches this app's
-  // long-standing behavior: every content type notified unless muted).
-  notifyGroupMePrayerRequests         Boolean @default(true)
-  notifyGroupMeOneTimeNeeds           Boolean @default(true)
-  notifyGroupMeNewsletters            Boolean @default(true)
-  // The one setting that applies to every channel equally (GroupMe and
-  // both digests), not just GroupMe -- a creation-time safety gate, not
-  // a delivery preference: off means a restricted partner's event is
-  // never recorded at all, for any type, because the review gate it
-  // would otherwise wait on (see NotifiableEvent.reviewedAt) waits on a
-  // human action that might never come, and a church that doesn't
-  // actively watch that review queue needs a way to opt out of the
-  // burden entirely rather than accumulate an ever-growing unreviewed
-  // backlog. Renamed from queueNotifyRestrictedPartners to read as the
-  // distinct, cross-cutting rule it actually is, rather than a fourth
-  // peer of the three GroupMe mutes above. Defaults off -- this is a
-  // real safety gate (restricted-partner content waiting on manual
-  // review, possibly indefinitely), not something a church should be
-  // opted into without deciding to take it on.
-  allowRestrictedPartnerNotifications Boolean @default(false)
+  // Per-channel content-type mutes, chat channels only (GroupMe and
+  // WhatsApp) -- the admin email dispatch always includes every content
+  // type it's allowed to (no toggle), and the public email dispatch was
+  // never toggle-based either (structurally prayer-requests-only
+  // regardless). Chat channels are different: they're near-real-time,
+  // where muting one content type while keeping others is a real,
+  // worthwhile control. Default true (matches this app's long-standing
+  // behavior: every content type dispatched unless muted).
+  chatDispatchPrayerRequests          Boolean @default(true)
+  chatDispatchOneTimeNeeds            Boolean @default(true)
+  chatDispatchNewsletters             Boolean @default(true)
+  // The one setting that applies to every channel equally (GroupMe,
+  // WhatsApp, and both email dispatches), not just the chat channels --
+  // a creation-time safety gate, not a delivery preference: off means a
+  // restricted partner's event is never recorded at all, for any type,
+  // because the review gate it would otherwise wait on (see
+  // DispatchRecord.dispatchReviewedAt) waits on a human action that
+  // might never come, and a church that doesn't actively watch that
+  // review queue needs a way to opt out of the burden entirely rather
+  // than accumulate an ever-growing unreviewed backlog. Defaults off --
+  // this is a real safety gate (restricted-partner content waiting on
+  // manual review, possibly indefinitely), not something a church
+  // should be opted into without deciding to take it on.
+  allowRestrictedPartnerDispatch Boolean @default(false)
 
-  // Digest email customization (see #182) -- null subject/signature means
-  // "use the built-in default" (see DEFAULT_SUBJECT_TEMPLATE in
-  // digestShell.js), same blank-means-default convention every other
-  // admin-text field in this app already follows. Shared config: the
-  // same three settings drive both the admin digest and the public
-  // digest now, not an admin-only concern.
-  // digestSubjectTemplate supports {church}/{month}/{year}/{date}/
-  // {cadence}/{name}/{term} tokens, substituted in digestShell.js -- an
-  // admin writes plain text, not a real template language, so no other
-  // token syntax (conditionals, loops) is ever needed or supported.
-  digestSubjectTemplate String?
+  // Email dispatch customization (see #182) -- null subject/signature
+  // means "use the built-in default" (see DEFAULT_SUBJECT_TEMPLATE in
+  // emailDispatchShell.js), same blank-means-default convention every
+  // other admin-text field in this app already follows. Shared config:
+  // the same three settings drive both the admin and public email
+  // dispatch now, not an admin-only concern.
+  // emailDispatchSubjectTemplate supports {church}/{month}/{year}/{date}/
+  // {cadence}/{name}/{term} tokens, substituted in emailDispatchShell.js
+  // -- an admin writes plain text, not a real template language, so no
+  // other token syntax (conditionals, loops) is ever needed or supported.
+  emailDispatchSubjectTemplate String?
   // A short closing line (a verse, "Questions? Contact us", etc.) shown
-  // near the digest's footer, above the unsubscribe link. Deliberately
-  // separate from publicTagline (the public-site subtitle) -- this is
-  // email-specific and never shown anywhere else.
-  digestSignature       String? @db.Text
-  // Which digest layout to render -- "classic" (plain text-only partner
-  // cards, the original design) or "snapshot" (adds each partner's
+  // near the email dispatch's footer, above the unsubscribe link.
+  // Deliberately separate from publicTagline (the public-site subtitle)
+  // -- this is email-specific and never shown anywhere else.
+  emailDispatchSignature       String? @db.Text
+  // Which layout to render -- "classic" (plain text-only partner cards,
+  // the original design) or "snapshot" (adds each partner's
   // photo/silhouette, field, "Supporting since", and short overview above
-  // their items -- see digestShell.js's partnerTileDetails()). Null/unset
-  // means "classic", so every church's digest looks exactly the same as
-  // before this field existed until one opts in.
-  digestTemplate        String? // "classic" | "snapshot"
+  // their items -- see emailDispatchShell.js's partnerTileDetails()).
+  // Null/unset means "classic", so every church's email dispatch looks
+  // exactly the same as before this field existed until one opts in.
+  emailDispatchLayout          String? // "classic" | "snapshot"
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -934,13 +933,13 @@ model User {
 
   // Opt-in per user, self-service from Account Settings -- same pattern
   // as MFA above. null = not subscribed to the admin digest email (see
-  // digestDelivery.js); a value is which of the three cadence tiers
-  // this user picked. Renamed from digestFrequency -- matches the word
-  // this app's own docs/plan already use everywhere in prose, and no
-  // longer collides in meaning with ChurchSettings' own, unrelated
+  // emailDispatchDelivery.js); a value is which of the three cadence
+  // tiers this user picked. Renamed from digestFrequency -- matches the
+  // word this app's own docs/plan already use everywhere in prose, and
+  // no longer collides in meaning with ChurchSettings' own, unrelated
   // digestFrequency (the old church-wide batch mechanism's field,
   // retired). One nullable field for "subscribed at all" and "to what
-  // cadence" together, same convention as NotifiableEvent.reviewedAt,
+  // cadence" together, same convention as DispatchRecord.dispatchReviewedAt,
   // not two fields that could disagree. Flipped to null directly by the
   // signed unsubscribe link in every digest email's footer, no login
   // required (see this file's own /unsubscribe route).
@@ -969,12 +968,12 @@ model UserFollowedPartner {
 }
 
 // A public, no-login email subscription to prayer-request updates.
-// Rides the exact same NotifiableEvent rows an admin subscriber does,
+// Rides the exact same DispatchRecord rows an admin subscriber does,
 // through the one shared isEligibleForChannel function
-// (notificationEligibility.js) -- structurally prayer-requests-only,
+// (dispatchEligibility.js) -- structurally prayer-requests-only,
 // never a one-time need, never a newsletter or a link back to one; see
-// digestDelivery.js for the shared send-pass both subscriber types go
-// through, and digestShell.js for the shared render shell.
+// emailDispatchDelivery.js for the shared send-pass both subscriber types
+// go through, and emailDispatchShell.js for the shared render shell.
 //
 // Double opt-in: confirmedAt null means "never confirmed, never sent
 // to." A row is created unconfirmed on POST /api/public/subscribe and

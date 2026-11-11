@@ -64,14 +64,14 @@ export default function PartnerFinancialSection({
   // reasoning (shared precondition for "Mark as urgent" and
   // canApproveNow below, not an "urgent-only" check despite the old
   // name this was renamed from). canApproveNow additionally requires
-  // allowRestrictedPartnerNotifications, defaulting to true while
+  // allowRestrictedPartnerDispatch, defaulting to true while
   // loading -- a UI convenience gate only, the real check is still
   // enforced server-side regardless.
   const hasEnabledChannel =
     enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
   const { settings } = useChurchSettings();
-  const allowRestrictedPartnerNotifications = settings?.allowRestrictedPartnerNotifications !== false;
-  const canApproveNow = isRestricted && hasEnabledChannel && allowRestrictedPartnerNotifications;
+  const allowRestrictedPartnerDispatch = settings?.allowRestrictedPartnerDispatch !== false;
+  const canApproveNow = isRestricted && hasEnabledChannel && allowRestrictedPartnerDispatch;
   // Named confirmDialog, not confirm -- this file's only confirmation
   // surface now (approve-now, urgent-send, and both deletes all route
   // through it), and `confirm` would read as a reference to the native
@@ -417,7 +417,7 @@ export default function PartnerFinancialSection({
                     </div>
                     <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
                       This partner is restricted, so nothing above sends anywhere until an admin or editor
-                      reviews it -- normally from the Pending Notifications page afterward. Checking this
+                      reviews it -- normally from the Pending Dispatches page afterward. Checking this
                       confirms, right now, that the text you just typed is safe to send verbatim, skipping
                       that extra trip. You'll be asked to confirm the exact wording before saving.
                     </p>

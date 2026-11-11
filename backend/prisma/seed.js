@@ -27,8 +27,8 @@ const ORGANIZATION_COUNT = process.env.SEED_ORGANIZATION_COUNT
   : 12;
 // On by default (local `npm run seed`, the live demo reset) -- unmatched
 // inbound emails, extra admin/editor/viewer users, and a sample pending-
-// notifications queue, all of which a fresh route-test/CI database must
-// NOT have: those suites assert on InboundEmail/NotifiableEvent/User
+// dispatches queue, all of which a fresh route-test/CI database must
+// NOT have: those suites assert on InboundEmail/DispatchRecord/User
 // tables assuming nothing but their own fixtures touched them (see
 // CONTRIBUTING.md § Local development data for this exact hazard).
 // CI's e2e job and scripts/test-db.js both set this to "false" before
@@ -767,10 +767,19 @@ const PEXELS_MISSIONARY_QUERIES = {
   family_with_kids: ["mother father and children portrait", "mom dad kids family outdoor portrait"],
   large_family: ["mom dad grandparents family group portrait", "parents children large family portrait"],
 };
-const PEXELS_ORG_LOGO_QUERIES = [
-  "abstract logo design",
-  "minimalist brand logo",
-  "nonprofit organization logo",
+// Deliberately NOT "logo"/"brand" terms -- stock libraries tag essentially
+// any designed product photography (packaging, merchandise, ads, across
+// every industry with zero regard for appropriateness) under those same
+// generic branding keywords, and a real reseed against a real Pexels
+// account surfaced exactly that kind of unrelated, inappropriate product
+// photo for a missions app showing a church's partners. These queries ask
+// for photographic content specific to a church/missions context instead
+// of a generic "org" concept, so results land in the same narrow, fitting
+// neighborhood this app actually depicts.
+const PEXELS_ORG_QUERIES = [
+  "church building exterior",
+  "mission trip volunteers serving community",
+  "world map globe",
 ];
 
 // Mirrors exactly how `adults`/`children` are built above: one adult with
@@ -833,7 +842,7 @@ async function buildPhotoPools() {
     console.log(`  ${category}: ${urls.length} photos`);
   }
   let orgUrls = [];
-  for (const q of PEXELS_ORG_LOGO_QUERIES) orgUrls = orgUrls.concat(await fetchPexelsPhotos(q));
+  for (const q of PEXELS_ORG_QUERIES) orgUrls = orgUrls.concat(await fetchPexelsPhotos(q));
   pools.org = { urls: shuffled(orgUrls), next: 0 };
   console.log(`  org: ${orgUrls.length} photos`);
   return pools;
@@ -1172,14 +1181,14 @@ async function seedAdditionalUsers() {
   }
 }
 
-// A curated handful of NotifiableEvent rows against partners already
-// seeded above, covering the states Pending Notifications should show
+// A curated handful of DispatchRecord rows against partners already
+// seeded above, covering the states Pending Dispatches should show
 // off: an ordinary sendable prayer request, an answered one, a
 // restricted partner's prayer request left deliberately unreviewed
 // (the "awaiting review" badge -- #218, the one state a fresh reset
 // otherwise never demonstrates), an undecided one-time need, a decided
 // one, and a newsletter. Reuses the real notify* functions
-// (notificationRecording.js) rather than hand-building NotifiableEvent
+// (dispatchRecording.js) rather than hand-building DispatchRecord
 // payloads here, so a seeded row is byte-identical in shape to what a
 // real create would have produced and can't silently drift out of sync
 // with the real payload shape. None of this risks an actual send:
@@ -1188,14 +1197,14 @@ async function seedAdditionalUsers() {
 // up depends entirely on ChurchSettings' own schedule fields, which the
 // demo reset deliberately leaves unset -- see reset-demo-data.js.
 async function seedNotificationQueue() {
-  console.log("Seeding a sample pending-notifications queue...");
+  console.log("Seeding a sample pending-dispatches queue...");
   const {
     notifyPrayerRequestCreated,
     notifyPrayerRequestAnswered,
     notifySupportNeedCreated,
     notifySupportNeedDecided,
     notifyNewsletterCreated,
-  } = require("../src/utils/notificationRecording");
+  } = require("../src/utils/dispatchRecording");
   const partnerSelect = { id: true, displayName: true, isRestricted: true };
 
   const ongoingPrayers = await prisma.prayerRequest.findMany({

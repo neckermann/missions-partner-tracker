@@ -172,7 +172,7 @@ a {
   font-weight: normal;
 }
 /* A plain caption splitting the Site Administration subnav into groups
-   (e.g. "Notifications" ahead of GroupMe/Email) -- text, not a link, so
+   (e.g. "Communications" ahead of GroupMe/Email) -- text, not a link, so
    no :hover/active states to style. */
 .admin-sidebar-subnav-label {
   padding: 0.5rem 0.6rem 0.1rem;

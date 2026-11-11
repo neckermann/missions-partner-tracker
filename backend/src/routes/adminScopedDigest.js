@@ -3,7 +3,7 @@ const prisma = require("../prismaClient");
 const { requireAuth } = require("../middleware/requireAuth");
 
 const router = express.Router();
-router.use(requireAuth); // any logged-in role -- read-only, same "viewing is harmless" reasoning as GET /api/notifications/pending
+router.use(requireAuth); // any logged-in role -- read-only, same "viewing is harmless" reasoning as GET /api/dispatches/pending
 
 // GET /api/scoped-digest/summary -- counts only, no email addresses, for
 // the admin-visible "how many people are on this" view (#202). Full

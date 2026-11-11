@@ -3,8 +3,11 @@ import Modal from "../Modal.jsx";
 import { createPrayerRequest, createSupportNeed } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 
-// Shared by PartnerFileSection's "Scan for requests" button. `scan` is the
-// extractFromPartnerFile call (passed in rather than an id, so this
+// Rendered from 2 places as of this writing -- PartnerFileSection.jsx's and
+// AdminPartnerFiles.jsx's own "Scan for requests" buttons -- grep this
+// component's name before changing a required prop here, so neither caller
+// gets missed. `scan` is the extractFromPartnerFile call (passed in rather
+// than an id, so this
 // component doesn't need to know anything about the file itself) -- runs
 // once on mount. Nothing is written until the admin explicitly clicks Add
 // on a given card; closing the modal without adding just discards the

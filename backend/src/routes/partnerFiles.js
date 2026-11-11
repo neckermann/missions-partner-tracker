@@ -8,7 +8,7 @@ const { sendStoredFile } = require("../utils/fileResponse");
 const { extractRequestsFromFile, isEml } = require("../utils/extraction");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
-const { notifyNewsletterCreated } = require("../utils/notificationRecording");
+const { notifyNewsletterCreated } = require("../utils/dispatchRecording");
 const { FILE_KINDS } = require("./fileKinds");
 
 const router = express.Router();

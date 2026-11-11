@@ -3,7 +3,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
-const { notifySupportNeedCreated, notifySupportNeedDecided } = require("../utils/notificationRecording");
+const { notifySupportNeedCreated, notifySupportNeedDecided } = require("../utils/dispatchRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
@@ -25,7 +25,7 @@ const supportNeedSchema = z.object({
   approvedAmount: z.coerce.number().int().nonnegative().optional().nullable(),
   approvedDate: z.coerce.date().optional().nullable(),
   decisionNote: z.string().optional().nullable(),
-  // Admin/editor-set at creation -- see notificationRecording.js's
+  // Admin/editor-set at creation -- see dispatchRecording.js's
   // maybeBroadcastUrgent for what this actually triggers.
   isUrgent: z.boolean().optional(),
   // Not a SupportNeed column -- stripped out below before the Prisma
@@ -91,7 +91,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
       .parse(req.body);
     const created = await prisma.supportNeed.create({ data, include: supportNeedInclude });
 
-    // Best-effort: notifySupportNeedCreated (utils/notificationRecording.js)
+    // Best-effort: notifySupportNeedCreated (utils/dispatchRecording.js)
     // never throws -- see the same comment in routes/prayerRequests.js.
     await notifySupportNeedCreated(created, approveNow ? { reviewerId: req.user.id } : null);
 

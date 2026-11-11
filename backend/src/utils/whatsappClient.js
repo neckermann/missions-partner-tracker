@@ -105,7 +105,7 @@ function makeSilentLogger() {
 // ---- advisory lock ------------------------------------------------------
 
 // A hung TCP handshake with no timeout would block indefinitely -- this
-// is the one specific hang point the digestScheduler.js's own timeout
+// is the one specific hang point the emailDispatchScheduler.js's own timeout
 // wrapper can't distinguish from a hung Baileys handshake, so it's
 // worth bounding here too as defense in depth.
 const LOCK_CONNECT_TIMEOUT_MS = 10 * 1000;

@@ -2,16 +2,15 @@
 // Newsletters each to their own configured group inside one WhatsApp
 // community), its schedule check, and its own stamping. The sibling of
 // groupmeChannel.js -- same shape, same one-way dependencies, so
-// digestScheduler.js composes the two identically. The socket itself lives
+// emailDispatchScheduler.js composes the two identically. The socket itself lives
 // in whatsappClient.js; nothing here touches Baileys directly.
 //
 // Schedule: WhatsApp shares GroupMe's daily send hour
-// (ChurchSettings.groupmeDigestHour -- the column keeps its name so forks
-// upgrade without a rename; the admin UI calls it the chat schedule) and
-// its three content-type mutes, but has its own dedupe cursor
-// (lastWhatsappDigestSentAt) and its own per-row stamp (whatsappSentAt).
-// A church that turns both channels on simply gets both posting at the
-// same hour; one being down never blocks or double-stamps the other.
+// (ChurchSettings.chatDispatchHour) and its three content-type mutes,
+// but has its own dedupe cursor (lastWhatsappChatDispatchSentAt) and its
+// own per-row stamp (whatsappDispatchedAt). A church that turns both
+// channels on simply gets both posting at the same hour; one being down
+// never blocks or double-stamps the other.
 //
 // Message text comes from buildBlurb()'s groupmeText -- the one place
 // restricted-partner masking and review gating are decided, so WhatsApp
@@ -20,8 +19,8 @@
 // longer messages, so several related blurbs collapse into one message.
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
-const { buildBlurb } = require("./notificationBlurbs");
-const { CHANNELS, isEligibleForChannel } = require("./notificationEligibility");
+const { buildBlurb } = require("./dispatchBlurbs");
+const { CHANNELS, isEligibleForChannel } = require("./dispatchEligibility");
 const { shouldFlushDailyChatChannel } = require("./chatSchedule");
 const { splitLongText, packMessages } = require("./messagePacking");
 const whatsappClient = require("./whatsappClient");
@@ -33,8 +32,8 @@ const whatsappClient = require("./whatsappClient");
 const MAX_MESSAGE_LENGTH = 4000;
 
 // Single source of truth for which ChurchSettings group column serves
-// which notification type. GROUP_FIELD_BY_EVENT_TYPE (keyed by the
-// NotifiableEvent row type, for eligibility/clearing which look at raw
+// which content type. GROUP_FIELD_BY_EVENT_TYPE (keyed by the
+// DispatchRecord row type, for eligibility/clearing which look at raw
 // rows) and GROUP_FIELD_BY_TOPIC_KEY (keyed by a blurb's topicKey --
 // GroupMe's own ChurchSettings field name, reused as a channel-neutral
 // label -- for posting, which looks at blurbs) are both DERIVED from
@@ -81,9 +80,9 @@ function resolveWhatsAppGroupId(row, settings) {
   return effectiveGroupId(GROUP_FIELD_BY_EVENT_TYPE[row.type], settings);
 }
 
-// True when this row's notification type resolves to some WhatsApp
+// True when this row's content type resolves to some WhatsApp
 // group -- its own pick or the Announcements fallback.
-// notificationOrchestrator.js's clearNotifiableEvents uses this to avoid
+// dispatchOrchestrator.js's clearDispatchRecords uses this to avoid
 // holding a row in the queue forever when neither is ever going to
 // exist.
 //
@@ -100,17 +99,17 @@ function resolveWhatsAppGroupId(row, settings) {
 // on a real unlink. The one caller that actually needs "is it connected
 // right now" (runWhatsAppPass) already has its own separate, more
 // precise whatsappClient.getStatus() check upstream of this one, same
-// as sendWhatsAppUrgent in notificationOrchestrator.js -- this function
+// as sendWhatsAppUrgent in dispatchOrchestrator.js -- this function
 // was never their only guard against sending while disconnected.
 function hasWhatsAppTarget(row, settings) {
   return Boolean(resolveWhatsAppGroupId(row, settings));
 }
 
-// Takes already-eligible NotifiableEvent rows (the caller filtered through
+// Takes already-eligible DispatchRecord rows (the caller filtered through
 // isEligibleForChannel), builds each row's blurb, and posts to each type's
 // own configured group. Returns the Set of row ids that actually posted --
 // one group failing (not a member any more, anti-ban pause) must not stop
-// rows headed elsewhere from stamping whatsappSentAt.
+// rows headed elsewhere from stamping whatsappDispatchedAt.
 async function postToWhatsApp(eligibleRows, partnerById, settings) {
   const sentIds = new Set();
 
@@ -152,7 +151,7 @@ async function postToWhatsApp(eligibleRows, partnerById, settings) {
 // Same daily-hour rule as GroupMe's shouldFlushGroupMe (shared via
 // chatSchedule.js), reading the shared hour but WhatsApp's own cursor.
 function shouldFlushWhatsApp(settings, now) {
-  return shouldFlushDailyChatChannel(settings, now, "lastWhatsappDigestSentAt");
+  return shouldFlushDailyChatChannel(settings, now, "lastWhatsappChatDispatchSentAt");
 }
 
 // WhatsApp's schedule check + pass. A no-op if the feature's off, the
@@ -166,7 +165,7 @@ async function runWhatsAppPass(settings, now) {
   if (!shouldFlushWhatsApp(settings, now)) return;
   if (whatsappClient.getStatus().status !== "connected") return;
 
-  const rows = await prisma.notifiableEvent.findMany({ orderBy: { createdAt: "asc" } });
+  const rows = await prisma.dispatchRecord.findMany({ orderBy: { createdAt: "asc" } });
   if (rows.length > 0) {
     const partners = await prisma.partner.findMany({
       where: { id: { in: [...new Set(rows.map((row) => row.partnerId))] } },
@@ -176,22 +175,25 @@ async function runWhatsAppPass(settings, now) {
 
     const eligibleRows = rows.filter(
       (row) =>
-        !row.whatsappSentAt &&
+        !row.whatsappDispatchedAt &&
         hasWhatsAppTarget(row, settings) &&
         isEligibleForChannel(row, CHANNELS.WHATSAPP, partnerById.get(row.partnerId), settings, true)
     );
     if (eligibleRows.length > 0) {
       const sentIds = await postToWhatsApp(eligibleRows, partnerById, settings);
       if (sentIds.size > 0) {
-        await prisma.notifiableEvent.updateMany({
+        await prisma.dispatchRecord.updateMany({
           where: { id: { in: [...sentIds] } },
-          data: { whatsappSentAt: now },
+          data: { whatsappDispatchedAt: now },
         });
       }
     }
   }
 
-  await prisma.churchSettings.update({ where: { id: "singleton" }, data: { lastWhatsappDigestSentAt: now } });
+  await prisma.churchSettings.update({
+    where: { id: "singleton" },
+    data: { lastWhatsappChatDispatchSentAt: now },
+  });
 }
 
 module.exports = {

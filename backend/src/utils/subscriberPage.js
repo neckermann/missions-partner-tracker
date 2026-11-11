@@ -6,7 +6,7 @@
 // shell. A link clicked from an email, not an API call, so it's a page,
 // not JSON.
 const prisma = require("../prismaClient");
-const { appBaseUrl } = require("./notificationBlurbs");
+const { appBaseUrl } = require("./dispatchBlurbs");
 
 const PRIVACY_LINE =
   "Your email is used only to send these updates -- we never share it with anyone else, and you can unsubscribe anytime.";

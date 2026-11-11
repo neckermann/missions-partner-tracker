@@ -113,7 +113,7 @@ export default function AccountSettings() {
       )}
 
       {user?.authProvider === "local" && <MfaSection user={user} onChange={reloadUser} />}
-      {user && enabledFeatures.outboundEmail && <NotificationsSection user={user} onChange={reloadUser} />}
+      {user && enabledFeatures.outboundEmail && <EmailDispatchSection user={user} onChange={reloadUser} />}
     </div>
   );
 }
@@ -124,9 +124,9 @@ export default function AccountSettings() {
 // in a digest email's own footer does -- this is just the in-app
 // equivalent for someone who's already logged in. Besides whatever
 // cadence is picked below, this account may also receive an urgent
-// broadcast immediately, bypassing this schedule entirely -- see the
+// dispatch immediately, bypassing this schedule entirely -- see the
 // "Marking something urgent" note in USER_GUIDE.md.
-function NotificationsSection({ user, onChange }) {
+function EmailDispatchSection({ user, onChange }) {
   const [partners, setPartners] = useState([]);
   const [cadence, setCadence] = useState(user.cadence || "");
   const [allPartners, setAllPartners] = useState(user.allPartners !== false);
@@ -159,10 +159,10 @@ function NotificationsSection({ user, onChange }) {
         allPartners,
         partnerIds,
       });
-      setSuccess("Notification preference saved.");
+      setSuccess("Dispatch preference saved.");
       await onChange();
     } catch (err) {
-      setError(err.response?.data?.error || "Couldn't update your notification preference");
+      setError(err.response?.data?.error || "Couldn't update your dispatch preference");
     } finally {
       setBusy(false);
     }
@@ -170,7 +170,7 @@ function NotificationsSection({ user, onChange }) {
 
   return (
     <div className="admin-section">
-      <h3>Email Notifications</h3>
+      <h3>Email Dispatch</h3>
       {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
       {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
 

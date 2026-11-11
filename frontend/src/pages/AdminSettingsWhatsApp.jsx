@@ -205,7 +205,7 @@ export default function AdminSettingsWhatsApp() {
   async function handleUnlink() {
     if (
       !window.confirm(
-        "Unlink this WhatsApp number? Notifications stop immediately and your community and group choices are cleared."
+        "Unlink this WhatsApp number? Dispatching stops immediately and your community and group choices are cleared."
       )
     ) {
       return;
@@ -302,7 +302,7 @@ export default function AdminSettingsWhatsApp() {
       <h2>WhatsApp</h2>
       <p style={{ color: "#555" }}>
         Posts new prayer requests, one-time needs, and newsletters to your WhatsApp community groups, on the
-        same daily schedule as GroupMe (set under <a href="/admin/settings/notifications">Notifications</a>).
+        same daily schedule as GroupMe (set under <a href="/admin/settings/dispatches">Dispatch Settings</a>).
       </p>
       <div className="field-warning">
         This links a phone number to the app the same way WhatsApp Web does. It is not an official WhatsApp

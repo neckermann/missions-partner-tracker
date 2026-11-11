@@ -120,6 +120,98 @@ build cache on that redeploy rather than reusing it whenever a push
 touches `schema.prisma` — see [RUNBOOK.md](RUNBOOK.md) for where that's
 done.
 
+## Screenshot maintenance
+
+Identity/content conventions (church name, real seeded data, mocking
+external APIs, restoring state afterward) are in
+[CONTRIBUTING.md § Documentation screenshots](CONTRIBUTING.md#documentation-screenshots)
+— that's the human-contributor-facing version. What follows is the
+operational detail specific to an agent actually doing a capture pass,
+not covered there.
+
+**Fixed viewport, never `fullPage: true`.** Capture at `1280x900` for a
+normal content/list/queue page, `1280x1400` for a settings/form page.
+Check an existing screenshot's real dimensions
+(`file docs/assets/screenshots/<similar-page>.png`) before guessing
+which one a new page needs — `admin-partner-detail.png` is the one
+deliberate exception, allowed to run long. Beyond just being the wrong
+height, `fullPage: true` forces Playwright to scroll the whole page
+before compositing the image, which can catch a sticky/floating element
+(e.g. the `form-has-floating-actions` save bar) mid-transition and bake
+it into the image stranded mid-page instead of pinned to the viewport
+bottom where a real user always sees it. A fixed-viewport, non-fullPage
+capture can't reproduce that bug at all — treat "did this page use
+fullPage" as the first thing to check if a save bar ever looks wrong.
+
+**A nav/sidebar change invalidates essentially every existing
+screenshot, not just the pages that obviously relate to it.** The
+sidebar is shared chrome on every admin page, so one nav edit (a link
+added/removed/renamed, a page split, a group reordered) goes stale
+everywhere it renders, independent of whether that page's own content
+changed. Default to "recapture everything sidebar-visible" rather than
+reasoning page-by-page about relevance.
+
+When a nav/UI change lands, work through this instead of re-deriving it:
+
+0. Get the demo state rich first — seeded partners with full profiles,
+   About Church/Branding filled in with real content, a dispatch queue
+   spanning its different visible states, prayer requests/one-time
+   needs with more than one status represented, an unmatched email
+   sitting in the queue — and set `ChurchSettings.backupReminderDisabled
+   = true` so the backup-reminder banner doesn't show up in any admin
+   capture. Once per sweep, not per screenshot. This has been built as
+   a single process serving the production build (`frontend/npm run
+   build` writes into `backend/public`; the backend then serves both
+   the API and that build from one origin), not the two-process `:5173`
+   dev split — so the stack to review live during/after a sweep is
+   **`http://localhost:4000`** alone, whatever port `backend/.env`'s
+   `PORT` resolves to (4000 by default). **Leave that server running
+   when the sweep finishes, instead of tearing it down immediately** —
+   the project owner reviews the result live before it ships; only tear
+   down the scratch Postgres/`.env`/temp scripts once told the review is
+   done, not as part of finishing the capture pass itself.
+1. `ls docs/assets/screenshots/` for the full inventory, then
+   `file docs/assets/screenshots/*` to record each file's current real
+   dimensions — that's also your sizing target when recapturing it.
+2. Classify every file as **sidebar-visible** (in scope, assume stale)
+   or not: public site pages, GroupMe/WhatsApp's own apps, raw rendered
+   email HTML, print/booklet output, and cropped UI-element shots with
+   no sidebar in frame are the standing "not in scope" list.
+   `docs/index.html` reuses a large share of this same pool directly (23
+   of the 53 files in `docs/assets/screenshots/`, confirmed by grep) —
+   it has no admin sidebar of its own, but several of the admin
+   screenshots it embeds do, so recapturing one of those for
+   `ADMIN_GUIDE.md`/`USER_GUIDE.md` means `docs/index.html` is showing
+   the same now-stale image too. Review it in the same pass, not as an
+   afterthought once the guides are done.
+3. For every sidebar-visible file: log in as the demo admin, navigate to
+   it on the current build, recapture at its existing viewport.
+4. A handful need real state rebuilt, not just a nav change — an
+   integration shown "fully configured" (simulate via a direct
+   `ChurchSettings` write, not a real token), MFA enrollment (has to
+   actually walk the TOTP flow), reports/booklet pages (need realistic
+   filtered data present). Handle these as their own small scripts, not
+   folded into the mechanical sweep.
+5. **Identity check before anything ships, every time:** confirm
+   nothing visible — "Signed in as," a user list, any real API response
+   — shows a non-`@hillsidecommunity.org` email or the app's own
+   technical demo login. Cheaper to check per-file up front than to
+   catch it after a background fork has already captured and committed
+   a batch.
+6. This is long and mechanical — a good candidate to hand to a
+   background fork once the inventory/classification above is done. The
+   fork doesn't need re-briefing on identity/sizing/mocking conventions
+   if this file and `CONTRIBUTING.md` are in its context; still
+   spot-check its output against step 5 yourself rather than trusting
+   its own self-report alone.
+7. Update doc prose/anchors (across `ADMIN_GUIDE.md`, `USER_GUIDE.md`,
+   and `docs/index.html` alike) only where the page itself moved or was
+   renamed — separate from just refreshing a screenshot, don't touch
+   wording that's still accurate.
+8. Commit in reviewable batches (one logical group of pages at a time),
+   not one giant commit — a bad capture is much easier to spot and redo
+   from a small diff.
+
 ## Starter brief template
 
 When delegating a task to a fresh agent in this repo, include:
