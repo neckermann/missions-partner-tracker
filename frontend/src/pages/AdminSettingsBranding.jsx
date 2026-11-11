@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { fetchChurchSettings, updateChurchSettings, uploadChurchLogo } from "../api/client.js";
+import { updateChurchSettings, uploadChurchLogo } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
+import useChurchSettings from "../hooks/useChurchSettings.js";
 
 const emptyForm = {
   partnerTermSingular: "",
@@ -51,11 +52,13 @@ export default function AdminSettingsBranding() {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
+  const { settings, error: settingsError } = useChurchSettings();
   useEffect(() => {
-    fetchChurchSettings()
-      .then((s) => setForm(mergeFetchedRecord(s)))
-      .catch(() => setError("Couldn't load branding settings."));
-  }, []);
+    if (settings) setForm(mergeFetchedRecord(settings));
+  }, [settings]);
+  useEffect(() => {
+    if (settingsError) setError("Couldn't load branding settings.");
+  }, [settingsError]);
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));

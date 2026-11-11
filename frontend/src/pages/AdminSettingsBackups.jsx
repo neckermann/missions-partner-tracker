@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { fetchChurchSettings, updateChurchSettings } from "../api/client.js";
+import { updateChurchSettings } from "../api/client.js";
+import useChurchSettings from "../hooks/useChurchSettings.js";
 
 // A full database export, streamed straight from GET /api/backups/download
 // as a file download -- nothing is persisted server-side (see
@@ -14,20 +15,20 @@ function downloadBackup() {
 export default function AdminSettingsBackups() {
   const [reminderDisabled, setReminderDisabled] = useState(false);
   const [checked, setChecked] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
+  const { settings, loading, error: settingsError } = useChurchSettings();
   useEffect(() => {
-    fetchChurchSettings()
-      .then((s) => {
-        setReminderDisabled(Boolean(s?.backupReminderDisabled));
-        setChecked(Boolean(s?.backupReminderDisabled));
-      })
-      .catch(() => setError("Couldn't load backup settings."))
-      .finally(() => setLoading(false));
-  }, []);
+    if (settings) {
+      setReminderDisabled(Boolean(settings?.backupReminderDisabled));
+      setChecked(Boolean(settings?.backupReminderDisabled));
+    }
+  }, [settings]);
+  useEffect(() => {
+    if (settingsError) setError("Couldn't load backup settings.");
+  }, [settingsError]);
 
   async function handleSave(e) {
     e.preventDefault();

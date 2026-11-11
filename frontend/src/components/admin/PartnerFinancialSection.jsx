@@ -18,7 +18,7 @@ import {
 import EditableSection from "./EditableSection.jsx";
 import useLoadMore from "../../hooks/useLoadMore.js";
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
-import useAllowRestrictedPartnerNotifications from "../../hooks/useAllowRestrictedPartnerNotifications.js";
+import useChurchSettings from "../../hooks/useChurchSettings.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import LoadMoreButton from "../LoadMoreButton.jsx";
 import SourceLink from "./SourceLink.jsx";
@@ -64,11 +64,13 @@ export default function PartnerFinancialSection({
   // reasoning (shared precondition for "Mark as urgent" and
   // canApproveNow below, not an "urgent-only" check despite the old
   // name this was renamed from). canApproveNow additionally requires
-  // allowRestrictedPartnerNotifications -- see
-  // useAllowRestrictedPartnerNotifications's own comment.
+  // allowRestrictedPartnerNotifications, defaulting to true while
+  // loading -- a UI convenience gate only, the real check is still
+  // enforced server-side regardless.
   const hasEnabledChannel =
     enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
-  const allowRestrictedPartnerNotifications = useAllowRestrictedPartnerNotifications();
+  const { settings } = useChurchSettings();
+  const allowRestrictedPartnerNotifications = settings?.allowRestrictedPartnerNotifications !== false;
   const canApproveNow = isRestricted && hasEnabledChannel && allowRestrictedPartnerNotifications;
   // Named confirmDialog, not confirm -- this file's only confirmation
   // surface now (approve-now, urgent-send, and both deletes all route
