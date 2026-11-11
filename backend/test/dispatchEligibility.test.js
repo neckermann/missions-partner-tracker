@@ -55,7 +55,10 @@ describe("needsReview", () => {
   });
 
   test("newsletterCreated never needs review, even for a restricted partner", () => {
-    assert.equal(needsReview({ type: "newsletterCreated", dispatchReviewedAt: null }, { isRestricted: true }), false);
+    assert.equal(
+      needsReview({ type: "newsletterCreated", dispatchReviewedAt: null }, { isRestricted: true }),
+      false
+    );
   });
 
   test("a missing partner (deleted) is treated as not restricted", () => {
@@ -99,10 +102,7 @@ describe("isEligibleForChannel", () => {
 
   test("restricted-and-reviewed is eligible wherever else it qualifies", () => {
     const row = { type: "prayerRequestCreated", dispatchReviewedAt: new Date() };
-    assert.equal(
-      isEligibleForChannel(row, CHANNELS.EMAIL_ADMIN, restrictedReviewed, onSettings, true),
-      true
-    );
+    assert.equal(isEligibleForChannel(row, CHANNELS.EMAIL_ADMIN, restrictedReviewed, onSettings, true), true);
   });
 
   test("allowRestrictedPartnerDispatch off blocks every channel, even once reviewed", () => {

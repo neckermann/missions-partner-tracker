@@ -1,9 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  fetchPendingDispatches,
-  deletePendingDispatch,
-  updatePendingDispatch,
-} from "../api/client.js";
+import { fetchPendingDispatches, deletePendingDispatch, updatePendingDispatch } from "../api/client.js";
 import DispatchReviewModal from "../components/admin/DispatchReviewModal.jsx";
 import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";

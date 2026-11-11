@@ -8,12 +8,7 @@
 // both triggers, so neither pass's file needs to call back into this one.
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
-const {
-  CHANNELS,
-  isEligibleForChannel,
-  needsReview,
-  getChurchSettings,
-} = require("./dispatchEligibility");
+const { CHANNELS, isEligibleForChannel, needsReview, getChurchSettings } = require("./dispatchEligibility");
 const { postToGroupMe } = require("./groupmeChannel");
 const { postToWhatsApp, hasWhatsAppTarget } = require("./whatsappChannel");
 const whatsappClient = require("./whatsappClient");

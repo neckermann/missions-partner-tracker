@@ -271,10 +271,7 @@ describe("GET /api/dispatches/urgent-recipient-count", () => {
       (await unauthenticated(`/api/dispatches/urgent-recipient-count?partnerId=${partnerId}`)).status,
       401
     );
-    assert.equal(
-      (await viewer(`/api/dispatches/urgent-recipient-count?partnerId=${partnerId}`)).status,
-      403
-    );
+    assert.equal((await viewer(`/api/dispatches/urgent-recipient-count?partnerId=${partnerId}`)).status, 403);
   });
 
   test("returns real counts, cadence-blind, when outboundEmail and publicPrayerDigest are both on", async () => {
@@ -483,8 +480,7 @@ describe("restricted-partner notification review & edit (#187)", () => {
       400
     );
     assert.equal(
-      (await viewer(`/api/dispatches/pending/${row.id}`, { method: "PUT", body: { text: "fine" } }))
-        .status,
+      (await viewer(`/api/dispatches/pending/${row.id}`, { method: "PUT", body: { text: "fine" } })).status,
       403
     );
     assert.equal(

@@ -238,7 +238,11 @@ describe("sendDigestTier -- restricted-partner review gate (#187)", () => {
     });
     await prisma.dispatchRecord.update({
       where: { id: row.id },
-      data: { dispatchReviewedAt: new Date(), dispatchReviewedById: admin.id, dispatchReviewedText: "Reviewed, safe wording." },
+      data: {
+        dispatchReviewedAt: new Date(),
+        dispatchReviewedById: admin.id,
+        dispatchReviewedText: "Reviewed, safe wording.",
+      },
     });
     try {
       const result = await sendDigestTier("biweekly", await getSettings());

@@ -64,7 +64,10 @@ describe("shouldFlushBiweeklyEmailDispatch", () => {
   test("fires again after a full 13+ days", () => {
     const thirteenDaysAgo = new Date(WED_9AM.getTime() - 13 * 24 * 60 * 60 * 1000);
     assert.equal(
-      shouldFlushBiweeklyEmailDispatch({ ...base, lastBiweeklyEmailDispatchSentAt: thirteenDaysAgo }, WED_9AM),
+      shouldFlushBiweeklyEmailDispatch(
+        { ...base, lastBiweeklyEmailDispatchSentAt: thirteenDaysAgo },
+        WED_9AM
+      ),
       true
     );
   });
@@ -92,7 +95,10 @@ describe("shouldFlushMonthlyEmailDispatch", () => {
   test("fires again after a full 27+ days", () => {
     const twentySevenDaysAgo = new Date(WED_9AM.getTime() - 27 * 24 * 60 * 60 * 1000);
     assert.equal(
-      shouldFlushMonthlyEmailDispatch({ ...base, lastMonthlyEmailDispatchSentAt: twentySevenDaysAgo }, WED_9AM),
+      shouldFlushMonthlyEmailDispatch(
+        { ...base, lastMonthlyEmailDispatchSentAt: twentySevenDaysAgo },
+        WED_9AM
+      ),
       true
     );
   });

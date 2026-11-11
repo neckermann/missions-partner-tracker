@@ -143,9 +143,15 @@ describe("shouldFlushWhatsApp", () => {
     assert.equal(shouldFlushWhatsApp(settings, NINE_AM), true);
     assert.equal(shouldFlushWhatsApp({ ...settings, chatDispatchHour: 10 }, NINE_AM), false);
     const sixHoursAgo = new Date(NINE_AM - 6 * 60 * 60 * 1000);
-    assert.equal(shouldFlushWhatsApp({ ...settings, lastWhatsappChatDispatchSentAt: sixHoursAgo }, NINE_AM), false);
+    assert.equal(
+      shouldFlushWhatsApp({ ...settings, lastWhatsappChatDispatchSentAt: sixHoursAgo }, NINE_AM),
+      false
+    );
     const yesterday = new Date(NINE_AM - 24 * 60 * 60 * 1000);
-    assert.equal(shouldFlushWhatsApp({ ...settings, lastWhatsappChatDispatchSentAt: yesterday }, NINE_AM), true);
+    assert.equal(
+      shouldFlushWhatsApp({ ...settings, lastWhatsappChatDispatchSentAt: yesterday }, NINE_AM),
+      true
+    );
   });
 
   test("GroupMe having already sent this hour never blocks WhatsApp", () => {
@@ -181,7 +187,13 @@ describe("WhatsApp shares GroupMe's content-type mutes", () => {
     const restricted = { isRestricted: true, isPublic: false };
     const settings = { allowRestrictedPartnerDispatch: true };
     assert.equal(
-      isEligibleForChannel({ ...prayerRow, dispatchReviewedAt: null }, CHANNELS.WHATSAPP, restricted, settings, true),
+      isEligibleForChannel(
+        { ...prayerRow, dispatchReviewedAt: null },
+        CHANNELS.WHATSAPP,
+        restricted,
+        settings,
+        true
+      ),
       false
     );
     assert.equal(

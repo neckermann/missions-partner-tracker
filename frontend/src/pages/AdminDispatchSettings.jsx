@@ -1,9 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  fetchDispatchSettings,
-  updateDispatchSettings,
-  fetchScopedDigestSummary,
-} from "../api/client.js";
+import { fetchDispatchSettings, updateDispatchSettings, fetchScopedDigestSummary } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { joinWithAnd } from "../utils/urgentSend.js";
 
@@ -88,9 +84,9 @@ export default function AdminDispatchSettings() {
       <h2>Dispatch Settings</h2>
       <p style={{ color: "#555" }}>
         Schedules for the admin/public email dispatch and for {chatLabel || "GroupMe/WhatsApp"}, the chat
-        channels' own content-type mutes, the restricted-partner safety gate, and email dispatch appearance. To
-        review or edit what's currently queued, see the <strong>Pending Dispatches</strong> page in the main
-        menu.
+        channels' own content-type mutes, the restricted-partner safety gate, and email dispatch appearance.
+        To review or edit what's currently queued, see the <strong>Pending Dispatches</strong> page in the
+        main menu.
       </p>
 
       <form onSubmit={handleSave} className="admin-form">
@@ -125,9 +121,9 @@ export default function AdminDispatchSettings() {
         <div className="admin-section" style={{ marginTop: "1rem" }}>
           <h3>Restricted Partners</h3>
           <p style={{ color: "#555", fontSize: "0.9rem" }}>
-            The one safety setting that applies equally to every dispatch channel this church has enabled,
-            not just one. Off (default) means a restricted-access partner's events are never recorded at all
-            -- nothing to hold, nothing to review, since nothing's queued. On records them like anyone else,
+            The one safety setting that applies equally to every dispatch channel this church has enabled, not
+            just one. Off (default) means a restricted-access partner's events are never recorded at all --
+            nothing to hold, nothing to review, since nothing's queued. On records them like anyone else,
             subject to review -- either from the Pending Dispatches page afterward, or right away with the
             "Review and approve now" checkbox when the prayer request or one-time need is first created.
             Either path clears a row for every channel at once, including an urgent send.
@@ -310,9 +306,7 @@ export default function AdminDispatchSettings() {
                 <input
                   type="checkbox"
                   checked={settings.chatDispatchOneTimeNeeds}
-                  onChange={(e) =>
-                    setSettings((s) => ({ ...s, chatDispatchOneTimeNeeds: e.target.checked }))
-                  }
+                  onChange={(e) => setSettings((s) => ({ ...s, chatDispatchOneTimeNeeds: e.target.checked }))}
                 />
                 One-Time Needs
               </label>
