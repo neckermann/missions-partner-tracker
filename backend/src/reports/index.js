@@ -13,13 +13,14 @@
 // here. Same data, different job.
 //
 // A report's `run(params, prisma, today)` always receives a third argument:
-// the browser's own calendar day (resolved once in routes/reports.js from
-// the `today` query param the frontend always sends, falling back to the
-// server clock only for a direct API call that omits it). No church
-// timezone is stored anywhere, so the browser is the only thing that knows
-// what day it is where the viewer is standing -- a report that needs
-// "today" (furlough's Current/Upcoming split, a year default) should use
-// this rather than calling `new Date()` itself. Most reports ignore it.
+// "today" (resolved once in routes/reports.js -- see that file's own
+// comment for exactly how), a Date at UTC midnight representing a calendar
+// day: the browser's own, when the frontend sends one, or otherwise the
+// church's configured-timezone day as of right now. A report that needs
+// "today" (furlough's Current/Upcoming split, upcomingBirthdays' month/year
+// default) should use this rather than calling `new Date()` itself, and
+// should read it with UTC getters, not local ones -- see routes/reports.js
+// for why. Most reports ignore it.
 
 const upcomingBirthdays = require("./upcomingBirthdays");
 const oneTimeNeeds = require("./oneTimeNeeds");

@@ -5,6 +5,7 @@ const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
 const { getReport, listReports } = require("../reports");
 const { toCsv, csvFilename } = require("../utils/csv");
+const { resolveToday } = require("../utils/today");
 
 const router = express.Router();
 
@@ -62,18 +63,12 @@ router.get("/:id", async (req, res, next) => {
       }
     }
 
-    // "Today" as the browser's own calendar sees it, not the server's --
-    // same reasoning as upcomingBirthdays' month/year (see that file's
-    // comment): no church timezone is stored anywhere, so the browser is
-    // the only thing here that knows what day it is where the viewer is
-    // standing. The frontend sends this on every report run (AdminReports.jsx);
-    // the server-clock fallback only matters for a direct API call that
-    // omits it. Resolved once, here, and threaded into everything below
-    // that needs "today" -- a report's own logic (furlough.js) and the CSV
-    // filename stamp both use this same value rather than each
-    // independently asking the server clock and risking disagreeing with
-    // each other.
-    const today = req.query.today ? new Date(req.query.today) : new Date();
+    // "Today" as the browser's own calendar sees it when it tells us --
+    // the frontend sends this on every report run (AdminReports.jsx), and a
+    // real human looking at a specific day takes precedence over any
+    // server-side guess. The server-clock fallback (see resolveToday) only
+    // matters for a direct API call that omits it.
+    const today = resolveToday(req.query.today);
 
     // Throws ZodError on bad input, which the central error middleware
     // turns into a 400 with a string `error` naming the field.

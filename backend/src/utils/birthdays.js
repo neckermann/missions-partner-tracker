@@ -50,9 +50,11 @@ function ageTurning(birth, inYear) {
 // household apart makes that harder to scan, not easier.
 //
 // Takes partners with `adults` and `children` already included. `month` is
-// 1-12 and comes from the caller (the browser's local month, since no church
-// timezone is stored anywhere); filtering here rather than in SQL keeps the
-// month/day extraction in one place and the dataset is a few hundred rows.
+// 1-12 and comes from the caller already resolved -- either the browser's
+// own pick or `upcomingBirthdays.js`'s default to the current month in the
+// church's configured timezone; this function doesn't care which. Filtering
+// here rather than in SQL keeps the month/day extraction in one place and
+// the dataset is a few hundred rows.
 function birthdaysInMonth(partners, month, { inYear = new Date().getFullYear() } = {}) {
   const rows = [];
 

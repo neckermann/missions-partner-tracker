@@ -25,10 +25,13 @@ const MONTH_NAMES = [
 // what to do with 29 February in a non-leap year. Grouping by month means a
 // 29 February birthday simply sits in February and nothing wraps.
 //
-// The month comes from the caller, not from the server's clock: no church
-// timezone is stored anywhere (verified against ChurchSettings), so the
-// browser is the only thing here that knows what month it is where the user
-// is standing.
+// The month/year are optional in month view now -- `ChurchSettings.timezone`
+// means the server knows what day it is where the church actually is (see
+// `run()`'s use of the `today` param below), so an unsupplied month/year
+// defaults to the current one there rather than requiring the browser to
+// supply it. The browser can still send its own, and does by default (see
+// AdminReports.jsx) -- that's a real human looking at a specific month, not
+// just "whatever month it is," and takes precedence when present.
 //
 // Defaults to the full-year view, not the current month: a church office
 // planning ahead ("who do we need cards for this year") is the more common
@@ -40,28 +43,20 @@ module.exports = {
   description:
     "Adults and children with a birthday in the selected month, or across the whole year, with the partner they belong to.",
 
-  params: z
-    .object({
-      view: z.enum(["year", "month"]).default("year"),
-      // Required only in month view -- a year-view run never reads it, so
-      // there's nothing to validate against when it's absent.
-      month: z.coerce.number().int().min(1).max(12).optional(),
-      // The year the ages are counted against. Supplied by the browser for
-      // the same reason as the month.
-      year: z.coerce.number().int().min(1900).max(2200).optional(),
-      includeArchived: z
-        .union([z.boolean(), z.literal("true"), z.literal("false")])
-        .transform((v) => v === true || v === "true")
-        .default(false),
-    })
-    // Zod validates `month`'s own constraints before a refine ever runs, so
-    // an out-of-range month (month=13) still 400s with its own message --
-    // this only catches the one case that isn't a per-field constraint:
-    // month view with no month picked at all.
-    .refine((v) => v.view !== "month" || v.month != null, {
-      message: 'month is required when view is "month"',
-      path: ["month"],
-    }),
+  params: z.object({
+    view: z.enum(["year", "month"]).default("year"),
+    // Optional even in month view -- defaults to the current month in the
+    // church's configured timezone when absent (see `run()` below). A
+    // year-view run never reads it either way.
+    month: z.coerce.number().int().min(1).max(12).optional(),
+    // The year the ages are counted against. Defaults the same way as month
+    // when the browser doesn't supply one.
+    year: z.coerce.number().int().min(1900).max(2200).optional(),
+    includeArchived: z
+      .union([z.boolean(), z.literal("true"), z.literal("false")])
+      .transform((v) => v === true || v === "true")
+      .default(false),
+  }),
 
   // What the filter form renders. Kept alongside `params` by hand rather
   // than reflected out of it -- see the note in reports/index.js. `month`
@@ -111,11 +106,11 @@ module.exports = {
       },
     });
 
-    // getUTCFullYear, not getFullYear: `today` is the browser's calendar
-    // day encoded as UTC midnight (see reports/index.js's header comment),
-    // same shape as any other date-only value -- reading it with a local
-    // getter here would be the exact bug this app keeps fixing, just
-    // relocated to this file instead of eliminated.
+    // getUTCFullYear, not getFullYear: `today` is a calendar day encoded as
+    // UTC midnight (see reports/index.js's header comment), same shape as
+    // any other date-only value -- reading it with a local getter here
+    // would be the exact bug this app keeps fixing, just relocated to this
+    // file instead of eliminated.
     const inYear = params.year ?? today.getUTCFullYear();
     // Looping months 1-12 and concatenating in order, rather than a
     // separate "whole year" query, keeps birthdaysInMonth as the one place
@@ -123,7 +118,8 @@ module.exports = {
     // month's result laid end to end, already sorted day-then-name within
     // each month, so the concatenation is already month-then-day overall
     // without a second sort pass.
-    const months = params.view === "month" ? [params.month] : Array.from({ length: 12 }, (_, i) => i + 1);
+    const months =
+      params.view === "month" ? [params.month ?? today.getUTCMonth() + 1] : Array.from({ length: 12 }, (_, i) => i + 1);
     const rows = months.flatMap((month) => birthdaysInMonth(partners, month, { inYear }));
 
     return rows.map((r) => ({

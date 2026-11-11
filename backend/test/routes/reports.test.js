@@ -159,10 +159,16 @@ describe("GET /api/reports/:id", () => {
     assert.match(res.body.error, /month/i);
   });
 
-  test("month view with no month picked 400s rather than running on a default", async () => {
-    const res = await admin("/api/reports/upcoming-birthdays?view=month");
-    assert.equal(res.status, 400);
-    assert.match(res.body.error, /month/i);
+  test("month view with no month picked defaults to the current month (issue #253)", async () => {
+    // ChurchSettings.timezone means the server now knows what month it is
+    // where the church actually is -- no reason to force the browser to
+    // supply one. Controlled via the request's own `today`, same as the
+    // year-view default test below, so this doesn't depend on which real
+    // month the suite happens to run in.
+    const res = await admin("/api/reports/upcoming-birthdays?view=month&today=2026-03-15");
+    assert.equal(res.status, 200);
+    const child = res.body.rows.find((r) => r.name === "Child Fixture");
+    assert.ok(child, "March's fixture birthday should appear when month defaults to March");
   });
 });
 
