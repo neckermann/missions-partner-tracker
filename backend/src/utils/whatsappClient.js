@@ -37,6 +37,14 @@ const ADVISORY_LOCK_KEY = "7204117101";
 const LOCK_RETRY_MS = 15 * 1000;
 const PAIRING_TIMEOUT_MS = 3 * 60 * 1000; // abandoned pairing screens stop generating QRs
 const MAX_RECONNECT_DELAY_MS = 60 * 1000;
+// A connect() right after a deploy can briefly read "no registered
+// session" even though one genuinely exists -- Render runs the old and
+// new instance side by side, and the old one may not have released the
+// DB lock (and its socket) yet. Treating that as "really gone" on the
+// very first read would wipe a perfectly good session over a one-tick
+// race. Only the Nth consecutive unregistered read in a row -- with a
+// real reconnect wait between each -- is trusted as genuine.
+const UNREGISTERED_WIPE_THRESHOLD = 3;
 
 // Replaceable seam for tests -- production uses the real Baileys, the real
 // advisory lock, and real timers.
@@ -71,6 +79,10 @@ const runtime = {
   // and must not wipe what the new attempt just wrote.
   generation: 0,
   attempts: 0,
+  // Consecutive connect() attempts in a row that found no registered
+  // session -- see UNREGISTERED_WIPE_THRESHOLD above. Reset to 0 the
+  // moment a connection actually opens or a pairing is requested.
+  unregisteredStreak: 0,
   reconnectTimer: null,
   pairingTimer: null,
   lockClient: null,
@@ -247,6 +259,7 @@ async function handleConnectionUpdate(baileys, update) {
   if (connection === "open") {
     runtime.status = "connected";
     runtime.attempts = 0;
+    runtime.unregisteredStreak = 0;
     runtime.qrDataUrl = null;
     runtime.pairingCode = null;
     runtime.pairingPhone = null;
@@ -265,6 +278,11 @@ async function handleConnectionUpdate(baileys, update) {
     runtime.sock = null;
     runtime.rawSock = null;
     if (code === baileys.DisconnectReason.loggedOut) {
+      // A real, server-side logout of an open connection -- WhatsApp
+      // revoked the linked device (the admin removed it, or -- the known
+      // risk this file's header comment describes -- it saw a conflicting
+      // second connection during a deploy's old/new instance overlap).
+      console.error("WhatsApp logged this device out (DisconnectReason.loggedOut) -- clearing the saved session.");
       await handleLoggedOut();
       return;
     }
@@ -315,12 +333,29 @@ async function connect() {
     if (await abortIfConnectionNoLongerWanted()) return;
 
     if (!state.creds.registered && !runtime.pairingRequested) {
-      // Settings say "paired" but there's no session to open: don't spin
-      // up a socket that would just emit QR codes nobody is scanning.
-      // Clear the paired markers so the admin UI offers pairing again.
+      runtime.unregisteredStreak += 1;
+      if (runtime.unregisteredStreak < UNREGISTERED_WIPE_THRESHOLD) {
+        // Settings say "paired" and this might just be a deploy-restart
+        // race (see UNREGISTERED_WIPE_THRESHOLD) -- wait and look again
+        // rather than wiping on the first read. Release the lock while
+        // waiting so a genuinely-stuck old instance isn't blocked by us.
+        console.warn(
+          `WhatsApp session not found (attempt ${runtime.unregisteredStreak}/${UNREGISTERED_WIPE_THRESHOLD}) -- retrying before treating it as gone.`
+        );
+        runtime.status = "connecting";
+        await deps.releaseLock();
+        scheduleReconnect(LOCK_RETRY_MS);
+        return;
+      }
+      // Settings say "paired" but there's still no session to open after
+      // repeated attempts: don't spin up a socket that would just emit QR
+      // codes nobody is scanning. Clear the paired markers so the admin
+      // UI offers pairing again.
+      console.error(`WhatsApp session still not found after ${runtime.unregisteredStreak} attempts -- treating it as gone.`);
       await handleLoggedOut();
       return;
     }
+    runtime.unregisteredStreak = 0;
 
     let version;
     if (deps.fetchVersion) {
@@ -520,4 +555,5 @@ module.exports = {
   _runtime: runtime,
   _handleConnectionUpdate: handleConnectionUpdate,
   _digitsFromJid: digitsFromJid,
+  _connect: connect,
 };

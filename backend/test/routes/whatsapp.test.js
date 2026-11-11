@@ -338,12 +338,55 @@ describe("keeping the socket in step with the settings", () => {
       data: { whatsappPairedAt: new Date(), whatsappPhoneNumber: "15551234567" },
     });
     const before = sockets.length;
-    const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
-    await whatsappClient.syncWithSettings(settings, true);
+    whatsappClient._runtime.wantConnected = true;
+    whatsappClient._runtime.unregisteredStreak = 0;
+    // A single unregistered read is treated as a possible deploy-restart
+    // race, not proof the session is gone -- it takes
+    // UNREGISTERED_WIPE_THRESHOLD (3) consecutive reads in a row before
+    // anything is wiped. Drive that many attempts directly rather than
+    // waiting out the real reconnect timer between them.
+    for (let i = 0; i < 3; i++) {
+      clearTimeout(whatsappClient._runtime.reconnectTimer);
+      whatsappClient._runtime.reconnectTimer = null;
+      whatsappClient._runtime.rawSock = null;
+      whatsappClient._runtime.connecting = false;
+      await whatsappClient._connect();
+    }
     assert.equal(sockets.length, before, "must not open a socket that can only emit unscanned QR codes");
     const after = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
     assert.equal(after.whatsappPairedAt, null);
     assert.equal(whatsappClient.getStatus().status, "logged_out");
+  });
+
+  test("a single unregistered read right after startup does not wipe a real session", async () => {
+    await whatsappClient.shutdown();
+    await prisma.whatsAppAuthEntry.deleteMany({});
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { whatsappPairedAt: new Date(), whatsappPhoneNumber: "15551234567" },
+    });
+    whatsappClient._runtime.wantConnected = true;
+    whatsappClient._runtime.unregisteredStreak = 0;
+    clearTimeout(whatsappClient._runtime.reconnectTimer);
+    whatsappClient._runtime.reconnectTimer = null;
+    whatsappClient._runtime.rawSock = null;
+    whatsappClient._runtime.connecting = false;
+    await whatsappClient._connect();
+    assert.equal(whatsappClient.getStatus().status, "connecting");
+    const after = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
+    assert.ok(after.whatsappPairedAt, "one bad read must not wipe the paired state");
+    // Clean up fully rather than leaving the paired-but-disconnected state
+    // this test needed behind for later tests, which expect to start
+    // unpaired.
+    clearTimeout(whatsappClient._runtime.reconnectTimer);
+    whatsappClient._runtime.reconnectTimer = null;
+    whatsappClient._runtime.wantConnected = false;
+    whatsappClient._runtime.unregisteredStreak = 0;
+    await whatsappClient.shutdown();
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { whatsappPairedAt: null, whatsappPhoneNumber: null },
+    });
   });
 
   test("turning the feature off closes a connected socket", async () => {
