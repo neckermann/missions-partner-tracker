@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Notification Pipeline — Missions Partner Tracker</title>
+    <meta
+      name="description"
+      content="How a prayer request, one-time need, or newsletter flows from creation to GroupMe, WhatsApp, the admin digest, and the public prayer digest — one recording rule, one shared eligibility check, four channels."
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/favicon-192.png" />
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+    <link rel="stylesheet" href="assets/style.css" />
+    <style>
+      .pipeline-hero {
+        padding: 3rem 0 2.5rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .pipeline-hero h1 {
+        color: var(--green-dark);
+        font-size: 1.9rem;
+        margin: 0 0 0.75rem;
+        max-width: 42ch;
+      }
+      .pipeline-hero p {
+        color: var(--muted);
+        max-width: 68ch;
+        margin: 0;
+        font-size: 1.05rem;
+      }
+
+      .channel-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 1.25rem;
+        margin-top: 2rem;
+      }
+      .channel-card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.25rem 1.4rem;
+        box-shadow: 0 2px 10px rgba(31, 61, 43, 0.08);
+      }
+      .channel-card h3 {
+        margin: 0 0 0.6rem;
+        color: var(--green-dark);
+        font-size: 1.05rem;
+      }
+      .channel-card dl {
+        margin: 0;
+        font-size: 0.88rem;
+      }
+      .channel-card dt {
+        font-weight: 600;
+        color: var(--text);
+        margin-top: 0.6rem;
+      }
+      .channel-card dt:first-child {
+        margin-top: 0;
+      }
+      .channel-card dd {
+        margin: 0.1rem 0 0;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      .diagram-section {
+        padding: 3.5rem 0;
+        border-bottom: 1px solid var(--border);
+        background: var(--green-light);
+      }
+      .diagram-section h2 {
+        color: var(--green-dark);
+        margin: 0 0 0.5rem;
+      }
+      .diagram-section > .wrap > p {
+        color: var(--muted);
+        max-width: 640px;
+        margin: 0 0 2rem;
+      }
+      .diagram-card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(31, 61, 43, 0.08);
+        padding: 1.5rem;
+        overflow-x: auto;
+      }
+      .diagram-card .mermaid {
+        display: flex;
+        justify-content: center;
+        min-width: 700px;
+      }
+
+      .callout {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--green);
+        border-radius: 6px;
+        padding: 1.1rem 1.4rem;
+        margin-top: 1.75rem;
+        font-size: 0.95rem;
+        color: var(--text);
+      }
+      .callout strong {
+        color: var(--green-dark);
+      }
+
+      .legend-section {
+        padding: 3.5rem 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .legend-section h2 {
+        color: var(--green-dark);
+        margin: 0 0 2rem;
+      }
+      .legend {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.5rem 2.5rem;
+      }
+      .legend dt {
+        font-weight: 600;
+        color: var(--green-dark);
+        margin-bottom: 0.3rem;
+      }
+      .legend dd {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+        font-size: 0.95rem;
+      }
+
+      @media (max-width: 680px) {
+        .feature.lands .wrap,
+        .feature.lands.reverse .wrap {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href="index.html">Missions Partner Tracker</a>
+        <nav>
+          <a href="index.html#public-site">Public Site Features</a>
+          <a href="index.html#admin">Admin Features</a>
+          <a href="admin-guide.html">Admin Guide</a>
+          <a href="user-guide.html">User Guide</a>
+          <span class="nav-external">
+            <a href="https://demo.missionspartnertracker.com" target="_blank" rel="noreferrer">Live Demo</a>
+            <a href="https://github.com/neckermann/missions-partner-tracker" target="_blank" rel="noreferrer"
+              >GitHub</a
+            >
+          </span>
+        </nav>
+      </div>
+    </header>
+
+    <section class="pipeline-hero">
+      <div class="wrap">
+        <h1>One recording rule. One eligibility check, asked four times.</h1>
+        <p>
+          A prayer request, an answered prayer, a one-time need, or a newsletter is always recorded as a
+          delivery candidate — no setting blocks that, with one exception below. Whatever gets recorded,
+          GroupMe, WhatsApp, the admin digest, and the public prayer digest each ask the same three questions,
+          in the same order, through the same function, before deciding whether to deliver it — whether that
+          check runs on each channel's own schedule, or immediately because someone marked it urgent.
+        </p>
+
+        <div class="channel-grid">
+          <div class="channel-card">
+            <h3>💬 GroupMe</h3>
+            <dl>
+              <dt>Schedule</dt>
+              <dd>Shared daily chat hour, own cursor</dd>
+              <dt>Content</dt>
+              <dd>All types, each independently muted</dd>
+              <dt>Recipients</dt>
+              <dd>One church-wide group, up to 3 Topics</dd>
+            </dl>
+          </div>
+          <div class="channel-card">
+            <h3>💬 WhatsApp</h3>
+            <dl>
+              <dt>Schedule</dt>
+              <dd>Same shared daily chat hour, own cursor</dd>
+              <dt>Content</dt>
+              <dd>Same types, same mutes as GroupMe</dd>
+              <dt>Recipients</dt>
+              <dd>One WhatsApp community, up to 3 groups</dd>
+            </dl>
+          </div>
+          <div class="channel-card">
+            <h3>📧 Admin digest</h3>
+            <dl>
+              <dt>Schedule</dt>
+              <dd>Biweekly / monthly / quarterly</dd>
+              <dt>Content</dt>
+              <dd>Everything it's allowed to send, no toggle</dd>
+              <dt>Recipients</dt>
+              <dd>Every admin on that cadence, scoped to their partners</dd>
+            </dl>
+          </div>
+          <div class="channel-card">
+            <h3>📧 Public digest</h3>
+            <dl>
+              <dt>Schedule</dt>
+              <dd>Same tiers, shared with the admin digest</dd>
+              <dt>Content</dt>
+              <dd>Prayer requests only, structurally — never a source link</dd>
+              <dt>Recipients</dt>
+              <dd>Confirmed public subscribers, scoped to their partners</dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="diagram-section">
+      <div class="wrap">
+        <h2>How an event flows</h2>
+        <p>
+          GroupMe and WhatsApp share a schedule because they're the same kind of channel — close to real-time
+          chat — not because one depends on the other. They're two fully independent, separately connected
+          features.
+        </p>
+        <div class="diagram-card">
+          <pre class="mermaid">
+flowchart TD
+    PR["Prayer Request\nCreated / Answered"]
+    ND["One-Time Need\nCreated / Decided"]
+    NL["Newsletter\nCreated"]
+    RGATE{"About a restricted\npartner, and that\nchurch setting off?"}
+    NEVER["Never recorded --\nthe one exception"]
+    REC[("Event recorded")]
+    PR --> RGATE
+    ND --> RGATE
+    NL --> RGATE
+    RGATE -- yes --> NEVER
+    RGATE -- no --> REC
+
+    URGENT{"Marked urgent?\n(isUrgent -- admin/editor\nset at creation)"}
+    REC --> URGENT
+
+    URGENTNOW["sendUrgentBroadcast() --\nfires on every channel\nright now, no waiting"]
+    SCHED["Each channel's own\nschedule tick fires --\nchat: shared daily hour.\nemail: cadence tier"]
+    URGENT -- yes --> URGENTNOW
+    URGENT -- no --> SCHED
+
+    GMSTART["GroupMe"]
+    WASTART["WhatsApp"]
+    ADSTART["Admin digest"]
+    PDSTART["Public digest"]
+    URGENTNOW --> GMSTART
+    URGENTNOW --> WASTART
+    URGENTNOW --> ADSTART
+    URGENTNOW --> PDSTART
+    SCHED --> GMSTART
+    SCHED --> WASTART
+    SCHED --> ADSTART
+    SCHED --> PDSTART
+
+    subgraph ELIG["isEligibleForChannel -- one function, same order, every channel, urgent or not"]
+        R1{"Partner restricted?\nAllowed, and\nalready reviewed?"}
+        R2{"Chat channels only\n(GroupMe/WhatsApp): this\ncontent type turned on?\n(admin digest: always\neverything. public digest:\nalways prayer-only)"}
+        R3{"Someone eligible\nright now? (urgent: any\nrecipient at all. scheduled:\nonly this tier/hour's\nrecipients)"}
+        NO["Not eligible"]
+        YES["Eligible -- deliver"]
+        R1 -- "restricted, and\nblocked or unreviewed" --> NO
+        R1 -- "not restricted,\nor cleared" --> R2
+        R2 -- no --> NO
+        R2 -- yes --> R3
+        R3 -- no --> NO
+        R3 -- yes --> YES
+    end
+
+    GMSTART --> ELIG
+    WASTART --> ELIG
+    ADSTART --> ELIG
+    PDSTART --> ELIG
+
+    SENT["Delivered on\nthat channel"]
+    SKIPPED["Skipped on\nthat channel"]
+    YES --> SENT
+    NO --> SKIPPED
+
+    CLEAR{"Every channel has\neither delivered, or\npermanently can't?"}
+    SENT --> CLEAR
+    SKIPPED --> CLEAR
+    DELETE["Row deleted"]
+    WAIT["Stays queued --\nsome channel's\nanswer could\nstill change"]
+    CLEAR -- yes --> DELETE
+    CLEAR -- no --> WAIT
+          </pre>
+        </div>
+        <div class="callout">
+          <strong>Urgent only skips the wait, not the rules.</strong> Marking a prayer request or one-time
+          need urgent fires it immediately across every channel instead of waiting for a schedule to come
+          around — it does not skip the restricted-partner review gate, and it does not override a muted
+          GroupMe/WhatsApp content-type or the public digest's prayer-only scope. Both the
+          <code>URGENT</code> and <code>SCHED</code> paths above feed the exact same eligibility check.
+        </div>
+      </div>
+    </section>
+
+    <section class="legend-section">
+      <div class="wrap">
+        <h2>The three questions, in order</h2>
+        <dl class="legend">
+          <div>
+            <dt>1. Restricted partner — the one universal rule</dt>
+            <dd>
+              Applies to every channel equally. A restricted partner's real content is ineligible everywhere
+              until a human reviews that specific item, and ineligible everywhere at all if the church has
+              turned restricted-partner notifications off outright.
+            </dd>
+          </div>
+          <div>
+            <dt>2. Content-type preference — chat channels only</dt>
+            <dd>
+              Only GroupMe and WhatsApp check whether prayer requests, one-time needs, and newsletters are
+              individually turned on — they're close enough to real-time chat that muting one type while
+              keeping others is worth a setting. The admin digest skips this question the opposite way from
+              the public digest: it's a periodic batched email, so it always includes everything it's allowed
+              to, no toggle at all. The public digest skips it because prayer-requests-only isn't a preference
+              it checks — it's what the public digest is.
+            </dd>
+          </div>
+          <div>
+            <dt>3. An eligible recipient, right now</dt>
+            <dd>
+              Computed separately per channel — GroupMe/WhatsApp's own shared schedule firing, an admin
+              subscribed on this cadence tier and following this partner, a confirmed public subscriber on
+              this cadence tier and following this partner. An urgent send asks this same question
+              cadence-blind instead — any recipient at all, regardless of tier or whether today's schedule has
+              fired.
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="feature lands">
+      <div class="wrap">
+        <div class="feature-text">
+          <h2>Two emails, one shared template</h2>
+          <p>
+            Same masthead, card style, and branding on both sides — the admin digest just has more to put
+            inside it. For the same prayer request, one-time need, and newsletter, here's what each
+            recipient's email actually contains: the admin digest includes everything, with a link back to the
+            source; the public digest includes only the prayer request, and never a link anywhere a visitor
+            couldn't already go.
+          </p>
+        </div>
+        <div class="feature-image two-up">
+          <a href="assets/screenshots/digest-email-admin.png" target="_blank" rel="noreferrer">
+            <img
+              src="assets/screenshots/digest-email-admin.png"
+              alt="Admin digest email — prayer request, one-time need with source link, and a newsletter with full title and link"
+              loading="lazy"
+            />
+          </a>
+          <a href="assets/screenshots/digest-email-public.png" target="_blank" rel="noreferrer">
+            <img
+              src="assets/screenshots/digest-email-public.png"
+              alt="Public prayer digest email — the same prayer request, and nothing else"
+              loading="lazy"
+            />
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature lands reverse">
+      <div class="wrap">
+        <div class="feature-text">
+          <h2>Two chat platforms, the same content</h2>
+          <p>
+            GroupMe and WhatsApp post the same text, built the same way, on their own shared schedule —
+            restricted-partner masking and all. Nothing WhatsApp-specific needed writing for how the message
+            looks; it's the same rendering every channel already uses.
+          </p>
+        </div>
+        <div class="feature-image two-up">
+          <a href="assets/screenshots/groupme-notification.png" target="_blank" rel="noreferrer">
+            <img
+              src="assets/screenshots/groupme-notification.png"
+              alt="A new prayer request notification, as it lands in the GroupMe app"
+              loading="lazy"
+            />
+          </a>
+          <a href="assets/screenshots/whatsapp-prayer-requests-group.png" target="_blank" rel="noreferrer">
+            <img
+              src="assets/screenshots/whatsapp-prayer-requests-group.png"
+              alt="Prayer request and answered-prayer notifications, as they land in the WhatsApp group"
+              loading="lazy"
+            />
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="gallery-section">
+      <div class="wrap">
+        <h2>One group split by content type, on both platforms</h2>
+        <p>
+          Each content type picks its own destination; WhatsApp also has an Announcements group every type can
+          fall back to if its own group isn't set, so nothing is stuck with nowhere to go.
+        </p>
+        <div class="gallery">
+          <div class="gallery-item">
+            <a href="assets/screenshots/groupme-topics-app.png" target="_blank" rel="noreferrer">
+              <img
+                src="assets/screenshots/groupme-topics-app.png"
+                alt="A GroupMe community with its own Topic per notification type"
+                loading="lazy"
+              />
+            </a>
+            <div class="caption">GroupMe: one group, split into Topics</div>
+          </div>
+          <div class="gallery-item">
+            <a href="assets/screenshots/whatsapp-community-groups.png" target="_blank" rel="noreferrer">
+              <img
+                src="assets/screenshots/whatsapp-community-groups.png"
+                alt="A WhatsApp community with its own group per notification type, plus an Announcements group"
+                loading="lazy"
+              />
+            </a>
+            <div class="caption">WhatsApp: one community, split into groups</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="oss">
+      <div class="wrap">
+        <h2>Want the implementation, not just the picture?</h2>
+        <p>
+          The full technical writeup — exact field names, file names, and every rule this diagram simplifies —
+          lives in the project's spec.
+        </p>
+        <div class="links">
+          <a
+            href="https://github.com/neckermann/missions-partner-tracker/blob/main/SPEC.md#6-the-notification-system-202-redesign--whatsapp"
+            target="_blank"
+            rel="noreferrer"
+            >Read SPEC.md § 6</a
+          >
+          <a href="index.html">Back to the overview</a>
+        </div>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <p>
+          <a href="https://github.com/neckermann/missions-partner-tracker" target="_blank" rel="noreferrer"
+            >missions-partner-tracker</a
+          >
+          — MIT licensed.
+        </p>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: "base",
+        themeVariables: {
+          background: "#faf8f2",
+          primaryColor: "#ffffff",
+          primaryTextColor: "#22291f",
+          primaryBorderColor: "#d8ded3",
+          lineColor: "#5a6459",
+          secondaryColor: "#e8efe6",
+          tertiaryColor: "#e8efe6",
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+        },
+        flowchart: { useMaxWidth: false, htmlLabels: true },
+      });
+    </script>
+  </body>
+</html>

@@ -148,7 +148,11 @@ the suite.
 
 ## Code style
 
-- No enforced linter/formatter currently — match the style of the
+- `.github/workflows/ci.yml`'s `lint` job enforces `eslint --quiet`
+  (errors only — warnings are a deliberate to-do list, see that job's
+  own comment) and `prettier --check .`. Run `npx eslint .` and
+  `npx prettier --write .` before pushing rather than finding out from
+  CI. Where neither tool has an opinion, match the style of the
   surrounding file.
 - Comments should explain *why*, not *what* — the existing codebase leans
   on this heavily (e.g. why a field is masked a certain way, why a route
@@ -228,6 +232,31 @@ deliberate: see the comment at the top of
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) for why pushes to
 `dev` and `main` used to run too, and what each of those was duplicating.
 
+### Feature branches for larger work
+
+A small, single-commit fix can work directly on `dev` as shown above.
+For anything bigger — several commits, something you'd rather CI
+checked before it lands on `dev` at all — branch off `dev` instead:
+
+```
+git switch dev && git pull
+git switch -c feature/your-feature-name
+# ... work, commit ...
+git push origin feature/your-feature-name
+gh pr create --base dev --head feature/your-feature-name   # CI runs here too
+# merge into dev once green, then continue dev -> main as above
+```
+
+`ci.yml` already triggers on a pull request targeting *either* `main`
+or `dev` (`on: pull_request: branches: [main, dev]`), so this gets the
+same four-check gate with no change to CI needed. The concrete reason
+to bother: `dev-test` (Render's pre-prod service — see
+[RUNBOOK.md](RUNBOOK.md)) auto-deploys on every push to
+`dev`. Pushing a multi-commit feature straight to `dev` leaves dev-test
+broken or half-finished between commits until the feature's done; a
+feature branch keeps `dev` — and dev-test — always reflecting a
+complete, CI-passed state.
+
 `main` is protected on this repo: no direct pushes, and `lint`,
 `backend-tests`, `frontend-build` and `e2e` must all pass before a PR can
 merge. No approving review is required — this is a one-maintainer project
@@ -297,7 +326,11 @@ for, rather than leaning on donated capacity.
 ## Dependencies
 
 Updates are applied by hand, by whoever is doing the work, rather than by a
-bot. There is no `dependabot.yml`, and that is deliberate — see below.
+bot. `.github/dependabot.yml` exists only to surface vulnerability
+*alerts* (see the second standing note below) — it has no
+`open-pull-requests-limit` of 0, but the project's convention is to
+ignore any PR it opens and take updates by hand instead, for the
+reason below.
 
 **Downstream forks take updates by merging this repo, not by bumping their
 own packages.** A church's fork pulls in a release by merging upstream (see

@@ -37,6 +37,13 @@ name: CI
 # No `paths` filter here, on purpose. A required status check only passes
 # when it actually reports, and a filtered-out workflow never reports at
 # all, so a docs-only PR would wait forever on a check that will never run.
+#
+# `dev` is a valid PR target too, not just `main` -- a small change works
+# directly on `dev` (see CONTRIBUTING.md § Branches and releasing), but
+# anything bigger branches off `dev` and PRs back into it first (§ Feature
+# branches for larger work), so dev-test doesn't sit broken mid-feature
+# between commits. That PR needs the same four-check gate, with no change
+# to this file -- it's already covered by this trigger being a list.
 on:
   pull_request:
     branches: [main, dev]

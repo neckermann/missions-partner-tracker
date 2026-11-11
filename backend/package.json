@@ -12,6 +12,7 @@
     "prisma:studio": "prisma studio",
     "seed": "node prisma/seed.js",
     "demo:reset": "node scripts/reset-demo-data.js",
+    "demo:reset:remote": "node scripts/reset-demo-db-remote.js",
     "backup:restore": "node scripts/restore-backup.js",
     "check:extraction": "node scripts/check-extraction.js",
     "preview:digest": "node scripts/preview-digest.js",
