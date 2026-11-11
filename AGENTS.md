@@ -159,7 +159,17 @@ When a nav/UI change lands, work through this instead of re-deriving it:
    needs with more than one status represented, an unmatched email
    sitting in the queue — and set `ChurchSettings.backupReminderDisabled
    = true` so the backup-reminder banner doesn't show up in any admin
-   capture. Once per sweep, not per screenshot.
+   capture. Once per sweep, not per screenshot. This has been built as
+   a single process serving the production build (`frontend/npm run
+   build` writes into `backend/public`; the backend then serves both
+   the API and that build from one origin), not the two-process `:5173`
+   dev split — so the stack to review live during/after a sweep is
+   **`http://localhost:4000`** alone, whatever port `backend/.env`'s
+   `PORT` resolves to (4000 by default). **Leave that server running
+   when the sweep finishes, instead of tearing it down immediately** —
+   the project owner reviews the result live before it ships; only tear
+   down the scratch Postgres/`.env`/temp scripts once told the review is
+   done, not as part of finishing the capture pass itself.
 1. `ls docs/assets/screenshots/` for the full inventory, then
    `file docs/assets/screenshots/*` to record each file's current real
    dimensions — that's also your sizing target when recapturing it.
