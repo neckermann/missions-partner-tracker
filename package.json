@@ -8,7 +8,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "name-instance": "node scripts/name-instance.js",
-    "test:db": "node scripts/test-db.js"
+    "test:db": "node scripts/test-db.js",
+    "trigger-remote-reset": "node scripts/trigger-remote-reset.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
