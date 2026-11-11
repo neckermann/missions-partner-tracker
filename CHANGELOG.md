@@ -14,16 +14,28 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
-New **WhatsApp notifications** option alongside GroupMe: new prayer
+The notification system is now called **Dispatch** throughout the app
+and its database schema, so it can't collide with a future in-app
+notifications feature. Nothing about how it behaves changed — "Pending
+Notifications" is now "Pending Dispatches," "GroupMe notifications" is
+"GroupMe dispatch," the Notification Settings page is now Dispatch
+Settings, and so on, across every admin screen and both guides. Under
+the hood, every notification-related table/column/file was renamed to
+match (see `backend/prisma/schema.prisma` and
+`backend/src/utils/dispatch*.js`) — a fork with its own customizations
+touching that vocabulary will need to update those references when
+pulling this release in.
+
+New **WhatsApp dispatch** option alongside GroupMe: new prayer
 requests, one-time needs, and newsletters (plus a prayer request's
 answer and a one-time need's decision) can post to their own groups
 inside one WhatsApp community. It runs on the same daily send hour and
 the same content-type mutes as GroupMe — a church can run either or both
 — and several related items go out together in one message instead of
-one post each. Off by default, behind a new **WhatsApp notifications**
+one post each. Off by default, behind a new **WhatsApp dispatch**
 feature toggle; set up entirely in the UI (Site Administration →
 WhatsApp): link a dedicated phone number with a pairing code or QR code,
-pick the community, then pick a group for each notification type.
+pick the community, then pick a group for each dispatch type.
 
 Worth knowing before turning it on: this is an unofficial connection
 (the number is linked the way WhatsApp Web is), so WhatsApp can ban
