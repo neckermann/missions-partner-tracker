@@ -3,6 +3,18 @@ import { useParams, Link } from "react-router-dom";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import DemoBanner from "../components/DemoBanner.jsx";
 import { fetchPublicTrip, fetchPublicTripByToken, submitTripApplication, submitTripApplicationByToken } from "../api/client.js";
+import { formatDate } from "../utils/format.js";
+
+// "Jul 5, 2027" or "Jul 5, 2027 - Jul 14, 2027" (or just the one date if
+// they're the same / only one is set) -- same rendering a trip's dates
+// get everywhere else public-facing (PublicTripOpportunities.jsx).
+function formatTripDateRange(trip) {
+  if (!trip.startDate) return null;
+  const start = formatDate(trip.startDate);
+  if (!trip.endDate) return start;
+  const end = formatDate(trip.endDate);
+  return start === end ? start : `${start} - ${end}`;
+}
 
 // New (#252) -- the public application form. Serves two addressing
 // modes: plain id-addressed (only for a listed, accepting_applications,
@@ -59,10 +71,28 @@ export default function PublicTripApplication() {
       <PublicSiteHeader title={`Apply: ${trip.name || trip.type || "Trip"}`} />
       <DemoBanner />
       <div className="admin-shell" style={{ maxWidth: 640 }}>
-        <p style={{ color: "#6b6f76" }}>
-          {trip.fieldDisplayName}
-          {trip.startDate ? ` · ${trip.startDate}` : ""}
-        </p>
+        <div className="admin-section" style={{ marginBottom: "1.5rem" }}>
+          {trip.type && (
+            <span
+              style={{
+                display: "inline-block",
+                fontSize: "0.7rem",
+                fontWeight: 700,
+                padding: "2px 8px",
+                borderRadius: 999,
+                color: "#1f6b4f",
+                background: "#e7f3ee",
+              }}
+            >
+              {trip.type}
+            </span>
+          )}
+          <p style={{ margin: "0.5rem 0 0", color: "#6b6f76", fontSize: "0.9rem" }}>
+            {trip.fieldDisplayName || "Field location to be announced"}
+            {formatTripDateRange(trip) ? ` · ${formatTripDateRange(trip)}` : ""}
+          </p>
+          {trip.description && <p style={{ margin: "0.75rem 0 0" }}>{trip.description}</p>}
+        </div>
         {submitted ? (
           <p style={{ color: "#1f6b4f" }}>Thanks! Your application has been submitted.</p>
         ) : (
