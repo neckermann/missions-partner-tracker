@@ -55,12 +55,12 @@ instead of always filing it as a Newsletter. Newsletter stays the
 default, since that's still what most inbound mail turns out to be.
 
 **Trips** (#252) is a major rework of mission trip tracking into full
-recruiting/roster/fundraising support, built on the existing
+recruiting/roster/support-raising support, built on the existing
 `Trip`/`TripParticipant` models rather than a second, separate concept.
 A trip now has a lifecycle (`planning` → `accepting_applications` →
 `closed`/`completed`), public or private application links, a per-trip
 roster with meeting invites (real calendar `.ics` attachments) and
-document requirements, and per-participant fundraising pages with a
+document requirements, and per-participant support-raising pages with a
 manual donor-contribution ledger. Because this reaches well beyond the
 old admin-only Trip History/Trip Opportunities pages into public
 application forms and outbound email, the existing **Mission trips**
@@ -70,10 +70,10 @@ once after upgrading. Two new settings gate the feature's public-facing
 pieces independently: **Public trip discovery** (the public Trip
 Opportunities listing/plain application links — a church can run trips
 entirely by private link with this off) and two per-church toggles,
-*allow private application links* and *allow public fundraising
+*allow private application links* and *allow public support-raising
 links*, each off by default. A restricted partner's trip is excluded
 outright from the public discovery page, but a private application
-link or fundraising link for one still works — masked, not blocked —
+link or support-raising link for one still works — masked, not blocked —
 since reaching either already requires a secret only staff chose to
 share. Needs one new schema migration (five new tables, several
 renamed/added columns on `Trip`/`TripParticipant`/`ChurchSettings`,

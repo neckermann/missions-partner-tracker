@@ -5,8 +5,8 @@ import DemoBanner from "../components/DemoBanner.jsx";
 import { fetchPublicTripParticipantByToken, fetchTripParticipantSelfService } from "../api/client.js";
 import { formatDate } from "../utils/format.js";
 
-// New (#252) -- serves both the plain public fundraising view (by
-// shareToken, route /trip-fundraising/:shareToken) and the participant's
+// New (#252) -- serves both the plain public support-raising view (by
+// shareToken, route /trip-support-raising/:shareToken) and the participant's
 // own self-service view (by signed access token, route /my-trip?token=...)
 // -- one page, two render modes. The public view never shows
 // flightDetails or donor contact info; the self-service view shows both.
@@ -54,14 +54,14 @@ export default function PublicTripParticipant() {
           <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
             <span>${data.raised} raised</span>
             <span style={{ color: "#6b6f76", fontWeight: 400 }}>
-              {data.fundraisingGoal ? `of $${data.fundraisingGoal} goal` : ""}
+              {data.supportRaisingGoal ? `of $${data.supportRaisingGoal} goal` : ""}
             </span>
           </div>
           <div style={{ height: 10, borderRadius: 999, background: "#ece9e4", overflow: "hidden", marginTop: 6 }}>
             <div
               style={{
                 height: "100%",
-                width: data.fundraisingGoal ? `${Math.min(100, (data.raised / data.fundraisingGoal) * 100)}%` : "0%",
+                width: data.supportRaisingGoal ? `${Math.min(100, (data.raised / data.supportRaisingGoal) * 100)}%` : "0%",
                 background: "#2a5d3c",
               }}
             />

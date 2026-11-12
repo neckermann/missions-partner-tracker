@@ -23,7 +23,7 @@ async function getSettings() {
     select: {
       enabledFeatures: true,
       allowPrivateApplicationLinks: true,
-      allowPublicFundraisingLinks: true,
+      allowPublicSupportRaisingLinks: true,
       inboundEmailAddress: true,
     },
   });
@@ -53,7 +53,7 @@ const tripSchema = z.object({
   notes: z.string().optional().nullable(),
   teamSizeMin: z.coerce.number().int().optional().nullable(),
   teamSizeMax: z.coerce.number().int().optional().nullable(),
-  fundraisingGoal: z.coerce.number().int().optional().nullable(),
+  supportRaisingGoal: z.coerce.number().int().optional().nullable(),
   isPublic: z.boolean().optional(),
   flightDetails: z.string().optional().nullable(),
   applicationQuestions: APPLICATION_QUESTION_SCHEMA.optional().nullable(),
@@ -141,7 +141,7 @@ router.get("/dashboard", async (req, res, next) => {
         teamFilled: t.participants.length,
         teamSizeMax: t.teamSizeMax ?? null,
         raised: t.contributions.reduce((sum, c) => sum + c.amount, 0),
-        fundraisingGoal: t.fundraisingGoal,
+        supportRaisingGoal: t.supportRaisingGoal,
       }))
     );
   } catch (err) {
@@ -297,7 +297,7 @@ router.post("/:id/clone", requireRole("admin", "editor"), async (req, res, next)
         teamSizeMin: source.teamSizeMin,
         teamSizeMax: source.teamSizeMax,
         description: source.description,
-        fundraisingGoal: source.fundraisingGoal,
+        supportRaisingGoal: source.supportRaisingGoal,
         applicationQuestions: source.applicationQuestions,
         status: "planning",
         documentRequirements: {
@@ -459,12 +459,12 @@ router.post("/:id/participants", requireRole("admin", "editor"), async (req, res
   }
 });
 
-// POST /api/trips/participants/:id/generate-fundraising-link
-router.post("/participants/:id/generate-fundraising-link", requireRole("admin", "editor"), async (req, res, next) => {
+// POST /api/trips/participants/:id/generate-support-raising-link
+router.post("/participants/:id/generate-support-raising-link", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const settings = await getSettings();
-    if (!settings?.allowPublicFundraisingLinks) {
-      return res.status(400).json({ error: "Public fundraising links are turned off -- enable them in Trip settings first" });
+    if (!settings?.allowPublicSupportRaisingLinks) {
+      return res.status(400).json({ error: "Public support-raising links are turned off -- enable them in Trip settings first" });
     }
     const participant = await prisma.tripParticipant.update({
       where: { id: req.params.id },

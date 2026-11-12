@@ -15,7 +15,7 @@ import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 // word the Trip/TripParticipant unification made misleading, since a
 // Trip can now also represent something that hasn't happened yet. Every
 // trip regardless of status/lifecycle stage lives here; the fuller
-// recruiting view (applications/roster/meetings/documents/fundraising)
+// recruiting view (applications/roster/meetings/documents/support raising)
 // for an actively-recruited trip is AdminTripDetail.jsx, reached via the
 // status badge/link below -- a purely historical backfill is still
 // managed entirely inline here, same as before this feature existed.
@@ -341,7 +341,7 @@ export default function AdminTrips() {
       </div>
       <p style={{ color: "#555" }}>
         Every trip regardless of status. A quick historical backfill is managed right here; an
-        actively-recruited trip's roster, applications, meetings, and fundraising live on its own detail page.
+        actively-recruited trip's roster, applications, meetings, and support raising live on its own detail page.
       </p>
 
       {showAddForm && (

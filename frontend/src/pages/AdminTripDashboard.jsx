@@ -53,7 +53,7 @@ export default function AdminTripDashboard() {
                 </td>
                 <td>
                   ${r.raised}
-                  {r.fundraisingGoal ? ` / $${r.fundraisingGoal}` : ""}
+                  {r.supportRaisingGoal ? ` / $${r.supportRaisingGoal}` : ""}
                 </td>
               </tr>
             );

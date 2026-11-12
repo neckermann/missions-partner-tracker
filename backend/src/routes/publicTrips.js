@@ -1,13 +1,13 @@
 // Public, unauthenticated surfaces for Trips (#252): discovery listing,
 // application submission (plain id-addressed + applicationShareToken-
-// addressed), a participant's public fundraising page (shareToken) and
+// addressed), a participant's public support-raising page (shareToken) and
 // self-service page (signed access token), and lost-link recovery.
 //
 // Restricted-partner handling is NOT uniform across these routes -- see
 // each route's own comment. The discovery list and the plain
 // id-addressed application route EXCLUDE a restricted-partner trip
 // outright (404, same as not found at all); the token-addressed
-// application route and the shareToken fundraising route MASK it
+// application route and the shareToken support-raising route MASK it
 // instead (toInitials-style generic label, not the real partner) since
 // reaching either already requires a secret only staff chose to share.
 // The signed-access-token self-service route is never blocked or masked
@@ -35,7 +35,7 @@ async function getSettings() {
       onlineGivingUrl: true,
       onlineGivingInstructions: true,
       collectDonorContactInfo: true,
-      allowPublicFundraisingLinks: true,
+      allowPublicSupportRaisingLinks: true,
       allowPrivateApplicationLinks: true,
     },
   });
@@ -242,7 +242,7 @@ router.post("/by-token/:token/apply", requireFeature("trips"), async (req, res, 
 });
 
 // GET /api/public/trip-participants/by-token/:shareToken -- the public
-// fundraising page. 404s when allowPublicFundraisingLinks is off or the
+// support-raising page. 404s when allowPublicSupportRaisingLinks is off or the
 // token doesn't match anything. Restricted partner: masked, not 404.
 router.get(
   "/participants/by-token/:shareToken",
@@ -250,7 +250,7 @@ router.get(
   async (req, res, next) => {
     try {
       const settings = await getSettings();
-      if (!settings?.allowPublicFundraisingLinks) return res.status(404).json({ error: "Not found" });
+      if (!settings?.allowPublicSupportRaisingLinks) return res.status(404).json({ error: "Not found" });
 
       const participant = await prisma.tripParticipant.findUnique({
         where: { shareToken: req.params.shareToken },
@@ -270,7 +270,7 @@ router.get(
         firstName: participant.firstName,
         lastName: participant.lastName,
         story: participant.story,
-        fundraisingGoal: participant.fundraisingGoal,
+        supportRaisingGoal: participant.supportRaisingGoal,
         raised,
         trip: {
           name: participant.trip.name,
@@ -333,7 +333,7 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
       firstName: participant.firstName,
       lastName: participant.lastName,
       story: participant.story,
-      fundraisingGoal: participant.fundraisingGoal,
+      supportRaisingGoal: participant.supportRaisingGoal,
       raised,
       contributions: settings?.collectDonorContactInfo
         ? participant.contributions

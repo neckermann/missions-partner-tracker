@@ -234,12 +234,12 @@ model Trip {
 
   teamSizeMin      Int? // pre-filled from Partner.tripTeamSizeMin at creation, then editable per-instance
   teamSizeMax      Int?
-  fundraisingGoal  Int? // whole-dollar team total, matching SupportEntry.amount's existing Int convention
+  supportRaisingGoal Int? // whole-dollar team total, matching SupportEntry.amount's existing Int convention
 
   // Gates this trip's discovery-page listing and whether its plain,
   // id-addressed public application route will accept a submission at
   // all (see publicTrips.js/tripEligibility.js). Does NOT gate a
-  // participant's own fundraising/self-service page -- those stay
+  // participant's own support-raising/self-service page -- those stay
   // reachable via shareToken/access token regardless. Off by default.
   isPublic Boolean @default(false)
 
@@ -256,7 +256,7 @@ model Trip {
   // Entered once by an admin/editor after booking group travel, free
   // text (flight shapes vary too much for rigid fields to help more
   // than fight the admin). Shown on the participant's own self-service
-  // page only -- never on the public fundraising page.
+  // page only -- never on the public support-raising page.
   flightDetails String? @db.Text
 
   // An admin-defined, ordered list of plain free-text-answer questions
@@ -282,7 +282,7 @@ model Trip {
 }
 
 // One row serves both purposes: a freeform backfilled/admin-added entry
-// (applicationId: null, no fundraising fields populated) and a roster
+// (applicationId: null, no support-raising fields populated) and a roster
 // member who came through an approved application.
 model TripParticipant {
   id       String  @id @default(uuid())
@@ -305,15 +305,15 @@ model TripParticipant {
   applicationId String?          @unique
   application   TripApplication? @relation(fields: [applicationId], references: [id])
 
-  fundraisingGoal Int? // null/unused for a historical-only row
+  supportRaisingGoal Int? // null/unused for a historical-only row
 
-  // Short random secret for this participant's public fundraising URL --
+  // Short random secret for this participant's public support-raising URL --
   // a private share-secret functioning as the page's access control, not
   // a human-readable slug, and not this row's own id either (so the URL
   // never exposes a sequential/guessable link between participants).
-  // Not auto-generated at creation -- see ChurchSettings.allowPublicFundraisingLinks.
+  // Not auto-generated at creation -- see ChurchSettings.allowPublicSupportRaisingLinks.
   shareToken String? @unique
-  story      String? @db.Text // what shows on their public fundraising page
+  story      String? @db.Text // what shows on their public support-raising page
 
   // Bumped to invalidate every previously-issued self-service link at
   // once -- same revocation reasoning as User.mfaLastTimeStep's replay
@@ -1110,9 +1110,9 @@ model ChurchSettings {
   allowPrivateApplicationLinks Boolean @default(false)
   // Church-wide gate on whether a TripParticipant.shareToken is ever
   // generated at all -- a church that wants roster/meeting/document/
-  // contribution management but no individual public-facing fundraising
+  // contribution management but no individual public-facing support-raising
   // pages leaves this off.
-  allowPublicFundraisingLinks Boolean @default(false)
+  allowPublicSupportRaisingLinks Boolean @default(false)
 
   // Not trip-specific at all -- the address partners/participants were
   // told (outside this app) to send mail to, under whatever inbound

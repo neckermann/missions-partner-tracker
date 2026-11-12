@@ -11,7 +11,7 @@ const emptyForm = {
   onlineGivingInstructions: "",
   collectDonorContactInfo: false,
   allowPrivateApplicationLinks: false,
-  allowPublicFundraisingLinks: false,
+  allowPublicSupportRaisingLinks: false,
 };
 
 export default function AdminSettingsTrips() {
@@ -82,7 +82,7 @@ export default function AdminSettingsTrips() {
           </label>
         </div>
         <p style={{ color: "#888", fontSize: "0.85rem" }}>
-          Never shown on the public fundraising page regardless of this setting — only on the participant's
+          Never shown on the public support-raising page regardless of this setting — only on the participant's
           own self-service page and to admins.
         </p>
 
@@ -101,10 +101,10 @@ export default function AdminSettingsTrips() {
           <label>
             <input
               type="checkbox"
-              checked={form.allowPublicFundraisingLinks}
-              onChange={(e) => update("allowPublicFundraisingLinks", e.target.checked)}
+              checked={form.allowPublicSupportRaisingLinks}
+              onChange={(e) => update("allowPublicSupportRaisingLinks", e.target.checked)}
             />
-            Allow participants to have public fundraising pages
+            Allow participants to have public support-raising pages
           </label>
         </div>
 

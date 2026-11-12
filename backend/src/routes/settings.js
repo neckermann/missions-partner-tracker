@@ -765,7 +765,7 @@ const tripsSettingsSelect = {
   onlineGivingInstructions: true,
   collectDonorContactInfo: true,
   allowPrivateApplicationLinks: true,
-  allowPublicFundraisingLinks: true,
+  allowPublicSupportRaisingLinks: true,
 };
 
 const tripsSettingsSchema = z.object({
@@ -773,7 +773,7 @@ const tripsSettingsSchema = z.object({
   onlineGivingInstructions: z.string().optional().nullable(),
   collectDonorContactInfo: z.boolean().optional(),
   allowPrivateApplicationLinks: z.boolean().optional(),
-  allowPublicFundraisingLinks: z.boolean().optional(),
+  allowPublicSupportRaisingLinks: z.boolean().optional(),
 });
 
 router.get("/trips", requireFeature("trips"), async (req, res, next) => {
@@ -788,7 +788,7 @@ router.get("/trips", requireFeature("trips"), async (req, res, next) => {
         onlineGivingInstructions: null,
         collectDonorContactInfo: false,
         allowPrivateApplicationLinks: false,
-        allowPublicFundraisingLinks: false,
+        allowPublicSupportRaisingLinks: false,
       }
     );
   } catch (err) {

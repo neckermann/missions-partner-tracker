@@ -491,8 +491,8 @@ export async function addTripParticipant(tripId, payload) {
   const { data } = await api.post(`/trips/${tripId}/participants`, payload);
   return data;
 }
-export async function generateFundraisingLink(participantId) {
-  const { data } = await api.post(`/trips/participants/${participantId}/generate-fundraising-link`);
+export async function generateSupportRaisingLink(participantId) {
+  const { data } = await api.post(`/trips/participants/${participantId}/generate-support-raising-link`);
   return data;
 }
 export async function resendParticipantAccessLink(participantId) {

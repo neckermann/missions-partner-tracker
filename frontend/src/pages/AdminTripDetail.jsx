@@ -7,7 +7,7 @@ import {
   fetchTripApplications,
   reviewTripApplication,
   addTripParticipant,
-  generateFundraisingLink,
+  generateSupportRaisingLink,
   resendParticipantAccessLink,
   addTripDocumentRequirement,
   deleteTripDocumentRequirement,
@@ -20,7 +20,7 @@ import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
 // New (#252) -- the fuller single-trip page for an actively-recruited
-// trip (applications/roster/meetings/documents/fundraising). A purely
+// trip (applications/roster/meetings/documents/support raising). A purely
 // historical backfill never reaches this page -- it's managed inline on
 // AdminTrips.jsx/the partner's own page, exactly as before this feature
 // existed.
@@ -89,12 +89,12 @@ export default function AdminTripDetail() {
     reload();
   }
 
-  async function handleGenerateFundraisingLink(participantId) {
+  async function handleGenerateSupportRaisingLink(participantId) {
     try {
-      await generateFundraisingLink(participantId);
+      await generateSupportRaisingLink(participantId);
       reload();
     } catch (err) {
-      setError(err.response?.data?.error || "Couldn't generate link -- check that public fundraising links are enabled in Trip settings.");
+      setError(err.response?.data?.error || "Couldn't generate link -- check that public support-raising links are enabled in Trip settings.");
     }
   }
 
@@ -227,11 +227,11 @@ export default function AdminTripDetail() {
             </div>
           </label>
           <label>
-            Fundraising goal (per person, $)
+            Support-raising goal (per person, $)
             <input
               type="number"
-              defaultValue={trip.fundraisingGoal || ""}
-              onBlur={(e) => saveSetup({ fundraisingGoal: e.target.value ? Number(e.target.value) : null })}
+              defaultValue={trip.supportRaisingGoal || ""}
+              onBlur={(e) => saveSetup({ supportRaisingGoal: e.target.value ? Number(e.target.value) : null })}
             />
           </label>
         </div>
@@ -401,7 +401,7 @@ export default function AdminTripDetail() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Fundraising</th>
+              <th>Support raising</th>
               <th>Missing documents</th>
               <th></th>
             </tr>
@@ -416,18 +416,18 @@ export default function AdminTripDetail() {
                   </td>
                   <td>
                     ${(trip.contributions || []).filter((c) => c.participantId === p.id).reduce((s, c) => s + c.amount, 0)}
-                    {p.fundraisingGoal ? ` / $${p.fundraisingGoal}` : ""}
+                    {p.supportRaisingGoal ? ` / $${p.supportRaisingGoal}` : ""}
                     {p.shareToken ? (
                       <div style={{ fontSize: "0.7rem" }}>
-                        <code>{`${window.location.origin}/trip-fundraising/${p.shareToken}`}</code>
+                        <code>{`${window.location.origin}/trip-support-raising/${p.shareToken}`}</code>
                       </div>
                     ) : null}
                   </td>
                   <td>{missing.length ? missing.map((m) => m.label).join(", ") : "—"}</td>
                   <td className="table-actions">
                     {!p.shareToken && (
-                      <button className="btn secondary small" onClick={() => handleGenerateFundraisingLink(p.id)}>
-                        Generate fundraising link
+                      <button className="btn secondary small" onClick={() => handleGenerateSupportRaisingLink(p.id)}>
+                        Generate support-raising link
                       </button>
                     )}
                     <button className="btn secondary small" onClick={() => resendParticipantAccessLink(p.id)}>

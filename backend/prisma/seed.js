@@ -1166,13 +1166,13 @@ const ADDITIONAL_USERS = [
 // data doesn't need to exercise the send path too.
 // Trips (#252) demo data -- a handful of hand-crafted trips layered on
 // top of whatever partners buildTrips() already gave random historical
-// trips to, so the new recruiting/roster/fundraising feature has
+// trips to, so the new recruiting/roster/support-raising feature has
 // something real to click through: one actively-recruiting (public)
 // trip with a pending application and a partial roster, one
 // roster-finalized (closed) trip, and one restricted-partner trip using
 // the private-link mechanism instead of public discovery. shareToken/
 // applicationShareToken are generated here regardless of
-// ChurchSettings.allowPublicFundraisingLinks/allowPrivateApplicationLinks
+// ChurchSettings.allowPublicSupportRaisingLinks/allowPrivateApplicationLinks
 // (both off by default) -- an admin flips those settings on to actually
 // use the links this seed already created, same as toggling any other
 // feature on against existing data.
@@ -1207,7 +1207,7 @@ async function seedTripsDemo() {
       endDate: openEnd,
       teamSizeMin: 4,
       teamSizeMax: 10,
-      fundraisingGoal: 1200,
+      supportRaisingGoal: 1200,
       applicationQuestions: [
         { id: "q1", label: "Do you have any dietary restrictions?", required: false },
         { id: "q2", label: "Emergency contact name and phone", required: true },
@@ -1232,7 +1232,7 @@ async function seedTripsDemo() {
       lastName: "Krishnan",
       email: "priya.krishnan@example.org",
       isLeader: true,
-      fundraisingGoal: 1200,
+      supportRaisingGoal: 1200,
       shareToken: generateShareToken(),
       story: "I'm excited to serve this summer and would love your support!",
       contributions: {
@@ -1280,7 +1280,7 @@ async function seedTripsDemo() {
         description: "A short-term team supporting an ongoing restricted-access ministry.",
         teamSizeMin: 3,
         teamSizeMax: 6,
-        fundraisingGoal: 1200,
+        supportRaisingGoal: 1200,
         applicationQuestions: [{ id: "q1", label: "Do you have a valid passport?", required: true }],
       },
     });

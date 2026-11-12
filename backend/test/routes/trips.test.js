@@ -54,7 +54,7 @@ before(async () => {
   const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" }, select: { enabledFeatures: true } });
   originalEnabledFeatures = settings?.enabledFeatures ?? {};
   await setFeatures({ trips: true, publicTripDiscovery: true, outboundEmail: true });
-  await setTripsSettings({ allowPrivateApplicationLinks: true, allowPublicFundraisingLinks: true });
+  await setTripsSettings({ allowPrivateApplicationLinks: true, allowPublicSupportRaisingLinks: true });
   await admin("/api/settings/email", {
     method: "PUT",
     body: { sendEnabled: true, serverToken: "pm-test-token", fromAddress: "updates@example.test" },
@@ -108,7 +108,7 @@ describe("Trips: feature gate", () => {
 });
 
 describe("Trips: restricted-partner handling -- three different rules, not one", () => {
-  test("excluded from discovery and the plain application route; masked (not excluded) on the private-link application route and the fundraising page; unmasked on the self-service page", async () => {
+  test("excluded from discovery and the plain application route; masked (not excluded) on the private-link application route and the support-raising page; unmasked on the self-service page", async () => {
     const partner = await createPartner({ isRestricted: true });
     const trip = await admin("/api/trips", {
       method: "POST",
@@ -140,13 +140,13 @@ describe("Trips: restricted-partner handling -- three different rules, not one",
     assert.equal(viaToken.body.isRestricted, true);
     assert.notEqual(viaToken.body.fieldDisplayName, partner.displayName, "masked view must not show the real partner name");
 
-    // Fundraising page: masked, not excluded.
+    // Support-raising page: masked, not excluded.
     const participant = await prisma.tripParticipant.create({
       data: { tripId: trip.body.id, firstName: "Jamie", shareToken: "test-share-token-restricted" },
     });
-    const fundraising = await anon(`/api/public/trips/participants/by-token/${participant.shareToken}`);
-    assert.equal(fundraising.status, 200);
-    assert.notEqual(fundraising.body.trip.fieldDisplayName, partner.displayName);
+    const supportRaising = await anon(`/api/public/trips/participants/by-token/${participant.shareToken}`);
+    assert.equal(supportRaising.status, 200);
+    assert.notEqual(supportRaising.body.trip.fieldDisplayName, partner.displayName);
 
     // Self-service: real, unmasked data.
     const { buildTripParticipantAccessToken } = require("../../src/utils/tripAccessToken");

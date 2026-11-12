@@ -122,7 +122,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   </RequirePublicSite>
                 }
               />
-              {/* Trips (#252) public application/fundraising/recovery pages
+              {/* Trips (#252) public application/support-raising/recovery pages
               are NOT wrapped in RequirePublicSite -- unlike /trips (the
               broadly-discoverable listing), these are reached only via a
               direct link (plain, or the private applicationShareToken/
@@ -133,7 +133,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               once the way RequirePublicSite's single-feature check assumes. */}
               <Route path="/apply/:id" element={<PublicTripApplication />} />
               <Route path="/apply/by-token/:token" element={<PublicTripApplication />} />
-              <Route path="/trip-fundraising/:shareToken" element={<PublicTripParticipant />} />
+              <Route path="/trip-support-raising/:shareToken" element={<PublicTripParticipant />} />
               <Route path="/my-trip" element={<PublicTripParticipant />} />
               <Route path="/trip-access-recovery" element={<PublicTripAccessRecovery />} />
               <Route path="/login" element={<Login />} />
