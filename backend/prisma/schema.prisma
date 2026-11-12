@@ -1124,6 +1124,25 @@ model ChurchSettings {
   // already send newsletters to.
   inboundEmailAddress String?
 
+  // Church-wide base question set every trip's application form renders
+  // first, before that trip's own applicationQuestions (Trip model, above).
+  // Same shape as applicationQuestions -- see utils/applicationQuestions.js
+  // for the one shared zod definition both this field and Trip's own use.
+  // Configured once under Site Administration -> Mission Trips instead of
+  // re-typed on every trip -- closes the "keep forks upgradable" gap a
+  // hardcoded starter question set would otherwise create. See
+  // publicTrips.js's shapeTripForApplicant for where the two layers get
+  // combined into one ordered list.
+  tripApplicationTemplate Json?
+
+  // A church-owned, editable/deletable library of reusable question
+  // snippets (same shape as tripApplicationTemplate/applicationQuestions)
+  // an admin can quickly copy onto the global template or a specific
+  // trip, instead of retyping a commonly-reused question every time.
+  // Purely a picker source -- nothing here is itself "live" on any
+  // application form until copied into one of those two places.
+  tripQuestionLibrary Json?
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   updatedById String?

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { fetchTripsSettings, updateTripsSettings } from "../api/client.js";
+import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestionsEditor.jsx";
 
 // New (#252) -- church-wide settings for the whole Trips feature area:
 // donation instructions (§13), donor-contact opt-in (§6), and the two
@@ -12,6 +13,8 @@ const emptyForm = {
   collectDonorContactInfo: false,
   allowPrivateApplicationLinks: false,
   allowPublicSupportRaisingLinks: false,
+  tripApplicationTemplate: [],
+  tripQuestionLibrary: [],
 };
 
 export default function AdminSettingsTrips() {
@@ -107,6 +110,42 @@ export default function AdminSettingsTrips() {
             Allow participants to have public support-raising pages
           </label>
         </div>
+
+        <h3 style={{ marginTop: "1.5rem" }}>Application template</h3>
+        <p style={{ color: "#888", fontSize: "0.85rem" }}>
+          Asked on every trip's application form, before that trip's own questions. Edit here instead of re-typing
+          the same question on every trip.
+        </p>
+        <ApplicationQuestionsEditor
+          questions={form.tripApplicationTemplate || []}
+          library={form.tripQuestionLibrary || []}
+          onAdd={(input) => update("tripApplicationTemplate", [...(form.tripApplicationTemplate || []), { id: crypto.randomUUID(), ...input }])}
+          onUpdate={(qId, patch) =>
+            update(
+              "tripApplicationTemplate",
+              (form.tripApplicationTemplate || []).map((q) => (q.id === qId ? { ...q, ...patch } : q))
+            )
+          }
+          onRemove={(qId) => update("tripApplicationTemplate", (form.tripApplicationTemplate || []).filter((q) => q.id !== qId))}
+          onAddFromLibrary={(entry) => update("tripApplicationTemplate", [...(form.tripApplicationTemplate || []), { ...entry, id: crypto.randomUUID() }])}
+        />
+
+        <h3 style={{ marginTop: "1.5rem" }}>Saved questions</h3>
+        <p style={{ color: "#888", fontSize: "0.85rem" }}>
+          A reusable library, not shown to anyone directly -- pick from it when adding a question here or on any
+          trip's own page, instead of retyping a commonly-used one.
+        </p>
+        <ApplicationQuestionsEditor
+          questions={form.tripQuestionLibrary || []}
+          onAdd={(input) => update("tripQuestionLibrary", [...(form.tripQuestionLibrary || []), { id: crypto.randomUUID(), ...input }])}
+          onUpdate={(qId, patch) =>
+            update(
+              "tripQuestionLibrary",
+              (form.tripQuestionLibrary || []).map((q) => (q.id === qId ? { ...q, ...patch } : q))
+            )
+          }
+          onRemove={(qId) => update("tripQuestionLibrary", (form.tripQuestionLibrary || []).filter((q) => q.id !== qId))}
+        />
 
         <div className="form-save-bar">
           <button type="submit" className="btn" disabled={saving}>

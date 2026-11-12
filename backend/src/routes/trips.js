@@ -7,6 +7,7 @@ const { partnerRefSelect } = require("../utils/prismaIncludes");
 const { generateShareToken, buildTripParticipantAccessUrl } = require("../utils/tripAccessToken");
 const { sendParticipantEmail, buildMeetingIcs, buildTripDatesIcs } = require("../utils/tripEmails");
 const { isFeatureEnabled } = require("../utils/features");
+const { APPLICATION_QUESTION_SCHEMA } = require("../utils/applicationQuestions");
 const multer = require("multer");
 
 const router = express.Router();
@@ -37,10 +38,6 @@ const participantSchema = z.object({
   phone: z.string().optional().nullable(),
   email: z.string().optional().nullable(),
 });
-
-const APPLICATION_QUESTION_SCHEMA = z.array(
-  z.object({ id: z.string(), label: z.string().min(1), required: z.boolean().optional() })
-);
 
 const tripSchema = z.object({
   partnerId: z.string().optional().nullable(),

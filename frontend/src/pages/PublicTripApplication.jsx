@@ -128,16 +128,67 @@ export default function PublicTripApplication() {
                 <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
               </label>
             </div>
-            {(trip.applicationQuestions || []).map((q) => (
-              <label key={q.id} style={{ display: "block", marginTop: "0.75rem" }}>
-                {q.label} {q.required && <span style={{ color: "#a6540f" }}>*</span>}
-                <input
-                  required={q.required}
-                  value={responses[q.id] || ""}
-                  onChange={(e) => setResponses((r) => ({ ...r, [q.id]: e.target.value }))}
-                />
-              </label>
-            ))}
+            {(trip.applicationQuestions || []).map((q) => {
+              const type = q.type || "text";
+              return (
+                <label key={q.id} style={{ display: "block", marginTop: "0.75rem" }}>
+                  {q.label} {q.required && <span style={{ color: "#a6540f" }}>*</span>}
+                  {type === "textarea" && (
+                    <textarea
+                      rows={3}
+                      required={q.required}
+                      value={responses[q.id] || ""}
+                      onChange={(e) => setResponses((r) => ({ ...r, [q.id]: e.target.value }))}
+                    />
+                  )}
+                  {type === "select" && (
+                    <select
+                      required={q.required}
+                      value={responses[q.id] || ""}
+                      onChange={(e) => setResponses((r) => ({ ...r, [q.id]: e.target.value }))}
+                    >
+                      <option value="">Select...</option>
+                      {(q.options || []).map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {type === "checkboxes" && (
+                    <div>
+                      {(q.options || []).map((opt) => {
+                        const selected = responses[q.id] || [];
+                        const checked = selected.includes(opt);
+                        return (
+                          <label key={opt} style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 400 }}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) =>
+                                setResponses((r) => {
+                                  const current = r[q.id] || [];
+                                  const next = e.target.checked ? [...current, opt] : current.filter((o) => o !== opt);
+                                  return { ...r, [q.id]: next };
+                                })
+                              }
+                            />
+                            {opt}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {type === "text" && (
+                    <input
+                      required={q.required}
+                      value={responses[q.id] || ""}
+                      onChange={(e) => setResponses((r) => ({ ...r, [q.id]: e.target.value }))}
+                    />
+                  )}
+                </label>
+              );
+            })}
             <div className="form-save-bar">
               <button type="submit" className="btn" disabled={busy}>
                 {busy ? "Submitting..." : "Submit application"}

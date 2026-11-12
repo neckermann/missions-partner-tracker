@@ -37,6 +37,7 @@ async function getSettings() {
       collectDonorContactInfo: true,
       allowPublicSupportRaisingLinks: true,
       allowPrivateApplicationLinks: true,
+      tripApplicationTemplate: true,
     },
   });
 }
@@ -52,7 +53,12 @@ function partnerFieldLabel(partner) {
   return partner.fieldDisplayName || partner.displayName;
 }
 
-function shapeTripForApplicant(trip) {
+// `template` is the church-wide ChurchSettings.tripApplicationTemplate --
+// rendered first, with this trip's own applicationQuestions layered after.
+// One combined, ordered list on the actual form; TripApplication.responses
+// stays keyed by question id regardless of which layer it came from, so
+// nothing downstream needs to know the difference.
+function shapeTripForApplicant(trip, template) {
   return {
     id: trip.id,
     name: trip.name,
@@ -62,7 +68,7 @@ function shapeTripForApplicant(trip) {
     endDate: trip.endDate,
     fieldDisplayName: partnerFieldLabel(trip.partner),
     isRestricted: !!trip.partner?.isRestricted,
-    applicationQuestions: trip.applicationQuestions || [],
+    applicationQuestions: [...(template || []), ...(trip.applicationQuestions || [])],
   };
 }
 
@@ -140,7 +146,7 @@ router.get("/:id", requireFeature("trips"), async (req, res, next) => {
     if (!publiclyDiscoverable || !trip.isPublic || trip.status !== "accepting_applications") {
       return res.status(404).json({ error: "Not found" });
     }
-    res.json(shapeTripForApplicant(trip));
+    res.json(shapeTripForApplicant(trip, settings?.tripApplicationTemplate));
   } catch (err) {
     next(err);
   }
@@ -171,7 +177,7 @@ router.get("/by-token/:token", requireFeature("trips"), async (req, res, next) =
     if (!trip || trip.status !== "accepting_applications") {
       return res.status(404).json({ error: "Not found" });
     }
-    res.json(shapeTripForApplicant(trip));
+    res.json(shapeTripForApplicant(trip, settings?.tripApplicationTemplate));
   } catch (err) {
     next(err);
   }
@@ -182,7 +188,10 @@ const applicationSchema = z.object({
   lastName: z.string().min(1),
   email: z.string().email(),
   phone: z.string().optional().nullable(),
-  responses: z.record(z.string(), z.string()).optional(),
+  // A checkboxes-type question answers with a string array (every option
+  // checked); every other type answers with a plain string -- see
+  // utils/applicationQuestions.js's QUESTION_TYPES.
+  responses: z.record(z.string(), z.union([z.string(), z.array(z.string())])).optional(),
 });
 
 async function createApplication(trip, body, res) {

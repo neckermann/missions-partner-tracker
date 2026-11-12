@@ -16,10 +16,12 @@ import {
   scheduleTripMeeting,
   uploadTripDocument,
   deleteTripDocument,
+  fetchTripsSettings,
 } from "../api/client.js";
 import { formatDate } from "../utils/format.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
+import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestionsEditor.jsx";
 
 // New (#252) -- the fuller single-trip page for an actively-recruited
 // trip (applications/roster/meetings/documents/support raising). A purely
@@ -34,7 +36,7 @@ export default function AdminTripDetail() {
   const [error, setError] = useState("");
   const [savingSetup, setSavingSetup] = useState(false);
   const [newRequirement, setNewRequirement] = useState("");
-  const [newQuestion, setNewQuestion] = useState({ label: "", required: false });
+  const [questionLibrary, setQuestionLibrary] = useState([]);
   const [newParticipant, setNewParticipant] = useState({ firstName: "", lastName: "", email: "" });
   const [newContribution, setNewContribution] = useState({
     participantId: "",
@@ -55,6 +57,14 @@ export default function AdminTripDetail() {
     fetchTrip(id).then(setTrip).catch(console.error);
     fetchTripApplications(id).then(setApplications).catch(console.error);
   }, [id]);
+
+  useEffect(() => {
+    // Just for the "Add from saved questions" picker below -- this page
+    // never edits the library itself, that's AdminSettingsTrips.jsx's job.
+    fetchTripsSettings()
+      .then((s) => setQuestionLibrary(s.tripQuestionLibrary || []))
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     reload();
@@ -137,15 +147,14 @@ export default function AdminTripDetail() {
     return saveSetup({ applicationQuestions: questions });
   }
 
-  async function handleAddQuestion(e) {
-    e.preventDefault();
-    if (!newQuestion.label.trim()) return;
-    const questions = [
-      ...(trip.applicationQuestions || []),
-      { id: crypto.randomUUID(), label: newQuestion.label.trim(), required: newQuestion.required },
-    ];
-    await saveQuestions(questions);
-    setNewQuestion({ label: "", required: false });
+  function handleAddQuestion(input) {
+    const questions = [...(trip.applicationQuestions || []), { id: crypto.randomUUID(), ...input }];
+    return saveQuestions(questions);
+  }
+
+  function handleAddQuestionFromLibrary(entry) {
+    const questions = [...(trip.applicationQuestions || []), { ...entry, id: crypto.randomUUID() }];
+    return saveQuestions(questions);
   }
 
   function handleUpdateQuestion(qId, patch) {
@@ -358,50 +367,17 @@ export default function AdminTripDetail() {
       <div className="admin-section">
         <h3>Application questions</h3>
         <p style={{ color: "#555" }}>
-          Shown to every applicant, in this order, on both the public and private application forms.
+          Added after the church-wide questions (Site Administration → Mission Trips) on both the public and
+          private application forms for this trip specifically.
         </p>
-        <ul style={{ listStyle: "none", padding: 0 }}>
-          {(trip.applicationQuestions || []).map((q) => (
-            <li key={q.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}>
-              <input
-                style={{ flex: 1 }}
-                defaultValue={q.label}
-                onBlur={(e) => e.target.value.trim() && e.target.value !== q.label && handleUpdateQuestion(q.id, { label: e.target.value.trim() })}
-              />
-              <label style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontWeight: 400 }}>
-                <input
-                  type="checkbox"
-                  checked={!!q.required}
-                  onChange={(e) => handleUpdateQuestion(q.id, { required: e.target.checked })}
-                />
-                Required
-              </label>
-              <button type="button" className="btn-remove" onClick={() => handleDeleteQuestion(q.id)}>
-                ✕
-              </button>
-            </li>
-          ))}
-          {(trip.applicationQuestions || []).length === 0 && <p style={{ color: "#888" }}>No questions yet.</p>}
-        </ul>
-        <form onSubmit={handleAddQuestion} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          <input
-            style={{ flex: 1 }}
-            value={newQuestion.label}
-            onChange={(e) => setNewQuestion((q) => ({ ...q, label: e.target.value }))}
-            placeholder="e.g. Do you have a valid passport?"
-          />
-          <label style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontWeight: 400 }}>
-            <input
-              type="checkbox"
-              checked={newQuestion.required}
-              onChange={(e) => setNewQuestion((q) => ({ ...q, required: e.target.checked }))}
-            />
-            Required
-          </label>
-          <button type="submit" className="btn secondary small">
-            + Add
-          </button>
-        </form>
+        <ApplicationQuestionsEditor
+          questions={trip.applicationQuestions || []}
+          onAdd={handleAddQuestion}
+          onUpdate={handleUpdateQuestion}
+          onRemove={handleDeleteQuestion}
+          library={questionLibrary}
+          onAddFromLibrary={handleAddQuestionFromLibrary}
+        />
       </div>
 
       {/* Private link */}

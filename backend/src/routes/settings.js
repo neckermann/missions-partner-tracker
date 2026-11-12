@@ -10,6 +10,7 @@ const { listGroups, listTopics } = require("../utils/groupmeChannel");
 const whatsappClient = require("../utils/whatsappClient");
 const rateLimit = require("express-rate-limit");
 const { sendEmail } = require("../utils/email");
+const { APPLICATION_QUESTION_SCHEMA } = require("../utils/applicationQuestions");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 
 const router = express.Router();
@@ -766,6 +767,8 @@ const tripsSettingsSelect = {
   collectDonorContactInfo: true,
   allowPrivateApplicationLinks: true,
   allowPublicSupportRaisingLinks: true,
+  tripApplicationTemplate: true,
+  tripQuestionLibrary: true,
 };
 
 const tripsSettingsSchema = z.object({
@@ -774,6 +777,13 @@ const tripsSettingsSchema = z.object({
   collectDonorContactInfo: z.boolean().optional(),
   allowPrivateApplicationLinks: z.boolean().optional(),
   allowPublicSupportRaisingLinks: z.boolean().optional(),
+  // Same shared shape as Trip.applicationQuestions (trips.js) -- see
+  // utils/applicationQuestions.js. tripApplicationTemplate is the
+  // church-wide layer every trip's form renders ahead of its own
+  // questions; tripQuestionLibrary is a pure copy-from-here picker
+  // source, never itself rendered on any form.
+  tripApplicationTemplate: APPLICATION_QUESTION_SCHEMA.optional().nullable(),
+  tripQuestionLibrary: APPLICATION_QUESTION_SCHEMA.optional().nullable(),
 });
 
 router.get("/trips", requireFeature("trips"), async (req, res, next) => {
@@ -789,6 +799,8 @@ router.get("/trips", requireFeature("trips"), async (req, res, next) => {
         collectDonorContactInfo: false,
         allowPrivateApplicationLinks: false,
         allowPublicSupportRaisingLinks: false,
+        tripApplicationTemplate: [],
+        tripQuestionLibrary: [],
       }
     );
   } catch (err) {
