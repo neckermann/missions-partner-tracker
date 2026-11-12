@@ -280,8 +280,18 @@ export async function fetchPendingInboundEmails() {
   return data;
 }
 
-export async function assignInboundEmail(id, partnerId, kind, customKind) {
-  const { data } = await api.post(`/inbound-email/${id}/assign`, { partnerId, kind, customKind });
+// Trips (#252): the backend's own /assign route takes partnerId XOR
+// tripParticipantId (never both) -- when assigning to a participant it
+// files as a TripDocument instead of a PartnerFile, and kind/customKind
+// are ignored since a TripDocument has no "kind" of its own.
+export async function assignInboundEmail(id, { partnerId, tripParticipantId, requirementId, kind, customKind }) {
+  const { data } = await api.post(`/inbound-email/${id}/assign`, {
+    partnerId,
+    tripParticipantId,
+    requirementId,
+    kind,
+    customKind,
+  });
   return data;
 }
 
@@ -513,6 +523,24 @@ export async function requestTripDocuments(tripId, participantId, message) {
 export async function addTripContribution(tripId, payload) {
   const { data } = await api.post(`/trips/${tripId}/contributions`, payload);
   return data;
+}
+// Manually logs a document as received -- the only other path into
+// TripDocument is inboundEmail.js's /assign (an inbound email the admin
+// routes to a participant), which has nothing to offer a document that
+// arrived by any other means (mail, in person, a file the admin already
+// has). participantId/requirementId/title are all optional, same as the
+// backend route itself allows.
+export async function uploadTripDocument(tripId, file, { participantId, requirementId, title } = {}) {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (participantId) formData.append("participantId", participantId);
+  if (requirementId) formData.append("requirementId", requirementId);
+  if (title) formData.append("title", title);
+  const { data } = await api.post(`/trips/${tripId}/documents`, formData);
+  return data;
+}
+export async function deleteTripDocument(id) {
+  await api.delete(`/trips/documents/${id}`);
 }
 export async function scheduleTripMeeting(tripId, payload) {
   const { data } = await api.post(`/trips/${tripId}/meetings`, payload);

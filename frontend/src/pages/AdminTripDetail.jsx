@@ -14,6 +14,8 @@ import {
   requestTripDocuments,
   addTripContribution,
   scheduleTripMeeting,
+  uploadTripDocument,
+  deleteTripDocument,
 } from "../api/client.js";
 import { formatDate } from "../utils/format.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
@@ -32,6 +34,7 @@ export default function AdminTripDetail() {
   const [error, setError] = useState("");
   const [savingSetup, setSavingSetup] = useState(false);
   const [newRequirement, setNewRequirement] = useState("");
+  const [newQuestion, setNewQuestion] = useState({ label: "", required: false });
   const [newParticipant, setNewParticipant] = useState({ firstName: "", lastName: "", email: "" });
   const [newContribution, setNewContribution] = useState({
     participantId: "",
@@ -42,6 +45,11 @@ export default function AdminTripDetail() {
   });
   const [meetingForm, setMeetingForm] = useState({ startAt: "", location: "" });
   const [docMessage, setDocMessage] = useState({});
+  // Per-participant "log a document" form state -- the file itself
+  // (held until the admin clicks Log, same as any other file input) and
+  // which requirement (if any) it fulfills.
+  const [docFiles, setDocFiles] = useState({});
+  const [docRequirementChoice, setDocRequirementChoice] = useState({});
 
   const reload = useCallback(() => {
     fetchTrip(id).then(setTrip).catch(console.error);
@@ -118,6 +126,45 @@ export default function AdminTripDetail() {
     reload();
   }
 
+  // Application questions -- a plain JSON array on Trip itself
+  // (applicationQuestions, validated by trips.js's APPLICATION_QUESTION_SCHEMA),
+  // not its own table/route, so every change here just sends the whole
+  // updated array back through the same saveSetup() every other trip-level
+  // field already uses. id is generated client-side (crypto.randomUUID()) --
+  // it only ever needs to be unique within this one array, never looked up
+  // from anywhere else.
+  function saveQuestions(questions) {
+    return saveSetup({ applicationQuestions: questions });
+  }
+
+  async function handleAddQuestion(e) {
+    e.preventDefault();
+    if (!newQuestion.label.trim()) return;
+    const questions = [
+      ...(trip.applicationQuestions || []),
+      { id: crypto.randomUUID(), label: newQuestion.label.trim(), required: newQuestion.required },
+    ];
+    await saveQuestions(questions);
+    setNewQuestion({ label: "", required: false });
+  }
+
+  function handleUpdateQuestion(qId, patch) {
+    const questions = (trip.applicationQuestions || []).map((q) => (q.id === qId ? { ...q, ...patch } : q));
+    return saveQuestions(questions);
+  }
+
+  async function handleDeleteQuestion(qId) {
+    const confirmed = await confirmDialog({
+      title: "Remove this application question?",
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!confirmed) return;
+    const questions = (trip.applicationQuestions || []).filter((q) => q.id !== qId);
+    await saveQuestions(questions);
+  }
+
   async function handleAddContribution(e) {
     e.preventDefault();
     if (!newContribution.donorName || !newContribution.amount || !newContribution.receivedDate) return;
@@ -149,11 +196,41 @@ export default function AdminTripDetail() {
     }
   }
 
+  async function handleLogDocument(participantId) {
+    const file = docFiles[participantId];
+    if (!file) return;
+    try {
+      await uploadTripDocument(id, file, {
+        participantId,
+        requirementId: docRequirementChoice[participantId] || null,
+      });
+      setDocFiles((f) => ({ ...f, [participantId]: null }));
+      setDocRequirementChoice((c) => ({ ...c, [participantId]: "" }));
+      reload();
+    } catch (err) {
+      setError(err.response?.data?.error || "Couldn't log this document.");
+    }
+  }
+
+  async function handleDeleteDocument(docId) {
+    const confirmed = await confirmDialog({
+      title: "Remove this document?",
+      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!confirmed) return;
+    await deleteTripDocument(docId);
+    reload();
+  }
+
   const fulfillmentFor = (participantId) =>
     (trip.documentRequirements || []).map((req) => ({
       label: req.label,
       fulfilled: (trip.documents || []).some((d) => d.requirementId === req.id && d.participantId === participantId),
     }));
+
+  const documentsFor = (participantId) => (trip.documents || []).filter((d) => d.participantId === participantId);
 
   const raised = (trip.contributions || []).reduce((sum, c) => sum + c.amount, 0);
 
@@ -275,6 +352,56 @@ export default function AdminTripDetail() {
           </p>
         )}
         {savingSetup && <p style={{ color: "#888" }}>Saving…</p>}
+      </div>
+
+      {/* Application questions */}
+      <div className="admin-section">
+        <h3>Application questions</h3>
+        <p style={{ color: "#555" }}>
+          Shown to every applicant, in this order, on both the public and private application forms.
+        </p>
+        <ul style={{ listStyle: "none", padding: 0 }}>
+          {(trip.applicationQuestions || []).map((q) => (
+            <li key={q.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}>
+              <input
+                style={{ flex: 1 }}
+                defaultValue={q.label}
+                onBlur={(e) => e.target.value.trim() && e.target.value !== q.label && handleUpdateQuestion(q.id, { label: e.target.value.trim() })}
+              />
+              <label style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontWeight: 400 }}>
+                <input
+                  type="checkbox"
+                  checked={!!q.required}
+                  onChange={(e) => handleUpdateQuestion(q.id, { required: e.target.checked })}
+                />
+                Required
+              </label>
+              <button type="button" className="btn-remove" onClick={() => handleDeleteQuestion(q.id)}>
+                ✕
+              </button>
+            </li>
+          ))}
+          {(trip.applicationQuestions || []).length === 0 && <p style={{ color: "#888" }}>No questions yet.</p>}
+        </ul>
+        <form onSubmit={handleAddQuestion} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <input
+            style={{ flex: 1 }}
+            value={newQuestion.label}
+            onChange={(e) => setNewQuestion((q) => ({ ...q, label: e.target.value }))}
+            placeholder="e.g. Do you have a valid passport?"
+          />
+          <label style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontWeight: 400 }}>
+            <input
+              type="checkbox"
+              checked={newQuestion.required}
+              onChange={(e) => setNewQuestion((q) => ({ ...q, required: e.target.checked }))}
+            />
+            Required
+          </label>
+          <button type="submit" className="btn secondary small">
+            + Add
+          </button>
+        </form>
       </div>
 
       {/* Private link */}
@@ -423,7 +550,22 @@ export default function AdminTripDetail() {
                       </div>
                     ) : null}
                   </td>
-                  <td>{missing.length ? missing.map((m) => m.label).join(", ") : "—"}</td>
+                  <td>
+                    {missing.length ? missing.map((m) => m.label).join(", ") : "—"}
+                    {documentsFor(p.id).length > 0 && (
+                      <ul style={{ margin: "0.35rem 0 0", paddingLeft: "1rem", fontSize: "0.75rem", color: "#555" }}>
+                        {documentsFor(p.id).map((d) => (
+                          <li key={d.id}>
+                            {d.title || d.fileName}
+                            {" "}
+                            <button type="button" className="btn-remove" onClick={() => handleDeleteDocument(d.id)}>
+                              ✕
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
                   <td className="table-actions">
                     {!p.shareToken && (
                       <button className="btn secondary small" onClick={() => handleGenerateSupportRaisingLink(p.id)}>
@@ -441,6 +583,38 @@ export default function AdminTripDetail() {
                     />
                     <button className="btn secondary small" onClick={() => handleRequestDocuments(p.id)}>
                       Request documents
+                    </button>
+                    {/* Manually log a document received by any means other than
+                    inbound email (which already files straight to a participant
+                    via the Unmatched Emails queue) -- mail, in person, a file the
+                    admin already has. */}
+                    <input
+                      type="file"
+                      aria-label="Document file"
+                      style={{ width: 140 }}
+                      onChange={(e) => setDocFiles((f) => ({ ...f, [p.id]: e.target.files[0] || null }))}
+                    />
+                    {(trip.documentRequirements || []).length > 0 && (
+                      <select
+                        aria-label="Fulfills requirement"
+                        value={docRequirementChoice[p.id] || ""}
+                        onChange={(e) => setDocRequirementChoice((c) => ({ ...c, [p.id]: e.target.value }))}
+                        style={{ width: "auto", minWidth: "9.5rem" }}
+                      >
+                        <option value="">(no specific requirement)</option>
+                        {trip.documentRequirements.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <button
+                      className="btn secondary small"
+                      disabled={!docFiles[p.id]}
+                      onClick={() => handleLogDocument(p.id)}
+                    >
+                      Log document
                     </button>
                   </td>
                 </tr>

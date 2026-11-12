@@ -93,6 +93,12 @@ const tripPartnerInclude = {
 const tripInclude = {
   partner: tripPartnerInclude,
   participants: true,
+  // Needed on the plain list endpoint too (not just GET /:id, which
+  // already spread this in separately below) -- the Unmatched Emails
+  // queue flattens every trip's participants into one picker and needs
+  // each trip's own requirement list on hand to populate the document-
+  // requirement picker without a second round-trip per trip.
+  documentRequirements: true,
 };
 
 // GET /api/trips?partnerId=&type=&year=
@@ -211,7 +217,6 @@ router.get("/:id", async (req, res, next) => {
         applications: { where: { status: "pending" } },
         meetings: true,
         documents: true,
-        documentRequirements: true,
         contributions: true,
       },
     });

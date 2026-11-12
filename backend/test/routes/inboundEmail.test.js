@@ -431,6 +431,110 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
   });
 });
 
+// Trips (#252) -- assigning to a TripParticipant instead of a Partner
+// (partnerId XOR tripParticipantId, see assignSchema's own refine).
+// Files as a TripDocument, never a PartnerFile, and is gated on the
+// `trips` feature specifically, not `partnerFiles` (checked inside the
+// handler, since the router-wide gate above only covers `inboundEmail`).
+describe("POST /:id/assign -- trip participant (#252)", () => {
+  test("assigns to a TripParticipant as a TripDocument, optionally marking a requirement fulfilled, deletes the queue row", async () => {
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: { inboundEmail: true, trips: true } } });
+    const partner = await createPartner();
+    const trip = await prisma.trip.create({ data: { partnerId: partner.id, name: "Test trip" } });
+    const requirement = await prisma.tripDocumentRequirement.create({ data: { tripId: trip.id, label: "Signed Waiver" } });
+    const participant = await prisma.tripParticipant.create({ data: { tripId: trip.id, firstName: "Jo", lastName: "Doe" } });
+    const created = await prisma.inboundEmail.create({
+      data: {
+        fromAddress: `trip-assign@${FROM_DOMAIN}`,
+        subject: "Signed waiver attached",
+        bytes: Buffer.from("raw source"),
+        fileName: "inbound-trip-assign.eml",
+      },
+    });
+    try {
+      const res = await admin(`/api/inbound-email/${created.id}/assign`, {
+        method: "POST",
+        body: { tripParticipantId: participant.id, requirementId: requirement.id },
+      });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.equal(res.body.tripId, trip.id);
+      assert.equal(res.body.participantId, participant.id);
+      assert.equal(res.body.requirementId, requirement.id);
+
+      const gone = await prisma.inboundEmail.findUnique({ where: { id: created.id } });
+      assert.equal(gone, null);
+    } finally {
+      await prisma.tripDocument.deleteMany({ where: { tripId: trip.id } });
+      await prisma.tripParticipant.deleteMany({ where: { id: participant.id } });
+      await prisma.tripDocumentRequirement.deleteMany({ where: { id: requirement.id } });
+      await prisma.trip.deleteMany({ where: { id: trip.id } });
+    }
+  });
+
+  test("tripParticipantId with trips off is a 404, even though inboundEmail itself is on", async () => {
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: { inboundEmail: true, trips: false } } });
+    const created = await prisma.inboundEmail.create({
+      data: {
+        fromAddress: `trip-off@${FROM_DOMAIN}`,
+        subject: "x",
+        bytes: Buffer.from("raw source"),
+        fileName: "inbound-trip-off.eml",
+      },
+    });
+    try {
+      const res = await admin(`/api/inbound-email/${created.id}/assign`, {
+        method: "POST",
+        body: { tripParticipantId: "00000000-0000-0000-0000-000000000000" },
+      });
+      assert.equal(res.status, 404);
+    } finally {
+      await prisma.inboundEmail.deleteMany({ where: { id: created.id } });
+      await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: { inboundEmail: true, trips: true } } });
+    }
+  });
+
+  test("a tripParticipantId that no longer exists is a 400", async () => {
+    const created = await prisma.inboundEmail.create({
+      data: {
+        fromAddress: `trip-gone@${FROM_DOMAIN}`,
+        subject: "x",
+        bytes: Buffer.from("raw source"),
+        fileName: "inbound-trip-gone.eml",
+      },
+    });
+    try {
+      const res = await admin(`/api/inbound-email/${created.id}/assign`, {
+        method: "POST",
+        body: { tripParticipantId: "00000000-0000-0000-0000-000000000000" },
+      });
+      assert.equal(res.status, 400);
+    } finally {
+      await prisma.inboundEmail.deleteMany({ where: { id: created.id } });
+    }
+  });
+
+  test("providing both partnerId and tripParticipantId is a 400 (exactly one, per assignSchema's refine)", async () => {
+    const partner = await createPartner();
+    const created = await prisma.inboundEmail.create({
+      data: {
+        fromAddress: `trip-both@${FROM_DOMAIN}`,
+        subject: "x",
+        bytes: Buffer.from("raw source"),
+        fileName: "inbound-trip-both.eml",
+      },
+    });
+    try {
+      const res = await admin(`/api/inbound-email/${created.id}/assign`, {
+        method: "POST",
+        body: { partnerId: partner.id, tripParticipantId: "00000000-0000-0000-0000-000000000000" },
+      });
+      assert.equal(res.status, 400);
+    } finally {
+      await prisma.inboundEmail.deleteMany({ where: { id: created.id } });
+    }
+  });
+});
+
 // The webhook password's own leak-check and "settings gated by the
 // feature flag" coverage now lives in email.test.js, which owns the
 // merged GET/PUT /api/settings/email route (including its inbound
