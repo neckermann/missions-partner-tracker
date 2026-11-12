@@ -157,7 +157,8 @@ prayer digest nested under Email (Sending) since it depends on it), and
 | Prayer requests | On | The Prayer Requests admin section, and the prayer request list on missionary/organization pages. |
 | One-time needs | On | The One-Time Needs admin section, and the one-time needs list on missionary/organization pages. Only gates the standalone `/api/support-needs` CRUD — a need can still be added via a missionary/organization's own edit form either way (a narrower gap than the other toggles here). |
 | Monthly support | On | The Monthly Support report page. |
-| Mission trips | On | The Trip History and Trip Opportunities pages. |
+| Mission trips | **Off** | Trip tracking, recruiting, rosters, meetings, documents, and support raising — the Trips and Trip Planning admin pages. Default flipped from on to off in the Trips rework (#252): this now reaches well beyond an admin-only page into public application forms and outbound email, so it needs an explicit decision rather than being on by default. A fork relying on it staying on for its existing trip-logging needs flips it back on once after upgrading. See [§ Trips](#trips) below. |
+| Public trip discovery | **Off** | The public Trip Opportunities listing (`/trips`) and plain, id-addressed application links. Also requires Mission trips to be on. A church can run trips entirely by private link with this off and Mission trips on — see [§ Trips](#trips) below. |
 | Print booklet | On | The printable prayer & support directory generator. |
 | Reports | On | Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history, furlough — with CSV download and a print view. |
 | GroupMe dispatch | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Site Administration → Dispatch Settings, or via manual send from Pending Dispatches. Configured entirely in the UI (Site Administration → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only). |
@@ -165,7 +166,7 @@ prayer digest nested under Email (Sending) since it depends on it), and
 | Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Site Administration → Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Site Administration → AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 | Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Site Administration → Email. Today's only sender is the batched dispatch digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
-| Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Site Administration → Email page as Sending, independently toggled. See [§ Email (Postmark)](#email-postmark) below. |
+| Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Site Administration → Email page as Sending, independently toggled. Also sets the one informational **Inbound Email Address** field — not required for the webhook itself, but needed for the Reply-To on a trip's "Request documents" email (see [§ Trips](#trips) below). See [§ Email (Postmark)](#email-postmark) below. |
 | Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the public **Subscribe** page (`/subscribe`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on — shown nested under Email (Sending) on this page, and its checkbox can't be turned on until that one is. See [§ Dispatch: GroupMe, the admin digest, and the public digest](#dispatch-groupme-the-admin-digest-and-the-public-digest) below. |
 
 The registry backing this list lives in `backend/src/utils/features.js` —
@@ -906,6 +907,93 @@ there's nothing to hold and nothing to review, since there's nothing
 recorded. Turning it on takes on the review responsibility above in
 exchange for restricted partners' events reaching every channel like
 anyone else's.
+
+### Trips
+
+Trips (#252) tracks a mission trip's full lifecycle — recruiting,
+roster, meetings, documents, support raising — not just a historical
+log of past trips. A trip belongs to a planning partner and moves
+through `planning` → `accepting_applications` → `closed` →
+`completed`. Settings live at Site Administration → Trips Settings
+(`/admin/settings/trips`); per-trip management (setup, roster,
+applications, document requirements, meetings) is on each trip's own
+detail page, reached from Trip Planning.
+
+**Two feature flags, not one** — see [§ Feature toggles](#feature-toggles)
+above:
+
+- **Mission trips** gates the whole backend capability (the Trips and
+  Trip Planning admin pages, every `/api/trips` route). Off by default.
+- **Public trip discovery** gates only the broadly-public listing
+  (`/trips`) and plain, id-addressed application links. Nested under
+  Mission trips, also off by default, so a church can run trips
+  entirely by private link with zero public footprint, or turn on both
+  for a fully public recruiting flow.
+
+**Private links are a separate opt-in from either flag**, each its own
+church-wide setting on the Trips Settings page:
+
+- **Allow staff to generate private application links** — without
+  this, the "Generate private application link" button on a trip's
+  detail page doesn't appear, and no link can ever be created, even
+  with Mission trips on.
+- **Allow participants to have public support-raising pages** — same
+  idea, for a roster participant's own support-raising page.
+
+| Public trip discovery | Allow private application links | Allow public support-raising links | Result |
+|---|---|---|---|
+| Off | Off | Off | Fully admin-only — trips managed entirely in the admin UI, nothing reachable by anyone outside it. |
+| Off | On | Off | A trip is only discoverable/applicable via a private link staff generate and share directly — never listed anywhere public. |
+| Off | On | On | Same as above, plus a roster participant can have their own public support-raising page (also only reachable via its own link, never listed). |
+| On | — | — | The trip is additionally listed on the public Trip Opportunities page and takes plain applications — any of the private-link settings above still work the same regardless. |
+
+**Restricted-partner trips follow three different rules depending on
+the surface**, not one uniform policy — the same reasoning as
+[§ Restricted-country masking policy](#restricted-country-masking-policy)
+above, applied to a different set of pages:
+
+- **Broadly public surfaces** (the Trip Opportunities listing, the
+  plain id-addressed application route) **exclude** a restricted
+  partner's trip outright — it behaves exactly as if it doesn't exist,
+  same as a 404.
+- **Private-link surfaces** (a private application link, a
+  participant's support-raising link) **mask** the partner instead of
+  excluding the trip — reaching either already requires a secret only
+  staff chose to share with a specific person, a fundamentally
+  different threat model than open browsing or guessing. The real
+  partner never appears; initials/a generic label does, the same
+  masking style used elsewhere in this app.
+- **The admin-facing trip detail page shows everything real** — staff
+  need the actual partner to do their job — but shows an explicit
+  amber warning that the trip's own `name`/`description` fields (free
+  text, unlike the partner's structured fields) can still leak
+  identifying details if written carelessly, since masking can't
+  sanitize free text an admin chooses to type.
+
+**Lost-link recovery**: a participant who lost their self-service link
+can request a new one from `/trip-access-recovery`, by email. The
+response is always the same generic message regardless of whether
+anything matched — the same enumeration-prevention precedent
+`publicSubscribe.js`'s own signup flow already set — so this page can
+never be used to probe whether a given email address has a trip
+record.
+
+**Application questions** are admin-defined per trip (label + required
+toggle, no hardcoded defaults) on the trip's own detail page, shown in
+order on both the public and private application forms.
+
+**Document requirements** are also admin-defined per trip. A document
+can reach a participant's file three ways: automatically, when an
+inbound email from that participant is assigned to them from the
+Unmatched Emails queue (optionally marking which requirement it
+fulfills); manually, via the "Log document" control on the trip's
+roster for anything that arrives by mail, in person, or as a file
+staff already have; or via the participant's own self-service upload.
+**Request documents** (a button per roster row) sends an email asking
+for something specific — this is disabled server-side until **Inbound
+Email Address** is set on the Email settings page (see
+[§ Email (Postmark)](#email-postmark) above), since without it there's
+no Reply-To for the participant's response to route back into.
 
 ### Database backups
 
