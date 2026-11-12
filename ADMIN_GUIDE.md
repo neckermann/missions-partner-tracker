@@ -581,8 +581,18 @@ right partner (or an admin can discard it). Setup:
 2. On your server's **Default Inbound Stream** → Settings tab, pick a
    dedicated subdomain for inbound mail (e.g. `updates.yourchurch.org`)
    under **Inbound domain forwarding** — **never your church's real
-   inbox**. Partners send to this address, not to a real mailbox anyone
-   reads.
+   inbox**, and **never the same (sub)domain used as the Sending From
+   Address above**. Partners send to this address, not to a real mailbox
+   anyone reads. Postmark's own setup page for this subdomain gives you
+   an **MX record** to add at whoever manages this domain's DNS — mail
+   to that subdomain goes nowhere until that record exists; add it the
+   same one-time way Sending's SPF/DKIM records got added. Sending and
+   Receiving are deliberately two different kinds of DNS record on two
+   different (sub)domains — SPF/DKIM TXT records on the domain mail goes
+   *out* from, an MX record on the subdomain mail comes *in* to — so
+   don't try to collapse them into one address like `mail@yourchurch.org`
+   serving both; Postmark's own guidance, and this app's, is a dedicated
+   inbound subdomain kept separate from whatever domain Sending uses.
 3. Check **Include raw email content in JSON payload** — without this,
    Postmark's webhook omits the field this app reads, and every inbound
    email fails.
