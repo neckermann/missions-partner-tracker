@@ -22,6 +22,7 @@ export default function AdminSettingsEmail() {
   const [webhookUsername, setWebhookUsername] = useState("");
   const [webhookPassword, setWebhookPassword] = useState("");
   const [webhookPath, setWebhookPath] = useState("");
+  const [inboundEmailAddress, setInboundEmailAddress] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [savingSend, setSavingSend] = useState(false);
@@ -38,6 +39,7 @@ export default function AdminSettingsEmail() {
     setInboundConfigured(s.inboundConfigured);
     setWebhookUsername(s.webhookUsername || "");
     setWebhookPath(s.webhookPath || "");
+    setInboundEmailAddress(s.inboundEmailAddress || "");
   }
 
   useEffect(() => {
@@ -81,6 +83,7 @@ export default function AdminSettingsEmail() {
         receiveEnabled,
         ...(webhookUsername.trim() ? { webhookUsername: webhookUsername.trim() } : {}),
         ...(webhookPassword.trim() ? { webhookPassword: webhookPassword.trim() } : {}),
+        inboundEmailAddress: inboundEmailAddress.trim() || null,
       });
       applySettings(updated);
       setWebhookPassword("");
@@ -245,6 +248,20 @@ export default function AdminSettingsEmail() {
               autoComplete="off"
             />
           </label>
+          <label style={{ marginTop: "1rem" }}>
+            Inbound Email Address
+            <input
+              value={inboundEmailAddress}
+              onChange={(e) => setInboundEmailAddress(e.target.value)}
+              placeholder="updates@mail.yourchurch.org"
+            />
+          </label>
+          <p style={{ color: "#555", fontSize: "0.85rem" }}>
+            The address partners/participants were told (outside this app) to send mail to, on whatever inbound
+            domain you configured in Postmark above -- purely informational, doesn't change the webhook itself.
+            Also used as the Reply-To on a trip's "Request documents" email, so a participant's reply actually
+            routes back into this queue instead of to no one.
+          </p>
           <div style={{ marginTop: "1rem" }}>
             <button type="submit" className="btn" disabled={savingReceive}>
               {savingReceive ? "Saving..." : "Save"}
