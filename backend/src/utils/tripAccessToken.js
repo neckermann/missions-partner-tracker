@@ -81,4 +81,5 @@ module.exports = {
   buildTripParticipantAccessUrl,
   generateShareToken,
   sendTripParticipantAccessLinks,
+  appBaseUrl,
 };

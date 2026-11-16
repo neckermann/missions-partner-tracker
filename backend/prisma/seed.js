@@ -1300,6 +1300,16 @@ async function seedTripsDemo() {
   await prisma.churchSettings.update({
     where: { id: "singleton" },
     data: {
+      // tmpl4/tmpl5 added in a later round -- the user asked for more of
+      // what a participant record collects, pointing at the same real
+      // example application. Address and date of birth stay single
+      // free-text fields each (one line, one question) rather than
+      // splitting into street/city/state/zip or month/day/year sub-
+      // fields -- same reasoning this app already applies to
+      // Trip.flightDetails and TripRequirement.label: rigid sub-fields
+      // fight more than they help for something this variable, and
+      // there's no dedicated date-type question (deliberately stopped at
+      // four question types -- see §2's revised decision block).
       tripApplicationTemplate: [
         { id: "tmpl1", type: "text", label: "Emergency contact name and phone", required: true },
         {
@@ -1316,6 +1326,8 @@ async function seedTripsDemo() {
           required: true,
           options: ["Yes", "No"],
         },
+        { id: "tmpl4", type: "text", label: "Mailing address (street, city, state, zip)", required: true },
+        { id: "tmpl5", type: "text", label: "Date of birth", required: true },
       ],
       tripQuestionLibrary: [
         {
@@ -1339,6 +1351,14 @@ async function seedTripsDemo() {
           label: "Are you comfortable with texting as a way for the team to reach you?",
           required: false,
           options: ["Yes", "No"],
+        },
+        { id: "lib6", type: "text", label: "Occupation", required: false },
+        {
+          id: "lib7",
+          type: "select",
+          label: "Marital status",
+          required: false,
+          options: ["Single", "Married"],
         },
       ],
     },

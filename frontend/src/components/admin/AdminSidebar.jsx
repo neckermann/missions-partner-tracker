@@ -27,8 +27,12 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
     enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
     enabledFeatures.oneTimeNeeds && { to: "/admin/support/needs", label: "One-Time Needs" },
     enabledFeatures.monthlySupport && { to: "/admin/support/monthly", label: "Monthly Support" },
-    enabledFeatures.trips && { to: "/admin/trips", label: "Trips", end: true },
+    // Trip Planning (where recruiting a new trip actually starts) ahead
+    // of Trips (the historical ledger) -- a new admin landing on Trips
+    // first would find no obvious way to start a new recruiting trip at
+    // all, since that's Trip Planning's job, not this list's.
     enabledFeatures.trips && { to: "/admin/trips/planning", label: "Trip Planning" },
+    enabledFeatures.trips && { to: "/admin/trips", label: "Trips", end: true },
     enabledFeatures.trips && { to: "/admin/trips/dashboard", label: "Trips Dashboard" },
     enabledFeatures.booklet && { to: "/admin/booklet", label: "Print Booklet" },
     enabledFeatures.reports && { to: "/admin/reports", label: "Reports" },

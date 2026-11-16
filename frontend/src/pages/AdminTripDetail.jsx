@@ -435,6 +435,20 @@ export default function AdminTripDetail() {
             onBlur={(e) => saveSetup({ description: e.target.value })}
           />
         </label>
+        {/* Previously nowhere -- the field was read and shown on the
+        participant self-service page, but there was no UI anywhere to
+        ever set it. Entered once after group travel is booked, so it's
+        usually empty well after the roster is finalized -- normal, not a
+        bug (see §9's own decision on why there's no separate notification
+        for it either). */}
+        <label style={{ marginTop: "0.75rem" }}>
+          Flight details (shown only on each participant's own self-service page, never publicly)
+          <textarea
+            rows={2}
+            defaultValue={trip.flightDetails || ""}
+            onBlur={(e) => saveSetup({ flightDetails: e.target.value })}
+          />
+        </label>
         {trip.partner?.isRestricted && (
           <div
             style={{

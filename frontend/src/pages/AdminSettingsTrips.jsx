@@ -132,7 +132,7 @@ export default function AdminSettingsTrips() {
 
         <h3 style={{ marginTop: "1.5rem" }}>Saved questions</h3>
         <p style={{ color: "#888", fontSize: "0.85rem" }}>
-          A reusable library, not shown to anyone directly -- pick from it when adding a question here or on any
+          A reusable library, not shown to anyone directly — pick from it when adding a question here or on any
           trip's own page, instead of retyping a commonly-used one.
         </p>
         <ApplicationQuestionsEditor

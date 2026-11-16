@@ -5,17 +5,28 @@
 // place, so a later fix to one of those doesn't silently miss the other
 // four call sites.
 const { sendEmail } = require("./email");
+const { appBaseUrl } = require("./tripAccessToken");
+
+// Same small "Lost your link?" line on every one of this feature's
+// emails, same convention a digest email's own unsubscribe footer
+// already follows elsewhere in this app. Previously promised (the plan
+// always specified it here) but never actually added -- the only path
+// to /trip-access-recovery was typing it directly.
+function recoveryFooter() {
+  return `\n\n---\nLost your link? Request a new one: ${appBaseUrl()}/trip-access-recovery`;
+}
 
 // attachments: [{ name, content (Buffer), contentType }] -- passed
 // straight through to Postmark's Attachments field (base64-encoded).
 async function sendParticipantEmail(participant, subject, body, { attachments, replyTo } = {}) {
   if (!participant.email) return { sent: false, reason: "no-email" };
+  const fullBody = body + recoveryFooter();
   try {
     await sendEmail({
       to: participant.email,
       subject,
-      text: body,
-      html: body.replace(/\n/g, "<br>"),
+      text: fullBody,
+      html: fullBody.replace(/\n/g, "<br>"),
       replyTo,
       attachments: attachments?.map((a) => ({
         Name: a.name,

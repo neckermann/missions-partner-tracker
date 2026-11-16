@@ -125,7 +125,7 @@ export default function PublicTripParticipant() {
         <div className="admin-section">
           <h3>How to give</h3>
           <ol>
-            <li>Give directly to the church — note "{data.firstName} {data.lastName} — {data.trip.name}" so it's credited to this trip.</li>
+            <li>Give directly to the church — note "{data.firstName} {data.lastName} — {data.trip.name || data.trip.type}" so it's credited to this trip.</li>
             <li>Give directly to {data.firstName} — pass along your gift and they'll record it with the church office.</li>
             {data.giving?.onlineGivingUrl && (
               <li>
