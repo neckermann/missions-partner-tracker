@@ -7,13 +7,10 @@ import {
   fetchTripApplications,
   reviewTripApplication,
   addTripParticipant,
-  generateSupportRaisingLink,
-  resendParticipantAccessLink,
   addTripRequirement,
   updateTripRequirement,
   deleteTripRequirement,
   setTripRequirementComplete,
-  requestTripDocuments,
   addTripContribution,
   scheduleTripMeeting,
   uploadTripDocument,
@@ -56,12 +53,6 @@ export default function AdminTripDetail() {
     receivedDate: "",
   });
   const [meetingForm, setMeetingForm] = useState({ startAt: "", location: "" });
-  const [docMessage, setDocMessage] = useState({});
-  // Per-participant "log a document" form state -- the file itself
-  // (held until the admin clicks Log, same as any other file input) and
-  // which requirement (if any) it fulfills.
-  const [docFiles, setDocFiles] = useState({});
-  const [docRequirementChoice, setDocRequirementChoice] = useState({});
   // A trip-wide document (itinerary, packing list) -- participantId stays
   // null. Schema/backend already supported this (TripDocument.participantId
   // is nullable specifically for it); there was never any UI for it until
@@ -141,15 +132,6 @@ export default function AdminTripDetail() {
     await addTripParticipant(id, newParticipant);
     setNewParticipant({ firstName: "", lastName: "", email: "" });
     reload();
-  }
-
-  async function handleGenerateSupportRaisingLink(participantId) {
-    try {
-      await generateSupportRaisingLink(participantId);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Couldn't generate link -- check that public support-raising links are enabled in Trip settings.");
-    }
   }
 
   async function handleAddRequirement(e) {
@@ -250,33 +232,6 @@ export default function AdminTripDetail() {
     reload();
   }
 
-  async function handleRequestDocuments(participantId) {
-    const message = docMessage[participantId];
-    if (!message) return;
-    try {
-      await requestTripDocuments(id, participantId, message);
-      setDocMessage((m) => ({ ...m, [participantId]: "" }));
-    } catch (err) {
-      setError(err.response?.data?.error || "Couldn't send -- check that outbound and inbound email are configured.");
-    }
-  }
-
-  async function handleLogDocument(participantId) {
-    const file = docFiles[participantId];
-    if (!file) return;
-    try {
-      await uploadTripDocument(id, file, {
-        participantId,
-        requirementId: docRequirementChoice[participantId] || null,
-      });
-      setDocFiles((f) => ({ ...f, [participantId]: null }));
-      setDocRequirementChoice((c) => ({ ...c, [participantId]: "" }));
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Couldn't log this document.");
-    }
-  }
-
   async function handleUploadTripWideDocument() {
     if (!tripWideFile) return;
     try {
@@ -332,8 +287,6 @@ export default function AdminTripDetail() {
           ? !!(req.requirementStatuses || []).find((s) => s.participantId === participantId)?.completedAt
           : (trip.documents || []).some((d) => d.requirementId === req.id && d.participantId === participantId),
     }));
-
-  const documentsFor = (participantId) => (trip.documents || []).filter((d) => d.participantId === participantId);
 
   const raised = (trip.contributions || []).reduce((sum, c) => sum + c.amount, 0);
 
@@ -681,7 +634,13 @@ export default function AdminTripDetail() {
         )}
       </div>
 
-      {/* Roster */}
+      {/* Roster -- simplified (#252 follow-on). Per-participant document
+      upload/request, access-link controls, and task checkboxes all used
+      to live crammed into this table's action column; moved to each
+      participant's own detail page (linked below) and the Requirements
+      overview matrix section, since a requirement x participant
+      relationship doesn't actually fit one flat roster row. This table
+      is now just "who's on the team." */}
       <div className="admin-section">
         <h3>Roster</h3>
         <table className="admin-table">
@@ -695,119 +654,34 @@ export default function AdminTripDetail() {
           </thead>
           <tbody>
             {(trip.participants || []).map((p) => {
-              const fulfillment = fulfillmentFor(p.id);
-              const missing = fulfillment.filter((f) => !f.fulfilled);
-              const completedTasks = fulfillment.filter((f) => f.kind === "task" && f.fulfilled);
+              const missing = fulfillmentFor(p.id).filter((f) => !f.fulfilled);
               return (
                 <tr key={p.id}>
                   <td>
-                    {p.firstName} {p.lastName}
+                    <Link to={`/admin/trips/${id}/participants/${p.id}`}>
+                      {p.firstName} {p.lastName}
+                    </Link>
                   </td>
                   <td>
                     ${(trip.contributions || []).filter((c) => c.participantId === p.id).reduce((s, c) => s + c.amount, 0)}
                     {p.supportRaisingGoal ? ` / $${p.supportRaisingGoal}` : ""}
-                    {p.shareToken ? (
-                      <div style={{ fontSize: "0.7rem" }}>
-                        <code>{`${window.location.origin}/trip-support-raising/${p.shareToken}`}</code>
-                      </div>
-                    ) : null}
                   </td>
-                  <td>
-                    {missing.length === 0 && "—"}
-                    {missing.map((m) =>
-                      m.kind === "task" ? (
-                        <label key={m.id} style={{ display: "flex", alignItems: "center", gap: "0.3rem", fontWeight: 400, fontSize: "0.85rem" }}>
-                          <input type="checkbox" onChange={() => handleToggleTaskComplete(m.id, p.id, true)} />
-                          {m.label}
-                          {m.dueAt && new Date(m.dueAt) < new Date() && (
-                            <span style={{ color: "#b91c1c", fontWeight: 600 }}>overdue</span>
-                          )}
-                        </label>
-                      ) : (
-                        <div key={m.id} style={{ fontSize: "0.85rem" }}>
-                          {m.label}
-                          {m.dueAt && new Date(m.dueAt) < new Date() && (
-                            <span style={{ color: "#b91c1c", fontWeight: 600 }}> overdue</span>
-                          )}
-                        </div>
-                      )
-                    )}
-                    {completedTasks.map((m) => (
-                      <label key={m.id} style={{ display: "flex", alignItems: "center", gap: "0.3rem", fontWeight: 400, fontSize: "0.85rem", color: "#555" }}>
-                        <input type="checkbox" checked onChange={() => handleToggleTaskComplete(m.id, p.id, false)} />
-                        {m.label}
-                      </label>
-                    ))}
-                    {documentsFor(p.id).length > 0 && (
-                      <ul style={{ margin: "0.35rem 0 0", paddingLeft: "1rem", fontSize: "0.75rem", color: "#555" }}>
-                        {documentsFor(p.id).map((d) => (
-                          <li key={d.id}>
-                            {d.title || d.fileName}{" "}
-                            <button type="button" className="btn secondary small" onClick={() => handleViewDocument(d)}>
-                              View
-                            </button>{" "}
-                            <button type="button" className="btn-remove" onClick={() => handleDeleteDocument(d.id)}>
-                              ✕
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </td>
+                  <td>{missing.length === 0 ? "—" : `${missing.length} item${missing.length === 1 ? "" : "s"}`}</td>
                   <td className="table-actions">
-                    {!p.shareToken && (
-                      <button className="btn secondary small" onClick={() => handleGenerateSupportRaisingLink(p.id)}>
-                        Generate support-raising link
-                      </button>
-                    )}
-                    <button className="btn secondary small" onClick={() => resendParticipantAccessLink(p.id)}>
-                      Resend access link
-                    </button>
-                    <input
-                      style={{ width: 160 }}
-                      placeholder="Document request message"
-                      value={docMessage[p.id] || ""}
-                      onChange={(e) => setDocMessage((m) => ({ ...m, [p.id]: e.target.value }))}
-                    />
-                    <button className="btn secondary small" onClick={() => handleRequestDocuments(p.id)}>
-                      Request documents
-                    </button>
-                    {/* Manually log a document received by any means other than
-                    inbound email (which already files straight to a participant
-                    via the Unmatched Emails queue) -- mail, in person, a file the
-                    admin already has. */}
-                    <input
-                      type="file"
-                      aria-label="Document file"
-                      style={{ width: 140 }}
-                      onChange={(e) => setDocFiles((f) => ({ ...f, [p.id]: e.target.files[0] || null }))}
-                    />
-                    {(trip.requirements || []).filter((r) => r.kind !== "task").length > 0 && (
-                      <select
-                        aria-label="Fulfills requirement"
-                        value={docRequirementChoice[p.id] || ""}
-                        onChange={(e) => setDocRequirementChoice((c) => ({ ...c, [p.id]: e.target.value }))}
-                        style={{ width: "auto", minWidth: "9.5rem" }}
-                      >
-                        <option value="">(no specific requirement)</option>
-                        {trip.requirements.filter((r) => r.kind !== "task").map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.label}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    <button
-                      className="btn secondary small"
-                      disabled={!docFiles[p.id]}
-                      onClick={() => handleLogDocument(p.id)}
-                    >
-                      Log document
-                    </button>
+                    <Link className="btn secondary small" to={`/admin/trips/${id}/participants/${p.id}`}>
+                      View details
+                    </Link>
                   </td>
                 </tr>
               );
             })}
+            {(trip.participants || []).length === 0 && (
+              <tr>
+                <td colSpan={4} style={{ color: "#888" }}>
+                  No one on the roster yet.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
         <form onSubmit={handleAddParticipant} className="form-grid" style={{ marginTop: "0.75rem" }}>
@@ -963,6 +837,82 @@ export default function AdminTripDetail() {
             + Add
           </button>
         </form>
+      </div>
+
+      {/* Requirements overview -- a matrix (requirement x participant), not
+      flattened into the roster or the requirement-definition list above.
+      Matches the data's actual shape: a requirement is defined once per
+      trip, but its fulfillment is per participant. Uploading a document
+      now happens on that participant's own detail page (linked from the
+      Roster); a task can still be toggled directly here since that's a
+      trivial one-click action worth keeping inline rather than a trip to
+      another page. */}
+      <div className="admin-section">
+        <h3>Requirements overview</h3>
+        <p style={{ color: "#888", fontSize: "0.85rem" }}>
+          What's still outstanding across the whole team. Upload a document from a participant's own detail page;
+          check off a task directly here.
+        </p>
+        {(trip.requirements || []).length === 0 ? (
+          <p style={{ color: "#888" }}>No requirements defined yet -- add one above.</p>
+        ) : (trip.participants || []).length === 0 ? (
+          <p style={{ color: "#888" }}>No participants on the roster yet.</p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Requirement</th>
+                  {trip.participants.map((p) => (
+                    <th key={p.id}>
+                      {p.firstName} {p.lastName ? `${p.lastName.charAt(0)}.` : ""}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {trip.requirements.map((r) => {
+                  const overdue = r.dueAt && new Date(r.dueAt) < new Date();
+                  return (
+                    <tr key={r.id}>
+                      <td>
+                        {r.label}
+                        {r.dueAt && (
+                          <div style={{ fontSize: "0.7rem", color: overdue ? "#b91c1c" : "#888" }}>
+                            due {formatDate(r.dueAt)}
+                            {overdue ? " (overdue)" : ""}
+                          </div>
+                        )}
+                      </td>
+                      {trip.participants.map((p) => {
+                        const fulfilled = !!fulfillmentFor(p.id).find((f) => f.id === r.id)?.fulfilled;
+                        return (
+                          <td key={p.id} style={{ textAlign: "center" }}>
+                            {r.kind === "task" ? (
+                              <input
+                                type="checkbox"
+                                checked={fulfilled}
+                                onChange={(e) => handleToggleTaskComplete(r.id, p.id, e.target.checked)}
+                              />
+                            ) : fulfilled ? (
+                              <span style={{ color: "#1f6b4f", fontWeight: 700 }} title="On file">
+                                ✓
+                              </span>
+                            ) : (
+                              <span style={{ color: "#b91c1c" }} title="Missing">
+                                —
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Meetings */}
