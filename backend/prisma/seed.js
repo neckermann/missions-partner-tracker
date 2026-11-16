@@ -1208,9 +1208,12 @@ async function seedTripsDemo() {
       teamSizeMin: 4,
       teamSizeMax: 10,
       supportRaisingGoal: 1200,
+      // Emergency contact deliberately NOT repeated here -- it's covered by
+      // the church-wide tripApplicationTemplate seeded below, which is
+      // exactly the case that layering exists for: a question every trip
+      // asks lives in the template once, not retyped per trip.
       applicationQuestions: [
         { id: "q1", label: "Do you have any dietary restrictions?", required: false },
-        { id: "q2", label: "Emergency contact name and phone", required: true },
         { id: "q3", label: "Do you have a valid passport?", required: true },
       ],
       applications: {
@@ -1219,7 +1222,7 @@ async function seedTripsDemo() {
             firstName: "James",
             lastName: "Okonkwo",
             email: "james.okonkwo@example.org",
-            responses: { q2: "Grace Okonkwo, 555-0142", q3: "Yes" },
+            responses: { tmpl1: "Grace Okonkwo, 555-0142", q3: "Yes" },
           },
         ],
       },
@@ -1285,6 +1288,61 @@ async function seedTripsDemo() {
       },
     });
   }
+
+  // Realistic starter content for tripApplicationTemplate/tripQuestionLibrary
+  // -- generalized from a real short-term mission trip application a user
+  // shared (not copied verbatim; every church's own wording differs, and
+  // CONTRIBUTING.md's "keep forks upgradable" rule means this belongs in
+  // this demo church's own seed data, not hardcoded into app code).
+  // tripApplicationTemplate is the universal layer every trip asks;
+  // tripQuestionLibrary is a picker-only set an admin could add to any
+  // trip or the template itself, never live on a form by itself.
+  await prisma.churchSettings.update({
+    where: { id: "singleton" },
+    data: {
+      tripApplicationTemplate: [
+        { id: "tmpl1", type: "text", label: "Emergency contact name and phone", required: true },
+        {
+          id: "tmpl2",
+          type: "select",
+          label: "Are you willing to raise the funds needed for this trip and meet payment deadlines?",
+          required: true,
+          options: ["Yes", "No"],
+        },
+        {
+          id: "tmpl3",
+          type: "select",
+          label: "Do you agree to follow the team's code of conduct during the trip?",
+          required: true,
+          options: ["Yes", "No"],
+        },
+      ],
+      tripQuestionLibrary: [
+        {
+          id: "lib1",
+          type: "textarea",
+          label: "Tell us about your faith journey and how you came to follow Jesus.",
+          required: false,
+        },
+        { id: "lib2", type: "textarea", label: "What are your expectations for this trip?", required: false },
+        { id: "lib3", type: "text", label: "Health insurance company and policy/group number", required: false },
+        {
+          id: "lib4",
+          type: "select",
+          label: "Do you have a valid passport, or could you get one before the trip departs?",
+          required: true,
+          options: ["Yes, I have one", "No, but I can apply in time", "No"],
+        },
+        {
+          id: "lib5",
+          type: "select",
+          label: "Are you comfortable with texting as a way for the team to reach you?",
+          required: false,
+          options: ["Yes", "No"],
+        },
+      ],
+    },
+  });
 }
 
 async function seedAdditionalUsers() {
