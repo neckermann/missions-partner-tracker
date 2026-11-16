@@ -177,3 +177,106 @@ describe("Trips: lost-link recovery enumeration prevention", () => {
     assert.deepEqual(matched.body, unmatched.body, "response body must not reveal whether the email matched");
   });
 });
+
+// TripRequirement generalization (follow-on round after the above) --
+// a requirement is a document or a plain task, optionally with a due
+// date and a reminder lead time; fulfillment and cloning both have to
+// treat the two kinds differently.
+describe("Trips: requirements (document or task)", () => {
+  test("rejects a reminder lead time with no due date", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    const res = await admin(`/api/trips/${trip.body.id}/requirements`, {
+      method: "POST",
+      body: { label: "No due date set", reminderLeadDays: 3 },
+    });
+    assert.equal(res.status, 400);
+  });
+
+  test("a task requirement's fulfillment is per-participant, not shared across the whole trip", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    const requirement = await admin(`/api/trips/${trip.body.id}/requirements`, {
+      method: "POST",
+      body: { label: "Attended orientation call", kind: "task" },
+    });
+    assert.equal(requirement.status, 201);
+    const alice = await prisma.tripParticipant.create({ data: { tripId: trip.body.id, firstName: "Alice" } });
+    const bob = await prisma.tripParticipant.create({ data: { tripId: trip.body.id, firstName: "Bob" } });
+
+    const completed = await admin(`/api/trips/requirements/${requirement.body.id}/participants/${alice.id}/complete`, {
+      method: "PUT",
+      body: { completed: true },
+    });
+    assert.equal(completed.status, 200);
+
+    const fetched = await admin(`/api/trips/${trip.body.id}`);
+    const fetchedReq = fetched.body.requirements.find((r) => r.id === requirement.body.id);
+    assert.ok(
+      fetchedReq.requirementStatuses.find((s) => s.participantId === alice.id)?.completedAt,
+      "Alice's own status should be completed"
+    );
+    assert.ok(
+      !fetchedReq.requirementStatuses.find((s) => s.participantId === bob.id),
+      "Bob must have no status row at all -- never marked complete on his behalf"
+    );
+  });
+
+  test("a document requirement cannot be marked complete directly -- only fulfilled by uploading its document", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    const requirement = await admin(`/api/trips/${trip.body.id}/requirements`, {
+      method: "POST",
+      body: { label: "Signed Waiver", kind: "document" },
+    });
+    const participant = await prisma.tripParticipant.create({ data: { tripId: trip.body.id, firstName: "Jamie" } });
+    const res = await admin(`/api/trips/requirements/${requirement.body.id}/participants/${participant.id}/complete`, {
+      method: "PUT",
+      body: { completed: true },
+    });
+    assert.equal(res.status, 400);
+  });
+
+  test("cloning copies label/kind/reminderLeadDays but never the due date forward", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    await admin(`/api/trips/${trip.body.id}/requirements`, {
+      method: "POST",
+      body: { label: "Passport copy", dueAt: "2026-11-25", reminderLeadDays: 5 },
+    });
+
+    const cloned = await admin(`/api/trips/${trip.body.id}/clone`, { method: "POST" });
+    assert.equal(cloned.status, 201);
+    const clonedReq = cloned.body.requirements[0];
+    assert.equal(clonedReq.label, "Passport copy");
+    assert.equal(clonedReq.kind, "document");
+    assert.equal(clonedReq.reminderLeadDays, 5);
+    assert.equal(clonedReq.dueAt, null, "a specific calendar date from the prior run must never copy forward");
+  });
+
+  test("the self-service page reports every requirement's fulfillment state, both kinds", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    await admin(`/api/trips/${trip.body.id}/requirements`, {
+      method: "POST",
+      body: { label: "Signed Waiver", kind: "document" },
+    });
+    const taskReq = await admin(`/api/trips/${trip.body.id}/requirements`, {
+      method: "POST",
+      body: { label: "Attended orientation call", kind: "task" },
+    });
+    const participant = await prisma.tripParticipant.create({ data: { tripId: trip.body.id, firstName: "Jamie" } });
+    await admin(`/api/trips/requirements/${taskReq.body.id}/participants/${participant.id}/complete`, {
+      method: "PUT",
+      body: { completed: true },
+    });
+
+    const { buildTripParticipantAccessToken } = require("../../src/utils/tripAccessToken");
+    const accessToken = buildTripParticipantAccessToken({ id: participant.id, accessTokenVersion: 0 });
+    const selfService = await anon(`/api/public/trips/participants/access?token=${accessToken}`);
+    assert.equal(selfService.status, 200);
+    const byLabel = Object.fromEntries(selfService.body.requirements.map((r) => [r.label, r.fulfilled]));
+    assert.equal(byLabel["Signed Waiver"], false);
+    assert.equal(byLabel["Attended orientation call"], true);
+  });
+});

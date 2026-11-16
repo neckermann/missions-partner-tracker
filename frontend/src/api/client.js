@@ -509,12 +509,25 @@ export async function resendParticipantAccessLink(participantId) {
   const { data } = await api.post(`/trips/participants/${participantId}/request-access-link`);
   return data;
 }
-export async function addTripDocumentRequirement(tripId, label) {
-  const { data } = await api.post(`/trips/${tripId}/document-requirements`, { label });
+// Generalized (#252 follow-on) -- a requirement is a document or a plain
+// task, optionally with a due date and a reminder lead time; `payload`
+// is { label, kind?, dueAt?, reminderLeadDays? }.
+export async function addTripRequirement(tripId, payload) {
+  const { data } = await api.post(`/trips/${tripId}/requirements`, payload);
   return data;
 }
-export async function deleteTripDocumentRequirement(id) {
-  await api.delete(`/trips/document-requirements/${id}`);
+export async function updateTripRequirement(id, payload) {
+  const { data } = await api.put(`/trips/requirements/${id}`, payload);
+  return data;
+}
+export async function deleteTripRequirement(id) {
+  await api.delete(`/trips/requirements/${id}`);
+}
+// Task-kind only -- a document requirement is fulfilled by uploading its
+// document (uploadTripDocument below), never this route.
+export async function setTripRequirementComplete(requirementId, participantId, completed) {
+  const { data } = await api.put(`/trips/requirements/${requirementId}/participants/${participantId}/complete`, { completed });
+  return data;
 }
 export async function requestTripDocuments(tripId, participantId, message) {
   const { data } = await api.post(`/trips/${tripId}/participants/${participantId}/request-documents`, { message });

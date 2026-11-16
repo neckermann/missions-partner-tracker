@@ -45,10 +45,21 @@ function teamSizeLabel(min, max) {
   return `${min ?? "?"} – ${max ?? "?"}`;
 }
 
+const QUICK_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "open", label: "Open" },
+  { value: "committed", label: "Committed" },
+  { value: "fallback", label: "No trip scheduled" },
+];
+
 export default function AdminTripPlanning() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cloningId, setCloningId] = useState(null);
+  const [quickFilter, setQuickFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [neverBeenOnly, setNeverBeenOnly] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -57,6 +68,16 @@ export default function AdminTripPlanning() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const tripTypes = [...new Set(rows.flatMap((r) => r.tripTypesSupported || []))].sort();
+
+  const visibleRows = rows.filter((row) => {
+    if (quickFilter !== "all" && row.kind !== quickFilter) return false;
+    if (search && !row.displayName.toLowerCase().includes(search.toLowerCase())) return false;
+    if (typeFilter && !(row.tripTypesSupported || []).includes(typeFilter)) return false;
+    if (neverBeenOnly && row.pastTripCount > 0) return false;
+    return true;
+  });
 
   async function handleClone(row) {
     if (!row.cloneFromTripId) return;
@@ -79,6 +100,39 @@ export default function AdminTripPlanning() {
         calendar yet.
       </p>
 
+      <div style={{ display: "flex", gap: "0.4rem", marginTop: "1rem" }}>
+        {QUICK_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            className={quickFilter === f.value ? "btn small" : "btn secondary small"}
+            onClick={() => setQuickFilter(f.value)}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginTop: "0.5rem" }}>
+        <input
+          placeholder="Search partner name"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ width: 220 }}
+        />
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+          <option value="">Any trip type</option>
+          {tripTypes.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.3rem", fontWeight: 400, fontSize: "0.85rem" }}>
+          <input type="checkbox" checked={neverBeenOnly} onChange={(e) => setNeverBeenOnly(e.target.checked)} />
+          Never been (no past trips)
+        </label>
+      </div>
+
       {loading ? (
         <p>Loading…</p>
       ) : (
@@ -94,7 +148,7 @@ export default function AdminTripPlanning() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {visibleRows.map((row) => (
               <tr key={row.partnerId}>
                 <td>
                   <Link to={`/admin/partners/${row.partnerId}`}>{row.displayName}</Link>
@@ -150,10 +204,10 @@ export default function AdminTripPlanning() {
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && (
+            {visibleRows.length === 0 && (
               <tr>
                 <td colSpan={6} style={{ color: "#888" }}>
-                  No partners with trip capacity on file yet.
+                  {rows.length === 0 ? "No partners with trip capacity on file yet." : "No partners match these filters."}
                 </td>
               </tr>
             )}

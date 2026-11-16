@@ -88,13 +88,22 @@ export default function PublicTripParticipant() {
           </div>
         )}
 
-        {selfService && data.missingDocumentRequirements?.length > 0 && (
+        {selfService && data.requirements?.some((r) => !r.fulfilled) && (
           <div className="admin-section">
             <h3>Still needed from you</h3>
             <ul>
-              {data.missingDocumentRequirements.map((label) => (
-                <li key={label}>{label}</li>
-              ))}
+              {data.requirements
+                .filter((r) => !r.fulfilled)
+                .map((r) => {
+                  const overdue = r.dueAt && new Date(r.dueAt) < new Date();
+                  return (
+                    <li key={r.id}>
+                      {r.label}
+                      {r.dueAt && ` — due ${formatDate(r.dueAt)}`}
+                      {overdue && <strong style={{ color: "#b91c1c" }}> (overdue)</strong>}
+                    </li>
+                  );
+                })}
             </ul>
           </div>
         )}

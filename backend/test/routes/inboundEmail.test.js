@@ -441,7 +441,7 @@ describe("POST /:id/assign -- trip participant (#252)", () => {
     await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: { inboundEmail: true, trips: true } } });
     const partner = await createPartner();
     const trip = await prisma.trip.create({ data: { partnerId: partner.id, name: "Test trip" } });
-    const requirement = await prisma.tripDocumentRequirement.create({ data: { tripId: trip.id, label: "Signed Waiver" } });
+    const requirement = await prisma.tripRequirement.create({ data: { tripId: trip.id, label: "Signed Waiver" } });
     const participant = await prisma.tripParticipant.create({ data: { tripId: trip.id, firstName: "Jo", lastName: "Doe" } });
     const created = await prisma.inboundEmail.create({
       data: {
@@ -466,7 +466,7 @@ describe("POST /:id/assign -- trip participant (#252)", () => {
     } finally {
       await prisma.tripDocument.deleteMany({ where: { tripId: trip.id } });
       await prisma.tripParticipant.deleteMany({ where: { id: participant.id } });
-      await prisma.tripDocumentRequirement.deleteMany({ where: { id: requirement.id } });
+      await prisma.tripRequirement.deleteMany({ where: { id: requirement.id } });
       await prisma.trip.deleteMany({ where: { id: trip.id } });
     }
   });

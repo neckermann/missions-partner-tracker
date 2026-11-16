@@ -274,7 +274,7 @@ model Trip {
   applications  TripApplication[]
   meetings      TripMeeting[]
   documents     TripDocument[]
-  documentRequirements TripDocumentRequirement[]
+  requirements  TripRequirement[]
   contributions TripContribution[]
 
   @@index([partnerId])
@@ -322,6 +322,7 @@ model TripParticipant {
 
   documents     TripDocument[]
   contributions TripContribution[]
+  requirementStatuses TripRequirementStatus[]
 
   @@index([tripId])
 }
@@ -369,20 +370,67 @@ model TripMeeting {
   @@index([tripId])
 }
 
-// An admin-defined, ordered, free-text list of documents a trip needs
-// from each participant (e.g. "Signed Waiver," "Passport Photo" --
-// illustrative examples only, never a fixed/hardcoded list). A real
-// child model, not JSON -- TripDocument.requirementId needs an actual
-// foreign key for the fulfillment anti-join to work.
-model TripDocumentRequirement {
+// An admin-defined, ordered, free-text checklist of what a trip needs
+// from each participant -- a document (e.g. "Signed Waiver," "Passport
+// Photo") or a plain task with no file at all (e.g. "Attended
+// orientation call") -- illustrative examples only, never a
+// fixed/hardcoded list. Generalized from the original document-only
+// TripDocumentRequirement (#252 follow-on round): `kind` distinguishes
+// the two, and `dueAt`/`reminderLeadDays` are optional -- most
+// requirements have neither, same "empty means nothing shows/fires"
+// convention as every other optional field in this feature area. A
+// real child model, not JSON -- TripDocument.requirementId needs an
+// actual foreign key for the fulfillment anti-join to work.
+model TripRequirement {
   id     String @id @default(uuid())
   tripId String
   trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
   label  String
 
-  documents TripDocument[]
+  // "document" (fulfilled by an upload, the original behavior) |
+  // "task" (fulfilled by an admin directly checking it off for a
+  // specific participant -- no document involved at all). App-validated,
+  // not a DB enum, matching every other preset-String field in this
+  // schema (Trip.albumProvider etc).
+  kind String @default("document")
+
+  // Both optional and independent of `kind` -- a document requirement
+  // can have a due date too (e.g. "passport copy by 11/25"), not just a
+  // task. Date-only (no time component), matching Trip.startDate's own
+  // convention. reminderLeadDays is null (no reminder scheduled) unless
+  // an admin sets it; when set, tripReminderScheduler.js fires one
+  // reminder per not-yet-fulfilled participant that many days before
+  // dueAt, never after it.
+  dueAt            DateTime? @db.Date
+  reminderLeadDays Int?
+
+  documents           TripDocument[]
+  requirementStatuses TripRequirementStatus[]
 
   @@index([tripId])
+}
+
+// Per-participant state for a TripRequirement, regardless of kind --
+// completedAt only ever applies to a "task" row (a "document" row's
+// fulfillment is still the existing anti-join against TripDocument,
+// computed on read, never duplicated here); reminderSentAt applies to
+// either kind, stamped once the due-date reminder has fired for this
+// specific participant so it can't double-send. Created lazily, only
+// once either field actually needs a value -- most participant/
+// requirement pairs with no due date and no completed task never get a
+// row here at all.
+model TripRequirementStatus {
+  id            String          @id @default(uuid())
+  requirementId String
+  requirement   TripRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   TripParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  completedAt    DateTime?
+  reminderSentAt DateTime?
+
+  @@unique([requirementId, participantId])
+  @@index([participantId])
 }
 
 // Identical storage shape to PartnerFile -- bytes in the row, no
@@ -390,15 +438,17 @@ model TripDocumentRequirement {
 // null means a trip-wide shared document (itinerary, packing list); set
 // means a document specific to one participant (their own signed
 // waiver, passport photo, health clearance). requirementId is nullable
-// since not every document fulfills a tracked requirement.
+// since not every document fulfills a tracked requirement, and when set
+// always points at a `kind: "document"` TripRequirement -- a "task"
+// requirement has nothing to attach a file to.
 model TripDocument {
-  id            String                   @id @default(uuid())
+  id            String           @id @default(uuid())
   tripId        String
-  trip          Trip                     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  trip          Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
   participantId String?
-  participant   TripParticipant?         @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  participant   TripParticipant? @relation(fields: [participantId], references: [id], onDelete: Cascade)
   requirementId String?
-  requirement   TripDocumentRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  requirement   TripRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
 
   title       String?
   bytes       Bytes

@@ -209,7 +209,10 @@ export default function AdminInboundEmailQueue() {
                             const trip = trips.find((t) =>
                               (t.participants || []).some((p) => p.id === participantId)
                             );
-                            const requirements = trip?.documentRequirements || [];
+                            // Only a "document" requirement is something an inbound
+                            // email attachment could ever fulfill -- a "task" has
+                            // nothing to attach a file to.
+                            const requirements = (trip?.requirements || []).filter((r) => r.kind !== "task");
                             if (!participantId || requirements.length === 0) return null;
                             return (
                               <>

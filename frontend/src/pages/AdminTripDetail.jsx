@@ -9,8 +9,10 @@ import {
   addTripParticipant,
   generateSupportRaisingLink,
   resendParticipantAccessLink,
-  addTripDocumentRequirement,
-  deleteTripDocumentRequirement,
+  addTripRequirement,
+  updateTripRequirement,
+  deleteTripRequirement,
+  setTripRequirementComplete,
   requestTripDocuments,
   addTripContribution,
   scheduleTripMeeting,
@@ -35,7 +37,7 @@ export default function AdminTripDetail() {
   const [applications, setApplications] = useState([]);
   const [error, setError] = useState("");
   const [savingSetup, setSavingSetup] = useState(false);
-  const [newRequirement, setNewRequirement] = useState("");
+  const [newRequirement, setNewRequirement] = useState({ label: "", kind: "document", dueAt: "", reminderLeadDays: "" });
   const [questionLibrary, setQuestionLibrary] = useState([]);
   const [newParticipant, setNewParticipant] = useState({ firstName: "", lastName: "", email: "" });
   const [newContribution, setNewContribution] = useState({
@@ -118,21 +120,41 @@ export default function AdminTripDetail() {
 
   async function handleAddRequirement(e) {
     e.preventDefault();
-    if (!newRequirement.trim()) return;
-    await addTripDocumentRequirement(id, newRequirement.trim());
-    setNewRequirement("");
+    if (!newRequirement.label.trim()) return;
+    await addTripRequirement(id, {
+      label: newRequirement.label.trim(),
+      kind: newRequirement.kind,
+      dueAt: newRequirement.dueAt || null,
+      reminderLeadDays: newRequirement.reminderLeadDays ? Number(newRequirement.reminderLeadDays) : null,
+    });
+    setNewRequirement({ label: "", kind: "document", dueAt: "", reminderLeadDays: "" });
     reload();
   }
 
   async function handleDeleteRequirement(reqId) {
     const confirmed = await confirmDialog({
-      title: "Remove this document requirement?",
+      title: "Remove this requirement?",
       body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
       confirmLabel: "Remove",
       danger: true,
     });
     if (!confirmed) return;
-    await deleteTripDocumentRequirement(reqId);
+    await deleteTripRequirement(reqId);
+    reload();
+  }
+
+  async function handleSetRequirementDueDate(reqId, dueAt) {
+    await updateTripRequirement(reqId, { dueAt: dueAt || null });
+    reload();
+  }
+
+  async function handleSetRequirementReminder(reqId, reminderLeadDays) {
+    await updateTripRequirement(reqId, { reminderLeadDays: reminderLeadDays ? Number(reminderLeadDays) : null });
+    reload();
+  }
+
+  async function handleToggleTaskComplete(requirementId, participantId, completed) {
+    await setTripRequirementComplete(requirementId, participantId, completed);
     reload();
   }
 
@@ -234,9 +256,15 @@ export default function AdminTripDetail() {
   }
 
   const fulfillmentFor = (participantId) =>
-    (trip.documentRequirements || []).map((req) => ({
+    (trip.requirements || []).map((req) => ({
+      id: req.id,
       label: req.label,
-      fulfilled: (trip.documents || []).some((d) => d.requirementId === req.id && d.participantId === participantId),
+      kind: req.kind,
+      dueAt: req.dueAt,
+      fulfilled:
+        req.kind === "task"
+          ? !!(req.requirementStatuses || []).find((s) => s.participantId === participantId)?.completedAt
+          : (trip.documents || []).some((d) => d.requirementId === req.id && d.participantId === participantId),
     }));
 
   const documentsFor = (participantId) => (trip.documents || []).filter((d) => d.participantId === participantId);
@@ -399,25 +427,90 @@ export default function AdminTripDetail() {
         </button>
       </div>
 
-      {/* Document requirements */}
+      {/* Requirements -- a document or a plain task (#252 generalization),
+      each optionally with its own due date and a reminder lead time. */}
       <div className="admin-section">
-        <h3>Document requirements</h3>
-        <ul>
-          {(trip.documentRequirements || []).map((r) => (
-            <li key={r.id}>
-              {r.label}{" "}
-              <button type="button" className="btn-remove" onClick={() => handleDeleteRequirement(r.id)}>
-                ✕
-              </button>
-            </li>
-          ))}
+        <h3>Requirements</h3>
+        <p style={{ color: "#888", fontSize: "0.85rem" }}>
+          What this trip needs from each participant -- a document to upload, or a plain task an admin checks off
+          (e.g. "Attended orientation call"). Give one a due date to see it flagged once overdue; add a reminder
+          lead time to have anyone who hasn't fulfilled it emailed automatically before it's due.
+        </p>
+        <ul style={{ listStyle: "none", padding: 0 }}>
+          {(trip.requirements || []).map((r) => {
+            const overdue = r.dueAt && new Date(r.dueAt) < new Date();
+            return (
+              <li key={r.id} style={{ border: "1px solid #e1dfdb", borderRadius: 6, padding: "0.5rem 0.6rem", marginBottom: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                  <span
+                    style={{
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      color: r.kind === "task" ? "#2a5d8f" : "#1f6b4f",
+                      background: r.kind === "task" ? "#e8eff7" : "#e7f3ee",
+                    }}
+                  >
+                    {r.kind === "task" ? "Task" : "Document"}
+                  </span>
+                  <strong style={{ flex: 1 }}>{r.label}</strong>
+                  <label style={{ fontWeight: 400, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                    Due
+                    <input
+                      type="date"
+                      defaultValue={r.dueAt ? r.dueAt.slice(0, 10) : ""}
+                      onBlur={(e) => handleSetRequirementDueDate(r.id, e.target.value)}
+                      style={{ width: "9.5rem" }}
+                    />
+                  </label>
+                  {r.dueAt && (
+                    <label style={{ fontWeight: 400, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                      Remind
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="days before"
+                        defaultValue={r.reminderLeadDays || ""}
+                        onBlur={(e) => handleSetRequirementReminder(r.id, e.target.value)}
+                        style={{ width: "6rem" }}
+                      />
+                    </label>
+                  )}
+                  {overdue && (
+                    <span style={{ color: "#b91c1c", fontSize: "0.75rem", fontWeight: 600 }}>Overdue</span>
+                  )}
+                  <button type="button" className="btn-remove" onClick={() => handleDeleteRequirement(r.id)}>
+                    ✕
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+          {(trip.requirements || []).length === 0 && <p style={{ color: "#888" }}>No requirements yet.</p>}
         </ul>
-        <form onSubmit={handleAddRequirement} style={{ display: "flex", gap: "0.5rem" }}>
+        <form onSubmit={handleAddRequirement} style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
           <input
-            value={newRequirement}
-            onChange={(e) => setNewRequirement(e.target.value)}
-            placeholder="e.g. Signed Waiver"
+            style={{ flex: 1, minWidth: 220 }}
+            value={newRequirement.label}
+            onChange={(e) => setNewRequirement((f) => ({ ...f, label: e.target.value }))}
+            placeholder="e.g. Signed Waiver, or Attended orientation call"
           />
+          <select
+            value={newRequirement.kind}
+            onChange={(e) => setNewRequirement((f) => ({ ...f, kind: e.target.value }))}
+          >
+            <option value="document">Document</option>
+            <option value="task">Task</option>
+          </select>
+          <label style={{ fontWeight: 400, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+            Due (optional)
+            <input
+              type="date"
+              value={newRequirement.dueAt}
+              onChange={(e) => setNewRequirement((f) => ({ ...f, dueAt: e.target.value }))}
+            />
+          </label>
           <button type="submit" className="btn secondary small">
             + Add
           </button>
@@ -505,13 +598,15 @@ export default function AdminTripDetail() {
             <tr>
               <th>Name</th>
               <th>Support raising</th>
-              <th>Missing documents</th>
+              <th>Still needed</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {(trip.participants || []).map((p) => {
-              const missing = fulfillmentFor(p.id).filter((f) => !f.fulfilled);
+              const fulfillment = fulfillmentFor(p.id);
+              const missing = fulfillment.filter((f) => !f.fulfilled);
+              const completedTasks = fulfillment.filter((f) => f.kind === "task" && f.fulfilled);
               return (
                 <tr key={p.id}>
                   <td>
@@ -527,7 +622,31 @@ export default function AdminTripDetail() {
                     ) : null}
                   </td>
                   <td>
-                    {missing.length ? missing.map((m) => m.label).join(", ") : "—"}
+                    {missing.length === 0 && "—"}
+                    {missing.map((m) =>
+                      m.kind === "task" ? (
+                        <label key={m.id} style={{ display: "flex", alignItems: "center", gap: "0.3rem", fontWeight: 400, fontSize: "0.85rem" }}>
+                          <input type="checkbox" onChange={() => handleToggleTaskComplete(m.id, p.id, true)} />
+                          {m.label}
+                          {m.dueAt && new Date(m.dueAt) < new Date() && (
+                            <span style={{ color: "#b91c1c", fontWeight: 600 }}>overdue</span>
+                          )}
+                        </label>
+                      ) : (
+                        <div key={m.id} style={{ fontSize: "0.85rem" }}>
+                          {m.label}
+                          {m.dueAt && new Date(m.dueAt) < new Date() && (
+                            <span style={{ color: "#b91c1c", fontWeight: 600 }}> overdue</span>
+                          )}
+                        </div>
+                      )
+                    )}
+                    {completedTasks.map((m) => (
+                      <label key={m.id} style={{ display: "flex", alignItems: "center", gap: "0.3rem", fontWeight: 400, fontSize: "0.85rem", color: "#555" }}>
+                        <input type="checkbox" checked onChange={() => handleToggleTaskComplete(m.id, p.id, false)} />
+                        {m.label}
+                      </label>
+                    ))}
                     {documentsFor(p.id).length > 0 && (
                       <ul style={{ margin: "0.35rem 0 0", paddingLeft: "1rem", fontSize: "0.75rem", color: "#555" }}>
                         {documentsFor(p.id).map((d) => (
@@ -570,7 +689,7 @@ export default function AdminTripDetail() {
                       style={{ width: 140 }}
                       onChange={(e) => setDocFiles((f) => ({ ...f, [p.id]: e.target.files[0] || null }))}
                     />
-                    {(trip.documentRequirements || []).length > 0 && (
+                    {(trip.requirements || []).filter((r) => r.kind !== "task").length > 0 && (
                       <select
                         aria-label="Fulfills requirement"
                         value={docRequirementChoice[p.id] || ""}
@@ -578,7 +697,7 @@ export default function AdminTripDetail() {
                         style={{ width: "auto", minWidth: "9.5rem" }}
                       >
                         <option value="">(no specific requirement)</option>
-                        {trip.documentRequirements.map((r) => (
+                        {trip.requirements.filter((r) => r.kind !== "task").map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.label}
                           </option>

@@ -54,11 +54,21 @@ export default function PublicTripOpportunities() {
                   {t.startDate ? ` · ${formatDate(t.startDate)}` : ""}
                 </p>
                 {t.description && <p style={{ fontSize: "0.9rem" }}>{t.description}</p>}
-                {t.status === "accepting_applications" && (
-                  <Link className="btn" to={`/apply/${t.id}`}>
-                    Apply now
-                  </Link>
-                )}
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                  {t.status === "accepting_applications" && (
+                    <Link className="btn" to={`/apply/${t.id}`}>
+                      Apply now
+                    </Link>
+                  )}
+                  {/* Trip-level giving, separate from an individual participant's
+                  own support-raising page -- useful before a roster even exists
+                  yet, since onlineGivingUrl is church-wide, not per-trip. */}
+                  {t.onlineGivingUrl && (
+                    <a className="btn secondary" href={t.onlineGivingUrl} target="_blank" rel="noreferrer">
+                      Donate
+                    </a>
+                  )}
+                </div>
               </div>
             ))}
             {trips.length === 0 && <p style={{ color: "#888" }}>No open trips right now — check back soon.</p>}

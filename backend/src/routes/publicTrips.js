@@ -86,20 +86,28 @@ router.get(
   requireFeature("publicTripDiscovery"),
   async (req, res, next) => {
     try {
-      const trips = await prisma.trip.findMany({
-        where: {
-          isPublic: true,
-          AND: [
-            { OR: [{ status: "accepting_applications" }, { status: "planning" }] },
-            { OR: [{ partnerId: null }, { partner: { is: { isRestricted: false } } }] },
-          ],
-        },
-        select: { id: true, name: true, type: true, description: true, startDate: true, endDate: true, status: true, ...tripPartnerSelect },
-        orderBy: { startDate: "asc" },
-      });
+      const [trips, settings] = await Promise.all([
+        prisma.trip.findMany({
+          where: {
+            isPublic: true,
+            AND: [
+              { OR: [{ status: "accepting_applications" }, { status: "planning" }] },
+              { OR: [{ partnerId: null }, { partner: { is: { isRestricted: false } } }] },
+            ],
+          },
+          select: { id: true, name: true, type: true, description: true, startDate: true, endDate: true, status: true, ...tripPartnerSelect },
+          orderBy: { startDate: "asc" },
+        }),
+        getSettings(),
+      ]);
       // Belt-and-suspenders: a Trip with no partnerId has no `partner` row
       // to filter on above (the `where` only excludes a *restricted*
       // linked partner -- a null partnerId already passes that clause).
+      // onlineGivingUrl is church-wide, not per-trip, but repeated on
+      // every card here -- a trip-level "Donate" button next to Apply,
+      // same ManagedMissions-inferred pattern (competitor backlog item),
+      // reusing the giving link §13 already built rather than adding a
+      // second one scoped to discovery specifically.
       res.json(
         trips.map((t) => ({
           id: t.id,
@@ -110,6 +118,7 @@ router.get(
           endDate: t.endDate,
           status: t.status,
           fieldDisplayName: t.partner?.fieldDisplayName || t.partner?.displayName || null,
+          onlineGivingUrl: settings?.onlineGivingUrl || null,
         }))
       );
     } catch (err) {
@@ -321,7 +330,7 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
             flightDetails: true,
             meetings: true,
             documents: { where: { OR: [{ participantId: payload.id }, { participantId: null }] } },
-            documentRequirements: true,
+            requirements: { include: { requirementStatuses: { where: { participantId: payload.id } } } },
             partner: { select: { displayName: true, fieldDisplayName: true } },
           },
         },
@@ -334,9 +343,23 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
 
     const settings = await getSettings();
     const raised = participant.contributions.reduce((sum, c) => sum + c.amount, 0);
-    const missingRequirements = participant.trip.documentRequirements.filter(
-      (req) => !participant.trip.documents.some((d) => d.requirementId === req.id && d.participantId === participant.id)
-    );
+    // Generalized (#252 follow-on) -- every requirement, not just
+    // missing ones, so the self-service page can show a due date and a
+    // done/needed state per item rather than only ever a flat "still
+    // needed" list. Fulfillment: a "document" row is the existing
+    // anti-join against TripDocument; a "task" row is this participant's
+    // own TripRequirementStatus.completedAt (already scoped to just this
+    // participant by the `where` on requirementStatuses above).
+    const requirements = participant.trip.requirements.map((req) => ({
+      id: req.id,
+      label: req.label,
+      kind: req.kind,
+      dueAt: req.dueAt,
+      fulfilled:
+        req.kind === "task"
+          ? !!req.requirementStatuses[0]?.completedAt
+          : participant.trip.documents.some((d) => d.requirementId === req.id && d.participantId === participant.id),
+    }));
 
     res.json({
       firstName: participant.firstName,
@@ -357,7 +380,7 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
         fieldDisplayName: participant.trip.partner?.fieldDisplayName || participant.trip.partner?.displayName || null,
       },
       meetings: participant.trip.meetings,
-      missingDocumentRequirements: missingRequirements.map((r) => r.label),
+      requirements,
       giving: {
         onlineGivingUrl: settings?.onlineGivingUrl || null,
         onlineGivingInstructions: settings?.onlineGivingInstructions || null,

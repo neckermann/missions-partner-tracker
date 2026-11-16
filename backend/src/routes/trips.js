@@ -95,7 +95,11 @@ const tripInclude = {
   // queue flattens every trip's participants into one picker and needs
   // each trip's own requirement list on hand to populate the document-
   // requirement picker without a second round-trip per trip.
-  documentRequirements: true,
+  // requirementStatuses carries each requirement's per-participant
+  // completedAt/reminderSentAt (#252 generalization) -- needed wherever
+  // a task's fulfillment is shown, which a document-only anti-join can't
+  // answer.
+  requirements: { include: { requirementStatuses: true } },
 };
 
 // GET /api/trips?partnerId=&type=&year=
@@ -287,7 +291,7 @@ router.post("/:id/clone", requireRole("admin", "editor"), async (req, res, next)
   try {
     const source = await prisma.trip.findUnique({
       where: { id: req.params.id },
-      include: { documentRequirements: true },
+      include: { requirements: true },
     });
     if (!source) return res.status(404).json({ error: "Not found" });
 
@@ -302,8 +306,12 @@ router.post("/:id/clone", requireRole("admin", "editor"), async (req, res, next)
         supportRaisingGoal: source.supportRaisingGoal,
         applicationQuestions: source.applicationQuestions,
         status: "planning",
-        documentRequirements: {
-          create: source.documentRequirements.map((r) => ({ label: r.label })),
+        // label/kind/reminderLeadDays copy forward (a repeat trip almost
+        // always wants the same checklist); dueAt does NOT -- a specific
+        // calendar date from the prior run is never right for the new
+        // one, same reasoning Trip's own startDate/endDate aren't copied.
+        requirements: {
+          create: source.requirements.map((r) => ({ label: r.label, kind: r.kind, reminderLeadDays: r.reminderLeadDays })),
         },
       },
       include: tripInclude,
@@ -335,26 +343,79 @@ router.post("/:id/generate-application-link", requireRole("admin", "editor"), as
   }
 });
 
-// ---- Document requirements ----
+// ---- Requirements (document or task, #252 generalization) ----
 
-router.post("/:id/document-requirements", requireRole("admin", "editor"), async (req, res, next) => {
+const requirementSchema = z.object({
+  label: z.string().min(1),
+  kind: z.enum(["document", "task"]).optional(),
+  dueAt: z.coerce.date().optional().nullable(),
+  // Only meaningful alongside dueAt -- validated together below, not
+  // enforced as a DB constraint (same style as this file's other
+  // cross-field zod .refine()s).
+  reminderLeadDays: z.coerce.number().int().positive().optional().nullable(),
+});
+function reminderNeedsDueDate(data) {
+  return !data.reminderLeadDays || !!data.dueAt;
+}
+const REMINDER_NEEDS_DUE_DATE_ISSUE = { message: "Set a due date before adding a reminder lead time", path: ["reminderLeadDays"] };
+
+router.post("/:id/requirements", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const { label } = z.object({ label: z.string().min(1) }).parse(req.body);
-    const created = await prisma.tripDocumentRequirement.create({ data: { tripId: req.params.id, label } });
+    const data = requirementSchema.refine(reminderNeedsDueDate, REMINDER_NEEDS_DUE_DATE_ISSUE).parse(req.body);
+    const created = await prisma.tripRequirement.create({ data: { tripId: req.params.id, ...data } });
     res.status(201).json(created);
   } catch (err) {
     next(err);
   }
 });
 
-router.delete("/document-requirements/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.put("/requirements/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    await prisma.tripDocumentRequirement.delete({ where: { id: req.params.id } });
+    const data = requirementSchema.partial().refine(reminderNeedsDueDate, REMINDER_NEEDS_DUE_DATE_ISSUE).parse(req.body);
+    const updated = await prisma.tripRequirement.update({ where: { id: req.params.id }, data });
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/requirements/:id", requireRole("admin", "editor"), async (req, res, next) => {
+  try {
+    await prisma.tripRequirement.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (err) {
     next(err);
   }
 });
+
+// PUT /api/trips/requirements/:id/participants/:participantId/complete --
+// task-kind only (a document's fulfillment is always the existing
+// anti-join against TripDocument, never this). Upsert, not a plain
+// update, since most participant/requirement pairs have no
+// TripRequirementStatus row until the first time either this or the
+// reminder scheduler needs one.
+router.put(
+  "/requirements/:id/participants/:participantId/complete",
+  requireRole("admin", "editor"),
+  async (req, res, next) => {
+    try {
+      const { completed } = z.object({ completed: z.boolean() }).parse(req.body);
+      const requirement = await prisma.tripRequirement.findUnique({ where: { id: req.params.id } });
+      if (!requirement) return res.status(404).json({ error: "Not found" });
+      if (requirement.kind !== "task") {
+        return res.status(400).json({ error: "Only a task requirement can be marked complete directly -- a document requirement is fulfilled by uploading its document" });
+      }
+      const status = await prisma.tripRequirementStatus.upsert({
+        where: { requirementId_participantId: { requirementId: req.params.id, participantId: req.params.participantId } },
+        create: { requirementId: req.params.id, participantId: req.params.participantId, completedAt: completed ? new Date() : null },
+        update: { completedAt: completed ? new Date() : null },
+      });
+      res.json(status);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 // ---- Applications ----
 
