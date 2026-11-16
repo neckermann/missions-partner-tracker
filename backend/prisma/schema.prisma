@@ -348,6 +348,11 @@ model TripApplication {
   submittedAt  DateTime  @default(now())
   reviewedAt   DateTime?
   reviewedById String?
+  // Admin-only, never shown to the applicant -- set only when declining;
+  // left null for an approval. A declined row isn't deleted (see
+  // trips.js's own review route), so this is the one piece of context an
+  // admin would otherwise have no record of after the fact.
+  declinedReason String? @db.Text
 
   participant TripParticipant?
 

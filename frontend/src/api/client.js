@@ -493,8 +493,8 @@ export async function fetchTripApplications(tripId) {
   const { data } = await api.get(`/trips/${tripId}/applications`);
   return data;
 }
-export async function reviewTripApplication(applicationId, status) {
-  const { data } = await api.put(`/trips/applications/${applicationId}`, { status });
+export async function reviewTripApplication(applicationId, status, declinedReason) {
+  const { data } = await api.put(`/trips/applications/${applicationId}`, { status, declinedReason });
   return data;
 }
 export async function addTripParticipant(tripId, payload) {

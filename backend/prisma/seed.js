@@ -1780,4 +1780,9 @@ if (require.main === module) {
     .finally(() => prisma.$disconnect());
 }
 
-module.exports = { buildFakePdf, buildFakeEml, scannableExtras };
+// seedTripsDemo exported alongside the existing three -- lets Trips demo
+// data be reset and reseeded on its own (e.g. after cleaning up duplicate
+// rows created by running the full seed repeatedly) without re-running
+// the whole missionary/organization seed, which is additive and would
+// otherwise just keep growing every time.
+module.exports = { buildFakePdf, buildFakeEml, scannableExtras, seedTripsDemo };

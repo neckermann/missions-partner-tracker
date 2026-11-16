@@ -23,12 +23,18 @@ const QUESTION_TYPES = [
   { value: "checkboxes", label: "Checkboxes (pick any)" },
 ];
 
+// One choice per line, not comma-separated -- a comma-joined single line
+// can't round-trip losslessly once any one choice contains a comma of its
+// own (e.g. "No, but I can apply in time"), which would otherwise silently
+// re-split into extra choices the next time this field is edited. A
+// newline can't appear inside a single typed choice at all, so this has
+// no equivalent failure mode.
 function optionsToText(options) {
-  return (options || []).join(", ");
+  return (options || []).join("\n");
 }
 function textToOptions(text) {
   return text
-    .split(",")
+    .split("\n")
     .map((o) => o.trim())
     .filter(Boolean);
 }
@@ -44,16 +50,17 @@ function OptionsField({ defaultValue, value, onChange, onBlur }) {
   return (
     <label style={{ display: "block", marginTop: "0.6rem", fontWeight: 400, fontSize: "0.85rem" }}>
       Answer choices
-      <input
-        style={{ width: "100%", marginTop: "0.2rem" }}
+      <textarea
+        rows={3}
+        style={{ width: "100%", marginTop: "0.2rem", fontFamily: "inherit" }}
         defaultValue={defaultValue}
         value={value}
         onChange={onChange}
         onBlur={onBlur}
-        placeholder="e.g. Yes, No, Maybe"
+        placeholder={"One per line, e.g.\nYes\nNo"}
       />
       <span style={{ display: "block", color: "#888", fontSize: "0.78rem", marginTop: "0.15rem" }}>
-        Separate each choice with a comma.
+        One choice per line -- a choice can safely contain its own comma this way.
       </span>
     </label>
   );

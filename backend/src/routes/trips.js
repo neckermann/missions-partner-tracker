@@ -8,6 +8,7 @@ const { generateShareToken, buildTripParticipantAccessUrl } = require("../utils/
 const { sendParticipantEmail, buildMeetingIcs, buildTripDatesIcs } = require("../utils/tripEmails");
 const { isFeatureEnabled } = require("../utils/features");
 const { APPLICATION_QUESTION_SCHEMA } = require("../utils/applicationQuestions");
+const { sendStoredFile } = require("../utils/fileResponse");
 const multer = require("multer");
 
 const router = express.Router();
@@ -172,7 +173,15 @@ router.get("/planning", async (req, res, next) => {
         tripSeasonNotes: true,
         tripLogisticsNotes: true,
         trips: {
-          select: { id: true, status: true, startDate: true, endDate: true, teamSizeMax: true, participants: true },
+          select: {
+            id: true,
+            status: true,
+            startDate: true,
+            endDate: true,
+            teamSizeMin: true,
+            teamSizeMax: true,
+            participants: true,
+          },
         },
       },
     });
@@ -435,7 +444,9 @@ router.get("/:id/applications", async (req, res, next) => {
 // the trip-dates roster invite (§9) once, only for a non-completed trip.
 router.put("/applications/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const { status } = z.object({ status: z.enum(["approved", "declined"]) }).parse(req.body);
+    const { status, declinedReason } = z
+      .object({ status: z.enum(["approved", "declined", "pending"]), declinedReason: z.string().optional().nullable() })
+      .parse(req.body);
     const application = await prisma.tripApplication.findUnique({
       where: { id: req.params.id },
       include: { trip: true },
@@ -445,7 +456,16 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
     const updated = await prisma.$transaction(async (tx) => {
       const app = await tx.tripApplication.update({
         where: { id: req.params.id },
-        data: { status, reviewedAt: new Date(), reviewedById: req.user.id },
+        data: {
+          status,
+          reviewedAt: new Date(),
+          reviewedById: req.user.id,
+          // Admin-only context for a decline, never shown to the
+          // applicant. Reconsidering back to "pending" (the undo path)
+          // clears it -- a reopened application has no reason attached
+          // to it anymore, since the prior decline no longer stands.
+          declinedReason: status === "declined" ? declinedReason?.trim() || null : null,
+        },
       });
       if (status === "approved") {
         const participant = await tx.tripParticipant.create({
@@ -696,6 +716,22 @@ router.post("/:id/documents", requireRole("admin", "editor"), upload.single("fil
       omit: { bytes: true },
     });
     res.status(201).json(created);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /documents/:id/download -- streams the file straight from the
+// database, same shared helper/convention as PartnerFile's own
+// GET /:id/download (partnerFiles.js). Genuinely missing until now: a
+// TripDocument could be uploaded, filed from an inbound email, or logged
+// manually, but nothing anywhere could ever read it back -- only
+// title/fileName metadata, never the actual bytes.
+router.get("/documents/:id/download", async (req, res, next) => {
+  try {
+    const record = await prisma.tripDocument.findUnique({ where: { id: req.params.id } });
+    if (!record) return res.status(404).json({ error: "Not found" });
+    sendStoredFile(res, record);
   } catch (err) {
     next(err);
   }

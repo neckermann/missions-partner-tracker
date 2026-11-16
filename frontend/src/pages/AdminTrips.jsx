@@ -10,6 +10,7 @@ import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
+import TripStatusBadge from "../components/admin/TripStatusBadge.jsx";
 
 // Renamed from AdminTripHistory.jsx (#252) -- "History" became the one
 // word the Trip/TripParticipant unification made misleading, since a
@@ -36,39 +37,6 @@ const TRIP_TYPE_PRESETS = [
   "Music/Worship",
   "Administrative/Support",
 ];
-
-const STATUS_LABELS = {
-  planning: "Planning",
-  accepting_applications: "Accepting applications",
-  closed: "Closed (roster set)",
-  completed: "Completed",
-};
-const STATUS_COLORS = {
-  planning: "#a6540f",
-  accepting_applications: "#1f6b4f",
-  closed: "#2a5d8f",
-  completed: "#6b6f76",
-};
-
-function StatusBadge({ status }) {
-  const label = STATUS_LABELS[status] || status;
-  const color = STATUS_COLORS[status] || "#6b6f76";
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        fontSize: "0.7rem",
-        fontWeight: 700,
-        padding: "2px 8px",
-        borderRadius: 999,
-        color,
-        background: `${color}1a`,
-      }}
-    >
-      {label}
-    </span>
-  );
-}
 
 const emptyParticipant = { firstName: "", lastName: "", role: "", isLeader: false, phone: "", email: "" };
 const emptyTripForm = {
@@ -533,10 +501,10 @@ export default function AdminTrips() {
                   <td>{trip.entityType}</td>
                   <td>
                     {isHistorical ? (
-                      <StatusBadge status={trip.status} />
+                      <TripStatusBadge status={trip.status} />
                     ) : (
                       <Link to={`/admin/trips/${trip.id}`}>
-                        <StatusBadge status={trip.status} />
+                        <TripStatusBadge status={trip.status} />
                       </Link>
                     )}
                   </td>

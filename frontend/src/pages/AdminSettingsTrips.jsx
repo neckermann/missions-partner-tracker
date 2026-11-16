@@ -51,7 +51,7 @@ export default function AdminSettingsTrips() {
   }
 
   return (
-    <div className="admin-shell">
+    <div className="admin-shell form-has-floating-actions">
       <h2>Trips Settings</h2>
       <form onSubmit={handleSubmit} className="admin-section">
         <h3>Donation instructions</h3>

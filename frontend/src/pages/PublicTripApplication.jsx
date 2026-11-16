@@ -70,7 +70,7 @@ export default function PublicTripApplication() {
     <div>
       <PublicSiteHeader title={`Apply: ${trip.name || trip.type || "Trip"}`} />
       <DemoBanner />
-      <div className="admin-shell" style={{ maxWidth: 640 }}>
+      <div className="admin-shell form-has-floating-actions" style={{ maxWidth: 640 }}>
         <div className="admin-section" style={{ marginBottom: "1.5rem" }}>
           {trip.type && (
             <span
