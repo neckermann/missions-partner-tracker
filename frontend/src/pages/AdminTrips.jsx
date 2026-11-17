@@ -10,15 +10,21 @@ import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
+import TripStatusBadge from "../components/admin/TripStatusBadge.jsx";
 
-// The API returns full ISO datetime strings for date-only columns --
+// Renamed from AdminTripHistory.jsx (#252) -- "History" became the one
+// word the Trip/TripParticipant unification made misleading, since a
+// Trip can now also represent something that hasn't happened yet. Every
+// trip regardless of status/lifecycle stage lives here; the fuller
+// recruiting view (applications/roster/meetings/documents/support raising)
+// for an actively-recruited trip is AdminTripDetail.jsx, reached via the
+// status badge/link below -- a purely historical backfill is still
+// managed entirely inline here, same as before this feature existed.
+
 function yearOf(value) {
   return value ? String(value).slice(0, 4) : null;
 }
 
-// Same list as AdminMissionaryForm.jsx's TRIP_TYPE_PRESETS -- kept as its
-// own small copy rather than a shared import, same as this page's existing
-// formatDate duplication across the admin pages.
 const TRIP_TYPE_PRESETS = [
   "Construction",
   "Medical/Dental",
@@ -32,12 +38,12 @@ const TRIP_TYPE_PRESETS = [
   "Administrative/Support",
 ];
 
-const emptyParticipant = { name: "", role: "", isLeader: false, phone: "", email: "" };
+const emptyParticipant = { firstName: "", lastName: "", role: "", isLeader: false, phone: "", email: "" };
 const emptyTripForm = {
   partnerId: "",
   startDate: "",
   endDate: "",
-  tripType: "",
+  type: "",
   description: "",
   notes: "",
   albumProvider: null,
@@ -46,14 +52,14 @@ const emptyTripForm = {
 };
 
 const emptyFilters = {
-  entityType: "all", // all | Missionary | Organization
-  tripType: "all",
+  entityType: "all",
+  type: "all",
   year: "all",
   minSize: "",
   maxSize: "",
 };
 
-export default function AdminTripHistory() {
+export default function AdminTrips() {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [records, setRecords] = useState([]);
   const [partners, setPartners] = useState([]);
@@ -71,8 +77,6 @@ export default function AdminTripHistory() {
 
   useEffect(() => {
     reload();
-    // Only for the add/edit form's partner picker — the trips themselves
-    // carry the partner they belong to.
     fetchPartners().then(setPartners).catch(console.error);
   }, []);
 
@@ -80,9 +84,6 @@ export default function AdminTripHistory() {
     setFilters((f) => ({ ...f, [field]: value }));
   }
 
-  // One query returns every trip with its partner attached. This page used
-  // to fetch every missionary and every organization — each with all of
-  // their relations — and flatten the two trip arrays out in the browser.
   const trips = useMemo(
     () =>
       records.map((t) => ({
@@ -91,15 +92,22 @@ export default function AdminTripHistory() {
         entityName: t.partner?.displayName || "—",
         entityLink: t.partner ? `/admin/partners/${t.partner.id}` : null,
         size: (t.participants || []).length,
+        raised: (t.contributions || []).reduce((sum, c) => sum + c.amount, 0),
+        // Folded in from the now-removed AdminTripDashboard.jsx (issue
+        // #259) -- null for a trip with no startDate, or one already
+        // underway/past (a negative days-until figure reads as "overdue,"
+        // not useful here the way it was on the dashboard's own
+        // soonest-departing-first list).
+        daysUntilDeparture:
+          t.startDate && new Date(t.startDate) > new Date()
+            ? Math.ceil((new Date(t.startDate) - new Date()) / (1000 * 60 * 60 * 24))
+            : null,
       })),
     [records]
   );
 
-  // Filter option lists are built from the trips actually on file (not a
-  // hardcoded preset list), so a custom trip type someone typed in still
-  // shows up as something you can filter by.
-  const tripTypeOptions = useMemo(
-    () => Array.from(new Set(trips.map((t) => t.tripType).filter(Boolean))).sort(),
+  const typeOptions = useMemo(
+    () => Array.from(new Set(trips.map((t) => t.type).filter(Boolean))).sort(),
     [trips]
   );
   const yearOptions = useMemo(
@@ -109,7 +117,7 @@ export default function AdminTripHistory() {
 
   const filteredTrips = trips.filter((t) => {
     if (filters.entityType !== "all" && t.entityType !== filters.entityType) return false;
-    if (filters.tripType !== "all" && t.tripType !== filters.tripType) return false;
+    if (filters.type !== "all" && t.type !== filters.type) return false;
     if (filters.year !== "all" && yearOf(t.startDate) !== filters.year) return false;
     if (filters.minSize !== "" && t.size < Number(filters.minSize)) return false;
     if (filters.maxSize !== "" && t.size > Number(filters.maxSize)) return false;
@@ -142,7 +150,7 @@ export default function AdminTripHistory() {
   }
 
   function cleanParticipants(participants) {
-    return participants.map((p) => ({ ...p, name: p.name.trim() })).filter((p) => p.name);
+    return participants.map((p) => ({ ...p, firstName: p.firstName.trim() })).filter((p) => p.firstName);
   }
 
   async function handleAddSubmit(e) {
@@ -156,9 +164,10 @@ export default function AdminTripHistory() {
     try {
       await createTrip({
         partnerId: newTrip.partnerId,
+        status: "completed",
         startDate: newTrip.startDate || null,
         endDate: newTrip.endDate || null,
-        tripType: newTrip.tripType || null,
+        type: newTrip.type || null,
         description: newTrip.description || null,
         notes: newTrip.notes || null,
         albumProvider: newTrip.albumProvider || null,
@@ -182,7 +191,7 @@ export default function AdminTripHistory() {
       partnerId: "",
       startDate: toDateInputValue(trip.startDate),
       endDate: toDateInputValue(trip.endDate),
-      tripType: trip.tripType || "",
+      type: trip.type || "",
       description: trip.description || "",
       notes: trip.notes || "",
       albumProvider: trip.albumProvider || null,
@@ -197,7 +206,7 @@ export default function AdminTripHistory() {
       await updateTrip(id, {
         startDate: editForm.startDate || null,
         endDate: editForm.endDate || null,
-        tripType: editForm.tripType || null,
+        type: editForm.type || null,
         description: editForm.description || null,
         notes: editForm.notes || null,
         albumProvider: editForm.albumProvider || null,
@@ -239,10 +248,17 @@ export default function AdminTripHistory() {
             </button>
             <div className="form-grid">
               <label>
-                Name
+                First Name
                 <input
-                  value={p.name}
-                  onChange={(e) => updateParticipant(which, pIndex, "name", e.target.value)}
+                  value={p.firstName}
+                  onChange={(e) => updateParticipant(which, pIndex, "firstName", e.target.value)}
+                />
+              </label>
+              <label>
+                Last Name
+                <input
+                  value={p.lastName || ""}
+                  onChange={(e) => updateParticipant(which, pIndex, "lastName", e.target.value)}
                 />
               </label>
               <label>
@@ -290,7 +306,7 @@ export default function AdminTripHistory() {
   return (
     <div className={`admin-shell ${showAddForm || editingId ? "form-has-floating-actions" : ""}`}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>Trip History</h2>
+        <h2>Trips</h2>
         <button
           className="btn"
           onClick={() => {
@@ -301,6 +317,11 @@ export default function AdminTripHistory() {
           {showAddForm ? "Cancel" : "+ Add Trip"}
         </button>
       </div>
+      <p style={{ color: "#555" }}>
+        Every trip regardless of status. A quick historical backfill is managed right here; an
+        actively-recruited trip's roster, applications, meetings, and support raising live on its own detail
+        page.
+      </p>
 
       {showAddForm && (
         <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
@@ -333,8 +354,8 @@ export default function AdminTripHistory() {
             <label>
               Trip Type
               <PresetOrCustomSelect
-                value={newTrip.tripType}
-                onChange={(val) => setNewTrip((f) => ({ ...f, tripType: val }))}
+                value={newTrip.type}
+                onChange={(val) => setNewTrip((f) => ({ ...f, type: val }))}
                 presets={TRIP_TYPE_PRESETS}
                 placeholder="e.g. Photography"
               />
@@ -393,9 +414,9 @@ export default function AdminTripHistory() {
           </label>
           <label>
             Trip Type
-            <select value={filters.tripType} onChange={(e) => updateFilter("tripType", e.target.value)}>
+            <select value={filters.type} onChange={(e) => updateFilter("type", e.target.value)}>
               <option value="all">All</option>
-              {tripTypeOptions.map((type) => (
+              {typeOptions.map((type) => (
                 <option key={type} value={type}>
                   {type}
                 </option>
@@ -414,7 +435,7 @@ export default function AdminTripHistory() {
             </select>
           </label>
           <label>
-            Min Team Size
+            Min Team Roster
             <input
               type="number"
               min="0"
@@ -423,7 +444,7 @@ export default function AdminTripHistory() {
             />
           </label>
           <label>
-            Max Team Size
+            Max Team Roster
             <input
               type="number"
               min="0"
@@ -462,44 +483,64 @@ export default function AdminTripHistory() {
           <tr>
             <th>Partner</th>
             <th>Type</th>
+            <th>Status</th>
             <th>Trip Type</th>
             <th>Dates</th>
-            <th>Team Size</th>
+            <th>Days Until Departure</th>
+            <th>Team Roster</th>
+            <th>Raised</th>
             <th>Leader(s)</th>
             <th>Description</th>
-            <th>Album</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {visibleTrips.map((trip) => {
-            const leaders = (trip.participants || []).filter((p) => p.isLeader).map((p) => p.name);
+            const leaders = (trip.participants || [])
+              .filter((p) => p.isLeader)
+              .map((p) => [p.firstName, p.lastName].filter(Boolean).join(" "));
+            const isHistorical = trip.status === "completed";
             return (
               <React.Fragment key={trip.id}>
                 <tr>
                   <td>
                     <Link to={trip.entityLink}>{trip.entityName}</Link>
+                    {trip.partner?.isRestricted && (
+                      <div style={{ fontSize: "0.7rem", color: "#a6540f", fontWeight: 700 }}>
+                        Restricted partner
+                      </div>
+                    )}
                   </td>
                   <td>{trip.entityType}</td>
-                  <td>{trip.tripType || "—"}</td>
+                  <td>
+                    {isHistorical ? (
+                      <TripStatusBadge status={trip.status} />
+                    ) : (
+                      <Link to={`/admin/trips/${trip.id}`}>
+                        <TripStatusBadge status={trip.status} />
+                      </Link>
+                    )}
+                  </td>
+                  <td>{trip.type || "—"}</td>
                   <td>
                     {trip.startDate || trip.endDate
                       ? `${formatDate(trip.startDate) || "?"} – ${formatDate(trip.endDate) || "?"}`
                       : "—"}
                   </td>
+                  <td>{trip.daysUntilDeparture != null ? `${trip.daysUntilDeparture} days` : "—"}</td>
                   <td>{trip.size}</td>
+                  <td>
+                    ${trip.raised}
+                    {trip.supportRaisingGoal ? ` / $${trip.supportRaisingGoal}` : ""}
+                  </td>
                   <td>{leaders.length ? leaders.join(", ") : "—"}</td>
                   <td>{trip.description || "—"}</td>
-                  <td>
-                    {trip.albumUrl ? (
-                      <a href={trip.albumUrl} target="_blank" rel="noreferrer">
-                        View
-                      </a>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
                   <td className="table-actions">
+                    {!isHistorical && (
+                      <Link className="btn secondary small" to={`/admin/trips/${trip.id}`}>
+                        View
+                      </Link>
+                    )}
                     <button
                       type="button"
                       className="btn secondary small"
@@ -514,9 +555,9 @@ export default function AdminTripHistory() {
                 </tr>
                 {editingId === trip.id && (
                   <tr>
-                    <td colSpan={9}>
+                    <td colSpan={11}>
                       <div className="form-grid">
-                        <label title="To move this trip to a different missionary/organization, delete it and add it again under the correct partner.">
+                        <label>
                           Start Date
                           <input
                             type="date"
@@ -535,8 +576,8 @@ export default function AdminTripHistory() {
                         <label>
                           Trip Type
                           <PresetOrCustomSelect
-                            value={editForm.tripType}
-                            onChange={(val) => setEditForm((f) => ({ ...f, tripType: val }))}
+                            value={editForm.type}
+                            onChange={(val) => setEditForm((f) => ({ ...f, type: val }))}
                             presets={TRIP_TYPE_PRESETS}
                             placeholder="e.g. Photography"
                           />
@@ -587,7 +628,7 @@ export default function AdminTripHistory() {
           })}
           {filteredTrips.length === 0 && (
             <tr>
-              <td colSpan={9} style={{ color: "#888" }}>
+              <td colSpan={11} style={{ color: "#888" }}>
                 No trips match these filters.
               </td>
             </tr>

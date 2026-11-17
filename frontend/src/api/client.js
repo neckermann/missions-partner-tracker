@@ -280,8 +280,21 @@ export async function fetchPendingInboundEmails() {
   return data;
 }
 
-export async function assignInboundEmail(id, partnerId, kind, customKind) {
-  const { data } = await api.post(`/inbound-email/${id}/assign`, { partnerId, kind, customKind });
+// Trips (#252): the backend's own /assign route takes partnerId XOR
+// tripParticipantId (never both) -- when assigning to a participant it
+// files as a TripDocument instead of a PartnerFile, and kind/customKind
+// are ignored since a TripDocument has no "kind" of its own.
+export async function assignInboundEmail(
+  id,
+  { partnerId, tripParticipantId, requirementId, kind, customKind }
+) {
+  const { data } = await api.post(`/inbound-email/${id}/assign`, {
+    partnerId,
+    tripParticipantId,
+    requirementId,
+    kind,
+    customKind,
+  });
   return data;
 }
 
@@ -456,6 +469,201 @@ export async function updateTrip(id, payload) {
 
 export async function deleteTrip(id) {
   await api.delete(`/trips/${id}`);
+}
+
+// Trips (#252) -- admin-side additions beyond the plain CRUD above.
+export async function fetchTripPlanning() {
+  const { data } = await api.get("/trips/planning");
+  return data;
+}
+export async function fetchTrip(id) {
+  const { data } = await api.get(`/trips/${id}`);
+  return data;
+}
+export async function cloneTrip(id) {
+  const { data } = await api.post(`/trips/${id}/clone`);
+  return data;
+}
+export async function generateApplicationLink(tripId) {
+  const { data } = await api.post(`/trips/${tripId}/generate-application-link`);
+  return data;
+}
+export async function fetchTripApplications(tripId) {
+  const { data } = await api.get(`/trips/${tripId}/applications`);
+  return data;
+}
+export async function reviewTripApplication(applicationId, status, declinedReason) {
+  const { data } = await api.put(`/trips/applications/${applicationId}`, { status, declinedReason });
+  return data;
+}
+export async function addTripParticipant(tripId, payload) {
+  const { data } = await api.post(`/trips/${tripId}/participants`, payload);
+  return data;
+}
+export async function generateSupportRaisingLink(participantId) {
+  const { data } = await api.post(`/trips/participants/${participantId}/generate-support-raising-link`);
+  return data;
+}
+// One combined admin route for everything editable on a participant's
+// behalf -- contact details (always available) and story/photo (same
+// fields the participant could also self-edit, different trust
+// boundary). payload is any subset of { firstName, lastName, email,
+// phone, story, photo (base64), photoContentType }.
+export async function updateTripParticipant(participantId, payload) {
+  const { data } = await api.put(`/trips/participants/${participantId}`, payload);
+  return data;
+}
+export async function resendParticipantAccessLink(participantId) {
+  const { data } = await api.post(`/trips/participants/${participantId}/request-access-link`);
+  return data;
+}
+// Generalized (#252 follow-on) -- a requirement is a document or a plain
+// task, optionally with a due date and a reminder lead time; `payload`
+// is { label, kind?, dueAt?, reminderLeadDays? }.
+export async function addTripRequirement(tripId, payload) {
+  const { data } = await api.post(`/trips/${tripId}/requirements`, payload);
+  return data;
+}
+export async function updateTripRequirement(id, payload) {
+  const { data } = await api.put(`/trips/requirements/${id}`, payload);
+  return data;
+}
+export async function deleteTripRequirement(id) {
+  await api.delete(`/trips/requirements/${id}`);
+}
+// Planned-expense budget lines (trip-wide, estimate-only for v1) --
+// `payload` is { label, estimatedAmount }.
+export async function addTripBudgetLine(tripId, payload) {
+  const { data } = await api.post(`/trips/${tripId}/budget-lines`, payload);
+  return data;
+}
+export async function updateTripBudgetLine(id, payload) {
+  const { data } = await api.put(`/trips/budget-lines/${id}`, payload);
+  return data;
+}
+export async function deleteTripBudgetLine(id) {
+  await api.delete(`/trips/budget-lines/${id}`);
+}
+export async function addTripFlightSegment(tripId, payload) {
+  const { data } = await api.post(`/trips/${tripId}/flight-segments`, payload);
+  return data;
+}
+export async function updateTripFlightSegment(id, payload) {
+  const { data } = await api.put(`/trips/flight-segments/${id}`, payload);
+  return data;
+}
+export async function deleteTripFlightSegment(id) {
+  await api.delete(`/trips/flight-segments/${id}`);
+}
+// Task-kind only -- a document requirement is fulfilled by uploading its
+// document (uploadTripDocument below), never this route.
+export async function setTripRequirementComplete(requirementId, participantId, completed) {
+  const { data } = await api.put(
+    `/trips/requirements/${requirementId}/participants/${participantId}/complete`,
+    { completed }
+  );
+  return data;
+}
+export async function requestTripDocuments(tripId, participantId, message) {
+  const { data } = await api.post(`/trips/${tripId}/participants/${participantId}/request-documents`, {
+    message,
+  });
+  return data;
+}
+export async function addTripContribution(tripId, payload) {
+  const { data } = await api.post(`/trips/${tripId}/contributions`, payload);
+  return data;
+}
+// Manually logs a document as received -- the only other path into
+// TripDocument is inboundEmail.js's /assign (an inbound email the admin
+// routes to a participant), which has nothing to offer a document that
+// arrived by any other means (mail, in person, a file the admin already
+// has). participantId/requirementId/title are all optional, same as the
+// backend route itself allows.
+export async function uploadTripDocument(tripId, file, { participantId, requirementId, title } = {}) {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (participantId) formData.append("participantId", participantId);
+  if (requirementId) formData.append("requirementId", requirementId);
+  if (title) formData.append("title", title);
+  const { data } = await api.post(`/trips/${tripId}/documents`, formData);
+  return data;
+}
+export async function deleteTripDocument(id) {
+  await api.delete(`/trips/documents/${id}`);
+}
+export async function scheduleTripMeeting(tripId, payload) {
+  const { data } = await api.post(`/trips/${tripId}/meetings`, payload);
+  return data;
+}
+export async function updateTripMeeting(id, payload) {
+  const { data } = await api.put(`/trips/meetings/${id}`, payload);
+  return data;
+}
+
+// Trips church-wide settings (giving instructions, donor-contact opt-in,
+// the two private-link gates) -- its own dedicated sub-route, same
+// pattern as fetchJoshuaProjectSettings/updateJoshuaProjectSettings above.
+export async function fetchTripsSettings() {
+  const { data } = await api.get("/settings/trips");
+  return data;
+}
+export async function updateTripsSettings(payload) {
+  const { data } = await api.put("/settings/trips", payload);
+  return data;
+}
+
+// Trips public surfaces (#252) -- no auth, feature-gated server-side.
+export async function fetchPublicTrips() {
+  const { data } = await api.get("/public/trips");
+  return data;
+}
+export async function fetchPublicTrip(id) {
+  const { data } = await api.get(`/public/trips/${id}`);
+  return data;
+}
+export async function fetchPublicTripByToken(token) {
+  const { data } = await api.get(`/public/trips/by-token/${token}`);
+  return data;
+}
+export async function submitTripApplication(id, payload) {
+  const { data } = await api.post(`/public/trips/${id}/apply`, payload);
+  return data;
+}
+export async function submitTripApplicationByToken(token, payload) {
+  const { data } = await api.post(`/public/trips/by-token/${token}/apply`, payload);
+  return data;
+}
+export async function fetchPublicTripParticipantByToken(shareToken) {
+  const { data } = await api.get(`/public/trips/participants/by-token/${shareToken}`);
+  return data;
+}
+export async function fetchTripParticipantSelfService(accessToken) {
+  const { data } = await api.get(`/public/trips/participants/access`, { params: { token: accessToken } });
+  return data;
+}
+export async function requestTripParticipantAccessLink(email) {
+  const { data } = await api.post(`/public/trips/participants/request-access-link`, { email });
+  return data;
+}
+// E-signature (#252 follow-on) -- payload is { token, signerName, signatureImage? }.
+// Fulfills an "esignature"-kind requirement; the server generates a real
+// signed PDF and files it as an ordinary document, same as any upload.
+export async function signTripRequirement(requirementId, payload) {
+  const { data } = await api.post(`/public/trips/participants/sign/${requirementId}`, payload);
+  return data;
+}
+// Self-service story/photo edit -- payload is { token, story?, photo?
+// (base64 data URL), photoContentType? }. No review step.
+export async function updateTripParticipantSelfService(payload) {
+  const { data } = await api.put(`/public/trips/participants/self-service`, payload);
+  return data;
+}
+// Public, unauthenticated by design -- a participant's own support-
+// raising photo, same route serves the self-service/public/admin-preview
+// views. Returns the route path, not bytes -- callers point an <img> at it.
+export function tripParticipantPhotoUrl(participantId) {
+  return `/api/public/trips/participants/${participantId}/photo`;
 }
 
 export async function fetchPrayerRequests(params = {}) {

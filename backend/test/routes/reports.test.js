@@ -33,10 +33,25 @@ function stripBom(text) {
 let admin;
 let viewer;
 let fixturePartnerId;
+let originalEnabledFeatures;
 
 before(async () => {
   await ensureTestUsers();
   [admin, viewer] = await Promise.all([client("admin"), client("viewer")]);
+
+  // trips defaults to off (#252); this file's own fixture trip (below)
+  // and the "feature gate" describe block further down both need it on
+  // as their baseline.
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
+  originalEnabledFeatures = settings?.enabledFeatures ?? {};
+  await prisma.churchSettings.upsert({
+    where: { id: "singleton" },
+    update: { enabledFeatures: { ...originalEnabledFeatures, trips: true } },
+    create: { id: "singleton", enabledFeatures: { trips: true } },
+  });
 
   // A partner with a known birthday in a known month, so the report has
   // something deterministic to find.
@@ -69,9 +84,9 @@ before(async () => {
       partnerId: fixturePartnerId,
       startDate: "2026-06-01",
       endDate: "2026-06-10",
-      tripType: "Construction",
+      type: "Construction",
       description: "Report fixture trip",
-      participants: [{ name: "Fixture Leader", isLeader: true }],
+      participants: [{ firstName: "Fixture", lastName: "Leader", isLeader: true }],
     },
   });
   await admin("/api/support-entries", {
@@ -83,6 +98,11 @@ before(async () => {
 after(async () => {
   await removeFixturePartners();
   await removeTestUsers();
+  await prisma.churchSettings.upsert({
+    where: { id: "singleton" },
+    update: { enabledFeatures: originalEnabledFeatures },
+    create: { id: "singleton", enabledFeatures: originalEnabledFeatures },
+  });
   await stopServer();
 });
 

@@ -17,6 +17,7 @@ const NAV_LINKS = [
     label: (partnerTermPlural) => `Pray for our ${partnerTermPlural}`,
     feature: "publicPrayerDigest",
   },
+  { to: "/trips", label: "Trip Opportunities", feature: "publicTripDiscovery" },
 ];
 
 export default function PublicSiteHeader({ title, subtitle, children }) {

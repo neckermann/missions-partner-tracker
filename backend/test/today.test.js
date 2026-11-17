@@ -52,14 +52,23 @@ describe("resolveToday", () => {
   });
 
   test("defaults the injected clock to the real current time when omitted", () => {
-    const before = Date.now();
+    // Not a raw instant-distance bound -- a prior version of this
+    // assertion (`after - resolved.getTime() < 24h`) was itself buggy,
+    // not flaky: UTC-midnight-of-the-local-day can legitimately be up to
+    // 24h *plus* the zone's UTC offset away from the real current instant
+    // whenever that zone is behind UTC (exactly what America/Los_Angeles,
+    // set by this describe block's own before() hook, exercises) -- e.g.
+    // a run at 23:59 Pacific (07:59 UTC) is ~32h past UTC-midnight-of-
+    // today's-Pacific-date, correctly exceeding a flat 24h bound. That's
+    // why this failed deterministically once a CI run's real-world clock
+    // landed late enough in the Pacific day, not randomly. Test the real
+    // invariant instead: resolved should equal UTC-midnight of the
+    // current moment's own local calendar day, read the same way
+    // resolveToday itself reads it (process.env.TZ is already set for
+    // this whole block).
+    const now = new Date();
     const resolved = resolveToday(undefined);
-    const after = Date.now();
-    // Loosely bound: the resolved UTC-midnight day should fall on or just
-    // before the real instant this test ran, never days off in either
-    // direction.
-    assert.ok(resolved.getTime() <= after);
-    assert.ok(after - resolved.getTime() < 24 * 60 * 60 * 1000);
-    assert.ok(before > 0, "sanity");
+    const expected = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    assert.equal(resolved.toISOString(), expected.toISOString());
   });
 });

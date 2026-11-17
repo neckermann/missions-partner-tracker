@@ -27,8 +27,12 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
     enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
     enabledFeatures.oneTimeNeeds && { to: "/admin/support/needs", label: "One-Time Needs" },
     enabledFeatures.monthlySupport && { to: "/admin/support/monthly", label: "Monthly Support" },
-    enabledFeatures.trips && { to: "/admin/trips", label: "Trip History", end: true },
-    enabledFeatures.trips && { to: "/admin/trips/opportunities", label: "Trip Opportunities" },
+    // Trip Planning (where recruiting a new trip actually starts) ahead
+    // of Trips (the historical ledger) -- a new admin landing on Trips
+    // first would find no obvious way to start a new recruiting trip at
+    // all, since that's Trip Planning's job, not this list's.
+    enabledFeatures.trips && { to: "/admin/trips/planning", label: "Trip Planning" },
+    enabledFeatures.trips && { to: "/admin/trips", label: "Trips", end: true },
     enabledFeatures.booklet && { to: "/admin/booklet", label: "Print Booklet" },
     enabledFeatures.reports && { to: "/admin/reports", label: "Reports" },
   ].filter(Boolean);
@@ -78,6 +82,7 @@ function buildSiteAdminLinks(enabledFeatures) {
       to: "/admin/settings/email",
       label: "Email",
     },
+    enabledFeatures.trips && { to: "/admin/settings/trips", label: "Trips Settings" },
     enabledFeatures.groupme && { to: "/admin/settings/groupme", label: "GroupMe" },
     enabledFeatures.whatsapp && { to: "/admin/settings/whatsapp", label: "WhatsApp" },
     // Schedule(s), GroupMe's content-type mutes, the restricted-partner
@@ -125,9 +130,15 @@ export default function AdminSidebar() {
     <aside className="admin-sidebar no-print">
       <h1 className="admin-sidebar-title">{title}</h1>
       <nav className="admin-sidebar-nav">
-        {links.map((link) => (
-          <SidebarLink key={link.to} {...link} />
-        ))}
+        {links.map((link) =>
+          link.isLabel ? (
+            <div key={link.label} className="admin-sidebar-subnav-label">
+              {link.label}
+            </div>
+          ) : (
+            <SidebarLink key={link.to} {...link} />
+          )
+        )}
         {currentUser?.role === "admin" && (
           <>
             <div className="admin-sidebar-divider" />

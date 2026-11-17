@@ -5,11 +5,12 @@
 // page renders whatever is written here -- there is no second copy to keep
 // in sync. Adding a feature is adding an entry here.
 //
-// `group` is "public" for the two toggles a logged-out visitor can actually
-// notice (the site disappearing/reappearing at "/" or "/map") and "admin"
-// for everything else, which only ever changes what a logged-in admin sees
-// in their own nav -- drives the Public site/Admin features split in
-// pages/AdminSettingsFeatures.jsx. Order within "admin" mirrors the nav's
+// `group` is "public" for a toggle a logged-out visitor can actually
+// notice (a public page appearing/disappearing -- "/", "/map", or the Trip
+// Opportunities page) and "admin" for everything else, which only ever
+// changes what a logged-in admin sees in their own nav -- drives the
+// Public site/Admin features split in pages/AdminSettingsFeatures.jsx.
+// Order within "admin" mirrors the nav's
 // own grouping (AdminSidebar.jsx/AdminHome.jsx): core content features
 // first, then Communications (send and/or receive), then Integrations
 // (pull data in / process content, never communicate with anyone) --
@@ -58,11 +59,31 @@ const FEATURES = {
     defaultEnabled: true,
     group: "admin",
   },
+  // Covers the whole recruiting/roster/support-raising feature area --
+  // baseline CRUD, applications/review, meetings, documents,
+  // contributions. defaultEnabled flipped from true to false (#252):
+  // this flag now also gates a public application form, a public
+  // support-raising page, and outbound email, not just an admin-only page,
+  // so "on by default" stopped making sense.
   trips: {
     label: "Mission trips",
-    description: "The Trip History and Trip Opportunities pages.",
-    defaultEnabled: true,
+    description:
+      "Trip tracking, recruiting, rosters, meetings, documents, and support raising. The Trips and Trip Planning admin pages.",
+    defaultEnabled: false,
     group: "admin",
+  },
+  // Broad public discoverability only -- the discovery listing page and
+  // the plain, id-addressed application route for an isPublic trip.
+  // Nested under trips. Deliberately separate from trips itself (same
+  // "backend capability" vs. "public exposure" split publicDirectory
+  // already draws for the directory/map) so a church can run trips
+  // entirely by private link with zero public footprint.
+  publicTripDiscovery: {
+    label: "Public trip discovery",
+    description:
+      "The public Trip Opportunities page and plain trip-application links. Also requires Mission trips to be on. A trip's own private application/support-raising links work regardless of this flag.",
+    defaultEnabled: false,
+    group: "public",
   },
   booklet: {
     label: "Print booklet",

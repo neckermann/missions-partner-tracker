@@ -76,8 +76,8 @@ email sending only),
 [**Monthly Support**](#financial-support--one-time-needs),
 [**One-Time Needs**](#financial-support--one-time-needs),
 [**Prayer Requests**](#prayer-requests),
-[**Trip History**](#trip-history--trip-opportunities),
-[**Trip Opportunities**](#trip-history--trip-opportunities),
+[**Trips**](#trips), [**Trip Planning**](#trips),
+[**Trips Dashboard**](#trips),
 [**Newsletters & Docs**](#newsletters--docs),
 [**Print Booklet**](#printable-partner-booklet), [**Reports**](#reports)
 — visible to everyone, each one only if its
@@ -253,16 +253,19 @@ not just what topic they fall under:
     also manage these from the dedicated
     [One-Time Needs](#financial-support--one-time-needs) page).
 - **Mission Trips**:
-  - **Trip History** — past trips, each with dates, type, description,
-    notes, a Photo/Video Album link (optional — Google Photos, iCloud
-    Shared Album, or another provider; admin-only, never shown on the
-    public site), and a nested list of participants (Name, Role, Phone,
-    Email, "Trip Leader" checkbox).
+  - **Trips** — this partner's own trips, each with dates, type,
+    description, notes, a Photo/Video Album link (optional — Google
+    Photos, iCloud Shared Album, or another provider; admin-only,
+    never shown on the public site), and a nested list of participants
+    (First/Last name, Role, Phone, Email, "Trip Leader" checkbox) — the
+    same records as the main [Trips](#trips) page, just scoped to this
+    one partner. An actively-recruited trip's fuller detail page
+    (applications, roster, documents, support raising) is still
+    reached from there, not from here.
   - **Trip Capacity** — Team Size Min/Max, Trip Types Supported (pick
     from presets or type your own), season/duration notes,
-    lodging/logistics notes. This is what powers the
-    [Trip Opportunities](#trip-history--trip-opportunities) capacity
-    search.
+    lodging/logistics notes. This is what powers [Trip
+    Planning](#trips)'s "No trip scheduled" row for this partner.
 - **Communication**:
   - [**Prayer Requests**](#prayer-requests),
     [**Newsletters & Docs**](#newsletters--docs) — see their own sections below.
@@ -275,7 +278,7 @@ Blank repeatable rows (an empty adult, an empty trip, etc.) are silently
 dropped when you save — you don't need to manually remove unused rows.
 
 Any list that can grow long over the years — Financial Support, One-Time
-Needs, Trip History, Prayer Requests, Newsletters & Docs, Church
+Needs, Trips, Prayer Requests, Newsletters & Docs, Church
 Visits, Furlough — shows only its 3 most recent entries by default, with
 a **Load More** button (showing how many more there are) to reveal the
 rest. Nothing is hidden permanently; it's just not all rendered at once.
@@ -448,30 +451,98 @@ approving it at creation instead of from Pending Dispatches, see
 
 ![A prayer request showing its "From: ..." source link](docs/assets/screenshots/prayer-request-source-link.png)
 
-### Trip history & trip opportunities
+### Trips
 
-These are two different things:
-- **Trip History** is a filterable log of trips that already happened,
-  flattened across every partner — filter by type, year, team size. **+
-  Add Trip** logs one (pick the partner, dates, trip type, description,
-  a Photo/Video Album link, and participants) without leaving the page;
-  each row has its own **Edit** (everything except which partner it's
-  under — delete and re-add to move a trip to a different partner) and
-  **Delete**. Trips can still be added/edited from a partner's own Edit
-  form too, same as before — both write to the same records.
+Trips is a full recruiting/roster/support-raising feature, not just a
+historical log — off by default; turn it on in [Enabled
+Features](ADMIN_GUIDE.md#feature-toggles) (and, separately, **Public
+trip discovery** if you want trips listed publicly — see [ADMIN_GUIDE.md
+§ Trips](ADMIN_GUIDE.md#trips) for exactly what each flag and each
+private-link setting gates). Four admin pages, each answering a
+different question:
+
+- **Trips** is the filterable log of every trip regardless of status —
+  filter by type, year, team size. **+ Add Trip** logs one (pick the
+  partner, dates, trip type, description, a Photo/Video Album link,
+  and participants) without leaving the page. A trip that's only
+  historical (`completed`) is managed entirely inline here, same as
+  before this feature existed — **Edit** (everything except which
+  partner it's under — delete and re-add to move a trip to a different
+  partner) and **Delete**. A trip that's still `planning`,
+  `accepting_applications`, or `closed` instead shows its status as a
+  link into its own fuller **Trip Detail** page (below) — this list is
+  no longer where you manage an active trip's applications, roster, or
+  documents.
   - The **Album** link points to wherever you already host the trip's
     photos/videos — a Google Photos shared album, an iCloud Shared Album,
     or another provider you choose "Other" for. This app never stores the
     photos/videos themselves, just the link, and it's admin-only — it
     never appears on the public site.
-- **Trip Opportunities** is a forward-looking capacity search — "who
-  could host a trip like this" — filtering by team size, trip type,
-  region, and how recently a team last visited, reading the same Trip
-  Capacity fields set on each partner's form.
+- **Trip Planning** answers a different question — which partner to
+  plan the *next* trip to — blending three kinds of row per partner so
+  nobody falls off the list just because nothing's on the calendar yet:
+  an **Open** row (already recruiting), a **Committed** row (roster
+  finalized, hasn't happened), or a **No trip scheduled** row (just
+  that partner's own general trip capacity from their Trip Capacity
+  fields). A restricted partner gets its own badge here too, name
+  withheld — see restricted-partner handling below.
+- **Trips Dashboard** is a read-only overview of every trip currently
+  planning, accepting applications, or closed, together, soonest-
+  departing first — useful when several overlap, instead of checking
+  each one's own page.
+- **Trip Detail** (reached from either of the above) is where an
+  actively-recruited trip's actual work happens — see below.
 
-![Trip History, filterable by partner type, trip type, and year](docs/assets/screenshots/trip-history.png)
+**On a trip's own detail page**, beyond the basic setup fields (name,
+dates, team size, support-raising goal, description, visible-on-
+public-discovery toggle):
 
-![Trip Opportunities, a capacity search by team size and trip type](docs/assets/screenshots/trip-opportunities.png)
+- **Application questions** — add, edit, or remove the plain
+  label-plus-required-toggle questions shown, in order, on both the
+  public and private application form for this trip. Nothing's
+  hardcoded; a trip with none just shows the standard name/contact
+  fields.
+- **Private application link** — a dedicated "Generate" button
+  (appears only once **Allow staff to generate private application
+  links** is on, under Site Administration → Trips Settings) creates a
+  secret link you share directly — never listed anywhere, reachable
+  even for a restricted partner's trip (masked, not blocked — see
+  below). **Regenerate** immediately invalidates the old one.
+- **Document requirements** — your own list (e.g. "Signed Waiver",
+  "Passport Photo Page"), shown per participant in the roster as
+  fulfilled/missing, computed from what's actually on file rather than
+  a status anyone updates by hand.
+- **Roster** — each participant's support-raising progress (with
+  **Generate support-raising link**, gated the same way by **Allow
+  participants to have public support-raising pages**), **Resend
+  access link** for their own self-service page, **Request documents**
+  (sends an email — needs Inbound Email Address set first, see
+  [ADMIN_GUIDE.md § Trips](ADMIN_GUIDE.md#trips)), and **Log document**
+  — pick a file and, optionally, which requirement it fulfills, for
+  anything that arrives by mail, in person, or as a file you already
+  have (an email that arrives instead goes through [Unmatched
+  Emails](#receiving)'s own Trip participant assignment).
+- **Applications awaiting review** — **Approve** or **Decline** each
+  one.
+
+**Restricted-partner trips are never public, but aren't locked down to
+"admin only" either** — three different rules depending on the
+surface: fully excluded (behaves like it doesn't exist) from the
+public Trip Opportunities listing and plain application links;
+**masked** (the real partner never shown, a generic label instead,
+same as elsewhere in this app) on a private application link or a
+participant's support-raising link, since reaching either already
+required someone to share a secret with you directly; and fully real
+here on the admin detail page, with an amber warning reminding you
+that the trip's own free-text name/description can still leak details
+masking can't catch — avoid naming the real location there.
+
+**What an applicant or participant sees, outside the admin UI**: the
+public Trip Opportunities page (if that flag is on) and the
+application form; a participant's own support-raising page; and, if
+they lose their self-service link, a **request a new link** page that
+always replies the same way whether or not it found anything, so it
+can't be used to check whether someone has a trip record at all.
 
 ### Newsletters & Docs
 
@@ -567,7 +638,7 @@ specific.
 | Monthly Support | Every partner's current monthly support amount, as of its most recent entry — the same number [Monthly Support](#financial-support--one-time-needs) shows. |
 | One-Time Needs | One-time gift requests in a date range, with what was requested, what was approved, and what's still pending a decision. |
 | Prayer Requests | Prayer requests across every partner, filterable by category, status, and date range. |
-| Trip History | Mission trips across every missionary and organization, with dates, type, and team size — the same filters as [Trip History](#trip-history--trip-opportunities)'s own page. |
+| Trip History | Mission trips across every missionary and organization, with dates, type, and team size — the same filters as the [Trips](#trips) page's own history view. |
 | Furlough | Missionaries currently on furlough or with an upcoming furlough on file, filterable by status (current/upcoming) and when the furlough starts. No feature toggle gates this one — furlough tracking is always available. |
 
 A report tied to a feature that's turned off (see
@@ -1091,6 +1162,15 @@ choices as uploading any other file on a partner's own page, defaulting to
 Newsletter since that's what most inbound mail turns out to be. **Discard**
 (admin only) removes it permanently with a confirmation prompt — for spam
 or anything that was never meant to be filed at all.
+
+If [Trips](#trips) is on, **Assign** has a second mode: switch "Assign
+to" from Partner to **Trip participant** to file the email straight
+into that participant's own trip record instead — pick the
+participant (grouped by trip) and, if it fulfills one, which document
+requirement. Useful for a signed waiver or passport photo that arrives
+by email rather than through the participant's own self-service page.
+
+![The Unmatched Emails queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
 
 ![The Unmatched Emails queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
 

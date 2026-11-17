@@ -17,6 +17,7 @@ let viewer;
 let anon;
 
 let originalSettings;
+let originalEnabledFeatures;
 
 before(async () => {
   await ensureTestUsers();
@@ -38,6 +39,19 @@ before(async () => {
       address: true,
     },
   });
+  // trips defaults to off (#252); the "collections are not writable
+  // through the partner record" test below creates a trip, so this needs
+  // it on.
+  const featureSettings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
+  originalEnabledFeatures = featureSettings?.enabledFeatures ?? {};
+  await prisma.churchSettings.upsert({
+    where: { id: "singleton" },
+    update: { enabledFeatures: { ...originalEnabledFeatures, trips: true } },
+    create: { id: "singleton", enabledFeatures: { trips: true } },
+  });
 });
 
 after(async () => {
@@ -45,6 +59,10 @@ after(async () => {
   if (originalSettings) {
     await prisma.churchSettings.update({ where: { id: "singleton" }, data: originalSettings });
   }
+  await prisma.churchSettings.update({
+    where: { id: "singleton" },
+    data: { enabledFeatures: originalEnabledFeatures },
+  });
   await removeTestUsers();
   await stopServer();
 });
@@ -204,7 +222,7 @@ describe("partners: collections are not writable through the partner record", ()
 
     const trip = await admin("/api/trips", {
       method: "POST",
-      body: { partnerId: p.id, tripType: "Construction", participants: [{ name: "Someone" }] },
+      body: { partnerId: p.id, type: "Construction", participants: [{ firstName: "Someone" }] },
     });
     assert.equal(trip.status, 201);
     const entry = await admin("/api/support-entries", {

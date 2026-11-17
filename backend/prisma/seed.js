@@ -14,6 +14,7 @@ const {
   familySilhouette,
   buildingSilhouette,
 } = require("../src/utils/silhouette");
+const { generateShareToken } = require("../src/utils/tripAccessToken");
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
@@ -377,6 +378,25 @@ const SHORT_TEMPLATES = [
   (f, focusList, year) => `${f.field} since ${year}: ${joinFocus(focusList.slice(0, 2))}.`,
   (f, focusList, year) => `Based in ${f.city} since ${year}, focused on ${focusList[0]}.`,
 ];
+
+// Default e-signature requirement text, generalized from what the user's
+// own church currently asks applicants to agree to -- a real, usable
+// starting point every fork can edit or delete, not hardcoded app logic
+// (CONTRIBUTING.md's "keep forks upgradable" rule). Used by both the
+// church-wide tripRequirementTemplate (below) and directly on the demo
+// open trip (seedTripsDemo), so there's something real to sign without
+// waiting on a brand-new trip to pick up the template automatically.
+const LIABILITY_RELEASE_TEXT = `Liability Release and Code of Conduct — Short-Term Mission Trip
+
+I understand that participation in this short-term mission trip involves inherent risks, including but not limited to travel-related injury, illness, and property loss, and that these risks cannot be entirely eliminated no matter what care is taken. I voluntarily assume all such risks and release the church, its staff, and its partner organizations from liability for any injury, loss, or damage arising from my participation, except where caused by gross negligence.
+
+I agree to conduct myself in a manner consistent with the team's values throughout the trip. Specifically, I agree not to use alcohol or tobacco, not to engage in public displays of affection with another team member (whether married or single), not to use profane or vulgar language, to dress modestly and appropriately in a way that respects the customs and expectations of the culture we are serving in, and to avoid a critical or complaining attitude toward team leadership, fellow team members, or the conditions of the trip. I will follow the reasonable direction of the team leader at all times, and will represent the team and the church respectfully in my interactions with our hosts and host community.
+
+I confirm that I have disclosed any medical conditions, allergies, or medications the team leader should be aware of, and that I am responsible for bringing an adequate supply of any personal medication for the duration of the trip.
+
+I understand that the team leader may send me home at my own expense if my conduct endangers myself, another team member, or the trip's relationship with our hosts.
+
+This agreement is governed by the laws of the state in which the church is located.`;
 
 const TRIP_TYPES = [
   "Construction",
@@ -902,18 +922,23 @@ function buildTrips(participantNamePool) {
     const start = dateBetween(4, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + randInt(5, 12));
-    const participants = pickN(participantNamePool, randInt(2, 5)).map((name, idx) => ({
-      name,
-      role: pick(TRIP_ROLES),
-      isLeader: idx === 0,
-      phone: chance(0.5) ? fakePhone() : null,
-      email: chance(0.5) ? `${name.toLowerCase().replace(/\s+/g, ".")}@example.com` : null,
-    }));
+    const participants = pickN(participantNamePool, randInt(2, 5)).map((name, idx) => {
+      const [firstName, ...rest] = name.split(" ");
+      return {
+        firstName,
+        lastName: rest.join(" ") || null,
+        role: pick(TRIP_ROLES),
+        isLeader: idx === 0,
+        phone: chance(0.5) ? fakePhone() : null,
+        email: chance(0.5) ? `${name.toLowerCase().replace(/\s+/g, ".")}@example.com` : null,
+      };
+    });
     const hasAlbum = chance(0.3);
     trips.push({
+      status: "completed",
       startDate: start,
       endDate: end,
-      tripType: pick(TRIP_TYPES),
+      type: pick(TRIP_TYPES),
       description: `Team served alongside the field, focusing on ${pick(FOCUS_POOL)}.`,
       notes: chance(0.4) ? pick(TRIP_NOTES) : null,
       albumProvider: hasAlbum ? pick(ALBUM_PROVIDERS) : null,
@@ -1158,6 +1183,500 @@ const ADDITIONAL_USERS = [
 // the kind of thing a demo reset must never do by default. The admin
 // cadence picker's own UI is enough to demonstrate the feature; seeded
 // data doesn't need to exercise the send path too.
+// Trips (#252) demo data -- a handful of hand-crafted trips layered on
+// top of whatever partners buildTrips() already gave random historical
+// trips to, so the new recruiting/roster/support-raising feature has
+// something real to click through: one actively-recruiting (public)
+// trip with a pending application and a partial roster, one
+// roster-finalized (closed) trip, and one restricted-partner trip using
+// the private-link mechanism instead of public discovery. shareToken/
+// applicationShareToken are generated here regardless of
+// ChurchSettings.allowPublicSupportRaisingLinks/allowPrivateApplicationLinks
+// (both off by default) -- an admin flips those settings on to actually
+// use the links this seed already created, same as toggling any other
+// feature on against existing data.
+async function seedTripsDemo() {
+  console.log("Seeding Trips (#252) demo data...");
+  const [openPartner, closedPartner, restrictedPartner, planningPartner] = await Promise.all([
+    prisma.partner.findFirst({
+      where: { archived: false, isRestricted: false },
+      orderBy: { displayName: "asc" },
+    }),
+    prisma.partner.findFirst({
+      where: { archived: false, isRestricted: false },
+      orderBy: { displayName: "desc" },
+    }),
+    prisma.partner.findFirst({ where: { archived: false, isRestricted: true } }),
+    // A third, distinct partner for the new "planning"-stage trip below --
+    // skip: 1 so it's neither the alphabetically-first (openPartner) nor
+    // -last (closedPartner) partner.
+    prisma.partner.findFirst({
+      where: { archived: false, isRestricted: false },
+      orderBy: { displayName: "asc" },
+      skip: 1,
+    }),
+  ]);
+  if (!openPartner || !closedPartner) return;
+
+  const openStart = dateBetween(-1, -2);
+  const openEnd = new Date(openStart);
+  openEnd.setDate(openEnd.getDate() + randInt(5, 10));
+  const closedStart = dateBetween(-2, -3);
+  const closedEnd = new Date(closedStart);
+  closedEnd.setDate(closedEnd.getDate() + randInt(5, 10));
+
+  // Flight segments (#252 follow-on, replaces the former flightDetails
+  // free text) -- a real connection (two segments, one leg) for the
+  // whole team, plus a separate segment labeled for just two people
+  // flying from a different city, same example shape as the approved
+  // mockup. Demonstrates the actual variability this design exists to
+  // handle (connections, mixed group/individual bookings), not just the
+  // simplest one-segment case.
+  const outboundLeg1Depart = new Date(openStart);
+  outboundLeg1Depart.setHours(8, 15, 0, 0);
+  const outboundLeg1Arrive = new Date(outboundLeg1Depart.getTime() + 14.5 * 60 * 60 * 1000);
+  const outboundLeg2Depart = new Date(outboundLeg1Arrive.getTime() + 2 * 60 * 60 * 1000);
+  const outboundLeg2Arrive = new Date(outboundLeg2Depart.getTime() + 5.5 * 60 * 60 * 1000);
+  const soloDepart = new Date(openStart);
+  soloDepart.setHours(6, 40, 0, 0);
+  const soloArrive = new Date(soloDepart.getTime() + 19 * 60 * 60 * 1000);
+
+  const openTrip = await prisma.trip.create({
+    data: {
+      partnerId: openPartner.id,
+      name: `${openPartner.displayName.split(" ")[0]}'s Summer Team`,
+      status: "accepting_applications",
+      isPublic: true,
+      type: pick(TRIP_TYPES),
+      description: `Join a short-term team serving alongside ${openPartner.displayName}.`,
+      startDate: openStart,
+      endDate: openEnd,
+      teamSizeMin: 4,
+      teamSizeMax: 10,
+      supportRaisingGoal: 1200,
+      // Emergency contact deliberately NOT repeated here -- it's covered by
+      // the church-wide tripApplicationTemplate seeded below, which is
+      // exactly the case that layering exists for: a question every trip
+      // asks lives in the template once, not retyped per trip.
+      applicationQuestions: [
+        { id: "q1", label: "Do you have any dietary restrictions?", required: false },
+        { id: "q3", label: "Do you have a valid passport?", required: true },
+      ],
+      applications: {
+        create: [
+          {
+            firstName: "James",
+            lastName: "Okonkwo",
+            email: "james.okonkwo@example.org",
+            emergencyContactName: "Grace Okonkwo",
+            emergencyContactPhone: "555-0142",
+            // Structured address (#252 follow-on) -- at least one seeded
+            // application needs these populated to actually demonstrate
+            // the feature, not just leave the columns null.
+            addressLine1: "482 Maple Street",
+            city: "Rock Island",
+            stateProvinceRegion: "IL",
+            postalCode: "61201",
+            country: "USA",
+            responses: { q3: "Yes" },
+          },
+          // A declined application, with a real declinedReason -- the
+          // only state missing from this trip's application list
+          // otherwise (pending and approved already existed; nothing
+          // showed the declined flow).
+          {
+            firstName: "Derek",
+            lastName: "Palmquist",
+            email: "derek.palmquist@example.org",
+            status: "declined",
+            declinedReason: "Team is already at capacity for this trip's focus area.",
+            reviewedAt: dateBetween(5, 1),
+            responses: { q3: "No" },
+          },
+        ],
+      },
+      // Budget (estimate-only, trip-wide) -- deliberately doesn't sum to
+      // this trip's own supportRaisingGoal (1200) above, so the demo also
+      // shows the "differs from your goal" hint, not just a clean match.
+      budgetLines: {
+        create: [
+          { label: "Round-trip flights", estimatedAmount: 650 },
+          { label: "Lodging", estimatedAmount: 220 },
+          { label: "In-country transport", estimatedAmount: 90 },
+          { label: "Visa fees", estimatedAmount: 75 },
+          { label: "Travel insurance", estimatedAmount: 45 },
+        ],
+      },
+      flightSegments: {
+        create: [
+          {
+            airline: "Delta",
+            flightNumber: "DL 123",
+            departureAirport: "ATL",
+            departureAt: outboundLeg1Depart,
+            arrivalAirport: "ICN",
+            arrivalAt: outboundLeg1Arrive,
+          },
+          {
+            airline: "Delta",
+            flightNumber: "DL 456",
+            departureAirport: "ICN",
+            departureAt: outboundLeg2Depart,
+            arrivalAirport: "PNH",
+            arrivalAt: outboundLeg2Arrive,
+          },
+          {
+            label: "Priya & John",
+            airline: "United",
+            flightNumber: "UA 789",
+            departureAirport: "ORD",
+            departureAt: soloDepart,
+            arrivalAirport: "PNH",
+            arrivalAt: soloArrive,
+          },
+        ],
+      },
+      // Same e-signature requirement as the church-wide
+      // tripRequirementTemplate below, added directly here too so there's
+      // something real to sign on this demo trip without first creating
+      // a brand new one -- a normal new trip gets this automatically via
+      // the template; this trip predates that mechanism in seed order.
+      // All three TripRequirement kinds represented, not just esignature
+      // -- document and task both need a real example too, and (below)
+      // at least one participant fulfilling each while another doesn't,
+      // so the "outstanding" state is visible alongside "done".
+      requirements: {
+        create: [
+          {
+            label: "Signed Liability Release and Code of Conduct",
+            kind: "esignature",
+            bodyText: LIABILITY_RELEASE_TEXT,
+          },
+          { label: "Passport photo page", kind: "document" },
+          { label: "Attended orientation call", kind: "task" },
+        ],
+      },
+    },
+  });
+  const priya = await prisma.tripParticipant.create({
+    data: {
+      trip: { connect: { id: openTrip.id } },
+      firstName: "Priya",
+      lastName: "Krishnan",
+      email: "priya.krishnan@example.org",
+      isLeader: true,
+      supportRaisingGoal: 1200,
+      shareToken: generateShareToken(),
+      story: "I'm excited to serve this summer and would love your support!",
+      contributions: {
+        create: [
+          {
+            trip: { connect: { id: openTrip.id } },
+            donorName: "Family friend",
+            amount: 200,
+            method: "check",
+            receivedDate: dateBetween(0, 0),
+          },
+        ],
+      },
+    },
+  });
+
+  // John -- the deliberate contrast to Priya above: no shareToken, no
+  // story, none of the three requirements fulfilled yet. Matches the
+  // "Priya & John" flight segment label already seeded. Demonstrates
+  // the "freshly added, nothing done yet" state (missing support-raising
+  // link included) alongside Priya's "fully set up" one -- a reset that
+  // only ever shows the finished state never demonstrates what "still
+  // needed" actually looks like.
+  const john = await prisma.tripParticipant.create({
+    data: {
+      trip: { connect: { id: openTrip.id } },
+      firstName: "John",
+      lastName: "Alvarado",
+      email: "john.alvarado@example.org",
+      supportRaisingGoal: 1200,
+    },
+  });
+
+  // John's photo -- the one participant-photo feature needs at least one
+  // real example. Reuses the same Pexels pool/download mechanism already
+  // used for missionary photos elsewhere in this file, rather than a new
+  // image source; silhouette fallback (no PEXELS_API_KEY) just leaves
+  // John photo-less, which is a fine fallback state, not an error.
+  try {
+    const photoPools = await buildPhotoPools();
+    const photoUrl = photoPools && nextFromPool(photoPools.single_adult);
+    if (photoUrl) {
+      const photo = await downloadAndUploadPhoto(photoUrl);
+      if (photo) {
+        await prisma.tripParticipant.update({
+          where: { id: john.id },
+          data: { photo: photo.bytes, photoContentType: photo.contentType },
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("  Skipping John's seed photo:", err.message);
+  }
+
+  // Fulfillment split across the three requirement kinds -- Priya
+  // completes/signs/uploads everything, John does none of it, so both
+  // the "done" and "still needed" states are visible on the same trip
+  // instead of only ever showing one.
+  const [esigReq, docReq, taskReq] = await Promise.all([
+    prisma.tripRequirement.findFirst({ where: { tripId: openTrip.id, kind: "esignature" } }),
+    prisma.tripRequirement.findFirst({ where: { tripId: openTrip.id, kind: "document" } }),
+    prisma.tripRequirement.findFirst({ where: { tripId: openTrip.id, kind: "task" } }),
+  ]);
+
+  if (taskReq) {
+    await prisma.tripRequirementStatus.create({
+      data: { requirementId: taskReq.id, participantId: priya.id, completedAt: dateBetween(10, 5) },
+    });
+  }
+
+  if (docReq) {
+    const passportPdf = buildFakePdf("Passport Photo Page", "Seed placeholder -- not a real passport scan.");
+    await prisma.tripDocument.create({
+      data: {
+        tripId: openTrip.id,
+        participantId: priya.id,
+        requirementId: docReq.id,
+        title: "Passport photo page",
+        bytes: passportPdf,
+        fileName: "passport.pdf",
+        contentType: "application/pdf",
+      },
+    });
+  }
+
+  // A real signature, not a hand-faked row -- same pdfGeneration.js
+  // utility and server-computed SHA-256 hash the actual sign route
+  // uses, so this seed row is byte-identical in shape to what a real
+  // signature produces (confirmed: the generated PDF opens as a real
+  // PDF, same as the real route's own output).
+  if (esigReq && esigReq.bodyText) {
+    try {
+      const crypto = require("crypto");
+      const { buildSignedDocumentPdf } = require("../src/utils/pdfGeneration");
+      const documentText = esigReq.bodyText;
+      const documentTextHash = crypto.createHash("sha256").update(documentText, "utf8").digest("hex");
+      const attestedAt = dateBetween(8, 4);
+      const pdfBytes = await buildSignedDocumentPdf({
+        requirementLabel: esigReq.label,
+        tripLabel: openTrip.name || openTrip.type || "Trip",
+        participantName: `${priya.firstName} ${priya.lastName}`,
+        documentText,
+        signerName: `${priya.firstName} ${priya.lastName}`,
+        signatureImage: null,
+        attestedAt,
+        documentTextHash,
+        ip: "203.0.113.42",
+      });
+      const signedDoc = await prisma.tripDocument.create({
+        data: {
+          tripId: openTrip.id,
+          participantId: priya.id,
+          requirementId: esigReq.id,
+          title: esigReq.label,
+          bytes: pdfBytes,
+          fileName: "signed-liability-release.pdf",
+          contentType: "application/pdf",
+        },
+      });
+      await prisma.tripSignature.create({
+        data: {
+          requirementId: esigReq.id,
+          participantId: priya.id,
+          tripDocumentId: signedDoc.id,
+          signerName: `${priya.firstName} ${priya.lastName}`,
+          attestedAt,
+          ip: "203.0.113.42",
+          documentTextSnapshot: documentText,
+          documentTextHash,
+        },
+      });
+    } catch (err) {
+      console.warn("  Skipping seed e-signature (non-fatal):", err.message);
+    }
+  }
+
+  await prisma.trip.create({
+    data: {
+      partnerId: closedPartner.id,
+      name: `${closedPartner.displayName.split(" ")[0]}'s Fall Build Team`,
+      status: "closed",
+      type: pick(TRIP_TYPES),
+      description: `A roster is finalized for this team serving with ${closedPartner.displayName}.`,
+      startDate: closedStart,
+      endDate: closedEnd,
+      teamSizeMax: 6,
+      participants: {
+        create: [
+          { firstName: "Marcus", lastName: "Thibodeaux", isLeader: true, email: "marcus.t@example.org" },
+          { firstName: "Sarah", lastName: "Oyelaran", email: "sarah.o@example.org" },
+        ],
+      },
+    },
+  });
+
+  // A trip still in "planning" -- not yet accepting applications. Every
+  // other seeded trip here was already either accepting applications,
+  // closed, or completed; nothing demonstrated this earlier lifecycle
+  // stage at all.
+  if (planningPartner && planningPartner.id !== openPartner.id && planningPartner.id !== closedPartner.id) {
+    await prisma.trip.create({
+      data: {
+        partnerId: planningPartner.id,
+        name: `${planningPartner.displayName.split(" ")[0]}'s Spring Team (planning)`,
+        status: "planning",
+        type: pick(TRIP_TYPES),
+        description: `Early planning stages for a team serving with ${planningPartner.displayName} -- dates and team size still being worked out.`,
+        teamSizeMin: 5,
+        teamSizeMax: 8,
+      },
+    });
+  }
+
+  if (restrictedPartner) {
+    await prisma.trip.create({
+      data: {
+        partnerId: restrictedPartner.id,
+        name: "Trip to a sensitive-access field",
+        status: "accepting_applications",
+        isPublic: false,
+        applicationShareToken: generateShareToken(),
+        type: pick(TRIP_TYPES),
+        description: "A short-term team supporting an ongoing restricted-access ministry.",
+        teamSizeMin: 3,
+        teamSizeMax: 6,
+        supportRaisingGoal: 1200,
+        applicationQuestions: [{ id: "q1", label: "Do you have a valid passport?", required: true }],
+      },
+    });
+  }
+
+  // Realistic starter content for tripApplicationTemplate/tripQuestionLibrary
+  // -- generalized from a real short-term mission trip application a user
+  // shared (not copied verbatim; every church's own wording differs, and
+  // CONTRIBUTING.md's "keep forks upgradable" rule means this belongs in
+  // this demo church's own seed data, not hardcoded into app code).
+  // tripApplicationTemplate is the universal layer every trip asks;
+  // tripQuestionLibrary is a picker-only set an admin could add to any
+  // trip or the template itself, never live on a form by itself.
+  await prisma.churchSettings.update({
+    where: { id: "singleton" },
+    data: {
+      // On for the demo specifically (schema default is off) -- a
+      // visitor exploring the demo should see the Budget section
+      // working, not have to find and flip the toggle first.
+      enableTripBudgeting: true,
+      // tmpl5 added in a later round -- the user asked for more of what a
+      // participant record collects, pointing at the same real example
+      // application. Date of birth now uses the real "date" question type
+      // (a native <input type="date"> on the public form) -- the earlier
+      // version of this comment said there was no dedicated date type,
+      // "deliberately stopped at four question types"; that held until a
+      // real screenshot showed a free-text DOB field with no picker,
+      // which was the actual gap, not a deliberate stop. A fifth type was
+      // added rather than special-casing DOB specifically, since any
+      // future date-shaped question benefits the same way. The former
+      // tmpl4 ("Mailing address, one free-text line") was dropped
+      // once ChurchSettings.collectApplicantAddress shipped a real
+      // structured address block on the application form itself --
+      // asking for the same thing twice would be a duplicate, not a
+      // second layer of the same precanned-question system this
+      // template/library pair exists for. The former tmpl1 ("Emergency
+      // contact name and phone, one free-text line") was dropped once
+      // ChurchSettings.collectEmergencyContact shipped a real structured
+      // name/phone/email block on the application form itself -- same
+      // reasoning as tmpl4 (mailing address) being dropped just above.
+      tripApplicationTemplate: [
+        {
+          id: "tmpl2",
+          type: "select",
+          label: "Are you willing to raise the funds needed for this trip and meet payment deadlines?",
+          required: true,
+          options: ["Yes", "No"],
+        },
+        {
+          id: "tmpl3",
+          type: "select",
+          label:
+            "Do you agree to follow the team's code of conduct during the trip? If accepted, you will be required to sign a full copy of the code of conduct.",
+          required: true,
+          options: ["Yes", "No"],
+        },
+        { id: "tmpl5", type: "date", label: "Date of birth", required: true },
+        // tmpl6/7/8 promoted from the library (were lib1/2/3) -- the user
+        // asked for these three specifically to be live on every
+        // application by default for the demo, not just available as an
+        // opt-in pick. Moved, not duplicated: a question that's already
+        // live in the template has no remaining reason to also sit in the
+        // picker-only library (same reasoning that already applies to
+        // every other template question -- nothing lives in both lists).
+        {
+          id: "tmpl6",
+          type: "textarea",
+          label: "Tell us about your faith journey and how you came to follow Jesus.",
+          required: false,
+        },
+        {
+          id: "tmpl7",
+          type: "textarea",
+          label: "What are your expectations for this trip?",
+          required: false,
+        },
+        {
+          id: "tmpl8",
+          type: "text",
+          label: "Health insurance company and policy/group number",
+          required: false,
+        },
+      ],
+      tripQuestionLibrary: [
+        {
+          id: "lib4",
+          type: "select",
+          label: "Do you have a valid passport, or could you get one before the trip departs?",
+          required: true,
+          options: ["Yes, I have one", "No, but I can apply in time", "No"],
+        },
+        {
+          id: "lib5",
+          type: "select",
+          label: "Are you comfortable with texting as a way for the team to reach you?",
+          required: false,
+          options: ["Yes", "No"],
+        },
+        { id: "lib6", type: "text", label: "Occupation", required: false },
+        {
+          id: "lib7",
+          type: "select",
+          label: "Marital status",
+          required: false,
+          options: ["Single", "Married"],
+        },
+      ],
+      // Church-wide requirement checklist, auto-copied onto every
+      // newly-created, actively-recruiting trip (#252 e-signature round)
+      // -- see ChurchSettings.tripRequirementTemplate's own schema
+      // comment. One entry: the real default a church starts with,
+      // generalized from what the user's own church currently asks on
+      // its applications, not copied verbatim from any one source.
+      tripRequirementTemplate: [
+        {
+          id: "reqtmpl1",
+          label: "Signed Liability Release and Code of Conduct",
+          kind: "esignature",
+          bodyText: LIABILITY_RELEASE_TEXT,
+        },
+      ],
+    },
+  });
+}
+
 async function seedAdditionalUsers() {
   console.log(`Seeding ${ADDITIONAL_USERS.length} additional admin users...`);
   const bcrypt = require("bcryptjs");
@@ -1569,6 +2088,7 @@ async function main() {
   if (SEED_DEMO_EXTRAS) {
     await seedUnmatchedEmails();
     await seedAdditionalUsers();
+    await seedTripsDemo();
     // Last -- reads back the prayer requests/needs/newsletters just
     // created above, so it needs them to already exist.
     await seedNotificationQueue();
@@ -1592,4 +2112,9 @@ if (require.main === module) {
     .finally(() => prisma.$disconnect());
 }
 
-module.exports = { buildFakePdf, buildFakeEml, scannableExtras };
+// seedTripsDemo exported alongside the existing three -- lets Trips demo
+// data be reset and reseeded on its own (e.g. after cleaning up duplicate
+// rows created by running the full seed repeatedly) without re-running
+// the whole missionary/organization seed, which is additive and would
+// otherwise just keep growing every time.
+module.exports = { buildFakePdf, buildFakeEml, scannableExtras, seedTripsDemo };

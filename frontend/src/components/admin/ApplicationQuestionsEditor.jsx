@@ -1,0 +1,344 @@
+import React, { useState } from "react";
+
+// Shared editor for an application-question list -- used for a trip's own
+// applicationQuestions (AdminTripDetail.jsx), the church-wide
+// tripApplicationTemplate, and the tripQuestionLibrary picker source
+// (both AdminSettingsTrips.jsx). One component so all three stay in sync
+// as the question shape evolves, instead of three hand-copied UIs.
+//
+// Redesigned for clarity (flagged as confusing from a real screenshot):
+// every control is now a labeled, stacked field instead of one dense
+// unlabeled row, and the two ways to add a question ("from your saved
+// questions" vs. "a brand-new one") are visually separated sections with
+// their own headings, not two forms running together.
+//
+// Fully controlled: the parent owns persistence. `onAdd`/`onUpdate`/
+// `onRemove` are called with the new full intent; what happens next
+// (save immediately, or just update local form state until a page-level
+// Save button is clicked) is entirely up to the caller.
+const QUESTION_TYPES = [
+  { value: "text", label: "Short text" },
+  { value: "textarea", label: "Long text" },
+  { value: "select", label: "Multiple choice (pick one)" },
+  { value: "checkboxes", label: "Checkboxes (pick any)" },
+  { value: "date", label: "Date" },
+];
+
+// One choice per line, not comma-separated -- a comma-joined single line
+// can't round-trip losslessly once any one choice contains a comma of its
+// own (e.g. "No, but I can apply in time"), which would otherwise silently
+// re-split into extra choices the next time this field is edited. A
+// newline can't appear inside a single typed choice at all, so this has
+// no equivalent failure mode.
+function optionsToText(options) {
+  return (options || []).join("\n");
+}
+function textToOptions(text) {
+  return text
+    .split("\n")
+    .map((o) => o.trim())
+    .filter(Boolean);
+}
+function needsOptionsFor(type) {
+  return type === "select" || type === "checkboxes";
+}
+
+// Move-up/move-down, not drag-and-drop -- this app has no existing
+// drag-and-drop precedent anywhere, and a new library dependency isn't
+// worth it for a list that's realistically a handful of questions long.
+function moveItem(list, index, delta) {
+  const target = index + delta;
+  if (target < 0 || target >= list.length) return list;
+  const next = list.slice();
+  const [moved] = next.splice(index, 1);
+  next.splice(target, 0, moved);
+  return next;
+}
+
+// One labeled "Answer choices" field, shared by an existing question's
+// editor and the two add-a-question forms below -- same markup, same
+// helper text, so a select/checkboxes question never looks different
+// depending on where it's being edited.
+function OptionsField({ defaultValue, value, onChange, onBlur }) {
+  return (
+    <label style={{ display: "block", marginTop: "0.6rem", fontWeight: 400, fontSize: "0.85rem" }}>
+      Answer choices
+      <textarea
+        rows={3}
+        style={{ width: "100%", marginTop: "0.2rem", fontFamily: "inherit" }}
+        defaultValue={defaultValue}
+        value={value}
+        onChange={onChange}
+        onBlur={onBlur}
+        placeholder={"One per line, e.g.\nYes\nNo"}
+      />
+      <span style={{ display: "block", color: "#888", fontSize: "0.78rem", marginTop: "0.15rem" }}>
+        One choice per line -- a choice can safely contain its own comma this way.
+      </span>
+    </label>
+  );
+}
+
+export default function ApplicationQuestionsEditor({
+  questions,
+  onAdd,
+  onUpdate,
+  onRemove,
+  onReorder,
+  library,
+  onAddFromLibrary,
+}) {
+  const [draft, setDraft] = useState({ label: "", required: false, type: "text", optionsText: "" });
+  const [libraryPick, setLibraryPick] = useState("");
+
+  function resetDraft() {
+    setDraft({ label: "", required: false, type: "text", optionsText: "" });
+  }
+
+  function handleMove(index, delta) {
+    if (!onReorder) return;
+    const reordered = moveItem(questions, index, delta);
+    if (reordered !== questions) onReorder(reordered);
+  }
+
+  function handleAdd(e) {
+    e.preventDefault();
+    if (!draft.label.trim()) return;
+    const needsOptions = needsOptionsFor(draft.type);
+    const options = needsOptions ? textToOptions(draft.optionsText) : undefined;
+    if (needsOptions && options.length === 0) return;
+    onAdd({ label: draft.label.trim(), required: draft.required, type: draft.type, options });
+    resetDraft();
+  }
+
+  function handleAddFromLibrary() {
+    if (!libraryPick) return;
+    const entry = (library || []).find((q) => q.id === libraryPick);
+    if (entry) onAddFromLibrary(entry);
+    setLibraryPick("");
+  }
+
+  return (
+    <div>
+      <ul style={{ listStyle: "none", padding: 0 }}>
+        {questions.map((q, index) => {
+          const type = q.type || "text";
+          const typeLabel = QUESTION_TYPES.find((t) => t.value === type)?.label || type;
+          return (
+            <li
+              key={q.id}
+              style={{
+                border: "1px solid #e1dfdb",
+                borderRadius: 6,
+                padding: "0.7rem 0.8rem",
+                marginBottom: "0.6rem",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+                <span style={{ color: "#888", fontSize: "0.85rem", fontWeight: 600, paddingTop: "1.6rem" }}>
+                  {index + 1}.
+                </span>
+                <label style={{ flex: 1, fontWeight: 400, fontSize: "0.85rem" }}>
+                  Question text
+                  <input
+                    style={{ width: "100%", marginTop: "0.2rem" }}
+                    defaultValue={q.label}
+                    onBlur={(e) =>
+                      e.target.value.trim() &&
+                      e.target.value !== q.label &&
+                      onUpdate(q.id, { label: e.target.value.trim() })
+                    }
+                  />
+                </label>
+                {onReorder && (
+                  <div style={{ display: "flex", flexDirection: "column", marginTop: "1.5rem" }}>
+                    <button
+                      type="button"
+                      className="btn-remove"
+                      title="Move up"
+                      aria-label="Move this question up"
+                      disabled={index === 0}
+                      style={{ opacity: index === 0 ? 0.3 : 1 }}
+                      onClick={() => handleMove(index, -1)}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-remove"
+                      title="Move down"
+                      aria-label="Move this question down"
+                      disabled={index === questions.length - 1}
+                      style={{ opacity: index === questions.length - 1 ? 0.3 : 1 }}
+                      onClick={() => handleMove(index, 1)}
+                    >
+                      ▼
+                    </button>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="btn-remove"
+                  title="Remove this question"
+                  aria-label="Remove this question"
+                  style={{ marginTop: "1.5rem" }}
+                  onClick={() => onRemove(q.id)}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "1rem",
+                  marginTop: "0.6rem",
+                  paddingLeft: "1.4rem",
+                }}
+              >
+                <label style={{ fontWeight: 400, fontSize: "0.85rem" }}>
+                  Question type
+                  <select
+                    style={{ display: "block", marginTop: "0.2rem" }}
+                    value={type}
+                    onChange={(e) =>
+                      onUpdate(q.id, {
+                        type: e.target.value,
+                        options: needsOptionsFor(e.target.value) ? q.options || [] : undefined,
+                      })
+                    }
+                  >
+                    {QUESTION_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    fontWeight: 400,
+                    fontSize: "0.85rem",
+                    marginTop: "1.3rem",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!q.required}
+                    onChange={(e) => onUpdate(q.id, { required: e.target.checked })}
+                  />
+                  Required -- applicant must answer before submitting
+                </label>
+              </div>
+
+              {needsOptionsFor(type) && (
+                <div style={{ paddingLeft: "1.4rem" }}>
+                  <OptionsField
+                    defaultValue={optionsToText(q.options)}
+                    onBlur={(e) => onUpdate(q.id, { options: textToOptions(e.target.value) })}
+                  />
+                </div>
+              )}
+
+              <p style={{ margin: "0.5rem 0 0", paddingLeft: "1.4rem", color: "#888", fontSize: "0.78rem" }}>
+                Shown as a "{typeLabel}" question{q.required ? ", required" : ", optional"}.
+              </p>
+            </li>
+          );
+        })}
+        {questions.length === 0 && <p style={{ color: "#888" }}>No questions yet -- add one below.</p>}
+      </ul>
+
+      {library && library.length > 0 && (
+        <div className="admin-section" style={{ marginBottom: "0.75rem" }}>
+          <h4 style={{ margin: "0 0 0.3rem" }}>Add from your saved questions</h4>
+          <p style={{ margin: "0 0 0.5rem", color: "#888", fontSize: "0.8rem" }}>
+            Reuse a question you've already saved instead of retyping it.
+          </p>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <select style={{ flex: 1 }} value={libraryPick} onChange={(e) => setLibraryPick(e.target.value)}>
+              <option value="">Choose a saved question...</option>
+              {library.map((q) => (
+                <option key={q.id} value={q.id}>
+                  {q.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn secondary small"
+              onClick={handleAddFromLibrary}
+              disabled={!libraryPick}
+            >
+              + Add to this list
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="admin-section">
+        <h4 style={{ margin: "0 0 0.3rem" }}>Add a new question</h4>
+        <form onSubmit={handleAdd}>
+          <label style={{ display: "block", fontWeight: 400, fontSize: "0.85rem" }}>
+            Question text
+            <input
+              style={{ width: "100%", marginTop: "0.2rem" }}
+              value={draft.label}
+              onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))}
+              placeholder="e.g. Do you have a valid passport?"
+            />
+          </label>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", marginTop: "0.6rem" }}>
+            <label style={{ fontWeight: 400, fontSize: "0.85rem" }}>
+              Question type
+              <select
+                style={{ display: "block", marginTop: "0.2rem" }}
+                value={draft.type}
+                onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value }))}
+              >
+                {QUESTION_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                fontWeight: 400,
+                fontSize: "0.85rem",
+                marginTop: "1.3rem",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={draft.required}
+                onChange={(e) => setDraft((d) => ({ ...d, required: e.target.checked }))}
+              />
+              Required -- applicant must answer before submitting
+            </label>
+          </div>
+
+          {needsOptionsFor(draft.type) && (
+            <OptionsField
+              value={draft.optionsText}
+              onChange={(e) => setDraft((d) => ({ ...d, optionsText: e.target.value }))}
+            />
+          )}
+
+          <button type="submit" className="btn secondary small" style={{ marginTop: "0.75rem" }}>
+            + Add question
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
