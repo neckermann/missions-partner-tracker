@@ -1218,6 +1218,11 @@ async function seedTripsDemo() {
   ]);
   if (!openPartner || !closedPartner) return;
 
+  // Needed below for the approved application's own reviewedById -- same
+  // "whoever's seeded as an admin" lookup main() already does for its own
+  // createdById/updatedById attribution.
+  const admin = await prisma.user.findFirst({ where: { role: "admin" } });
+
   const openStart = dateBetween(-1, -2);
   const openEnd = new Date(openStart);
   openEnd.setDate(openEnd.getDate() + randInt(5, 10));
@@ -1268,8 +1273,10 @@ async function seedTripsDemo() {
             firstName: "James",
             lastName: "Okonkwo",
             email: "james.okonkwo@example.org",
+            phone: "555-0198",
             emergencyContactName: "Grace Okonkwo",
             emergencyContactPhone: "555-0142",
+            emergencyContactEmail: "grace.okonkwo@example.org",
             // Structured address (#252 follow-on) -- at least one seeded
             // application needs these populated to actually demonstrate
             // the feature, not just leave the columns null.
@@ -1278,20 +1285,52 @@ async function seedTripsDemo() {
             stateProvinceRegion: "IL",
             postalCode: "61201",
             country: "USA",
-            responses: { q3: "Yes" },
+            // Every question this trip actually asks answered (template
+            // layer + this trip's own q1/q3) -- a half-answered pending
+            // application doesn't show what the admin review screen looks
+            // like once someone has actually finished the form.
+            responses: {
+              tmpl2: "Yes",
+              tmpl3: "Yes",
+              tmpl5: "1991-03-22",
+              tmpl6: "I grew up going to church, but it wasn't until a mission trip in college that my faith became my own.",
+              tmpl7: "I'm hoping to serve wherever there's a need and come back with a deeper dependence on God.",
+              tmpl8: "Blue Cross Blue Shield, Policy #BC-48213",
+              q1: "Vegetarian, no peanuts.",
+              q3: "Yes",
+            },
           },
           // A declined application, with a real declinedReason -- the
           // only state missing from this trip's application list
           // otherwise (pending and approved already existed; nothing
-          // showed the declined flow).
+          // showed the declined flow). Filled out just as completely as
+          // the pending one above -- a declined applicant still finished
+          // the whole form before being turned down, not a half-blank one.
           {
             firstName: "Derek",
             lastName: "Palmquist",
             email: "derek.palmquist@example.org",
+            phone: "555-0176",
+            emergencyContactName: "Wendy Palmquist",
+            emergencyContactPhone: "555-0177",
+            addressLine1: "19 Birch Court",
+            city: "Davenport",
+            stateProvinceRegion: "IA",
+            postalCode: "52801",
+            country: "USA",
             status: "declined",
             declinedReason: "Team is already at capacity for this trip's focus area.",
             reviewedAt: dateBetween(5, 1),
-            responses: { q3: "No" },
+            responses: {
+              tmpl2: "Yes",
+              tmpl3: "Yes",
+              tmpl5: "1987-11-02",
+              tmpl6: "I've been part of my church's missions committee for three years and wanted to finally go myself.",
+              tmpl7: "I expect it to be physically demanding, and I'm ready for that.",
+              tmpl8: "Aetna, Group #AE-90217",
+              q1: "No restrictions.",
+              q3: "No",
+            },
           },
         ],
       },
@@ -1364,6 +1403,7 @@ async function seedTripsDemo() {
       firstName: "Priya",
       lastName: "Krishnan",
       email: "priya.krishnan@example.org",
+      role: "Team Lead",
       isLeader: true,
       supportRaisingGoal: 1200,
       shareToken: generateShareToken(),
@@ -1419,6 +1459,68 @@ async function seedTripsDemo() {
   } catch (err) {
     console.warn("  Skipping John's seed photo:", err.message);
   }
+
+  // Amara -- the one participant on this trip who actually came through
+  // the real application->approval path (Priya/John above were both
+  // added directly, which is realistic but meant nothing ever
+  // demonstrated a participant whose address/emergency contact/role
+  // arrived pre-filled from their own application, or the new read-only
+  // "Application answers" section on their detail page -- both were
+  // real gaps with no seeded example to show them working). Mirrors
+  // exactly what PUT /api/trips/applications/:id's approval branch does
+  // on a real approval, not a shortcut shape.
+  const amaraApplication = await prisma.tripApplication.create({
+    data: {
+      tripId: openTrip.id,
+      firstName: "Amara",
+      lastName: "Chukwu",
+      email: "amara.chukwu@example.org",
+      phone: "555-0163",
+      status: "approved",
+      reviewedAt: dateBetween(6, 2),
+      reviewedById: admin?.id || null,
+      addressLine1: "77 Sycamore Ave",
+      addressLine2: "Apt 3B",
+      city: "Moline",
+      stateProvinceRegion: "IL",
+      postalCode: "61265",
+      country: "USA",
+      emergencyContactName: "Chidi Chukwu",
+      emergencyContactPhone: "555-0164",
+      emergencyContactEmail: "chidi.chukwu@example.org",
+      responses: {
+        tmpl2: "Yes",
+        tmpl3: "Yes",
+        tmpl5: "1995-07-19",
+        tmpl6: "I've felt called to medical missions since shadowing a clinic team on a previous short trip.",
+        tmpl7: "To use my nursing background to serve the team and the local clinic staff well.",
+        tmpl8: "UnitedHealthcare, Policy #UH-55820",
+        q1: "Lactose intolerant.",
+        q3: "Yes",
+      },
+    },
+  });
+  await prisma.tripParticipant.create({
+    data: {
+      tripId: openTrip.id,
+      applicationId: amaraApplication.id,
+      firstName: amaraApplication.firstName,
+      lastName: amaraApplication.lastName,
+      email: amaraApplication.email,
+      phone: amaraApplication.phone,
+      role: "Medical",
+      addressLine1: amaraApplication.addressLine1,
+      addressLine2: amaraApplication.addressLine2,
+      city: amaraApplication.city,
+      stateProvinceRegion: amaraApplication.stateProvinceRegion,
+      postalCode: amaraApplication.postalCode,
+      country: amaraApplication.country,
+      emergencyContactName: amaraApplication.emergencyContactName,
+      emergencyContactPhone: amaraApplication.emergencyContactPhone,
+      emergencyContactEmail: amaraApplication.emergencyContactEmail,
+      supportRaisingGoal: 1200,
+    },
+  });
 
   // Fulfillment split across the three requirement kinds -- Priya
   // completes/signs/uploads everything, John does none of it, so both
