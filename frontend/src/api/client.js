@@ -473,10 +473,6 @@ export async function fetchTripPlanning() {
   const { data } = await api.get("/trips/planning");
   return data;
 }
-export async function fetchTripDashboard() {
-  const { data } = await api.get("/trips/dashboard");
-  return data;
-}
 export async function fetchTrip(id) {
   const { data } = await api.get(`/trips/${id}`);
   return data;
@@ -505,6 +501,15 @@ export async function generateSupportRaisingLink(participantId) {
   const { data } = await api.post(`/trips/participants/${participantId}/generate-support-raising-link`);
   return data;
 }
+// One combined admin route for everything editable on a participant's
+// behalf -- contact details (always available) and story/photo (same
+// fields the participant could also self-edit, different trust
+// boundary). payload is any subset of { firstName, lastName, email,
+// phone, story, photo (base64), photoContentType }.
+export async function updateTripParticipant(participantId, payload) {
+  const { data } = await api.put(`/trips/participants/${participantId}`, payload);
+  return data;
+}
 export async function resendParticipantAccessLink(participantId) {
   const { data } = await api.post(`/trips/participants/${participantId}/request-access-link`);
   return data;
@@ -522,6 +527,30 @@ export async function updateTripRequirement(id, payload) {
 }
 export async function deleteTripRequirement(id) {
   await api.delete(`/trips/requirements/${id}`);
+}
+// Planned-expense budget lines (trip-wide, estimate-only for v1) --
+// `payload` is { label, estimatedAmount }.
+export async function addTripBudgetLine(tripId, payload) {
+  const { data } = await api.post(`/trips/${tripId}/budget-lines`, payload);
+  return data;
+}
+export async function updateTripBudgetLine(id, payload) {
+  const { data } = await api.put(`/trips/budget-lines/${id}`, payload);
+  return data;
+}
+export async function deleteTripBudgetLine(id) {
+  await api.delete(`/trips/budget-lines/${id}`);
+}
+export async function addTripFlightSegment(tripId, payload) {
+  const { data } = await api.post(`/trips/${tripId}/flight-segments`, payload);
+  return data;
+}
+export async function updateTripFlightSegment(id, payload) {
+  const { data } = await api.put(`/trips/flight-segments/${id}`, payload);
+  return data;
+}
+export async function deleteTripFlightSegment(id) {
+  await api.delete(`/trips/flight-segments/${id}`);
 }
 // Task-kind only -- a document requirement is fulfilled by uploading its
 // document (uploadTripDocument below), never this route.
@@ -608,6 +637,25 @@ export async function fetchTripParticipantSelfService(accessToken) {
 export async function requestTripParticipantAccessLink(email) {
   const { data } = await api.post(`/public/trips/participants/request-access-link`, { email });
   return data;
+}
+// E-signature (#252 follow-on) -- payload is { token, signerName, signatureImage? }.
+// Fulfills an "esignature"-kind requirement; the server generates a real
+// signed PDF and files it as an ordinary document, same as any upload.
+export async function signTripRequirement(requirementId, payload) {
+  const { data } = await api.post(`/public/trips/participants/sign/${requirementId}`, payload);
+  return data;
+}
+// Self-service story/photo edit -- payload is { token, story?, photo?
+// (base64 data URL), photoContentType? }. No review step.
+export async function updateTripParticipantSelfService(payload) {
+  const { data } = await api.put(`/public/trips/participants/self-service`, payload);
+  return data;
+}
+// Public, unauthenticated by design -- a participant's own support-
+// raising photo, same route serves the self-service/public/admin-preview
+// views. Returns the route path, not bytes -- callers point an <img> at it.
+export function tripParticipantPhotoUrl(participantId) {
+  return `/api/public/trips/participants/${participantId}/photo`;
 }
 
 export async function fetchPrayerRequests(params = {}) {

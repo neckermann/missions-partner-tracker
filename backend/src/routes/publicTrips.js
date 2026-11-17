@@ -24,6 +24,9 @@ const {
   verifyTripParticipantAccessToken,
   sendTripParticipantAccessLinks,
 } = require("../utils/tripAccessToken");
+const { buildSignedDocumentPdf } = require("../utils/pdfGeneration");
+const { decodePhotoDataUrl } = require("../utils/participantPhoto");
+const crypto = require("crypto");
 
 const router = express.Router();
 
@@ -35,6 +38,8 @@ async function getSettings() {
       onlineGivingUrl: true,
       onlineGivingInstructions: true,
       collectDonorContactInfo: true,
+      collectApplicantAddress: true,
+      collectEmergencyContact: true,
       allowPublicSupportRaisingLinks: true,
       allowPrivateApplicationLinks: true,
       tripApplicationTemplate: true,
@@ -58,7 +63,7 @@ function partnerFieldLabel(partner) {
 // One combined, ordered list on the actual form; TripApplication.responses
 // stays keyed by question id regardless of which layer it came from, so
 // nothing downstream needs to know the difference.
-function shapeTripForApplicant(trip, template) {
+function shapeTripForApplicant(trip, settings) {
   return {
     id: trip.id,
     name: trip.name,
@@ -68,7 +73,14 @@ function shapeTripForApplicant(trip, template) {
     endDate: trip.endDate,
     fieldDisplayName: partnerFieldLabel(trip.partner),
     isRestricted: !!trip.partner?.isRestricted,
-    applicationQuestions: [...(template || []), ...(trip.applicationQuestions || [])],
+    applicationQuestions: [...(settings?.tripApplicationTemplate || []), ...(trip.applicationQuestions || [])],
+    // Tells the public form whether to render the structured mailing-
+    // address block at all -- see ChurchSettings.collectApplicantAddress's
+    // own schema comment.
+    collectApplicantAddress: settings?.collectApplicantAddress !== false,
+    // Same, for the structured emergency-contact block -- see
+    // ChurchSettings.collectEmergencyContact's own schema comment.
+    collectEmergencyContact: settings?.collectEmergencyContact !== false,
   };
 }
 
@@ -155,7 +167,7 @@ router.get("/:id", requireFeature("trips"), async (req, res, next) => {
     if (!publiclyDiscoverable || !trip.isPublic || trip.status !== "accepting_applications") {
       return res.status(404).json({ error: "Not found" });
     }
-    res.json(shapeTripForApplicant(trip, settings?.tripApplicationTemplate));
+    res.json(shapeTripForApplicant(trip, settings));
   } catch (err) {
     next(err);
   }
@@ -186,7 +198,7 @@ router.get("/by-token/:token", requireFeature("trips"), async (req, res, next) =
     if (!trip || trip.status !== "accepting_applications") {
       return res.status(404).json({ error: "Not found" });
     }
-    res.json(shapeTripForApplicant(trip, settings?.tripApplicationTemplate));
+    res.json(shapeTripForApplicant(trip, settings));
   } catch (err) {
     next(err);
   }
@@ -197,6 +209,24 @@ const applicationSchema = z.object({
   lastName: z.string().min(1),
   email: z.string().email(),
   phone: z.string().optional().nullable(),
+  // Structured mailing address -- optional strings, no format validation,
+  // matching SendingParty's own looseness. Rendered on the public form
+  // only when ChurchSettings.collectApplicantAddress is on, but accepted
+  // here regardless of that setting's current value (same reasoning as
+  // every other optional field on this schema -- the setting controls
+  // what the form shows, not what the server will accept).
+  addressLine1: z.string().optional().nullable(),
+  addressLine2: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  stateProvinceRegion: z.string().optional().nullable(),
+  postalCode: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
+  // Structured emergency contact -- same looseness/reasoning as the
+  // address fields above. Rendered only when ChurchSettings.
+  // collectEmergencyContact is on, but accepted here regardless.
+  emergencyContactName: z.string().optional().nullable(),
+  emergencyContactPhone: z.string().optional().nullable(),
+  emergencyContactEmail: z.string().optional().nullable(),
   // A checkboxes-type question answers with a string array (every option
   // checked); every other type answers with a plain string -- see
   // utils/applicationQuestions.js's QUESTION_TYPES.
@@ -212,6 +242,15 @@ async function createApplication(trip, body, res) {
       lastName: data.lastName,
       email: data.email,
       phone: data.phone,
+      addressLine1: data.addressLine1 || null,
+      addressLine2: data.addressLine2 || null,
+      city: data.city || null,
+      stateProvinceRegion: data.stateProvinceRegion || null,
+      postalCode: data.postalCode || null,
+      country: data.country || null,
+      emergencyContactName: data.emergencyContactName || null,
+      emergencyContactPhone: data.emergencyContactPhone || null,
+      emergencyContactEmail: data.emergencyContactEmail || null,
       responses: data.responses || {},
     },
   });
@@ -273,7 +312,7 @@ router.get(
       const participant = await prisma.tripParticipant.findUnique({
         where: { shareToken: req.params.shareToken },
         include: {
-          trip: { select: { name: true, type: true, startDate: true, endDate: true, ...tripPartnerSelect } },
+          trip: { select: { name: true, type: true, description: true, startDate: true, endDate: true, ...tripPartnerSelect } },
           contributions: { select: { amount: true } },
         },
       });
@@ -285,19 +324,26 @@ router.get(
       const raised = participant.contributions.reduce((sum, c) => sum + c.amount, 0);
 
       res.json({
+        id: participant.id,
         firstName: participant.firstName,
         lastName: participant.lastName,
         story: participant.story,
+        hasPhoto: !!participant.photo,
         supportRaisingGoal: participant.supportRaisingGoal,
         raised,
         trip: {
           name: participant.trip.name,
           type: participant.trip.type,
+          // Unmasked here same as name/dates already are on this route --
+          // this file's own header comment: masking on this route applies
+          // to partner identity, not trip-level free text. No restricted-
+          // partner branch needed.
+          description: participant.trip.description,
           startDate: participant.trip.startDate,
           endDate: participant.trip.endDate,
           fieldDisplayName: partnerFieldLabel(participant.trip.partner),
         },
-        // Never flightDetails, never donor contact info -- public mode only.
+        // Never flightSegments, never donor contact info -- public mode only.
         giving: {
           onlineGivingUrl: settings.onlineGivingUrl || null,
           onlineGivingInstructions: settings.onlineGivingInstructions || null,
@@ -327,7 +373,7 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
             description: true,
             startDate: true,
             endDate: true,
-            flightDetails: true,
+            flightSegments: { orderBy: { departureAt: "asc" } },
             meetings: true,
             documents: { where: { OR: [{ participantId: payload.id }, { participantId: null }] } },
             requirements: { include: { requirementStatuses: { where: { participantId: payload.id } } } },
@@ -355,6 +401,10 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
       label: req.label,
       kind: req.kind,
       dueAt: req.dueAt,
+      // Only meaningful for kind: "esignature" -- the agreement text to
+      // show before signing. Harmless to always include; null for the
+      // other two kinds.
+      bodyText: req.bodyText,
       fulfilled:
         req.kind === "task"
           ? !!req.requirementStatuses[0]?.completedAt
@@ -362,9 +412,14 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
     }));
 
     res.json({
+      id: participant.id,
       firstName: participant.firstName,
       lastName: participant.lastName,
       story: participant.story,
+      hasPhoto: !!participant.photo,
+      // Previously omitted entirely -- the self-service page had no way
+      // to show (or even know about) the participant's own public link.
+      shareToken: participant.shareToken,
       supportRaisingGoal: participant.supportRaisingGoal,
       raised,
       contributions: settings?.collectDonorContactInfo
@@ -376,7 +431,7 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
         description: participant.trip.description,
         startDate: participant.trip.startDate,
         endDate: participant.trip.endDate,
-        flightDetails: participant.trip.flightDetails,
+        flightSegments: participant.trip.flightSegments,
         fieldDisplayName: participant.trip.partner?.fieldDisplayName || participant.trip.partner?.displayName || null,
       },
       meetings: participant.trip.meetings,
@@ -386,6 +441,179 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
         onlineGivingInstructions: settings?.onlineGivingInstructions || null,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const signSchema = z.object({
+  token: z.string(),
+  signerName: z.string().min(1),
+  // Base64 data URL from the self-service page's canvas, e.g.
+  // "data:image/png;base64,...." -- optional, since a participant may
+  // choose to just type their name instead of drawing. Stripped to raw
+  // bytes below; never trusted as anything but opaque image bytes.
+  signatureImage: z.string().optional().nullable(),
+});
+
+// POST /api/public/trips/participants/sign/:requirementId -- the one
+// write action this otherwise read-only self-service surface has. Same
+// signed-access-token authentication as GET /participants/access above
+// (token in the body here, since this is a POST, not a query string) --
+// no admin login involved, matching how a participant reaches every
+// other self-service view.
+router.post("/participants/sign/:requirementId", requireFeature("trips"), async (req, res, next) => {
+  try {
+    const { token, signerName, signatureImage } = signSchema.parse(req.body);
+
+    const payload = verifyTripParticipantAccessToken(token);
+    if (!payload) return res.status(401).json({ error: "Invalid or expired link" });
+
+    const participant = await prisma.tripParticipant.findUnique({
+      where: { id: payload.id },
+      include: { trip: { select: { name: true, type: true } } },
+    });
+    if (!participant || participant.accessTokenVersion !== payload.v) {
+      return res.status(401).json({ error: "Invalid or expired link" });
+    }
+
+    const requirement = await prisma.tripRequirement.findUnique({ where: { id: req.params.requirementId } });
+    if (!requirement || requirement.tripId !== participant.tripId) {
+      return res.status(404).json({ error: "Not found" });
+    }
+    if (requirement.kind !== "esignature") {
+      return res.status(400).json({ error: "This requirement doesn't accept a signature" });
+    }
+    const alreadySigned = await prisma.tripDocument.findFirst({
+      where: { requirementId: requirement.id, participantId: participant.id },
+      select: { id: true },
+    });
+    if (alreadySigned) {
+      return res.status(400).json({ error: "This has already been signed" });
+    }
+
+    const documentText = requirement.bodyText || "";
+    // Computed server-side, never trusted from the client -- the whole
+    // point of the hash is to detect a later edit to the requirement's
+    // own bodyText, which only matters if the server is the one who
+    // decided what was signed.
+    const documentTextHash = crypto.createHash("sha256").update(documentText, "utf8").digest("hex");
+    const attestedAt = new Date();
+
+    let signatureImageBuffer = null;
+    if (signatureImage) {
+      const base64 = signatureImage.replace(/^data:image\/\w+;base64,/, "");
+      signatureImageBuffer = Buffer.from(base64, "base64");
+    }
+
+    // Computed before the PDF, not after -- it previously landed only on
+    // TripSignature, never on the generated document itself, even though
+    // the PDF is the one artifact anyone (an admin, or the signer) ever
+    // actually looks at. The audit trail belongs on the audit document,
+    // not just in a database row nobody reads directly.
+    const ip = req.ip || req.socket?.remoteAddress || null;
+
+    const pdfBytes = await buildSignedDocumentPdf({
+      requirementLabel: requirement.label,
+      tripLabel: participant.trip?.name || participant.trip?.type || "Trip",
+      participantName: [participant.firstName, participant.lastName].filter(Boolean).join(" ") || null,
+      documentText,
+      signerName,
+      signatureImage: signatureImageBuffer,
+      attestedAt,
+      documentTextHash,
+      ip,
+    });
+
+    const result = await prisma.$transaction(async (tx) => {
+      const tripDocument = await tx.tripDocument.create({
+        data: {
+          tripId: participant.tripId,
+          participantId: participant.id,
+          requirementId: requirement.id,
+          title: requirement.label,
+          bytes: pdfBytes,
+          fileName: `${requirement.label.replace(/[^a-z0-9]+/gi, "-")}.pdf`,
+          contentType: "application/pdf",
+        },
+        omit: { bytes: true },
+      });
+      const signature = await tx.tripSignature.create({
+        data: {
+          requirementId: requirement.id,
+          participantId: participant.id,
+          tripDocumentId: tripDocument.id,
+          signerName,
+          signatureImage: signatureImageBuffer,
+          attestedAt,
+          ip,
+          documentTextSnapshot: documentText,
+          documentTextHash,
+        },
+      });
+      return { tripDocument, signature };
+    });
+
+    res.status(201).json({ tripDocumentId: result.tripDocument.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const selfServiceUpdateSchema = z.object({
+  token: z.string(),
+  story: z.string().optional().nullable(),
+  // Base64 data URL, same shape the e-signature canvas already uses.
+  photo: z.string().optional().nullable(),
+  photoContentType: z.string().optional().nullable(),
+});
+
+// PUT /api/public/trip-participants/self-service -- the one other write
+// action this surface has, alongside signing. One combined route for
+// both story and photo edits (one actor, one trust boundary, same
+// reasoning as the sign route above not being split further) -- no
+// review step, confirmed acceptable: a participant already self-reports
+// address/emergency-contact/application answers today with no review.
+router.put("/participants/self-service", requireFeature("trips"), async (req, res, next) => {
+  try {
+    const { token, story, photo, photoContentType } = selfServiceUpdateSchema.parse(req.body);
+    const payload = verifyTripParticipantAccessToken(token);
+    if (!payload) return res.status(401).json({ error: "Invalid or expired link" });
+
+    const participant = await prisma.tripParticipant.findUnique({ where: { id: payload.id } });
+    if (!participant || participant.accessTokenVersion !== payload.v) {
+      return res.status(401).json({ error: "Invalid or expired link" });
+    }
+
+    const data = {};
+    if (story !== undefined) data.story = story?.trim() || null;
+    if (photo) data.photo = decodePhotoDataUrl(photo, photoContentType);
+    if (photo && photoContentType) data.photoContentType = photoContentType;
+
+    await prisma.tripParticipant.update({ where: { id: participant.id }, data });
+    res.json({ saved: true });
+  } catch (err) {
+    if (err.status === 400) return res.status(400).json({ error: err.message });
+    next(err);
+  }
+});
+
+// GET /api/public/trip-participants/:id/photo -- unauthenticated and
+// deliberately so: a participant's own photo is meant to be public (it's
+// of them, not the destination), unlike TripDocument, which is private
+// and admin-authenticated to download. Serves the self-service <img>,
+// the public <img>, and the admin's own preview -- one shared route,
+// not one per audience.
+router.get("/participants/:id/photo", requireFeature("trips"), async (req, res, next) => {
+  try {
+    const participant = await prisma.tripParticipant.findUnique({
+      where: { id: req.params.id },
+      select: { photo: true, photoContentType: true },
+    });
+    if (!participant || !participant.photo) return res.status(404).json({ error: "Not found" });
+    res.set("Content-Type", participant.photoContentType || "application/octet-stream");
+    res.set("Cache-Control", "public, max-age=3600");
+    res.send(participant.photo);
   } catch (err) {
     next(err);
   }

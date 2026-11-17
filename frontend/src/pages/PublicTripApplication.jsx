@@ -27,7 +27,21 @@ export default function PublicTripApplication() {
   const { id, token } = useParams();
   const [trip, setTrip] = useState(null);
   const [notFound, setNotFound] = useState(false);
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "" });
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    addressLine1: "",
+    addressLine2: "",
+    city: "",
+    stateProvinceRegion: "",
+    postalCode: "",
+    country: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    emergencyContactEmail: "",
+  });
   const [responses, setResponses] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
@@ -128,6 +142,74 @@ export default function PublicTripApplication() {
                 <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
               </label>
             </div>
+            {trip.collectApplicantAddress && (
+              <div className="form-grid" style={{ marginTop: "0.75rem" }}>
+                <label style={{ gridColumn: "1 / -1" }}>
+                  Mailing address
+                  <input
+                    placeholder="Street address"
+                    value={form.addressLine1}
+                    onChange={(e) => setForm((f) => ({ ...f, addressLine1: e.target.value }))}
+                  />
+                </label>
+                <label style={{ gridColumn: "1 / -1" }}>
+                  Address line 2 (optional)
+                  <input
+                    value={form.addressLine2}
+                    onChange={(e) => setForm((f) => ({ ...f, addressLine2: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  City
+                  <input value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} />
+                </label>
+                <label>
+                  State/Province
+                  <input
+                    value={form.stateProvinceRegion}
+                    onChange={(e) => setForm((f) => ({ ...f, stateProvinceRegion: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Postal code
+                  <input
+                    value={form.postalCode}
+                    onChange={(e) => setForm((f) => ({ ...f, postalCode: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Country
+                  <input value={form.country} onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))} />
+                </label>
+              </div>
+            )}
+            {trip.collectEmergencyContact && (
+              <div className="form-grid" style={{ marginTop: "0.75rem" }}>
+                <label style={{ gridColumn: "1 / -1" }}>Emergency contact</label>
+                <label>
+                  Name
+                  <input
+                    value={form.emergencyContactName}
+                    onChange={(e) => setForm((f) => ({ ...f, emergencyContactName: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Phone
+                  <input
+                    value={form.emergencyContactPhone}
+                    onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Email (optional)
+                  <input
+                    type="email"
+                    value={form.emergencyContactEmail}
+                    onChange={(e) => setForm((f) => ({ ...f, emergencyContactEmail: e.target.value }))}
+                  />
+                </label>
+              </div>
+            )}
             {(trip.applicationQuestions || []).map((q) => {
               const type = q.type || "text";
               return (
@@ -181,6 +263,14 @@ export default function PublicTripApplication() {
                   )}
                   {type === "text" && (
                     <input
+                      required={q.required}
+                      value={responses[q.id] || ""}
+                      onChange={(e) => setResponses((r) => ({ ...r, [q.id]: e.target.value }))}
+                    />
+                  )}
+                  {type === "date" && (
+                    <input
+                      type="date"
                       required={q.required}
                       value={responses[q.id] || ""}
                       onChange={(e) => setResponses((r) => ({ ...r, [q.id]: e.target.value }))}

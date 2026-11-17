@@ -4,11 +4,12 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
-const { generateShareToken, buildTripParticipantAccessUrl } = require("../utils/tripAccessToken");
+const { generateShareToken, buildTripParticipantAccessUrl, appBaseUrl } = require("../utils/tripAccessToken");
 const { sendParticipantEmail, buildMeetingIcs, buildTripDatesIcs } = require("../utils/tripEmails");
 const { isFeatureEnabled } = require("../utils/features");
 const { APPLICATION_QUESTION_SCHEMA } = require("../utils/applicationQuestions");
 const { sendStoredFile } = require("../utils/fileResponse");
+const { decodePhotoDataUrl } = require("../utils/participantPhoto");
 const multer = require("multer");
 
 const router = express.Router();
@@ -53,7 +54,6 @@ const tripSchema = z.object({
   teamSizeMax: z.coerce.number().int().optional().nullable(),
   supportRaisingGoal: z.coerce.number().int().optional().nullable(),
   isPublic: z.boolean().optional(),
-  flightDetails: z.string().optional().nullable(),
   applicationQuestions: APPLICATION_QUESTION_SCHEMA.optional().nullable(),
   albumProvider: z.enum(["google_photos", "icloud", "other"]).optional().nullable(),
   albumUrl: z.string().optional().nullable(),
@@ -90,7 +90,11 @@ const tripPartnerInclude = {
 
 const tripInclude = {
   partner: tripPartnerInclude,
-  participants: true,
+  // omit: raw photo bytes have no business in every trip list/detail
+  // response -- the admin UI uses the dedicated GET
+  // /public/trips/participants/:id/photo route to render one, same as
+  // the public/self-service pages do.
+  participants: { omit: { photo: true } },
   // Needed on the plain list endpoint too (not just GET /:id, which
   // already spread this in separately below) -- the Unmatched Emails
   // queue flattens every trip's participants into one picker and needs
@@ -101,6 +105,13 @@ const tripInclude = {
   // a task's fulfillment is shown, which a document-only anti-join can't
   // answer.
   requirements: { include: { requirementStatuses: true } },
+  // Added when AdminTripDashboard.jsx (issue #259) folded into
+  // AdminTrips.jsx -- that page's own "Raised" column needed this same
+  // amount-only projection, previously fetched only by the now-removed
+  // GET /dashboard route.
+  contributions: { select: { amount: true } },
+  budgetLines: true,
+  flightSegments: { orderBy: { departureAt: "asc" } },
 };
 
 // GET /api/trips?partnerId=&type=&year=
@@ -118,40 +129,6 @@ router.get("/", async (req, res, next) => {
     }
     const records = await prisma.trip.findMany({ where, include: tripInclude, orderBy: { startDate: "desc" } });
     res.json(records);
-  } catch (err) {
-    next(err);
-  }
-});
-
-// GET /api/trips/dashboard -- §12. Every trip currently
-// planning/accepting_applications/closed (excludes completed), sorted
-// soonest-departing first.
-router.get("/dashboard", async (req, res, next) => {
-  try {
-    const trips = await prisma.trip.findMany({
-      where: { status: { in: ["planning", "accepting_applications", "closed"] } },
-      include: {
-        partner: tripPartnerInclude,
-        participants: true,
-        contributions: { select: { amount: true } },
-      },
-      orderBy: { startDate: "asc" },
-    });
-    res.json(
-      trips.map((t) => ({
-        id: t.id,
-        name: t.name,
-        type: t.type,
-        status: t.status,
-        startDate: t.startDate,
-        endDate: t.endDate,
-        partner: t.partner,
-        teamFilled: t.participants.length,
-        teamSizeMax: t.teamSizeMax ?? null,
-        raised: t.contributions.reduce((sum, c) => sum + c.amount, 0),
-        supportRaisingGoal: t.supportRaisingGoal,
-      }))
-    );
   } catch (err) {
     next(err);
   }
@@ -238,14 +215,46 @@ router.get("/:id", async (req, res, next) => {
 });
 
 // POST /api/trips  (create — editor or admin)
+//
+// Auto-populates ChurchSettings.tripRequirementTemplate onto any newly-
+// created trip that isn't a purely historical backfill (status !==
+// "completed" -- a backfill already happened, there's nothing left to
+// sign/fulfill). A one-time snapshot copy, not a live link to the
+// template -- see tripRequirementTemplate's own schema comment for why.
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const { participants, ...data } = tripSchema
       .refine(datesInOrder, DATE_ORDER_ISSUE)
       .refine(albumLinkValid, ALBUM_LINK_ISSUE)
       .parse(req.body);
+
+    let requirementTemplate = [];
+    // Guards against the Trip model's own `status` default ("completed")
+    // applying when the caller omits it -- that case must NOT get the
+    // template either, same as an explicit "completed" backfill.
+    if (data.status && data.status !== "completed") {
+      const settings = await prisma.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: { tripRequirementTemplate: true },
+      });
+      requirementTemplate = settings?.tripRequirementTemplate || [];
+    }
+
     const created = await prisma.trip.create({
-      data: { ...data, participants: participants?.length ? { create: participants } : undefined },
+      data: {
+        ...data,
+        participants: participants?.length ? { create: participants } : undefined,
+        requirements: requirementTemplate.length
+          ? {
+              create: requirementTemplate.map((r) => ({
+                label: r.label,
+                kind: r.kind,
+                bodyText: r.bodyText || null,
+                reminderLeadDays: r.reminderLeadDays || null,
+              })),
+            }
+          : undefined,
+      },
       include: tripInclude,
     });
     res.status(201).json(created);
@@ -315,12 +324,19 @@ router.post("/:id/clone", requireRole("admin", "editor"), async (req, res, next)
         supportRaisingGoal: source.supportRaisingGoal,
         applicationQuestions: source.applicationQuestions,
         status: "planning",
-        // label/kind/reminderLeadDays copy forward (a repeat trip almost
-        // always wants the same checklist); dueAt does NOT -- a specific
-        // calendar date from the prior run is never right for the new
-        // one, same reasoning Trip's own startDate/endDate aren't copied.
+        // label/kind/bodyText/reminderLeadDays copy forward (a repeat
+        // trip almost always wants the same checklist, including the
+        // same agreement text for an esignature-kind row); dueAt does
+        // NOT -- a specific calendar date from the prior run is never
+        // right for the new one, same reasoning Trip's own startDate/
+        // endDate aren't copied.
         requirements: {
-          create: source.requirements.map((r) => ({ label: r.label, kind: r.kind, reminderLeadDays: r.reminderLeadDays })),
+          create: source.requirements.map((r) => ({
+            label: r.label,
+            kind: r.kind,
+            bodyText: r.bodyText,
+            reminderLeadDays: r.reminderLeadDays,
+          })),
         },
       },
       include: tripInclude,
@@ -356,7 +372,13 @@ router.post("/:id/generate-application-link", requireRole("admin", "editor"), as
 
 const requirementSchema = z.object({
   label: z.string().min(1),
-  kind: z.enum(["document", "task"]).optional(),
+  kind: z.enum(["document", "task", "esignature"]).optional(),
+  // Only meaningful for kind: "esignature" -- the real agreement text a
+  // participant signs. Not validated against kind here (a requirement
+  // can be switched between kinds while editing; the frontend only shows
+  // this field for esignature, but the backend doesn't need to enforce
+  // it's empty for the other two).
+  bodyText: z.string().optional().nullable(),
   dueAt: z.coerce.date().optional().nullable(),
   // Only meaningful alongside dueAt -- validated together below, not
   // enforced as a DB constraint (same style as this file's other
@@ -397,6 +419,84 @@ router.delete("/requirements/:id", requireRole("admin", "editor"), async (req, r
   }
 });
 
+// ---- Budget lines (planned-expense tracking, trip-wide, estimate-only
+// for v1 -- no actualAmount, see TripBudgetLine's own schema comment) ----
+
+const budgetLineSchema = z.object({
+  label: z.string().min(1),
+  estimatedAmount: z.coerce.number().int(),
+});
+
+router.post("/:id/budget-lines", requireRole("admin", "editor"), async (req, res, next) => {
+  try {
+    const data = budgetLineSchema.parse(req.body);
+    const created = await prisma.tripBudgetLine.create({ data: { tripId: req.params.id, ...data } });
+    res.status(201).json(created);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/budget-lines/:id", requireRole("admin", "editor"), async (req, res, next) => {
+  try {
+    const data = budgetLineSchema.partial().parse(req.body);
+    const updated = await prisma.tripBudgetLine.update({ where: { id: req.params.id }, data });
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/budget-lines/:id", requireRole("admin", "editor"), async (req, res, next) => {
+  try {
+    await prisma.tripBudgetLine.delete({ where: { id: req.params.id } });
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Flight segments -- replaces the former Trip.flightDetails free-text
+// field. Same CRUD shape as budget lines above.
+const flightSegmentSchema = z.object({
+  label: z.string().optional().nullable(),
+  airline: z.string().optional().nullable(),
+  flightNumber: z.string().optional().nullable(),
+  departureAirport: z.string().optional().nullable(),
+  departureAt: z.coerce.date().optional().nullable(),
+  arrivalAirport: z.string().optional().nullable(),
+  arrivalAt: z.coerce.date().optional().nullable(),
+});
+
+router.post("/:id/flight-segments", requireRole("admin", "editor"), async (req, res, next) => {
+  try {
+    const data = flightSegmentSchema.parse(req.body);
+    const created = await prisma.tripFlightSegment.create({ data: { tripId: req.params.id, ...data } });
+    res.status(201).json(created);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/flight-segments/:id", requireRole("admin", "editor"), async (req, res, next) => {
+  try {
+    const data = flightSegmentSchema.partial().parse(req.body);
+    const updated = await prisma.tripFlightSegment.update({ where: { id: req.params.id }, data });
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/flight-segments/:id", requireRole("admin", "editor"), async (req, res, next) => {
+  try {
+    await prisma.tripFlightSegment.delete({ where: { id: req.params.id } });
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
 // PUT /api/trips/requirements/:id/participants/:participantId/complete --
 // task-kind only (a document's fulfillment is always the existing
 // anti-join against TripDocument, never this). Upsert, not a plain
@@ -412,7 +512,7 @@ router.put(
       const requirement = await prisma.tripRequirement.findUnique({ where: { id: req.params.id } });
       if (!requirement) return res.status(404).json({ error: "Not found" });
       if (requirement.kind !== "task") {
-        return res.status(400).json({ error: "Only a task requirement can be marked complete directly -- a document requirement is fulfilled by uploading its document" });
+        return res.status(400).json({ error: "Only a task requirement can be marked complete directly -- a document or e-signature requirement is fulfilled by its own document, not this" });
       }
       const status = await prisma.tripRequirementStatus.upsert({
         where: { requirementId_participantId: { requirementId: req.params.id, participantId: req.params.participantId } },
@@ -453,6 +553,11 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
     });
     if (!application) return res.status(404).json({ error: "Not found" });
 
+    // Fetched once, before the transaction -- decides both whether this
+    // new participant gets a support-raising shareToken at all (below)
+    // and whether the roster-invite email fires (after the transaction).
+    const settings = await getSettings();
+
     const updated = await prisma.$transaction(async (tx) => {
       const app = await tx.tripApplication.update({
         where: { id: req.params.id },
@@ -476,6 +581,21 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
             lastName: application.lastName,
             email: application.email,
             phone: application.phone,
+            addressLine1: application.addressLine1,
+            addressLine2: application.addressLine2,
+            city: application.city,
+            stateProvinceRegion: application.stateProvinceRegion,
+            postalCode: application.postalCode,
+            country: application.country,
+            emergencyContactName: application.emergencyContactName,
+            emergencyContactPhone: application.emergencyContactPhone,
+            emergencyContactEmail: application.emergencyContactEmail,
+            // Auto-generated here, not left for a later manual admin
+            // click -- the church-wide setting already answers "do we do
+            // this at all," so a second per-participant step is pure
+            // friction. See the roster-invite email below, which is the
+            // one place this new link actually reaches the participant.
+            shareToken: settings?.allowPublicSupportRaisingLinks ? generateShareToken() : null,
           },
         });
         return { app, participant };
@@ -485,13 +605,20 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
 
     // Trip-dates roster invite (§9) -- fires once, outside the
     // transaction (an email failure shouldn't roll back the approval).
+    // Previously carried zero links at all -- a participant had no way to
+    // ever receive their own access link or support-raising link
+    // automatically. Now carries both, in one email, rather than a
+    // second dedicated send for the support-raising link.
     if (updated.participant && application.trip.status !== "completed" && application.trip.startDate && application.trip.endDate) {
-      const settings = await getSettings();
       if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+        const accessUrl = buildTripParticipantAccessUrl(updated.participant);
+        const supportRaisingLine = updated.participant.shareToken
+          ? `\n\nYour support-raising page (share this with family and friends): ${appBaseUrl()}/trip-support-raising/${updated.participant.shareToken}`
+          : "";
         await sendParticipantEmail(
           updated.participant,
           `You're on the roster: ${application.trip.name || application.trip.type || "your trip"}`,
-          "You've been approved for the trip -- attached is a calendar invite for the trip dates.",
+          `You've been approved for the trip -- attached is a calendar invite for the trip dates.\n\nYour trip page: ${accessUrl}${supportRaisingLine}`,
           {
             attachments: [
               {
@@ -519,15 +646,28 @@ router.post("/:id/participants", requireRole("admin", "editor"), async (req, res
     const trip = await prisma.trip.findUnique({ where: { id: req.params.id } });
     if (!trip) return res.status(404).json({ error: "Not found" });
 
-    const participant = await prisma.tripParticipant.create({ data: { ...data, tripId: trip.id } });
+    const settings = await getSettings();
+    const participant = await prisma.tripParticipant.create({
+      data: {
+        ...data,
+        tripId: trip.id,
+        // Same auto-generation as the application-approval path -- see
+        // that route's own comment for why this isn't left as a manual
+        // admin step.
+        shareToken: settings?.allowPublicSupportRaisingLinks ? generateShareToken() : null,
+      },
+    });
 
     if (trip.status !== "completed" && trip.startDate && trip.endDate) {
-      const settings = await getSettings();
       if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+        const accessUrl = buildTripParticipantAccessUrl(participant);
+        const supportRaisingLine = participant.shareToken
+          ? `\n\nYour support-raising page (share this with family and friends): ${appBaseUrl()}/trip-support-raising/${participant.shareToken}`
+          : "";
         await sendParticipantEmail(
           participant,
           `You're on the roster: ${trip.name || trip.type || "your trip"}`,
-          "Attached is a calendar invite for the trip dates.",
+          `Attached is a calendar invite for the trip dates.\n\nYour trip page: ${accessUrl}${supportRaisingLine}`,
           {
             attachments: [
               { name: "trip-dates.ics", content: Buffer.from(buildTripDatesIcs(trip)), contentType: "text/calendar" },
@@ -542,7 +682,12 @@ router.post("/:id/participants", requireRole("admin", "editor"), async (req, res
   }
 });
 
-// POST /api/trips/participants/:id/generate-support-raising-link
+// POST /api/trips/participants/:id/generate-support-raising-link --
+// "Regenerate" on the frontend once a token already exists (overwrite-
+// as-revocation, same precedent Trip.applicationShareToken's own
+// regenerate already uses) -- this route itself needed no change for
+// that, only the frontend's own !shareToken gating, which previously
+// hid the button forever once a token existed.
 router.post("/participants/:id/generate-support-raising-link", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const settings = await getSettings();
@@ -556,6 +701,41 @@ router.post("/participants/:id/generate-support-raising-link", requireRole("admi
     });
     res.json({ shareToken: participant.shareToken });
   } catch (err) {
+    next(err);
+  }
+});
+
+const adminParticipantUpdateSchema = z.object({
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  email: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  story: z.string().optional().nullable(),
+  photo: z.string().optional().nullable(),
+  photoContentType: z.string().optional().nullable(),
+});
+
+// PUT /api/trips/participants/:id -- one combined admin route for
+// everything an admin can edit on a participant's behalf: basic contact
+// details (never gated -- this is plain record-keeping, independent of
+// whether the church uses public support-raising pages at all) and
+// story/photo (editing on their behalf what a participant could also
+// edit themselves via the self-service route -- same fields, different
+// trust boundary: this one is admin-authenticated, not signed-access-
+// token-authenticated).
+router.put("/participants/:id", requireRole("admin", "editor"), async (req, res, next) => {
+  try {
+    const { photo, photoContentType, ...rest } = adminParticipantUpdateSchema.parse(req.body);
+    const data = { ...rest };
+    if (photo) data.photo = decodePhotoDataUrl(photo, photoContentType);
+    if (photo && photoContentType) data.photoContentType = photoContentType;
+
+    // omit: the raw photo bytes have no business in a JSON response --
+    // same reasoning the sign route already applies to TripDocument.bytes.
+    const participant = await prisma.tripParticipant.update({ where: { id: req.params.id }, data, omit: { photo: true } });
+    res.json(participant);
+  } catch (err) {
+    if (err.status === 400) return res.status(400).json({ error: err.message });
     next(err);
   }
 });

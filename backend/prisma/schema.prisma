@@ -253,12 +253,6 @@ model Trip {
   // ChurchSettings.allowPrivateApplicationLinks is on.
   applicationShareToken String? @unique
 
-  // Entered once by an admin/editor after booking group travel, free
-  // text (flight shapes vary too much for rigid fields to help more
-  // than fight the admin). Shown on the participant's own self-service
-  // page only -- never on the public support-raising page.
-  flightDetails String? @db.Text
-
   // An admin-defined, ordered list of plain free-text-answer questions
   // specific to this trip -- [{ id, label, required }]. Never a fixed
   // hardcoded starter set (CONTRIBUTING.md's "keep forks upgradable").
@@ -276,6 +270,8 @@ model Trip {
   documents     TripDocument[]
   requirements  TripRequirement[]
   contributions TripContribution[]
+  budgetLines   TripBudgetLine[]
+  flightSegments TripFlightSegment[]
 
   @@index([partnerId])
   @@index([status])
@@ -307,6 +303,33 @@ model TripParticipant {
 
   supportRaisingGoal Int? // null/unused for a historical-only row
 
+  // Structured mailing address, same shape as SendingParty's own flat
+  // columns -- real, queryable fields rather than a free-text blob,
+  // matching this app's established address convention. Copied from the
+  // originating TripApplication on approval, same as firstName/lastName/
+  // email/phone already are. Gated on the public form by
+  // ChurchSettings.collectApplicantAddress, not a per-field validation
+  // concern -- a church that doesn't collect this leaves every one of
+  // these columns null, same as a backfilled participant with no
+  // application at all.
+  addressLine1        String?
+  addressLine2        String?
+  city                String?
+  stateProvinceRegion String?
+  postalCode          String?
+  country             String?
+
+  // Flat columns, not a Json blob -- Adult.emergencyContact (Json? {name,
+  // phone, email}) is judged the inconsistent outlier in this schema, not
+  // the convention to match: SendingParty/Address both use flat columns
+  // for a similarly fixed, non-variable shape, which is the better fit
+  // for something that's always exactly name/phone/email. Copied from the
+  // originating TripApplication on approval, same as the address fields
+  // above. Gated on the public form by ChurchSettings.collectEmergencyContact.
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  emergencyContactEmail String?
+
   // Short random secret for this participant's public support-raising URL --
   // a private share-secret functioning as the page's access control, not
   // a human-readable slug, and not this row's own id either (so the URL
@@ -314,6 +337,16 @@ model TripParticipant {
   // Not auto-generated at creation -- see ChurchSettings.allowPublicSupportRaisingLinks.
   shareToken String? @unique
   story      String? @db.Text // what shows on their public support-raising page
+
+  // A single current portrait, same mutable-single-value pattern as
+  // story/shareToken above -- not a relation like Partner's own Photo
+  // model, which exists because a partner accumulates a real gallery
+  // over years. A participant's support-raising photo is just one
+  // picture, replaced wholesale when changed, no versioning. Bytes
+  // in-row, no separate file storage, per CONTRIBUTING.md -- same
+  // convention as TripDocument/PartnerFile.
+  photo            Bytes?
+  photoContentType String?
 
   // Bumped to invalidate every previously-issued self-service link at
   // once -- same revocation reasoning as User.mfaLastTimeStep's replay
@@ -323,6 +356,7 @@ model TripParticipant {
   documents     TripDocument[]
   contributions TripContribution[]
   requirementStatuses TripRequirementStatus[]
+  signatures    TripSignature[]
 
   @@index([tripId])
 }
@@ -344,6 +378,24 @@ model TripApplication {
 
   status    String   @default("pending") // "pending" | "approved" | "declined" | "withdrawn"
   responses Json?
+
+  // Structured mailing address, same shape as SendingParty's own flat
+  // columns -- see TripParticipant's matching fields for the full
+  // rationale. Only ever collected when ChurchSettings.collectApplicantAddress
+  // is on; null otherwise.
+  addressLine1        String?
+  addressLine2        String?
+  city                String?
+  stateProvinceRegion String?
+  postalCode          String?
+  country             String?
+
+  // Flat columns -- see TripParticipant's matching fields for the full
+  // rationale. Only ever collected when ChurchSettings.collectEmergencyContact
+  // is on; null otherwise.
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  emergencyContactEmail String?
 
   submittedAt  DateTime  @default(now())
   reviewedAt   DateTime?
@@ -394,10 +446,19 @@ model TripRequirement {
 
   // "document" (fulfilled by an upload, the original behavior) |
   // "task" (fulfilled by an admin directly checking it off for a
-  // specific participant -- no document involved at all). App-validated,
-  // not a DB enum, matching every other preset-String field in this
-  // schema (Trip.albumProvider etc).
+  // specific participant -- no document involved at all) | "esignature"
+  // (fulfilled by a participant signing bodyText below -- see
+  // TripSignature). App-validated, not a DB enum, matching every other
+  // preset-String field in this schema (Trip.albumProvider etc).
   kind String @default("document")
+
+  // The real document text an "esignature"-kind requirement asks a
+  // participant to sign (e.g. a full liability-release/code-of-conduct
+  // agreement) -- null for "document"/"task" kinds, which have no text
+  // of their own to show. Free text, matching Trip.notes/flightDetails'
+  // existing convention, not split into clauses -- a waiver's exact
+  // wording varies too much church to church for rigid fields to help.
+  bodyText String? @db.Text
 
   // Both optional and independent of `kind` -- a document requirement
   // can have a due date too (e.g. "passport copy by 11/25"), not just a
@@ -411,8 +472,50 @@ model TripRequirement {
 
   documents           TripDocument[]
   requirementStatuses TripRequirementStatus[]
+  signatures          TripSignature[]
 
   @@index([tripId])
+}
+
+// An "esignature"-kind TripRequirement's signed record for one
+// participant -- the audit trail, not the visible artifact itself (that's
+// an ordinary TripDocument, created alongside this row -- see
+// tripDocumentId below). Keeping this separate from TripDocument means a
+// signature's own audit fields (hash, IP, attestation timestamp) don't
+// get bolted onto every ordinary uploaded document, which never needs
+// them.
+model TripSignature {
+  id            String          @id @default(uuid())
+  requirementId String
+  requirement   TripRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   TripParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  // The generated signed PDF, filed as an ordinary TripDocument (same
+  // shape as a manual upload) -- this is deliberate, not a shortcut: it
+  // means "esignature" fulfillment reuses the exact same "does a
+  // TripDocument exist for this requirement+participant" check
+  // "document"-kind already uses everywhere, and the signed PDF shows up
+  // in every existing document list/download UI for free.
+  tripDocumentId String?      @unique
+  tripDocument   TripDocument? @relation(fields: [tripDocumentId], references: [id])
+
+  signerName     String // always captured, whether they typed or drew
+  signatureImage Bytes? // drawn-signature PNG, stored in-row per CONTRIBUTING.md's no-separate-file-storage rule; null if they only typed their name
+  attestedAt     DateTime @default(now())
+  ip             String?
+
+  // Snapshot of the exact text they agreed to, plus a hash of it --
+  // computed server-side, never trusted from the client. Protects
+  // against a later edit to the requirement's own bodyText (e.g. a
+  // church rewording its waiver) silently being attributed to an old
+  // signature; the hash makes any mismatch between this snapshot and a
+  // later-edited requirement detectable, not just theoretically possible.
+  documentTextSnapshot String @db.Text
+  documentTextHash     String
+
+  @@index([requirementId])
+  @@index([participantId])
 }
 
 // Per-participant state for a TripRequirement, regardless of kind --
@@ -462,6 +565,10 @@ model TripDocument {
 
   createdAt DateTime @default(now())
 
+  // Reverse side of TripSignature.tripDocumentId -- set when this row is
+  // the generated PDF of an e-signature, unset for an ordinary upload.
+  signature TripSignature?
+
   @@index([tripId])
   @@index([participantId])
 }
@@ -492,6 +599,52 @@ model TripContribution {
 
   @@index([tripId])
   @@index([participantId])
+}
+
+// A planned-expense line item -- trip-wide only, no per-participant
+// allocation (e.g. "Round-trip flights", "Lodging", "In-country
+// transport"). Estimate-only for v1, deliberately no actualAmount --
+// nothing else in this schema tracks money going out (every financial
+// model here -- SupportEntry, TripContribution -- only tracks money
+// coming in), and real trip expenses are almost certainly reconciled
+// through a church's own accounting system, not this app. Gated by
+// ChurchSettings.enableTripBudgeting; Trip.supportRaisingGoal stays
+// independently editable regardless -- no derivation from this total,
+// just a UI hint when the two numbers diverge.
+model TripBudgetLine {
+  id     String @id @default(uuid())
+  tripId String
+  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  label           String
+  estimatedAmount Int
+
+  @@index([tripId])
+}
+
+// Replaces the former Trip.flightDetails free-text field. One rigid
+// record couldn't fit real flight shapes (connections, a shared group
+// booking vs. several individual ones), but a single flight *segment* is
+// genuinely fixed-shape -- the variability is in how many segments
+// exist, not in the shape of one, same reasoning already behind
+// TripBudgetLine/TripRequirement being repeatable lists rather than one
+// wide record. label is optional and free text -- null/blank means the
+// segment applies to the whole team; set (e.g. "Priya & John") means
+// just that subset flying on their own itinerary.
+model TripFlightSegment {
+  id     String @id @default(uuid())
+  tripId String
+  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  label            String?
+  airline          String?
+  flightNumber     String?
+  departureAirport String?
+  departureAt      DateTime?
+  arrivalAirport   String?
+  arrivalAt        DateTime?
+
+  @@index([tripId])
 }
 
 // A period of time a missionary is off the field and in their home
@@ -1159,6 +1312,23 @@ model ChurchSettings {
   // schema gate -- the columns stay regardless of this toggle's state.
   collectDonorContactInfo Boolean @default(false)
 
+  // Church-wide gate on whether the public application form asks a
+  // trip applicant for their mailing address at all (TripApplication's
+  // structured address columns, above) -- deliberately defaults to
+  // `true`, unlike collectDonorContactInfo just above: a participant's
+  // own mailing address is routine, expected trip-application content
+  // (useful for support-letter mailings), not third-party PII a church
+  // might be squeamish about collecting by default.
+  collectApplicantAddress Boolean @default(true)
+
+  // Church-wide gate on whether the public application form asks a trip
+  // applicant for an emergency contact (TripApplication's structured
+  // emergencyContactName/Phone/Email columns, above) -- defaults to
+  // `true`, same reasoning as collectApplicantAddress: routine,
+  // safety-relevant trip-application content, not optional third-party
+  // PII a church would be squeamish about collecting by default.
+  collectEmergencyContact Boolean @default(true)
+
   // Church-wide gate on the "Generate private application link" action
   // -- without this on, no Trip.applicationShareToken can ever be
   // created, and a privately-recruited trip is admin-entry-only.
@@ -1168,6 +1338,14 @@ model ChurchSettings {
   // contribution management but no individual public-facing support-raising
   // pages leaves this off.
   allowPublicSupportRaisingLinks Boolean @default(false)
+
+  // Church-wide gate on whether the Budget section (TripBudgetLine)
+  // shows on AdminTripDetail.jsx at all -- defaults to `false`, matched
+  // against allowPrivateApplicationLinks/allowPublicSupportRaisingLinks'
+  // precedent (an opt-in admin planning capability a church either wants
+  // or doesn't), not collectApplicantAddress/collectEmergencyContact's
+  // precedent (routine public-application-form content, default on).
+  enableTripBudgeting Boolean @default(false)
 
   // Not trip-specific at all -- the address partners/participants were
   // told (outside this app) to send mail to, under whatever inbound
@@ -1197,6 +1375,22 @@ model ChurchSettings {
   // Purely a picker source -- nothing here is itself "live" on any
   // application form until copied into one of those two places.
   tripQuestionLibrary Json?
+
+  // Church-wide requirement checklist every newly-created, actively-
+  // recruiting trip gets automatically -- [{ id, label, kind, bodyText?,
+  // reminderLeadDays? }]. Unlike tripApplicationTemplate above, this is
+  // NOT live-layered at read time: TripRequirement is a real relational
+  // model (fulfillment needs an actual foreign key to anti-join against,
+  // which a live-merged JSON list can't provide), so this is instead
+  // copied once into real TripRequirement rows at trip-creation time --
+  // see POST /api/trips' own comment for exactly which fields copy
+  // (mirroring the existing clone-a-trip route's label/kind/
+  // reminderLeadDays/bodyText copy, never dueAt). A deliberate
+  // consequence: editing this template later only affects trips created
+  // afterward, never retroactively changes an already-created trip's own
+  // copy -- protects an already-signed TripSignature's documentTextSnapshot
+  // from ever silently drifting out from under it.
+  tripRequirementTemplate Json?
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

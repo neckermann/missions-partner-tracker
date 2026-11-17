@@ -21,6 +21,7 @@ const QUESTION_TYPES = [
   { value: "textarea", label: "Long text" },
   { value: "select", label: "Multiple choice (pick one)" },
   { value: "checkboxes", label: "Checkboxes (pick any)" },
+  { value: "date", label: "Date" },
 ];
 
 // One choice per line, not comma-separated -- a comma-joined single line
@@ -40,6 +41,18 @@ function textToOptions(text) {
 }
 function needsOptionsFor(type) {
   return type === "select" || type === "checkboxes";
+}
+
+// Move-up/move-down, not drag-and-drop -- this app has no existing
+// drag-and-drop precedent anywhere, and a new library dependency isn't
+// worth it for a list that's realistically a handful of questions long.
+function moveItem(list, index, delta) {
+  const target = index + delta;
+  if (target < 0 || target >= list.length) return list;
+  const next = list.slice();
+  const [moved] = next.splice(index, 1);
+  next.splice(target, 0, moved);
+  return next;
 }
 
 // One labeled "Answer choices" field, shared by an existing question's
@@ -66,12 +79,18 @@ function OptionsField({ defaultValue, value, onChange, onBlur }) {
   );
 }
 
-export default function ApplicationQuestionsEditor({ questions, onAdd, onUpdate, onRemove, library, onAddFromLibrary }) {
+export default function ApplicationQuestionsEditor({ questions, onAdd, onUpdate, onRemove, onReorder, library, onAddFromLibrary }) {
   const [draft, setDraft] = useState({ label: "", required: false, type: "text", optionsText: "" });
   const [libraryPick, setLibraryPick] = useState("");
 
   function resetDraft() {
     setDraft({ label: "", required: false, type: "text", optionsText: "" });
+  }
+
+  function handleMove(index, delta) {
+    if (!onReorder) return;
+    const reordered = moveItem(questions, index, delta);
+    if (reordered !== questions) onReorder(reordered);
   }
 
   function handleAdd(e) {
@@ -114,6 +133,32 @@ export default function ApplicationQuestionsEditor({ questions, onAdd, onUpdate,
                     onBlur={(e) => e.target.value.trim() && e.target.value !== q.label && onUpdate(q.id, { label: e.target.value.trim() })}
                   />
                 </label>
+                {onReorder && (
+                  <div style={{ display: "flex", flexDirection: "column", marginTop: "1.5rem" }}>
+                    <button
+                      type="button"
+                      className="btn-remove"
+                      title="Move up"
+                      aria-label="Move this question up"
+                      disabled={index === 0}
+                      style={{ opacity: index === 0 ? 0.3 : 1 }}
+                      onClick={() => handleMove(index, -1)}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-remove"
+                      title="Move down"
+                      aria-label="Move this question down"
+                      disabled={index === questions.length - 1}
+                      style={{ opacity: index === questions.length - 1 ? 0.3 : 1 }}
+                      onClick={() => handleMove(index, 1)}
+                    >
+                      ▼
+                    </button>
+                  </div>
+                )}
                 <button
                   type="button"
                   className="btn-remove"

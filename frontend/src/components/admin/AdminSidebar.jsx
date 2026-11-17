@@ -33,7 +33,6 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
     // all, since that's Trip Planning's job, not this list's.
     enabledFeatures.trips && { to: "/admin/trips/planning", label: "Trip Planning" },
     enabledFeatures.trips && { to: "/admin/trips", label: "Trips", end: true },
-    enabledFeatures.trips && { to: "/admin/trips/dashboard", label: "Trips Dashboard" },
     enabledFeatures.booklet && { to: "/admin/booklet", label: "Print Booklet" },
     enabledFeatures.reports && { to: "/admin/reports", label: "Reports" },
   ].filter(Boolean);
@@ -131,9 +130,15 @@ export default function AdminSidebar() {
     <aside className="admin-sidebar no-print">
       <h1 className="admin-sidebar-title">{title}</h1>
       <nav className="admin-sidebar-nav">
-        {links.map((link) => (
-          <SidebarLink key={link.to} {...link} />
-        ))}
+        {links.map((link) =>
+          link.isLabel ? (
+            <div key={link.label} className="admin-sidebar-subnav-label">
+              {link.label}
+            </div>
+          ) : (
+            <SidebarLink key={link.to} {...link} />
+          )
+        )}
         {currentUser?.role === "admin" && (
           <>
             <div className="admin-sidebar-divider" />

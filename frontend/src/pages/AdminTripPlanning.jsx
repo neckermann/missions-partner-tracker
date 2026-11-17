@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { fetchTripPlanning, cloneTrip, createTrip } from "../api/client.js";
 import { formatDate } from "../utils/format.js";
+import useLoadMore from "../hooks/useLoadMore.js";
+import LoadMoreButton from "../components/LoadMoreButton.jsx";
 
 // Renamed from AdminTripOpportunities.jsx (#252) -- "Opportunities" now
 // belongs to the public-facing discovery page (PublicTripOpportunities.jsx)
@@ -102,6 +104,13 @@ export default function AdminTripPlanning() {
     if (sizeMax !== "" && effectiveMin != null && effectiveMin > Number(sizeMax)) return false;
     return true;
   });
+
+  const {
+    visible: visibleRowsPage,
+    hasMore,
+    remaining,
+    showMore,
+  } = useLoadMore(visibleRows, { initialCount: 25, step: 25 });
 
   // Real gap closed here: "Plan a trip" previously just linked to
   // AdminTrips.jsx (the historical-backfill ledger), which neither read
@@ -222,7 +231,7 @@ export default function AdminTripPlanning() {
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map((row) => (
+            {visibleRowsPage.map((row) => (
               <tr key={row.partnerId}>
                 <td>
                   <Link to={`/admin/partners/${row.partnerId}`}>{row.displayName}</Link>
@@ -281,7 +290,7 @@ export default function AdminTripPlanning() {
                       disabled={cloningId === row.partnerId}
                       onClick={() => handleClone(row)}
                     >
-                      {cloningId === row.partnerId ? "Cloning…" : "Clone last trip"}
+                      {cloningId === row.partnerId ? "Cloning…" : "Clone trip"}
                     </button>
                   )}
                 </td>
@@ -297,6 +306,7 @@ export default function AdminTripPlanning() {
           </tbody>
         </table>
       )}
+      <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
     </div>
   );
 }

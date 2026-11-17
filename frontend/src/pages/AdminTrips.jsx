@@ -92,6 +92,16 @@ export default function AdminTrips() {
         entityName: t.partner?.displayName || "—",
         entityLink: t.partner ? `/admin/partners/${t.partner.id}` : null,
         size: (t.participants || []).length,
+        raised: (t.contributions || []).reduce((sum, c) => sum + c.amount, 0),
+        // Folded in from the now-removed AdminTripDashboard.jsx (issue
+        // #259) -- null for a trip with no startDate, or one already
+        // underway/past (a negative days-until figure reads as "overdue,"
+        // not useful here the way it was on the dashboard's own
+        // soonest-departing-first list).
+        daysUntilDeparture:
+          t.startDate && new Date(t.startDate) > new Date()
+            ? Math.ceil((new Date(t.startDate) - new Date()) / (1000 * 60 * 60 * 24))
+            : null,
       })),
     [records]
   );
@@ -424,7 +434,7 @@ export default function AdminTrips() {
             </select>
           </label>
           <label>
-            Min Team Size
+            Min Team Roster
             <input
               type="number"
               min="0"
@@ -433,7 +443,7 @@ export default function AdminTrips() {
             />
           </label>
           <label>
-            Max Team Size
+            Max Team Roster
             <input
               type="number"
               min="0"
@@ -475,7 +485,9 @@ export default function AdminTrips() {
             <th>Status</th>
             <th>Trip Type</th>
             <th>Dates</th>
-            <th>Team Size</th>
+            <th>Days Until Departure</th>
+            <th>Team Roster</th>
+            <th>Raised</th>
             <th>Leader(s)</th>
             <th>Description</th>
             <th></th>
@@ -514,7 +526,12 @@ export default function AdminTrips() {
                       ? `${formatDate(trip.startDate) || "?"} – ${formatDate(trip.endDate) || "?"}`
                       : "—"}
                   </td>
+                  <td>{trip.daysUntilDeparture != null ? `${trip.daysUntilDeparture} days` : "—"}</td>
                   <td>{trip.size}</td>
+                  <td>
+                    ${trip.raised}
+                    {trip.supportRaisingGoal ? ` / $${trip.supportRaisingGoal}` : ""}
+                  </td>
                   <td>{leaders.length ? leaders.join(", ") : "—"}</td>
                   <td>{trip.description || "—"}</td>
                   <td className="table-actions">
@@ -537,7 +554,7 @@ export default function AdminTrips() {
                 </tr>
                 {editingId === trip.id && (
                   <tr>
-                    <td colSpan={9}>
+                    <td colSpan={11}>
                       <div className="form-grid">
                         <label>
                           Start Date
@@ -610,7 +627,7 @@ export default function AdminTrips() {
           })}
           {filteredTrips.length === 0 && (
             <tr>
-              <td colSpan={9} style={{ color: "#888" }}>
+              <td colSpan={11} style={{ color: "#888" }}>
                 No trips match these filters.
               </td>
             </tr>

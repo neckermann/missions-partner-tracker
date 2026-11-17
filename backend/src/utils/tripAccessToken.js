@@ -25,8 +25,16 @@ function verifyTripParticipantAccessToken(token) {
   }
 }
 
+// Same resolution as dispatchBlurbs.js's own base-URL helper -- found via
+// a real bug report (a trip-access email's link had no domain at all).
+// This file reinvented a narrower version that only checked APP_BASE_URL,
+// missing RENDER_EXTERNAL_URL (set automatically by Render for every web
+// service, no config needed -- see ADMIN_GUIDE.md's own APP_BASE_URL
+// entry). That's exactly why a real production deployment would have hit
+// this too, not just local dev: APP_BASE_URL is optional and almost
+// never set explicitly, since Render already provides the equivalent.
 function appBaseUrl() {
-  return process.env.APP_BASE_URL || "";
+  return (process.env.APP_BASE_URL || process.env.RENDER_EXTERNAL_URL || "").replace(/\/+$/, "");
 }
 
 function buildTripParticipantAccessUrl(participant) {
