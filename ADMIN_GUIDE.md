@@ -919,7 +919,7 @@ through `planning` → `accepting_applications` → `closed` →
 applications, requirements, meetings, budget) is on each trip's own
 detail page, reached from Plan a Trip or the Trips list.
 
-![The Trips list, every trip regardless of status](docs/assets/screenshots/trip-history.png)
+![The Trips list, with its Status filter and dual count tiles](docs/assets/screenshots/trip-history.png)
 
 **Two admin-internal pages answer two different questions.** **Trips**
 (`/admin/trips`) is the filterable log of every trip — it opens

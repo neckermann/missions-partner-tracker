@@ -68,7 +68,7 @@ const FEATURES = {
   trips: {
     label: "Mission trips",
     description:
-      "Trip tracking, recruiting, teams, meetings, documents, and support raising. The Trips and Trip Planning admin pages.",
+      "Trip tracking, recruiting, teams, meetings, documents, and support raising. The Trips and Plan a Trip admin pages.",
     defaultEnabled: false,
     group: "admin",
   },
