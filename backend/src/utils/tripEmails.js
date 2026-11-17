@@ -1,6 +1,6 @@
 // Shared send helper for every participant-facing email in the Trips
 // feature area (#252) -- meeting invites/reschedules/reminders, the
-// trip-dates roster invite, the document request. Resolves the
+// trip-dates team invite, the document request. Resolves the
 // missing-email skip and the per-recipient try/catch in exactly one
 // place, so a later fix to one of those doesn't silently miss the other
 // four call sites.

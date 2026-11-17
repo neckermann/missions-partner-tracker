@@ -616,7 +616,7 @@ router.get("/:id/applications", async (req, res, next) => {
 // exactly one TripParticipant with applicationId set (the @unique
 // constraint on that column rejects a second approval of the same
 // application), copying firstName/lastName at that moment, and fires
-// the trip-dates roster invite (§9) once, only for a non-completed trip.
+// the trip-dates team invite (§9) once, only for a non-completed trip.
 router.put("/applications/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const { status, declinedReason } = z
@@ -633,7 +633,7 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
 
     // Fetched once, before the transaction -- decides both whether this
     // new participant gets a support-raising shareToken at all (below)
-    // and whether the roster-invite email fires (after the transaction).
+    // and whether the team-invite email fires (after the transaction).
     const settings = await getSettings();
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -677,7 +677,7 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
             // Auto-generated here, not left for a later manual admin
             // click -- the church-wide setting already answers "do we do
             // this at all," so a second per-participant step is pure
-            // friction. See the roster-invite email below, which is the
+            // friction. See the team-invite email below, which is the
             // one place this new link actually reaches the participant.
             shareToken: settings?.allowPublicSupportRaisingLinks ? generateShareToken() : null,
           },
@@ -687,7 +687,7 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
       return { app, participant: null };
     });
 
-    // Trip-dates roster invite (§9) -- fires once, outside the
+    // Trip-dates team invite (§9) -- fires once, outside the
     // transaction (an email failure shouldn't roll back the approval).
     // Previously carried zero links at all -- a participant had no way to
     // ever receive their own access link or support-raising link
@@ -727,7 +727,7 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
   }
 });
 
-// ---- Roster: direct admin add ----
+// ---- Team: direct admin add ----
 
 router.post("/:id/participants", requireRole("admin", "editor"), async (req, res, next) => {
   try {

@@ -59,7 +59,7 @@ const FEATURES = {
     defaultEnabled: true,
     group: "admin",
   },
-  // Covers the whole recruiting/roster/support-raising feature area --
+  // Covers the whole recruiting/team/support-raising feature area --
   // baseline CRUD, applications/review, meetings, documents,
   // contributions. defaultEnabled flipped from true to false (#252):
   // this flag now also gates a public application form, a public
@@ -68,7 +68,7 @@ const FEATURES = {
   trips: {
     label: "Mission trips",
     description:
-      "Trip tracking, recruiting, rosters, meetings, documents, and support raising. The Trips and Trip Planning admin pages.",
+      "Trip tracking, recruiting, teams, meetings, documents, and support raising. The Trips and Trip Planning admin pages.",
     defaultEnabled: false,
     group: "admin",
   },

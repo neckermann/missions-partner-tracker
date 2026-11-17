@@ -30,7 +30,7 @@ import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestions
 import TripStatusBadge from "../components/admin/TripStatusBadge.jsx";
 
 // New (#252) -- the fuller single-trip page for an actively-recruited
-// trip (applications/roster/meetings/documents/support raising). A purely
+// trip (applications/team/meetings/documents/support raising). A purely
 // historical backfill never reaches this page -- it's managed inline on
 // AdminTrips.jsx/the partner's own page, exactly as before this feature
 // existed.

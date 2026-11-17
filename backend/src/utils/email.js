@@ -46,7 +46,7 @@ async function client() {
 // address, which is what every caller before this one wanted anyway.
 // attachments (#252) -- [{ Name, Content (base64), ContentType }],
 // Postmark's own shape, passed straight through. Only the trip-meeting/
-// roster-invite .ics sends use this today.
+// team-invite .ics sends use this today.
 async function sendEmail({ to, subject, text, html, replyTo, attachments }) {
   const { postmark, fromAddress } = await client();
   return postmark.sendEmail({

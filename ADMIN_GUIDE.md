@@ -157,7 +157,7 @@ prayer digest nested under Email (Sending) since it depends on it), and
 | Prayer requests | On | The Prayer Requests admin section, and the prayer request list on missionary/organization pages. |
 | One-time needs | On | The One-Time Needs admin section, and the one-time needs list on missionary/organization pages. Only gates the standalone `/api/support-needs` CRUD — a need can still be added via a missionary/organization's own edit form either way (a narrower gap than the other toggles here). |
 | Monthly support | On | The Monthly Support report page. |
-| Mission trips | **Off** | Trip tracking, recruiting, rosters, meetings, documents, and support raising — the Trips and Trip Planning admin pages. Default flipped from on to off once this reached well beyond an admin-only page into public application forms and outbound email, so it needs an explicit decision rather than being on by default. A fork relying on it staying on for its existing trip-logging needs flips it back on once after upgrading. See [§ Trips](#trips) below. |
+| Mission trips | **Off** | Trip tracking, recruiting, teams, meetings, documents, and support raising — the Trips and Trip Planning admin pages. Default flipped from on to off once this reached well beyond an admin-only page into public application forms and outbound email, so it needs an explicit decision rather than being on by default. A fork relying on it staying on for its existing trip-logging needs flips it back on once after upgrading. See [§ Trips](#trips) below. |
 | Public trip discovery | **Off** | The public Trip Opportunities listing (`/trips`) and plain, id-addressed application links. Also requires Mission trips to be on. A church can run trips entirely by private link with this off and Mission trips on — see [§ Trips](#trips) below. |
 | Print booklet | On | The printable prayer & support directory generator. |
 | Reports | On | Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history, furlough — with CSV download and a print view. |
@@ -910,12 +910,12 @@ anyone else's.
 
 ### Trips
 
-Trips tracks a mission trip's full lifecycle — recruiting, roster,
+Trips tracks a mission trip's full lifecycle — recruiting, team,
 meetings, documents, budget, support raising — not just a historical
 log of past trips. A trip belongs to a planning partner and moves
 through `planning` → `accepting_applications` → `closed` →
 `completed`. Settings live at Site Administration → Trips Settings
-(`/admin/settings/trips`); per-trip management (setup, roster,
+(`/admin/settings/trips`); per-trip management (setup, team,
 applications, requirements, meetings, budget) is on each trip's own
 detail page, reached from Trip Planning or the Trips list.
 
@@ -929,7 +929,7 @@ managed entirely inline here, same as before this feature existed;
 **Edit** and **Delete** work the same way. A trip that's still
 `planning`, `accepting_applications`, or `closed` instead shows a link
 into its own fuller detail page — this list isn't where an active
-trip's applications, roster, or documents get managed. **Trip
+trip's applications, team, or documents get managed. **Trip
 Planning** (`/admin/trips/planning`) answers a different question —
 which partner to plan the *next* trip to — blending an **Open** row
 (already recruiting), a **Committed** row (team finalized, hasn't
@@ -940,7 +940,7 @@ partner's past trip count and most recent trip date, and a **Clone
 trip** action (for any partner with at least one prior trip) that
 copies a trip's reusable shape — name, type, team size, description,
 support-raising goal, application questions, and requirement list —
-into a fresh `planning`-status row with no dates and no roster, ready
+into a fresh `planning`-status row with no dates and no team, ready
 to fill in for a repeat.
 
 ![Trip Planning: which partner to send a team to next](docs/assets/screenshots/trip-opportunities.png)
@@ -949,7 +949,7 @@ to fill in for a repeat.
 status, dates, team size, support-raising goal, description, the
 "Visible on public discovery page" toggle):
 
-![A full recruiting trip's detail page -- setup, flight itinerary, roster, requirements, meetings, budget, contributions, applications, and the private link/question editor](docs/assets/screenshots/admin-trip-detail.png)
+![A full recruiting trip's detail page -- setup, flight itinerary, team, requirements, meetings, budget, contributions, applications, and the private link/question editor](docs/assets/screenshots/admin-trip-detail.png)
 
 - **Support-raising goal** shows a suggested per-person figure right
   under the field itself, once a budget total and a team size exist —
@@ -1069,13 +1069,13 @@ church-wide setting on the Trips Settings page:
   detail page doesn't appear, and no link can ever be created, even
   with Mission trips on.
 - **Allow participants to have public support-raising pages** — same
-  idea, for a roster participant's own support-raising page.
+  idea, for a participant's own support-raising page.
 
 | Public trip discovery | Allow private application links | Allow public support-raising links | Result |
 |---|---|---|---|
 | Off | Off | Off | Fully admin-only — trips managed entirely in the admin UI, nothing reachable by anyone outside it. |
 | Off | On | Off | A trip is only discoverable/applicable via a private link staff generate and share directly — never listed anywhere public. |
-| Off | On | On | Same as above, plus a roster participant can have their own public support-raising page (also only reachable via its own link, never listed). |
+| Off | On | On | Same as above, plus a participant can have their own public support-raising page (also only reachable via its own link, never listed). |
 | On | — | — | The trip is additionally listed on the public Trip Opportunities page and takes plain applications — any of the private-link settings above still work the same regardless. |
 
 **Restricted-partner trips follow three different rules depending on
@@ -1152,7 +1152,7 @@ page** on gets a full card with an **Apply now** link; a `planning`
 trip with the same toggle gets a lighter "Coming soon" teaser, no Apply
 link yet since applications genuinely aren't open. Either way, a
 church-wide **Donate** link appears when **Online giving URL** is set
-— useful before a roster even exists. A restricted partner's trip
+— useful before a team even exists. A restricted partner's trip
 never appears here at all, regardless of status or the toggle's value.
 
 ![The public application form, rendering a trip's own questions plus the church-wide template](docs/assets/screenshots/public-trip-application.png)

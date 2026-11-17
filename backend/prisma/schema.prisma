@@ -278,7 +278,7 @@ model Trip {
 }
 
 // One row serves both purposes: a freeform backfilled/admin-added entry
-// (applicationId: null, no support-raising fields populated) and a roster
+// (applicationId: null, no support-raising fields populated) and a team
 // member who came through an approved application.
 model TripParticipant {
   id       String  @id @default(uuid())
@@ -411,7 +411,7 @@ model TripApplication {
   @@index([tripId])
 }
 
-// A scheduled prep/planning meeting for a trip's roster.
+// A scheduled prep/planning meeting for a trip's team.
 model TripMeeting {
   id             String    @id @default(uuid())
   tripId         String
@@ -1334,7 +1334,7 @@ model ChurchSettings {
   // created, and a privately-recruited trip is admin-entry-only.
   allowPrivateApplicationLinks Boolean @default(false)
   // Church-wide gate on whether a TripParticipant.shareToken is ever
-  // generated at all -- a church that wants roster/meeting/document/
+  // generated at all -- a church that wants team/meeting/document/
   // contribution management but no individual public-facing support-raising
   // pages leaves this off.
   allowPublicSupportRaisingLinks Boolean @default(false)

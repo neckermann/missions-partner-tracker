@@ -10,7 +10,7 @@ import LoadMoreButton from "../components/LoadMoreButton.jsx";
 // instead. This page answers a different question: which partner to plan
 // the *next* trip to, blending three kinds of signal per partner rather
 // than a single query -- an "open" row (a trip already recruiting), a
-// "committed" row (roster finalized, not yet happened), or a "fallback"
+// "committed" row (team finalized, not yet happened), or a "fallback"
 // row (just the partner's own general trip capacity, nothing scheduled).
 const KIND_LABELS = {
   open: "Open",

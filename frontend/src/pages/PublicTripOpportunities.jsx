@@ -68,7 +68,7 @@ export default function PublicTripOpportunities() {
                     </Link>
                   )}
                   {/* Trip-level giving, separate from an individual participant's
-                  own support-raising page -- useful before a roster even exists
+                  own support-raising page -- useful before a team even exists
                   yet, since onlineGivingUrl is church-wide, not per-trip. */}
                   {t.onlineGivingUrl && (
                     <a className="btn secondary" href={t.onlineGivingUrl} target="_blank" rel="noreferrer">

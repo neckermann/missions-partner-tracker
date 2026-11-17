@@ -1185,10 +1185,10 @@ const ADDITIONAL_USERS = [
 // data doesn't need to exercise the send path too.
 // Trips (#252) demo data -- a handful of hand-crafted trips layered on
 // top of whatever partners buildTrips() already gave random historical
-// trips to, so the new recruiting/roster/support-raising feature has
+// trips to, so the new recruiting/team/support-raising feature has
 // something real to click through: one actively-recruiting (public)
-// trip with a pending application and a partial roster, one
-// roster-finalized (closed) trip, and one restricted-partner trip using
+// trip with a pending application and a partial team, one
+// team-finalized (closed) trip, and one restricted-partner trip using
 // the private-link mechanism instead of public discovery. shareToken/
 // applicationShareToken are generated here regardless of
 // ChurchSettings.allowPublicSupportRaisingLinks/allowPrivateApplicationLinks
@@ -1610,7 +1610,7 @@ async function seedTripsDemo() {
       name: `${closedPartner.displayName.split(" ")[0]}'s Fall Build Team`,
       status: "closed",
       type: pick(TRIP_TYPES),
-      description: `A roster is finalized for this team serving with ${closedPartner.displayName}.`,
+      description: `The team is finalized for this trip serving with ${closedPartner.displayName}.`,
       startDate: closedStart,
       endDate: closedEnd,
       teamSizeMax: 6,

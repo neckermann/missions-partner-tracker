@@ -259,7 +259,7 @@ not just what topic they fall under:
     (First/Last name, Role, Phone, Email, "Trip Leader" checkbox) — the
     same records as the main [Trips](#trips) page, just scoped to this
     one partner. An actively-recruited trip's fuller detail page
-    (applications, roster, documents, support raising) is still
+    (applications, team, documents, support raising) is still
     reached from there, not from here.
   - **Trip Capacity** — Team Size Min/Max, Trip Types Supported (pick
     from presets or type your own), season/duration notes,
@@ -452,7 +452,7 @@ approving it at creation instead of from Pending Dispatches, see
 
 ### Trips
 
-Trips is a full recruiting/roster/support-raising feature, not just a
+Trips is a full recruiting/team/support-raising feature, not just a
 historical log — off by default; turn it on in [Enabled
 Features](ADMIN_GUIDE.md#feature-toggles) (and, separately, **Public
 trip discovery** if you want trips listed publicly — see [ADMIN_GUIDE.md
@@ -472,7 +472,7 @@ different question:
   partner) and **Delete**. A trip that's still `planning`,
   `accepting_applications`, or `closed` instead shows its status as a
   link into its own fuller detail page (below) — this list isn't where
-  an active trip's applications, roster, or documents get managed.
+  an active trip's applications, team, or documents get managed.
   - The **Album** link points to wherever you already host the trip's
     photos/videos — a Google Photos shared album, an iCloud Shared Album,
     or another provider you choose "Other" for. This app never stores the
