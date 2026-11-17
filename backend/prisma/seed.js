@@ -398,6 +398,34 @@ I understand that the team leader may send me home at my own expense if my condu
 
 This agreement is governed by the laws of the state in which the church is located.`;
 
+// Seeded into ChurchSettings.tripRequirementLibrary by default (not
+// auto-added to every trip -- picked onto a specific trip's own
+// Requirements section only when that trip actually has minors on it).
+// Written in the parent/guardian's own voice, parallel in structure to
+// LIABILITY_RELEASE_TEXT above (risk acknowledgment, code-of-conduct
+// consent on the minor's behalf, medical-treatment authorization --
+// specifically needed here since a minor generally can't consent to
+// their own medical treatment, media release, governing law), not
+// copied from any real source. A starting point, not vetted legal
+// advice -- the trailing note says so explicitly, same as a church
+// would want to have any release form reviewed by its own counsel
+// before relying on it.
+const MINOR_RELEASE_TEXT = `Minor Travel Release, Consent, and Medical Authorization — Short-Term Mission Trip
+
+I am the parent or legal guardian of the minor named on this form, and I give my permission for them to participate in this short-term mission trip.
+
+I understand that participation involves inherent risks, including but not limited to travel-related injury, illness, and property loss, and that these risks cannot be entirely eliminated no matter what care is taken. I voluntarily assume these risks on my child's behalf and release the church, its staff, and its partner organizations from liability for any injury, loss, or damage arising from their participation, except where caused by gross negligence.
+
+I authorize the team leader and any accompanying adult leaders to consent to emergency medical treatment for my child if I cannot be reached in a timely manner, and I confirm that I have disclosed any medical conditions, allergies, or medications the team leader should be aware of. I am responsible for ensuring my child brings an adequate supply of any personal medication for the duration of the trip.
+
+I agree, on my child's behalf, that they will follow the same code of conduct every team member agrees to: no alcohol or tobacco, modest and culturally appropriate dress, respectful behavior toward team leadership, fellow team members, and our hosts, and the reasonable direction of the team leader at all times. I understand the team leader may send my child home at my own expense if their conduct endangers themselves, another team member, or the trip's relationship with our hosts.
+
+I consent to photos and video of my child taken during the trip being used in the church's own newsletters, website, and social media.
+
+This agreement is governed by the laws of the state in which the church is located.
+
+This is a starting template, not legal advice -- have it reviewed by your own church's legal counsel before relying on it.`;
+
 const TRIP_TYPES = [
   "Construction",
   "Medical/Dental",
@@ -1302,6 +1330,9 @@ async function seedTripsDemo() {
             stateProvinceRegion: "IL",
             postalCode: "61201",
             country: "USA",
+            // Real column now, not a template question's answer -- see
+            // ChurchSettings.collectDateOfBirth's own schema comment.
+            dateOfBirth: new Date(Date.UTC(1991, 2, 22)),
             // Every question this trip actually asks answered (template
             // layer + this trip's own q1/q3) -- a half-answered pending
             // application doesn't show what the admin review screen looks
@@ -1309,7 +1340,6 @@ async function seedTripsDemo() {
             responses: {
               tmpl2: "Yes",
               tmpl3: "Yes",
-              tmpl5: "1991-03-22",
               tmpl6: "I grew up going to church, but it wasn't until a mission trip in college that my faith became my own.",
               tmpl7: "I'm hoping to serve wherever there's a need and come back with a deeper dependence on God.",
               tmpl8: "Blue Cross Blue Shield, Policy #BC-48213",
@@ -1339,10 +1369,10 @@ async function seedTripsDemo() {
             status: "declined",
             declinedReason: "Team is already at capacity for this trip's focus area.",
             reviewedAt: dateBetween(5, 1),
+            dateOfBirth: new Date(Date.UTC(1987, 10, 2)),
             responses: {
               tmpl2: "Yes",
               tmpl3: "Yes",
-              tmpl5: "1987-11-02",
               tmpl6: "I've been part of my church's missions committee for three years and wanted to finally go myself.",
               tmpl7: "I expect it to be physically demanding, and I'm ready for that.",
               tmpl8: "Aetna, Group #AE-90217",
@@ -1545,10 +1575,10 @@ async function seedTripsDemo() {
       emergencyContactName: "Chidi Chukwu",
       emergencyContactPhone: "555-0164",
       emergencyContactEmail: "chidi.chukwu@example.org",
+      dateOfBirth: new Date(Date.UTC(1995, 6, 19)),
       responses: {
         tmpl2: "Yes",
         tmpl3: "Yes",
-        tmpl5: "1995-07-19",
         tmpl6: "I've felt called to medical missions since shadowing a clinic team on a previous short trip.",
         tmpl7: "To use my nursing background to serve the team and the local clinic staff well.",
         tmpl8: "UnitedHealthcare, Policy #UH-55820",
@@ -1576,6 +1606,7 @@ async function seedTripsDemo() {
       emergencyContactName: amaraApplication.emergencyContactName,
       emergencyContactPhone: amaraApplication.emergencyContactPhone,
       emergencyContactEmail: amaraApplication.emergencyContactEmail,
+      dateOfBirth: amaraApplication.dateOfBirth,
       supportRaisingGoal: 1200,
       // Some progress, but well short of the goal -- a third distinct
       // raised/goal state alongside Priya's (well-funded) and John's
@@ -2029,6 +2060,148 @@ async function seedTripsDemo() {
     });
   }
 
+  // A trip with minors on it -- demonstrates collectParentGuardianInfo
+  // end to end: a minor's application with real parent/guardian info
+  // and a date of birth, the Minor Travel Release picked from the new
+  // tripRequirementLibrary onto this specific trip only (never every
+  // trip), and that requirement signed by the parent, not the minor,
+  // via the signerRelationship field. Reuses closedPartner rather than
+  // a brand-new partner lookup -- a long-term field partner hosting
+  // more than one short-term team over time is realistic, not a
+  // shortcut.
+  const minorsTripStart = dateBetween(-1, -2);
+  const minorsTripEnd = new Date(minorsTripStart);
+  minorsTripEnd.setDate(minorsTripEnd.getDate() + randInt(5, 7));
+  const minorDob = new Date();
+  minorDob.setFullYear(minorDob.getFullYear() - 15);
+
+  const minorsTrip = await prisma.trip.create({
+    data: {
+      partnerId: closedPartner.id,
+      name: `${closedPartner.displayName.split(" ")[0]}'s VBS & Family Camp Team`,
+      status: "accepting_applications",
+      isPublic: true,
+      type: "VBS/Children's Ministry",
+      description: `A family-friendly team serving alongside ${closedPartner.displayName} -- open to students and their parents.`,
+      startDate: minorsTripStart,
+      endDate: minorsTripEnd,
+      teamSizeMin: 4,
+      teamSizeMax: 10,
+      supportRaisingGoal: 900,
+      collectParentGuardianInfo: true,
+    },
+  });
+
+  const minorApplication = await prisma.tripApplication.create({
+    data: {
+      tripId: minorsTrip.id,
+      firstName: "Lily",
+      lastName: "Thompson",
+      email: "lily.thompson@example.org",
+      phone: "555-0211",
+      status: "approved",
+      reviewedAt: dateBetween(1, 0),
+      reviewedById: admin?.id || null,
+      dateOfBirth: minorDob,
+      parentGuardianName: "Karen Thompson",
+      parentGuardianRelationship: "Mother",
+      parentGuardianPhone: "555-0212",
+      parentGuardianEmail: "karen.thompson@example.org",
+      emergencyContactName: "Karen Thompson",
+      emergencyContactPhone: "555-0212",
+      emergencyContactEmail: "karen.thompson@example.org",
+    },
+  });
+  const lily = await prisma.tripParticipant.create({
+    data: {
+      tripId: minorsTrip.id,
+      applicationId: minorApplication.id,
+      firstName: minorApplication.firstName,
+      lastName: minorApplication.lastName,
+      email: minorApplication.email,
+      phone: minorApplication.phone,
+      dateOfBirth: minorApplication.dateOfBirth,
+      parentGuardianName: minorApplication.parentGuardianName,
+      parentGuardianRelationship: minorApplication.parentGuardianRelationship,
+      parentGuardianPhone: minorApplication.parentGuardianPhone,
+      parentGuardianEmail: minorApplication.parentGuardianEmail,
+      emergencyContactName: minorApplication.emergencyContactName,
+      emergencyContactPhone: minorApplication.emergencyContactPhone,
+      emergencyContactEmail: minorApplication.emergencyContactEmail,
+      supportRaisingGoal: minorsTrip.supportRaisingGoal,
+      shareToken: generateShareToken(),
+      story: "So excited for my first mission trip -- thank you for supporting me!",
+    },
+  });
+
+  // An adult co-leader, direct-added like Priya/John on the open trip --
+  // a trip with minors still needs an adult the minor isn't the only
+  // one on.
+  await prisma.tripParticipant.create({
+    data: {
+      tripId: minorsTrip.id,
+      firstName: "Rachel",
+      lastName: "Nguyen",
+      email: "rachel.nguyen@example.org",
+      role: "Team Lead",
+      isLeader: true,
+      supportRaisingGoal: minorsTrip.supportRaisingGoal,
+    },
+  });
+
+  // Picked from tripRequirementLibrary onto this one trip -- same
+  // label/kind/bodyText copy shape the real "add from library" admin
+  // action uses, not a hand-shaped duplicate of it.
+  const minorReleaseRequirement = await prisma.tripRequirement.create({
+    data: {
+      tripId: minorsTrip.id,
+      label: "Minor Travel Release & Consent Form",
+      kind: "esignature",
+      bodyText: MINOR_RELEASE_TEXT,
+    },
+  });
+
+  // Signed by the parent, not the minor -- signerRelationship records
+  // that honestly. Same real pdfGeneration.js mechanism as every other
+  // seeded signature in this file, not a hand-faked row.
+  try {
+    const crypto = require("crypto");
+    const { buildSignedDocumentPdf } = require("../src/utils/pdfGeneration");
+    const documentText = MINOR_RELEASE_TEXT;
+    const documentTextHash = crypto.createHash("sha256").update(documentText, "utf8").digest("hex");
+    const attestedAt = dateBetween(0, 0);
+    const pdfBytes = await buildSignedDocumentPdf({
+      requirementLabel: minorReleaseRequirement.label,
+      tripLabel: minorsTrip.name,
+      participantName: `${lily.firstName} ${lily.lastName}`,
+      documentText,
+      signerName: minorApplication.parentGuardianName,
+      signatureImage: null,
+      attestedAt,
+      documentTextHash,
+      ip: "203.0.113.19",
+    });
+    await prisma.tripDocument.create({
+      data: {
+        tripId: minorsTrip.id,
+        participantId: lily.id,
+        requirementId: minorReleaseRequirement.id,
+        title: minorReleaseRequirement.label,
+        bytes: pdfBytes,
+        fileName: "minor-travel-release.pdf",
+        contentType: "application/pdf",
+        signerName: minorApplication.parentGuardianName,
+        signerRelationship: "parent/guardian",
+        attestedAt,
+        ip: "203.0.113.19",
+        documentTextSnapshot: documentText,
+        documentTextHash,
+      },
+    });
+  } catch (err) {
+    console.warn("  Skipping minor-release seed e-signature (non-fatal):", err.message);
+  }
+
   // Realistic starter content for tripApplicationTemplate/tripQuestionLibrary
   // -- generalized from a real short-term mission trip application a user
   // shared (not copied verbatim; every church's own wording differs, and
@@ -2055,17 +2228,15 @@ async function seedTripsDemo() {
       onlineGivingUrl: "https://give.example.org/missions",
       onlineGivingInstructions:
         "Choose \"Missions Trips\" as the fund, and include the team member's name in the memo/notes field so their support is credited correctly.",
-      // tmpl5 added in a later round -- the user asked for more of what a
-      // participant record collects, pointing at the same real example
-      // application. Date of birth now uses the real "date" question type
-      // (a native <input type="date"> on the public form) -- the earlier
-      // version of this comment said there was no dedicated date type,
-      // "deliberately stopped at four question types"; that held until a
-      // real screenshot showed a free-text DOB field with no picker,
-      // which was the actual gap, not a deliberate stop. A fifth type was
-      // added rather than special-casing DOB specifically, since any
-      // future date-shaped question benefits the same way. The former
-      // tmpl4 ("Mailing address, one free-text line") was dropped
+      // tmpl5 ("Date of birth," a free-text "date" question) existed
+      // briefly and was dropped once ChurchSettings.collectDateOfBirth
+      // shipped a real structured field on the application form itself --
+      // same reasoning tmpl4/tmpl1 below were dropped for address/
+      // emergency contact. The "date" question type itself stays in
+      // utils/applicationQuestions.js -- other date-shaped questions
+      // (e.g. "when does your passport expire") still have a real use
+      // for it; only this one specific question moved to a first-class
+      // column. The former tmpl4 ("Mailing address, one free-text line") was dropped
       // once ChurchSettings.collectApplicantAddress shipped a real
       // structured address block on the application form itself --
       // asking for the same thing twice would be a duplicate, not a
@@ -2091,7 +2262,6 @@ async function seedTripsDemo() {
           required: true,
           options: ["Yes", "No"],
         },
-        { id: "tmpl5", type: "date", label: "Date of birth", required: true },
         // tmpl6/7/8 promoted from the library (were lib1/2/3) -- the user
         // asked for these three specifically to be live on every
         // application by default for the demo, not just available as an
@@ -2154,6 +2324,20 @@ async function seedTripsDemo() {
           label: "Signed Liability Release and Code of Conduct",
           kind: "esignature",
           bodyText: LIABILITY_RELEASE_TEXT,
+        },
+      ],
+      // Picked onto a specific trip's own Requirements section when
+      // that trip actually needs it -- never auto-added anywhere, see
+      // ChurchSettings.tripRequirementLibrary's own schema comment. The
+      // one entry every church running trips that might include minors
+      // actually needs out of the box, not something they should have
+      // to write from scratch the first time it comes up.
+      tripRequirementLibrary: [
+        {
+          id: "reqlib1",
+          label: "Minor Travel Release & Consent Form",
+          kind: "esignature",
+          bodyText: MINOR_RELEASE_TEXT,
         },
       ],
     },

@@ -80,20 +80,33 @@ function SignaturePad({ onChange }) {
 // Shared by the participant self-service page's e-signature flow --
 // document text + a typed-name-or-drawn-signature choice + an explicit
 // attestation checkbox gating submit. onSubmit receives
-// { signerName, signatureImage } (signatureImage is a base64 PNG data
-// URL, or null if they only typed their name).
+// { signerName, signerRelationship, signatureImage } (signatureImage is
+// a base64 PNG data URL, or null if they only typed their name).
+//
+// relationship ("self" | "parent/guardian") is recordkeeping only --
+// nothing verifies that whoever's actually at the keyboard matches what
+// they pick here, same as nothing ever verified signer identity at all
+// (see TripDocument.signerRelationship's own schema comment). It exists
+// so a parent signing on a minor's behalf, using that minor's own
+// self-service link, leaves an honest record of who actually signed --
+// not to gate anything.
 export default function SignatureCapture({ documentText, onSubmit, submitting }) {
   const [mode, setMode] = useState("type"); // "type" | "draw"
   const [typedName, setTypedName] = useState("");
   const [drawnSignature, setDrawnSignature] = useState(null);
   const [attested, setAttested] = useState(false);
+  const [relationship, setRelationship] = useState("self");
 
   const canSubmit = attested && typedName.trim() && (mode === "type" || drawnSignature);
 
   function handleSubmit(e) {
     e.preventDefault();
     if (!canSubmit) return;
-    onSubmit({ signerName: typedName.trim(), signatureImage: mode === "draw" ? drawnSignature : null });
+    onSubmit({
+      signerName: typedName.trim(),
+      signerRelationship: relationship,
+      signatureImage: mode === "draw" ? drawnSignature : null,
+    });
   }
 
   return (
@@ -113,6 +126,14 @@ export default function SignatureCapture({ documentText, onSubmit, submitting })
         {documentText}
       </div>
 
+      <label style={{ marginTop: "0.9rem" }}>
+        I am signing as
+        <select value={relationship} onChange={(e) => setRelationship(e.target.value)}>
+          <option value="self">Myself</option>
+          <option value="parent/guardian">Parent or legal guardian</option>
+        </select>
+      </label>
+
       <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.9rem" }}>
         <button
           type="button"
@@ -131,7 +152,7 @@ export default function SignatureCapture({ documentText, onSubmit, submitting })
       </div>
 
       <label style={{ marginTop: "0.6rem" }}>
-        Your full name
+        {relationship === "parent/guardian" ? "Parent/guardian's full name" : "Your full name"}
         <input
           value={typedName}
           onChange={(e) => setTypedName(e.target.value)}
@@ -147,8 +168,10 @@ export default function SignatureCapture({ documentText, onSubmit, submitting })
 
       <div className="admin-checkbox-row" style={{ marginTop: "0.9rem" }}>
         <label>
-          <input type="checkbox" checked={attested} onChange={(e) => setAttested(e.target.checked)} />I have
-          read and agree to the above.
+          <input type="checkbox" checked={attested} onChange={(e) => setAttested(e.target.checked)} />
+          {relationship === "parent/guardian"
+            ? "I have read and agree to the above on the participant's behalf."
+            : "I have read and agree to the above."}
         </label>
       </div>
 

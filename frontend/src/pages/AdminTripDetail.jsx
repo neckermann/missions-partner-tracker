@@ -50,6 +50,8 @@ export default function AdminTripDetail() {
     reminderLeadDays: "",
   });
   const [questionLibrary, setQuestionLibrary] = useState([]);
+  const [requirementLibrary, setRequirementLibrary] = useState([]);
+  const [requirementLibraryPick, setRequirementLibraryPick] = useState("");
   const [applicationTemplate, setApplicationTemplate] = useState([]);
   // Church-wide toggle (AdminSettingsTrips.jsx) -- the Budget section
   // below doesn't render at all unless this is on, same as every other
@@ -99,6 +101,7 @@ export default function AdminTripDetail() {
     fetchTripsSettings()
       .then((s) => {
         setQuestionLibrary(s.tripQuestionLibrary || []);
+        setRequirementLibrary(s.tripRequirementLibrary || []);
         setApplicationTemplate(s.tripApplicationTemplate || []);
         setEnableTripBudgeting(!!s.enableTripBudgeting);
       })
@@ -192,6 +195,25 @@ export default function AdminTripDetail() {
       reminderLeadDays: newRequirement.reminderLeadDays ? Number(newRequirement.reminderLeadDays) : null,
     });
     setNewRequirement({ label: "", kind: "document", bodyText: "", dueAt: "", reminderLeadDays: "" });
+    reload();
+  }
+
+  async function handleAddRequirementFromLibrary() {
+    if (!requirementLibraryPick) return;
+    const entry = requirementLibrary.find((r) => r.id === requirementLibraryPick);
+    if (!entry) return;
+    // Same label/kind/bodyText/reminderLeadDays copy shape as the
+    // church-wide template's own auto-copy-at-creation-time logic
+    // (trips.js) -- dueAt never copies, same reasoning: a specific
+    // calendar date from the library template is never right for
+    // whichever trip it's added to.
+    await addTripRequirement(id, {
+      label: entry.label,
+      kind: entry.kind,
+      bodyText: entry.bodyText || null,
+      reminderLeadDays: entry.reminderLeadDays || null,
+    });
+    setRequirementLibraryPick("");
     reload();
   }
 
@@ -591,6 +613,21 @@ export default function AdminTripDetail() {
             Has no public-facing effect for this trip while the restricted-partner badge is showing.
           </p>
         )}
+        <div className="admin-checkbox-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={!!trip.collectParentGuardianInfo}
+              onChange={(e) => saveSetup({ collectParentGuardianInfo: e.target.checked })}
+            />
+            Collect parent/guardian info (this trip may have minors on it)
+          </label>
+        </div>
+        <p style={{ fontSize: "0.75rem", color: "#888" }}>
+          Adds date-of-birth and parent/guardian name/relationship/phone/email to this trip's own application
+          form, and requires date of birth to apply -- regardless of the church-wide defaults on the Mission
+          Trips settings page. Per-trip, not church-wide: turn this on only for a trip that actually has minors.
+        </p>
         {savingSetup && <p style={{ color: "#888" }}>Saving…</p>}
       </div>
 
@@ -1073,6 +1110,30 @@ export default function AdminTripDetail() {
           })}
           {(trip.requirements || []).length === 0 && <p style={{ color: "#888" }}>No requirements yet.</p>}
         </ul>
+        {requirementLibrary.length > 0 && (
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.75rem" }}>
+            <select
+              style={{ flex: 1, minWidth: 220 }}
+              value={requirementLibraryPick}
+              onChange={(e) => setRequirementLibraryPick(e.target.value)}
+            >
+              <option value="">Add from your saved requirements...</option>
+              {requirementLibrary.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn secondary small"
+              onClick={handleAddRequirementFromLibrary}
+              disabled={!requirementLibraryPick}
+            >
+              + Add to this trip
+            </button>
+          </div>
+        )}
         <form
           onSubmit={handleAddRequirement}
           style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}

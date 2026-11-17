@@ -46,6 +46,11 @@ export default function PublicTripApplication() {
     emergencyContactName: "",
     emergencyContactPhone: "",
     emergencyContactEmail: "",
+    dateOfBirth: "",
+    parentGuardianName: "",
+    parentGuardianRelationship: "",
+    parentGuardianPhone: "",
+    parentGuardianEmail: "",
   });
   const [responses, setResponses] = useState({});
   const [submitted, setSubmitted] = useState(false);
@@ -225,6 +230,60 @@ export default function PublicTripApplication() {
                     type="email"
                     value={form.emergencyContactEmail}
                     onChange={(e) => setForm((f) => ({ ...f, emergencyContactEmail: e.target.value }))}
+                  />
+                </label>
+              </div>
+            )}
+            {/* A real field, not a custom question -- see
+            ChurchSettings.collectDateOfBirth's own schema comment. Always
+            on, and always required, when this trip collects parent/
+            guardian info, regardless of the church-wide defaults. */}
+            {trip.collectDateOfBirth && (
+              <div className="form-grid" style={{ marginTop: "0.75rem" }}>
+                <label>
+                  Date of birth{trip.requireDateOfBirth ? "" : " (optional)"}
+                  <input
+                    type="date"
+                    required={trip.requireDateOfBirth}
+                    value={form.dateOfBirth}
+                    onChange={(e) => setForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
+                  />
+                </label>
+              </div>
+            )}
+            {trip.collectParentGuardianInfo && (
+              <div className="form-grid" style={{ marginTop: "0.75rem" }}>
+                <div style={{ gridColumn: "1 / -1", fontWeight: 600 }}>
+                  Parent/guardian (required if the applicant is a minor)
+                </div>
+                <label>
+                  Name
+                  <input
+                    value={form.parentGuardianName}
+                    onChange={(e) => setForm((f) => ({ ...f, parentGuardianName: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Relationship
+                  <input
+                    placeholder="e.g. Mother, Father, Legal guardian"
+                    value={form.parentGuardianRelationship}
+                    onChange={(e) => setForm((f) => ({ ...f, parentGuardianRelationship: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Phone
+                  <input
+                    value={form.parentGuardianPhone}
+                    onChange={(e) => setForm((f) => ({ ...f, parentGuardianPhone: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Email
+                  <input
+                    type="email"
+                    value={form.parentGuardianEmail}
+                    onChange={(e) => setForm((f) => ({ ...f, parentGuardianEmail: e.target.value }))}
                   />
                 </label>
               </div>

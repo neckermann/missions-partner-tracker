@@ -34,7 +34,15 @@ function fieldsNeedingVisibility(modelName, schemaLines) {
   return model.fields.filter((f) => {
     if (f.kind !== "scalar") return false; // relations have no column of their own to "show"
     if (f.name === "id" || /Id$/.test(f.name)) return false; // the id itself, plus FKs -- tripId, applicationId, reviewedById
-    if (f.type === "DateTime") return false; // timestamps -- submittedAt, reviewedAt
+    // Timestamps only, by this codebase's own documented naming
+    // convention (schema.prisma's own comment: "*At" = DateTime with a
+    // time component, "*Date" = date-only) -- NOT every DateTime-typed
+    // field. Prisma's DMMF reports the same generic "DateTime" type for
+    // both @db.Timestamp and @db.Date columns, so filtering on f.type
+    // here would silently also exempt a genuinely meaningful date field
+    // like dateOfBirth, which is exactly the kind of gap this test
+    // exists to catch, not create.
+    if (/At$/.test(f.name)) return false; // submittedAt, reviewedAt
     const declarationLine = schemaLines.find((line) => new RegExp(`^\\s*${f.name}\\s`).test(line));
     if (declarationLine && declarationLine.includes(OPT_OUT_MARKER)) return false;
     return true;

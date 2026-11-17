@@ -102,6 +102,10 @@ export default function AdminTripParticipantDetail() {
       ? [
           settings?.collectApplicantAddress && !participant.addressLine1 && "address",
           settings?.collectEmergencyContact && !participant.emergencyContactName && "emergency contact",
+          // This trip's own flag, not a church-wide toggle -- see
+          // Trip.collectParentGuardianInfo's own schema comment.
+          trip.collectParentGuardianInfo && !participant.dateOfBirth && "date of birth",
+          trip.collectParentGuardianInfo && !participant.parentGuardianName && "parent/guardian name",
         ].filter(Boolean)
       : [];
 
@@ -408,6 +412,72 @@ export default function AdminTripParticipantDetail() {
               onBlur={(e) =>
                 e.target.value !== (participant.emergencyContactEmail || "") &&
                 saveParticipant({ emergencyContactEmail: e.target.value.trim() || null })
+              }
+            />
+          </label>
+        </div>
+
+        {/* Date of birth / parent-guardian -- only meaningful when this
+        trip's own collectParentGuardianInfo is on, but shown and
+        editable regardless, same "plain record-keeping" treatment as
+        every other contact field on this page. Real columns, not a
+        template question -- see Trip.collectParentGuardianInfo's own
+        schema comment for why. */}
+        <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Date of birth &amp; parent/guardian</h4>
+        <div className="form-grid">
+          <label>
+            Date of birth
+            <input
+              type="date"
+              key={`dateOfBirth-${participant.id}`}
+              defaultValue={participant.dateOfBirth ? participant.dateOfBirth.slice(0, 10) : ""}
+              onBlur={(e) =>
+                saveParticipant({ dateOfBirth: e.target.value || null })
+              }
+            />
+          </label>
+          <label>
+            Parent/guardian name
+            <input
+              key={`parentGuardianName-${participant.id}`}
+              defaultValue={participant.parentGuardianName || ""}
+              onBlur={(e) =>
+                e.target.value !== (participant.parentGuardianName || "") &&
+                saveParticipant({ parentGuardianName: e.target.value.trim() || null })
+              }
+            />
+          </label>
+          <label>
+            Relationship
+            <input
+              key={`parentGuardianRelationship-${participant.id}`}
+              defaultValue={participant.parentGuardianRelationship || ""}
+              placeholder="e.g. Mother, Father, Legal guardian"
+              onBlur={(e) =>
+                e.target.value !== (participant.parentGuardianRelationship || "") &&
+                saveParticipant({ parentGuardianRelationship: e.target.value.trim() || null })
+              }
+            />
+          </label>
+          <label>
+            Parent/guardian phone
+            <input
+              key={`parentGuardianPhone-${participant.id}`}
+              defaultValue={participant.parentGuardianPhone || ""}
+              onBlur={(e) =>
+                e.target.value !== (participant.parentGuardianPhone || "") &&
+                saveParticipant({ parentGuardianPhone: e.target.value.trim() || null })
+              }
+            />
+          </label>
+          <label>
+            Parent/guardian email
+            <input
+              key={`parentGuardianEmail-${participant.id}`}
+              defaultValue={participant.parentGuardianEmail || ""}
+              onBlur={(e) =>
+                e.target.value !== (participant.parentGuardianEmail || "") &&
+                saveParticipant({ parentGuardianEmail: e.target.value.trim() || null })
               }
             />
           </label>

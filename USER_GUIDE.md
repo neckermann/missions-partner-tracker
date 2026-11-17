@@ -493,7 +493,9 @@ different question:
 ![Trip Planning](docs/assets/screenshots/trip-opportunities.png)
 
 **On a trip's own detail page**, beyond the basic setup fields (name,
-dates, team size, description, visible-on-public-discovery toggle):
+dates, team size, description, visible-on-public-discovery toggle, and
+**Collect parent/guardian info** for a trip that may have minors on
+it):
 
 ![A trip's full detail page](docs/assets/screenshots/admin-trip-detail.png)
 
@@ -511,10 +513,13 @@ dates, team size, description, visible-on-public-discovery toggle):
 - **Requirements** — your own list of what's needed from each
   participant, each either a **document** to upload, a plain **task**
   to check off (e.g. "Attended orientation call"), or an
-  **e-signature** the participant signs from their own self-service
-  page. Fulfillment shows right on the Confirmed Team table, computed
-  from what's actually on file or signed rather than a status anyone
-  updates by hand.
+  **e-signature** the participant (or, choosing "Parent or legal
+  guardian," a parent signing on a minor's behalf) signs from their
+  own self-service page. Fulfillment shows right on the Confirmed Team
+  table, computed from what's actually on file or signed rather than a
+  status anyone updates by hand. **Add from your saved requirements**
+  picks a reusable one (like a minor travel release form) onto this
+  one trip, instead of retyping it.
 - **Meetings** — schedule a date/time and location; participants get a
   day-before reminder email.
 - **Budget** (if turned on in Trips Settings) tracks estimated
@@ -550,8 +555,11 @@ sends them an email asking for something specific.
 — donation instructions, whether to track a per-trip budget, the
 application questions every trip shares plus a reusable saved-question
 library, whether to collect an applicant's mailing address/emergency
-contact, the default requirement checklist new trips start with, and
-the two private-link toggles above.
+contact/date of birth (date of birth has its own "require it" toggle
+too), the default requirement checklist new trips start with plus a
+reusable saved-requirements library (ships with a Minor Travel Release
+&amp; Consent Form ready to use), and the two private-link toggles
+above.
 
 ![Trips Settings](docs/assets/screenshots/trips-settings.png)
 

@@ -20,18 +20,25 @@ const emptyForm = {
   collectDonorContactInfo: false,
   collectApplicantAddress: true,
   collectEmergencyContact: true,
+  collectDateOfBirth: true,
+  requireDateOfBirth: false,
   allowPrivateApplicationLinks: false,
   allowPublicSupportRaisingLinks: false,
   enableTripBudgeting: false,
   tripApplicationTemplate: [],
   tripQuestionLibrary: [],
   tripRequirementTemplate: [],
+  tripRequirementLibrary: [],
 };
 
 // Inline, not a shared component -- ApplicationQuestionsEditor.jsx's
 // fields (required/options) don't fit a requirement (kind/bodyText/
-// reminderLeadDays instead), and this is the only place this editor is
-// used, unlike the question editor which serves three call sites.
+// reminderLeadDays instead). Two call sites on this same page now
+// (tripRequirementTemplate below, and tripRequirementLibrary further
+// down) -- both just want the same {items, onChange} controlled list,
+// no library-picker prop needed here the way the question editor has
+// one, since neither of this component's own two consumers is itself
+// a library being picked *from*.
 function RequirementTemplateEditor({ items, onChange }) {
   const [draft, setDraft] = useState({ label: "", kind: "document", bodyText: "", reminderLeadDays: "" });
 
@@ -260,6 +267,37 @@ export default function AdminSettingsTrips() {
             }
           />
 
+          <h3 style={{ marginTop: "1.5rem" }}>Applicant date of birth</h3>
+          <div className="admin-checkbox-row">
+            <label>
+              <input
+                type="checkbox"
+                checked={form.collectDateOfBirth}
+                onChange={(e) => update("collectDateOfBirth", e.target.checked)}
+              />
+              Collect applicant date of birth
+            </label>
+          </div>
+          {form.collectDateOfBirth && (
+            <div className="admin-checkbox-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={form.requireDateOfBirth}
+                  onChange={(e) => update("requireDateOfBirth", e.target.checked)}
+                />
+                Require it to submit an application
+              </label>
+            </div>
+          )}
+          <p style={{ color: "#888", fontSize: "0.85rem" }}>
+            A real field on the application form, not a custom question -- supports minor/parent-guardian info,
+            which needs a real date to check against a trip's own start date. A specific trip with "Collect
+            parent/guardian info" turned on (its own per-trip setting, on that trip's own detail page -- not
+            here, since not every trip at the same church has minors) always collects and requires this,
+            regardless of these two church-wide defaults.
+          </p>
+
           <h3 style={{ marginTop: "1.5rem" }}>Applicant mailing address</h3>
           <div className="admin-checkbox-row">
             <label>
@@ -337,6 +375,18 @@ export default function AdminSettingsTrips() {
           <RequirementTemplateEditor
             items={form.tripRequirementTemplate || []}
             onChange={(items) => update("tripRequirementTemplate", items)}
+          />
+
+          <h3 style={{ marginTop: "1.5rem" }}>Saved requirements</h3>
+          <p style={{ color: "#888", fontSize: "0.85rem" }}>
+            A reusable library, <strong>not added to any trip automatically</strong> -- pick from it on a
+            specific trip's own Requirements section when that trip actually needs it (e.g. a minor travel
+            release form, only for a trip that actually has minors on it). Unlike "Trip requirements" above,
+            nothing here is ever added anywhere until an admin explicitly picks it on a specific trip.
+          </p>
+          <RequirementTemplateEditor
+            items={form.tripRequirementLibrary || []}
+            onChange={(items) => update("tripRequirementLibrary", items)}
           />
         </div>
 

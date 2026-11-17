@@ -39,6 +39,8 @@ async function getSettings() {
       collectDonorContactInfo: true,
       collectApplicantAddress: true,
       collectEmergencyContact: true,
+      collectDateOfBirth: true,
+      requireDateOfBirth: true,
       allowPublicSupportRaisingLinks: true,
       allowPrivateApplicationLinks: true,
       tripApplicationTemplate: true,
@@ -83,6 +85,15 @@ function shapeTripForApplicant(trip, settings) {
     // Same, for the structured emergency-contact block -- see
     // ChurchSettings.collectEmergencyContact's own schema comment.
     collectEmergencyContact: settings?.collectEmergencyContact !== false,
+    // Forced on for this trip specifically when it collects parent/
+    // guardian info -- minor support can't function without a real date
+    // of birth on file, regardless of the church-wide default. See
+    // ChurchSettings.collectDateOfBirth's own schema comment.
+    collectDateOfBirth: settings?.collectDateOfBirth !== false || !!trip.collectParentGuardianInfo,
+    requireDateOfBirth: !!settings?.requireDateOfBirth || !!trip.collectParentGuardianInfo,
+    // Per-trip, not church-wide -- see Trip.collectParentGuardianInfo's
+    // own schema comment.
+    collectParentGuardianInfo: !!trip.collectParentGuardianInfo,
   };
 }
 
@@ -165,6 +176,7 @@ router.get("/:id", requireFeature("trips"), async (req, res, next) => {
         status: true,
         isPublic: true,
         applicationQuestions: true,
+        collectParentGuardianInfo: true,
         ...tripPartnerSelect,
       },
     });
@@ -198,6 +210,7 @@ router.get("/by-token/:token", requireFeature("trips"), async (req, res, next) =
         endDate: true,
         status: true,
         applicationQuestions: true,
+        collectParentGuardianInfo: true,
         ...tripPartnerSelect,
       },
     });
@@ -233,14 +246,33 @@ const applicationSchema = z.object({
   emergencyContactName: z.string().optional().nullable(),
   emergencyContactPhone: z.string().optional().nullable(),
   emergencyContactEmail: z.string().optional().nullable(),
+  // Real structured field, not a template question -- see
+  // ChurchSettings.collectDateOfBirth's own schema comment for why.
+  dateOfBirth: z.coerce.date().optional().nullable(),
+  // Only meaningful when this trip's own collectParentGuardianInfo is
+  // on, but accepted regardless (same looseness as every other optional
+  // field on this schema).
+  parentGuardianName: z.string().optional().nullable(),
+  parentGuardianRelationship: z.string().optional().nullable(),
+  parentGuardianPhone: z.string().optional().nullable(),
+  parentGuardianEmail: z.string().optional().nullable(),
   // A checkboxes-type question answers with a string array (every option
   // checked); every other type answers with a plain string -- see
   // utils/applicationQuestions.js's QUESTION_TYPES.
   responses: z.record(z.string(), z.union([z.string(), z.array(z.string())])).optional(),
 });
 
-async function createApplication(trip, body, res) {
+async function createApplication(trip, settings, body, res) {
   const data = applicationSchema.parse(body);
+  // The one field on this whole form that's ever actually enforced
+  // server-side, not just shown-or-not -- see
+  // ChurchSettings.requireDateOfBirth's own schema comment for why date
+  // of birth specifically earns real enforcement where address/
+  // emergency contact deliberately don't.
+  const dobRequired = !!settings?.requireDateOfBirth || !!trip.collectParentGuardianInfo;
+  if (dobRequired && !data.dateOfBirth) {
+    return res.status(400).json({ error: "Date of birth is required to apply for this trip." });
+  }
   await prisma.tripApplication.create({
     data: {
       tripId: trip.id,
@@ -254,6 +286,11 @@ async function createApplication(trip, body, res) {
       stateProvinceRegion: data.stateProvinceRegion || null,
       postalCode: data.postalCode || null,
       country: data.country || null,
+      dateOfBirth: data.dateOfBirth || null,
+      parentGuardianName: data.parentGuardianName || null,
+      parentGuardianRelationship: data.parentGuardianRelationship || null,
+      parentGuardianPhone: data.parentGuardianPhone || null,
+      parentGuardianEmail: data.parentGuardianEmail || null,
       emergencyContactName: data.emergencyContactName || null,
       emergencyContactPhone: data.emergencyContactPhone || null,
       emergencyContactEmail: data.emergencyContactEmail || null,
@@ -271,13 +308,19 @@ router.post("/:id/apply", requireFeature("trips"), async (req, res, next) => {
 
     const trip = await prisma.trip.findUnique({
       where: { id: req.params.id },
-      select: { id: true, status: true, isPublic: true, partner: { select: { isRestricted: true } } },
+      select: {
+        id: true,
+        status: true,
+        isPublic: true,
+        collectParentGuardianInfo: true,
+        partner: { select: { isRestricted: true } },
+      },
     });
     if (!trip || trip.partner?.isRestricted) return res.status(404).json({ error: "Not found" });
     if (!publiclyDiscoverable || !trip.isPublic || trip.status !== "accepting_applications") {
       return res.status(404).json({ error: "Not found" });
     }
-    await createApplication(trip, req.body, res);
+    await createApplication(trip, settings, req.body, res);
   } catch (err) {
     next(err);
   }
@@ -293,12 +336,12 @@ router.post("/by-token/:token/apply", requireFeature("trips"), async (req, res, 
 
     const trip = await prisma.trip.findUnique({
       where: { applicationShareToken: req.params.token },
-      select: { id: true, status: true },
+      select: { id: true, status: true, collectParentGuardianInfo: true },
     });
     if (!trip || trip.status !== "accepting_applications") {
       return res.status(404).json({ error: "Not found" });
     }
-    await createApplication(trip, req.body, res);
+    await createApplication(trip, settings, req.body, res);
   } catch (err) {
     next(err);
   }
@@ -472,6 +515,10 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
 const signSchema = z.object({
   token: z.string(),
   signerName: z.string().min(1),
+  // "self" | "parent/guardian" -- recordkeeping only, see
+  // TripDocument.signerRelationship's own schema comment for why this
+  // is never verified against anything.
+  signerRelationship: z.string().optional().nullable(),
   // Base64 data URL from the self-service page's canvas, e.g.
   // "data:image/png;base64,...." -- optional, since a participant may
   // choose to just type their name instead of drawing. Stripped to raw
@@ -487,7 +534,7 @@ const signSchema = z.object({
 // other self-service view.
 router.post("/participants/sign/:requirementId", requireFeature("trips"), async (req, res, next) => {
   try {
-    const { token, signerName, signatureImage } = signSchema.parse(req.body);
+    const { token, signerName, signerRelationship, signatureImage } = signSchema.parse(req.body);
 
     const payload = verifyTripParticipantAccessToken(token);
     if (!payload) return res.status(401).json({ error: "Invalid or expired link" });
@@ -558,6 +605,7 @@ router.post("/participants/sign/:requirementId", requireFeature("trips"), async 
         fileName: `${requirement.label.replace(/[^a-z0-9]+/gi, "-")}.pdf`,
         contentType: "application/pdf",
         signerName,
+        signerRelationship: signerRelationship || null,
         signatureImage: signatureImageBuffer,
         attestedAt,
         ip,

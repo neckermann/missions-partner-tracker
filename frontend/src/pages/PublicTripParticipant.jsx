@@ -50,11 +50,16 @@ export default function PublicTripParticipant() {
     reload();
   }, [reload]);
 
-  async function handleSign(requirementId, { signerName, signatureImage }) {
+  async function handleSign(requirementId, { signerName, signerRelationship, signatureImage }) {
     setSubmittingSignature(true);
     setSigningError("");
     try {
-      await signTripRequirement(requirementId, { token: accessToken, signerName, signatureImage });
+      await signTripRequirement(requirementId, {
+        token: accessToken,
+        signerName,
+        signerRelationship,
+        signatureImage,
+      });
       setSigningId(null);
       reload();
     } catch (err) {

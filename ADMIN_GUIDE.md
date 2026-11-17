@@ -947,7 +947,12 @@ to fill in for a repeat.
 
 **On a trip's own detail page** (below the basic setup fields — name,
 status, dates, team size, support-raising goal, description, the
-"Visible on public discovery page" toggle):
+"Visible on public discovery page" toggle, and **Collect parent/
+guardian info** — turn this on for a specific trip that may have minors
+on it; it adds date-of-birth and parent/guardian name/relationship/
+phone/email to that trip's own application form and requires date of
+birth to apply, regardless of the church-wide date-of-birth defaults on
+Trips Settings):
 
 ![A full recruiting trip's detail page -- setup, flight itinerary, team, requirements, meetings, budget, contributions, applications, and the private link/question editor](docs/assets/screenshots/admin-trip-detail.png)
 
@@ -977,12 +982,20 @@ status, dates, team size, support-raising goal, description, the
   to upload, a plain **task** an admin checks off (e.g. "Attended
   orientation call"), or an **e-signature** — agreement text you write
   once, which the participant signs (typed name + a drawn signature)
-  from their own self-service page. Give any requirement a due date to
+  from their own self-service page, choosing whether they're signing
+  for themselves or as a parent/guardian (recordkeeping only — nothing
+  stops a parent from using a minor's own link, same as this app has
+  never verified any signer's identity). Give any requirement a due date to
   see it flagged once overdue, and a reminder lead time to have anyone
   who hasn't fulfilled it emailed automatically before it's due. A new
   actively-recruiting trip starts with whatever requirement list is
   configured on the Trips Settings page (see below); editing that
-  template afterward only affects trips created later.
+  template afterward only affects trips created later. **Add from your
+  saved requirements** (shown whenever the library isn't empty) picks a
+  reusable requirement — e.g. a minor travel release form — onto this
+  one trip specifically, instead of retyping it; unlike the
+  auto-copied template, nothing from the library is ever added to a
+  trip until you explicitly pick it there.
 - **Meetings** — schedule a date/time and location; participants get a
   reminder email the day before.
 - **Budget** (only shown when **Track a planned budget per trip** is on
@@ -996,8 +1009,9 @@ status, dates, team size, support-raising goal, description, the
   when **Collect donor email/phone when logging a contribution** is on
   in Trips Settings.
 - **Applications awaiting review** — **Approve** or **Decline** each
-  one, with each applicant's full answers (including mailing address
-  and emergency contact, when those are collected) expandable inline.
+  one, with each applicant's full answers (including mailing address,
+  emergency contact, and date of birth/parent-guardian info, when
+  those are collected) expandable inline.
   A declined application isn't gone — **Show declined** reveals it
   again, with a **Reconsider** action to move it back to pending.
 - **Private application link** — a dedicated **Generate** button
@@ -1124,17 +1138,25 @@ for this feature, grouped by when in a trip's life it applies:
 - **Application form** — the **Application template**: questions
   asked on every trip's application, before that trip's own questions
   (edited with the same four-question-type editor as a trip's own
-  questions); whether to **Collect applicant mailing address** and
-  **Collect applicant emergency contact info** (each adds its own
-  structured block to the public application form, or removes it
-  entirely when off); and **Saved questions** — a reusable library,
-  never itself shown to anyone, that both the church-wide template and
-  any trip's own questions can pull from with one click instead of
-  retyping a commonly-used question.
+  questions); whether to **Collect applicant mailing address**,
+  **Collect applicant emergency contact info**, and **Collect
+  applicant date of birth** (each adds its own structured block to the
+  public application form, or removes it entirely when off — date of
+  birth also has a separate **Require it to submit an application**
+  toggle, since unlike address/emergency contact it supports real
+  minor/parent-guardian detection); and **Saved questions** — a
+  reusable library, never itself shown to anyone, that both the
+  church-wide template and any trip's own questions can pull from with
+  one click instead of retyping a commonly-used question.
 - **Trip requirements** — a template list, automatically copied onto
   every newly-created, actively-recruiting trip. Editing it later only
   affects trips created afterward, never an already-created trip's own
-  copy.
+  copy. **Saved requirements**, just below it, is the requirement
+  library's equivalent of Saved questions above — never auto-added to
+  any trip; picked onto a specific trip's own Requirements section (see
+  above) only when that trip actually needs it. Ships with one entry
+  by default, a Minor Travel Release &amp; Consent Form, ready to pick
+  onto any trip that turns on **Collect parent/guardian info**.
 - **Access & links** — **Allow staff to generate private application
   links** and **Allow participants to have public support-raising
   pages**, covered above.

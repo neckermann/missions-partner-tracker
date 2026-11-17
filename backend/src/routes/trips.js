@@ -42,6 +42,13 @@ const participantSchema = z.object({
   // participant-creation route below defaults it to the trip's own
   // supportRaisingGoal at that moment (see defaultParticipantGoal).
   supportRaisingGoal: z.coerce.number().int().optional().nullable(),
+  // Only meaningful when the trip's own collectParentGuardianInfo is on
+  // -- see Trip.collectParentGuardianInfo's own schema comment.
+  dateOfBirth: z.coerce.date().optional().nullable(),
+  parentGuardianName: z.string().optional().nullable(),
+  parentGuardianRelationship: z.string().optional().nullable(),
+  parentGuardianPhone: z.string().optional().nullable(),
+  parentGuardianEmail: z.string().optional().nullable(),
 });
 
 // A participant's own supportRaisingGoal is a plain, independently
@@ -68,6 +75,7 @@ const tripSchema = z.object({
   teamSizeMax: z.coerce.number().int().optional().nullable(),
   supportRaisingGoal: z.coerce.number().int().optional().nullable(),
   isPublic: z.boolean().optional(),
+  collectParentGuardianInfo: z.boolean().optional(),
   applicationQuestions: APPLICATION_QUESTION_SCHEMA.optional().nullable(),
   albumProvider: z.enum(["google_photos", "icloud", "other"]).optional().nullable(),
   albumUrl: z.string().optional().nullable(),
@@ -379,6 +387,7 @@ router.post("/:id/clone", requireRole("admin", "editor"), async (req, res, next)
         description: source.description,
         supportRaisingGoal: source.supportRaisingGoal,
         applicationQuestions: source.applicationQuestions,
+        collectParentGuardianInfo: source.collectParentGuardianInfo,
         status: "planning",
         // label/kind/bodyText/reminderLeadDays copy forward (a repeat
         // trip almost always wants the same checklist, including the
@@ -690,6 +699,11 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
             emergencyContactName: application.emergencyContactName,
             emergencyContactPhone: application.emergencyContactPhone,
             emergencyContactEmail: application.emergencyContactEmail,
+            dateOfBirth: application.dateOfBirth,
+            parentGuardianName: application.parentGuardianName,
+            parentGuardianRelationship: application.parentGuardianRelationship,
+            parentGuardianPhone: application.parentGuardianPhone,
+            parentGuardianEmail: application.parentGuardianEmail,
             // Defaulted to the trip's own goal -- same reasoning as the
             // direct-add route (defaultParticipantGoal), just inlined
             // since there's no per-participant override to weigh against
@@ -864,6 +878,13 @@ const adminParticipantUpdateSchema = z.object({
   emergencyContactName: z.string().optional().nullable(),
   emergencyContactPhone: z.string().optional().nullable(),
   emergencyContactEmail: z.string().optional().nullable(),
+  // Same treatment, only meaningful when the trip's own
+  // collectParentGuardianInfo is on.
+  dateOfBirth: z.coerce.date().optional().nullable(),
+  parentGuardianName: z.string().optional().nullable(),
+  parentGuardianRelationship: z.string().optional().nullable(),
+  parentGuardianPhone: z.string().optional().nullable(),
+  parentGuardianEmail: z.string().optional().nullable(),
   story: z.string().optional().nullable(),
   photo: z.string().optional().nullable(),
   photoContentType: z.string().optional().nullable(),

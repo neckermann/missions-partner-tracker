@@ -767,12 +767,15 @@ const tripsSettingsSelect = {
   collectDonorContactInfo: true,
   collectApplicantAddress: true,
   collectEmergencyContact: true,
+  collectDateOfBirth: true,
+  requireDateOfBirth: true,
   allowPrivateApplicationLinks: true,
   allowPublicSupportRaisingLinks: true,
   enableTripBudgeting: true,
   tripApplicationTemplate: true,
   tripQuestionLibrary: true,
   tripRequirementTemplate: true,
+  tripRequirementLibrary: true,
 };
 
 const tripsSettingsSchema = z.object({
@@ -781,6 +784,8 @@ const tripsSettingsSchema = z.object({
   collectDonorContactInfo: z.boolean().optional(),
   collectApplicantAddress: z.boolean().optional(),
   collectEmergencyContact: z.boolean().optional(),
+  collectDateOfBirth: z.boolean().optional(),
+  requireDateOfBirth: z.boolean().optional(),
   allowPrivateApplicationLinks: z.boolean().optional(),
   allowPublicSupportRaisingLinks: z.boolean().optional(),
   enableTripBudgeting: z.boolean().optional(),
@@ -793,7 +798,11 @@ const tripsSettingsSchema = z.object({
   tripQuestionLibrary: APPLICATION_QUESTION_SCHEMA.optional().nullable(),
   // Same shared shape as Trip's own requirements, see
   // utils/applicationQuestions.js's REQUIREMENT_TEMPLATE_SCHEMA.
+  // tripRequirementTemplate auto-copies onto every trip;
+  // tripRequirementLibrary is the per-trip-picked equivalent of
+  // tripQuestionLibrary above, never auto-copied anywhere.
   tripRequirementTemplate: REQUIREMENT_TEMPLATE_SCHEMA.optional().nullable(),
+  tripRequirementLibrary: REQUIREMENT_TEMPLATE_SCHEMA.optional().nullable(),
 });
 
 router.get("/trips", requireFeature("trips"), async (req, res, next) => {
@@ -809,12 +818,15 @@ router.get("/trips", requireFeature("trips"), async (req, res, next) => {
         collectDonorContactInfo: false,
         collectApplicantAddress: true,
         collectEmergencyContact: true,
+        collectDateOfBirth: true,
+        requireDateOfBirth: false,
         allowPrivateApplicationLinks: false,
         allowPublicSupportRaisingLinks: false,
         enableTripBudgeting: false,
         tripApplicationTemplate: [],
         tripQuestionLibrary: [],
         tripRequirementTemplate: [],
+        tripRequirementLibrary: [],
       }
     );
   } catch (err) {
