@@ -2470,6 +2470,13 @@ async function seedTripsDemo() {
       // trip's own DOB enforcement would never actually get exercised
       // by a demo visitor just clicking around.
       requireDateOfBirth: true,
+      // Both default off (schema default) -- left off, a demo visitor
+      // would never see a private application link or a participant's
+      // public support-raising page generated anywhere, even though
+      // this file already seeds the data (shareToken, private links)
+      // those two features show off.
+      allowPrivateApplicationLinks: true,
+      allowPublicSupportRaisingLinks: true,
       // On for the demo specifically (schema default is off) -- a
       // visitor exploring the demo should see the Budget section
       // working, not have to find and flip the toggle first.
