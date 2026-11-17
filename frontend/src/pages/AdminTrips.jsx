@@ -435,7 +435,7 @@ export default function AdminTrips() {
             </select>
           </label>
           <label>
-            Min Team Roster
+            Min Team Size
             <input
               type="number"
               min="0"
@@ -444,7 +444,7 @@ export default function AdminTrips() {
             />
           </label>
           <label>
-            Max Team Roster
+            Max Team Size
             <input
               type="number"
               min="0"
@@ -487,7 +487,7 @@ export default function AdminTrips() {
             <th>Trip Type</th>
             <th>Dates</th>
             <th>Days Until Departure</th>
-            <th>Team Roster</th>
+            <th>Team Size</th>
             <th>Raised</th>
             <th>Leader(s)</th>
             <th>Description</th>

@@ -706,7 +706,7 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
           : "";
         await sendParticipantEmail(
           updated.participant,
-          `You're on the roster: ${application.trip.name || application.trip.type || "your trip"}`,
+          `You're on the team: ${application.trip.name || application.trip.type || "your trip"}`,
           `You've been approved for the trip -- attached is a calendar invite for the trip dates.\n\nYour trip page: ${accessUrl}${supportRaisingLine}`,
           {
             attachments: [
@@ -758,7 +758,7 @@ router.post("/:id/participants", requireRole("admin", "editor"), async (req, res
           : "";
         await sendParticipantEmail(
           participant,
-          `You're on the roster: ${trip.name || trip.type || "your trip"}`,
+          `You're on the team: ${trip.name || trip.type || "your trip"}`,
           `Attached is a calendar invite for the trip dates.\n\nYour trip page: ${accessUrl}${supportRaisingLine}`,
           {
             attachments: [

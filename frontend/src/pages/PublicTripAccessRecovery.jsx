@@ -30,7 +30,7 @@ export default function PublicTripAccessRecovery() {
       <DemoBanner />
       <div className="admin-shell" style={{ maxWidth: 480 }}>
         <p style={{ color: "#555" }}>
-          Enter the email address you used when you applied or were added to a trip roster, and we'll send a
+          Enter the email address you used when you applied or were added to a trip's team, and we'll send a
           fresh link.
         </p>
         {message ? (

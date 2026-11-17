@@ -932,7 +932,7 @@ into its own fuller detail page — this list isn't where an active
 trip's applications, roster, or documents get managed. **Trip
 Planning** (`/admin/trips/planning`) answers a different question —
 which partner to plan the *next* trip to — blending an **Open** row
-(already recruiting), a **Committed** row (roster finalized, hasn't
+(already recruiting), a **Committed** row (team finalized, hasn't
 happened), and a **No trip scheduled** row (just that partner's own
 general trip capacity) so a partner never falls off the list just
 because nothing's on the calendar yet. Each row also shows that

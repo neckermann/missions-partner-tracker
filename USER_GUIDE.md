@@ -481,7 +481,7 @@ different question:
 - **Trip Planning** answers a different question — which partner to
   plan the *next* trip to — blending three kinds of row per partner so
   nobody falls off the list just because nothing's on the calendar yet:
-  an **Open** row (already recruiting), a **Committed** row (roster
+  an **Open** row (already recruiting), a **Committed** row (team
   finalized, hasn't happened), or a **No trip scheduled** row (just
   that partner's own general trip capacity from their Trip Capacity
   fields). Each row also shows that partner's past trip count, and a

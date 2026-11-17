@@ -8,7 +8,7 @@ import React from "react";
 export const STATUS_LABELS = {
   planning: "Planning",
   accepting_applications: "Accepting applications",
-  closed: "Closed (roster set)",
+  closed: "Closed (team set)",
   completed: "Completed",
 };
 const STATUS_COLORS = {
