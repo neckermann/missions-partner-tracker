@@ -1408,6 +1408,9 @@ async function seedTripsDemo() {
       supportRaisingGoal: 1200,
       shareToken: generateShareToken(),
       story: "I'm excited to serve this summer and would love your support!",
+      // Two contributions, two different methods -- a single-row list
+      // doesn't actually show it's a list, and "check" was previously the
+      // only TripContribution.method value anywhere in this seed.
       contributions: {
         create: [
           {
@@ -1416,6 +1419,13 @@ async function seedTripsDemo() {
             amount: 200,
             method: "check",
             receivedDate: dateBetween(0, 0),
+          },
+          {
+            trip: { connect: { id: openTrip.id } },
+            donorName: "Grandparents",
+            amount: 150,
+            method: "cash",
+            receivedDate: dateBetween(1, 0),
           },
         ],
       },
@@ -1500,7 +1510,7 @@ async function seedTripsDemo() {
       },
     },
   });
-  await prisma.tripParticipant.create({
+  const amara = await prisma.tripParticipant.create({
     data: {
       tripId: openTrip.id,
       applicationId: amaraApplication.id,
@@ -1519,13 +1529,28 @@ async function seedTripsDemo() {
       emergencyContactPhone: amaraApplication.emergencyContactPhone,
       emergencyContactEmail: amaraApplication.emergencyContactEmail,
       supportRaisingGoal: 1200,
+      // Some progress, but well short of the goal -- a third distinct
+      // raised/goal state alongside Priya's (well-funded) and John's
+      // ($0, no shareToken at all).
+      contributions: {
+        create: [
+          {
+            trip: { connect: { id: openTrip.id } },
+            donorName: "Coworker",
+            amount: 75,
+            method: "other",
+            receivedDate: dateBetween(0, 0),
+          },
+        ],
+      },
     },
   });
 
   // Fulfillment split across the three requirement kinds -- Priya
-  // completes/signs/uploads everything, John does none of it, so both
-  // the "done" and "still needed" states are visible on the same trip
-  // instead of only ever showing one.
+  // completes/signs/uploads everything, John does none of it, Amara (below)
+  // does exactly one of the three, so "all done," "none done," and
+  // "partially done" are all visible on the same trip instead of only ever
+  // showing the two extremes.
   const [esigReq, docReq, taskReq] = await Promise.all([
     prisma.tripRequirement.findFirst({ where: { tripId: openTrip.id, kind: "esignature" } }),
     prisma.tripRequirement.findFirst({ where: { tripId: openTrip.id, kind: "document" } }),
@@ -1535,6 +1560,9 @@ async function seedTripsDemo() {
   if (taskReq) {
     await prisma.tripRequirementStatus.create({
       data: { requirementId: taskReq.id, participantId: priya.id, completedAt: dateBetween(10, 5) },
+    });
+    await prisma.tripRequirementStatus.create({
+      data: { requirementId: taskReq.id, participantId: amara.id, completedAt: dateBetween(2, 1) },
     });
   }
 
@@ -1604,6 +1632,58 @@ async function seedTripsDemo() {
     }
   }
 
+  // A trip-wide document (participantId: null) -- every TripDocument
+  // seeded above was participant-specific; nothing demonstrated the
+  // shared-with-the-whole-team case (itinerary, packing list) at all.
+  const itineraryPdf = buildFakePdf(
+    "Team Itinerary & Packing List",
+    "Seed placeholder -- not a real itinerary."
+  );
+  await prisma.tripDocument.create({
+    data: {
+      tripId: openTrip.id,
+      participantId: null,
+      title: "Team itinerary & packing list",
+      bytes: itineraryPdf,
+      fileName: "team-itinerary.pdf",
+      contentType: "application/pdf",
+    },
+  });
+
+  // Meetings -- a completely unrepresented model otherwise. One already
+  // past with its day-before reminder stamped (reminderSentAt), one still
+  // upcoming with no reminder sent yet -- both states the reminder cron
+  // actually needs to distinguish between. Plain day-level Date arithmetic
+  // here, not dateBetween (that helper works in years, meant for
+  // long-past historical content -- not what a meeting a few weeks out
+  // needs).
+  const pastMeetingStart = new Date();
+  pastMeetingStart.setDate(pastMeetingStart.getDate() - 14);
+  pastMeetingStart.setHours(19, 0, 0, 0);
+  const pastMeetingReminderSentAt = new Date(pastMeetingStart);
+  pastMeetingReminderSentAt.setDate(pastMeetingReminderSentAt.getDate() - 1);
+  await prisma.tripMeeting.create({
+    data: {
+      tripId: openTrip.id,
+      startAt: pastMeetingStart,
+      location: "Zoom",
+      notes: "Pre-field training -- cultural orientation and safety briefing.",
+      reminderSentAt: pastMeetingReminderSentAt,
+    },
+  });
+
+  const upcomingMeetingStart = new Date();
+  upcomingMeetingStart.setDate(upcomingMeetingStart.getDate() + 21);
+  upcomingMeetingStart.setHours(19, 0, 0, 0);
+  await prisma.tripMeeting.create({
+    data: {
+      tripId: openTrip.id,
+      startAt: upcomingMeetingStart,
+      location: "Church fellowship hall",
+      notes: "Team orientation call -- logistics overview, Q&A, meet the rest of the team.",
+    },
+  });
+
   await prisma.trip.create({
     data: {
       partnerId: closedPartner.id,
@@ -1642,7 +1722,7 @@ async function seedTripsDemo() {
   }
 
   if (restrictedPartner) {
-    await prisma.trip.create({
+    const restrictedTrip = await prisma.trip.create({
       data: {
         partnerId: restrictedPartner.id,
         name: "Trip to a sensitive-access field",
@@ -1655,6 +1735,52 @@ async function seedTripsDemo() {
         teamSizeMax: 6,
         supportRaisingGoal: 1200,
         applicationQuestions: [{ id: "q1", label: "Do you have a valid passport?", required: true }],
+        requirements: {
+          create: [{ label: "Signed Confidentiality Agreement", kind: "esignature", bodyText: LIABILITY_RELEASE_TEXT }],
+        },
+      },
+    });
+
+    // Zero participants/applications here otherwise -- the masked (not
+    // excluded) private-link/support-raising code paths this trip's
+    // isPublic: false + restricted partner exist to exercise had nothing
+    // real to click through. Approved via a real application, same
+    // field-copy shape as the open trip's Amara.
+    const restrictedApplication = await prisma.tripApplication.create({
+      data: {
+        tripId: restrictedTrip.id,
+        firstName: "Hannah",
+        lastName: "Weiss",
+        email: "hannah.weiss@example.org",
+        phone: "555-0184",
+        status: "approved",
+        reviewedAt: dateBetween(1, 0),
+        reviewedById: admin?.id || null,
+        responses: { q1: "Yes" },
+      },
+    });
+    await prisma.tripParticipant.create({
+      data: {
+        tripId: restrictedTrip.id,
+        applicationId: restrictedApplication.id,
+        firstName: restrictedApplication.firstName,
+        lastName: restrictedApplication.lastName,
+        email: restrictedApplication.email,
+        phone: restrictedApplication.phone,
+        supportRaisingGoal: restrictedTrip.supportRaisingGoal,
+        shareToken: generateShareToken(),
+        story: "Grateful for your support as I prepare for this trip!",
+        contributions: {
+          create: [
+            {
+              trip: { connect: { id: restrictedTrip.id } },
+              donorName: "Aunt",
+              amount: 100,
+              method: "check",
+              receivedDate: dateBetween(0, 0),
+            },
+          ],
+        },
       },
     });
   }
