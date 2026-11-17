@@ -77,7 +77,6 @@ email sending only),
 [**One-Time Needs**](#financial-support--one-time-needs),
 [**Prayer Requests**](#prayer-requests),
 [**Trips**](#trips), [**Trip Planning**](#trips),
-[**Trips Dashboard**](#trips),
 [**Newsletters & Docs**](#newsletters--docs),
 [**Print Booklet**](#printable-partner-booklet), [**Reports**](#reports)
 — visible to everyone, each one only if its
@@ -458,8 +457,10 @@ historical log — off by default; turn it on in [Enabled
 Features](ADMIN_GUIDE.md#feature-toggles) (and, separately, **Public
 trip discovery** if you want trips listed publicly — see [ADMIN_GUIDE.md
 § Trips](ADMIN_GUIDE.md#trips) for exactly what each flag and each
-private-link setting gates). Four admin pages, each answering a
+private-link setting gates). Two admin pages, each answering a
 different question:
+
+![The Trips list](docs/assets/screenshots/trip-history.png)
 
 - **Trips** is the filterable log of every trip regardless of status —
   filter by type, year, team size. **+ Add Trip** logs one (pick the
@@ -470,9 +471,8 @@ different question:
   partner it's under — delete and re-add to move a trip to a different
   partner) and **Delete**. A trip that's still `planning`,
   `accepting_applications`, or `closed` instead shows its status as a
-  link into its own fuller **Trip Detail** page (below) — this list is
-  no longer where you manage an active trip's applications, roster, or
-  documents.
+  link into its own fuller detail page (below) — this list isn't where
+  an active trip's applications, roster, or documents get managed.
   - The **Album** link points to wherever you already host the trip's
     photos/videos — a Google Photos shared album, an iCloud Shared Album,
     or another provider you choose "Other" for. This app never stores the
@@ -484,46 +484,75 @@ different question:
   an **Open** row (already recruiting), a **Committed** row (roster
   finalized, hasn't happened), or a **No trip scheduled** row (just
   that partner's own general trip capacity from their Trip Capacity
-  fields). A restricted partner gets its own badge here too, name
-  withheld — see restricted-partner handling below.
-- **Trips Dashboard** is a read-only overview of every trip currently
-  planning, accepting applications, or closed, together, soonest-
-  departing first — useful when several overlap, instead of checking
-  each one's own page.
-- **Trip Detail** (reached from either of the above) is where an
-  actively-recruited trip's actual work happens — see below.
+  fields). Each row also shows that partner's past trip count, and a
+  **Clone trip** action to start a repeat from an existing trip's own
+  setup instead of typing it all again. A restricted partner gets its
+  own badge here too, name withheld — see restricted-partner handling
+  below.
+
+![Trip Planning](docs/assets/screenshots/trip-opportunities.png)
 
 **On a trip's own detail page**, beyond the basic setup fields (name,
-dates, team size, support-raising goal, description, visible-on-
-public-discovery toggle):
+dates, team size, description, visible-on-public-discovery toggle):
 
-- **Application questions** — add, edit, or remove the plain
-  label-plus-required-toggle questions shown, in order, on both the
-  public and private application form for this trip. Nothing's
-  hardcoded; a trip with none just shows the standard name/contact
-  fields.
+![A trip's full detail page](docs/assets/screenshots/admin-trip-detail.png)
+
+- **Support-raising goal** shows a suggested per-person figure once a
+  budget and a team size exist — always just a suggestion, never
+  forced.
+- **Flight itinerary** — once group travel is booked, enter each leg
+  (airline/flight number, departs, arrives); shown only on each
+  participant's own self-service page, never publicly.
+- **Confirmed Team** is who's on the team, with each person's
+  support-raising progress and a link to their own detail page for
+  everything else. **+ Add participant directly** adds someone without
+  an application.
+- **Requirements** — your own list of what's needed from each
+  participant, each either a **document** to upload, a plain **task**
+  to check off (e.g. "Attended orientation call"), or an
+  **e-signature** the participant signs from their own self-service
+  page. Fulfillment is tracked per person on **Completion by Team
+  Member**, computed from what's actually on file or signed rather
+  than a status anyone updates by hand.
+- **Meetings** — schedule a date/time and location; participants get a
+  day-before reminder email.
+- **Budget** (if turned on in Trips Settings) tracks estimated
+  whole-team costs against what's been raised — admin-only, never
+  shown to applicants or participants.
+- **Contributions** is the giving ledger — who gave, how much, to whom
+  it's credited.
+- **Applications awaiting review** — **Approve** or **Decline** each
+  one; a declined one can still be reconsidered later.
 - **Private application link** — a dedicated "Generate" button
   (appears only once **Allow staff to generate private application
   links** is on, under Site Administration → Trips Settings) creates a
   secret link you share directly — never listed anywhere, reachable
   even for a restricted partner's trip (masked, not blocked — see
   below). **Regenerate** immediately invalidates the old one.
-- **Document requirements** — your own list (e.g. "Signed Waiver",
-  "Passport Photo Page"), shown per participant in the roster as
-  fulfilled/missing, computed from what's actually on file rather than
-  a status anyone updates by hand.
-- **Roster** — each participant's support-raising progress (with
-  **Generate support-raising link**, gated the same way by **Allow
-  participants to have public support-raising pages**), **Resend
-  access link** for their own self-service page, **Request documents**
-  (sends an email — needs Inbound Email Address set first, see
-  [ADMIN_GUIDE.md § Trips](ADMIN_GUIDE.md#trips)), and **Log document**
-  — pick a file and, optionally, which requirement it fulfills, for
-  anything that arrives by mail, in person, or as a file you already
-  have (an email that arrives instead goes through [Unmatched
-  Emails](#receiving)'s own Trip participant assignment).
-- **Applications awaiting review** — **Approve** or **Decline** each
-  one.
+- **Application questions** — add, edit, reorder, or remove questions
+  specific to this trip, shown after the church-wide questions (set on
+  Trips Settings) on both the public and private application form.
+  Each is short text, long text, multiple choice, or checkboxes, with
+  its own required toggle.
+
+![A restricted partner's trip, with the masking warning](docs/assets/screenshots/admin-trip-restricted-warning.png)
+
+**A participant's own detail page** (click their name from Confirmed
+Team) is where their contact info gets corrected, their public
+support-raising page gets set up (photo, story), and their own
+requirement fulfillment and documents live. **Request documents**
+sends them an email asking for something specific.
+
+![A participant's own detail page](docs/assets/screenshots/admin-trip-participant-detail.png)
+
+**Site Administration → Trips Settings** holds everything church-wide
+— donation instructions, whether to track a per-trip budget, the
+application questions every trip shares plus a reusable saved-question
+library, whether to collect an applicant's mailing address/emergency
+contact, the default requirement checklist new trips start with, and
+the two private-link toggles above.
+
+![Trips Settings](docs/assets/screenshots/trips-settings.png)
 
 **Restricted-partner trips are never public, but aren't locked down to
 "admin only" either** — three different rules depending on the
@@ -537,12 +566,35 @@ here on the admin detail page, with an amber warning reminding you
 that the trip's own free-text name/description can still leak details
 masking can't catch — avoid naming the real location there.
 
-**What an applicant or participant sees, outside the admin UI**: the
-public Trip Opportunities page (if that flag is on) and the
-application form; a participant's own support-raising page; and, if
-they lose their self-service link, a **request a new link** page that
+**What an applicant or participant sees, outside the admin UI**:
+
+![The public Trip Opportunities page](docs/assets/screenshots/public-trip-opportunities.png)
+
+The public Trip Opportunities page (if that flag is on) lists what's
+open, with a "Coming soon" teaser for anything still in planning; the
+application form (below) renders whatever questions you've set up,
+nothing hardcoded.
+
+![The application form](docs/assets/screenshots/public-trip-application.png)
+
+Once confirmed, a participant's own public support-raising page shows
+their photo, story, progress toward their goal, and how to give —
+never their flight itinerary or anyone's contact info.
+
+![A participant's public support-raising page](docs/assets/screenshots/public-trip-support-raising.png)
+
+Their own private self-service page (reached from their emailed access
+link, not this public one) additionally shows the flight itinerary and
+donor details, lets them edit their own story/photo directly with no
+review step, and is where they sign an e-signature requirement.
+
+![A participant's self-service page](docs/assets/screenshots/public-trip-self-service.png)
+
+If they lose their self-service link, a **request a new link** page
 always replies the same way whether or not it found anything, so it
 can't be used to check whether someone has a trip record at all.
+
+![Lost-link recovery](docs/assets/screenshots/public-trip-access-recovery.png)
 
 ### Newsletters & Docs
 
