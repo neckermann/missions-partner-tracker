@@ -1266,6 +1266,23 @@ async function seedTripsDemo() {
       applicationQuestions: [
         { id: "q1", label: "Do you have any dietary restrictions?", required: false },
         { id: "q3", label: "Do you have a valid passport?", required: true },
+        // checkboxes (multi-select, array response) wasn't exercised
+        // anywhere in this seed otherwise -- every other question here or
+        // in the template/library is text/textarea/select/date.
+        {
+          id: "q4",
+          type: "checkboxes",
+          label: "Which skills could you contribute to this trip? (check all that apply)",
+          required: false,
+          options: [
+            "Construction",
+            "Medical/Nursing",
+            "Teaching/Children's ministry",
+            "Translation",
+            "Cooking/Hospitality",
+            "Worship/Music",
+          ],
+        },
       ],
       applications: {
         create: [
@@ -1298,6 +1315,7 @@ async function seedTripsDemo() {
               tmpl8: "Blue Cross Blue Shield, Policy #BC-48213",
               q1: "Vegetarian, no peanuts.",
               q3: "Yes",
+              q4: ["Construction", "Cooking/Hospitality"],
             },
           },
           // A declined application, with a real declinedReason -- the
@@ -1330,6 +1348,7 @@ async function seedTripsDemo() {
               tmpl8: "Aetna, Group #AE-90217",
               q1: "No restrictions.",
               q3: "No",
+              q4: ["Teaching/Children's ministry"],
             },
           },
         ],
@@ -1416,6 +1435,11 @@ async function seedTripsDemo() {
           {
             trip: { connect: { id: openTrip.id } },
             donorName: "Family friend",
+            // donorEmail/donorPhone -- only ever shown when
+            // ChurchSettings.collectDonorContactInfo is on (set below);
+            // nothing in this seed populated either column anywhere.
+            donorEmail: "friend.of.priya@example.org",
+            donorPhone: "555-0199",
             amount: 200,
             method: "check",
             receivedDate: dateBetween(0, 0),
@@ -1470,6 +1494,54 @@ async function seedTripsDemo() {
     console.warn("  Skipping John's seed photo:", err.message);
   }
 
+  // David -- this trip's own teamSizeMin is 4; Priya/John/Amara alone left
+  // it one short of its own stated minimum. Also a second photo example
+  // (previously only John had one) and a fourth distinct partial-profile
+  // shape: direct-added like John, but with a shareToken/story/photo/some
+  // support raised -- started their public page, never got their
+  // emergency contact on file. Completes the document requirement only
+  // (a passport upload), leaving the task and e-signature outstanding --
+  // a different partial-completion combination from Amara's (task-only).
+  const david = await prisma.tripParticipant.create({
+    data: {
+      trip: { connect: { id: openTrip.id } },
+      firstName: "David",
+      lastName: "Kim",
+      email: "david.kim@example.org",
+      phone: "555-0171",
+      role: "Logistics",
+      supportRaisingGoal: 1200,
+      shareToken: generateShareToken(),
+      story: "Second time serving on a short-term team -- looking forward to this one!",
+      contributions: {
+        create: [
+          {
+            trip: { connect: { id: openTrip.id } },
+            donorName: "Small group",
+            amount: 400,
+            method: "check",
+            receivedDate: dateBetween(0, 0),
+          },
+        ],
+      },
+    },
+  });
+  try {
+    const photoPools = await buildPhotoPools();
+    const photoUrl = photoPools && nextFromPool(photoPools.single_adult);
+    if (photoUrl) {
+      const photo = await downloadAndUploadPhoto(photoUrl);
+      if (photo) {
+        await prisma.tripParticipant.update({
+          where: { id: david.id },
+          data: { photo: photo.bytes, photoContentType: photo.contentType },
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("  Skipping David's seed photo:", err.message);
+  }
+
   // Amara -- the one participant on this trip who actually came through
   // the real application->approval path (Priya/John above were both
   // added directly, which is realistic but meant nothing ever
@@ -1507,6 +1579,7 @@ async function seedTripsDemo() {
         tmpl8: "UnitedHealthcare, Policy #UH-55820",
         q1: "Lactose intolerant.",
         q3: "Yes",
+        q4: ["Medical/Nursing"],
       },
     },
   });
@@ -1575,6 +1648,20 @@ async function seedTripsDemo() {
         requirementId: docReq.id,
         title: "Passport photo page",
         bytes: passportPdf,
+        fileName: "passport.pdf",
+        contentType: "application/pdf",
+      },
+    });
+    // David completes the document requirement only -- a different
+    // partial-completion combination from Amara's (task-only) above.
+    const davidPassportPdf = buildFakePdf("Passport Photo Page", "Seed placeholder -- not a real passport scan.");
+    await prisma.tripDocument.create({
+      data: {
+        tripId: openTrip.id,
+        participantId: david.id,
+        requirementId: docReq.id,
+        title: "Passport photo page",
+        bytes: davidPassportPdf,
         fileName: "passport.pdf",
         contentType: "application/pdf",
       },
@@ -1684,7 +1771,17 @@ async function seedTripsDemo() {
     },
   });
 
-  await prisma.trip.create({
+  // This second trip previously had nothing beyond its two bare
+  // participants -- no flights, budget, meeting, requirements, or
+  // signature anywhere outside the main open trip, which left every one
+  // of those look like a one-off special case rather than a feature that
+  // works on any trip. A different flavor throughout (domestic build trip,
+  // not an international connection), not a duplicate of the open trip.
+  const closedFlightDepart = new Date(closedStart);
+  closedFlightDepart.setHours(7, 0, 0, 0);
+  const closedFlightArrive = new Date(closedFlightDepart.getTime() + 2.5 * 60 * 60 * 1000);
+
+  const closedTrip = await prisma.trip.create({
     data: {
       partnerId: closedPartner.id,
       name: `${closedPartner.displayName.split(" ")[0]}'s Fall Build Team`,
@@ -1694,14 +1791,152 @@ async function seedTripsDemo() {
       startDate: closedStart,
       endDate: closedEnd,
       teamSizeMax: 6,
+      supportRaisingGoal: 900,
       participants: {
         create: [
-          { firstName: "Marcus", lastName: "Thibodeaux", isLeader: true, email: "marcus.t@example.org" },
+          {
+            firstName: "Marcus",
+            lastName: "Thibodeaux",
+            isLeader: true,
+            email: "marcus.t@example.org",
+            supportRaisingGoal: 900,
+            shareToken: generateShareToken(),
+            story: "Excited to lead this build team again this fall -- thank you for considering a gift!",
+          },
+          // Sarah -- the same contrast Priya/John already demonstrate on
+          // the open trip, shown again here so it reads as the normal
+          // range of participant states, not something only the open trip
+          // happens to show.
           { firstName: "Sarah", lastName: "Oyelaran", email: "sarah.o@example.org" },
         ],
       },
+      budgetLines: {
+        create: [
+          { label: "Building materials", estimatedAmount: 400 },
+          { label: "Tools rental", estimatedAmount: 120 },
+          { label: "Group lodging", estimatedAmount: 280 },
+          { label: "Fuel / van rental", estimatedAmount: 150 },
+        ],
+      },
+      flightSegments: {
+        create: [
+          {
+            airline: "Southwest",
+            flightNumber: "WN 2200",
+            departureAirport: "DAL",
+            departureAt: closedFlightDepart,
+            arrivalAirport: "MCI",
+            arrivalAt: closedFlightArrive,
+          },
+        ],
+      },
+      requirements: {
+        create: [
+          { label: "Signed Waiver", kind: "esignature", bodyText: LIABILITY_RELEASE_TEXT },
+          { label: "Background check cleared", kind: "task" },
+        ],
+      },
+    },
+    include: { participants: true, requirements: true },
+  });
+
+  const marcus = closedTrip.participants.find((p) => p.firstName === "Marcus");
+  const closedTaskReq = closedTrip.requirements.find((r) => r.kind === "task");
+  const closedEsigReq = closedTrip.requirements.find((r) => r.kind === "esignature");
+
+  await prisma.tripContribution.create({
+    data: {
+      tripId: closedTrip.id,
+      participantId: marcus.id,
+      donorName: "Sunday school class",
+      amount: 500,
+      method: "other",
+      receivedDate: dateBetween(0, 0),
     },
   });
+
+  if (closedTaskReq) {
+    await prisma.tripRequirementStatus.create({
+      data: { requirementId: closedTaskReq.id, participantId: marcus.id, completedAt: dateBetween(1, 0) },
+    });
+  }
+
+  if (closedEsigReq && closedEsigReq.bodyText) {
+    try {
+      const crypto = require("crypto");
+      const { buildSignedDocumentPdf } = require("../src/utils/pdfGeneration");
+      const documentText = closedEsigReq.bodyText;
+      const documentTextHash = crypto.createHash("sha256").update(documentText, "utf8").digest("hex");
+      const attestedAt = dateBetween(1, 0);
+      const pdfBytes = await buildSignedDocumentPdf({
+        requirementLabel: closedEsigReq.label,
+        tripLabel: closedTrip.name || closedTrip.type || "Trip",
+        participantName: `${marcus.firstName} ${marcus.lastName}`,
+        documentText,
+        signerName: `${marcus.firstName} ${marcus.lastName}`,
+        signatureImage: null,
+        attestedAt,
+        documentTextHash,
+        ip: "203.0.113.77",
+      });
+      const signedDoc = await prisma.tripDocument.create({
+        data: {
+          tripId: closedTrip.id,
+          participantId: marcus.id,
+          requirementId: closedEsigReq.id,
+          title: closedEsigReq.label,
+          bytes: pdfBytes,
+          fileName: "signed-waiver.pdf",
+          contentType: "application/pdf",
+        },
+      });
+      await prisma.tripSignature.create({
+        data: {
+          requirementId: closedEsigReq.id,
+          participantId: marcus.id,
+          tripDocumentId: signedDoc.id,
+          signerName: `${marcus.firstName} ${marcus.lastName}`,
+          attestedAt,
+          ip: "203.0.113.77",
+          documentTextSnapshot: documentText,
+          documentTextHash,
+        },
+      });
+    } catch (err) {
+      console.warn("  Skipping closed trip's seed e-signature (non-fatal):", err.message);
+    }
+  }
+
+  const closedMeetingStart = new Date();
+  closedMeetingStart.setDate(closedMeetingStart.getDate() - 7);
+  closedMeetingStart.setHours(18, 30, 0, 0);
+  await prisma.tripMeeting.create({
+    data: {
+      tripId: closedTrip.id,
+      startAt: closedMeetingStart,
+      location: "Church fellowship hall",
+      notes: "Final team meeting -- packing list review, travel logistics.",
+      reminderSentAt: new Date(closedMeetingStart.getTime() - 24 * 60 * 60 * 1000),
+    },
+  });
+
+  // Marcus's photo -- a third example, on a trip the open trip's own
+  // participants don't otherwise represent.
+  try {
+    const photoPools = await buildPhotoPools();
+    const photoUrl = photoPools && nextFromPool(photoPools.single_adult);
+    if (photoUrl) {
+      const photo = await downloadAndUploadPhoto(photoUrl);
+      if (photo) {
+        await prisma.tripParticipant.update({
+          where: { id: marcus.id },
+          data: { photo: photo.bytes, photoContentType: photo.contentType },
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("  Skipping Marcus's seed photo:", err.message);
+  }
 
   // A trip still in "planning" -- not yet accepting applications. Every
   // other seeded trip here was already either accepting applications,
@@ -1800,6 +2035,17 @@ async function seedTripsDemo() {
       // visitor exploring the demo should see the Budget section
       // working, not have to find and flip the toggle first.
       enableTripBudgeting: true,
+      // Same "on for the demo" reasoning -- without this, Priya's own
+      // seeded donorEmail/donorPhone above would never actually show
+      // anywhere, since the UI gates on this setting, not on whether the
+      // columns happen to be populated.
+      collectDonorContactInfo: true,
+      // Church-wide, not per-trip (see Trip.onlineGivingUrl's own schema
+      // comment) -- without these, every public Trip Opportunities card's
+      // "Donate" button has nothing to point at and never renders at all.
+      onlineGivingUrl: "https://give.example.org/missions",
+      onlineGivingInstructions:
+        "Choose \"Missions Trips\" as the fund, and include the team member's name in the memo/notes field so their support is credited correctly.",
       // tmpl5 added in a later round -- the user asked for more of what a
       // participant record collects, pointing at the same real example
       // application. Date of birth now uses the real "date" question type
