@@ -319,7 +319,8 @@ export default function AdminTrips() {
       </div>
       <p style={{ color: "#555" }}>
         Every trip regardless of status. A quick historical backfill is managed right here; an
-        actively-recruited trip's roster, applications, meetings, and support raising live on its own detail page.
+        actively-recruited trip's roster, applications, meetings, and support raising live on its own detail
+        page.
       </p>
 
       {showAddForm && (

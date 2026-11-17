@@ -79,7 +79,15 @@ function OptionsField({ defaultValue, value, onChange, onBlur }) {
   );
 }
 
-export default function ApplicationQuestionsEditor({ questions, onAdd, onUpdate, onRemove, onReorder, library, onAddFromLibrary }) {
+export default function ApplicationQuestionsEditor({
+  questions,
+  onAdd,
+  onUpdate,
+  onRemove,
+  onReorder,
+  library,
+  onAddFromLibrary,
+}) {
   const [draft, setDraft] = useState({ label: "", required: false, type: "text", optionsText: "" });
   const [libraryPick, setLibraryPick] = useState("");
 
@@ -119,7 +127,12 @@ export default function ApplicationQuestionsEditor({ questions, onAdd, onUpdate,
           return (
             <li
               key={q.id}
-              style={{ border: "1px solid #e1dfdb", borderRadius: 6, padding: "0.7rem 0.8rem", marginBottom: "0.6rem" }}
+              style={{
+                border: "1px solid #e1dfdb",
+                borderRadius: 6,
+                padding: "0.7rem 0.8rem",
+                marginBottom: "0.6rem",
+              }}
             >
               <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
                 <span style={{ color: "#888", fontSize: "0.85rem", fontWeight: 600, paddingTop: "1.6rem" }}>
@@ -130,7 +143,11 @@ export default function ApplicationQuestionsEditor({ questions, onAdd, onUpdate,
                   <input
                     style={{ width: "100%", marginTop: "0.2rem" }}
                     defaultValue={q.label}
-                    onBlur={(e) => e.target.value.trim() && e.target.value !== q.label && onUpdate(q.id, { label: e.target.value.trim() })}
+                    onBlur={(e) =>
+                      e.target.value.trim() &&
+                      e.target.value !== q.label &&
+                      onUpdate(q.id, { label: e.target.value.trim() })
+                    }
                   />
                 </label>
                 {onReorder && (
@@ -171,7 +188,15 @@ export default function ApplicationQuestionsEditor({ questions, onAdd, onUpdate,
                 </button>
               </div>
 
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", marginTop: "0.6rem", paddingLeft: "1.4rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "1rem",
+                  marginTop: "0.6rem",
+                  paddingLeft: "1.4rem",
+                }}
+              >
                 <label style={{ fontWeight: 400, fontSize: "0.85rem" }}>
                   Question type
                   <select
@@ -191,8 +216,21 @@ export default function ApplicationQuestionsEditor({ questions, onAdd, onUpdate,
                     ))}
                   </select>
                 </label>
-                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 400, fontSize: "0.85rem", marginTop: "1.3rem" }}>
-                  <input type="checkbox" checked={!!q.required} onChange={(e) => onUpdate(q.id, { required: e.target.checked })} />
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    fontWeight: 400,
+                    fontSize: "0.85rem",
+                    marginTop: "1.3rem",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!q.required}
+                    onChange={(e) => onUpdate(q.id, { required: e.target.checked })}
+                  />
                   Required -- applicant must answer before submitting
                 </label>
               </div>
@@ -230,7 +268,12 @@ export default function ApplicationQuestionsEditor({ questions, onAdd, onUpdate,
                 </option>
               ))}
             </select>
-            <button type="button" className="btn secondary small" onClick={handleAddFromLibrary} disabled={!libraryPick}>
+            <button
+              type="button"
+              className="btn secondary small"
+              onClick={handleAddFromLibrary}
+              disabled={!libraryPick}
+            >
               + Add to this list
             </button>
           </div>
@@ -265,8 +308,21 @@ export default function ApplicationQuestionsEditor({ questions, onAdd, onUpdate,
                 ))}
               </select>
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 400, fontSize: "0.85rem", marginTop: "1.3rem" }}>
-              <input type="checkbox" checked={draft.required} onChange={(e) => setDraft((d) => ({ ...d, required: e.target.checked }))} />
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                fontWeight: 400,
+                fontSize: "0.85rem",
+                marginTop: "1.3rem",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={draft.required}
+                onChange={(e) => setDraft((d) => ({ ...d, required: e.target.checked }))}
+              />
               Required -- applicant must answer before submitting
             </label>
           </div>

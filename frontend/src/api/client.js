@@ -284,7 +284,10 @@ export async function fetchPendingInboundEmails() {
 // tripParticipantId (never both) -- when assigning to a participant it
 // files as a TripDocument instead of a PartnerFile, and kind/customKind
 // are ignored since a TripDocument has no "kind" of its own.
-export async function assignInboundEmail(id, { partnerId, tripParticipantId, requirementId, kind, customKind }) {
+export async function assignInboundEmail(
+  id,
+  { partnerId, tripParticipantId, requirementId, kind, customKind }
+) {
   const { data } = await api.post(`/inbound-email/${id}/assign`, {
     partnerId,
     tripParticipantId,
@@ -555,11 +558,16 @@ export async function deleteTripFlightSegment(id) {
 // Task-kind only -- a document requirement is fulfilled by uploading its
 // document (uploadTripDocument below), never this route.
 export async function setTripRequirementComplete(requirementId, participantId, completed) {
-  const { data } = await api.put(`/trips/requirements/${requirementId}/participants/${participantId}/complete`, { completed });
+  const { data } = await api.put(
+    `/trips/requirements/${requirementId}/participants/${participantId}/complete`,
+    { completed }
+  );
   return data;
 }
 export async function requestTripDocuments(tripId, participantId, message) {
-  const { data } = await api.post(`/trips/${tripId}/participants/${participantId}/request-documents`, { message });
+  const { data } = await api.post(`/trips/${tripId}/participants/${participantId}/request-documents`, {
+    message,
+  });
   return data;
 }
 export async function addTripContribution(tripId, payload) {

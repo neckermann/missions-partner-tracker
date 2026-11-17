@@ -33,7 +33,14 @@ export default function PublicTripOpportunities() {
         {loading ? (
           <p>Loading…</p>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem", marginTop: "1rem" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: "1rem",
+              marginTop: "1rem",
+            }}
+          >
             {trips.map((t) => (
               <div key={t.id} className="admin-section">
                 <span
@@ -71,7 +78,9 @@ export default function PublicTripOpportunities() {
                 </div>
               </div>
             ))}
-            {trips.length === 0 && <p style={{ color: "#888" }}>No open trips right now — check back soon.</p>}
+            {trips.length === 0 && (
+              <p style={{ color: "#888" }}>No open trips right now — check back soon.</p>
+            )}
           </div>
         )}
         {/* Previously orphaned -- this page's footer was always meant to
@@ -79,8 +88,7 @@ export default function PublicTripOpportunities() {
         tripEmails.js), but neither ever did. Only reachable by typing the
         exact path until now. */}
         <p style={{ marginTop: "1.5rem", fontSize: "0.85rem", color: "#888" }}>
-          Already on a team but lost your link?{" "}
-          <Link to="/trip-access-recovery">Request a new one</Link>
+          Already on a team but lost your link? <Link to="/trip-access-recovery">Request a new one</Link>
         </p>
       </div>
     </div>

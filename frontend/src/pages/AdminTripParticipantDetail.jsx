@@ -88,7 +88,10 @@ export default function AdminTripParticipantDetail() {
       await generateSupportRaisingLink(participantId);
       reload();
     } catch (err) {
-      setError(err.response?.data?.error || "Couldn't generate link -- check that public support-raising links are enabled in Trip settings.");
+      setError(
+        err.response?.data?.error ||
+          "Couldn't generate link -- check that public support-raising links are enabled in Trip settings."
+      );
     }
   }
 
@@ -131,7 +134,9 @@ export default function AdminTripParticipantDetail() {
       await requestTripDocuments(tripId, participantId, docMessage);
       setDocMessage("");
     } catch (err) {
-      setError(err.response?.data?.error || "Couldn't send -- check that outbound and inbound email are configured.");
+      setError(
+        err.response?.data?.error || "Couldn't send -- check that outbound and inbound email are configured."
+      );
     }
   }
 
@@ -195,7 +200,11 @@ export default function AdminTripParticipantDetail() {
             <input
               key={`firstName-${participant.id}`}
               defaultValue={participant.firstName || ""}
-              onBlur={(e) => e.target.value.trim() && e.target.value !== (participant.firstName || "") && saveParticipant({ firstName: e.target.value.trim() })}
+              onBlur={(e) =>
+                e.target.value.trim() &&
+                e.target.value !== (participant.firstName || "") &&
+                saveParticipant({ firstName: e.target.value.trim() })
+              }
             />
           </label>
           <label>
@@ -203,7 +212,10 @@ export default function AdminTripParticipantDetail() {
             <input
               key={`lastName-${participant.id}`}
               defaultValue={participant.lastName || ""}
-              onBlur={(e) => e.target.value !== (participant.lastName || "") && saveParticipant({ lastName: e.target.value.trim() || null })}
+              onBlur={(e) =>
+                e.target.value !== (participant.lastName || "") &&
+                saveParticipant({ lastName: e.target.value.trim() || null })
+              }
             />
           </label>
           <label>
@@ -211,7 +223,10 @@ export default function AdminTripParticipantDetail() {
             <input
               key={`email-${participant.id}`}
               defaultValue={participant.email || ""}
-              onBlur={(e) => e.target.value !== (participant.email || "") && saveParticipant({ email: e.target.value.trim() || null })}
+              onBlur={(e) =>
+                e.target.value !== (participant.email || "") &&
+                saveParticipant({ email: e.target.value.trim() || null })
+              }
             />
           </label>
           <label>
@@ -219,7 +234,10 @@ export default function AdminTripParticipantDetail() {
             <input
               key={`phone-${participant.id}`}
               defaultValue={participant.phone || ""}
-              onBlur={(e) => e.target.value !== (participant.phone || "") && saveParticipant({ phone: e.target.value.trim() || null })}
+              onBlur={(e) =>
+                e.target.value !== (participant.phone || "") &&
+                saveParticipant({ phone: e.target.value.trim() || null })
+              }
             />
           </label>
         </div>
@@ -240,7 +258,11 @@ export default function AdminTripParticipantDetail() {
         {(participant.emergencyContactName || participant.emergencyContactPhone) && (
           <p style={{ color: "#555", marginTop: "0.25rem" }}>
             <strong>Emergency contact:</strong>{" "}
-            {[participant.emergencyContactName, participant.emergencyContactPhone, participant.emergencyContactEmail]
+            {[
+              participant.emergencyContactName,
+              participant.emergencyContactPhone,
+              participant.emergencyContactEmail,
+            ]
               .filter(Boolean)
               .join(", ")}
           </p>
@@ -278,7 +300,11 @@ export default function AdminTripParticipantDetail() {
           <>
             <p style={{ fontSize: "0.75rem", marginTop: "0.4rem" }}>
               <code>{`${window.location.origin}/trip-support-raising/${participant.shareToken}`}</code>{" "}
-              <a href={`${window.location.origin}/trip-support-raising/${participant.shareToken}`} target="_blank" rel="noopener noreferrer">
+              <a
+                href={`${window.location.origin}/trip-support-raising/${participant.shareToken}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 Preview their public page →
               </a>
             </p>
@@ -294,7 +320,12 @@ export default function AdminTripParticipantDetail() {
                   />
                 )}
                 <div style={{ flex: 1, minWidth: 220 }}>
-                  <input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Photo" onChange={(e) => handlePhotoChange(e.target.files[0] || null)} />
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    aria-label="Photo"
+                    onChange={(e) => handlePhotoChange(e.target.files[0] || null)}
+                  />
                   {photoFile && <span style={{ fontSize: "0.75rem", color: "#888" }}> Uploading…</span>}
                 </div>
               </div>
@@ -341,7 +372,10 @@ export default function AdminTripParticipantDetail() {
         ) : (
           <ul style={{ listStyle: "none", padding: 0 }}>
             {requirementRows.map((r) => (
-              <li key={r.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}>
+              <li
+                key={r.id}
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}
+              >
                 {r.kind === "task" ? (
                   <div className="admin-checkbox-row">
                     <label>
@@ -391,7 +425,12 @@ export default function AdminTripParticipantDetail() {
             value={docMessage}
             onChange={(e) => setDocMessage(e.target.value)}
           />
-          <button type="button" className="btn secondary small" onClick={handleRequestDocuments} style={{ marginLeft: "0.5rem" }}>
+          <button
+            type="button"
+            className="btn secondary small"
+            onClick={handleRequestDocuments}
+            style={{ marginLeft: "0.5rem" }}
+          >
             Request documents
           </button>
         </div>
@@ -401,7 +440,11 @@ export default function AdminTripParticipantDetail() {
           email (which already files straight to a participant via the
           Unmatched Emails queue) -- mail, in person, a file the admin
           already has. */}
-          <input type="file" aria-label="Document file" onChange={(e) => setDocFile(e.target.files[0] || null)} />
+          <input
+            type="file"
+            aria-label="Document file"
+            onChange={(e) => setDocFile(e.target.files[0] || null)}
+          />
           {documentRequirements.length > 0 && (
             <select
               aria-label="Fulfills requirement"
@@ -417,7 +460,12 @@ export default function AdminTripParticipantDetail() {
               ))}
             </select>
           )}
-          <button type="button" className="btn secondary small" disabled={!docFile} onClick={handleLogDocument}>
+          <button
+            type="button"
+            className="btn secondary small"
+            disabled={!docFile}
+            onClick={handleLogDocument}
+          >
             Log document
           </button>
         </div>

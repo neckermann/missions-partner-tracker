@@ -53,7 +53,13 @@ function SignaturePad({ onChange }) {
         ref={canvasRef}
         width={320}
         height={110}
-        style={{ border: "1px solid #c9c6c0", borderRadius: 6, background: "white", touchAction: "none", cursor: "crosshair" }}
+        style={{
+          border: "1px solid #c9c6c0",
+          borderRadius: 6,
+          background: "white",
+          touchAction: "none",
+          cursor: "crosshair",
+        }}
         onMouseDown={start}
         onMouseMove={move}
         onMouseUp={end}
@@ -108,17 +114,29 @@ export default function SignatureCapture({ documentText, onSubmit, submitting })
       </div>
 
       <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.9rem" }}>
-        <button type="button" className={mode === "type" ? "btn small" : "btn secondary small"} onClick={() => setMode("type")}>
+        <button
+          type="button"
+          className={mode === "type" ? "btn small" : "btn secondary small"}
+          onClick={() => setMode("type")}
+        >
           Sign by typing my name
         </button>
-        <button type="button" className={mode === "draw" ? "btn small" : "btn secondary small"} onClick={() => setMode("draw")}>
+        <button
+          type="button"
+          className={mode === "draw" ? "btn small" : "btn secondary small"}
+          onClick={() => setMode("draw")}
+        >
           Draw my signature
         </button>
       </div>
 
       <label style={{ marginTop: "0.6rem" }}>
         Your full name
-        <input value={typedName} onChange={(e) => setTypedName(e.target.value)} placeholder="Type your full name" />
+        <input
+          value={typedName}
+          onChange={(e) => setTypedName(e.target.value)}
+          placeholder="Type your full name"
+        />
       </label>
 
       {mode === "draw" && (
@@ -129,11 +147,17 @@ export default function SignatureCapture({ documentText, onSubmit, submitting })
 
       <div className="admin-checkbox-row" style={{ marginTop: "0.9rem" }}>
         <label>
-          <input type="checkbox" checked={attested} onChange={(e) => setAttested(e.target.checked)} />I have read and agree to the above.
+          <input type="checkbox" checked={attested} onChange={(e) => setAttested(e.target.checked)} />I have
+          read and agree to the above.
         </label>
       </div>
 
-      <button type="submit" className="btn" style={{ marginTop: "0.75rem" }} disabled={!canSubmit || submitting}>
+      <button
+        type="submit"
+        className="btn"
+        style={{ marginTop: "0.75rem" }}
+        disabled={!canSubmit || submitting}
+      >
         {submitting ? "Signing…" : "Sign"}
       </button>
       {/* The Sign button above gives no feedback on its own when disabled --
@@ -146,10 +170,10 @@ export default function SignatureCapture({ documentText, onSubmit, submitting })
           {!typedName.trim()
             ? "Type your full name above to sign."
             : mode === "draw" && !drawnSignature
-            ? "Draw your signature above to sign."
-            : !attested
-            ? "Check the box above to confirm before you can sign."
-            : null}
+              ? "Draw your signature above to sign."
+              : !attested
+                ? "Check the box above to confirm before you can sign."
+                : null}
         </p>
       )}
     </form>

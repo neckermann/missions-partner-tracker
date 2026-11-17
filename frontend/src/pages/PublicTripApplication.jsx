@@ -2,7 +2,12 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import DemoBanner from "../components/DemoBanner.jsx";
-import { fetchPublicTrip, fetchPublicTripByToken, submitTripApplication, submitTripApplicationByToken } from "../api/client.js";
+import {
+  fetchPublicTrip,
+  fetchPublicTripByToken,
+  submitTripApplication,
+  submitTripApplicationByToken,
+} from "../api/client.js";
 import { formatDate } from "../utils/format.js";
 
 // "Jul 5, 2027" or "Jul 5, 2027 - Jul 14, 2027" (or just the one date if
@@ -139,7 +144,10 @@ export default function PublicTripApplication() {
               </label>
               <label>
                 Phone
-                <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+                <input
+                  value={form.phone}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                />
               </label>
             </div>
             {trip.collectApplicantAddress && (
@@ -161,7 +169,10 @@ export default function PublicTripApplication() {
                 </label>
                 <label>
                   City
-                  <input value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} />
+                  <input
+                    value={form.city}
+                    onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                  />
                 </label>
                 <label>
                   State/Province
@@ -179,7 +190,10 @@ export default function PublicTripApplication() {
                 </label>
                 <label>
                   Country
-                  <input value={form.country} onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))} />
+                  <input
+                    value={form.country}
+                    onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+                  />
                 </label>
               </div>
             )}
@@ -248,14 +262,19 @@ export default function PublicTripApplication() {
                         const selected = responses[q.id] || [];
                         const checked = selected.includes(opt);
                         return (
-                          <label key={opt} style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 400 }}>
+                          <label
+                            key={opt}
+                            style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 400 }}
+                          >
                             <input
                               type="checkbox"
                               checked={checked}
                               onChange={(e) =>
                                 setResponses((r) => {
                                   const current = r[q.id] || [];
-                                  const next = e.target.checked ? [...current, opt] : current.filter((o) => o !== opt);
+                                  const next = e.target.checked
+                                    ? [...current, opt]
+                                    : current.filter((o) => o !== opt);
                                   return { ...r, [q.id]: next };
                                 })
                               }

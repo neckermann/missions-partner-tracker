@@ -438,11 +438,18 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
 // handler, since the router-wide gate above only covers `inboundEmail`).
 describe("POST /:id/assign -- trip participant (#252)", () => {
   test("assigns to a TripParticipant as a TripDocument, optionally marking a requirement fulfilled, deletes the queue row", async () => {
-    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: { inboundEmail: true, trips: true } } });
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { inboundEmail: true, trips: true } },
+    });
     const partner = await createPartner();
     const trip = await prisma.trip.create({ data: { partnerId: partner.id, name: "Test trip" } });
-    const requirement = await prisma.tripRequirement.create({ data: { tripId: trip.id, label: "Signed Waiver" } });
-    const participant = await prisma.tripParticipant.create({ data: { tripId: trip.id, firstName: "Jo", lastName: "Doe" } });
+    const requirement = await prisma.tripRequirement.create({
+      data: { tripId: trip.id, label: "Signed Waiver" },
+    });
+    const participant = await prisma.tripParticipant.create({
+      data: { tripId: trip.id, firstName: "Jo", lastName: "Doe" },
+    });
     const created = await prisma.inboundEmail.create({
       data: {
         fromAddress: `trip-assign@${FROM_DOMAIN}`,
@@ -472,7 +479,10 @@ describe("POST /:id/assign -- trip participant (#252)", () => {
   });
 
   test("tripParticipantId with trips off is a 404, even though inboundEmail itself is on", async () => {
-    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: { inboundEmail: true, trips: false } } });
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { inboundEmail: true, trips: false } },
+    });
     const created = await prisma.inboundEmail.create({
       data: {
         fromAddress: `trip-off@${FROM_DOMAIN}`,
@@ -489,7 +499,10 @@ describe("POST /:id/assign -- trip participant (#252)", () => {
       assert.equal(res.status, 404);
     } finally {
       await prisma.inboundEmail.deleteMany({ where: { id: created.id } });
-      await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: { inboundEmail: true, trips: true } } });
+      await prisma.churchSettings.update({
+        where: { id: "singleton" },
+        data: { enabledFeatures: { inboundEmail: true, trips: true } },
+      });
     }
   });
 

@@ -119,7 +119,9 @@ module.exports = {
     // each month, so the concatenation is already month-then-day overall
     // without a second sort pass.
     const months =
-      params.view === "month" ? [params.month ?? today.getUTCMonth() + 1] : Array.from({ length: 12 }, (_, i) => i + 1);
+      params.view === "month"
+        ? [params.month ?? today.getUTCMonth() + 1]
+        : Array.from({ length: 12 }, (_, i) => i + 1);
     const rows = months.flatMap((month) => birthdaysInMonth(partners, month, { inYear }));
 
     return rows.map((r) => ({

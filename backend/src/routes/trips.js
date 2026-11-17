@@ -75,7 +75,10 @@ function albumLinkValid(data) {
   if (!data.albumProvider || !data.albumUrl) return false;
   return ALBUM_URL_PATTERNS[data.albumProvider].test(data.albumUrl.trim());
 }
-const ALBUM_LINK_ISSUE = { message: "Enter a valid album link for the selected provider", path: ["albumUrl"] };
+const ALBUM_LINK_ISSUE = {
+  message: "Enter a valid album link for the selected provider",
+  path: ["albumUrl"],
+};
 
 const tripQuerySchema = z.object({
   partnerId: z.string().optional(),
@@ -126,7 +129,11 @@ router.get("/", async (req, res, next) => {
         lt: new Date(Date.UTC(query.year + 1, 0, 1)),
       };
     }
-    const records = await prisma.trip.findMany({ where, include: tripInclude, orderBy: { startDate: "desc" } });
+    const records = await prisma.trip.findMany({
+      where,
+      include: tripInclude,
+      orderBy: { startDate: "desc" },
+    });
     res.json(records);
   } catch (err) {
     next(err);
@@ -352,7 +359,9 @@ router.post("/:id/generate-application-link", requireRole("admin", "editor"), as
   try {
     const settings = await getSettings();
     if (!settings?.allowPrivateApplicationLinks) {
-      return res.status(400).json({ error: "Private application links are turned off -- enable them in Trip settings first" });
+      return res
+        .status(400)
+        .json({ error: "Private application links are turned off -- enable them in Trip settings first" });
     }
     const existing = await prisma.trip.findUnique({ where: { id: req.params.id }, select: { id: true } });
     if (!existing) return res.status(404).json({ error: "Not found" });
@@ -387,11 +396,16 @@ const requirementSchema = z.object({
 function reminderNeedsDueDate(data) {
   return !data.reminderLeadDays || !!data.dueAt;
 }
-const REMINDER_NEEDS_DUE_DATE_ISSUE = { message: "Set a due date before adding a reminder lead time", path: ["reminderLeadDays"] };
+const REMINDER_NEEDS_DUE_DATE_ISSUE = {
+  message: "Set a due date before adding a reminder lead time",
+  path: ["reminderLeadDays"],
+};
 
 router.post("/:id/requirements", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = requirementSchema.refine(reminderNeedsDueDate, REMINDER_NEEDS_DUE_DATE_ISSUE).parse(req.body);
+    const data = requirementSchema
+      .refine(reminderNeedsDueDate, REMINDER_NEEDS_DUE_DATE_ISSUE)
+      .parse(req.body);
     const created = await prisma.tripRequirement.create({ data: { tripId: req.params.id, ...data } });
     res.status(201).json(created);
   } catch (err) {
@@ -401,7 +415,10 @@ router.post("/:id/requirements", requireRole("admin", "editor"), async (req, res
 
 router.put("/requirements/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = requirementSchema.partial().refine(reminderNeedsDueDate, REMINDER_NEEDS_DUE_DATE_ISSUE).parse(req.body);
+    const data = requirementSchema
+      .partial()
+      .refine(reminderNeedsDueDate, REMINDER_NEEDS_DUE_DATE_ISSUE)
+      .parse(req.body);
     const updated = await prisma.tripRequirement.update({ where: { id: req.params.id }, data });
     res.json(updated);
   } catch (err) {
@@ -511,11 +528,23 @@ router.put(
       const requirement = await prisma.tripRequirement.findUnique({ where: { id: req.params.id } });
       if (!requirement) return res.status(404).json({ error: "Not found" });
       if (requirement.kind !== "task") {
-        return res.status(400).json({ error: "Only a task requirement can be marked complete directly -- a document or e-signature requirement is fulfilled by its own document, not this" });
+        return res.status(400).json({
+          error:
+            "Only a task requirement can be marked complete directly -- a document or e-signature requirement is fulfilled by its own document, not this",
+        });
       }
       const status = await prisma.tripRequirementStatus.upsert({
-        where: { requirementId_participantId: { requirementId: req.params.id, participantId: req.params.participantId } },
-        create: { requirementId: req.params.id, participantId: req.params.participantId, completedAt: completed ? new Date() : null },
+        where: {
+          requirementId_participantId: {
+            requirementId: req.params.id,
+            participantId: req.params.participantId,
+          },
+        },
+        create: {
+          requirementId: req.params.id,
+          participantId: req.params.participantId,
+          completedAt: completed ? new Date() : null,
+        },
         update: { completedAt: completed ? new Date() : null },
       });
       res.json(status);
@@ -544,7 +573,10 @@ router.get("/:id/applications", async (req, res, next) => {
 router.put("/applications/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const { status, declinedReason } = z
-      .object({ status: z.enum(["approved", "declined", "pending"]), declinedReason: z.string().optional().nullable() })
+      .object({
+        status: z.enum(["approved", "declined", "pending"]),
+        declinedReason: z.string().optional().nullable(),
+      })
       .parse(req.body);
     const application = await prisma.tripApplication.findUnique({
       where: { id: req.params.id },
@@ -608,7 +640,12 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
     // ever receive their own access link or support-raising link
     // automatically. Now carries both, in one email, rather than a
     // second dedicated send for the support-raising link.
-    if (updated.participant && application.trip.status !== "completed" && application.trip.startDate && application.trip.endDate) {
+    if (
+      updated.participant &&
+      application.trip.status !== "completed" &&
+      application.trip.startDate &&
+      application.trip.endDate
+    ) {
       if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
         const accessUrl = buildTripParticipantAccessUrl(updated.participant);
         const supportRaisingLine = updated.participant.shareToken
@@ -641,7 +678,9 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
 
 router.post("/:id/participants", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = participantSchema.extend({ email: z.string().email().optional().nullable() }).parse(req.body);
+    const data = participantSchema
+      .extend({ email: z.string().email().optional().nullable() })
+      .parse(req.body);
     const trip = await prisma.trip.findUnique({ where: { id: req.params.id } });
     if (!trip) return res.status(404).json({ error: "Not found" });
 
@@ -669,7 +708,11 @@ router.post("/:id/participants", requireRole("admin", "editor"), async (req, res
           `Attached is a calendar invite for the trip dates.\n\nYour trip page: ${accessUrl}${supportRaisingLine}`,
           {
             attachments: [
-              { name: "trip-dates.ics", content: Buffer.from(buildTripDatesIcs(trip)), contentType: "text/calendar" },
+              {
+                name: "trip-dates.ics",
+                content: Buffer.from(buildTripDatesIcs(trip)),
+                contentType: "text/calendar",
+              },
             ],
           }
         );
@@ -687,22 +730,28 @@ router.post("/:id/participants", requireRole("admin", "editor"), async (req, res
 // regenerate already uses) -- this route itself needed no change for
 // that, only the frontend's own !shareToken gating, which previously
 // hid the button forever once a token existed.
-router.post("/participants/:id/generate-support-raising-link", requireRole("admin", "editor"), async (req, res, next) => {
-  try {
-    const settings = await getSettings();
-    if (!settings?.allowPublicSupportRaisingLinks) {
-      return res.status(400).json({ error: "Public support-raising links are turned off -- enable them in Trip settings first" });
+router.post(
+  "/participants/:id/generate-support-raising-link",
+  requireRole("admin", "editor"),
+  async (req, res, next) => {
+    try {
+      const settings = await getSettings();
+      if (!settings?.allowPublicSupportRaisingLinks) {
+        return res.status(400).json({
+          error: "Public support-raising links are turned off -- enable them in Trip settings first",
+        });
+      }
+      const participant = await prisma.tripParticipant.update({
+        where: { id: req.params.id },
+        data: { shareToken: generateShareToken() },
+        select: { shareToken: true },
+      });
+      res.json({ shareToken: participant.shareToken });
+    } catch (err) {
+      next(err);
     }
-    const participant = await prisma.tripParticipant.update({
-      where: { id: req.params.id },
-      data: { shareToken: generateShareToken() },
-      select: { shareToken: true },
-    });
-    res.json({ shareToken: participant.shareToken });
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 const adminParticipantUpdateSchema = z.object({
   firstName: z.string().min(1).optional(),
@@ -731,7 +780,11 @@ router.put("/participants/:id", requireRole("admin", "editor"), async (req, res,
 
     // omit: the raw photo bytes have no business in a JSON response --
     // same reasoning the sign route already applies to TripDocument.bytes.
-    const participant = await prisma.tripParticipant.update({ where: { id: req.params.id }, data, omit: { photo: true } });
+    const participant = await prisma.tripParticipant.update({
+      where: { id: req.params.id },
+      data,
+      omit: { photo: true },
+    });
     res.json(participant);
   } catch (err) {
     if (err.status === 400) return res.status(400).json({ error: err.message });
@@ -742,29 +795,40 @@ router.put("/participants/:id", requireRole("admin", "editor"), async (req, res,
 // POST /api/trips/participants/:id/request-access-link -- admin-triggered
 // resend of a participant's own self-service link (distinct from the
 // public, self-triggered §4a lost-link flow).
-router.post("/participants/:id/request-access-link", requireRole("admin", "editor"), async (req, res, next) => {
-  try {
-    const participant = await prisma.tripParticipant.findUnique({ where: { id: req.params.id } });
-    if (!participant) return res.status(404).json({ error: "Not found" });
-    await sendParticipantEmail(
-      participant,
-      "Your trip access link",
-      `Here's your trip link: ${buildTripParticipantAccessUrl(participant)}`
-    );
-    res.json({ sent: true });
-  } catch (err) {
-    next(err);
+router.post(
+  "/participants/:id/request-access-link",
+  requireRole("admin", "editor"),
+  async (req, res, next) => {
+    try {
+      const participant = await prisma.tripParticipant.findUnique({ where: { id: req.params.id } });
+      if (!participant) return res.status(404).json({ error: "Not found" });
+      await sendParticipantEmail(
+        participant,
+        "Your trip access link",
+        `Here's your trip link: ${buildTripParticipantAccessUrl(participant)}`
+      );
+      res.json({ sent: true });
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 // ---- Meetings ----
 
 router.post("/:id/meetings", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const data = z
-      .object({ startAt: z.coerce.date(), location: z.string().optional().nullable(), notes: z.string().optional().nullable() })
+      .object({
+        startAt: z.coerce.date(),
+        location: z.string().optional().nullable(),
+        notes: z.string().optional().nullable(),
+      })
       .parse(req.body);
-    const trip = await prisma.trip.findUnique({ where: { id: req.params.id }, include: { participants: true } });
+    const trip = await prisma.trip.findUnique({
+      where: { id: req.params.id },
+      include: { participants: true },
+    });
     if (!trip) return res.status(404).json({ error: "Not found" });
 
     const meeting = await prisma.tripMeeting.create({ data: { ...data, tripId: trip.id } });
@@ -801,7 +865,11 @@ router.post("/:id/meetings", requireRole("admin", "editor"), async (req, res, ne
 router.put("/meetings/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const data = z
-      .object({ startAt: z.coerce.date().optional(), location: z.string().optional().nullable(), notes: z.string().optional().nullable() })
+      .object({
+        startAt: z.coerce.date().optional(),
+        location: z.string().optional().nullable(),
+        notes: z.string().optional().nullable(),
+      })
       .parse(req.body);
     const existing = await prisma.tripMeeting.findUnique({
       where: { id: req.params.id },
@@ -810,7 +878,8 @@ router.put("/meetings/:id", requireRole("admin", "editor"), async (req, res, nex
     if (!existing) return res.status(404).json({ error: "Not found" });
 
     const rescheduled =
-      (data.startAt !== undefined && new Date(data.startAt).getTime() !== new Date(existing.startAt).getTime()) ||
+      (data.startAt !== undefined &&
+        new Date(data.startAt).getTime() !== new Date(existing.startAt).getTime()) ||
       (data.location !== undefined && data.location !== existing.location);
 
     const updated = await prisma.tripMeeting.update({ where: { id: req.params.id }, data });
@@ -863,7 +932,9 @@ router.post(
       const { message } = z.object({ message: z.string().min(1) }).parse(req.body);
       const settings = await getSettings();
       if (!settings?.inboundEmailAddress) {
-        return res.status(400).json({ error: "Set an inbound email address under Site Administration → Email first" });
+        return res
+          .status(400)
+          .json({ error: "Set an inbound email address under Site Administration → Email first" });
       }
       const participant = await prisma.tripParticipant.findUnique({ where: { id: req.params.id } });
       if (!participant) return res.status(404).json({ error: "Not found" });
@@ -878,27 +949,32 @@ router.post(
   }
 );
 
-router.post("/:id/documents", requireRole("admin", "editor"), upload.single("file"), async (req, res, next) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: "No file provided" });
-    const { participantId, requirementId, title } = req.body;
-    const created = await prisma.tripDocument.create({
-      data: {
-        tripId: req.params.id,
-        participantId: participantId || null,
-        requirementId: requirementId || null,
-        title: title || null,
-        bytes: req.file.buffer,
-        fileName: req.file.originalname,
-        contentType: req.file.mimetype || "application/octet-stream",
-      },
-      omit: { bytes: true },
-    });
-    res.status(201).json(created);
-  } catch (err) {
-    next(err);
+router.post(
+  "/:id/documents",
+  requireRole("admin", "editor"),
+  upload.single("file"),
+  async (req, res, next) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No file provided" });
+      const { participantId, requirementId, title } = req.body;
+      const created = await prisma.tripDocument.create({
+        data: {
+          tripId: req.params.id,
+          participantId: participantId || null,
+          requirementId: requirementId || null,
+          title: title || null,
+          bytes: req.file.buffer,
+          fileName: req.file.originalname,
+          contentType: req.file.mimetype || "application/octet-stream",
+        },
+        omit: { bytes: true },
+      });
+      res.status(201).json(created);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 // GET /documents/:id/download -- streams the file straight from the
 // database, same shared helper/convention as PartnerFile's own

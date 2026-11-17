@@ -167,16 +167,37 @@ export default function AdminTripPlanning() {
           </button>
         ))}
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "1.25rem", alignItems: "center", marginTop: "0.75rem" }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "1.25rem",
+          alignItems: "center",
+          marginTop: "0.75rem",
+        }}
+      >
         <input
           placeholder="Search partner name"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{ width: 220 }}
         />
-        <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: 400, fontSize: "0.85rem" }}>
+        <label
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: "0.4rem",
+            fontWeight: 400,
+            fontSize: "0.85rem",
+          }}
+        >
           Trip type
-          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} style={{ width: "auto" }}>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            style={{ width: "auto" }}
+          >
             <option value="">All</option>
             {tripTypes.map((t) => (
               <option key={t} value={t}>
@@ -185,7 +206,16 @@ export default function AdminTripPlanning() {
             ))}
           </select>
         </label>
-        <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: 400, fontSize: "0.85rem" }}>
+        <label
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: "0.4rem",
+            fontWeight: 400,
+            fontSize: "0.85rem",
+          }}
+        >
           Team size
           <input
             type="number"
@@ -207,7 +237,11 @@ export default function AdminTripPlanning() {
         </label>
         <div className="admin-checkbox-row">
           <label>
-            <input type="checkbox" checked={neverBeenOnly} onChange={(e) => setNeverBeenOnly(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={neverBeenOnly}
+              onChange={(e) => setNeverBeenOnly(e.target.checked)}
+            />
             Never been (no past trips)
           </label>
         </div>
@@ -299,7 +333,9 @@ export default function AdminTripPlanning() {
             {visibleRows.length === 0 && (
               <tr>
                 <td colSpan={6} style={{ color: "#888" }}>
-                  {rows.length === 0 ? "No partners with trip capacity on file yet." : "No partners match these filters."}
+                  {rows.length === 0
+                    ? "No partners with trip capacity on file yet."
+                    : "No partners match these filters."}
                 </td>
               </tr>
             )}

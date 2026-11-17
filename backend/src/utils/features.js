@@ -67,7 +67,8 @@ const FEATURES = {
   // so "on by default" stopped making sense.
   trips: {
     label: "Mission trips",
-    description: "Trip tracking, recruiting, rosters, meetings, documents, and support raising. The Trips and Trip Planning admin pages.",
+    description:
+      "Trip tracking, recruiting, rosters, meetings, documents, and support raising. The Trips and Trip Planning admin pages.",
     defaultEnabled: false,
     group: "admin",
   },

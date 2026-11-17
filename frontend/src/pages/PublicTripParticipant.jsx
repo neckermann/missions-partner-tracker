@@ -79,7 +79,11 @@ export default function PublicTripParticipant() {
     setPhotoUploading(true);
     try {
       const dataUrl = await readFileAsDataUrl(file);
-      await updateTripParticipantSelfService({ token: accessToken, photo: dataUrl, photoContentType: file.type });
+      await updateTripParticipantSelfService({
+        token: accessToken,
+        photo: dataUrl,
+        photoContentType: file.type,
+      });
       reload();
     } finally {
       setPhotoUploading(false);
@@ -98,7 +102,9 @@ export default function PublicTripParticipant() {
   }
   if (!data) return <div className="admin-shell">Loading…</div>;
 
-  const goalPercent = data.supportRaisingGoal ? Math.round(Math.min(100, (data.raised / data.supportRaisingGoal) * 100)) : null;
+  const goalPercent = data.supportRaisingGoal
+    ? Math.round(Math.min(100, (data.raised / data.supportRaisingGoal) * 100))
+    : null;
 
   return (
     <div>
@@ -109,7 +115,17 @@ export default function PublicTripParticipant() {
         {/* Same card in both render modes -- no evidence self-service
         should look different from what a donor sees, and one shared
         header avoids a second layout to maintain. */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "1rem", background: "var(--brand-header-color, #2c2a28)", borderRadius: 10, color: "white" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "1rem",
+            padding: "1rem",
+            background: "var(--brand-header-color, #2c2a28)",
+            borderRadius: 10,
+            color: "white",
+          }}
+        >
           {data.hasPhoto && (
             <img
               src={tripParticipantPhotoUrl(data.id)}
@@ -122,7 +138,8 @@ export default function PublicTripParticipant() {
               {data.firstName} {data.lastName || ""}
             </h2>
             <p style={{ margin: "0.2rem 0 0", color: "#d8d5d0" }}>
-              {data.trip.name || data.trip.type} · {data.trip.startDate ? formatDate(data.trip.startDate) : ""}
+              {data.trip.name || data.trip.type} ·{" "}
+              {data.trip.startDate ? formatDate(data.trip.startDate) : ""}
               {data.trip.endDate ? ` – ${formatDate(data.trip.endDate)}` : ""}
             </p>
           </div>
@@ -135,17 +152,24 @@ export default function PublicTripParticipant() {
         <div className="admin-section">
           <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
             <span>
-              ${data.raised} raised{goalPercent != null && <span style={{ color: "var(--brand-color, #2a5d3c)" }}> ({goalPercent}%)</span>}
+              ${data.raised} raised
+              {goalPercent != null && (
+                <span style={{ color: "var(--brand-color, #2a5d3c)" }}> ({goalPercent}%)</span>
+              )}
             </span>
             <span style={{ color: "#6b6f76", fontWeight: 400 }}>
               {data.supportRaisingGoal ? `of $${data.supportRaisingGoal} goal` : ""}
             </span>
           </div>
-          <div style={{ height: 10, borderRadius: 999, background: "#ece9e4", overflow: "hidden", marginTop: 6 }}>
+          <div
+            style={{ height: 10, borderRadius: 999, background: "#ece9e4", overflow: "hidden", marginTop: 6 }}
+          >
             <div
               style={{
                 height: "100%",
-                width: data.supportRaisingGoal ? `${Math.min(100, (data.raised / data.supportRaisingGoal) * 100)}%` : "0%",
+                width: data.supportRaisingGoal
+                  ? `${Math.min(100, (data.raised / data.supportRaisingGoal) * 100)}%`
+                  : "0%",
                 background: "#2a5d3c",
               }}
             />
@@ -160,7 +184,8 @@ export default function PublicTripParticipant() {
           <div className="admin-section">
             <h3>Your support-raising page</h3>
             <p style={{ color: "#888", fontSize: "0.85rem" }}>
-              Share this link with family and friends: <code>{`${window.location.origin}/trip-support-raising/${data.shareToken}`}</code>
+              Share this link with family and friends:{" "}
+              <code>{`${window.location.origin}/trip-support-raising/${data.shareToken}`}</code>
             </p>
             <label style={{ display: "block", marginTop: "0.6rem" }}>
               Your story (shown on your public page)
@@ -192,9 +217,24 @@ export default function PublicTripParticipant() {
             <h3>Flight itinerary</h3>
             <ul style={{ listStyle: "none", padding: 0 }}>
               {data.trip.flightSegments.map((seg) => (
-                <li key={seg.id} style={{ border: "1px solid #e1dfdb", borderRadius: 6, padding: "0.6rem 0.8rem", marginBottom: "0.5rem" }}>
+                <li
+                  key={seg.id}
+                  style={{
+                    border: "1px solid #e1dfdb",
+                    borderRadius: 6,
+                    padding: "0.6rem 0.8rem",
+                    marginBottom: "0.5rem",
+                  }}
+                >
                   {seg.label && (
-                    <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#2a5d8f", marginBottom: "0.2rem" }}>
+                    <div
+                      style={{
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                        color: "#2a5d8f",
+                        marginBottom: "0.2rem",
+                      }}
+                    >
                       {seg.label}
                     </div>
                   )}
@@ -203,10 +243,12 @@ export default function PublicTripParticipant() {
                   </div>
                   <div style={{ fontSize: "0.85rem", color: "#555" }}>
                     {seg.departureAirport}
-                    {seg.departureAt && ` — ${new Date(seg.departureAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`}
+                    {seg.departureAt &&
+                      ` — ${new Date(seg.departureAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`}
                     {" → "}
                     {seg.arrivalAirport}
-                    {seg.arrivalAt && ` — ${new Date(seg.arrivalAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`}
+                    {seg.arrivalAt &&
+                      ` — ${new Date(seg.arrivalAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`}
                   </div>
                 </li>
               ))}
@@ -248,7 +290,11 @@ export default function PublicTripParticipant() {
                       {r.kind === "esignature" && (
                         <>
                           {" "}
-                          <button type="button" className="btn secondary small" onClick={() => setSigningId(signingId === r.id ? null : r.id)}>
+                          <button
+                            type="button"
+                            className="btn secondary small"
+                            onClick={() => setSigningId(signingId === r.id ? null : r.id)}
+                          >
                             {signingId === r.id ? "Cancel" : "Sign now"}
                           </button>
                           {signingId === r.id && (
@@ -286,8 +332,14 @@ export default function PublicTripParticipant() {
         <div className="admin-section">
           <h3>How to give</h3>
           <ol>
-            <li>Give directly to the church — note "{data.firstName} {data.lastName} — {data.trip.name || data.trip.type}" so it's credited to this trip.</li>
-            <li>Give directly to {data.firstName} — pass along your gift and they'll record it with the church office.</li>
+            <li>
+              Give directly to the church — note "{data.firstName} {data.lastName} —{" "}
+              {data.trip.name || data.trip.type}" so it's credited to this trip.
+            </li>
+            <li>
+              Give directly to {data.firstName} — pass along your gift and they'll record it with the church
+              office.
+            </li>
             {data.giving?.onlineGivingUrl && (
               <li>
                 Give online: <a href={data.giving.onlineGivingUrl}>{data.giving.onlineGivingUrl}</a>

@@ -196,8 +196,8 @@ export default function AdminSettingsTrips() {
             </label>
           </div>
           <p style={{ color: "#888", fontSize: "0.85rem" }}>
-            Never shown on the public support-raising page regardless of this setting — only on the participant's
-            own self-service page and to admins.
+            Never shown on the public support-raising page regardless of this setting — only on the
+            participant's own self-service page and to admins.
           </p>
 
           <h3 style={{ marginTop: "1.5rem" }}>Trip budgets</h3>
@@ -212,37 +212,52 @@ export default function AdminSettingsTrips() {
             </label>
           </div>
           <p style={{ color: "#888", fontSize: "0.85rem" }}>
-            Adds a Budget section to each trip's own page for logging estimated costs (flights, lodging, etc.) and
-            seeing how much is still needed against what's been raised. Admin-only — never shown to applicants or
-            participants. Turned off, the section doesn't appear at all.
+            Adds a Budget section to each trip's own page for logging estimated costs (flights, lodging, etc.)
+            and seeing how much is still needed against what's been raised. Admin-only — never shown to
+            applicants or participants. Turned off, the section doesn't appear at all.
           </p>
         </div>
 
         <div className="admin-section-group" style={{ marginTop: "2rem" }}>
           <h2 className="admin-group-heading">Application form</h2>
           <p style={{ color: "#888", fontSize: "0.85rem", margin: "-0.5rem 0 0" }}>
-            Everything below is part of what a person fills out when applying — before they're ever a confirmed
-            participant.
+            Everything below is part of what a person fills out when applying — before they're ever a
+            confirmed participant.
           </p>
 
           <h3>Application template</h3>
           <p style={{ color: "#888", fontSize: "0.85rem" }}>
-            Asked on every trip's application form, before that trip's own questions. Edit here instead of re-typing
-            the same question on every trip.
+            Asked on every trip's application form, before that trip's own questions. Edit here instead of
+            re-typing the same question on every trip.
           </p>
           <ApplicationQuestionsEditor
             questions={form.tripApplicationTemplate || []}
             library={form.tripQuestionLibrary || []}
-            onAdd={(input) => update("tripApplicationTemplate", [...(form.tripApplicationTemplate || []), { id: crypto.randomUUID(), ...input }])}
+            onAdd={(input) =>
+              update("tripApplicationTemplate", [
+                ...(form.tripApplicationTemplate || []),
+                { id: crypto.randomUUID(), ...input },
+              ])
+            }
             onUpdate={(qId, patch) =>
               update(
                 "tripApplicationTemplate",
                 (form.tripApplicationTemplate || []).map((q) => (q.id === qId ? { ...q, ...patch } : q))
               )
             }
-            onRemove={(qId) => update("tripApplicationTemplate", (form.tripApplicationTemplate || []).filter((q) => q.id !== qId))}
+            onRemove={(qId) =>
+              update(
+                "tripApplicationTemplate",
+                (form.tripApplicationTemplate || []).filter((q) => q.id !== qId)
+              )
+            }
             onReorder={(reordered) => update("tripApplicationTemplate", reordered)}
-            onAddFromLibrary={(entry) => update("tripApplicationTemplate", [...(form.tripApplicationTemplate || []), { ...entry, id: crypto.randomUUID() }])}
+            onAddFromLibrary={(entry) =>
+              update("tripApplicationTemplate", [
+                ...(form.tripApplicationTemplate || []),
+                { ...entry, id: crypto.randomUUID() },
+              ])
+            }
           />
 
           <h3 style={{ marginTop: "1.5rem" }}>Applicant mailing address</h3>
@@ -281,18 +296,29 @@ export default function AdminSettingsTrips() {
           <p style={{ color: "#888", fontSize: "0.85rem" }}>
             A reusable library, <strong>not itself shown to anyone, ever</strong> — pick from it when adding a
             question above or on any trip's own page, instead of retyping a commonly-used one. Unlike
-            "Application template" above, nothing here is live on any form until you explicitly add it somewhere.
+            "Application template" above, nothing here is live on any form until you explicitly add it
+            somewhere.
           </p>
           <ApplicationQuestionsEditor
             questions={form.tripQuestionLibrary || []}
-            onAdd={(input) => update("tripQuestionLibrary", [...(form.tripQuestionLibrary || []), { id: crypto.randomUUID(), ...input }])}
+            onAdd={(input) =>
+              update("tripQuestionLibrary", [
+                ...(form.tripQuestionLibrary || []),
+                { id: crypto.randomUUID(), ...input },
+              ])
+            }
             onUpdate={(qId, patch) =>
               update(
                 "tripQuestionLibrary",
                 (form.tripQuestionLibrary || []).map((q) => (q.id === qId ? { ...q, ...patch } : q))
               )
             }
-            onRemove={(qId) => update("tripQuestionLibrary", (form.tripQuestionLibrary || []).filter((q) => q.id !== qId))}
+            onRemove={(qId) =>
+              update(
+                "tripQuestionLibrary",
+                (form.tripQuestionLibrary || []).filter((q) => q.id !== qId)
+              )
+            }
             onReorder={(reordered) => update("tripQuestionLibrary", reordered)}
           />
         </div>
@@ -300,13 +326,13 @@ export default function AdminSettingsTrips() {
         <div className="admin-section-group" style={{ marginTop: "2rem" }}>
           <h2 className="admin-group-heading">Trip requirements</h2>
           <p style={{ color: "#888", fontSize: "0.85rem", margin: "-0.5rem 0 0" }}>
-            What's needed <strong>after</strong> someone is accepted onto the team — a different phase from the
-            application form above.
+            What's needed <strong>after</strong> someone is accepted onto the team — a different phase from
+            the application form above.
           </p>
           <p style={{ color: "#888", fontSize: "0.85rem" }}>
-            Automatically added to every newly-created, actively-recruiting trip — no manual re-adding needed per
-            trip. Editing this later only affects trips created afterward; it never changes an already-created
-            trip's own copy.
+            Automatically added to every newly-created, actively-recruiting trip — no manual re-adding needed
+            per trip. Editing this later only affects trips created afterward; it never changes an
+            already-created trip's own copy.
           </p>
           <RequirementTemplateEditor
             items={form.tripRequirementTemplate || []}

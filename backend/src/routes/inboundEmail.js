@@ -147,7 +147,12 @@ router.post("/postmark", async (req, res, next) => {
     if (matches.length === 0 && participantMatches.length === 1) {
       await prisma.tripDocument.create({
         data: {
-          tripId: (await prisma.tripParticipant.findUnique({ where: { id: participantMatches[0].id }, select: { tripId: true } })).tripId,
+          tripId: (
+            await prisma.tripParticipant.findUnique({
+              where: { id: participantMatches[0].id },
+              select: { tripId: true },
+            })
+          ).tripId,
           participantId: participantMatches[0].id,
           title: subject,
           bytes,

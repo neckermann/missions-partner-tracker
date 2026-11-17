@@ -45,7 +45,12 @@ async function checkAndSendTripMeetingReminders() {
             {
               name: "meeting.ics",
               content: Buffer.from(
-                buildMeetingIcs({ id: meeting.id, startAt: meeting.startAt, location: meeting.location, summary: meeting.trip.name })
+                buildMeetingIcs({
+                  id: meeting.id,
+                  startAt: meeting.startAt,
+                  location: meeting.location,
+                  summary: meeting.trip.name,
+                })
               ),
               contentType: "text/calendar",
             },
@@ -100,7 +105,9 @@ async function checkAndSendRequirementReminders() {
         `This is a reminder that "${requirement.label}" is due by ${requirement.dueAt.toISOString().slice(0, 10)}.`
       );
       await prisma.tripRequirementStatus.upsert({
-        where: { requirementId_participantId: { requirementId: requirement.id, participantId: participant.id } },
+        where: {
+          requirementId_participantId: { requirementId: requirement.id, participantId: participant.id },
+        },
         create: { requirementId: requirement.id, participantId: participant.id, reminderSentAt: new Date() },
         update: { reminderSentAt: new Date() },
       });
@@ -119,4 +126,8 @@ function startTripReminderScheduler() {
   });
 }
 
-module.exports = { startTripReminderScheduler, checkAndSendTripMeetingReminders, checkAndSendRequirementReminders };
+module.exports = {
+  startTripReminderScheduler,
+  checkAndSendTripMeetingReminders,
+  checkAndSendRequirementReminders,
+};

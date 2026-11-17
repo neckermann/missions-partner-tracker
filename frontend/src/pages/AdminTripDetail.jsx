@@ -41,7 +41,13 @@ export default function AdminTripDetail() {
   const [applications, setApplications] = useState([]);
   const [error, setError] = useState("");
   const [savingSetup, setSavingSetup] = useState(false);
-  const [newRequirement, setNewRequirement] = useState({ label: "", kind: "document", bodyText: "", dueAt: "", reminderLeadDays: "" });
+  const [newRequirement, setNewRequirement] = useState({
+    label: "",
+    kind: "document",
+    bodyText: "",
+    dueAt: "",
+    reminderLeadDays: "",
+  });
   const [questionLibrary, setQuestionLibrary] = useState([]);
   const [applicationTemplate, setApplicationTemplate] = useState([]);
   // Church-wide toggle (AdminSettingsTrips.jsx) -- the Budget section
@@ -122,7 +128,10 @@ export default function AdminTripDetail() {
       const { applicationShareToken } = await generateApplicationLink(id);
       setTrip((t) => ({ ...t, applicationShareToken }));
     } catch (err) {
-      setError(err.response?.data?.error || "Couldn't generate link -- check that private application links are enabled in Trip settings.");
+      setError(
+        err.response?.data?.error ||
+          "Couldn't generate link -- check that private application links are enabled in Trip settings."
+      );
     }
   }
 
@@ -134,10 +143,18 @@ export default function AdminTripDetail() {
   async function handleDecline(a) {
     const result = await confirmDialog({
       title: `Decline ${a.firstName} ${a.lastName}'s application?`,
-      body: <ConfirmMessageBody>They won't be notified automatically -- the application moves to Declined below, and can still be reconsidered later.</ConfirmMessageBody>,
+      body: (
+        <ConfirmMessageBody>
+          They won't be notified automatically -- the application moves to Declined below, and can still be
+          reconsidered later.
+        </ConfirmMessageBody>
+      ),
       confirmLabel: "Decline",
       danger: true,
-      textInput: { label: "Reason (optional, admin-only -- never shown to the applicant)", placeholder: "e.g. Team is full, schedule conflict, ..." },
+      textInput: {
+        label: "Reason (optional, admin-only -- never shown to the applicant)",
+        placeholder: "e.g. Team is full, schedule conflict, ...",
+      },
     });
     if (!result.confirmed) return;
     await handleReview(a.id, "declined", result.text);
@@ -192,7 +209,9 @@ export default function AdminTripDetail() {
   }
 
   async function handleSetRequirementReminder(reqId, reminderLeadDays) {
-    await updateTripRequirement(reqId, { reminderLeadDays: reminderLeadDays ? Number(reminderLeadDays) : null });
+    await updateTripRequirement(reqId, {
+      reminderLeadDays: reminderLeadDays ? Number(reminderLeadDays) : null,
+    });
     reload();
   }
 
@@ -384,7 +403,9 @@ export default function AdminTripDetail() {
       fulfilled:
         req.kind === "task"
           ? !!(req.requirementStatuses || []).find((s) => s.participantId === participantId)?.completedAt
-          : (trip.documents || []).some((d) => d.requirementId === req.id && d.participantId === participantId),
+          : (trip.documents || []).some(
+              (d) => d.requirementId === req.id && d.participantId === participantId
+            ),
     }));
 
   const raised = (trip.contributions || []).reduce((sum, c) => sum + c.amount, 0);
@@ -397,7 +418,16 @@ export default function AdminTripDetail() {
         <h2 style={{ margin: 0 }}>{trip.name || trip.type || "Trip"}</h2>
         <TripStatusBadge status={trip.status} />
         {trip.partner?.isRestricted && (
-          <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#a6540f", background: "#fbeee033", padding: "2px 8px", borderRadius: 999 }}>
+          <span
+            style={{
+              fontSize: "0.7rem",
+              fontWeight: 700,
+              color: "#a6540f",
+              background: "#fbeee033",
+              padding: "2px 8px",
+              borderRadius: 999,
+            }}
+          >
             Restricted partner
           </span>
         )}
@@ -476,7 +506,9 @@ export default function AdminTripDetail() {
             <input
               type="number"
               defaultValue={trip.supportRaisingGoal || ""}
-              onBlur={(e) => saveSetup({ supportRaisingGoal: e.target.value ? Number(e.target.value) : null })}
+              onBlur={(e) =>
+                saveSetup({ supportRaisingGoal: e.target.value ? Number(e.target.value) : null })
+              }
             />
             {/* Suggests a per-person goal at the point you'd actually set
             one, instead of guessing blind. A single number, not a
@@ -496,9 +528,17 @@ export default function AdminTripDetail() {
             a real screenshot showed it floating ambiguously under all
             three fields when it sat outside the grid. */}
             {enableTripBudgeting && budgetTotal > 0 && (trip.teamSizeMax || trip.teamSizeMin) && (
-              <span style={{ display: "block", color: "#888", fontSize: "0.75rem", fontWeight: 400, marginTop: "0.3rem" }}>
-                Suggested: ~${Math.ceil(budgetTotal / (trip.teamSizeMax || trip.teamSizeMin))}/person, based on $
-                {budgetTotal} budgeted ÷ a {trip.teamSizeMax || trip.teamSizeMin}-person team.
+              <span
+                style={{
+                  display: "block",
+                  color: "#888",
+                  fontSize: "0.75rem",
+                  fontWeight: 400,
+                  marginTop: "0.3rem",
+                }}
+              >
+                Suggested: ~${Math.ceil(budgetTotal / (trip.teamSizeMax || trip.teamSizeMin))}/person, based
+                on ${budgetTotal} budgeted ÷ a {trip.teamSizeMax || trip.teamSizeMin}-person team.
               </span>
             )}
           </label>
@@ -560,9 +600,9 @@ export default function AdminTripDetail() {
       <div className="admin-section">
         <h3>Flight itinerary</h3>
         <p style={{ color: "#888", fontSize: "0.85rem" }}>
-          Entered once after group travel is booked. Shown only on each participant's own self-service page, never
-          publicly. Add one row per leg — a connection is two rows; a segment just for part of the team can be
-          labeled (e.g. "Priya &amp; John"), leaving the label blank means the whole team.
+          Entered once after group travel is booked. Shown only on each participant's own self-service page,
+          never publicly. Add one row per leg — a connection is two rows; a segment just for part of the team
+          can be labeled (e.g. "Priya &amp; John"), leaving the label blank means the whole team.
         </p>
         <table className="admin-table">
           <thead>
@@ -582,7 +622,10 @@ export default function AdminTripDetail() {
                     style={{ width: "9rem" }}
                     defaultValue={seg.label || ""}
                     placeholder="Whole team"
-                    onBlur={(e) => e.target.value !== (seg.label || "") && handleUpdateFlightSegment(seg.id, { label: e.target.value.trim() || null })}
+                    onBlur={(e) =>
+                      e.target.value !== (seg.label || "") &&
+                      handleUpdateFlightSegment(seg.id, { label: e.target.value.trim() || null })
+                    }
                   />
                 </td>
                 <td>
@@ -591,13 +634,19 @@ export default function AdminTripDetail() {
                       style={{ width: "6rem" }}
                       defaultValue={seg.airline || ""}
                       placeholder="Airline"
-                      onBlur={(e) => e.target.value !== (seg.airline || "") && handleUpdateFlightSegment(seg.id, { airline: e.target.value.trim() || null })}
+                      onBlur={(e) =>
+                        e.target.value !== (seg.airline || "") &&
+                        handleUpdateFlightSegment(seg.id, { airline: e.target.value.trim() || null })
+                      }
                     />
                     <input
                       style={{ width: "5rem" }}
                       defaultValue={seg.flightNumber || ""}
                       placeholder="Flight #"
-                      onBlur={(e) => e.target.value !== (seg.flightNumber || "") && handleUpdateFlightSegment(seg.id, { flightNumber: e.target.value.trim() || null })}
+                      onBlur={(e) =>
+                        e.target.value !== (seg.flightNumber || "") &&
+                        handleUpdateFlightSegment(seg.id, { flightNumber: e.target.value.trim() || null })
+                      }
                     />
                   </div>
                 </td>
@@ -607,12 +656,17 @@ export default function AdminTripDetail() {
                       style={{ width: "4.5rem" }}
                       defaultValue={seg.departureAirport || ""}
                       placeholder="Airport"
-                      onBlur={(e) => e.target.value !== (seg.departureAirport || "") && handleUpdateFlightSegment(seg.id, { departureAirport: e.target.value.trim() || null })}
+                      onBlur={(e) =>
+                        e.target.value !== (seg.departureAirport || "") &&
+                        handleUpdateFlightSegment(seg.id, { departureAirport: e.target.value.trim() || null })
+                      }
                     />
                     <input
                       type="datetime-local"
                       defaultValue={seg.departureAt ? seg.departureAt.slice(0, 16) : ""}
-                      onBlur={(e) => handleUpdateFlightSegment(seg.id, { departureAt: e.target.value || null })}
+                      onBlur={(e) =>
+                        handleUpdateFlightSegment(seg.id, { departureAt: e.target.value || null })
+                      }
                     />
                   </div>
                 </td>
@@ -622,7 +676,10 @@ export default function AdminTripDetail() {
                       style={{ width: "4.5rem" }}
                       defaultValue={seg.arrivalAirport || ""}
                       placeholder="Airport"
-                      onBlur={(e) => e.target.value !== (seg.arrivalAirport || "") && handleUpdateFlightSegment(seg.id, { arrivalAirport: e.target.value.trim() || null })}
+                      onBlur={(e) =>
+                        e.target.value !== (seg.arrivalAirport || "") &&
+                        handleUpdateFlightSegment(seg.id, { arrivalAirport: e.target.value.trim() || null })
+                      }
                     />
                     <input
                       type="datetime-local"
@@ -632,7 +689,11 @@ export default function AdminTripDetail() {
                   </div>
                 </td>
                 <td className="table-actions">
-                  <button type="button" className="btn-remove" onClick={() => handleDeleteFlightSegment(seg.id)}>
+                  <button
+                    type="button"
+                    className="btn-remove"
+                    onClick={() => handleDeleteFlightSegment(seg.id)}
+                  >
                     ✕
                   </button>
                 </td>
@@ -647,7 +708,16 @@ export default function AdminTripDetail() {
             )}
           </tbody>
         </table>
-        <form onSubmit={handleAddFlightSegment} style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginTop: "0.5rem" }}>
+        <form
+          onSubmit={handleAddFlightSegment}
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "0.5rem",
+            alignItems: "center",
+            marginTop: "0.5rem",
+          }}
+        >
           <input
             style={{ width: "9rem" }}
             value={newFlightSegment.label}
@@ -725,10 +795,15 @@ export default function AdminTripDetail() {
                     </Link>
                   </td>
                   <td>
-                    ${(trip.contributions || []).filter((c) => c.participantId === p.id).reduce((s, c) => s + c.amount, 0)}
+                    $
+                    {(trip.contributions || [])
+                      .filter((c) => c.participantId === p.id)
+                      .reduce((s, c) => s + c.amount, 0)}
                     {p.supportRaisingGoal ? ` / $${p.supportRaisingGoal}` : ""}
                   </td>
-                  <td>{missing.length === 0 ? "—" : `${missing.length} item${missing.length === 1 ? "" : "s"}`}</td>
+                  <td>
+                    {missing.length === 0 ? "—" : `${missing.length} item${missing.length === 1 ? "" : "s"}`}
+                  </td>
                   <td className="table-actions">
                     <Link className="btn secondary small" to={`/admin/trips/${id}/participants/${p.id}`}>
                       View details
@@ -782,8 +857,8 @@ export default function AdminTripDetail() {
       <div className="admin-section">
         <h3>Trip-wide documents</h3>
         <p style={{ color: "#888", fontSize: "0.85rem" }}>
-          Shared with the whole team -- an itinerary, packing list, or anything else that isn't specific to one
-          person.
+          Shared with the whole team -- an itinerary, packing list, or anything else that isn't specific to
+          one person.
         </p>
         <ul style={{ listStyle: "none", padding: 0 }}>
           {(trip.documents || [])
@@ -803,8 +878,17 @@ export default function AdminTripDetail() {
             <p style={{ color: "#888" }}>No trip-wide documents yet.</p>
           )}
         </ul>
-        <input type="file" aria-label="Trip-wide document file" onChange={(e) => setTripWideFile(e.target.files[0] || null)} />
-        <button type="button" className="btn secondary small" disabled={!tripWideFile} onClick={handleUploadTripWideDocument}>
+        <input
+          type="file"
+          aria-label="Trip-wide document file"
+          onChange={(e) => setTripWideFile(e.target.files[0] || null)}
+        />
+        <button
+          type="button"
+          className="btn secondary small"
+          disabled={!tripWideFile}
+          onClick={handleUploadTripWideDocument}
+        >
           Upload
         </button>
       </div>
@@ -817,15 +901,23 @@ export default function AdminTripDetail() {
       <div className="admin-section">
         <h3>Trip Requirements</h3>
         <p style={{ color: "#888", fontSize: "0.85rem" }}>
-          What this trip needs from each participant -- a document to upload, or a plain task an admin checks off
-          (e.g. "Attended orientation call"). Give one a due date to see it flagged once overdue; add a reminder
-          lead time to have anyone who hasn't fulfilled it emailed automatically before it's due.
+          What this trip needs from each participant -- a document to upload, or a plain task an admin checks
+          off (e.g. "Attended orientation call"). Give one a due date to see it flagged once overdue; add a
+          reminder lead time to have anyone who hasn't fulfilled it emailed automatically before it's due.
         </p>
         <ul style={{ listStyle: "none", padding: 0 }}>
           {(trip.requirements || []).map((r) => {
             const overdue = r.dueAt && new Date(r.dueAt) < new Date();
             return (
-              <li key={r.id} style={{ border: "1px solid #e1dfdb", borderRadius: 6, padding: "0.5rem 0.6rem", marginBottom: "0.5rem" }}>
+              <li
+                key={r.id}
+                style={{
+                  border: "1px solid #e1dfdb",
+                  borderRadius: 6,
+                  padding: "0.5rem 0.6rem",
+                  marginBottom: "0.5rem",
+                }}
+              >
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                   <span
                     style={{
@@ -834,13 +926,22 @@ export default function AdminTripDetail() {
                       padding: "2px 8px",
                       borderRadius: 999,
                       color: r.kind === "task" ? "#2a5d8f" : r.kind === "esignature" ? "#a6540f" : "#1f6b4f",
-                      background: r.kind === "task" ? "#e8eff7" : r.kind === "esignature" ? "#fbeee0" : "#e7f3ee",
+                      background:
+                        r.kind === "task" ? "#e8eff7" : r.kind === "esignature" ? "#fbeee0" : "#e7f3ee",
                     }}
                   >
                     {r.kind === "task" ? "Task" : r.kind === "esignature" ? "E-signature" : "Document"}
                   </span>
                   <strong style={{ flex: 1 }}>{r.label}</strong>
-                  <label style={{ fontWeight: 400, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                  <label
+                    style={{
+                      fontWeight: 400,
+                      fontSize: "0.8rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.3rem",
+                    }}
+                  >
                     Due
                     <input
                       type="date"
@@ -850,7 +951,15 @@ export default function AdminTripDetail() {
                     />
                   </label>
                   {r.dueAt && (
-                    <label style={{ fontWeight: 400, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                    <label
+                      style={{
+                        fontWeight: 400,
+                        fontSize: "0.8rem",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.3rem",
+                      }}
+                    >
                       Remind
                       <input
                         type="number"
@@ -870,12 +979,17 @@ export default function AdminTripDetail() {
                   </button>
                 </div>
                 {r.kind === "esignature" && (
-                  <label style={{ display: "block", marginTop: "0.5rem", fontWeight: 400, fontSize: "0.8rem" }}>
+                  <label
+                    style={{ display: "block", marginTop: "0.5rem", fontWeight: 400, fontSize: "0.8rem" }}
+                  >
                     Agreement text (shown to the participant before they sign)
                     <textarea
                       rows={4}
                       defaultValue={r.bodyText || ""}
-                      onBlur={(e) => e.target.value !== (r.bodyText || "") && handleSetRequirementBodyText(r.id, e.target.value)}
+                      onBlur={(e) =>
+                        e.target.value !== (r.bodyText || "") &&
+                        handleSetRequirementBodyText(r.id, e.target.value)
+                      }
                     />
                   </label>
                 )}
@@ -884,7 +998,10 @@ export default function AdminTripDetail() {
           })}
           {(trip.requirements || []).length === 0 && <p style={{ color: "#888" }}>No requirements yet.</p>}
         </ul>
-        <form onSubmit={handleAddRequirement} style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
+        <form
+          onSubmit={handleAddRequirement}
+          style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}
+        >
           <input
             style={{ flex: 1, minWidth: 220 }}
             value={newRequirement.label}
@@ -908,7 +1025,15 @@ export default function AdminTripDetail() {
               onChange={(e) => setNewRequirement((f) => ({ ...f, bodyText: e.target.value }))}
             />
           )}
-          <label style={{ fontWeight: 400, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+          <label
+            style={{
+              fontWeight: 400,
+              fontSize: "0.85rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.3rem",
+            }}
+          >
             Due (optional)
             <input
               type="date"
@@ -1062,7 +1187,11 @@ export default function AdminTripDetail() {
                   <td>
                     <input
                       defaultValue={b.label}
-                      onBlur={(e) => e.target.value.trim() && e.target.value !== b.label && handleUpdateBudgetLine(b.id, { label: e.target.value.trim() })}
+                      onBlur={(e) =>
+                        e.target.value.trim() &&
+                        e.target.value !== b.label &&
+                        handleUpdateBudgetLine(b.id, { label: e.target.value.trim() })
+                      }
                     />
                   </td>
                   <td>
@@ -1100,7 +1229,16 @@ export default function AdminTripDetail() {
               )}
             </tbody>
           </table>
-          <form onSubmit={handleAddBudgetLine} style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginTop: "0.5rem" }}>
+          <form
+            onSubmit={handleAddBudgetLine}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "0.5rem",
+              alignItems: "center",
+              marginTop: "0.5rem",
+            }}
+          >
             <input
               style={{ flex: 1, minWidth: 220 }}
               value={newBudgetLine.label}
@@ -1119,7 +1257,8 @@ export default function AdminTripDetail() {
             </button>
           </form>
           <p style={{ marginTop: "0.6rem", fontWeight: 600 }}>
-            Est. total cost: ${budgetTotal} · Raised: ${raised} · Still needed: ${Math.max(budgetTotal - raised, 0)}
+            Est. total cost: ${budgetTotal} · Raised: ${raised} · Still needed: $
+            {Math.max(budgetTotal - raised, 0)}
           </p>
         </div>
       )}
@@ -1141,7 +1280,9 @@ export default function AdminTripDetail() {
             {(trip.contributions || []).map((c) => (
               <tr key={c.id}>
                 <td>{c.donorName}</td>
-                <td>{(trip.participants || []).find((p) => p.id === c.participantId)?.firstName || "Trip-wide"}</td>
+                <td>
+                  {(trip.participants || []).find((p) => p.id === c.participantId)?.firstName || "Trip-wide"}
+                </td>
                 <td>${c.amount}</td>
                 <td>{c.method}</td>
                 <td>{formatDate(c.receivedDate)}</td>
@@ -1250,20 +1391,30 @@ export default function AdminTripDetail() {
                             <strong>Email:</strong> {a.email || "—"}
                             {a.phone && (
                               <>
-                                {" "}· <strong>Phone:</strong> {a.phone}
+                                {" "}
+                                · <strong>Phone:</strong> {a.phone}
                               </>
                             )}
                             {(a.addressLine1 || a.city) && (
                               <>
-                                {" "}· <strong>Address:</strong>{" "}
-                                {[a.addressLine1, a.addressLine2, a.city, a.stateProvinceRegion, a.postalCode, a.country]
+                                {" "}
+                                · <strong>Address:</strong>{" "}
+                                {[
+                                  a.addressLine1,
+                                  a.addressLine2,
+                                  a.city,
+                                  a.stateProvinceRegion,
+                                  a.postalCode,
+                                  a.country,
+                                ]
                                   .filter(Boolean)
                                   .join(", ")}
                               </>
                             )}
                             {(a.emergencyContactName || a.emergencyContactPhone) && (
                               <>
-                                {" "}· <strong>Emergency contact:</strong>{" "}
+                                {" "}
+                                · <strong>Emergency contact:</strong>{" "}
                                 {[a.emergencyContactName, a.emergencyContactPhone, a.emergencyContactEmail]
                                   .filter(Boolean)
                                   .join(", ")}
@@ -1271,13 +1422,17 @@ export default function AdminTripDetail() {
                             )}
                           </p>
                           {answersFor(a).length === 0 ? (
-                            <p style={{ color: "#888", fontSize: "0.85rem" }}>This trip has no application questions set.</p>
+                            <p style={{ color: "#888", fontSize: "0.85rem" }}>
+                              This trip has no application questions set.
+                            </p>
                           ) : (
                             <dl style={{ margin: 0 }}>
                               {answersFor(a).map((q) => (
                                 <div key={q.id} style={{ marginBottom: "0.4rem" }}>
                                   <dt style={{ fontSize: "0.85rem", fontWeight: 600 }}>{q.label}</dt>
-                                  <dd style={{ margin: "0.1rem 0 0", fontSize: "0.85rem", color: "#333" }}>{q.answer}</dd>
+                                  <dd style={{ margin: "0.1rem 0 0", fontSize: "0.85rem", color: "#333" }}>
+                                    {q.answer}
+                                  </dd>
                                 </div>
                               ))}
                             </dl>
@@ -1306,7 +1461,8 @@ export default function AdminTripDetail() {
         {applications.filter((a) => a.status === "declined").length > 0 && (
           <div style={{ marginTop: "0.75rem" }}>
             <button type="button" className="btn secondary small" onClick={() => setShowDeclined((s) => !s)}>
-              {showDeclined ? "Hide" : "Show"} declined ({applications.filter((a) => a.status === "declined").length})
+              {showDeclined ? "Hide" : "Show"} declined (
+              {applications.filter((a) => a.status === "declined").length})
             </button>
             {showDeclined && (
               <table className="admin-table" style={{ marginTop: "0.5rem" }}>
@@ -1341,7 +1497,11 @@ export default function AdminTripDetail() {
                               >
                                 {expanded ? "Hide answers" : "View answers"}
                               </button>
-                              <button type="button" className="btn secondary small" onClick={() => handleReconsider(a)}>
+                              <button
+                                type="button"
+                                className="btn secondary small"
+                                onClick={() => handleReconsider(a)}
+                              >
                                 Reconsider
                               </button>
                             </td>
@@ -1353,34 +1513,54 @@ export default function AdminTripDetail() {
                                   <strong>Email:</strong> {a.email || "—"}
                                   {a.phone && (
                                     <>
-                                      {" "}· <strong>Phone:</strong> {a.phone}
+                                      {" "}
+                                      · <strong>Phone:</strong> {a.phone}
                                     </>
                                   )}
                                   {(a.addressLine1 || a.city) && (
                                     <>
-                                      {" "}· <strong>Address:</strong>{" "}
-                                      {[a.addressLine1, a.addressLine2, a.city, a.stateProvinceRegion, a.postalCode, a.country]
+                                      {" "}
+                                      · <strong>Address:</strong>{" "}
+                                      {[
+                                        a.addressLine1,
+                                        a.addressLine2,
+                                        a.city,
+                                        a.stateProvinceRegion,
+                                        a.postalCode,
+                                        a.country,
+                                      ]
                                         .filter(Boolean)
                                         .join(", ")}
                                     </>
                                   )}
                                   {(a.emergencyContactName || a.emergencyContactPhone) && (
                                     <>
-                                      {" "}· <strong>Emergency contact:</strong>{" "}
-                                      {[a.emergencyContactName, a.emergencyContactPhone, a.emergencyContactEmail]
+                                      {" "}
+                                      · <strong>Emergency contact:</strong>{" "}
+                                      {[
+                                        a.emergencyContactName,
+                                        a.emergencyContactPhone,
+                                        a.emergencyContactEmail,
+                                      ]
                                         .filter(Boolean)
                                         .join(", ")}
                                     </>
                                   )}
                                 </p>
                                 {answersFor(a).length === 0 ? (
-                                  <p style={{ color: "#888", fontSize: "0.85rem" }}>This trip has no application questions set.</p>
+                                  <p style={{ color: "#888", fontSize: "0.85rem" }}>
+                                    This trip has no application questions set.
+                                  </p>
                                 ) : (
                                   <dl style={{ margin: 0 }}>
                                     {answersFor(a).map((q) => (
                                       <div key={q.id} style={{ marginBottom: "0.4rem" }}>
                                         <dt style={{ fontSize: "0.85rem", fontWeight: 600 }}>{q.label}</dt>
-                                        <dd style={{ margin: "0.1rem 0 0", fontSize: "0.85rem", color: "#333" }}>{q.answer}</dd>
+                                        <dd
+                                          style={{ margin: "0.1rem 0 0", fontSize: "0.85rem", color: "#333" }}
+                                        >
+                                          {q.answer}
+                                        </dd>
                                       </div>
                                     ))}
                                   </dl>

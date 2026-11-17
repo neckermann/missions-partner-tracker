@@ -19,7 +19,10 @@ const prisma = require("../prismaClient");
 const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
 const { toInitials } = require("../utils/maskData");
-const { verifyTripParticipantAccessToken, sendTripParticipantAccessLinks } = require("../utils/tripAccessToken");
+const {
+  verifyTripParticipantAccessToken,
+  sendTripParticipantAccessLinks,
+} = require("../utils/tripAccessToken");
 const { buildSignedDocumentPdf } = require("../utils/pdfGeneration");
 const { decodePhotoDataUrl } = require("../utils/participantPhoto");
 const crypto = require("crypto");
@@ -69,7 +72,10 @@ function shapeTripForApplicant(trip, settings) {
     endDate: trip.endDate,
     fieldDisplayName: partnerFieldLabel(trip.partner),
     isRestricted: !!trip.partner?.isRestricted,
-    applicationQuestions: [...(settings?.tripApplicationTemplate || []), ...(trip.applicationQuestions || [])],
+    applicationQuestions: [
+      ...(settings?.tripApplicationTemplate || []),
+      ...(trip.applicationQuestions || []),
+    ],
     // Tells the public form whether to render the structured mailing-
     // address block at all -- see ChurchSettings.collectApplicantAddress's
     // own schema comment.
@@ -88,52 +94,56 @@ const tripPartnerSelect = {
 // publicTripDiscovery (both required -- see requireFeature's any-of
 // semantics for an array, which is why these are two separate calls,
 // not one array call).
-router.get(
-  "/",
-  requireFeature("trips"),
-  requireFeature("publicTripDiscovery"),
-  async (req, res, next) => {
-    try {
-      const [trips, settings] = await Promise.all([
-        prisma.trip.findMany({
-          where: {
-            isPublic: true,
-            AND: [
-              { OR: [{ status: "accepting_applications" }, { status: "planning" }] },
-              { OR: [{ partnerId: null }, { partner: { is: { isRestricted: false } } }] },
-            ],
-          },
-          select: { id: true, name: true, type: true, description: true, startDate: true, endDate: true, status: true, ...tripPartnerSelect },
-          orderBy: { startDate: "asc" },
-        }),
-        getSettings(),
-      ]);
-      // Belt-and-suspenders: a Trip with no partnerId has no `partner` row
-      // to filter on above (the `where` only excludes a *restricted*
-      // linked partner -- a null partnerId already passes that clause).
-      // onlineGivingUrl is church-wide, not per-trip, but repeated on
-      // every card here -- a trip-level "Donate" button next to Apply,
-      // same ManagedMissions-inferred pattern (competitor backlog item),
-      // reusing the giving link §13 already built rather than adding a
-      // second one scoped to discovery specifically.
-      res.json(
-        trips.map((t) => ({
-          id: t.id,
-          name: t.name,
-          type: t.type,
-          description: t.description,
-          startDate: t.startDate,
-          endDate: t.endDate,
-          status: t.status,
-          fieldDisplayName: t.partner?.fieldDisplayName || t.partner?.displayName || null,
-          onlineGivingUrl: settings?.onlineGivingUrl || null,
-        }))
-      );
-    } catch (err) {
-      next(err);
-    }
+router.get("/", requireFeature("trips"), requireFeature("publicTripDiscovery"), async (req, res, next) => {
+  try {
+    const [trips, settings] = await Promise.all([
+      prisma.trip.findMany({
+        where: {
+          isPublic: true,
+          AND: [
+            { OR: [{ status: "accepting_applications" }, { status: "planning" }] },
+            { OR: [{ partnerId: null }, { partner: { is: { isRestricted: false } } }] },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          description: true,
+          startDate: true,
+          endDate: true,
+          status: true,
+          ...tripPartnerSelect,
+        },
+        orderBy: { startDate: "asc" },
+      }),
+      getSettings(),
+    ]);
+    // Belt-and-suspenders: a Trip with no partnerId has no `partner` row
+    // to filter on above (the `where` only excludes a *restricted*
+    // linked partner -- a null partnerId already passes that clause).
+    // onlineGivingUrl is church-wide, not per-trip, but repeated on
+    // every card here -- a trip-level "Donate" button next to Apply,
+    // same ManagedMissions-inferred pattern (competitor backlog item),
+    // reusing the giving link §13 already built rather than adding a
+    // second one scoped to discovery specifically.
+    res.json(
+      trips.map((t) => ({
+        id: t.id,
+        name: t.name,
+        type: t.type,
+        description: t.description,
+        startDate: t.startDate,
+        endDate: t.endDate,
+        status: t.status,
+        fieldDisplayName: t.partner?.fieldDisplayName || t.partner?.displayName || null,
+        onlineGivingUrl: settings?.onlineGivingUrl || null,
+      }))
+    );
+  } catch (err) {
+    next(err);
   }
-);
+});
 
 // GET /api/public/trips/:id -- plain id-addressed. Requires
 // publicTripDiscovery AND isPublic AND accepting_applications AND not
@@ -297,59 +307,64 @@ router.post("/by-token/:token/apply", requireFeature("trips"), async (req, res, 
 // GET /api/public/trip-participants/by-token/:shareToken -- the public
 // support-raising page. 404s when allowPublicSupportRaisingLinks is off or the
 // token doesn't match anything. Restricted partner: masked, not 404.
-router.get(
-  "/participants/by-token/:shareToken",
-  requireFeature("trips"),
-  async (req, res, next) => {
-    try {
-      const settings = await getSettings();
-      if (!settings?.allowPublicSupportRaisingLinks) return res.status(404).json({ error: "Not found" });
+router.get("/participants/by-token/:shareToken", requireFeature("trips"), async (req, res, next) => {
+  try {
+    const settings = await getSettings();
+    if (!settings?.allowPublicSupportRaisingLinks) return res.status(404).json({ error: "Not found" });
 
-      const participant = await prisma.tripParticipant.findUnique({
-        where: { shareToken: req.params.shareToken },
-        include: {
-          trip: { select: { name: true, type: true, description: true, startDate: true, endDate: true, ...tripPartnerSelect } },
-          contributions: { select: { amount: true } },
-        },
-      });
-      if (!participant) return res.status(404).json({ error: "Not found" });
-      if (participant.trip.partner?.isRestricted) {
-        // still render -- masked -- rather than 404ing.
-      }
-
-      const raised = participant.contributions.reduce((sum, c) => sum + c.amount, 0);
-
-      res.json({
-        id: participant.id,
-        firstName: participant.firstName,
-        lastName: participant.lastName,
-        story: participant.story,
-        hasPhoto: !!participant.photo,
-        supportRaisingGoal: participant.supportRaisingGoal,
-        raised,
+    const participant = await prisma.tripParticipant.findUnique({
+      where: { shareToken: req.params.shareToken },
+      include: {
         trip: {
-          name: participant.trip.name,
-          type: participant.trip.type,
-          // Unmasked here same as name/dates already are on this route --
-          // this file's own header comment: masking on this route applies
-          // to partner identity, not trip-level free text. No restricted-
-          // partner branch needed.
-          description: participant.trip.description,
-          startDate: participant.trip.startDate,
-          endDate: participant.trip.endDate,
-          fieldDisplayName: partnerFieldLabel(participant.trip.partner),
+          select: {
+            name: true,
+            type: true,
+            description: true,
+            startDate: true,
+            endDate: true,
+            ...tripPartnerSelect,
+          },
         },
-        // Never flightSegments, never donor contact info -- public mode only.
-        giving: {
-          onlineGivingUrl: settings.onlineGivingUrl || null,
-          onlineGivingInstructions: settings.onlineGivingInstructions || null,
-        },
-      });
-    } catch (err) {
-      next(err);
+        contributions: { select: { amount: true } },
+      },
+    });
+    if (!participant) return res.status(404).json({ error: "Not found" });
+    if (participant.trip.partner?.isRestricted) {
+      // still render -- masked -- rather than 404ing.
     }
+
+    const raised = participant.contributions.reduce((sum, c) => sum + c.amount, 0);
+
+    res.json({
+      id: participant.id,
+      firstName: participant.firstName,
+      lastName: participant.lastName,
+      story: participant.story,
+      hasPhoto: !!participant.photo,
+      supportRaisingGoal: participant.supportRaisingGoal,
+      raised,
+      trip: {
+        name: participant.trip.name,
+        type: participant.trip.type,
+        // Unmasked here same as name/dates already are on this route --
+        // this file's own header comment: masking on this route applies
+        // to partner identity, not trip-level free text. No restricted-
+        // partner branch needed.
+        description: participant.trip.description,
+        startDate: participant.trip.startDate,
+        endDate: participant.trip.endDate,
+        fieldDisplayName: partnerFieldLabel(participant.trip.partner),
+      },
+      // Never flightSegments, never donor contact info -- public mode only.
+      giving: {
+        onlineGivingUrl: settings.onlineGivingUrl || null,
+        onlineGivingInstructions: settings.onlineGivingInstructions || null,
+      },
+    });
+  } catch (err) {
+    next(err);
   }
-);
+});
 
 // GET /api/public/trip-participants/access?token=... -- the self-service
 // page. Never blocked by anything above -- the one surface with neither
@@ -404,7 +419,9 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
       fulfilled:
         req.kind === "task"
           ? !!req.requirementStatuses[0]?.completedAt
-          : participant.trip.documents.some((d) => d.requirementId === req.id && d.participantId === participant.id),
+          : participant.trip.documents.some(
+              (d) => d.requirementId === req.id && d.participantId === participant.id
+            ),
     }));
 
     res.json({
@@ -428,7 +445,8 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
         startDate: participant.trip.startDate,
         endDate: participant.trip.endDate,
         flightSegments: participant.trip.flightSegments,
-        fieldDisplayName: participant.trip.partner?.fieldDisplayName || participant.trip.partner?.displayName || null,
+        fieldDisplayName:
+          participant.trip.partner?.fieldDisplayName || participant.trip.partner?.displayName || null,
       },
       meetings: participant.trip.meetings,
       requirements,

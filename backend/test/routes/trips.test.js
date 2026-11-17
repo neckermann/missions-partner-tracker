@@ -8,7 +8,14 @@ const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
-const { client, stopServer, ensureTestUsers, removeTestUsers, removeFixturePartners, FIXTURE_TAG } = require("./helpers");
+const {
+  client,
+  stopServer,
+  ensureTestUsers,
+  removeTestUsers,
+  removeFixturePartners,
+  FIXTURE_TAG,
+} = require("./helpers");
 
 // Same mock-the-whole-domain technique publicSubscribe.test.js/
 // dispatches.test.js already use for Postmark -- monkey-patch
@@ -33,7 +40,10 @@ let anon;
 let originalEnabledFeatures;
 
 async function setFeatures(patch) {
-  const current = await prisma.churchSettings.findUnique({ where: { id: "singleton" }, select: { enabledFeatures: true } });
+  const current = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
   const enabledFeatures = { ...(current?.enabledFeatures || {}), ...patch };
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
@@ -51,7 +61,10 @@ before(async () => {
   [admin, anon] = await Promise.all([client("admin"), client(null)]);
   await removeFixturePartners();
 
-  const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" }, select: { enabledFeatures: true } });
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
   originalEnabledFeatures = settings?.enabledFeatures ?? {};
   await setFeatures({ trips: true, publicTripDiscovery: true, outboundEmail: true });
   await setTripsSettings({ allowPrivateApplicationLinks: true, allowPublicSupportRaisingLinks: true });
@@ -65,7 +78,10 @@ after(async () => {
   global.fetch = realFetch;
   await removeFixturePartners();
   await removeTestUsers();
-  await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: originalEnabledFeatures } });
+  await prisma.churchSettings.update({
+    where: { id: "singleton" },
+    data: { enabledFeatures: originalEnabledFeatures },
+  });
   await stopServer();
 });
 
@@ -124,7 +140,10 @@ describe("Trips: restricted-partner handling -- three different rules, not one",
 
     // Discovery: excluded outright.
     const list = await anon("/api/public/trips");
-    assert.ok(!list.body.some((t) => t.id === trip.body.id), "restricted trip must never appear in discovery");
+    assert.ok(
+      !list.body.some((t) => t.id === trip.body.id),
+      "restricted trip must never appear in discovery"
+    );
 
     // Plain application route: excluded outright (404, not masked).
     const plain = await anon(`/api/public/trips/${trip.body.id}`);
@@ -138,7 +157,11 @@ describe("Trips: restricted-partner handling -- three different rules, not one",
     const viaToken = await anon(`/api/public/trips/by-token/${token}`);
     assert.equal(viaToken.status, 200);
     assert.equal(viaToken.body.isRestricted, true);
-    assert.notEqual(viaToken.body.fieldDisplayName, partner.displayName, "masked view must not show the real partner name");
+    assert.notEqual(
+      viaToken.body.fieldDisplayName,
+      partner.displayName,
+      "masked view must not show the real partner name"
+    );
 
     // Support-raising page: masked, not excluded.
     const participant = await prisma.tripParticipant.create({
@@ -160,7 +183,10 @@ describe("Trips: restricted-partner handling -- three different rules, not one",
 describe("Trips: lost-link recovery enumeration prevention", () => {
   test("response is identical whether or not the email matches anything", async () => {
     const partner = await createPartner();
-    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction" },
+    });
     await prisma.tripParticipant.create({
       data: { tripId: trip.body.id, firstName: "Known", email: "known-participant@example.test" },
     });
@@ -185,7 +211,10 @@ describe("Trips: lost-link recovery enumeration prevention", () => {
 describe("Trips: requirements (document or task)", () => {
   test("rejects a reminder lead time with no due date", async () => {
     const partner = await createPartner();
-    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction" },
+    });
     const res = await admin(`/api/trips/${trip.body.id}/requirements`, {
       method: "POST",
       body: { label: "No due date set", reminderLeadDays: 3 },
@@ -195,7 +224,10 @@ describe("Trips: requirements (document or task)", () => {
 
   test("a task requirement's fulfillment is per-participant, not shared across the whole trip", async () => {
     const partner = await createPartner();
-    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction" },
+    });
     const requirement = await admin(`/api/trips/${trip.body.id}/requirements`, {
       method: "POST",
       body: { label: "Attended orientation call", kind: "task" },
@@ -204,10 +236,13 @@ describe("Trips: requirements (document or task)", () => {
     const alice = await prisma.tripParticipant.create({ data: { tripId: trip.body.id, firstName: "Alice" } });
     const bob = await prisma.tripParticipant.create({ data: { tripId: trip.body.id, firstName: "Bob" } });
 
-    const completed = await admin(`/api/trips/requirements/${requirement.body.id}/participants/${alice.id}/complete`, {
-      method: "PUT",
-      body: { completed: true },
-    });
+    const completed = await admin(
+      `/api/trips/requirements/${requirement.body.id}/participants/${alice.id}/complete`,
+      {
+        method: "PUT",
+        body: { completed: true },
+      }
+    );
     assert.equal(completed.status, 200);
 
     const fetched = await admin(`/api/trips/${trip.body.id}`);
@@ -224,22 +259,33 @@ describe("Trips: requirements (document or task)", () => {
 
   test("a document requirement cannot be marked complete directly -- only fulfilled by uploading its document", async () => {
     const partner = await createPartner();
-    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction" },
+    });
     const requirement = await admin(`/api/trips/${trip.body.id}/requirements`, {
       method: "POST",
       body: { label: "Signed Waiver", kind: "document" },
     });
-    const participant = await prisma.tripParticipant.create({ data: { tripId: trip.body.id, firstName: "Jamie" } });
-    const res = await admin(`/api/trips/requirements/${requirement.body.id}/participants/${participant.id}/complete`, {
-      method: "PUT",
-      body: { completed: true },
+    const participant = await prisma.tripParticipant.create({
+      data: { tripId: trip.body.id, firstName: "Jamie" },
     });
+    const res = await admin(
+      `/api/trips/requirements/${requirement.body.id}/participants/${participant.id}/complete`,
+      {
+        method: "PUT",
+        body: { completed: true },
+      }
+    );
     assert.equal(res.status, 400);
   });
 
   test("cloning copies label/kind/reminderLeadDays but never the due date forward", async () => {
     const partner = await createPartner();
-    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction" },
+    });
     await admin(`/api/trips/${trip.body.id}/requirements`, {
       method: "POST",
       body: { label: "Passport copy", dueAt: "2026-11-25", reminderLeadDays: 5 },
@@ -251,12 +297,19 @@ describe("Trips: requirements (document or task)", () => {
     assert.equal(clonedReq.label, "Passport copy");
     assert.equal(clonedReq.kind, "document");
     assert.equal(clonedReq.reminderLeadDays, 5);
-    assert.equal(clonedReq.dueAt, null, "a specific calendar date from the prior run must never copy forward");
+    assert.equal(
+      clonedReq.dueAt,
+      null,
+      "a specific calendar date from the prior run must never copy forward"
+    );
   });
 
   test("the self-service page reports every requirement's fulfillment state, both kinds", async () => {
     const partner = await createPartner();
-    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction" },
+    });
     await admin(`/api/trips/${trip.body.id}/requirements`, {
       method: "POST",
       body: { label: "Signed Waiver", kind: "document" },
@@ -265,7 +318,9 @@ describe("Trips: requirements (document or task)", () => {
       method: "POST",
       body: { label: "Attended orientation call", kind: "task" },
     });
-    const participant = await prisma.tripParticipant.create({ data: { tripId: trip.body.id, firstName: "Jamie" } });
+    const participant = await prisma.tripParticipant.create({
+      data: { tripId: trip.body.id, firstName: "Jamie" },
+    });
     await admin(`/api/trips/requirements/${taskReq.body.id}/participants/${participant.id}/complete`, {
       method: "PUT",
       body: { completed: true },

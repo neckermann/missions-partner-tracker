@@ -50,7 +50,10 @@ function buildSignedDocumentPdf({
     doc.on("error", reject);
 
     doc.fontSize(16).text(requirementLabel || "Signed Agreement", { align: "left" });
-    doc.fontSize(10).fillColor("#555").text(`${tripLabel}${participantName ? ` — ${participantName}` : ""}`);
+    doc
+      .fontSize(10)
+      .fillColor("#555")
+      .text(`${tripLabel}${participantName ? ` — ${participantName}` : ""}`);
     doc.fillColor("black");
     doc.moveDown();
     doc.fontSize(11).text(documentText, { align: "left" });

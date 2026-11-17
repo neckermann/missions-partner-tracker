@@ -1198,7 +1198,10 @@ const ADDITIONAL_USERS = [
 async function seedTripsDemo() {
   console.log("Seeding Trips (#252) demo data...");
   const [openPartner, closedPartner, restrictedPartner, planningPartner] = await Promise.all([
-    prisma.partner.findFirst({ where: { archived: false, isRestricted: false }, orderBy: { displayName: "asc" } }),
+    prisma.partner.findFirst({
+      where: { archived: false, isRestricted: false },
+      orderBy: { displayName: "asc" },
+    }),
     prisma.partner.findFirst({
       where: { archived: false, isRestricted: false },
       orderBy: { displayName: "desc" },
@@ -1306,9 +1309,31 @@ async function seedTripsDemo() {
       },
       flightSegments: {
         create: [
-          { airline: "Delta", flightNumber: "DL 123", departureAirport: "ATL", departureAt: outboundLeg1Depart, arrivalAirport: "ICN", arrivalAt: outboundLeg1Arrive },
-          { airline: "Delta", flightNumber: "DL 456", departureAirport: "ICN", departureAt: outboundLeg2Depart, arrivalAirport: "PNH", arrivalAt: outboundLeg2Arrive },
-          { label: "Priya & John", airline: "United", flightNumber: "UA 789", departureAirport: "ORD", departureAt: soloDepart, arrivalAirport: "PNH", arrivalAt: soloArrive },
+          {
+            airline: "Delta",
+            flightNumber: "DL 123",
+            departureAirport: "ATL",
+            departureAt: outboundLeg1Depart,
+            arrivalAirport: "ICN",
+            arrivalAt: outboundLeg1Arrive,
+          },
+          {
+            airline: "Delta",
+            flightNumber: "DL 456",
+            departureAirport: "ICN",
+            departureAt: outboundLeg2Depart,
+            arrivalAirport: "PNH",
+            arrivalAt: outboundLeg2Arrive,
+          },
+          {
+            label: "Priya & John",
+            airline: "United",
+            flightNumber: "UA 789",
+            departureAirport: "ORD",
+            departureAt: soloDepart,
+            arrivalAirport: "PNH",
+            arrivalAt: soloArrive,
+          },
         ],
       },
       // Same e-signature requirement as the church-wide
@@ -1322,7 +1347,11 @@ async function seedTripsDemo() {
       // so the "outstanding" state is visible alongside "done".
       requirements: {
         create: [
-          { label: "Signed Liability Release and Code of Conduct", kind: "esignature", bodyText: LIABILITY_RELEASE_TEXT },
+          {
+            label: "Signed Liability Release and Code of Conduct",
+            kind: "esignature",
+            bodyText: LIABILITY_RELEASE_TEXT,
+          },
           { label: "Passport photo page", kind: "document" },
           { label: "Attended orientation call", kind: "task" },
         ],
@@ -1593,8 +1622,18 @@ async function seedTripsDemo() {
           label: "Tell us about your faith journey and how you came to follow Jesus.",
           required: false,
         },
-        { id: "tmpl7", type: "textarea", label: "What are your expectations for this trip?", required: false },
-        { id: "tmpl8", type: "text", label: "Health insurance company and policy/group number", required: false },
+        {
+          id: "tmpl7",
+          type: "textarea",
+          label: "What are your expectations for this trip?",
+          required: false,
+        },
+        {
+          id: "tmpl8",
+          type: "text",
+          label: "Health insurance company and policy/group number",
+          required: false,
+        },
       ],
       tripQuestionLibrary: [
         {
