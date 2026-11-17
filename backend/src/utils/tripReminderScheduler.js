@@ -13,7 +13,7 @@
 const cron = require("node-cron");
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
-const { sendParticipantEmail, buildMeetingIcs } = require("./tripEmails");
+const { sendParticipantEmail, buildMeetingIcs, buildMeetingEmailBody } = require("./tripEmails");
 
 async function checkAndSendTripMeetingReminders() {
   const settings = await prisma.churchSettings.findUnique({
@@ -27,8 +27,11 @@ async function checkAndSendTripMeetingReminders() {
   const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
   const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
 
+  // cancelledAt: null -- a cancelled meeting already got its own
+  // cancellation notice; it should never also get a day-before reminder
+  // for a meeting that isn't happening.
   const meetings = await prisma.tripMeeting.findMany({
-    where: { startAt: { gte: windowStart, lte: windowEnd }, reminderSentAt: null },
+    where: { startAt: { gte: windowStart, lte: windowEnd }, reminderSentAt: null, cancelledAt: null },
     include: { trip: { include: { participants: true } } },
   });
 
@@ -37,21 +40,12 @@ async function checkAndSendTripMeetingReminders() {
       await sendParticipantEmail(
         participant,
         `Reminder: meeting tomorrow for ${meeting.trip.name || meeting.trip.type || "your trip"}`,
-        `This is a reminder that your trip meeting is tomorrow${
-          meeting.location ? ` at ${meeting.location}` : ""
-        }.`,
+        buildMeetingEmailBody(meeting, "This is a reminder that your trip meeting is tomorrow."),
         {
           attachments: [
             {
               name: "meeting.ics",
-              content: Buffer.from(
-                buildMeetingIcs({
-                  id: meeting.id,
-                  startAt: meeting.startAt,
-                  location: meeting.location,
-                  summary: meeting.trip.name,
-                })
-              ),
+              content: Buffer.from(buildMeetingIcs({ ...meeting, summary: meeting.trip.name })),
               contentType: "text/calendar",
             },
           ],

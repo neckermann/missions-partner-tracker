@@ -454,18 +454,40 @@ model TripApplication {
   @@index([tripId])
 }
 
-// A scheduled prep/planning meeting for a trip's team.
+// A scheduled prep/planning meeting for a trip's team. location and
+// meetingLink are independent, not an in-person/virtual choice between
+// them -- a hybrid meeting (e.g. "Church fellowship hall" with a Zoom
+// link for anyone who can't attend in person) is a realistic case for
+// this app's audience, and setting both at once already does the right
+// thing with no separate isVirtual boolean: the invite/reminder shows
+// whichever of the two are actually set.
 model TripMeeting {
   id             String    @id @default(uuid())
   tripId         String
   trip           Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
   startAt        DateTime
   location       String?
-  notes          String?   @db.Text
+  meetingLink    String?
+  // Renamed from the former `notes` -- already used at every seed call
+  // site for genuine agenda content ("Pre-field training -- cultural
+  // orientation and safety briefing"), just never surfaced in any UI,
+  // invite, or reminder. One field, not two: adding a second
+  // agenda-shaped column alongside an unused one would just be the same
+  // concept under two names.
+  agenda         String?   @db.Text
   // Guards the day-before reminder against double-sending -- same
   // "stamp once sent" precedent DispatchRecord's own per-channel columns
   // already use.
   reminderSentAt DateTime?
+  // Soft-cancel, not a delete -- this app's own precedent is to record
+  // what happened rather than silently remove it (DispatchRecord,
+  // TripRequirementStatus), and a meeting that already went out as a
+  // calendar invite needs an actual cancellation notice sent, which a
+  // hard delete can't carry. The DELETE route stays for correcting a
+  // meeting that was never actually announced (created by mistake, no
+  // invite sent yet); cancelling is the right action for anything a
+  // participant may already have on their calendar.
+  cancelledAt    DateTime?
 
   @@index([tripId])
 }

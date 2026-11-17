@@ -500,7 +500,13 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
         fieldDisplayName:
           participant.trip.partner?.fieldDisplayName || participant.trip.partner?.displayName || null,
       },
-      meetings: participant.trip.meetings,
+      // Cancelled meetings are dropped here, not just marked -- a
+      // participant already got an emailed cancellation notice; leaving
+      // a cancelled entry sitting in their itinerary (even labeled) is
+      // more likely to read as "is this still happening?" than as
+      // useful record-keeping, which is what the admin side's own
+      // (unfiltered) view is for instead.
+      meetings: participant.trip.meetings.filter((m) => !m.cancelledAt),
       requirements,
       giving: {
         onlineGivingUrl: settings?.onlineGivingUrl || null,

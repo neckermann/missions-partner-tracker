@@ -253,10 +253,30 @@ export default function PublicTripParticipant() {
         {selfService && data.meetings?.length > 0 && (
           <div className="admin-section">
             <h3>Meetings</h3>
-            <ul>
+            <ul style={{ listStyle: "none", padding: 0 }}>
               {data.meetings.map((m) => (
-                <li key={m.id}>
-                  {formatDate(m.startAt)} {m.location ? `— ${m.location}` : ""}
+                <li
+                  key={m.id}
+                  style={{
+                    border: "1px solid #e1dfdb",
+                    borderRadius: 6,
+                    padding: "0.6rem 0.8rem",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  <div style={{ fontWeight: 600 }}>
+                    {formatDate(m.startAt)} {m.location ? `— ${m.location}` : ""}
+                  </div>
+                  {m.meetingLink && (
+                    <div style={{ fontSize: "0.85rem" }}>
+                      <a href={m.meetingLink} target="_blank" rel="noreferrer">
+                        Join online
+                      </a>
+                    </div>
+                  )}
+                  {m.agenda && (
+                    <div style={{ fontSize: "0.85rem", color: "#555", whiteSpace: "pre-wrap" }}>{m.agenda}</div>
+                  )}
                 </li>
               ))}
             </ul>

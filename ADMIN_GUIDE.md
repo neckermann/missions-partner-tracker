@@ -996,8 +996,23 @@ Trips Settings):
   one trip specifically, instead of retyping it; unlike the
   auto-copied template, nothing from the library is ever added to a
   trip until you explicitly pick it there.
-- **Meetings** — schedule a date/time and location; participants get a
-  reminder email the day before.
+- **Meetings** — schedule a date/time, an in-person location, a join
+  link (for a virtual or hybrid meeting — both can be set at once), and
+  an agenda. Scheduling one emails every current team member an invite
+  right away, with a calendar (.ics) attachment, and participants get a
+  reminder email the day before (also with the agenda and join link).
+  Changing the date/time or join link resends the invite automatically;
+  editing just the agenda updates silently. **Resend invite** sends the
+  same invite again without changing anything — useful for a late
+  addition to the team or someone who says they never got it.
+  **Cancel** calls off a meeting and emails everyone who got the
+  original invite a cancellation notice (including a calendar-cancel
+  attachment, so it actually disappears from a participant's calendar
+  app, not just their inbox) — the meeting stays listed, struck through,
+  rather than disappearing, so there's a record of it. The ✕ button is
+  for deleting a meeting entered by mistake that was never really
+  going to happen; once a meeting has been cancelled, use Cancel instead
+  of ✕.
 - **Budget** (only shown when **Track a planned budget per trip** is on
   in Trips Settings) is a list of estimated whole-team expense lines
   (flights, lodging, in-country transport) with a running total,

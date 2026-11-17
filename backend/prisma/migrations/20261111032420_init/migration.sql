@@ -185,8 +185,10 @@ CREATE TABLE "TripMeeting" (
     "tripId" TEXT NOT NULL,
     "startAt" TIMESTAMP(3) NOT NULL,
     "location" TEXT,
-    "notes" TEXT,
+    "meetingLink" TEXT,
+    "agenda" TEXT,
     "reminderSentAt" TIMESTAMP(3),
+    "cancelledAt" TIMESTAMP(3),
 
     CONSTRAINT "TripMeeting_pkey" PRIMARY KEY ("id")
 );

@@ -600,6 +600,17 @@ export async function updateTripMeeting(id, payload) {
   const { data } = await api.put(`/trips/meetings/${id}`, payload);
   return data;
 }
+export async function resendTripMeetingInvite(id) {
+  const { data } = await api.post(`/trips/meetings/${id}/resend`);
+  return data;
+}
+export async function cancelTripMeeting(id) {
+  const { data } = await api.post(`/trips/meetings/${id}/cancel`);
+  return data;
+}
+export async function deleteTripMeeting(id) {
+  await api.delete(`/trips/meetings/${id}`);
+}
 
 // Trips church-wide settings (giving instructions, donor-contact opt-in,
 // the two private-link gates) -- its own dedicated sub-route, same

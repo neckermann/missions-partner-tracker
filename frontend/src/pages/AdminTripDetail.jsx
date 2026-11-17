@@ -13,6 +13,10 @@ import {
   setTripRequirementComplete,
   addTripContribution,
   scheduleTripMeeting,
+  updateTripMeeting,
+  resendTripMeetingInvite,
+  cancelTripMeeting,
+  deleteTripMeeting,
   uploadTripDocument,
   deleteTripDocument,
   fetchTripsSettings,
@@ -81,7 +85,12 @@ export default function AdminTripDetail() {
     method: "check",
     receivedDate: "",
   });
-  const [meetingForm, setMeetingForm] = useState({ startAt: "", location: "" });
+  const [meetingForm, setMeetingForm] = useState({
+    startAt: "",
+    location: "",
+    meetingLink: "",
+    agenda: "",
+  });
   // A trip-wide document (itinerary, packing list) -- participantId stays
   // null. Schema/backend already supported this (TripDocument.participantId
   // is nullable specifically for it); there was never any UI for it until
@@ -376,8 +385,50 @@ export default function AdminTripDetail() {
   async function handleScheduleMeeting(e) {
     e.preventDefault();
     if (!meetingForm.startAt) return;
-    await scheduleTripMeeting(id, meetingForm);
-    setMeetingForm({ startAt: "", location: "" });
+    await scheduleTripMeeting(id, {
+      startAt: meetingForm.startAt,
+      location: meetingForm.location.trim() || null,
+      meetingLink: meetingForm.meetingLink.trim() || null,
+      agenda: meetingForm.agenda.trim() || null,
+    });
+    setMeetingForm({ startAt: "", location: "", meetingLink: "", agenda: "" });
+    reload();
+  }
+
+  async function handleUpdateMeeting(meetingId, patch) {
+    await updateTripMeeting(meetingId, patch);
+    reload();
+  }
+
+  async function handleResendMeetingInvite(meetingId) {
+    await resendTripMeetingInvite(meetingId);
+  }
+
+  async function handleCancelMeeting(meetingId) {
+    const confirmed = await confirmDialog({
+      title: "Cancel this meeting?",
+      body: (
+        <ConfirmMessageBody>
+          Everyone on the team who was emailed the original invite will get a cancellation notice.
+        </ConfirmMessageBody>
+      ),
+      confirmLabel: "Cancel meeting",
+      danger: true,
+    });
+    if (!confirmed) return;
+    await cancelTripMeeting(meetingId);
+    reload();
+  }
+
+  async function handleDeleteMeeting(meetingId) {
+    const confirmed = await confirmDialog({
+      title: "Delete this meeting?",
+      body: <ConfirmMessageBody>This cannot be undone. Use this only for a meeting entered by mistake -- use Cancel instead for a real meeting that's been called off.</ConfirmMessageBody>,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
+    await deleteTripMeeting(meetingId);
     reload();
   }
 
@@ -1184,16 +1235,104 @@ export default function AdminTripDetail() {
       </div>
 
 
-      {/* Meetings */}
+      {/* Meetings -- a cancelled row stays visible (struck through, with
+      its own "Cancelled" label) rather than disappearing, same
+      record-keeping precedent as the rest of this app (DispatchRecord,
+      TripRequirementStatus); it's excluded from the participant's own
+      self-service itinerary server-side instead (publicTrips.js). */}
       <div className="admin-section">
         <h3>Meetings</h3>
-        <ul>
-          {(trip.meetings || []).map((m) => (
-            <li key={m.id}>
-              {formatDate(m.startAt)} {m.location ? `— ${m.location}` : ""}
-            </li>
-          ))}
-        </ul>
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Date/time</th>
+              <th>Location</th>
+              <th>Join link</th>
+              <th>Agenda</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {(trip.meetings || []).map((m) => (
+              <tr key={m.id} style={m.cancelledAt ? { opacity: 0.6, textDecoration: "line-through" } : undefined}>
+                <td>
+                  <input
+                    type="datetime-local"
+                    style={{ width: "11rem" }}
+                    disabled={!!m.cancelledAt}
+                    defaultValue={m.startAt ? m.startAt.slice(0, 16) : ""}
+                    onBlur={(e) => e.target.value && handleUpdateMeeting(m.id, { startAt: e.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    style={{ width: "9rem" }}
+                    disabled={!!m.cancelledAt}
+                    defaultValue={m.location || ""}
+                    placeholder="In-person location"
+                    onBlur={(e) =>
+                      e.target.value !== (m.location || "") &&
+                      handleUpdateMeeting(m.id, { location: e.target.value.trim() || null })
+                    }
+                  />
+                </td>
+                <td>
+                  <input
+                    style={{ width: "10rem" }}
+                    disabled={!!m.cancelledAt}
+                    defaultValue={m.meetingLink || ""}
+                    placeholder="https://zoom.us/..."
+                    onBlur={(e) =>
+                      e.target.value !== (m.meetingLink || "") &&
+                      handleUpdateMeeting(m.id, { meetingLink: e.target.value.trim() || null })
+                    }
+                  />
+                </td>
+                <td>
+                  <textarea
+                    rows={2}
+                    style={{ width: "12rem" }}
+                    disabled={!!m.cancelledAt}
+                    defaultValue={m.agenda || ""}
+                    placeholder="What this meeting will cover"
+                    onBlur={(e) =>
+                      e.target.value !== (m.agenda || "") &&
+                      handleUpdateMeeting(m.id, { agenda: e.target.value.trim() || null })
+                    }
+                  />
+                </td>
+                <td className="table-actions" style={{ whiteSpace: "nowrap" }}>
+                  {m.cancelledAt ? (
+                    <span style={{ fontSize: "0.8rem", color: "#888" }}>Cancelled</span>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="btn secondary small"
+                        onClick={() => handleResendMeetingInvite(m.id)}
+                      >
+                        Resend invite
+                      </button>{" "}
+                      <button type="button" className="btn secondary small" onClick={() => handleCancelMeeting(m.id)}>
+                        Cancel
+                      </button>{" "}
+                      <button type="button" className="btn-remove" onClick={() => handleDeleteMeeting(m.id)}>
+                        ✕
+                      </button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {(trip.meetings || []).length === 0 && (
+              <tr>
+                <td colSpan={5} style={{ color: "#888" }}>
+                  No meetings scheduled yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
         <form onSubmit={handleScheduleMeeting} className="form-grid">
           <label>
             Date/time
@@ -1208,6 +1347,23 @@ export default function AdminTripDetail() {
             <input
               value={meetingForm.location}
               onChange={(e) => setMeetingForm((f) => ({ ...f, location: e.target.value }))}
+            />
+          </label>
+          <label>
+            Join link (if virtual or hybrid)
+            <input
+              value={meetingForm.meetingLink}
+              placeholder="https://zoom.us/..."
+              onChange={(e) => setMeetingForm((f) => ({ ...f, meetingLink: e.target.value }))}
+            />
+          </label>
+          <label>
+            Agenda
+            <textarea
+              rows={2}
+              value={meetingForm.agenda}
+              placeholder="What this meeting will cover"
+              onChange={(e) => setMeetingForm((f) => ({ ...f, agenda: e.target.value }))}
             />
           </label>
           <button type="submit" className="btn secondary small" style={{ alignSelf: "end" }}>

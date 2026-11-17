@@ -520,8 +520,15 @@ it):
   status anyone updates by hand. **Add from your saved requirements**
   picks a reusable one (like a minor travel release form) onto this
   one trip, instead of retyping it.
-- **Meetings** — schedule a date/time and location; participants get a
-  day-before reminder email.
+- **Meetings** — schedule a date/time, an in-person location, a join
+  link if it's virtual or hybrid, and an agenda. Scheduling one emails
+  the team an invite right away (with a calendar attachment), and
+  participants get a day-before reminder too, both showing the agenda
+  and join link. Changing the time or join link resends the invite
+  automatically; **Resend invite** sends it again on demand with no
+  change needed. **Cancel** calls a meeting off and emails everyone who
+  was invited — the meeting stays listed, crossed out, as a record that
+  it happened and was called off.
 - **Budget** (if turned on in Trips Settings) tracks estimated
   whole-team costs against what's been raised — admin-only, never
   shown to applicants or participants.

@@ -335,3 +335,191 @@ describe("Trips: requirements (document or task)", () => {
     assert.equal(byLabel["Attended orientation call"], true);
   });
 });
+
+// Meetings uplift -- agenda/meetingLink as real fields (not a free-text
+// "notes" column nothing ever surfaced), an explicit resend, and a
+// soft-cancel that notifies instead of silently vanishing.
+describe("Trips: meetings", () => {
+  // Wraps a block of calls, capturing every Postmark send attempted
+  // during it -- same local-override-then-restore idiom
+  // emailDispatchDelivery.test.js already uses for this, scoped to one
+  // test at a time rather than a whole-file capture.
+  async function captureEmails(run) {
+    const captured = [];
+    const prevFetch = global.fetch;
+    global.fetch = (url, options) => {
+      if (String(url).startsWith("https://api.postmarkapp.com") && options?.body) {
+        try {
+          captured.push(JSON.parse(options.body));
+        } catch {
+          /* non-JSON body -- not a send this test cares about */
+        }
+      }
+      return prevFetch(url, options);
+    };
+    try {
+      await run();
+    } finally {
+      global.fetch = prevFetch;
+    }
+    return captured;
+  }
+
+  async function createTripWithParticipant() {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction" },
+    });
+    const participant = await prisma.tripParticipant.create({
+      data: { tripId: trip.body.id, firstName: "Jamie", email: "jamie-meetings@example.test" },
+    });
+    return { trip: trip.body, participant };
+  }
+
+  test("creating a meeting sends an invite whose body includes the agenda and join link", async () => {
+    const { trip } = await createTripWithParticipant();
+    let meeting;
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}/meetings`, {
+        method: "POST",
+        body: {
+          startAt: "2026-12-01T19:00:00.000Z",
+          location: "Church fellowship hall",
+          meetingLink: "https://zoom.us/j/111",
+          agenda: "Review packing list",
+        },
+      });
+      assert.equal(res.status, 201);
+      meeting = res.body;
+    });
+    assert.equal(meeting.agenda, "Review packing list");
+    assert.equal(meeting.meetingLink, "https://zoom.us/j/111");
+    assert.equal(sent.length, 1);
+    assert.match(sent[0].Subject, /^Meeting:/);
+    assert.match(sent[0].TextBody, /Review packing list/);
+    assert.match(sent[0].TextBody, /https:\/\/zoom\.us\/j\/111/);
+  });
+
+  test("an agenda-only edit updates silently; a meetingLink change resends the invite", async () => {
+    const { trip } = await createTripWithParticipant();
+    let meeting;
+    await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}/meetings`, {
+        method: "POST",
+        body: { startAt: "2026-12-02T19:00:00.000Z", location: "Church fellowship hall" },
+      });
+      meeting = res.body;
+    });
+
+    const agendaOnly = await captureEmails(async () => {
+      const res = await admin(`/api/trips/meetings/${meeting.id}`, {
+        method: "PUT",
+        body: { agenda: "Updated agenda text" },
+      });
+      assert.equal(res.status, 200);
+    });
+    assert.equal(agendaOnly.length, 0, "an agenda-only edit must not resend anything");
+
+    const linkChanged = await captureEmails(async () => {
+      const res = await admin(`/api/trips/meetings/${meeting.id}`, {
+        method: "PUT",
+        body: { meetingLink: "https://zoom.us/j/222" },
+      });
+      assert.equal(res.status, 200);
+    });
+    assert.equal(linkChanged.length, 1, "a meetingLink change must trigger a resend");
+    assert.match(linkChanged[0].TextBody, /https:\/\/zoom\.us\/j\/222/);
+  });
+
+  test("explicit resend sends again with no change, and is refused once the meeting is cancelled", async () => {
+    const { trip } = await createTripWithParticipant();
+    let meeting;
+    await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}/meetings`, {
+        method: "POST",
+        body: { startAt: "2026-12-03T19:00:00.000Z" },
+      });
+      meeting = res.body;
+    });
+
+    const resent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/meetings/${meeting.id}/resend`, { method: "POST" });
+      assert.equal(res.status, 200);
+    });
+    assert.equal(resent.length, 1);
+
+    await admin(`/api/trips/meetings/${meeting.id}/cancel`, { method: "POST" });
+    const afterCancel = await admin(`/api/trips/meetings/${meeting.id}/resend`, { method: "POST" });
+    assert.equal(afterCancel.status, 400);
+  });
+
+  test("cancelling sends a cancellation notice, hides the meeting from self-service, and blocks delete/edit", async () => {
+    const { trip, participant } = await createTripWithParticipant();
+    let meeting;
+    await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}/meetings`, {
+        method: "POST",
+        body: { startAt: "2026-12-04T19:00:00.000Z", location: "Church fellowship hall" },
+      });
+      meeting = res.body;
+    });
+
+    const cancelSent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/meetings/${meeting.id}/cancel`, { method: "POST" });
+      assert.equal(res.status, 200);
+      assert.ok(res.body.cancelledAt);
+    });
+    assert.equal(cancelSent.length, 1);
+    assert.match(cancelSent[0].Subject, /^Meeting cancelled:/);
+
+    const { buildTripParticipantAccessToken } = require("../../src/utils/tripAccessToken");
+    const accessToken = buildTripParticipantAccessToken({ id: participant.id, accessTokenVersion: 0 });
+    const selfService = await anon(`/api/public/trips/participants/access?token=${accessToken}`);
+    assert.equal(selfService.status, 200);
+    assert.ok(
+      !selfService.body.meetings.some((m) => m.id === meeting.id),
+      "a cancelled meeting must not appear in the participant's own itinerary"
+    );
+
+    const editAttempt = await admin(`/api/trips/meetings/${meeting.id}`, {
+      method: "PUT",
+      body: { agenda: "too late" },
+    });
+    assert.equal(editAttempt.status, 400);
+
+    const deleteAttempt = await admin(`/api/trips/meetings/${meeting.id}`, { method: "DELETE" });
+    assert.equal(deleteAttempt.status, 400);
+  });
+
+  test("delete is allowed for a meeting that was never cancelled -- correcting a data-entry mistake", async () => {
+    const { trip } = await createTripWithParticipant();
+    let meeting;
+    await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}/meetings`, {
+        method: "POST",
+        body: { startAt: "2026-12-05T19:00:00.000Z" },
+      });
+      meeting = res.body;
+    });
+    const res = await admin(`/api/trips/meetings/${meeting.id}`, { method: "DELETE" });
+    assert.equal(res.status, 204);
+  });
+
+  test("the day-before reminder scheduler skips a cancelled meeting", async () => {
+    const { trip } = await createTripWithParticipant();
+    const startAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // inside the 23-25h window
+    const meeting = await prisma.tripMeeting.create({
+      data: { tripId: trip.id, startAt, cancelledAt: new Date() },
+    });
+
+    const { checkAndSendTripMeetingReminders } = require("../../src/utils/tripReminderScheduler");
+    const sent = await captureEmails(async () => {
+      await checkAndSendTripMeetingReminders();
+    });
+    assert.equal(sent.length, 0, "a cancelled meeting must never get a day-before reminder");
+
+    const reloaded = await prisma.tripMeeting.findUnique({ where: { id: meeting.id } });
+    assert.equal(reloaded.reminderSentAt, null);
+  });
+});

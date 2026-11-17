@@ -1867,7 +1867,8 @@ async function seedTripsDemo() {
       tripId: openTrip.id,
       startAt: pastMeetingStart,
       location: "Zoom",
-      notes: "Pre-field training -- cultural orientation and safety briefing.",
+      meetingLink: "https://zoom.us/j/5551234567",
+      agenda: "Pre-field training -- cultural orientation and safety briefing.",
       reminderSentAt: pastMeetingReminderSentAt,
     },
   });
@@ -1880,7 +1881,7 @@ async function seedTripsDemo() {
       tripId: openTrip.id,
       startAt: upcomingMeetingStart,
       location: "Church fellowship hall",
-      notes: "Team orientation call -- logistics overview, Q&A, meet the rest of the team.",
+      agenda: "Team orientation call -- logistics overview, Q&A, meet the rest of the team.",
     },
   });
 
@@ -2021,7 +2022,7 @@ async function seedTripsDemo() {
       tripId: closedTrip.id,
       startAt: closedMeetingStart,
       location: "Church fellowship hall",
-      notes: "Final team meeting -- packing list review, travel logistics.",
+      agenda: "Final team meeting -- packing list review, travel logistics.",
       reminderSentAt: new Date(closedMeetingStart.getTime() - 24 * 60 * 60 * 1000),
     },
   });
@@ -2138,8 +2139,11 @@ async function seedTripsDemo() {
   const minorsTripStart = dateBetween(-1, -2);
   const minorsTripEnd = new Date(minorsTripStart);
   minorsTripEnd.setDate(minorsTripEnd.getDate() + randInt(5, 7));
-  const minorDob = new Date();
-  minorDob.setFullYear(minorDob.getFullYear() - 15);
+  // dateYearsAgo (not a hand-rolled `setFullYear`) -- the latter leaves
+  // the month/day pinned to whatever day the seed happens to run on,
+  // so every minor's birthday would land on today's calendar date no
+  // matter how many years back. dateYearsAgo's own jitter avoids that.
+  const minorDob = dateYearsAgo(15, 11);
 
   const minorsTrip = await prisma.trip.create({
     data: {
@@ -2278,8 +2282,9 @@ async function seedTripsDemo() {
   const pastMinorsTripStart = dateBetween(2, 1);
   const pastMinorsTripEnd = new Date(pastMinorsTripStart);
   pastMinorsTripEnd.setDate(pastMinorsTripEnd.getDate() + randInt(6, 9));
-  const pastMinorDob = new Date();
-  pastMinorDob.setFullYear(pastMinorDob.getFullYear() - 16);
+  // Same dateYearsAgo fix as minorDob above -- avoids every minor's
+  // birthday landing on today's calendar date regardless of age.
+  const pastMinorDob = dateYearsAgo(16, 11);
 
   const pastMinorsTrip = await prisma.trip.create({
     data: {

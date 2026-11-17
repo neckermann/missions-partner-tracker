@@ -54,13 +54,23 @@ function icsDate(date) {
   return date.toISOString().slice(0, 10).replace(/-/g, "");
 }
 
-function buildMeetingIcs(meeting) {
+// cancelled: true emits a METHOD:CANCEL/STATUS:CANCELLED .ics -- the
+// real iCalendar-standard way to tell a calendar client to remove an
+// event it already has, rather than just saying so in the email body.
+// SEQUENCE increments on cancel so a client that already has the
+// original (SEQUENCE:0) invite recognizes this as a newer revision of
+// the same UID, not a stale duplicate -- a real reschedule (handled by
+// the caller resending with the same UID and SEQUENCE:0) relies on that
+// same UID match to update the existing entry rather than create a
+// second one.
+function buildMeetingIcs(meeting, { cancelled = false } = {}) {
   const start = new Date(meeting.startAt);
   const end = new Date(start.getTime() + 60 * 60 * 1000); // one-hour default duration
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//missions-partner-tracker//Trips//EN",
+    `METHOD:${cancelled ? "CANCEL" : "REQUEST"}`,
     "BEGIN:VEVENT",
     `UID:trip-meeting-${meeting.id}@missions-partner-tracker`,
     `DTSTAMP:${icsDateTime(new Date())}`,
@@ -68,11 +78,28 @@ function buildMeetingIcs(meeting) {
     `DTEND:${icsDateTime(end)}`,
     `SUMMARY:${(meeting.summary || "Trip meeting").replace(/\r?\n/g, " ")}`,
     meeting.location ? `LOCATION:${meeting.location.replace(/\r?\n/g, " ")}` : null,
+    meeting.meetingLink ? `URL:${meeting.meetingLink}` : null,
+    meeting.agenda ? `DESCRIPTION:${meeting.agenda.replace(/\r?\n/g, "\\n")}` : null,
+    `SEQUENCE:${cancelled ? 1 : 0}`,
+    cancelled ? "STATUS:CANCELLED" : null,
     "END:VEVENT",
     "END:VCALENDAR",
   ]
     .filter(Boolean)
     .join("\r\n");
+}
+
+// Shared by every meeting email (invite, reschedule-resend, explicit
+// resend, day-before reminder, cancellation) so the agenda/join-link
+// rendering lives in exactly one place -- a church-facing wording tweak
+// or a new field shouldn't require updating four near-duplicate email
+// bodies in four different files.
+function buildMeetingEmailBody(meeting, lead) {
+  const lines = [lead];
+  if (meeting.location) lines.push(`Location: ${meeting.location}`);
+  if (meeting.meetingLink) lines.push(`Join online: ${meeting.meetingLink}`);
+  if (meeting.agenda) lines.push(`\nAgenda:\n${meeting.agenda}`);
+  return lines.filter(Boolean).join("\n");
 }
 
 function buildTripDatesIcs(trip) {
@@ -96,4 +123,4 @@ function buildTripDatesIcs(trip) {
   ].join("\r\n");
 }
 
-module.exports = { sendParticipantEmail, buildMeetingIcs, buildTripDatesIcs };
+module.exports = { sendParticipantEmail, buildMeetingIcs, buildMeetingEmailBody, buildTripDatesIcs };
