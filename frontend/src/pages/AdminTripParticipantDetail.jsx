@@ -83,6 +83,22 @@ export default function AdminTripParticipantDetail() {
   }));
   const documentRequirements = requirementRows.filter((r) => r.kind !== "task");
 
+  // Same combined order AdminTripDetail.jsx's own pending-applications
+  // review list uses (template questions first, then this trip's own) --
+  // a church can define totally different questions trip to trip, so this
+  // can't be hardcoded. Only ever populated for a participant who came
+  // through an approved application; null for a directly-admin-added or
+  // historical-backfill participant, same as every address/emergency-
+  // contact field above.
+  const combinedQuestions = [...(settings?.tripApplicationTemplate || []), ...(trip.applicationQuestions || [])];
+  const applicationAnswers = participant.application
+    ? combinedQuestions.map((q) => {
+        const raw = participant.application.responses?.[q.id];
+        const answer = Array.isArray(raw) ? raw.join(", ") : raw;
+        return { id: q.id, label: q.label, answer: answer || "(no answer)" };
+      })
+    : [];
+
   async function handleGenerateSupportRaisingLink() {
     try {
       await generateSupportRaisingLink(participantId);
@@ -240,33 +256,136 @@ export default function AdminTripParticipantDetail() {
               }
             />
           </label>
+          <label>
+            Role
+            <input
+              key={`role-${participant.id}`}
+              defaultValue={participant.role || ""}
+              placeholder="e.g. Medical, Construction, Translator"
+              onBlur={(e) =>
+                e.target.value !== (participant.role || "") &&
+                saveParticipant({ role: e.target.value.trim() || null })
+              }
+            />
+          </label>
+          <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem" }}>
+            <input
+              type="checkbox"
+              style={{ width: "auto" }}
+              checked={!!participant.isLeader}
+              onChange={(e) => saveParticipant({ isLeader: e.target.checked })}
+            />
+            Trip Leader
+          </label>
         </div>
-        {(participant.addressLine1 || participant.city) && (
-          <p style={{ color: "#555", marginTop: "0.25rem" }}>
-            {[
-              participant.addressLine1,
-              participant.addressLine2,
-              participant.city,
-              participant.stateProvinceRegion,
-              participant.postalCode,
-              participant.country,
-            ]
-              .filter(Boolean)
-              .join(", ")}
-          </p>
-        )}
-        {(participant.emergencyContactName || participant.emergencyContactPhone) && (
-          <p style={{ color: "#555", marginTop: "0.25rem" }}>
-            <strong>Emergency contact:</strong>{" "}
-            {[
-              participant.emergencyContactName,
-              participant.emergencyContactPhone,
-              participant.emergencyContactEmail,
-            ]
-              .filter(Boolean)
-              .join(", ")}
-          </p>
-        )}
+
+        <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Address</h4>
+        <div className="form-grid">
+          <label>
+            Address line 1
+            <input
+              key={`addressLine1-${participant.id}`}
+              defaultValue={participant.addressLine1 || ""}
+              onBlur={(e) =>
+                e.target.value !== (participant.addressLine1 || "") &&
+                saveParticipant({ addressLine1: e.target.value.trim() || null })
+              }
+            />
+          </label>
+          <label>
+            Address line 2
+            <input
+              key={`addressLine2-${participant.id}`}
+              defaultValue={participant.addressLine2 || ""}
+              onBlur={(e) =>
+                e.target.value !== (participant.addressLine2 || "") &&
+                saveParticipant({ addressLine2: e.target.value.trim() || null })
+              }
+            />
+          </label>
+          <label>
+            City
+            <input
+              key={`city-${participant.id}`}
+              defaultValue={participant.city || ""}
+              onBlur={(e) =>
+                e.target.value !== (participant.city || "") &&
+                saveParticipant({ city: e.target.value.trim() || null })
+              }
+            />
+          </label>
+          <label>
+            State / Province / Region
+            <input
+              key={`stateProvinceRegion-${participant.id}`}
+              defaultValue={participant.stateProvinceRegion || ""}
+              onBlur={(e) =>
+                e.target.value !== (participant.stateProvinceRegion || "") &&
+                saveParticipant({ stateProvinceRegion: e.target.value.trim() || null })
+              }
+            />
+          </label>
+          <label>
+            Postal code
+            <input
+              key={`postalCode-${participant.id}`}
+              defaultValue={participant.postalCode || ""}
+              onBlur={(e) =>
+                e.target.value !== (participant.postalCode || "") &&
+                saveParticipant({ postalCode: e.target.value.trim() || null })
+              }
+            />
+          </label>
+          <label>
+            Country
+            <input
+              key={`country-${participant.id}`}
+              defaultValue={participant.country || ""}
+              onBlur={(e) =>
+                e.target.value !== (participant.country || "") &&
+                saveParticipant({ country: e.target.value.trim() || null })
+              }
+            />
+          </label>
+        </div>
+
+        <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Emergency contact</h4>
+        <div className="form-grid">
+          <label>
+            Name
+            <input
+              key={`emergencyContactName-${participant.id}`}
+              defaultValue={participant.emergencyContactName || ""}
+              onBlur={(e) =>
+                e.target.value !== (participant.emergencyContactName || "") &&
+                saveParticipant({ emergencyContactName: e.target.value.trim() || null })
+              }
+            />
+          </label>
+          <label>
+            Phone
+            <input
+              key={`emergencyContactPhone-${participant.id}`}
+              defaultValue={participant.emergencyContactPhone || ""}
+              onBlur={(e) =>
+                e.target.value !== (participant.emergencyContactPhone || "") &&
+                saveParticipant({ emergencyContactPhone: e.target.value.trim() || null })
+              }
+            />
+          </label>
+          <label>
+            Email
+            <input
+              key={`emergencyContactEmail-${participant.id}`}
+              defaultValue={participant.emergencyContactEmail || ""}
+              onBlur={(e) =>
+                e.target.value !== (participant.emergencyContactEmail || "") &&
+                saveParticipant({ emergencyContactEmail: e.target.value.trim() || null })
+              }
+            />
+          </label>
+        </div>
+
         <div className="table-actions" style={{ marginTop: "0.5rem" }}>
           <button type="button" className="btn secondary small" onClick={handleResendAccessLink}>
             Resend access link
@@ -284,13 +403,49 @@ export default function AdminTripParticipantDetail() {
         </div>
       </div>
 
+      {participant.application && (
+        <div className="admin-section">
+          <h3>Application answers</h3>
+          {/* Read-only -- this is the applicant's own record of what they
+          answered at submission time, not something an admin corrects
+          here. Submitted {formatDate(...)} gives a reference point, since
+          a trip's own question set can change after someone applied. */}
+          <p style={{ fontSize: "0.8rem", color: "#888", marginTop: 0 }}>
+            Submitted {formatDate(participant.application.submittedAt)}
+          </p>
+          {applicationAnswers.length === 0 ? (
+            <p style={{ color: "#888", fontSize: "0.85rem" }}>This trip has no application questions set.</p>
+          ) : (
+            <dl style={{ margin: 0 }}>
+              {applicationAnswers.map((q) => (
+                <div key={q.id} style={{ marginBottom: "0.4rem" }}>
+                  <dt style={{ fontSize: "0.85rem", fontWeight: 600 }}>{q.label}</dt>
+                  <dd style={{ margin: "0.1rem 0 0", fontSize: "0.85rem", color: "#333" }}>{q.answer}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
+      )}
+
       <div className="admin-section">
         <h3>Support raising</h3>
-        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 600 }}>
           <span>${raised} raised</span>
-          <span style={{ color: "#6b6f76", fontWeight: 400 }}>
-            {participant.supportRaisingGoal ? `of $${participant.supportRaisingGoal} goal` : ""}
-          </span>
+          <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: 400 }}>
+            <span style={{ color: "#6b6f76" }}>of $</span>
+            <input
+              key={`supportRaisingGoal-${participant.id}`}
+              type="number"
+              style={{ width: "5.5rem" }}
+              defaultValue={participant.supportRaisingGoal || ""}
+              onBlur={(e) =>
+                Number(e.target.value || 0) !== (participant.supportRaisingGoal || 0) &&
+                saveParticipant({ supportRaisingGoal: e.target.value ? Number(e.target.value) : null })
+              }
+            />
+            <span style={{ color: "#6b6f76" }}>goal</span>
+          </label>
         </div>
         {/* Same "doesn't exist, not disabled" treatment enableTripBudgeting
         already established -- when the setting's off, or this specific
@@ -315,15 +470,18 @@ export default function AdminTripParticipantDetail() {
                 {participant.photoContentType && (
                   <img
                     src={tripParticipantPhotoUrl(participant.id)}
-                    alt=""
+                    alt={`Photo of ${participant.firstName} ${participant.lastName}`}
                     style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover" }}
                   />
                 )}
                 <div style={{ flex: 1, minWidth: 220 }}>
+                  <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "0.3rem" }}>
+                    Photo of {participant.firstName} (shown on their public page)
+                  </label>
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
-                    aria-label="Photo"
+                    aria-label={`Photo of ${participant.firstName} ${participant.lastName}`}
                     onChange={(e) => handlePhotoChange(e.target.files[0] || null)}
                   />
                   {photoFile && <span style={{ fontSize: "0.75rem", color: "#888" }}> Uploading…</span>}

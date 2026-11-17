@@ -207,6 +207,15 @@ router.get("/:id", async (req, res, next) => {
       where: { id: req.params.id },
       include: {
         ...tripInclude,
+        // Only on this single-trip detail route, not the plain list route
+        // tripInclude is also shared with -- the approved applicant's own
+        // custom-question answers are otherwise permanently stranded once
+        // approval turns a TripApplication into a TripParticipant (the
+        // `applications` key just below only ever holds *pending* rows).
+        participants: {
+          ...tripInclude.participants,
+          include: { application: { select: { responses: true, submittedAt: true } } },
+        },
         applications: { where: { status: "pending" } },
         meetings: true,
         documents: true,
@@ -758,6 +767,24 @@ const adminParticipantUpdateSchema = z.object({
   lastName: z.string().min(1).optional(),
   email: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
+  role: z.string().optional().nullable(),
+  isLeader: z.boolean().optional(),
+  supportRaisingGoal: z.coerce.number().int().optional().nullable(),
+  // Address/emergency contact -- previously write-once (copied from the
+  // originating TripApplication on approval, see the approval route
+  // above) with no admin edit path afterward, and no way at all for a
+  // directly-added participant (no application) to ever get these set.
+  // Now plain editable record-keeping, same trust level as
+  // firstName/phone/etc. above.
+  addressLine1: z.string().optional().nullable(),
+  addressLine2: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  stateProvinceRegion: z.string().optional().nullable(),
+  postalCode: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
+  emergencyContactName: z.string().optional().nullable(),
+  emergencyContactPhone: z.string().optional().nullable(),
+  emergencyContactEmail: z.string().optional().nullable(),
   story: z.string().optional().nullable(),
   photo: z.string().optional().nullable(),
   photoContentType: z.string().optional().nullable(),

@@ -663,6 +663,7 @@ export default function AdminTripDetail() {
                     />
                     <input
                       type="datetime-local"
+                      style={{ width: "11rem" }}
                       defaultValue={seg.departureAt ? seg.departureAt.slice(0, 16) : ""}
                       onBlur={(e) =>
                         handleUpdateFlightSegment(seg.id, { departureAt: e.target.value || null })
@@ -683,6 +684,7 @@ export default function AdminTripDetail() {
                     />
                     <input
                       type="datetime-local"
+                      style={{ width: "11rem" }}
                       defaultValue={seg.arrivalAt ? seg.arrivalAt.slice(0, 16) : ""}
                       onBlur={(e) => handleUpdateFlightSegment(seg.id, { arrivalAt: e.target.value || null })}
                     />
@@ -744,6 +746,7 @@ export default function AdminTripDetail() {
           />
           <input
             type="datetime-local"
+            style={{ width: "11rem" }}
             value={newFlightSegment.departureAt}
             onChange={(e) => setNewFlightSegment((f) => ({ ...f, departureAt: e.target.value }))}
           />
@@ -755,6 +758,7 @@ export default function AdminTripDetail() {
           />
           <input
             type="datetime-local"
+            style={{ width: "11rem" }}
             value={newFlightSegment.arrivalAt}
             onChange={(e) => setNewFlightSegment((f) => ({ ...f, arrivalAt: e.target.value }))}
           />
