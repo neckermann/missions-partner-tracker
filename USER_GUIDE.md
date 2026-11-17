@@ -76,7 +76,7 @@ email sending only),
 [**Monthly Support**](#financial-support--one-time-needs),
 [**One-Time Needs**](#financial-support--one-time-needs),
 [**Prayer Requests**](#prayer-requests),
-[**Trips**](#trips), [**Trip Planning**](#trips),
+[**Trips**](#trips), [**Plan a Trip**](#trips),
 [**Newsletters & Docs**](#newsletters--docs),
 [**Print Booklet**](#printable-partner-booklet), [**Reports**](#reports)
 — visible to everyone, each one only if its
@@ -462,24 +462,34 @@ different question:
 
 ![The Trips list](docs/assets/screenshots/trip-history.png)
 
-- **Trips** is the filterable log of every trip regardless of status —
-  filter by type, year, team size. **+ Add Trip** logs one (pick the
-  partner, dates, trip type, description, a Photo/Video Album link,
-  and participants) without leaving the page. A trip that's only
-  historical (`completed`) is managed entirely inline here, same as
-  before this feature existed — **Edit** (everything except which
-  partner it's under — delete and re-add to move a trip to a different
-  partner) and **Delete**. A trip that's still `planning`,
-  `accepting_applications`, or `closed` instead shows its status as a
-  link into its own fuller detail page (below) — this list isn't where
-  an active trip's applications, team, or documents get managed.
+- **Trips** is the filterable log of every trip — filter by status,
+  type, year, team size. It opens showing **Active (not completed)**
+  trips by default (planning, accepting applications, and closed-but-
+  not-yet-happened all count as active) rather than every trip ever —
+  switch the Status filter to **All statuses** or **Completed** to see
+  the rest; the two count tiles above the list always show the
+  filtered count alongside the true all-time total (e.g. "6 of 103
+  total") so neither number is mistaken for the other. **+ New Trip**
+  offers an explicit choice: **Start recruiting a new trip** (pick a
+  partner and trip type, then land on that trip's own detail page to
+  fill in the rest) or **Log a trip that already happened** (the
+  original backfill form — partner, dates, trip type, description, a
+  Photo/Video Album link, and participants, without leaving the page).
+  A trip that's only historical (`completed`) is managed entirely
+  inline here, same as before this feature existed — **Edit**
+  (everything except which partner it's under — delete and re-add to
+  move a trip to a different partner) and **Delete**. A trip that's
+  still `planning`, `accepting_applications`, or `closed` instead shows
+  its status as a link into its own fuller detail page (below) — this
+  list isn't where an active trip's applications, team, or documents
+  get managed.
   - The **Album** link points to wherever you already host the trip's
     photos/videos — a Google Photos shared album, an iCloud Shared Album,
     or another provider you choose "Other" for. This app never stores the
     photos/videos themselves, just the link, and it's admin-only — it
     never appears on the public site.
-- **Trip Planning** answers a different question — which partner to
-  plan the *next* trip to — blending three kinds of row per partner so
+- **Plan a Trip** answers a different question — which partner to plan
+  the *next* trip for — blending three kinds of row per partner so
   nobody falls off the list just because nothing's on the calendar yet:
   an **Open** row (already recruiting), a **Committed** row (team
   finalized, hasn't happened), or a **No trip scheduled** row (just
@@ -488,9 +498,11 @@ different question:
   **Clone trip** action to start a repeat from an existing trip's own
   setup instead of typing it all again. A restricted partner gets its
   own badge here too, name withheld — see restricted-partner handling
-  below.
+  below. Starting a brand-new trip works from either page now — use
+  whichever you're already on; Plan a Trip is still the better tool
+  when you don't yet know *which* partner needs one.
 
-![Trip Planning](docs/assets/screenshots/trip-opportunities.png)
+![Plan a Trip](docs/assets/screenshots/trip-opportunities.png)
 
 **On a trip's own detail page**, beyond the basic setup fields (name,
 dates, team size, description, visible-on-public-discovery toggle, and

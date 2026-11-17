@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { fetchTrips, fetchPartners, createTrip, updateTrip, deleteTrip } from "../api/client.js";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import AlbumLinkField from "../components/admin/AlbumLinkField.jsx";
@@ -10,7 +10,7 @@ import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
-import TripStatusBadge from "../components/admin/TripStatusBadge.jsx";
+import TripStatusBadge, { STATUS_LABELS } from "../components/admin/TripStatusBadge.jsx";
 
 // Renamed from AdminTripHistory.jsx (#252) -- "History" became the one
 // word the Trip/TripParticipant unification made misleading, since a
@@ -51,7 +51,16 @@ const emptyTripForm = {
   participants: [],
 };
 
+// "active" is its own filter value, not one of Trip.status's real four --
+// it means "every status except completed" (planning, accepting_applications,
+// and closed all still count as upcoming; closed just means the team's set,
+// not that the trip happened yet). Default on page load: a demo-scale church
+// can easily have 100+ completed trips on file, and "what's currently going
+// on" is almost always the more useful first view than scrolling past all of
+// those. "All statuses" (below) stays one dropdown selection away, not a
+// separate reset action -- the status filter itself carries both.
 const emptyFilters = {
+  status: "active",
   entityType: "all",
   type: "all",
   year: "all",
@@ -60,11 +69,21 @@ const emptyFilters = {
 };
 
 export default function AdminTrips() {
+  const navigate = useNavigate();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [records, setRecords] = useState([]);
   const [partners, setPartners] = useState([]);
   const [filters, setFilters] = useState(emptyFilters);
   const [showAddForm, setShowAddForm] = useState(false);
+  // Which of the two add-flows the revealed form is on -- "planning"
+  // (start a new recruiting trip, the gap this covers) is the default
+  // since it's the action this page didn't have before; "completed"
+  // (today's existing historical-backfill form, unchanged) is the
+  // alternative, not a second button -- one form, one explicit choice.
+  const [addKind, setAddKind] = useState("planning");
+  const [newTripPartnerId, setNewTripPartnerId] = useState("");
+  const [newTripType, setNewTripType] = useState("");
+  const [startingTrip, setStartingTrip] = useState(false);
   const [newTrip, setNewTrip] = useState(emptyTripForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -116,6 +135,8 @@ export default function AdminTrips() {
   );
 
   const filteredTrips = trips.filter((t) => {
+    if (filters.status === "active" && t.status === "completed") return false;
+    if (filters.status !== "all" && filters.status !== "active" && t.status !== filters.status) return false;
     if (filters.entityType !== "all" && t.entityType !== filters.entityType) return false;
     if (filters.type !== "all" && t.type !== filters.type) return false;
     if (filters.year !== "all" && yearOf(t.startDate) !== filters.year) return false;
@@ -125,6 +146,12 @@ export default function AdminTrips() {
   });
 
   const totalParticipants = filteredTrips.reduce((sum, t) => sum + t.size, 0);
+  // All-time counts, ignoring every filter -- shown alongside the
+  // (possibly filtered) tiles below so neither number reads as an
+  // all-time total when it secretly isn't. Computed off `trips`, not
+  // `filteredTrips`.
+  const allTimeTripCount = trips.length;
+  const allTimeParticipants = trips.reduce((sum, t) => sum + t.size, 0);
   const {
     visible: visibleTrips,
     hasMore,
@@ -181,6 +208,38 @@ export default function AdminTrips() {
       setError(err.response?.data?.error || "Failed to save trip");
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Reuses the exact createTrip({status: "planning", ...}) shape Plan a
+  // Trip's own "Start a new trip" button already makes (AdminTripPlanning.jsx's
+  // handleStartTrip) -- same team-size auto-fill from the partner's own
+  // tripTeamSizeMin/Max (already present on every entry in `partners`,
+  // confirmed against routes/partners.js's own select), not asked for here
+  // a second time. Lands on the trip's own detail page immediately, same
+  // as Plan a Trip does, since there's nothing useful left to do on this
+  // list once the trip exists.
+  async function handleStartNewTrip(e) {
+    e.preventDefault();
+    setError("");
+    if (!newTripPartnerId) {
+      setError("Choose a partner");
+      return;
+    }
+    setStartingTrip(true);
+    try {
+      const partner = partners.find((p) => p.id === newTripPartnerId);
+      const created = await createTrip({
+        partnerId: newTripPartnerId,
+        status: "planning",
+        teamSizeMin: partner?.tripTeamSizeMin ?? null,
+        teamSizeMax: partner?.tripTeamSizeMax ?? null,
+        type: newTripType || null,
+      });
+      navigate(`/admin/trips/${created.id}`, { state: { from: "trips" } });
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to start trip");
+      setStartingTrip(false);
     }
   }
 
@@ -311,99 +370,173 @@ export default function AdminTrips() {
           className="btn"
           onClick={() => {
             setShowAddForm((v) => !v);
+            setAddKind("planning");
             setError("");
           }}
         >
-          {showAddForm ? "Cancel" : "+ Add Trip"}
+          {showAddForm ? "Cancel" : "+ New Trip"}
         </button>
       </div>
       <p style={{ color: "#555" }}>
-        Every trip regardless of status. A quick historical backfill is managed right here; an
+        Every trip, every status — a searchable record. A quick historical backfill is managed right here; an
         actively-recruited trip's team, applications, meetings, and support raising live on its own detail
-        page.
+        page. Looking for a partner who needs a trip planned? <Link to="/admin/trips/planning">See Plan a Trip →</Link>
       </p>
 
       {showAddForm && (
-        <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
-          <div className="form-grid">
-            <label style={{ gridColumn: "1 / -1" }}>
-              Partner
-              <PartnerSelect
-                partners={partners}
-                value={newTrip.partnerId}
-                onChange={(partnerId) => setNewTrip((f) => ({ ...f, partnerId }))}
-                required
-              />
-            </label>
+        <div className="admin-section" style={{ marginTop: "1rem" }}>
+          <div className="admin-checkbox-row" style={{ marginBottom: "1rem" }}>
             <label>
-              Start Date
               <input
-                type="date"
-                value={newTrip.startDate}
-                onChange={(e) => setNewTrip((f) => ({ ...f, startDate: e.target.value }))}
+                type="radio"
+                name="addKind"
+                checked={addKind === "planning"}
+                onChange={() => setAddKind("planning")}
               />
+              Start recruiting a new trip
             </label>
             <label>
-              End Date
               <input
-                type="date"
-                value={newTrip.endDate}
-                onChange={(e) => setNewTrip((f) => ({ ...f, endDate: e.target.value }))}
+                type="radio"
+                name="addKind"
+                checked={addKind === "completed"}
+                onChange={() => setAddKind("completed")}
               />
-            </label>
-            <label>
-              Trip Type
-              <PresetOrCustomSelect
-                value={newTrip.type}
-                onChange={(val) => setNewTrip((f) => ({ ...f, type: val }))}
-                presets={TRIP_TYPE_PRESETS}
-                placeholder="e.g. Photography"
-              />
+              Log a trip that already happened
             </label>
           </div>
-          <label style={{ marginTop: "0.75rem" }}>
-            Description (what the team did)
-            <textarea
-              rows={2}
-              value={newTrip.description}
-              onChange={(e) => setNewTrip((f) => ({ ...f, description: e.target.value }))}
-            />
-          </label>
-          <label style={{ marginTop: "0.75rem" }}>
-            Notes
-            <textarea
-              rows={2}
-              value={newTrip.notes}
-              onChange={(e) => setNewTrip((f) => ({ ...f, notes: e.target.value }))}
-            />
-          </label>
-          <label style={{ marginTop: "0.75rem" }}>
-            Photo/Video Album
-            <AlbumLinkField
-              provider={newTrip.albumProvider}
-              url={newTrip.albumUrl}
-              onChange={(provider, url) =>
-                setNewTrip((f) => ({ ...f, albumProvider: provider, albumUrl: url }))
-              }
-            />
-          </label>
-          {renderParticipantsEditor("new", newTrip)}
-          <div className="form-save-bar">
-            <button type="submit" className="btn" disabled={saving}>
-              {saving ? "Saving..." : "Save Trip"}
-            </button>
-            {error && (
-              <span style={{ color: "#b91c1c" }} role="alert">
-                {error}
-              </span>
-            )}
-          </div>
-        </form>
+
+          {addKind === "planning" ? (
+            <form onSubmit={handleStartNewTrip}>
+              <div className="form-grid">
+                <label style={{ gridColumn: "1 / -1" }}>
+                  Partner
+                  <PartnerSelect
+                    partners={partners}
+                    value={newTripPartnerId}
+                    onChange={setNewTripPartnerId}
+                    required
+                  />
+                </label>
+                <label>
+                  Trip Type
+                  <PresetOrCustomSelect
+                    value={newTripType}
+                    onChange={setNewTripType}
+                    presets={TRIP_TYPE_PRESETS}
+                    placeholder="e.g. Photography"
+                  />
+                </label>
+              </div>
+              <p style={{ color: "#888", fontSize: "0.85rem", marginTop: "0.5rem" }}>
+                Creates the trip and takes you to its own page to set dates, team size, and start recruiting.
+              </p>
+              <div className="form-save-bar">
+                <button type="submit" className="btn" disabled={startingTrip}>
+                  {startingTrip ? "Starting…" : "Start Trip"}
+                </button>
+                {error && (
+                  <span style={{ color: "#b91c1c" }} role="alert">
+                    {error}
+                  </span>
+                )}
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleAddSubmit}>
+              <div className="form-grid">
+                <label style={{ gridColumn: "1 / -1" }}>
+                  Partner
+                  <PartnerSelect
+                    partners={partners}
+                    value={newTrip.partnerId}
+                    onChange={(partnerId) => setNewTrip((f) => ({ ...f, partnerId }))}
+                    required
+                  />
+                </label>
+                <label>
+                  Start Date
+                  <input
+                    type="date"
+                    value={newTrip.startDate}
+                    onChange={(e) => setNewTrip((f) => ({ ...f, startDate: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  End Date
+                  <input
+                    type="date"
+                    value={newTrip.endDate}
+                    onChange={(e) => setNewTrip((f) => ({ ...f, endDate: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Trip Type
+                  <PresetOrCustomSelect
+                    value={newTrip.type}
+                    onChange={(val) => setNewTrip((f) => ({ ...f, type: val }))}
+                    presets={TRIP_TYPE_PRESETS}
+                    placeholder="e.g. Photography"
+                  />
+                </label>
+              </div>
+              <label style={{ marginTop: "0.75rem" }}>
+                Description (what the team did)
+                <textarea
+                  rows={2}
+                  value={newTrip.description}
+                  onChange={(e) => setNewTrip((f) => ({ ...f, description: e.target.value }))}
+                />
+              </label>
+              <label style={{ marginTop: "0.75rem" }}>
+                Notes
+                <textarea
+                  rows={2}
+                  value={newTrip.notes}
+                  onChange={(e) => setNewTrip((f) => ({ ...f, notes: e.target.value }))}
+                />
+              </label>
+              <label style={{ marginTop: "0.75rem" }}>
+                Photo/Video Album
+                <AlbumLinkField
+                  provider={newTrip.albumProvider}
+                  url={newTrip.albumUrl}
+                  onChange={(provider, url) =>
+                    setNewTrip((f) => ({ ...f, albumProvider: provider, albumUrl: url }))
+                  }
+                />
+              </label>
+              {renderParticipantsEditor("new", newTrip)}
+              <div className="form-save-bar">
+                <button type="submit" className="btn" disabled={saving}>
+                  {saving ? "Saving..." : "Save Trip"}
+                </button>
+                {error && (
+                  <span style={{ color: "#b91c1c" }} role="alert">
+                    {error}
+                  </span>
+                )}
+              </div>
+            </form>
+          )}
+        </div>
       )}
 
       <div className="admin-section">
         <h3>Filters</h3>
         <div className="form-grid">
+          <label>
+            Status
+            <select value={filters.status} onChange={(e) => updateFilter("status", e.target.value)}>
+              <option value="active">Active (not completed)</option>
+              <option value="all">All statuses</option>
+              {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
           <label>
             Partner Type
             <select value={filters.entityType} onChange={(e) => updateFilter("entityType", e.target.value)}>
@@ -467,13 +600,29 @@ export default function AdminTrips() {
         <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
           <div>
             <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Trips</div>
-            <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>{filteredTrips.length}</div>
+            <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>
+              {filteredTrips.length}
+              {filteredTrips.length !== allTimeTripCount && (
+                <span style={{ fontSize: "0.9rem", fontWeight: 400, color: "#888" }}>
+                  {" "}
+                  of {allTimeTripCount} total
+                </span>
+              )}
+            </div>
           </div>
           <div>
             <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
               Total Participants
             </div>
-            <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>{totalParticipants}</div>
+            <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>
+              {totalParticipants}
+              {totalParticipants !== allTimeParticipants && (
+                <span style={{ fontSize: "0.9rem", fontWeight: 400, color: "#888" }}>
+                  {" "}
+                  of {allTimeParticipants} total
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>

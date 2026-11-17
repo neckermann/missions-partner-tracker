@@ -62,8 +62,8 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
     },
     enabledFeatures.trips && {
       to: "/admin/trips/planning",
-      title: "Trip Planning",
-      description: "Find partners who can host a trip you're planning, by team size and trip type.",
+      title: "Plan a Trip",
+      description: "Find a partner to start a new trip for — including ones with nothing scheduled yet.",
     },
     enabledFeatures.booklet && {
       to: "/admin/booklet",

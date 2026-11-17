@@ -127,7 +127,7 @@ export default function AdminTripPlanning() {
         teamSizeMax: row.teamSizeMax,
         type: row.tripTypesSupported?.[0] || null,
       });
-      navigate(`/admin/trips/${created.id}`);
+      navigate(`/admin/trips/${created.id}`, { state: { from: "planning" } });
     } catch (err) {
       console.error(err);
       setStartingId(null);
@@ -139,7 +139,7 @@ export default function AdminTripPlanning() {
     setCloningId(row.partnerId);
     try {
       const cloned = await cloneTrip(row.cloneFromTripId);
-      navigate(`/admin/trips/${cloned.id}`);
+      navigate(`/admin/trips/${cloned.id}`, { state: { from: "planning" } });
     } catch (err) {
       console.error(err);
       setCloningId(null);
@@ -148,11 +148,12 @@ export default function AdminTripPlanning() {
 
   return (
     <div className="admin-shell">
-      <h2>Trip Planning</h2>
+      <h2>Plan a Trip</h2>
       <p style={{ color: "#555" }}>
-        Which partner to plan the next trip to — blends what's already scheduled with each partner's general
-        trip capacity, so a partner is never dropped from the list just because nothing concrete is on the
-        calendar yet.
+        Partners who could host a trip, including ones with nothing scheduled yet — blends what's already
+        scheduled with each partner's general trip capacity, so a partner is never dropped from the list just
+        because nothing concrete is on the calendar. Looking for a specific existing trip instead?{" "}
+        <Link to="/admin/trips">See Trips →</Link>
       </p>
 
       <div style={{ display: "flex", gap: "0.4rem", marginTop: "1rem" }}>

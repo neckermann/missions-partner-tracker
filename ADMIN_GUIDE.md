@@ -157,7 +157,7 @@ prayer digest nested under Email (Sending) since it depends on it), and
 | Prayer requests | On | The Prayer Requests admin section, and the prayer request list on missionary/organization pages. |
 | One-time needs | On | The One-Time Needs admin section, and the one-time needs list on missionary/organization pages. Only gates the standalone `/api/support-needs` CRUD — a need can still be added via a missionary/organization's own edit form either way (a narrower gap than the other toggles here). |
 | Monthly support | On | The Monthly Support report page. |
-| Mission trips | **Off** | Trip tracking, recruiting, teams, meetings, documents, and support raising — the Trips and Trip Planning admin pages. Default flipped from on to off once this reached well beyond an admin-only page into public application forms and outbound email, so it needs an explicit decision rather than being on by default. A fork relying on it staying on for its existing trip-logging needs flips it back on once after upgrading. See [§ Trips](#trips) below. |
+| Mission trips | **Off** | Trip tracking, recruiting, teams, meetings, documents, and support raising — the Trips and Plan a Trip admin pages. Default flipped from on to off once this reached well beyond an admin-only page into public application forms and outbound email, so it needs an explicit decision rather than being on by default. A fork relying on it staying on for its existing trip-logging needs flips it back on once after upgrading. See [§ Trips](#trips) below. |
 | Public trip discovery | **Off** | The public Trip Opportunities listing (`/trips`) and plain, id-addressed application links. Also requires Mission trips to be on. A church can run trips entirely by private link with this off and Mission trips on — see [§ Trips](#trips) below. |
 | Print booklet | On | The printable prayer & support directory generator. |
 | Reports | On | Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history, furlough — with CSV download and a print view. |
@@ -917,21 +917,30 @@ through `planning` → `accepting_applications` → `closed` →
 `completed`. Settings live at Site Administration → Trips Settings
 (`/admin/settings/trips`); per-trip management (setup, team,
 applications, requirements, meetings, budget) is on each trip's own
-detail page, reached from Trip Planning or the Trips list.
+detail page, reached from Plan a Trip or the Trips list.
 
 ![The Trips list, every trip regardless of status](docs/assets/screenshots/trip-history.png)
 
 **Two admin-internal pages answer two different questions.** **Trips**
-(`/admin/trips`) is the filterable log of every trip regardless of
-status — a quick historical backfill (pick the partner, dates, trip
-type, description, a Photo/Video Album link, and participants) is
-managed entirely inline here, same as before this feature existed;
-**Edit** and **Delete** work the same way. A trip that's still
-`planning`, `accepting_applications`, or `closed` instead shows a link
-into its own fuller detail page — this list isn't where an active
-trip's applications, team, or documents get managed. **Trip
-Planning** (`/admin/trips/planning`) answers a different question —
-which partner to plan the *next* trip to — blending an **Open** row
+(`/admin/trips`) is the filterable log of every trip — it opens
+showing **Active (not completed)** trips by default (switch the
+Status filter to **All statuses** or **Completed** to see the rest),
+with its two count tiles always showing both the filtered count and
+the true all-time total so neither reads as the other. **+ New Trip**
+offers a choice: **Start recruiting a new trip** (pick a partner and
+trip type, then land on that trip's own detail page to fill in the
+rest — the same `createTrip` call Plan a Trip's own "Start a new trip"
+button makes, team size auto-filled from the partner's own Trip
+Capacity fields) or **Log a trip that already happened** (today's
+quick historical backfill — partner, dates, trip type, description, a
+Photo/Video Album link, and participants — managed entirely inline
+here, same as before this feature existed; **Edit** and **Delete**
+work the same way). A trip that's still `planning`,
+`accepting_applications`, or `closed` instead shows a link into its
+own fuller detail page — this list isn't where an active trip's
+applications, team, or documents get managed. **Plan a Trip**
+(`/admin/trips/planning`) answers a different question — which
+partner to plan the *next* trip for — blending an **Open** row
 (already recruiting), a **Committed** row (team finalized, hasn't
 happened), and a **No trip scheduled** row (just that partner's own
 general trip capacity) so a partner never falls off the list just
@@ -941,9 +950,11 @@ trip** action (for any partner with at least one prior trip) that
 copies a trip's reusable shape — name, type, team size, description,
 support-raising goal, application questions, and requirement list —
 into a fresh `planning`-status row with no dates and no team, ready
-to fill in for a repeat.
+to fill in for a repeat. Starting a brand-new trip works from either
+page now; Plan a Trip is still the better tool when you don't yet know
+*which* partner needs one.
 
-![Trip Planning: which partner to send a team to next](docs/assets/screenshots/trip-opportunities.png)
+![Plan a Trip: which partner to send a team to next](docs/assets/screenshots/trip-opportunities.png)
 
 **On a trip's own detail page** (below the basic setup fields — name,
 status, dates, team size, support-raising goal, description, the
@@ -1091,7 +1102,7 @@ live:
 above:
 
 - **Mission trips** gates the whole backend capability (the Trips and
-  Trip Planning admin pages, every `/api/trips` route). Off by default.
+  Plan a Trip admin pages, every `/api/trips` route). Off by default.
 - **Public trip discovery** gates only the broadly-public listing
   (`/trips`) and plain, id-addressed application links. Nested under
   Mission trips, also off by default, so a church can run trips

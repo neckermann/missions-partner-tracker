@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import {
   fetchTrip,
   updateTrip,
@@ -41,6 +41,7 @@ import TripStatusBadge from "../components/admin/TripStatusBadge.jsx";
 export default function AdminTripDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [trip, setTrip] = useState(null);
   const [applications, setApplications] = useState([]);
@@ -509,7 +510,14 @@ export default function AdminTripDetail() {
 
   return (
     <div className="admin-shell">
-      <Link to="/admin/trips/planning">← Back to Trip Planning</Link>
+      {/* Where to go "back" to is genuinely ambiguous now that a new
+      recruiting trip can start from either Trips' own "+ New Trip" or
+      Plan a Trip -- the page that actually navigated here passes which
+      one via router state; a direct visit (refresh, bookmark) falls back
+      to Plan a Trip, since that's still the more common path here. */}
+      <Link to={location.state?.from === "trips" ? "/admin/trips" : "/admin/trips/planning"}>
+        {location.state?.from === "trips" ? "← Back to Trips" : "← Back to Plan a Trip"}
+      </Link>
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem" }}>
         <h2 style={{ margin: 0 }}>{trip.name || trip.type || "Trip"}</h2>
         <TripStatusBadge status={trip.status} />

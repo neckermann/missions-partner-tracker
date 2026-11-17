@@ -27,12 +27,13 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
     enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
     enabledFeatures.oneTimeNeeds && { to: "/admin/support/needs", label: "One-Time Needs" },
     enabledFeatures.monthlySupport && { to: "/admin/support/monthly", label: "Monthly Support" },
-    // Trip Planning (where recruiting a new trip actually starts) ahead
-    // of Trips (the historical ledger) -- a new admin landing on Trips
-    // first would find no obvious way to start a new recruiting trip at
-    // all, since that's Trip Planning's job, not this list's.
-    enabledFeatures.trips && { to: "/admin/trips/planning", label: "Trip Planning" },
+    // Trips first, matching every other entry in this list (a plain noun
+    // -- "here's a list of X"). Plan a Trip used to come first specifically
+    // because Trips had no way to start a new recruiting trip at all; now
+    // that Trips' own "+ New Trip" action covers that, there's no reason
+    // left to break the list's own pattern for it.
     enabledFeatures.trips && { to: "/admin/trips", label: "Trips", end: true },
+    enabledFeatures.trips && { to: "/admin/trips/planning", label: "Plan a Trip" },
     enabledFeatures.booklet && { to: "/admin/booklet", label: "Print Booklet" },
     enabledFeatures.reports && { to: "/admin/reports", label: "Reports" },
   ].filter(Boolean);
