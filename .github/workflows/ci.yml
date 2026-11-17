@@ -246,22 +246,11 @@ jobs:
             (async () => {
               const existing = await prisma.churchSettings.findUnique({ where: { id: 'singleton' } });
               const enabledFeatures = { ...(existing?.enabledFeatures || {}), trips: true };
-              const result = await prisma.churchSettings.upsert({
+              await prisma.churchSettings.upsert({
                 where: { id: 'singleton' },
                 create: { id: 'singleton', enabledFeatures },
                 update: { enabledFeatures },
               });
-              console.log('[diagnostic] wrote enabledFeatures:', JSON.stringify(result.enabledFeatures));
-              const reread = await prisma.churchSettings.findUnique({ where: { id: 'singleton' } });
-              console.log('[diagnostic] read back in same process:', JSON.stringify(reread.enabledFeatures));
-              await prisma.\$disconnect();
-            })();
-          "
-          node -e "
-            const prisma = require('./src/prismaClient');
-            (async () => {
-              const row = await prisma.churchSettings.findUnique({ where: { id: 'singleton' } });
-              console.log('[diagnostic] read back in a fresh process:', JSON.stringify(row.enabledFeatures));
               await prisma.\$disconnect();
             })();
           "
@@ -273,9 +262,6 @@ jobs:
           for i in $(seq 1 30); do
             if curl -sf http://localhost:4000/api/health > /dev/null; then
               echo "App is up."
-              echo "[diagnostic] /api/public/settings right after boot:"
-              curl -s http://localhost:4000/api/public/settings
-              echo ""
               exit 0
             fi
             sleep 1
