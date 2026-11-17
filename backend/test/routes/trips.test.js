@@ -523,3 +523,187 @@ describe("Trips: meetings", () => {
     assert.equal(reloaded.reminderSentAt, null);
   });
 });
+
+// One-click RSVP (issue #267's design decision) -- link-based only, no
+// inbound email. Each link is a plain GET, verified by the exact same
+// signed access token the self-service page already uses, so this
+// suite leans on buildTripParticipantAccessToken directly rather than
+// a parallel token mechanism.
+describe("Trips: meeting RSVP", () => {
+  const { buildTripParticipantAccessToken } = require("../../src/utils/tripAccessToken");
+
+  // Same capture idiom as the "Trips: meetings" describe block above,
+  // duplicated locally rather than hoisted to file scope -- each
+  // describe block's own helper, same precedent emailDispatchDelivery.
+  // test.js already follows for this.
+  async function captureEmails(run) {
+    const captured = [];
+    const prevFetch = global.fetch;
+    global.fetch = (url, options) => {
+      if (String(url).startsWith("https://api.postmarkapp.com") && options?.body) {
+        try {
+          captured.push(JSON.parse(options.body));
+        } catch {
+          /* non-JSON body -- not a send this test cares about */
+        }
+      }
+      return prevFetch(url, options);
+    };
+    try {
+      await run();
+    } finally {
+      global.fetch = prevFetch;
+    }
+    return captured;
+  }
+
+  async function createTripWithParticipant() {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction" },
+    });
+    const participant = await prisma.tripParticipant.create({
+      data: { tripId: trip.body.id, firstName: "Taylor", email: "taylor-rsvp@example.test" },
+    });
+    return { trip: trip.body, participant };
+  }
+
+  test("the invite email includes all three RSVP links, each carrying the participant's own token", async () => {
+    const { trip, participant } = await createTripWithParticipant();
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}/meetings`, {
+        method: "POST",
+        body: { startAt: "2026-12-09T19:00:00.000Z", location: "Church fellowship hall" },
+      });
+      assert.equal(res.status, 201);
+    });
+    assert.equal(sent.length, 1);
+    const body = sent[0].TextBody;
+    assert.match(body, /\/meetings\/.+\/rsvp\?token=.+&response=yes/);
+    assert.match(body, /\/meetings\/.+\/rsvp\?token=.+&response=no/);
+    assert.match(body, /\/meetings\/.+\/rsvp\?token=.+&response=maybe/);
+
+    // The token in the email must actually work -- not just look right.
+    const yesLink = body.match(/(https?:\/\/\S*\/rsvp\?token=\S*&response=yes)/)[1];
+    const res = await anon(yesLink.replace(/^https?:\/\/[^/]*/, ""));
+    assert.equal(res.status, 200);
+    const rsvp = await prisma.tripMeetingRsvp.findUnique({
+      where: {
+        meetingId_participantId: {
+          meetingId: (await prisma.tripMeeting.findFirstOrThrow({ where: { tripId: trip.id } })).id,
+          participantId: participant.id,
+        },
+      },
+    });
+    assert.equal(rsvp.response, "yes");
+  });
+
+  test("a cancelled meeting's cancellation email carries no RSVP links", async () => {
+    const { trip } = await createTripWithParticipant();
+    let meeting;
+    await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}/meetings`, {
+        method: "POST",
+        body: { startAt: "2026-12-16T19:00:00.000Z" },
+      });
+      meeting = res.body;
+    });
+    const sent = await captureEmails(async () => {
+      await admin(`/api/trips/meetings/${meeting.id}/cancel`, { method: "POST" });
+    });
+    assert.equal(sent.length, 1);
+    assert.doesNotMatch(sent[0].TextBody, /\/rsvp\?/);
+  });
+
+  test("a valid token+response records it and overwrites on a later, different click", async () => {
+    const { trip, participant } = await createTripWithParticipant();
+    const meeting = await prisma.tripMeeting.create({
+      data: { tripId: trip.id, startAt: new Date("2026-12-10T19:00:00.000Z") },
+    });
+    const token = buildTripParticipantAccessToken(participant);
+
+    const yesRes = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=yes`);
+    assert.equal(yesRes.status, 200);
+    assert.match(yesRes.body, /attending/);
+    let rsvp = await prisma.tripMeetingRsvp.findUnique({
+      where: { meetingId_participantId: { meetingId: meeting.id, participantId: participant.id } },
+    });
+    assert.equal(rsvp.response, "yes");
+
+    const noRes = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=no`);
+    assert.equal(noRes.status, 200);
+    rsvp = await prisma.tripMeetingRsvp.findUnique({
+      where: { meetingId_participantId: { meetingId: meeting.id, participantId: participant.id } },
+    });
+    assert.equal(rsvp.response, "no", "a later, different click must overwrite the earlier response");
+
+    const count = await prisma.tripMeetingRsvp.count({ where: { meetingId: meeting.id } });
+    assert.equal(count, 1, "one row per (meeting, participant), not one per click");
+  });
+
+  test("a tampered/invalid token is rejected and records nothing", async () => {
+    const { trip, participant } = await createTripWithParticipant();
+    const meeting = await prisma.tripMeeting.create({
+      data: { tripId: trip.id, startAt: new Date("2026-12-11T19:00:00.000Z") },
+    });
+    const token = buildTripParticipantAccessToken(participant);
+    const tampered = token.slice(0, -2) + "zz";
+
+    const res = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${tampered}&response=yes`);
+    assert.equal(res.status, 401);
+    const rsvp = await prisma.tripMeetingRsvp.findUnique({
+      where: { meetingId_participantId: { meetingId: meeting.id, participantId: participant.id } },
+    });
+    assert.equal(rsvp, null);
+  });
+
+  test("a revoked token (accessTokenVersion bumped) no longer works", async () => {
+    const { trip, participant } = await createTripWithParticipant();
+    const meeting = await prisma.tripMeeting.create({
+      data: { tripId: trip.id, startAt: new Date("2026-12-12T19:00:00.000Z") },
+    });
+    const token = buildTripParticipantAccessToken(participant);
+    await prisma.tripParticipant.update({ where: { id: participant.id }, data: { accessTokenVersion: 1 } });
+
+    const res = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=yes`);
+    assert.equal(res.status, 401);
+  });
+
+  test("an invalid response value is rejected", async () => {
+    const { trip, participant } = await createTripWithParticipant();
+    const meeting = await prisma.tripMeeting.create({
+      data: { tripId: trip.id, startAt: new Date("2026-12-13T19:00:00.000Z") },
+    });
+    const token = buildTripParticipantAccessToken(participant);
+    const res = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=definitely`);
+    assert.equal(res.status, 400);
+  });
+
+  test("a cancelled meeting's RSVP link is refused and records nothing", async () => {
+    const { trip, participant } = await createTripWithParticipant();
+    const meeting = await prisma.tripMeeting.create({
+      data: { tripId: trip.id, startAt: new Date("2026-12-14T19:00:00.000Z"), cancelledAt: new Date() },
+    });
+    const token = buildTripParticipantAccessToken(participant);
+
+    const res = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=yes`);
+    assert.equal(res.status, 400);
+    const rsvp = await prisma.tripMeetingRsvp.findUnique({
+      where: { meetingId_participantId: { meetingId: meeting.id, participantId: participant.id } },
+    });
+    assert.equal(rsvp, null);
+  });
+
+  test("a token for a different trip's meeting is refused", async () => {
+    const { participant: otherParticipant } = await createTripWithParticipant();
+    const { trip } = await createTripWithParticipant();
+    const meeting = await prisma.tripMeeting.create({
+      data: { tripId: trip.id, startAt: new Date("2026-12-15T19:00:00.000Z") },
+    });
+    const token = buildTripParticipantAccessToken(otherParticipant);
+
+    const res = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=yes`);
+    assert.equal(res.status, 404);
+  });
+});

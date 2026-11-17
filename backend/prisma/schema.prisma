@@ -391,6 +391,7 @@ model TripParticipant {
   // mean "not flying" -- every segment with nobody selected still
   // applies to them regardless (see TripFlightSegment's own comment).
   flightSegments TripFlightSegment[]
+  meetingRsvps TripMeetingRsvp[]
 
   @@index([tripId])
 }
@@ -489,7 +490,35 @@ model TripMeeting {
   // participant may already have on their calendar.
   cancelledAt    DateTime?
 
+  rsvps TripMeetingRsvp[]
+
   @@index([tripId])
+}
+
+// One row per (meeting, participant) -- a many-to-many, not a column on
+// either side, since each participant independently answers each of a
+// trip's own meetings. Link-based only (issue #267's RSVP design
+// decision): a participant clicks one of three token-verified links in
+// their own invite/resend/reschedule/reminder email, no login, no
+// inbound email involved at all. Upserted on (meetingId, participantId)
+// -- clicking a different link later just overwrites the earlier
+// response, same "re-cancelling is harmless" idempotency precedent
+// TripMeeting.cancelledAt's own route already follows.
+model TripMeetingRsvp {
+  id            String   @id @default(uuid())
+  meetingId     String
+  meeting       TripMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   TripParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  // "yes" | "no" | "maybe" -- a plain String with app-level validation,
+  // not a Postgres enum, matching this schema's own existing convention
+  // for a small fixed set of values (TripRequirement.kind, TripDocument.
+  // signerRelationship) over a real enum type.
+  response      String
+  respondedAt   DateTime
+
+  @@unique([meetingId, participantId])
+  @@index([participantId])
 }
 
 // An admin-defined, ordered, free-text checklist of what a trip needs

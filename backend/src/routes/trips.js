@@ -248,7 +248,9 @@ router.get("/:id", async (req, res, next) => {
           include: { application: { select: { responses: true, submittedAt: true } } },
         },
         applications: { where: { status: "pending" } },
-        meetings: true,
+        // rsvps included so the admin Meetings UI can show a tally/
+        // per-participant breakdown without a second round-trip.
+        meetings: { include: { rsvps: true } },
         documents: true,
         contributions: true,
       },
@@ -972,7 +974,7 @@ async function sendMeetingEmail(trip, meeting, lead, { cancelled = false } = {})
     await sendParticipantEmail(
       participant,
       `${cancelled ? "Meeting cancelled" : "Meeting"}: ${trip.name || trip.type || "your trip"}`,
-      buildMeetingEmailBody(meeting, lead),
+      buildMeetingEmailBody(meeting, lead, participant, { cancelled }),
       {
         attachments: [
           {

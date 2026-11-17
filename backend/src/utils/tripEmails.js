@@ -5,7 +5,7 @@
 // place, so a later fix to one of those doesn't silently miss the other
 // four call sites.
 const { sendEmail } = require("./email");
-const { appBaseUrl } = require("./tripAccessToken");
+const { appBaseUrl, buildTripParticipantAccessToken } = require("./tripAccessToken");
 
 // Same small "Lost your link?" line on every one of this feature's
 // emails, same convention a digest email's own unsubscribe footer
@@ -89,16 +89,57 @@ function buildMeetingIcs(meeting, { cancelled = false } = {}) {
     .join("\r\n");
 }
 
+// Link-based RSVP (issue #267's design decision) -- three token-
+// verified GET links, same trust boundary as the existing self-service
+// access link (buildTripParticipantAccessToken), reused rather than
+// inventing a parallel auth mechanism. meetingId/response travel as
+// plain query params (not secret -- the token is what proves this is
+// really that participant); GET, not POST, since this has to work from
+// a plain click in a dumb mail client with no JS involved.
+function buildMeetingRsvpUrls(meeting, participant) {
+  const base = appBaseUrl();
+  const token = encodeURIComponent(buildTripParticipantAccessToken(participant));
+  const build = (response) =>
+    `${base}/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=${response}`;
+  return { yes: build("yes"), no: build("no"), maybe: build("maybe") };
+}
+
+const RSVP_LABELS = { yes: "Yes", no: "No", maybe: "Maybe" };
+
 // Shared by every meeting email (invite, reschedule-resend, explicit
-// resend, day-before reminder, cancellation) so the agenda/join-link
-// rendering lives in exactly one place -- a church-facing wording tweak
-// or a new field shouldn't require updating four near-duplicate email
-// bodies in four different files.
-function buildMeetingEmailBody(meeting, lead) {
+// resend, day-before reminder, cancellation) so the agenda/join-link/
+// RSVP-link rendering lives in exactly one place -- a church-facing
+// wording tweak or a new field shouldn't require updating four
+// near-duplicate email bodies in four different files.
+//
+// `participant` is optional -- omitted, no RSVP links render at all
+// (used nowhere today, but keeps this function safe to call without one
+// rather than throwing). `cancelled` suppresses links outright: there's
+// nothing left to RSVP to once a meeting's been called off.
+// `existingResponse` is only ever passed by the day-before reminder
+// (the one email this feature sends after a participant could
+// plausibly have already responded to the original invite) -- it shows
+// what's on file instead of bare links, with a line underneath letting
+// them still change it. The invite/reschedule/resend emails always show
+// plain links with no "previously RSVP'd" framing: resending the exact
+// same invite content is the simpler, more predictable choice, and
+// clicking a link again is already a harmless overwrite either way.
+function buildMeetingEmailBody(meeting, lead, participant, { cancelled = false, existingResponse = null } = {}) {
   const lines = [lead];
   if (meeting.location) lines.push(`Location: ${meeting.location}`);
   if (meeting.meetingLink) lines.push(`Join online: ${meeting.meetingLink}`);
   if (meeting.agenda) lines.push(`\nAgenda:\n${meeting.agenda}`);
+  if (!cancelled && participant) {
+    const urls = buildMeetingRsvpUrls(meeting, participant);
+    if (existingResponse) {
+      lines.push(
+        `\nYou previously RSVP'd: ${RSVP_LABELS[existingResponse] || existingResponse}. Changed your mind? Use a link below to update it.`
+      );
+    } else {
+      lines.push("\nWill you be there?");
+    }
+    lines.push(`Yes: ${urls.yes}\nNo: ${urls.no}\nMaybe: ${urls.maybe}`);
+  }
   return lines.filter(Boolean).join("\n");
 }
 
@@ -123,4 +164,10 @@ function buildTripDatesIcs(trip) {
   ].join("\r\n");
 }
 
-module.exports = { sendParticipantEmail, buildMeetingIcs, buildMeetingEmailBody, buildTripDatesIcs };
+module.exports = {
+  sendParticipantEmail,
+  buildMeetingIcs,
+  buildMeetingEmailBody,
+  buildMeetingRsvpUrls,
+  buildTripDatesIcs,
+};

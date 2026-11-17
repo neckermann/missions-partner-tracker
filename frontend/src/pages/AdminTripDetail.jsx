@@ -91,6 +91,20 @@ export default function AdminTripDetail() {
     meetingLink: "",
     agenda: "",
   });
+  // Collapsed-by-default, click-to-expand -- each meeting is a compact
+  // summary row (date/time, location/online, RSVP tally) until an admin
+  // actually needs to edit it or see who's responded. A Set, not a
+  // single id, since there's no reason expanding one meeting should
+  // collapse another.
+  const [expandedMeetingIds, setExpandedMeetingIds] = useState(new Set());
+  function toggleMeetingExpanded(meetingId) {
+    setExpandedMeetingIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(meetingId)) next.delete(meetingId);
+      else next.add(meetingId);
+      return next;
+    });
+  }
   // A trip-wide document (itinerary, packing list) -- participantId stays
   // null. Schema/backend already supported this (TripDocument.participantId
   // is nullable specifically for it); there was never any UI for it until
@@ -1245,88 +1259,166 @@ export default function AdminTripDetail() {
         <table className="admin-table">
           <thead>
             <tr>
-              <th>Date/time</th>
-              <th>Location</th>
-              <th>Join link</th>
-              <th>Agenda</th>
+              <th>When</th>
+              <th>Where</th>
+              <th>RSVPs</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {(trip.meetings || []).map((m) => (
-              <tr key={m.id} style={m.cancelledAt ? { opacity: 0.6, textDecoration: "line-through" } : undefined}>
-                <td>
-                  <input
-                    type="datetime-local"
-                    style={{ width: "11rem" }}
-                    disabled={!!m.cancelledAt}
-                    defaultValue={m.startAt ? m.startAt.slice(0, 16) : ""}
-                    onBlur={(e) => e.target.value && handleUpdateMeeting(m.id, { startAt: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <input
-                    style={{ width: "9rem" }}
-                    disabled={!!m.cancelledAt}
-                    defaultValue={m.location || ""}
-                    placeholder="In-person location"
-                    onBlur={(e) =>
-                      e.target.value !== (m.location || "") &&
-                      handleUpdateMeeting(m.id, { location: e.target.value.trim() || null })
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    style={{ width: "10rem" }}
-                    disabled={!!m.cancelledAt}
-                    defaultValue={m.meetingLink || ""}
-                    placeholder="https://zoom.us/..."
-                    onBlur={(e) =>
-                      e.target.value !== (m.meetingLink || "") &&
-                      handleUpdateMeeting(m.id, { meetingLink: e.target.value.trim() || null })
-                    }
-                  />
-                </td>
-                <td>
-                  <textarea
-                    rows={2}
-                    style={{ width: "12rem" }}
-                    disabled={!!m.cancelledAt}
-                    defaultValue={m.agenda || ""}
-                    placeholder="What this meeting will cover"
-                    onBlur={(e) =>
-                      e.target.value !== (m.agenda || "") &&
-                      handleUpdateMeeting(m.id, { agenda: e.target.value.trim() || null })
-                    }
-                  />
-                </td>
-                <td className="table-actions" style={{ whiteSpace: "nowrap" }}>
-                  {m.cancelledAt ? (
-                    <span style={{ fontSize: "0.8rem", color: "#888" }}>Cancelled</span>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        className="btn secondary small"
-                        onClick={() => handleResendMeetingInvite(m.id)}
-                      >
-                        Resend invite
-                      </button>{" "}
-                      <button type="button" className="btn secondary small" onClick={() => handleCancelMeeting(m.id)}>
-                        Cancel
-                      </button>{" "}
-                      <button type="button" className="btn-remove" onClick={() => handleDeleteMeeting(m.id)}>
-                        ✕
-                      </button>
-                    </>
+            {(trip.meetings || []).map((m) => {
+              const expanded = expandedMeetingIds.has(m.id);
+              const rsvps = m.rsvps || [];
+              const tally = { yes: 0, no: 0, maybe: 0 };
+              rsvps.forEach((r) => {
+                if (tally[r.response] !== undefined) tally[r.response] += 1;
+              });
+              const participants = trip.participants || [];
+              const noResponseCount = participants.length - rsvps.length;
+              const whenLabel = m.startAt
+                ? new Date(m.startAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+                : "";
+              const whereLabel =
+                m.location && m.meetingLink
+                  ? `${m.location} + online`
+                  : m.location || (m.meetingLink ? "Online" : "—");
+              const rsvpSummary = m.cancelledAt
+                ? "Cancelled"
+                : `${tally.yes} yes · ${tally.no} no · ${tally.maybe} maybe` +
+                  (noResponseCount > 0 ? ` · ${noResponseCount} no response` : "");
+              return (
+                <React.Fragment key={m.id}>
+                  <tr
+                    onClick={() => toggleMeetingExpanded(m.id)}
+                    style={{
+                      cursor: "pointer",
+                      ...(m.cancelledAt ? { opacity: 0.6, textDecoration: "line-through" } : undefined),
+                    }}
+                  >
+                    <td>{whenLabel}</td>
+                    <td>{whereLabel}</td>
+                    <td>{rsvpSummary}</td>
+                    <td style={{ textAlign: "right", color: "#888" }}>{expanded ? "▲" : "▼"}</td>
+                  </tr>
+                  {expanded && (
+                    <tr>
+                      <td colSpan={4} style={{ background: "#faf9f7" }}>
+                        <div className="form-grid" style={{ marginBottom: "0.75rem" }}>
+                          <label>
+                            Date/time
+                            <input
+                              type="datetime-local"
+                              disabled={!!m.cancelledAt}
+                              defaultValue={m.startAt ? m.startAt.slice(0, 16) : ""}
+                              onBlur={(e) => e.target.value && handleUpdateMeeting(m.id, { startAt: e.target.value })}
+                            />
+                          </label>
+                          <label>
+                            Location
+                            <input
+                              disabled={!!m.cancelledAt}
+                              defaultValue={m.location || ""}
+                              placeholder="In-person location"
+                              onBlur={(e) =>
+                                e.target.value !== (m.location || "") &&
+                                handleUpdateMeeting(m.id, { location: e.target.value.trim() || null })
+                              }
+                            />
+                          </label>
+                          <label>
+                            Join link
+                            <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                              <input
+                                disabled={!!m.cancelledAt}
+                                defaultValue={m.meetingLink || ""}
+                                placeholder="https://zoom.us/..."
+                                onBlur={(e) =>
+                                  e.target.value !== (m.meetingLink || "") &&
+                                  handleUpdateMeeting(m.id, { meetingLink: e.target.value.trim() || null })
+                                }
+                              />
+                              {m.meetingLink && (
+                                <a
+                                  href={m.meetingLink}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ whiteSpace: "nowrap", fontSize: "0.85rem" }}
+                                >
+                                  Open ↗
+                                </a>
+                              )}
+                            </div>
+                          </label>
+                          <label>
+                            Agenda
+                            <textarea
+                              rows={2}
+                              disabled={!!m.cancelledAt}
+                              defaultValue={m.agenda || ""}
+                              placeholder="What this meeting will cover"
+                              onBlur={(e) =>
+                                e.target.value !== (m.agenda || "") &&
+                                handleUpdateMeeting(m.id, { agenda: e.target.value.trim() || null })
+                              }
+                            />
+                          </label>
+                        </div>
+
+                        {/* Per-participant breakdown -- every participant on
+                        the trip gets a line, not just the ones who've
+                        responded, so "nobody's answered yet" is visible as
+                        a real state rather than an empty list. */}
+                        <div style={{ marginBottom: "0.75rem" }}>
+                          <strong style={{ fontSize: "0.85rem" }}>Who's responded</strong>
+                          <ul style={{ margin: "0.25rem 0 0", padding: 0, listStyle: "none", fontSize: "0.85rem" }}>
+                            {participants.map((p) => {
+                              const rsvp = rsvps.find((r) => r.participantId === p.id);
+                              const label = { yes: "Yes", no: "No", maybe: "Maybe" }[rsvp?.response] || "No response yet";
+                              return (
+                                <li key={p.id} style={{ padding: "0.15rem 0" }}>
+                                  {p.firstName} {p.lastName} — {label}
+                                </li>
+                              );
+                            })}
+                            {participants.length === 0 && <li style={{ color: "#888" }}>No participants yet.</li>}
+                          </ul>
+                        </div>
+
+                        <div className="table-actions" onClick={(e) => e.stopPropagation()}>
+                          {m.cancelledAt ? (
+                            <span style={{ fontSize: "0.8rem", color: "#888" }}>Cancelled</span>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                className="btn secondary small"
+                                onClick={() => handleResendMeetingInvite(m.id)}
+                              >
+                                Resend invite
+                              </button>{" "}
+                              <button
+                                type="button"
+                                className="btn secondary small"
+                                onClick={() => handleCancelMeeting(m.id)}
+                              >
+                                Cancel
+                              </button>{" "}
+                              <button type="button" className="btn-remove" onClick={() => handleDeleteMeeting(m.id)}>
+                                ✕
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
                   )}
-                </td>
-              </tr>
-            ))}
+                </React.Fragment>
+              );
+            })}
             {(trip.meetings || []).length === 0 && (
               <tr>
-                <td colSpan={5} style={{ color: "#888" }}>
+                <td colSpan={4} style={{ color: "#888" }}>
                   No meetings scheduled yet.
                 </td>
               </tr>

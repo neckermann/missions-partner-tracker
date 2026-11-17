@@ -25,6 +25,7 @@ const {
 } = require("../utils/tripAccessToken");
 const { buildSignedDocumentPdf } = require("../utils/pdfGeneration");
 const { decodePhotoDataUrl } = require("../utils/participantPhoto");
+const { renderSubscriberPage } = require("../utils/subscriberPage");
 const crypto = require("crypto");
 
 const router = express.Router();
@@ -681,6 +682,86 @@ router.get("/participants/:id/photo", requireFeature("trips"), async (req, res, 
     res.set("Content-Type", participant.photoContentType || "application/octet-stream");
     res.set("Cache-Control", "public, max-age=3600");
     res.send(participant.photo);
+  } catch (err) {
+    next(err);
+  }
+});
+
+const RSVP_RESPONSES = new Set(["yes", "no", "maybe"]);
+const RSVP_PAGE_LABELS = { yes: "attending", no: "not attending", maybe: "a maybe" };
+
+// GET /api/public/trips/meetings/:meetingId/rsvp?token=...&response=yes --
+// issue #267's RSVP design decision: link-based only, no inbound email.
+// GET, not POST, because this has to work from a plain click in a mail
+// client with no JS -- same precedent routes/publicUnsubscribe.js's own
+// GET already follows for a mutating, click-from-email action. Renders
+// an HTML page (renderSubscriberPage, shared with confirm/unsubscribe),
+// never JSON -- a person clicking an email link needs to see a page,
+// not a raw API response.
+router.get("/meetings/:meetingId/rsvp", requireFeature("trips"), async (req, res, next) => {
+  try {
+    const response = String(req.query.response || "");
+    if (!RSVP_RESPONSES.has(response)) {
+      return res
+        .status(400)
+        .send(await renderSubscriberPage("This RSVP link is invalid.", "", "Meeting RSVP"));
+    }
+
+    const payload = verifyTripParticipantAccessToken(String(req.query.token || ""));
+    if (!payload) {
+      return res
+        .status(401)
+        .send(await renderSubscriberPage("This link is invalid or has expired.", "", "Meeting RSVP"));
+    }
+
+    const participant = await prisma.tripParticipant.findUnique({ where: { id: payload.id } });
+    // Same accessTokenVersion check as /participants/access -- a
+    // resend/regenerate bumps this, invalidating every previously-
+    // issued link (RSVP links included, since they reuse the exact
+    // same token) at once.
+    if (!participant || participant.accessTokenVersion !== payload.v) {
+      return res
+        .status(401)
+        .send(await renderSubscriberPage("This link is invalid or has expired.", "", "Meeting RSVP"));
+    }
+
+    const meeting = await prisma.tripMeeting.findUnique({ where: { id: req.params.meetingId } });
+    if (!meeting || meeting.tripId !== participant.tripId) {
+      return res.status(404).send(await renderSubscriberPage("This meeting couldn't be found.", "", "Meeting RSVP"));
+    }
+    // A cancelled meeting has nothing left to RSVP to -- an already-sent
+    // link (from before the cancellation) should say so plainly rather
+    // than silently recording a response to a meeting that isn't
+    // happening.
+    if (meeting.cancelledAt) {
+      return res
+        .status(400)
+        .send(
+          await renderSubscriberPage(
+            "This meeting has been cancelled, so there's nothing left to RSVP to.",
+            "",
+            "Meeting RSVP"
+          )
+        );
+    }
+
+    // Upsert on (meetingId, participantId) -- clicking a different link
+    // later (changing your mind) just overwrites the earlier response,
+    // same idempotency precedent TripMeeting.cancelledAt's own route
+    // already follows for re-cancelling.
+    await prisma.tripMeetingRsvp.upsert({
+      where: { meetingId_participantId: { meetingId: meeting.id, participantId: participant.id } },
+      create: { meetingId: meeting.id, participantId: participant.id, response, respondedAt: new Date() },
+      update: { response, respondedAt: new Date() },
+    });
+
+    res.send(
+      await renderSubscriberPage(
+        `Got it — you're marked as <strong>${RSVP_PAGE_LABELS[response]}</strong> for this meeting. You can click a different link in the email anytime to change your response.`,
+        "",
+        "Meeting RSVP"
+      )
+    );
   } catch (err) {
     next(err);
   }

@@ -194,6 +194,17 @@ CREATE TABLE "TripMeeting" (
 );
 
 -- CreateTable
+CREATE TABLE "TripMeetingRsvp" (
+    "id" TEXT NOT NULL,
+    "meetingId" TEXT NOT NULL,
+    "participantId" TEXT NOT NULL,
+    "response" TEXT NOT NULL,
+    "respondedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "TripMeetingRsvp_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "TripRequirement" (
     "id" TEXT NOT NULL,
     "tripId" TEXT NOT NULL,
@@ -632,6 +643,12 @@ CREATE INDEX "TripApplication_tripId_idx" ON "TripApplication"("tripId");
 CREATE INDEX "TripMeeting_tripId_idx" ON "TripMeeting"("tripId");
 
 -- CreateIndex
+CREATE INDEX "TripMeetingRsvp_participantId_idx" ON "TripMeetingRsvp"("participantId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TripMeetingRsvp_meetingId_participantId_key" ON "TripMeetingRsvp"("meetingId", "participantId");
+
+-- CreateIndex
 CREATE INDEX "TripRequirement_tripId_idx" ON "TripRequirement"("tripId");
 
 -- CreateIndex
@@ -738,6 +755,12 @@ ALTER TABLE "TripApplication" ADD CONSTRAINT "TripApplication_tripId_fkey" FOREI
 
 -- AddForeignKey
 ALTER TABLE "TripMeeting" ADD CONSTRAINT "TripMeeting_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "Trip"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TripMeetingRsvp" ADD CONSTRAINT "TripMeetingRsvp_meetingId_fkey" FOREIGN KEY ("meetingId") REFERENCES "TripMeeting"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TripMeetingRsvp" ADD CONSTRAINT "TripMeetingRsvp_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "TripParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "TripRequirement" ADD CONSTRAINT "TripRequirement_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "Trip"("id") ON DELETE CASCADE ON UPDATE CASCADE;

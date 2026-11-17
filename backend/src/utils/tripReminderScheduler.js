@@ -32,15 +32,23 @@ async function checkAndSendTripMeetingReminders() {
   // for a meeting that isn't happening.
   const meetings = await prisma.tripMeeting.findMany({
     where: { startAt: { gte: windowStart, lte: windowEnd }, reminderSentAt: null, cancelledAt: null },
-    include: { trip: { include: { participants: true } } },
+    include: { trip: { include: { participants: true } }, rsvps: true },
   });
 
   for (const meeting of meetings) {
+    // Keyed by participantId -- the reminder is the one email this
+    // feature sends after a participant could plausibly have already
+    // responded to the original invite, so it shows what's on file
+    // instead of bare links (buildMeetingEmailBody's own comment has
+    // the full reasoning).
+    const rsvpByParticipantId = new Map(meeting.rsvps.map((r) => [r.participantId, r.response]));
     for (const participant of meeting.trip.participants) {
       await sendParticipantEmail(
         participant,
         `Reminder: meeting tomorrow for ${meeting.trip.name || meeting.trip.type || "your trip"}`,
-        buildMeetingEmailBody(meeting, "This is a reminder that your trip meeting is tomorrow."),
+        buildMeetingEmailBody(meeting, "This is a reminder that your trip meeting is tomorrow.", participant, {
+          existingResponse: rsvpByParticipantId.get(participant.id) || null,
+        }),
         {
           attachments: [
             {
