@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   fetchTrip,
   updateTrip,
@@ -36,6 +36,7 @@ import TripStatusBadge from "../components/admin/TripStatusBadge.jsx";
 // existed.
 export default function AdminTripDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [trip, setTrip] = useState(null);
   const [applications, setApplications] = useState([]);
@@ -56,7 +57,7 @@ export default function AdminTripDetail() {
   const [enableTripBudgeting, setEnableTripBudgeting] = useState(false);
   const [newBudgetLine, setNewBudgetLine] = useState({ label: "", estimatedAmount: "" });
   const [newFlightSegment, setNewFlightSegment] = useState({
-    label: "",
+    participantIds: [],
     airline: "",
     flightNumber: "",
     departureAirport: "",
@@ -136,7 +137,15 @@ export default function AdminTripDetail() {
   }
 
   async function handleReview(appId, status, declinedReason) {
-    await reviewTripApplication(appId, status, declinedReason);
+    const result = await reviewTripApplication(appId, status, declinedReason);
+    // Approving creates a new participant -- same deep-link pattern
+    // "Start a new trip"/"Clone trip" already use for the thing they
+    // just created, instead of reloading back to this same page with
+    // nothing to show for the action just taken.
+    if (result?.participant) {
+      navigate(`/admin/trips/${id}/participants/${result.participant.id}`);
+      return;
+    }
     reload();
   }
 
@@ -236,11 +245,6 @@ export default function AdminTripDetail() {
     return saveQuestions(questions);
   }
 
-  function handleAddQuestionFromLibrary(entry) {
-    const questions = [...(trip.applicationQuestions || []), { ...entry, id: crypto.randomUUID() }];
-    return saveQuestions(questions);
-  }
-
   function handleUpdateQuestion(qId, patch) {
     const questions = (trip.applicationQuestions || []).map((q) => (q.id === qId ? { ...q, ...patch } : q));
     return saveQuestions(questions);
@@ -260,6 +264,11 @@ export default function AdminTripDetail() {
     if (!confirmed) return;
     const questions = (trip.applicationQuestions || []).filter((q) => q.id !== qId);
     await saveQuestions(questions);
+  }
+
+  function handleAddQuestionFromLibrary(entry) {
+    const questions = [...(trip.applicationQuestions || []), { ...entry, id: crypto.randomUUID() }];
+    return saveQuestions(questions);
   }
 
   async function handleAddContribution(e) {
@@ -305,7 +314,7 @@ export default function AdminTripDetail() {
   async function handleAddFlightSegment(e) {
     e.preventDefault();
     await addTripFlightSegment(id, {
-      label: newFlightSegment.label.trim() || null,
+      participantIds: newFlightSegment.participantIds,
       airline: newFlightSegment.airline.trim() || null,
       flightNumber: newFlightSegment.flightNumber.trim() || null,
       departureAirport: newFlightSegment.departureAirport.trim() || null,
@@ -314,7 +323,7 @@ export default function AdminTripDetail() {
       arrivalAt: newFlightSegment.arrivalAt || null,
     });
     setNewFlightSegment({
-      label: "",
+      participantIds: [],
       airline: "",
       flightNumber: "",
       departureAirport: "",
@@ -601,8 +610,8 @@ export default function AdminTripDetail() {
         <h3>Flight itinerary</h3>
         <p style={{ color: "#888", fontSize: "0.85rem" }}>
           Entered once after group travel is booked. Shown only on each participant's own self-service page,
-          never publicly. Add one row per leg — a connection is two rows; a segment just for part of the team
-          can be labeled (e.g. "Priya &amp; John"), leaving the label blank means the whole team.
+          never publicly. Add one row per leg — a connection is two rows; select who a segment applies to
+          (e.g. just two people on their own routing) — selecting nobody means the whole team.
         </p>
         <table className="admin-table">
           <thead>
@@ -618,15 +627,27 @@ export default function AdminTripDetail() {
             {(trip.flightSegments || []).map((seg) => (
               <tr key={seg.id}>
                 <td>
-                  <input
-                    style={{ width: "9rem" }}
-                    defaultValue={seg.label || ""}
-                    placeholder="Whole team"
-                    onBlur={(e) =>
-                      e.target.value !== (seg.label || "") &&
-                      handleUpdateFlightSegment(seg.id, { label: e.target.value.trim() || null })
+                  <select
+                    multiple
+                    style={{ width: "9rem", height: "4.5rem" }}
+                    value={(seg.participants || []).map((p) => p.id)}
+                    onChange={(e) =>
+                      handleUpdateFlightSegment(seg.id, {
+                        participantIds: Array.from(e.target.selectedOptions).map((o) => o.value),
+                      })
                     }
-                  />
+                  >
+                    {(trip.participants || []).map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.firstName} {p.lastName}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{ fontSize: "0.7rem", color: "#888" }}>
+                    {(seg.participants || []).length === 0
+                      ? "Whole team"
+                      : seg.participants.map((p) => p.firstName).join(", ")}
+                  </div>
                 </td>
                 <td>
                   <div style={{ display: "flex", gap: "0.3rem" }}>
@@ -720,12 +741,23 @@ export default function AdminTripDetail() {
             marginTop: "0.5rem",
           }}
         >
-          <input
-            style={{ width: "9rem" }}
-            value={newFlightSegment.label}
-            onChange={(e) => setNewFlightSegment((f) => ({ ...f, label: e.target.value }))}
-            placeholder="Who (optional)"
-          />
+          <select
+            multiple
+            style={{ width: "9rem", height: "4.5rem" }}
+            value={newFlightSegment.participantIds}
+            onChange={(e) =>
+              setNewFlightSegment((f) => ({
+                ...f,
+                participantIds: Array.from(e.target.selectedOptions).map((o) => o.value),
+              }))
+            }
+          >
+            {(trip.participants || []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.firstName} {p.lastName}
+              </option>
+            ))}
+          </select>
           <input
             style={{ width: "6rem" }}
             value={newFlightSegment.airline}
@@ -773,58 +805,98 @@ export default function AdminTripDetail() {
       review" below it in the new section order. Per-participant document
       upload/request, access-link controls, and task checkboxes all used
       to live crammed into this table's action column; moved to each
-      participant's own detail page (linked below) and the Completion by
-      participant matrix section, since a requirement x participant
-      relationship doesn't actually fit one flat roster row. This table
-      is now just "who's on the team." */}
+      participant's own detail page (linked below). One column per active
+      TripRequirement was later folded in here too (§21.1 of the plan
+      doc) -- it used to be a separate "Completion by Team Member" matrix
+      (requirement rows x participant columns), which was the exact same
+      information as this table's own bare "Still needed" count, just
+      transposed into its own section. Read-only cells/a task checkbox
+      are cheap to add as extra columns on a table that already exists;
+      this isn't the mistake an earlier round already fixed once by
+      splitting *interactive controls* out of this same table -- nothing
+      here is a file picker or a log button, just a status glance. */}
       <div className="admin-section">
         <h3>Confirmed Team</h3>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Support raising</th>
-              <th>Still needed</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {(trip.participants || []).map((p) => {
-              const missing = fulfillmentFor(p.id).filter((f) => !f.fulfilled);
-              return (
-                <tr key={p.id}>
-                  <td>
-                    <Link to={`/admin/trips/${id}/participants/${p.id}`}>
-                      {p.firstName} {p.lastName}
-                    </Link>
-                  </td>
-                  <td>
-                    $
-                    {(trip.contributions || [])
-                      .filter((c) => c.participantId === p.id)
-                      .reduce((s, c) => s + c.amount, 0)}
-                    {p.supportRaisingGoal ? ` / $${p.supportRaisingGoal}` : ""}
-                  </td>
-                  <td>
-                    {missing.length === 0 ? "—" : `${missing.length} item${missing.length === 1 ? "" : "s"}`}
-                  </td>
-                  <td className="table-actions">
-                    <Link className="btn secondary small" to={`/admin/trips/${id}/participants/${p.id}`}>
-                      View details
-                    </Link>
+        <div style={{ overflowX: "auto" }}>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Support raising</th>
+                {(trip.requirements || []).map((r) => {
+                  const overdue = r.dueAt && new Date(r.dueAt) < new Date();
+                  return (
+                    <th key={r.id} style={{ whiteSpace: "nowrap" }}>
+                      {r.label}
+                      {r.dueAt && (
+                        <div style={{ fontWeight: 400, fontSize: "0.7rem", color: overdue ? "#b91c1c" : "#888" }}>
+                          due {formatDate(r.dueAt)}
+                          {overdue ? " (overdue)" : ""}
+                        </div>
+                      )}
+                    </th>
+                  );
+                })}
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {(trip.participants || []).map((p) => {
+                const fulfillment = fulfillmentFor(p.id);
+                return (
+                  <tr key={p.id}>
+                    <td>
+                      <Link to={`/admin/trips/${id}/participants/${p.id}`}>
+                        {p.firstName} {p.lastName}
+                      </Link>
+                    </td>
+                    <td>
+                      $
+                      {(trip.contributions || [])
+                        .filter((c) => c.participantId === p.id)
+                        .reduce((s, c) => s + c.amount, 0)}
+                      {p.supportRaisingGoal ? ` / $${p.supportRaisingGoal}` : ""}
+                    </td>
+                    {(trip.requirements || []).map((r) => {
+                      const fulfilled = !!fulfillment.find((f) => f.id === r.id)?.fulfilled;
+                      return (
+                        <td key={r.id} style={{ textAlign: "center" }}>
+                          {r.kind === "task" ? (
+                            <input
+                              type="checkbox"
+                              checked={fulfilled}
+                              onChange={(e) => handleToggleTaskComplete(r.id, p.id, e.target.checked)}
+                            />
+                          ) : fulfilled ? (
+                            <span style={{ color: "#1f6b4f", fontWeight: 700 }} title="On file">
+                              ✓
+                            </span>
+                          ) : (
+                            <span style={{ color: "#b91c1c", fontWeight: 700 }} title="Missing">
+                              ✕
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="table-actions">
+                      <Link className="btn secondary small" to={`/admin/trips/${id}/participants/${p.id}`}>
+                        View details
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+              {(trip.participants || []).length === 0 && (
+                <tr>
+                  <td colSpan={3 + (trip.requirements || []).length} style={{ color: "#888" }}>
+                    No one confirmed yet.
                   </td>
                 </tr>
-              );
-            })}
-            {(trip.participants || []).length === 0 && (
-              <tr>
-                <td colSpan={4} style={{ color: "#888" }}>
-                  No one confirmed yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
         <form onSubmit={handleAddParticipant} className="form-grid" style={{ marginTop: "0.75rem" }}>
           <label>
             First name
@@ -855,9 +927,8 @@ export default function AdminTripDetail() {
 
       {/* Trip-wide documents (itinerary, packing list, etc.) --
       participantId: null, distinct from the per-participant documents
-      logged on each Confirmed Team row above. Grouped with Requirements/
-      Completion by participant since all three are the same topic
-      (what's needed, what's on file). */}
+      logged on each Confirmed Team row above. Grouped with Requirements
+      since both are the same topic (what's needed, what's on file). */}
       <div className="admin-section">
         <h3>Trip-wide documents</h3>
         <p style={{ color: "#888", fontSize: "0.85rem" }}>
@@ -1051,83 +1122,6 @@ export default function AdminTripDetail() {
         </form>
       </div>
 
-      {/* Completion by Team Member -- a matrix (requirement x participant),
-      not flattened into Confirmed Team or the requirement-definition list
-      above. Matches the data's actual shape: a requirement is defined once
-      per trip, but its fulfillment is per participant. Uploading a
-      document now happens on that participant's own detail page (linked
-      from Confirmed Team); a task can still be toggled directly here
-      since that's a trivial one-click action worth keeping inline rather
-      than a trip to another page. */}
-      <div className="admin-section">
-        <h3>Completion by Team Member</h3>
-        <p style={{ color: "#888", fontSize: "0.85rem" }}>
-          Who's completed what, across the whole team. Upload a document from a participant's own detail page;
-          check off a task directly here.
-        </p>
-        {(trip.requirements || []).length === 0 ? (
-          <p style={{ color: "#888" }}>No requirements defined yet -- add one above.</p>
-        ) : (trip.participants || []).length === 0 ? (
-          <p style={{ color: "#888" }}>No one confirmed yet.</p>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Requirement</th>
-                  {trip.participants.map((p) => (
-                    <th key={p.id} style={{ whiteSpace: "nowrap" }}>
-                      <Link to={`/admin/trips/${id}/participants/${p.id}`}>
-                        {p.firstName} {p.lastName}
-                      </Link>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {trip.requirements.map((r) => {
-                  const overdue = r.dueAt && new Date(r.dueAt) < new Date();
-                  return (
-                    <tr key={r.id}>
-                      <td>
-                        {r.label}
-                        {r.dueAt && (
-                          <div style={{ fontSize: "0.7rem", color: overdue ? "#b91c1c" : "#888" }}>
-                            due {formatDate(r.dueAt)}
-                            {overdue ? " (overdue)" : ""}
-                          </div>
-                        )}
-                      </td>
-                      {trip.participants.map((p) => {
-                        const fulfilled = !!fulfillmentFor(p.id).find((f) => f.id === r.id)?.fulfilled;
-                        return (
-                          <td key={p.id} style={{ textAlign: "center" }}>
-                            {r.kind === "task" ? (
-                              <input
-                                type="checkbox"
-                                checked={fulfilled}
-                                onChange={(e) => handleToggleTaskComplete(r.id, p.id, e.target.checked)}
-                              />
-                            ) : fulfilled ? (
-                              <span style={{ color: "#1f6b4f", fontWeight: 700 }} title="On file">
-                                ✓
-                              </span>
-                            ) : (
-                              <span style={{ color: "#b91c1c", fontWeight: 700 }} title="Missing">
-                                ✕
-                              </span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
 
       {/* Meetings */}
       <div className="admin-section">

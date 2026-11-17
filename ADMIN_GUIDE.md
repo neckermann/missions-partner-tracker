@@ -957,16 +957,18 @@ status, dates, team size, support-raising goal, description, the
   set). A suggestion only, never forced; the field stays a plain
   number you can always override.
 - **Flight itinerary** is a repeatable list of segments (who it's for
-  — leave blank for the whole team — airline/flight number, departure
+  — select nobody for the whole team — airline/flight number, departure
   airport/time, arrival airport/time), not one block of free text. Add
   one row per leg; a connection is two rows. Shown only on each
   participant's own self-service page, never publicly.
-- **Confirmed Team** is just "who's on the team" — name, support-raising
-  progress, how many requirements are still outstanding, and a link
-  into that participant's own detail page for everything else (contact
-  info, their photo/story, documents, per-requirement fulfillment).
-  **+ Add participant directly** adds someone without going through an
-  application.
+- **Confirmed Team** is "who's on the team" plus, per requirement, who's
+  completed it — a task checkbox can be toggled directly in this table;
+  a document or e-signature still gets uploaded/signed from that
+  participant's own detail page, and shows here as a plain ✓/✕ once it
+  is. Also shows support-raising progress and a link into that
+  participant's own detail page for everything else (contact info,
+  their photo/story, documents). **+ Add participant directly** adds
+  someone without going through an application.
 - **Trip-wide documents** are shared with the whole team (an itinerary,
   packing list) — separate from a document logged against one
   specific participant.
@@ -981,10 +983,6 @@ status, dates, team size, support-raising goal, description, the
   actively-recruiting trip starts with whatever requirement list is
   configured on the Trips Settings page (see below); editing that
   template afterward only affects trips created later.
-- **Completion by Team Member** is a requirement-by-participant matrix
-  — who's completed what, across the whole team. A task can be
-  checked off directly here; a document still gets uploaded from that
-  participant's own detail page.
 - **Meetings** — schedule a date/time and location; participants get a
   reminder email the day before.
 - **Budget** (only shown when **Track a planned budget per trip** is on

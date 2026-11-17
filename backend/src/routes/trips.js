@@ -128,7 +128,10 @@ const tripInclude = {
   // GET /dashboard route.
   contributions: { select: { amount: true } },
   budgetLines: true,
-  flightSegments: { orderBy: { departureAt: "asc" } },
+  flightSegments: {
+    orderBy: { departureAt: "asc" },
+    include: { participants: { select: { id: true, firstName: true, lastName: true } } },
+  },
 };
 
 // GET /api/trips?partnerId=&type=&year=
@@ -520,9 +523,12 @@ router.delete("/budget-lines/:id", requireRole("admin", "editor"), async (req, r
 });
 
 // Flight segments -- replaces the former Trip.flightDetails free-text
-// field. Same CRUD shape as budget lines above.
+// field. Same CRUD shape as budget lines above, except participantIds
+// (issue #265) -- a real relation, not a free-text label of who's on
+// it. Omitted or empty means the whole team; the self-service page
+// (publicTrips.js) filters on this, the admin view never does.
 const flightSegmentSchema = z.object({
-  label: z.string().optional().nullable(),
+  participantIds: z.array(z.string()).optional(),
   airline: z.string().optional().nullable(),
   flightNumber: z.string().optional().nullable(),
   departureAirport: z.string().optional().nullable(),
@@ -533,8 +539,15 @@ const flightSegmentSchema = z.object({
 
 router.post("/:id/flight-segments", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = flightSegmentSchema.parse(req.body);
-    const created = await prisma.tripFlightSegment.create({ data: { tripId: req.params.id, ...data } });
+    const { participantIds, ...data } = flightSegmentSchema.parse(req.body);
+    const created = await prisma.tripFlightSegment.create({
+      data: {
+        tripId: req.params.id,
+        ...data,
+        participants: participantIds?.length ? { connect: participantIds.map((id) => ({ id })) } : undefined,
+      },
+      include: { participants: { select: { id: true, firstName: true, lastName: true } } },
+    });
     res.status(201).json(created);
   } catch (err) {
     next(err);
@@ -543,8 +556,17 @@ router.post("/:id/flight-segments", requireRole("admin", "editor"), async (req, 
 
 router.put("/flight-segments/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = flightSegmentSchema.partial().parse(req.body);
-    const updated = await prisma.tripFlightSegment.update({ where: { id: req.params.id }, data });
+    const { participantIds, ...data } = flightSegmentSchema.partial().parse(req.body);
+    const updated = await prisma.tripFlightSegment.update({
+      where: { id: req.params.id },
+      data: {
+        ...data,
+        // `set` replaces the whole relation outright -- the admin UI
+        // always sends the complete selected list, never a delta.
+        participants: participantIds !== undefined ? { set: participantIds.map((id) => ({ id })) } : undefined,
+      },
+      include: { participants: { select: { id: true, firstName: true, lastName: true } } },
+    });
     res.json(updated);
   } catch (err) {
     next(err);
@@ -736,6 +758,18 @@ router.post("/:id/participants", requireRole("admin", "editor"), async (req, res
       .parse(req.body);
     const trip = await prisma.trip.findUnique({ where: { id: req.params.id } });
     if (!trip) return res.status(404).json({ error: "Not found" });
+
+    // A participant on a completed trip is a backfill by construction
+    // (recruiting never happens for an already-finished trip) and
+    // legitimately has none of this on file; a participant added to any
+    // other trip status is being asserted as a real, reachable team
+    // member the moment they're added -- application approval already
+    // enforces this, this route previously didn't.
+    if (trip.status !== "completed" && (!data.firstName || !data.lastName || !data.email)) {
+      return res.status(400).json({
+        error: "First name, last name, and email are required for a participant on an active trip.",
+      });
+    }
 
     const settings = await getSettings();
     const participant = await prisma.tripParticipant.create({

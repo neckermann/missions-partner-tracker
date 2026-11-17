@@ -210,8 +210,9 @@ export default function PublicTripParticipant() {
 
         {/* Replaces the former flightDetails free-text paragraph (#252
         follow-on, per the approved mockup) -- a clean itinerary instead
-        of a blob of text. Each segment's own label (if set) shows who it
-        applies to; blank means the whole team. */}
+        of a blob of text. Server-side filtered to this participant's own
+        segments (issue #265) -- every segment shown here already applies
+        to them, so there's nothing left to label. */}
         {selfService && data.trip.flightSegments?.length > 0 && (
           <div className="admin-section">
             <h3>Flight itinerary</h3>
@@ -226,18 +227,6 @@ export default function PublicTripParticipant() {
                     marginBottom: "0.5rem",
                   }}
                 >
-                  {seg.label && (
-                    <div
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        color: "#2a5d8f",
-                        marginBottom: "0.2rem",
-                      }}
-                    >
-                      {seg.label}
-                    </div>
-                  )}
                   <div style={{ fontWeight: 600 }}>
                     {seg.airline} {seg.flightNumber}
                   </div>

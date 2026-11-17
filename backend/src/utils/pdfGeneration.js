@@ -28,9 +28,9 @@ const PDFDocument = require("pdfkit");
 // indication of which trip/requirement/participant this even was). This
 // PDF is the one artifact anyone -- an admin reviewing it later, the
 // signer themselves, anyone it gets forwarded to -- actually looks at;
-// TripSignature's own DB row is the audit trail nobody browses directly,
-// so the PDF needs to be self-contained, not a thin pointer back to data
-// that lives only in the database.
+// the signature audit fields on TripDocument itself are the audit trail
+// nobody browses directly, so the PDF needs to be self-contained, not a
+// thin pointer back to data that lives only in the database.
 function buildSignedDocumentPdf({
   requirementLabel,
   tripLabel,

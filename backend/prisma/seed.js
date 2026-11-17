@@ -1365,35 +1365,10 @@ async function seedTripsDemo() {
           { label: "Travel insurance", estimatedAmount: 45 },
         ],
       },
-      flightSegments: {
-        create: [
-          {
-            airline: "Delta",
-            flightNumber: "DL 123",
-            departureAirport: "ATL",
-            departureAt: outboundLeg1Depart,
-            arrivalAirport: "ICN",
-            arrivalAt: outboundLeg1Arrive,
-          },
-          {
-            airline: "Delta",
-            flightNumber: "DL 456",
-            departureAirport: "ICN",
-            departureAt: outboundLeg2Depart,
-            arrivalAirport: "PNH",
-            arrivalAt: outboundLeg2Arrive,
-          },
-          {
-            label: "Priya & John",
-            airline: "United",
-            flightNumber: "UA 789",
-            departureAirport: "ORD",
-            departureAt: soloDepart,
-            arrivalAirport: "PNH",
-            arrivalAt: soloArrive,
-          },
-        ],
-      },
+      // Flight segments are created separately, below, once Priya/John
+      // exist -- the "just these two" segment needs their real ids
+      // (issue #265's participants relation, not a free-text label), so
+      // it can't be nested inside this same create.
       // Same e-signature requirement as the church-wide
       // tripRequirementTemplate below, added directly here too so there's
       // something real to sign on this demo trip without first creating
@@ -1619,6 +1594,51 @@ async function seedTripsDemo() {
     },
   });
 
+  // Flight segments -- a real connection (two legs, the whole team) plus
+  // a separate segment for just Priya and John, flying from a different
+  // city. Demonstrates the actual variability this design exists to
+  // handle (connections, mixed group/individual bookings). The third
+  // segment's `participants` relation (issue #265) needs Priya/John's
+  // real ids, which is why this whole block waits until after they
+  // (and David/Amara) exist, rather than nesting inside openTrip's own
+  // create above.
+  await prisma.tripFlightSegment.createMany({
+    data: [
+      {
+        tripId: openTrip.id,
+        airline: "Delta",
+        flightNumber: "DL 123",
+        departureAirport: "ATL",
+        departureAt: outboundLeg1Depart,
+        arrivalAirport: "ICN",
+        arrivalAt: outboundLeg1Arrive,
+      },
+      {
+        tripId: openTrip.id,
+        airline: "Delta",
+        flightNumber: "DL 456",
+        departureAirport: "ICN",
+        departureAt: outboundLeg2Depart,
+        arrivalAirport: "PNH",
+        arrivalAt: outboundLeg2Arrive,
+      },
+    ],
+  });
+  // createMany can't set a many-to-many relation -- this one needs its
+  // own create.
+  await prisma.tripFlightSegment.create({
+    data: {
+      tripId: openTrip.id,
+      airline: "United",
+      flightNumber: "UA 789",
+      departureAirport: "ORD",
+      departureAt: soloDepart,
+      arrivalAirport: "PNH",
+      arrivalAt: soloArrive,
+      participants: { connect: [{ id: priya.id }, { id: john.id }] },
+    },
+  });
+
   // Fulfillment split across the three requirement kinds -- Priya
   // completes/signs/uploads everything, John does none of it, Amara (below)
   // does exactly one of the three, so "all done," "none done," and
@@ -1691,7 +1711,7 @@ async function seedTripsDemo() {
         documentTextHash,
         ip: "203.0.113.42",
       });
-      const signedDoc = await prisma.tripDocument.create({
+      await prisma.tripDocument.create({
         data: {
           tripId: openTrip.id,
           participantId: priya.id,
@@ -1700,13 +1720,9 @@ async function seedTripsDemo() {
           bytes: pdfBytes,
           fileName: "signed-liability-release.pdf",
           contentType: "application/pdf",
-        },
-      });
-      await prisma.tripSignature.create({
-        data: {
-          requirementId: esigReq.id,
-          participantId: priya.id,
-          tripDocumentId: signedDoc.id,
+          // Merged from the former, separate TripSignature model (§20.1
+          // of the plan doc) -- it was always a 1:1 side table keyed off
+          // this exact row, never queried independently of it.
           signerName: `${priya.firstName} ${priya.lastName}`,
           attestedAt,
           ip: "203.0.113.42",
@@ -1879,7 +1895,7 @@ async function seedTripsDemo() {
         documentTextHash,
         ip: "203.0.113.77",
       });
-      const signedDoc = await prisma.tripDocument.create({
+      await prisma.tripDocument.create({
         data: {
           tripId: closedTrip.id,
           participantId: marcus.id,
@@ -1888,13 +1904,6 @@ async function seedTripsDemo() {
           bytes: pdfBytes,
           fileName: "signed-waiver.pdf",
           contentType: "application/pdf",
-        },
-      });
-      await prisma.tripSignature.create({
-        data: {
-          requirementId: closedEsigReq.id,
-          participantId: marcus.id,
-          tripDocumentId: signedDoc.id,
           signerName: `${marcus.firstName} ${marcus.lastName}`,
           attestedAt,
           ip: "203.0.113.77",

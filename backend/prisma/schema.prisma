@@ -351,12 +351,16 @@ model TripParticipant {
   // Bumped to invalidate every previously-issued self-service link at
   // once -- same revocation reasoning as User.mfaLastTimeStep's replay
   // protection, applied to a link instead of a TOTP code.
-  accessTokenVersion Int @default(0)
+  accessTokenVersion Int @default(0) // tripFieldVisibility: intentionally admin-invisible -- an internal revocation counter, bumped by the resend/regenerate actions themselves, never a value an admin reads or edits directly
 
   documents     TripDocument[]
   contributions TripContribution[]
   requirementStatuses TripRequirementStatus[]
-  signatures    TripSignature[]
+  // Reverse side of TripFlightSegment.participants -- which segments (if
+  // any) this participant is specifically called out on. Empty doesn't
+  // mean "not flying" -- every segment with nobody selected still
+  // applies to them regardless (see TripFlightSegment's own comment).
+  flightSegments TripFlightSegment[]
 
   @@index([tripId])
 }
@@ -376,7 +380,7 @@ model TripApplication {
   email     String
   phone     String?
 
-  status    String   @default("pending") // "pending" | "approved" | "declined" | "withdrawn"
+  status    String   @default("pending") // "pending" | "approved" | "declined" | "withdrawn" -- tripFieldVisibility: intentionally admin-invisible on the participant page specifically, since every application reachable from an approved participant is, by construction, always "approved"; the pending-review list is where this status actually matters and does show it
   responses Json?
 
   // Structured mailing address, same shape as SendingParty's own flat
@@ -404,7 +408,7 @@ model TripApplication {
   // left null for an approval. A declined row isn't deleted (see
   // trips.js's own review route), so this is the one piece of context an
   // admin would otherwise have no record of after the fact.
-  declinedReason String? @db.Text
+  declinedReason String? @db.Text // tripFieldVisibility: intentionally admin-invisible on the participant page -- always null for an approved application (only ever set on a decline, already shown in the applications review list); nothing to show here
 
   participant TripParticipant?
 
@@ -447,9 +451,10 @@ model TripRequirement {
   // "document" (fulfilled by an upload, the original behavior) |
   // "task" (fulfilled by an admin directly checking it off for a
   // specific participant -- no document involved at all) | "esignature"
-  // (fulfilled by a participant signing bodyText below -- see
-  // TripSignature). App-validated, not a DB enum, matching every other
-  // preset-String field in this schema (Trip.albumProvider etc).
+  // (fulfilled by a participant signing bodyText below -- generates an
+  // ordinary TripDocument carrying the signature audit fields, see that
+  // model's own comment). App-validated, not a DB enum, matching every
+  // other preset-String field in this schema (Trip.albumProvider etc).
   kind String @default("document")
 
   // The real document text an "esignature"-kind requirement asks a
@@ -472,59 +477,20 @@ model TripRequirement {
 
   documents           TripDocument[]
   requirementStatuses TripRequirementStatus[]
-  signatures          TripSignature[]
 
   @@index([tripId])
 }
 
-// An "esignature"-kind TripRequirement's signed record for one
-// participant -- the audit trail, not the visible artifact itself (that's
-// an ordinary TripDocument, created alongside this row -- see
-// tripDocumentId below). Keeping this separate from TripDocument means a
-// signature's own audit fields (hash, IP, attestation timestamp) don't
-// get bolted onto every ordinary uploaded document, which never needs
-// them.
-model TripSignature {
-  id            String          @id @default(uuid())
-  requirementId String
-  requirement   TripRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
-  participantId String
-  participant   TripParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
-
-  // The generated signed PDF, filed as an ordinary TripDocument (same
-  // shape as a manual upload) -- this is deliberate, not a shortcut: it
-  // means "esignature" fulfillment reuses the exact same "does a
-  // TripDocument exist for this requirement+participant" check
-  // "document"-kind already uses everywhere, and the signed PDF shows up
-  // in every existing document list/download UI for free.
-  tripDocumentId String?      @unique
-  tripDocument   TripDocument? @relation(fields: [tripDocumentId], references: [id])
-
-  signerName     String // always captured, whether they typed or drew
-  signatureImage Bytes? // drawn-signature PNG, stored in-row per CONTRIBUTING.md's no-separate-file-storage rule; null if they only typed their name
-  attestedAt     DateTime @default(now())
-  ip             String?
-
-  // Snapshot of the exact text they agreed to, plus a hash of it --
-  // computed server-side, never trusted from the client. Protects
-  // against a later edit to the requirement's own bodyText (e.g. a
-  // church rewording its waiver) silently being attributed to an old
-  // signature; the hash makes any mismatch between this snapshot and a
-  // later-edited requirement detectable, not just theoretically possible.
-  documentTextSnapshot String @db.Text
-  documentTextHash     String
-
-  @@index([requirementId])
-  @@index([participantId])
-}
-
-// Per-participant state for a TripRequirement, regardless of kind --
-// completedAt only ever applies to a "task" row (a "document" row's
-// fulfillment is still the existing anti-join against TripDocument,
-// computed on read, never duplicated here); reminderSentAt applies to
-// either kind, stamped once the due-date reminder has fired for this
-// specific participant so it can't double-send. Created lazily, only
-// once either field actually needs a value -- most participant/
+// Per-participant state for a TripRequirement. completedAt is written
+// only for a "task"-kind row -- permanently null for "document"/
+// "esignature", whose fulfillment is instead a computed anti-join
+// against TripDocument (never duplicated here on purpose: a cached
+// field would need every document-creating path, and the document-
+// deletion route, to all separately remember to keep it in sync, where
+// the anti-join just reflects reality on read). reminderSentAt applies
+// to every kind alike, stamped once the due-date reminder has fired for
+// this specific participant so it can't double-send. Created lazily,
+// only once either field actually needs a value -- most participant/
 // requirement pairs with no due date and no completed task never get a
 // row here at all.
 model TripRequirementStatus {
@@ -547,8 +513,8 @@ model TripRequirementStatus {
 // means a document specific to one participant (their own signed
 // waiver, passport photo, health clearance). requirementId is nullable
 // since not every document fulfills a tracked requirement, and when set
-// always points at a `kind: "document"` TripRequirement -- a "task"
-// requirement has nothing to attach a file to.
+// always points at a `kind: "document"` or `kind: "esignature"`
+// TripRequirement -- a "task" requirement has nothing to attach a file to.
 model TripDocument {
   id            String           @id @default(uuid())
   tripId        String
@@ -565,9 +531,27 @@ model TripDocument {
 
   createdAt DateTime @default(now())
 
-  // Reverse side of TripSignature.tripDocumentId -- set when this row is
-  // the generated PDF of an e-signature, unset for an ordinary upload.
-  signature TripSignature?
+  // Signature audit fields -- null for an ordinary upload, populated
+  // only when this row is the generated PDF of a signed "esignature"-kind
+  // requirement. Previously a separate TripSignature side table keyed
+  // 1:1 off this row's id; merged in directly since it never had an
+  // independent existence of its own (nothing queried it without this
+  // document, and nothing about esignature fulfillment needs a second
+  // row -- it's the same "does a TripDocument exist for this
+  // requirement+participant" anti-join every other document-fulfilled
+  // requirement already uses).
+  signerName     String? // always captured, whether they typed or drew
+  signatureImage Bytes? // drawn-signature PNG, stored in-row per CONTRIBUTING.md's no-separate-file-storage rule; null if they only typed their name
+  attestedAt     DateTime?
+  ip             String?
+  // Snapshot of the exact text they agreed to, plus a hash of it --
+  // computed server-side, never trusted from the client. Protects
+  // against a later edit to the requirement's own bodyText (e.g. a
+  // church rewording its waiver) silently being attributed to an old
+  // signature; the hash makes any mismatch between this snapshot and a
+  // later-edited requirement detectable, not just theoretically possible.
+  documentTextSnapshot String? @db.Text
+  documentTextHash     String?
 
   @@index([tripId])
   @@index([participantId])
@@ -628,21 +612,25 @@ model TripBudgetLine {
 // genuinely fixed-shape -- the variability is in how many segments
 // exist, not in the shape of one, same reasoning already behind
 // TripBudgetLine/TripRequirement being repeatable lists rather than one
-// wide record. label is optional and free text -- null/blank means the
-// segment applies to the whole team; set (e.g. "Priya & John") means
-// just that subset flying on their own itinerary.
+// wide record. participants is a real relation, not a free-text label
+// of who's on it (issue #265) -- no participants selected means the
+// segment applies to the whole team; one or more selected means just
+// that subset flying on their own itinerary. The self-service page
+// filters on this relation; the admin view always shows every segment
+// regardless.
 model TripFlightSegment {
   id     String @id @default(uuid())
   tripId String
   trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
-  label            String?
   airline          String?
   flightNumber     String?
   departureAirport String?
   departureAt      DateTime?
   arrivalAirport   String?
   arrivalAt        DateTime?
+
+  participants TripParticipant[]
 
   @@index([tripId])
 }
@@ -1373,7 +1361,13 @@ model ChurchSettings {
   // an admin can quickly copy onto the global template or a specific
   // trip, instead of retyping a commonly-reused question every time.
   // Purely a picker source -- nothing here is itself "live" on any
-  // application form until copied into one of those two places.
+  // application form until copied into one of those two places. Exists
+  // for the case tripApplicationTemplate alone can't cover: a question
+  // that's common but doesn't belong on *every* trip (e.g. a passport
+  // question only international trips need, a swimming-ability question
+  // only water-based ones need) -- tripApplicationTemplate is for
+  // "every trip asks this, no exceptions," this is for "commonly
+  // reused, picked per-trip as it actually applies."
   tripQuestionLibrary Json?
 
   // Church-wide requirement checklist every newly-created, actively-
@@ -1388,7 +1382,7 @@ model ChurchSettings {
   // reminderLeadDays/bodyText copy, never dueAt). A deliberate
   // consequence: editing this template later only affects trips created
   // afterward, never retroactively changes an already-created trip's own
-  // copy -- protects an already-signed TripSignature's documentTextSnapshot
+  // copy -- protects an already-signed TripDocument's documentTextSnapshot
   // from ever silently drifting out from under it.
   tripRequirementTemplate Json?
 

@@ -194,22 +194,6 @@ CREATE TABLE "TripRequirement" (
 );
 
 -- CreateTable
-CREATE TABLE "TripSignature" (
-    "id" TEXT NOT NULL,
-    "requirementId" TEXT NOT NULL,
-    "participantId" TEXT NOT NULL,
-    "tripDocumentId" TEXT,
-    "signerName" TEXT NOT NULL,
-    "signatureImage" BYTEA,
-    "attestedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "ip" TEXT,
-    "documentTextSnapshot" TEXT NOT NULL,
-    "documentTextHash" TEXT NOT NULL,
-
-    CONSTRAINT "TripSignature_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "TripRequirementStatus" (
     "id" TEXT NOT NULL,
     "requirementId" TEXT NOT NULL,
@@ -231,6 +215,12 @@ CREATE TABLE "TripDocument" (
     "fileName" TEXT NOT NULL,
     "contentType" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "signerName" TEXT,
+    "signatureImage" BYTEA,
+    "attestedAt" TIMESTAMP(3),
+    "ip" TEXT,
+    "documentTextSnapshot" TEXT,
+    "documentTextHash" TEXT,
 
     CONSTRAINT "TripDocument_pkey" PRIMARY KEY ("id")
 );
@@ -266,7 +256,6 @@ CREATE TABLE "TripBudgetLine" (
 CREATE TABLE "TripFlightSegment" (
     "id" TEXT NOT NULL,
     "tripId" TEXT NOT NULL,
-    "label" TEXT,
     "airline" TEXT,
     "flightNumber" TEXT,
     "departureAirport" TEXT,
@@ -275,6 +264,14 @@ CREATE TABLE "TripFlightSegment" (
     "arrivalAt" TIMESTAMP(3),
 
     CONSTRAINT "TripFlightSegment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "_TripFlightSegmentToTripParticipant" (
+    "A" TEXT NOT NULL,
+    "B" TEXT NOT NULL,
+
+    CONSTRAINT "_TripFlightSegmentToTripParticipant_AB_pkey" PRIMARY KEY ("A","B")
 );
 
 -- CreateTable
@@ -621,15 +618,6 @@ CREATE INDEX "TripMeeting_tripId_idx" ON "TripMeeting"("tripId");
 CREATE INDEX "TripRequirement_tripId_idx" ON "TripRequirement"("tripId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "TripSignature_tripDocumentId_key" ON "TripSignature"("tripDocumentId");
-
--- CreateIndex
-CREATE INDEX "TripSignature_requirementId_idx" ON "TripSignature"("requirementId");
-
--- CreateIndex
-CREATE INDEX "TripSignature_participantId_idx" ON "TripSignature"("participantId");
-
--- CreateIndex
 CREATE INDEX "TripRequirementStatus_participantId_idx" ON "TripRequirementStatus"("participantId");
 
 -- CreateIndex
@@ -652,6 +640,9 @@ CREATE INDEX "TripBudgetLine_tripId_idx" ON "TripBudgetLine"("tripId");
 
 -- CreateIndex
 CREATE INDEX "TripFlightSegment_tripId_idx" ON "TripFlightSegment"("tripId");
+
+-- CreateIndex
+CREATE INDEX "_TripFlightSegmentToTripParticipant_B_index" ON "_TripFlightSegmentToTripParticipant"("B");
 
 -- CreateIndex
 CREATE INDEX "Furlough_partnerId_idx" ON "Furlough"("partnerId");
@@ -735,15 +726,6 @@ ALTER TABLE "TripMeeting" ADD CONSTRAINT "TripMeeting_tripId_fkey" FOREIGN KEY (
 ALTER TABLE "TripRequirement" ADD CONSTRAINT "TripRequirement_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "Trip"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "TripSignature" ADD CONSTRAINT "TripSignature_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "TripRequirement"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "TripSignature" ADD CONSTRAINT "TripSignature_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "TripParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "TripSignature" ADD CONSTRAINT "TripSignature_tripDocumentId_fkey" FOREIGN KEY ("tripDocumentId") REFERENCES "TripDocument"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "TripRequirementStatus" ADD CONSTRAINT "TripRequirementStatus_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "TripRequirement"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -814,4 +796,10 @@ ALTER TABLE "PublicSubscriberPartner" ADD CONSTRAINT "PublicSubscriberPartner_su
 
 -- AddForeignKey
 ALTER TABLE "PublicSubscriberPartner" ADD CONSTRAINT "PublicSubscriberPartner_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSegmentToTripParticipant_A_fkey" FOREIGN KEY ("A") REFERENCES "TripFlightSegment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSegmentToTripParticipant_B_fkey" FOREIGN KEY ("B") REFERENCES "TripParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

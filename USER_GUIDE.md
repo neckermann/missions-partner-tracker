@@ -504,16 +504,17 @@ dates, team size, description, visible-on-public-discovery toggle):
   (airline/flight number, departs, arrives); shown only on each
   participant's own self-service page, never publicly.
 - **Confirmed Team** is who's on the team, with each person's
-  support-raising progress and a link to their own detail page for
-  everything else. **+ Add participant directly** adds someone without
-  an application.
+  support-raising progress, one column per requirement showing who's
+  completed it, and a link to their own detail page for everything
+  else. **+ Add participant directly** adds someone without an
+  application.
 - **Requirements** — your own list of what's needed from each
   participant, each either a **document** to upload, a plain **task**
   to check off (e.g. "Attended orientation call"), or an
   **e-signature** the participant signs from their own self-service
-  page. Fulfillment is tracked per person on **Completion by Team
-  Member**, computed from what's actually on file or signed rather
-  than a status anyone updates by hand.
+  page. Fulfillment shows right on the Confirmed Team table, computed
+  from what's actually on file or signed rather than a status anyone
+  updates by hand.
 - **Meetings** — schedule a date/time and location; participants get a
   day-before reminder email.
 - **Budget** (if turned on in Trips Settings) tracks estimated

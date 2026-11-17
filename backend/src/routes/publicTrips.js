@@ -384,7 +384,10 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
             description: true,
             startDate: true,
             endDate: true,
-            flightSegments: { orderBy: { departureAt: "asc" } },
+            flightSegments: {
+              orderBy: { departureAt: "asc" },
+              include: { participants: { select: { id: true } } },
+            },
             meetings: true,
             documents: { where: { OR: [{ participantId: payload.id }, { participantId: null }] } },
             requirements: { include: { requirementStatuses: { where: { participantId: payload.id } } } },
@@ -444,7 +447,13 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
         description: participant.trip.description,
         startDate: participant.trip.startDate,
         endDate: participant.trip.endDate,
-        flightSegments: participant.trip.flightSegments,
+        // A segment with nobody selected applies to the whole team; one
+        // with people selected only applies to the ones among them --
+        // filtered server-side (issue #265) so this participant's own
+        // page can't be used to enumerate who else is on a segment.
+        flightSegments: participant.trip.flightSegments
+          .filter((seg) => seg.participants.length === 0 || seg.participants.some((p) => p.id === participant.id))
+          .map(({ participants, ...seg }) => seg),
         fieldDisplayName:
           participant.trip.partner?.fieldDisplayName || participant.trip.partner?.displayName || null,
       },
@@ -520,11 +529,11 @@ router.post("/participants/sign/:requirementId", requireFeature("trips"), async 
       signatureImageBuffer = Buffer.from(base64, "base64");
     }
 
-    // Computed before the PDF, not after -- it previously landed only on
-    // TripSignature, never on the generated document itself, even though
-    // the PDF is the one artifact anyone (an admin, or the signer) ever
-    // actually looks at. The audit trail belongs on the audit document,
-    // not just in a database row nobody reads directly.
+    // The audit trail lives directly on the generated TripDocument now
+    // (merged from the former, separate TripSignature side table) --
+    // it's the one artifact anyone (an admin, or the signer) ever
+    // actually looks at, so the audit fields belong on it directly
+    // rather than in a second row nobody browses independently.
     const ip = req.ip || req.socket?.remoteAddress || null;
 
     const pdfBytes = await buildSignedDocumentPdf({
@@ -539,36 +548,26 @@ router.post("/participants/sign/:requirementId", requireFeature("trips"), async 
       ip,
     });
 
-    const result = await prisma.$transaction(async (tx) => {
-      const tripDocument = await tx.tripDocument.create({
-        data: {
-          tripId: participant.tripId,
-          participantId: participant.id,
-          requirementId: requirement.id,
-          title: requirement.label,
-          bytes: pdfBytes,
-          fileName: `${requirement.label.replace(/[^a-z0-9]+/gi, "-")}.pdf`,
-          contentType: "application/pdf",
-        },
-        omit: { bytes: true },
-      });
-      const signature = await tx.tripSignature.create({
-        data: {
-          requirementId: requirement.id,
-          participantId: participant.id,
-          tripDocumentId: tripDocument.id,
-          signerName,
-          signatureImage: signatureImageBuffer,
-          attestedAt,
-          ip,
-          documentTextSnapshot: documentText,
-          documentTextHash,
-        },
-      });
-      return { tripDocument, signature };
+    const tripDocument = await prisma.tripDocument.create({
+      data: {
+        tripId: participant.tripId,
+        participantId: participant.id,
+        requirementId: requirement.id,
+        title: requirement.label,
+        bytes: pdfBytes,
+        fileName: `${requirement.label.replace(/[^a-z0-9]+/gi, "-")}.pdf`,
+        contentType: "application/pdf",
+        signerName,
+        signatureImage: signatureImageBuffer,
+        attestedAt,
+        ip,
+        documentTextSnapshot: documentText,
+        documentTextHash,
+      },
+      omit: { bytes: true },
     });
 
-    res.status(201).json({ tripDocumentId: result.tripDocument.id });
+    res.status(201).json({ tripDocumentId: tripDocument.id });
   } catch (err) {
     next(err);
   }

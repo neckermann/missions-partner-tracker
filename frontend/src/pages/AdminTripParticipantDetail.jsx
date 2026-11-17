@@ -25,15 +25,20 @@ function readFileAsDataUrl(file) {
   });
 }
 
-// New (#252 follow-on) -- one participant's full picture, split out of
-// AdminTripDetail.jsx's Roster table. That table used to cram document
+// One participant's full picture, split out of AdminTripDetail.jsx's
+// Roster table (#252 follow-on). That table used to cram document
 // upload, a requirement picker, task checkboxes, and access-link
 // controls into one action column per row -- everything here is that
 // same functionality, just given the room a person's full record
-// actually needs instead of fighting a flat table row for space. The
-// trip-wide Requirements overview matrix (AdminTripDetail.jsx) still
-// covers "what's outstanding across everyone"; this page covers one
-// person.
+// actually needs instead of fighting a flat table row for space.
+// AdminTripDetail.jsx's Confirmed Team table still covers "who's on the
+// team and what's outstanding across everyone, at a glance"; this page
+// is the canonical complete record for one person -- every scalar
+// column TripParticipant/TripApplication carries is meant to have a
+// home here (enforced by test/routes/tripFieldVisibility.test.js, not
+// just this comment -- a column with no UI home by design needs the
+// explicit `// tripFieldVisibility: intentionally admin-invisible`
+// marker next to it in schema.prisma, not a silent gap).
 export default function AdminTripParticipantDetail() {
   const { tripId, participantId } = useParams();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
@@ -82,6 +87,23 @@ export default function AdminTripParticipantDetail() {
         : documents.some((d) => d.requirementId === r.id),
   }));
   const documentRequirements = requirementRows.filter((r) => r.kind !== "task");
+
+  // Narrower than a blanket completeness check -- firstName/lastName/
+  // email are now required at creation for anyone added to a non-
+  // completed trip (backend/src/routes/trips.js), so there's nothing
+  // left to flag there. Address/emergency contact stay legitimately
+  // optional-or-not based on the church's own collection toggles, not
+  // on whether this participant is a backfill -- the one residual case
+  // this can't catch at creation time is a toggle turned on *after*
+  // someone already applied, which this banner exists to surface.
+  // Never shown on a completed trip -- there's no one left to chase.
+  const missingFields =
+    trip.status !== "completed"
+      ? [
+          settings?.collectApplicantAddress && !participant.addressLine1 && "address",
+          settings?.collectEmergencyContact && !participant.emergencyContactName && "emergency contact",
+        ].filter(Boolean)
+      : [];
 
   // Same combined order AdminTripDetail.jsx's own pending-applications
   // review list uses (template questions first, then this trip's own) --
@@ -201,6 +223,11 @@ export default function AdminTripParticipantDetail() {
       {error && (
         <p style={{ color: "#b91c1c" }} role="alert">
           {error}
+        </p>
+      )}
+      {missingFields.length > 0 && (
+        <p style={{ color: "#a6540f", fontSize: "0.85rem" }}>
+          Missing: {missingFields.join(", ")}
         </p>
       )}
 
