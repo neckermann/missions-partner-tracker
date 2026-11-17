@@ -417,13 +417,15 @@ export default function AdminTripParticipantDetail() {
           </label>
         </div>
 
-        {/* Date of birth / parent-guardian -- only meaningful when this
-        trip's own collectParentGuardianInfo is on, but shown and
-        editable regardless, same "plain record-keeping" treatment as
-        every other contact field on this page. Real columns, not a
-        template question -- see Trip.collectParentGuardianInfo's own
-        schema comment for why. */}
-        <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Date of birth &amp; parent/guardian</h4>
+        {/* This participant's own date of birth -- a church-wide field
+        (ChurchSettings.collectDateOfBirth), not specific to minors, so it
+        gets its own heading rather than sharing one with the
+        parent/guardian block below -- combining the two read as if this
+        were the parent's date of birth, which it never is: there is no
+        parent/guardian date-of-birth field anywhere in this app. Shown
+        and editable regardless of the toggle, same "plain record-keeping"
+        treatment as every other contact field on this page. */}
+        <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Date of birth</h4>
         <div className="form-grid">
           <label>
             Date of birth
@@ -436,6 +438,16 @@ export default function AdminTripParticipantDetail() {
               }
             />
           </label>
+        </div>
+
+        {/* Parent/guardian -- only meaningful when this trip's own
+        collectParentGuardianInfo is on (Trip.collectParentGuardianInfo's
+        own schema comment has the full why), but shown and editable
+        regardless, same reasoning as the date-of-birth block above. Kept
+        as its own section, separate from this participant's own date of
+        birth above -- these are two different people's information. */}
+        <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Parent/guardian</h4>
+        <div className="form-grid">
           <label>
             Parent/guardian name
             <input

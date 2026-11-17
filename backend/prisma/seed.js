@@ -2173,6 +2173,11 @@ async function seedTripsDemo() {
       reviewedAt: dateBetween(1, 0),
       reviewedById: admin?.id || null,
       dateOfBirth: minorDob,
+      addressLine1: "506 Willow Bend Drive",
+      city: "Rock Island",
+      stateProvinceRegion: "IL",
+      postalCode: "61201",
+      country: "USA",
       parentGuardianName: "Karen Thompson",
       parentGuardianRelationship: "Mother",
       parentGuardianPhone: "555-0212",
@@ -2191,6 +2196,11 @@ async function seedTripsDemo() {
       email: minorApplication.email,
       phone: minorApplication.phone,
       dateOfBirth: minorApplication.dateOfBirth,
+      addressLine1: minorApplication.addressLine1,
+      city: minorApplication.city,
+      stateProvinceRegion: minorApplication.stateProvinceRegion,
+      postalCode: minorApplication.postalCode,
+      country: minorApplication.country,
       parentGuardianName: minorApplication.parentGuardianName,
       parentGuardianRelationship: minorApplication.parentGuardianRelationship,
       parentGuardianPhone: minorApplication.parentGuardianPhone,
@@ -2206,15 +2216,23 @@ async function seedTripsDemo() {
 
   // An adult co-leader, direct-added like Priya/John on the open trip --
   // a trip with minors still needs an adult the minor isn't the only
-  // one on.
+  // one on. Given a full profile (phone/address/DOB/emergency contact),
+  // unlike Priya/John/David/Sarah's deliberate partial-profile contrast
+  // elsewhere in this file -- this trip's own point is to show the
+  // minors feature working end to end, not to demonstrate a missing-field
+  // state.
   await prisma.tripParticipant.create({
     data: {
       tripId: minorsTrip.id,
       firstName: "Rachel",
       lastName: "Nguyen",
       email: "rachel.nguyen@example.org",
+      phone: fakePhone(),
       role: "Team Lead",
       isLeader: true,
+      dateOfBirth: dateYearsAgo(34, 10),
+      ...fakeUsAddress(),
+      ...fakeEmergencyContact("Nguyen"),
       supportRaisingGoal: minorsTrip.supportRaisingGoal,
     },
   });
