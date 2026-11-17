@@ -95,6 +95,64 @@ function dateBetween(startYearsAgo, endYearsAgo) {
 function fakePhone() {
   return `(${randInt(200, 999)}) 555-${String(randInt(0, 9999)).padStart(4, "0")}`;
 }
+
+// A handful of real US city/state/zip triples -- enough variety that a
+// list of enriched historical participants doesn't all live in the same
+// town, without the overhead of a real geocoded address pool.
+const US_CITY_POOL = [
+  { city: "Rock Island", state: "IL", zip: "61201" },
+  { city: "Davenport", state: "IA", zip: "52801" },
+  { city: "Moline", state: "IL", zip: "61265" },
+  { city: "Bettendorf", state: "IA", zip: "52722" },
+  { city: "Peoria", state: "IL", zip: "61602" },
+  { city: "Springfield", state: "IL", zip: "62701" },
+  { city: "Cedar Rapids", state: "IA", zip: "52401" },
+  { city: "Dubuque", state: "IA", zip: "52001" },
+  { city: "Kansas City", state: "MO", zip: "64105" },
+  { city: "St. Louis", state: "MO", zip: "63101" },
+  { city: "Columbus", state: "OH", zip: "43215" },
+  { city: "Indianapolis", state: "IN", zip: "46204" },
+];
+const STREET_SUFFIXES = ["Street", "Avenue", "Court", "Drive", "Lane", "Way", "Boulevard"];
+const STREET_NAMES = [
+  "Maple",
+  "Oak",
+  "Birch",
+  "Sycamore",
+  "Cedar",
+  "Elm",
+  "Hawthorn",
+  "Willow",
+  "Sunset",
+  "Fairview",
+  "Hillcrest",
+  "Meadow",
+];
+function fakeUsAddress() {
+  const place = pick(US_CITY_POOL);
+  return {
+    addressLine1: `${randInt(10, 9999)} ${pick(STREET_NAMES)} ${pick(STREET_SUFFIXES)}`,
+    city: place.city,
+    stateProvinceRegion: place.state,
+    postalCode: place.zip,
+    country: "USA",
+  };
+}
+// A plausible adult (not the participant's own) emergency contact --
+// never a real name pulled from the same FIRST/LAST pools in a way that
+// could coincide with the participant's own, but close enough in shape
+// (a family member sharing the participant's last name is the common
+// real-world case for this field).
+function fakeEmergencyContact(participantLastName) {
+  const firstName = pick(FIRST_M.concat(FIRST_F));
+  const lastName = participantLastName || pick(LAST);
+  const emailLocal = `${firstName}.${lastName}`.toLowerCase().replace(/[^a-z.]/g, "");
+  return {
+    emergencyContactName: `${firstName} ${lastName}`,
+    emergencyContactPhone: fakePhone(),
+    emergencyContactEmail: `${emailLocal}@example.com`,
+  };
+}
 function slugify(s) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
@@ -952,13 +1010,21 @@ function buildTrips(participantNamePool) {
     end.setDate(end.getDate() + randInt(5, 12));
     const participants = pickN(participantNamePool, randInt(2, 5)).map((name, idx) => {
       const [firstName, ...rest] = name.split(" ");
+      const lastName = rest.join(" ") || null;
       return {
         firstName,
-        lastName: rest.join(" ") || null,
+        lastName,
         role: pick(TRIP_ROLES),
         isLeader: idx === 0,
-        phone: chance(0.5) ? fakePhone() : null,
+        // Always populated now, not a coin flip -- a historical,
+        // already-completed trip's roster is exactly the kind of record
+        // a real admin would have on file in full; "sometimes missing"
+        // only makes sense for a trip still in progress.
+        phone: fakePhone(),
         email: chance(0.5) ? `${name.toLowerCase().replace(/\s+/g, ".")}@example.com` : null,
+        dateOfBirth: dateBetween(65, 22),
+        ...fakeUsAddress(),
+        ...fakeEmergencyContact(lastName),
       };
     });
     const hasAlbum = chance(0.3);
@@ -2202,6 +2268,131 @@ async function seedTripsDemo() {
     console.warn("  Skipping minor-release seed e-signature (non-fatal):", err.message);
   }
 
+  // A second minors trip, already completed -- the one above is still
+  // accepting_applications, so nothing showed what collectParentGuardianInfo
+  // looks like after the fact (a finished trip whose roster already
+  // includes a minor, with her signed release sitting in its normal
+  // historical state). Reuses openPartner rather than a fresh lookup --
+  // same "a field partner hosts more than one short-term team over time"
+  // reasoning minorsTrip's own reuse of closedPartner already established.
+  const pastMinorsTripStart = dateBetween(2, 1);
+  const pastMinorsTripEnd = new Date(pastMinorsTripStart);
+  pastMinorsTripEnd.setDate(pastMinorsTripEnd.getDate() + randInt(6, 9));
+  const pastMinorDob = new Date();
+  pastMinorDob.setFullYear(pastMinorDob.getFullYear() - 16);
+
+  const pastMinorsTrip = await prisma.trip.create({
+    data: {
+      partnerId: openPartner.id,
+      name: `${openPartner.displayName.split(" ")[0]}'s Youth Mission Week (completed)`,
+      status: "completed",
+      type: "VBS/Children's Ministry",
+      description: `A completed family-friendly team that served alongside ${openPartner.displayName}.`,
+      startDate: pastMinorsTripStart,
+      endDate: pastMinorsTripEnd,
+      teamSizeMin: 4,
+      teamSizeMax: 8,
+      supportRaisingGoal: 850,
+      collectParentGuardianInfo: true,
+    },
+  });
+
+  const pastMinorApplication = await prisma.tripApplication.create({
+    data: {
+      tripId: pastMinorsTrip.id,
+      firstName: "Noah",
+      lastName: "Castellano",
+      email: "noah.castellano@example.org",
+      phone: "555-0233",
+      status: "approved",
+      reviewedAt: dateBetween(3, 2),
+      reviewedById: admin?.id || null,
+      dateOfBirth: pastMinorDob,
+      parentGuardianName: "Diane Castellano",
+      parentGuardianRelationship: "Mother",
+      parentGuardianPhone: "555-0234",
+      parentGuardianEmail: "diane.castellano@example.org",
+      emergencyContactName: "Diane Castellano",
+      emergencyContactPhone: "555-0234",
+      emergencyContactEmail: "diane.castellano@example.org",
+      addressLine1: "212 Hawthorn Lane",
+      city: "Moline",
+      stateProvinceRegion: "IL",
+      postalCode: "61265",
+      country: "USA",
+    },
+  });
+  const noah = await prisma.tripParticipant.create({
+    data: {
+      tripId: pastMinorsTrip.id,
+      applicationId: pastMinorApplication.id,
+      firstName: pastMinorApplication.firstName,
+      lastName: pastMinorApplication.lastName,
+      email: pastMinorApplication.email,
+      phone: pastMinorApplication.phone,
+      dateOfBirth: pastMinorApplication.dateOfBirth,
+      parentGuardianName: pastMinorApplication.parentGuardianName,
+      parentGuardianRelationship: pastMinorApplication.parentGuardianRelationship,
+      parentGuardianPhone: pastMinorApplication.parentGuardianPhone,
+      parentGuardianEmail: pastMinorApplication.parentGuardianEmail,
+      emergencyContactName: pastMinorApplication.emergencyContactName,
+      emergencyContactPhone: pastMinorApplication.emergencyContactPhone,
+      emergencyContactEmail: pastMinorApplication.emergencyContactEmail,
+      addressLine1: pastMinorApplication.addressLine1,
+      city: pastMinorApplication.city,
+      stateProvinceRegion: pastMinorApplication.stateProvinceRegion,
+      postalCode: pastMinorApplication.postalCode,
+      country: pastMinorApplication.country,
+    },
+  });
+
+  const pastMinorReleaseRequirement = await prisma.tripRequirement.create({
+    data: {
+      tripId: pastMinorsTrip.id,
+      label: "Minor Travel Release & Consent Form",
+      kind: "esignature",
+      bodyText: MINOR_RELEASE_TEXT,
+    },
+  });
+
+  try {
+    const crypto = require("crypto");
+    const { buildSignedDocumentPdf } = require("../src/utils/pdfGeneration");
+    const documentText = MINOR_RELEASE_TEXT;
+    const documentTextHash = crypto.createHash("sha256").update(documentText, "utf8").digest("hex");
+    const attestedAt = dateBetween(3, 2);
+    const pdfBytes = await buildSignedDocumentPdf({
+      requirementLabel: pastMinorReleaseRequirement.label,
+      tripLabel: pastMinorsTrip.name,
+      participantName: `${noah.firstName} ${noah.lastName}`,
+      documentText,
+      signerName: pastMinorApplication.parentGuardianName,
+      signatureImage: null,
+      attestedAt,
+      documentTextHash,
+      ip: "203.0.113.55",
+    });
+    await prisma.tripDocument.create({
+      data: {
+        tripId: pastMinorsTrip.id,
+        participantId: noah.id,
+        requirementId: pastMinorReleaseRequirement.id,
+        title: pastMinorReleaseRequirement.label,
+        bytes: pdfBytes,
+        fileName: "minor-travel-release.pdf",
+        contentType: "application/pdf",
+        signerName: pastMinorApplication.parentGuardianName,
+        signerRelationship: "parent/guardian",
+        attestedAt,
+        ip: "203.0.113.55",
+        documentTextSnapshot: documentText,
+        documentTextHash,
+      },
+    });
+  } catch (err) {
+    console.warn("  Skipping completed minors trip's seed e-signature (non-fatal):", err.message);
+  }
+
   // Realistic starter content for tripApplicationTemplate/tripQuestionLibrary
   // -- generalized from a real short-term mission trip application a user
   // shared (not copied verbatim; every church's own wording differs, and
@@ -2210,9 +2401,75 @@ async function seedTripsDemo() {
   // tripApplicationTemplate is the universal layer every trip asks;
   // tripQuestionLibrary is a picker-only set an admin could add to any
   // trip or the template itself, never live on a form by itself.
+  // Whether the 5 integration-backed toggles below are safe to force on
+  // -- scripts/reset-demo-data.js already established this exact
+  // reasoning (its own comment: flipping one of these on with no key
+  // behind it "shows a toggle that does nothing ... or errors on click
+  // ... worse than just leaving it off"). That script runs first in the
+  // real reset flow and upserts these same credential fields before
+  // this seed ever runs, so reading them back here (rather than reading
+  // env vars directly, which a plain `npm run seed` -- no
+  // DEMO_ADMIN_EMAIL/PASSWORD required -- has no reason to know about)
+  // picks up whatever's actually configured either way.
+  const integrationSettings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: {
+      groupmeAccessToken: true,
+      postmarkServerToken: true,
+      emailFromAddress: true,
+      inboundEmailWebhookUsername: true,
+      inboundEmailWebhookPassword: true,
+      anthropicApiKey: true,
+      joshuaProjectApiKey: true,
+    },
+  });
+
   await prisma.churchSettings.update({
     where: { id: "singleton" },
     data: {
+      // Every optional feature on, demo-only -- utils/features.js's own
+      // registry defaults several of these (trips, publicTripDiscovery,
+      // outboundEmail, inboundEmail, groupme, whatsapp,
+      // publicPrayerDigest, aiExtraction, joshuaProject) to off, which is
+      // the right production default but means a demo visitor exploring
+      // this app for the first time would find most of its nav hidden
+      // behind a toggle nobody told them to flip. Every key here is
+      // copied from that registry's own key list, not re-derived --
+      // if a new feature is ever added there, it still needs adding
+      // here too, since seed.js intentionally doesn't import
+      // FEATURE_KEYS (keeping this demo-only literal from quietly
+      // reaching into app code it has no other reason to depend on).
+      // groupme/outboundEmail/inboundEmail/aiExtraction/joshuaProject are
+      // the 5 exceptions -- same conditional-on-a-real-key treatment as
+      // reset-demo-data.js, not unconditionally true like the rest.
+      enabledFeatures: {
+        publicDirectory: true,
+        publicMap: true,
+        partnerFiles: true,
+        prayerRequests: true,
+        oneTimeNeeds: true,
+        monthlySupport: true,
+        trips: true,
+        publicTripDiscovery: true,
+        booklet: true,
+        reports: true,
+        outboundEmail: Boolean(integrationSettings?.postmarkServerToken && integrationSettings?.emailFromAddress),
+        inboundEmail: Boolean(
+          integrationSettings?.postmarkServerToken &&
+            integrationSettings?.inboundEmailWebhookUsername &&
+            integrationSettings?.inboundEmailWebhookPassword
+        ),
+        groupme: Boolean(integrationSettings?.groupmeAccessToken),
+        whatsapp: true,
+        publicPrayerDigest: true,
+        aiExtraction: Boolean(integrationSettings?.anthropicApiKey),
+        joshuaProject: Boolean(integrationSettings?.joshuaProjectApiKey),
+      },
+      // The one other binary toggle this app ships off by default
+      // (ChurchSettings' own schema default) -- left off, the minors
+      // trip's own DOB enforcement would never actually get exercised
+      // by a demo visitor just clicking around.
+      requireDateOfBirth: true,
       // On for the demo specifically (schema default is off) -- a
       // visitor exploring the demo should see the Budget section
       // working, not have to find and flip the toggle first.
