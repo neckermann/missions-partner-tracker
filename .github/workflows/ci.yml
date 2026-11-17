@@ -213,6 +213,29 @@ jobs:
           npx prisma migrate deploy
           npm run seed
           node prisma/createAdmin.js "$E2E_ADMIN_EMAIL" "$E2E_ADMIN_PASSWORD"
+          # Trips (#252) ships with defaultEnabled: false (it now also gates
+          # public-facing surfaces, so "on by default" stopped making sense --
+          # see features.js's own comment) -- but the e2e suite still expects
+          # it reachable, same as every other admin feature it exercises.
+          # Set once here, for every spec file, rather than having individual
+          # spec files toggle it via PUT /api/settings around their own
+          # tests: public-subscribe.spec.js already relies on being the only
+          # spec file that mutates enabledFeatures to avoid a cross-file race
+          # under CI's parallel workers, and adding more toggling spec files
+          # would reintroduce exactly that race.
+          node -e "
+            const prisma = require('./src/prismaClient');
+            (async () => {
+              const existing = await prisma.churchSettings.findUnique({ where: { id: 'singleton' } });
+              const enabledFeatures = { ...(existing?.enabledFeatures || {}), trips: true };
+              await prisma.churchSettings.upsert({
+                where: { id: 'singleton' },
+                create: { id: 'singleton', enabledFeatures },
+                update: { enabledFeatures },
+              });
+              await prisma.\$disconnect();
+            })();
+          "
 
       # Runs here rather than in the backend-tests job because these boot
       # the real app against a real database -- that job deliberately has

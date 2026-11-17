@@ -12,7 +12,7 @@ test.describe("Trip History", () => {
     const target = await firstSelectablePartner(page);
 
     await page.goto("/admin/trips");
-    await page.waitForSelector("h2:has-text('Trip History')");
+    await page.waitForSelector("h2:has-text('Trips')");
 
     const uniqueDescription = `E2E trip ${Date.now()}`;
 
@@ -24,7 +24,10 @@ test.describe("Trip History", () => {
     await addForm.getByLabel("Trip Type").selectOption("Construction");
     await addForm.getByLabel("Description (what the team did)").fill(uniqueDescription);
     await addForm.getByRole("button", { name: "+ Add Participant" }).click();
-    await addForm.getByLabel("Name").fill("E2E Participant");
+    // Participants have separate First/Last Name fields now (#252) -- a
+    // bare "Name" label no longer exists, and lastName is required.
+    await addForm.getByLabel("First Name").fill("E2E");
+    await addForm.getByLabel("Last Name").fill("Participant");
     await page.click('button[type="submit"]:has-text("Save Trip")');
 
     const row = page.locator("tr", { hasText: uniqueDescription });
@@ -75,7 +78,7 @@ test.describe("Trip History", () => {
     const target = await firstSelectablePartner(page);
 
     await page.goto("/admin/trips");
-    await page.waitForSelector("h2:has-text('Trip History')");
+    await page.waitForSelector("h2:has-text('Trips')");
 
     const addForm = page.locator("form");
     await page.click("button:has-text('+ Add Trip')");
@@ -89,11 +92,12 @@ test.describe("Trip History", () => {
 
     await albumField.locator("input").fill("https://photos.app.goo.gl/e2eTestAlbum");
     await addForm.getByRole("button", { name: "Save Trip" }).click();
-    await page.waitForSelector('table.admin-table a:has-text("View")');
 
-    const link = page.locator('table.admin-table a:has-text("View")').first();
-    await expect(link).toHaveAttribute("href", "https://photos.app.goo.gl/e2eTestAlbum");
-
+    // The table's own "View" link now always points to the trip's detail
+    // page (AdminTrips.jsx), not the raw album URL -- there's no on-screen
+    // rendering of that link once saved, so the round-trip is confirmed
+    // the same way the cleanup step below already looks up this row:
+    // directly against the API.
     let created;
     await expect
       .poll(async () => {
@@ -103,6 +107,8 @@ test.describe("Trip History", () => {
         return Boolean(created);
       })
       .toBeTruthy();
+    expect(created.albumProvider).toBe("google_photos");
+
     const del = await page.request.delete(`/api/trips/${created.id}`);
     expect(del.ok()).toBeTruthy();
   });
