@@ -185,7 +185,12 @@ export default function PublicTripApplication() {
             )}
             {trip.collectEmergencyContact && (
               <div className="form-grid" style={{ marginTop: "0.75rem" }}>
-                <label style={{ gridColumn: "1 / -1" }}>Emergency contact</label>
+                {/* Not a form label -- a plain section heading, no control
+                of its own to associate with (the three fields below each
+                have their own). A <label> with nothing inside it fails
+                jsx-a11y/label-has-associated-control for exactly that
+                reason. */}
+                <div style={{ gridColumn: "1 / -1", fontWeight: 600 }}>Emergency contact</div>
                 <label>
                   Name
                   <input

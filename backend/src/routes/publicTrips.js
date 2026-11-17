@@ -19,11 +19,7 @@ const prisma = require("../prismaClient");
 const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
 const { toInitials } = require("../utils/maskData");
-const {
-  buildTripParticipantAccessToken,
-  verifyTripParticipantAccessToken,
-  sendTripParticipantAccessLinks,
-} = require("../utils/tripAccessToken");
+const { verifyTripParticipantAccessToken, sendTripParticipantAccessLinks } = require("../utils/tripAccessToken");
 const { buildSignedDocumentPdf } = require("../utils/pdfGeneration");
 const { decodePhotoDataUrl } = require("../utils/participantPhoto");
 const crypto = require("crypto");

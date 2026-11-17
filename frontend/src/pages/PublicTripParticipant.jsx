@@ -171,11 +171,15 @@ export default function PublicTripParticipant() {
                 onBlur={handleSaveStory}
               />
             </label>
-            <div style={{ marginTop: "0.6rem" }}>
-              <label style={{ display: "block", fontWeight: 600, fontSize: "0.85rem", marginBottom: "0.3rem" }}>Your photo</label>
-              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handlePhotoChange(e.target.files[0] || null)} />
+            <label style={{ display: "block", marginTop: "0.6rem" }}>
+              Your photo
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => handlePhotoChange(e.target.files[0] || null)}
+              />
               {photoUploading && <span style={{ fontSize: "0.8rem", color: "#888" }}> Uploading…</span>}
-            </div>
+            </label>
           </div>
         )}
 
