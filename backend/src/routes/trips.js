@@ -38,7 +38,22 @@ const participantSchema = z.object({
   isLeader: z.boolean().optional(),
   phone: z.string().optional().nullable(),
   email: z.string().optional().nullable(),
+  // Optional override -- almost always left unset, in which case every
+  // participant-creation route below defaults it to the trip's own
+  // supportRaisingGoal at that moment (see defaultParticipantGoal).
+  supportRaisingGoal: z.coerce.number().int().optional().nullable(),
 });
+
+// A participant's own supportRaisingGoal is a plain, independently
+// editable number (AdminTripParticipantDetail.jsx) -- but starting every
+// new participant at null, even though almost every trip wants each
+// person aiming for roughly the trip's own total, was pure friction.
+// Applied once at creation time, not as a live display fallback --
+// changing the trip's goal afterward never retroactively rewrites an
+// already-created participant's own number.
+function defaultParticipantGoal(participant, tripGoal) {
+  return participant.supportRaisingGoal !== undefined ? participant.supportRaisingGoal : tripGoal ?? null;
+}
 
 const tripSchema = z.object({
   partnerId: z.string().optional().nullable(),
@@ -258,7 +273,14 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
     const created = await prisma.trip.create({
       data: {
         ...data,
-        participants: participants?.length ? { create: participants } : undefined,
+        participants: participants?.length
+          ? {
+              create: participants.map((p) => ({
+                ...p,
+                supportRaisingGoal: defaultParticipantGoal(p, data.supportRaisingGoal),
+              })),
+            }
+          : undefined,
         requirements: requirementTemplate.length
           ? {
               create: requirementTemplate.map((r) => ({
@@ -289,13 +311,29 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     const existing = await prisma.trip.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: "Not found" });
 
+    // The goal actually in effect once this update applies -- this call's
+    // own value if it's touching supportRaisingGoal, otherwise whatever
+    // the trip already had.
+    const effectiveGoal = data.supportRaisingGoal !== undefined ? data.supportRaisingGoal : existing.supportRaisingGoal;
+
     const updated = await prisma.$transaction(async (tx) => {
       if (participants !== undefined) {
         await tx.tripParticipant.deleteMany({ where: { tripId: req.params.id, applicationId: null } });
       }
       return tx.trip.update({
         where: { id: req.params.id },
-        data: { ...data, participants: participants !== undefined ? { create: participants } : undefined },
+        data: {
+          ...data,
+          participants:
+            participants !== undefined
+              ? {
+                  create: participants.map((p) => ({
+                    ...p,
+                    supportRaisingGoal: defaultParticipantGoal(p, effectiveGoal),
+                  })),
+                }
+              : undefined,
+        },
         include: tripInclude,
       });
     });
@@ -630,6 +668,12 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
             emergencyContactName: application.emergencyContactName,
             emergencyContactPhone: application.emergencyContactPhone,
             emergencyContactEmail: application.emergencyContactEmail,
+            // Defaulted to the trip's own goal -- same reasoning as the
+            // direct-add route (defaultParticipantGoal), just inlined
+            // since there's no per-participant override to weigh against
+            // here (approval carries no participant-shaped input of its
+            // own to read one from).
+            supportRaisingGoal: application.trip.supportRaisingGoal,
             // Auto-generated here, not left for a later manual admin
             // click -- the church-wide setting already answers "do we do
             // this at all," so a second per-participant step is pure
@@ -698,6 +742,7 @@ router.post("/:id/participants", requireRole("admin", "editor"), async (req, res
       data: {
         ...data,
         tripId: trip.id,
+        supportRaisingGoal: defaultParticipantGoal(data, trip.supportRaisingGoal),
         // Same auto-generation as the application-approval path -- see
         // that route's own comment for why this isn't left as a manual
         // admin step.
