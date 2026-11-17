@@ -157,7 +157,7 @@ prayer digest nested under Email (Sending) since it depends on it), and
 | Prayer requests | On | The Prayer Requests admin section, and the prayer request list on missionary/organization pages. |
 | One-time needs | On | The One-Time Needs admin section, and the one-time needs list on missionary/organization pages. Only gates the standalone `/api/support-needs` CRUD — a need can still be added via a missionary/organization's own edit form either way (a narrower gap than the other toggles here). |
 | Monthly support | On | The Monthly Support report page. |
-| Mission trips | **Off** | Trip tracking, recruiting, rosters, meetings, documents, and support raising — the Trips and Trip Planning admin pages. Default flipped from on to off in the Trips rework (#252): this now reaches well beyond an admin-only page into public application forms and outbound email, so it needs an explicit decision rather than being on by default. A fork relying on it staying on for its existing trip-logging needs flips it back on once after upgrading. See [§ Trips](#trips) below. |
+| Mission trips | **Off** | Trip tracking, recruiting, rosters, meetings, documents, and support raising — the Trips and Trip Planning admin pages. Default flipped from on to off once this reached well beyond an admin-only page into public application forms and outbound email, so it needs an explicit decision rather than being on by default. A fork relying on it staying on for its existing trip-logging needs flips it back on once after upgrading. See [§ Trips](#trips) below. |
 | Public trip discovery | **Off** | The public Trip Opportunities listing (`/trips`) and plain, id-addressed application links. Also requires Mission trips to be on. A church can run trips entirely by private link with this off and Mission trips on — see [§ Trips](#trips) below. |
 | Print booklet | On | The printable prayer & support directory generator. |
 | Reports | On | Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history, furlough — with CSV download and a print view. |
@@ -910,14 +910,145 @@ anyone else's.
 
 ### Trips
 
-Trips (#252) tracks a mission trip's full lifecycle — recruiting,
-roster, meetings, documents, support raising — not just a historical
+Trips tracks a mission trip's full lifecycle — recruiting, roster,
+meetings, documents, budget, support raising — not just a historical
 log of past trips. A trip belongs to a planning partner and moves
 through `planning` → `accepting_applications` → `closed` →
 `completed`. Settings live at Site Administration → Trips Settings
 (`/admin/settings/trips`); per-trip management (setup, roster,
-applications, document requirements, meetings) is on each trip's own
-detail page, reached from Trip Planning.
+applications, requirements, meetings, budget) is on each trip's own
+detail page, reached from Trip Planning or the Trips list.
+
+![The Trips list, every trip regardless of status](docs/assets/screenshots/trip-history.png)
+
+**Two admin-internal pages answer two different questions.** **Trips**
+(`/admin/trips`) is the filterable log of every trip regardless of
+status — a quick historical backfill (pick the partner, dates, trip
+type, description, a Photo/Video Album link, and participants) is
+managed entirely inline here, same as before this feature existed;
+**Edit** and **Delete** work the same way. A trip that's still
+`planning`, `accepting_applications`, or `closed` instead shows a link
+into its own fuller detail page — this list isn't where an active
+trip's applications, roster, or documents get managed. **Trip
+Planning** (`/admin/trips/planning`) answers a different question —
+which partner to plan the *next* trip to — blending an **Open** row
+(already recruiting), a **Committed** row (roster finalized, hasn't
+happened), and a **No trip scheduled** row (just that partner's own
+general trip capacity) so a partner never falls off the list just
+because nothing's on the calendar yet. Each row also shows that
+partner's past trip count and most recent trip date, and a **Clone
+trip** action (for any partner with at least one prior trip) that
+copies a trip's reusable shape — name, type, team size, description,
+support-raising goal, application questions, and requirement list —
+into a fresh `planning`-status row with no dates and no roster, ready
+to fill in for a repeat.
+
+![Trip Planning: which partner to send a team to next](docs/assets/screenshots/trip-opportunities.png)
+
+**On a trip's own detail page** (below the basic setup fields — name,
+status, dates, team size, support-raising goal, description, the
+"Visible on public discovery page" toggle):
+
+![A full recruiting trip's detail page -- setup, flight itinerary, roster, requirements, meetings, budget, contributions, applications, and the private link/question editor](docs/assets/screenshots/admin-trip-detail.png)
+
+- **Support-raising goal** shows a suggested per-person figure right
+  under the field itself, once a budget total and a team size exist —
+  the budget total divided by the team size max (or min, if no max is
+  set). A suggestion only, never forced; the field stays a plain
+  number you can always override.
+- **Flight itinerary** is a repeatable list of segments (who it's for
+  — leave blank for the whole team — airline/flight number, departure
+  airport/time, arrival airport/time), not one block of free text. Add
+  one row per leg; a connection is two rows. Shown only on each
+  participant's own self-service page, never publicly.
+- **Confirmed Team** is just "who's on the team" — name, support-raising
+  progress, how many requirements are still outstanding, and a link
+  into that participant's own detail page for everything else (contact
+  info, their photo/story, documents, per-requirement fulfillment).
+  **+ Add participant directly** adds someone without going through an
+  application.
+- **Trip-wide documents** are shared with the whole team (an itinerary,
+  packing list) — separate from a document logged against one
+  specific participant.
+- **Trip Requirements** are your own ordered list of what this trip
+  needs from each participant, in one of three kinds: a **document**
+  to upload, a plain **task** an admin checks off (e.g. "Attended
+  orientation call"), or an **e-signature** — agreement text you write
+  once, which the participant signs (typed name + a drawn signature)
+  from their own self-service page. Give any requirement a due date to
+  see it flagged once overdue, and a reminder lead time to have anyone
+  who hasn't fulfilled it emailed automatically before it's due. A new
+  actively-recruiting trip starts with whatever requirement list is
+  configured on the Trips Settings page (see below); editing that
+  template afterward only affects trips created later.
+- **Completion by Team Member** is a requirement-by-participant matrix
+  — who's completed what, across the whole team. A task can be
+  checked off directly here; a document still gets uploaded from that
+  participant's own detail page.
+- **Meetings** — schedule a date/time and location; participants get a
+  reminder email the day before.
+- **Budget** (only shown when **Track a planned budget per trip** is on
+  in Trips Settings) is a list of estimated whole-team expense lines
+  (flights, lodging, in-country transport) with a running total,
+  compared against what's actually been raised. Admin-only — never
+  shown to applicants or participants.
+- **Contributions** is the manual giving ledger — donor name, which
+  participant (or "Trip-wide") it's credited to, amount, method, date
+  received. Donor email/phone are optional fields here too, shown only
+  when **Collect donor email/phone when logging a contribution** is on
+  in Trips Settings.
+- **Applications awaiting review** — **Approve** or **Decline** each
+  one, with each applicant's full answers (including mailing address
+  and emergency contact, when those are collected) expandable inline.
+  A declined application isn't gone — **Show declined** reveals it
+  again, with a **Reconsider** action to move it back to pending.
+- **Private application link** — a dedicated **Generate** button
+  (appears only once **Allow staff to generate private application
+  links** is on, under Trips Settings) creates a secret link you share
+  directly — never listed anywhere, reachable even for a restricted
+  partner's trip (masked, not blocked — see below). **Regenerate**
+  immediately invalidates the old one.
+- **Application questions** — add, edit, reorder, or remove questions
+  specific to this one trip, shown after the church-wide template
+  (Trips Settings, below) on both the public and private application
+  form. Each question is one of four types — short text, long text,
+  multiple choice (pick one), or checkboxes (pick several) — with its
+  own required toggle. **Add from your saved questions** inserts a
+  copy from the reusable library instead of retyping a commonly-used
+  one.
+
+![A restricted-partner trip's setup section, with the masking warning](docs/assets/screenshots/admin-trip-restricted-warning.png)
+
+**A participant's own detail page** (reached from Confirmed Team) is
+where their contact info gets corrected, their public support-raising
+page gets set up, and their own requirement fulfillment and documents
+live:
+
+![One participant's own detail page](docs/assets/screenshots/admin-trip-participant-detail.png)
+
+- **Contact & access** — first/last name, email, phone are all
+  editable here (previously read-only once entered). **Resend access
+  link** re-sends their self-service link; **Generate support-raising
+  link** (or **Regenerate**, once one exists) appears only when **Allow
+  participants to have public support-raising pages** is on.
+  Regenerating immediately invalidates the old link.
+- **Support raising** shows progress toward their goal, a preview link
+  to their public page, and — once that page exists — a photo upload
+  and a story text field. Either can also be set by the participant
+  themselves from their own self-service page; whoever edits it last
+  wins, with no review step either way.
+- **Requirements** lists this participant's own fulfillment state
+  against the trip's requirement list — a task can be checked off
+  directly here.
+- **Documents** are this participant's own uploaded/logged files.
+  **Request documents** sends an email asking for something specific
+  — disabled until **Inbound Email Address** is set on the Email
+  settings page (see [§ Email (Postmark)](#email-postmark) above),
+  since without it there's no Reply-To for their response to route
+  back into. A document can also reach a participant's file
+  automatically, when an inbound email from them is assigned from the
+  Unmatched Emails queue (optionally marking which requirement it
+  fulfills).
 
 **Two feature flags, not one** — see [§ Feature toggles](#feature-toggles)
 above:
@@ -978,22 +1109,72 @@ anything matched — the same enumeration-prevention precedent
 never be used to probe whether a given email address has a trip
 record.
 
-**Application questions** are admin-defined per trip (label + required
-toggle, no hardcoded defaults) on the trip's own detail page, shown in
-order on both the public and private application forms.
+![Lost-link recovery form](docs/assets/screenshots/public-trip-access-recovery.png)
 
-**Document requirements** are also admin-defined per trip. A document
-can reach a participant's file three ways: automatically, when an
-inbound email from that participant is assigned to them from the
-Unmatched Emails queue (optionally marking which requirement it
-fulfills); manually, via the "Log document" control on the trip's
-roster for anything that arrives by mail, in person, or as a file
-staff already have; or via the participant's own self-service upload.
-**Request documents** (a button per roster row) sends an email asking
-for something specific — this is disabled server-side until **Inbound
-Email Address** is set on the Email settings page (see
-[§ Email (Postmark)](#email-postmark) above), since without it there's
-no Reply-To for the participant's response to route back into.
+**Site Administration → Trips Settings** holds everything church-wide
+for this feature, grouped by when in a trip's life it applies:
+
+![Trips Settings](docs/assets/screenshots/trips-settings.png)
+
+- **Giving & budget** — the church's own online giving URL and
+  instructions (shown on every participant's public page); whether to
+  **Collect donor email/phone when logging a contribution** (never
+  shown on the public page regardless — only to admins and to the
+  participant's own self-service view); and **Track a planned budget
+  per trip**, which adds the whole-team Budget section to every trip's
+  detail page.
+- **Application form** — the **Application template**: questions
+  asked on every trip's application, before that trip's own questions
+  (edited with the same four-question-type editor as a trip's own
+  questions); whether to **Collect applicant mailing address** and
+  **Collect applicant emergency contact info** (each adds its own
+  structured block to the public application form, or removes it
+  entirely when off); and **Saved questions** — a reusable library,
+  never itself shown to anyone, that both the church-wide template and
+  any trip's own questions can pull from with one click instead of
+  retyping a commonly-used question.
+- **Trip requirements** — a template list, automatically copied onto
+  every newly-created, actively-recruiting trip. Editing it later only
+  affects trips created afterward, never an already-created trip's own
+  copy.
+- **Access & links** — **Allow staff to generate private application
+  links** and **Allow participants to have public support-raising
+  pages**, covered above.
+
+**The public Trip Opportunities page** (`/trips`, gated by **Public
+trip discovery**) is how a visitor with no direct link discovers what's
+open:
+
+![The public Trip Opportunities page](docs/assets/screenshots/public-trip-opportunities.png)
+
+An `accepting_applications` trip with **Visible on public discovery
+page** on gets a full card with an **Apply now** link; a `planning`
+trip with the same toggle gets a lighter "Coming soon" teaser, no Apply
+link yet since applications genuinely aren't open. Either way, a
+church-wide **Donate** link appears when **Online giving URL** is set
+— useful before a roster even exists. A restricted partner's trip
+never appears here at all, regardless of status or the toggle's value.
+
+![The public application form, rendering a trip's own questions plus the church-wide template](docs/assets/screenshots/public-trip-application.png)
+
+**A confirmed participant's own public support-raising page**
+(`/trip-support-raising/<token>`) shows their photo and story (if
+set), progress toward their goal, a donor list, and the church's
+giving instructions — never their flight itinerary or donor contact
+info, and never anything at all for a restricted partner's trip.
+
+![A participant's public support-raising page](docs/assets/screenshots/public-trip-support-raising.png)
+
+**That same participant's self-service view** (`/my-trip?token=...`,
+reached from their own emailed access link) additionally shows the
+flight itinerary, donor contact info (when collected), and lets them
+edit their own story/photo directly — no review step, the same trust
+level as the address/emergency-contact/application answers they
+already self-report elsewhere. It's also where they sign an
+e-signature requirement, drawing their signature and typing their
+name.
+
+![A participant's self-service page -- support raising, flight itinerary, meetings, donors](docs/assets/screenshots/public-trip-self-service.png)
 
 ### Database backups
 
