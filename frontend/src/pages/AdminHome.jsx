@@ -57,12 +57,12 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
     },
     enabledFeatures.trips && {
       to: "/admin/trips",
-      title: "Trip History",
+      title: "Trips",
       description: "All mission trips across missionaries and organizations, with filters.",
     },
     enabledFeatures.trips && {
-      to: "/admin/trips/opportunities",
-      title: "Trip Opportunities",
+      to: "/admin/trips/planning",
+      title: "Trip Planning",
       description: "Find partners who can host a trip you're planning, by team size and trip type.",
     },
     enabledFeatures.booklet && {
