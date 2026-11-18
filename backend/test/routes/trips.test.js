@@ -1150,4 +1150,236 @@ describe("Trips: public document-requirement upload", () => {
       await setFeatures({ outboundEmail: true });
     }
   });
+
+  // Approving an application creates the participant through a separate
+  // code path (its own tx.tripParticipant.create in PUT /applications/:id)
+  // that previously got neither the future-meeting nor the document-
+  // requirement catch-up -- it's plausibly the more common real-world way
+  // someone becomes a participant at all, so this is the same coverage as
+  // the direct-add tests above, just through application approval instead.
+  test("approving an application sends an invite for an existing future meeting too", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "accepting_applications",
+        startDate: "2026-12-20",
+        endDate: "2026-12-27",
+      },
+    });
+    await prisma.tripMeeting.create({
+      data: { tripId: trip.body.id, startAt: "2026-12-11T19:00:00.000Z", agenda: "Packing list" },
+    });
+    const application = await prisma.tripApplication.create({
+      data: {
+        tripId: trip.body.id,
+        firstName: "Approved",
+        lastName: "Applicant",
+        email: "approved-applicant@example.test",
+      },
+    });
+
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/applications/${application.id}`, {
+        method: "PUT",
+        body: { status: "approved" },
+      });
+      assert.equal(res.status, 200);
+    });
+
+    const invite = sent.find((m) => /^Meeting:/.test(m.Subject));
+    assert.ok(invite, "an existing future meeting must invite a newly-approved participant too");
+    assert.equal(invite.To, "approved-applicant@example.test");
+    assert.match(invite.TextBody, /Packing list/);
+    const welcome = sent.find((m) => /^You're on the team:/.test(m.Subject));
+    assert.ok(welcome, "the one-time welcome email must still be sent alongside it");
+  });
+
+  test("approving an application sends the checklist notice for an existing document requirement too", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction", status: "accepting_applications" },
+    });
+    await prisma.tripRequirement.create({
+      data: { tripId: trip.body.id, label: "Passport photo page", kind: "document" },
+    });
+    const application = await prisma.tripApplication.create({
+      data: {
+        tripId: trip.body.id,
+        firstName: "Approved",
+        lastName: "Applicant2",
+        email: "approved-doc-applicant@example.test",
+      },
+    });
+
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/applications/${application.id}`, {
+        method: "PUT",
+        body: { status: "approved" },
+      });
+      assert.equal(res.status, 200);
+    });
+
+    const notice = sent.find((m) => /^New item needed: Passport photo page/.test(m.Subject));
+    assert.ok(notice, "an existing document requirement must trigger a checklist notice for the approved applicant");
+    assert.equal(notice.To, "approved-doc-applicant@example.test");
+  });
+
+  test("approving an application into a trip with no meetings or requirements behaves unchanged", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "accepting_applications",
+        startDate: "2026-12-20",
+        endDate: "2026-12-27",
+      },
+    });
+    const application = await prisma.tripApplication.create({
+      data: {
+        tripId: trip.body.id,
+        firstName: "Approved",
+        lastName: "Solo",
+        email: "approved-solo-applicant@example.test",
+      },
+    });
+
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/applications/${application.id}`, {
+        method: "PUT",
+        body: { status: "approved" },
+      });
+      assert.equal(res.status, 200);
+    });
+
+    assert.equal(sent.length, 1, "only the one-time welcome email -- nothing to catch up on");
+    assert.match(sent[0].Subject, /^You're on the team:/);
+  });
+
+  test("outboundEmail off suppresses both catch-up sends for an approved application too", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction", status: "accepting_applications" },
+    });
+    await prisma.tripMeeting.create({
+      data: { tripId: trip.body.id, startAt: "2026-12-11T19:00:00.000Z" },
+    });
+    await prisma.tripRequirement.create({
+      data: { tripId: trip.body.id, label: "Passport photo page", kind: "document" },
+    });
+    const application = await prisma.tripApplication.create({
+      data: {
+        tripId: trip.body.id,
+        firstName: "Quiet",
+        lastName: "Applicant",
+        email: "quiet-applicant@example.test",
+      },
+    });
+
+    await setFeatures({ outboundEmail: false });
+    try {
+      const sent = await captureEmails(async () => {
+        const res = await admin(`/api/trips/applications/${application.id}`, {
+          method: "PUT",
+          body: { status: "approved" },
+        });
+        assert.equal(res.status, 200);
+      });
+      assert.equal(sent.length, 0, "outboundEmail off must suppress every send, approval path included");
+    } finally {
+      await setFeatures({ outboundEmail: true });
+    }
+  });
+
+  // Status alone can't distinguish "closed, still upcoming" from "closed,
+  // entered after the fact as history" -- both share the same string.
+  // sendLateJoinerCatchUpEmails also checks the trip's own dates, so a
+  // closed-but-already-past trip is excluded the same as a "completed"
+  // one, through either creation path.
+  test("a participant added into a closed trip that's already in the past gets neither catch-up email", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "closed",
+        startDate: "2020-01-01",
+        endDate: "2020-01-08",
+      },
+    });
+    await prisma.tripMeeting.create({
+      data: { tripId: trip.body.id, startAt: "2026-12-11T19:00:00.000Z" },
+    });
+    await prisma.tripRequirement.create({
+      data: { tripId: trip.body.id, label: "Passport photo page", kind: "document" },
+    });
+
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.body.id}/participants`, {
+        method: "POST",
+        body: { firstName: "History", lastName: "Backfill", email: "history-backfill@example.test" },
+      });
+      assert.equal(res.status, 201);
+    });
+
+    // The welcome email's own gating only checks trip.status -- unchanged
+    // by this directive, out of scope here -- so it still sends for a
+    // "closed" trip regardless of dates. Only the catch-up sends
+    // (meeting invite, checklist notice) are what this test is about.
+    assert.ok(
+      !sent.some((m) => /^Meeting:/.test(m.Subject) || /^New item needed:/.test(m.Subject)),
+      "a closed-but-already-past trip is a historical record -- no catch-up emails either"
+    );
+  });
+
+  test("approving an application into a closed trip that's already in the past gets neither catch-up email", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "closed",
+        startDate: "2020-01-01",
+        endDate: "2020-01-08",
+      },
+    });
+    await prisma.tripMeeting.create({
+      data: { tripId: trip.body.id, startAt: "2026-12-11T19:00:00.000Z" },
+    });
+    await prisma.tripRequirement.create({
+      data: { tripId: trip.body.id, label: "Passport photo page", kind: "document" },
+    });
+    const application = await prisma.tripApplication.create({
+      data: {
+        tripId: trip.body.id,
+        firstName: "History",
+        lastName: "Applicant",
+        email: "history-applicant@example.test",
+      },
+    });
+
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/applications/${application.id}`, {
+        method: "PUT",
+        body: { status: "approved" },
+      });
+      assert.equal(res.status, 200);
+    });
+
+    // Same reasoning as the direct-add test above -- the welcome email's
+    // own gating only checks status, so it still sends; only the catch-up
+    // sends are what this test is about.
+    assert.ok(
+      !sent.some((m) => /^Meeting:/.test(m.Subject) || /^New item needed:/.test(m.Subject)),
+      "a closed-but-already-past trip is a historical record -- no catch-up for an approved applicant either"
+    );
+  });
 });

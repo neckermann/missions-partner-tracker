@@ -683,9 +683,12 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
         declinedReason: z.string().optional().nullable(),
       })
       .parse(req.body);
+    // meetings/requirements included alongside trip -- needed for
+    // sendLateJoinerCatchUpEmails below, same shape POST /:id/participants
+    // already loads its own trip with.
     const application = await prisma.tripApplication.findUnique({
       where: { id: req.params.id },
-      include: { trip: true },
+      include: { trip: { include: { meetings: true, requirements: true } } },
     });
     if (!application) return res.status(404).json({ error: "Not found" });
 
@@ -784,6 +787,15 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
       }
     }
 
+    // Same late-joiner catch-up as the direct-add route below -- approving
+    // an application is a separate creation path (its own tx.create above)
+    // that previously got none of this. Not gated on startDate/endDate
+    // existing (unlike the welcome email above, which needs them for its
+    // .ics) -- sendLateJoinerCatchUpEmails only needs trip.status itself.
+    if (updated.participant) {
+      await sendLateJoinerCatchUpEmails(application.trip, updated.participant);
+    }
+
     res.json(updated.app);
   } catch (err) {
     next(err);
@@ -851,42 +863,12 @@ router.post("/:id/participants", requireRole("admin", "editor"), async (req, res
       }
     }
 
-    // A participant added after meetings already exist would otherwise
-    // never learn about them -- the welcome email above only covers the
-    // trip dates, and nothing else notifies a late joiner short of an
-    // admin remembering to click "Resend" on every pre-existing meeting.
-    // Only meetings that haven't happened yet and weren't cancelled are
-    // worth sending; reusing sendMeetingEmail (and its own outboundEmail
-    // gate) keeps this identical in shape to every other meeting invite
-    // -- same .ics, same RSVP links -- just scoped to this one new
-    // participant instead of the whole roster.
-    if (trip.status !== "completed") {
-      const now = new Date();
-      const futureMeetings = trip.meetings.filter((m) => !m.cancelledAt && new Date(m.startAt) > now);
-      for (const meeting of futureMeetings) {
-        await sendMeetingEmail(
-          { ...trip, participants: [participant] },
-          meeting,
-          "A meeting has been scheduled."
-        );
-      }
-    }
-
-    // Same gap, document side: a participant added after a document-kind
-    // requirement already exists would otherwise never learn about it --
-    // their self-service page's "Still needed from you" list already
-    // computes this live, but nothing ever prompts them to go look.
-    // "task"/"esignature" stay out of scope here too, for the same
-    // reason sendDocumentRequirementEmail's own comment gives at the
-    // requirement-creation call site. Same completed-trip exclusion as
-    // the meeting loop above -- a completed-trip participant is a
-    // backfill, not someone who needs a checklist nudge.
-    if (trip.status !== "completed") {
-      const documentRequirements = trip.requirements.filter((r) => r.kind === "document");
-      for (const requirement of documentRequirements) {
-        await sendDocumentRequirementEmail(trip, requirement, [participant]);
-      }
-    }
+    // A participant added after meetings or document requirements already
+    // exist would otherwise never learn about them -- the welcome email
+    // above only covers the trip dates. Shared with the application-
+    // approval route (PUT /applications/:id), which needs the exact same
+    // backfill through a different creation path.
+    await sendLateJoinerCatchUpEmails(trip, participant);
 
     res.status(201).json(participant);
   } catch (err) {
@@ -1042,6 +1024,42 @@ async function sendDocumentRequirementEmail(trip, requirement, participants) {
       `New item needed: ${requirement.label}`,
       `A new item has been added to your checklist for ${trip.name || trip.type || "your trip"}: "${requirement.label}".\n\nYour trip page: ${buildTripParticipantAccessUrl(participant)}`
     );
+  }
+}
+
+// Shared by both ways a participant can land on a trip after other things
+// already exist on it -- a direct admin add (POST /:id/participants) or an
+// approved application (PUT /applications/:id, a separate code path with
+// its own tx.tripParticipant.create). Both used to only backfill this for
+// the direct-add path; approval got nothing, despite being the more common
+// real-world way someone becomes a participant. Both sub-sends already
+// gate on outboundEmail internally (sendMeetingEmail/
+// sendDocumentRequirementEmail each call getSettings() themselves), so
+// this only needs to own the one cross-cutting exclusion both call sites
+// already applied: a backfilled participant doesn't need catch-up
+// notifications for things that already happened or never will.
+//
+// "completed" alone isn't enough to detect that, though -- "closed" covers
+// two different real situations that share the same status string: a
+// roster finalized for a trip that hasn't happened yet (still wants
+// catch-up), and a trip entered after the fact purely as a historical
+// record (should get none, same as "completed", despite never being
+// marked that). Status can't tell those apart; the trip's own dates can --
+// so check both signals, not just status, rather than replacing one with
+// the other.
+async function sendLateJoinerCatchUpEmails(trip, participant) {
+  const now = new Date();
+  const referenceDate = trip.endDate || trip.startDate;
+  const alreadyHappened = referenceDate && new Date(referenceDate) < now;
+  if (trip.status === "completed" || alreadyHappened) return;
+  const futureMeetings = (trip.meetings || []).filter((m) => !m.cancelledAt && new Date(m.startAt) > now);
+  for (const meeting of futureMeetings) {
+    await sendMeetingEmail({ ...trip, participants: [participant] }, meeting, "A meeting has been scheduled.");
+  }
+
+  const documentRequirements = (trip.requirements || []).filter((r) => r.kind === "document");
+  for (const requirement of documentRequirements) {
+    await sendDocumentRequirementEmail(trip, requirement, [participant]);
   }
 }
 
