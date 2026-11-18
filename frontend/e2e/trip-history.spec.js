@@ -33,6 +33,12 @@ test.describe("Trip History", () => {
     await addForm.getByLabel("Last Name").fill("Participant");
     await page.click('button[type="submit"]:has-text("Save Trip")');
 
+    // The Trips page's default quick filter is "Active (not completed)" --
+    // a trip logged via "Log a trip that already happened" saves as
+    // completed, so it's hidden from the list until switching to "All
+    // statuses".
+    await page.getByRole("button", { name: "All statuses" }).click();
+
     const row = page.locator("tr", { hasText: uniqueDescription });
     await expect(row).toContainText(target.displayName);
     await expect(row).toContainText("Construction");

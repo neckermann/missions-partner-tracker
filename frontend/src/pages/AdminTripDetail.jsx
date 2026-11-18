@@ -1446,7 +1446,7 @@ export default function AdminTripDetail() {
                           </ul>
                         </div>
 
-                        <div className="table-actions" onClick={(e) => e.stopPropagation()}>
+                        <div className="table-actions" role="presentation" onClick={(e) => e.stopPropagation()}>
                           {m.cancelledAt ? (
                             <span style={{ fontSize: "0.8rem", color: "#888" }}>Cancelled</span>
                           ) : (

@@ -579,7 +579,7 @@ export default function AdminTripParticipantDetail() {
                 {participant.photoContentType && (
                   <img
                     src={tripParticipantPhotoUrl(participant.id)}
-                    alt={`Photo of ${participant.firstName} ${participant.lastName}`}
+                    alt={`${participant.firstName} ${participant.lastName}`}
                     style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover" }}
                   />
                 )}
