@@ -50,7 +50,8 @@ function baseMissionary(overrides = {}) {
     addresses: [{ type: "physical", country: "Thailand", gpsLat: 13.75, gpsLng: 100.5 }],
     sendingChurch: { name: "First Church", contactEmail: "sensitive@example.com" },
     sendingOrg: { name: "Some Agency", contactEmail: "sensitive@example.com" },
-    emergencyContact: { name: "Someone", phone: "555-1234" },
+    emergencyContactName: "Someone",
+    emergencyContactPhone: "555-1234",
     children: [{ name: "Kid One", birthdate: "2015-01-01" }],
     // Pre-sorted newest-first, matching missionaryInclude's orderBy — [0] is
     // "current." Older entries exist only to prove they're never exposed.
@@ -155,7 +156,9 @@ describe("toPublicPartner — missionary", () => {
 
   test("public, non-restricted: never leaks internal-only fields", () => {
     const result = toPublicPartner(baseMissionary());
-    assert.equal(result.emergencyContact, undefined);
+    assert.equal(result.emergencyContactName, undefined);
+    assert.equal(result.emergencyContactPhone, undefined);
+    assert.equal(result.emergencyContactEmail, undefined);
     assert.equal(result.children, undefined);
     // sendingChurch/sendingOrg are curated down to just a name, never the
     // full sub-record (which carries contact info).
@@ -215,7 +218,9 @@ describe("toPublicPartner — missionary", () => {
     assert.equal(result.sendingChurch, undefined);
     assert.equal(result.sendingOrg, undefined);
     assert.equal(result.children, undefined);
-    assert.equal(result.emergencyContact, undefined);
+    assert.equal(result.emergencyContactName, undefined);
+    assert.equal(result.emergencyContactPhone, undefined);
+    assert.equal(result.emergencyContactEmail, undefined);
     assert.equal(result.websiteLink, undefined);
     assert.equal(result.facebook, undefined);
   });

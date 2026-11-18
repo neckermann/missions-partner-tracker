@@ -126,7 +126,11 @@ function formatAddress(address) {
 // practice (CAN-SPAM), not just a nice-to-have. Shared by both
 // audiences now -- the public digest gains this same footer.
 function buildContactLines(churchSettings, churchName, accentColor) {
-  const address = formatAddress(churchSettings?.address);
+  // #271 Finding 3: ChurchSettings' address fields are flat columns now,
+  // not a nested Json blob -- formatAddress() already only reads the
+  // same addressLine1/.../country field names, so churchSettings itself
+  // is the right shape to pass directly.
+  const address = formatAddress(churchSettings);
   const phone = churchSettings?.phone || null;
   const website = churchSettings?.websiteLink || null;
 

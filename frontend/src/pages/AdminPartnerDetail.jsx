@@ -539,11 +539,17 @@ export default function AdminPartnerDetail() {
             <EditableSection
               title="Emergency Contact"
               onSaved={reload}
-              onSave={(d) => save({ emergencyContact: d })}
+              onSave={(d) =>
+                save({
+                  emergencyContactName: d.name,
+                  emergencyContactPhone: d.phone,
+                  emergencyContactEmail: d.email,
+                })
+              }
               value={{
-                name: p.emergencyContact?.name || "",
-                phone: p.emergencyContact?.phone || "",
-                email: p.emergencyContact?.email || "",
+                name: p.emergencyContactName || "",
+                phone: p.emergencyContactPhone || "",
+                email: p.emergencyContactEmail || "",
               }}
               view={(v) => (
                 <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>

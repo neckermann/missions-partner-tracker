@@ -19,7 +19,9 @@ const emptyForm = {
   contactEmail: "",
   websiteLink: "",
   timezone: "UTC",
-  address: { ...emptyAddress },
+  // #271 Finding 3: flat columns, not a nested address object -- same
+  // shape and keys, just spread directly onto the form.
+  ...emptyAddress,
 };
 
 // A real built-in, no library needed -- returns every valid IANA zone
@@ -40,11 +42,7 @@ const TIMEZONES = Intl.supportedValuesOf("timeZone");
 // touches the others' fields.
 function mergeFetchedRecord(s) {
   if (!s?.id) return emptyForm;
-  return {
-    ...emptyForm,
-    ...s,
-    address: { ...emptyForm.address, ...(s.address || {}) },
-  };
+  return { ...emptyForm, ...s };
 }
 
 export default function AdminSettingsAbout() {
@@ -164,7 +162,22 @@ export default function AdminSettingsAbout() {
             here, not UTC. Changing this takes effect the next time the app restarts, not instantly.
           </p>
           <h4>Address</h4>
-          <AddressFields value={form.address} onChange={(addr) => update("address", addr)} />
+          <AddressFields
+            value={{
+              addressLine1: form.addressLine1,
+              addressLine2: form.addressLine2,
+              city: form.city,
+              stateProvinceRegion: form.stateProvinceRegion,
+              postalCode: form.postalCode,
+              country: form.country,
+            }}
+            onChange={(addr) => {
+              setForm((f) => ({ ...f, ...addr }));
+              setSuccess("");
+              setSyncSuccess("");
+              setError("");
+            }}
+          />
         </div>
 
         <div className="form-save-bar">

@@ -528,7 +528,18 @@ export default function AdminBooklet() {
   useEffect(() => {
     if (churchSettings) {
       setChurchContact({
-        address: churchSettings.address,
+        // #271 Finding 3: ChurchSettings' address fields are flat columns
+        // now -- reassembled into the nested shape formatAddressLines/
+        // buildBackCoverHtml below already expect, rather than changing
+        // either of those.
+        address: {
+          addressLine1: churchSettings.addressLine1,
+          addressLine2: churchSettings.addressLine2,
+          city: churchSettings.city,
+          stateProvinceRegion: churchSettings.stateProvinceRegion,
+          postalCode: churchSettings.postalCode,
+          country: churchSettings.country,
+        },
         phone: churchSettings.phone,
         websiteLink: churchSettings.websiteLink,
       });

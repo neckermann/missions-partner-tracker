@@ -2894,6 +2894,7 @@ async function main() {
       : [];
 
     const photo = await resolveMissionaryPhoto(photoPools, isFamily, childCount);
+    const hasEmergencyContact = chance(0.5);
 
     const createdMissionary = await prisma.partner.create({
       data: {
@@ -2929,9 +2930,9 @@ async function main() {
         photos: {
           create: { bytes: photo.bytes, contentType: photo.contentType, receivedDate: dateBetween(1, 0) },
         },
-        emergencyContact: chance(0.5)
-          ? { name: `${pick(FIRST_M.concat(FIRST_F))} ${pick(LAST)}`, phone: fakePhone(), email: null }
-          : {},
+        emergencyContactName: hasEmergencyContact ? `${pick(FIRST_M.concat(FIRST_F))} ${pick(LAST)}` : null,
+        emergencyContactPhone: hasEmergencyContact ? fakePhone() : null,
+        emergencyContactEmail: null,
         adults: { create: adults },
         children: { create: children },
         addresses: {
@@ -2961,10 +2962,9 @@ async function main() {
         supportEntries: { create: buildSupportEntries() },
         needRequests: { create: buildNeedRequests() },
         prayerRequests: { create: buildPrayerRequests() },
-        // SendingParty rows store the mailing address as flat columns (see
-        // schema.prisma), so churchSettings.address (still the old nested
-        // JSON shape from ChurchSettings) is spread directly rather than
-        // assigned to a `mailingAddress` key.
+        // #271 Finding 3: ChurchSettings' address fields are flat columns
+        // now, same shape/names as SendingParty's own, so they're just
+        // picked straight across rather than spread from a nested object.
         sendingParties: {
           create: [
             sentByOurChurch
@@ -2975,7 +2975,12 @@ async function main() {
                   contactEmail: churchSettings.contactEmail,
                   websiteLink: churchSettings.websiteLink,
                   phone: churchSettings.phone,
-                  ...(churchSettings.address || {}),
+                  addressLine1: churchSettings.addressLine1,
+                  addressLine2: churchSettings.addressLine2,
+                  city: churchSettings.city,
+                  stateProvinceRegion: churchSettings.stateProvinceRegion,
+                  postalCode: churchSettings.postalCode,
+                  country: churchSettings.country,
                 }
               : {
                   type: "church",
