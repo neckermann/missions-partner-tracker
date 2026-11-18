@@ -157,7 +157,7 @@ prayer digest nested under Email (Sending) since it depends on it), and
 | Prayer requests | On | The Prayer Requests admin section, and the prayer request list on missionary/organization pages. |
 | One-time needs | On | The One-Time Needs admin section, and the one-time needs list on missionary/organization pages. Only gates the standalone `/api/support-needs` CRUD — a need can still be added via a missionary/organization's own edit form either way (a narrower gap than the other toggles here). |
 | Monthly support | On | The Monthly Support report page. |
-| Mission trips | **Off** | Trip tracking, recruiting, teams, meetings, documents, and support raising — the Trips and Plan a Trip admin pages. Default flipped from on to off once this reached well beyond an admin-only page into public application forms and outbound email, so it needs an explicit decision rather than being on by default. A fork relying on it staying on for its existing trip-logging needs flips it back on once after upgrading. See [§ Trips](#trips) below. |
+| Mission trips | **Off** | Trip tracking, recruiting, teams, meetings, documents, and support raising — the Trips admin page (Existing Trips / Plan a Trip tabs). Default flipped from on to off once this reached well beyond an admin-only page into public application forms and outbound email, so it needs an explicit decision rather than being on by default. A fork relying on it staying on for its existing trip-logging needs flips it back on once after upgrading. See [§ Trips](#trips) below. |
 | Public trip discovery | **Off** | The public Trip Opportunities listing (`/trips`) and plain, id-addressed application links. Also requires Mission trips to be on. A church can run trips entirely by private link with this off and Mission trips on — see [§ Trips](#trips) below. |
 | Print booklet | On | The printable prayer & support directory generator. |
 | Reports | On | Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history, furlough — with CSV download and a print view. |
@@ -917,44 +917,56 @@ through `planning` → `accepting_applications` → `closed` →
 `completed`. Settings live at Site Administration → Trips Settings
 (`/admin/settings/trips`); per-trip management (setup, team,
 applications, requirements, meetings, budget) is on each trip's own
-detail page, reached from Plan a Trip or the Trips list.
+detail page, reached from either tab described below.
 
-![The Trips list, with its Status filter and dual count tiles](docs/assets/screenshots/trip-history.png)
+![The Trips page's Existing Trips tab, with its Status filter and dual count tiles](docs/assets/screenshots/trip-history.png)
 
-**Two admin-internal pages answer two different questions.** **Trips**
-(`/admin/trips`) is the filterable log of every trip — it opens
-showing **Active (not completed)** trips by default (switch the
-Status filter to **All statuses** or **Completed** to see the rest),
-with its two count tiles always showing both the filtered count and
-the true all-time total so neither reads as the other. **+ New Trip**
-offers a choice: **Start recruiting a new trip** (pick a partner and
-trip type, then land on that trip's own detail page to fill in the
-rest — the same `createTrip` call Plan a Trip's own "Start a new trip"
-button makes, team size auto-filled from the partner's own Trip
-Capacity fields) or **Log a trip that already happened** (today's
-quick historical backfill — partner, dates, trip type, description, a
-Photo/Video Album link, and participants — managed entirely inline
-here, same as before this feature existed; **Edit** and **Delete**
-work the same way). A trip that's still `planning`,
-`accepting_applications`, or `closed` instead shows a link into its
-own fuller detail page — this list isn't where an active trip's
-applications, team, or documents get managed. **Plan a Trip**
-(`/admin/trips/planning`) answers a different question — which
-partner to plan the *next* trip for — blending an **Open** row
-(already recruiting), a **Committed** row (team finalized, hasn't
-happened), and a **No trip scheduled** row (just that partner's own
-general trip capacity) so a partner never falls off the list just
-because nothing's on the calendar yet. Each row also shows that
-partner's past trip count and most recent trip date, and a **Clone
-trip** action (for any partner with at least one prior trip) that
-copies a trip's reusable shape — name, type, team size, description,
-support-raising goal, application questions, and requirement list —
-into a fresh `planning`-status row with no dates and no team, ready
-to fill in for a repeat. Starting a brand-new trip works from either
-page now; Plan a Trip is still the better tool when you don't yet know
-*which* partner needs one.
+<!-- SCREENSHOT NEEDED: trip-history.png should be retaken to show the
+current tabbed page (one nav item "Trips", "Existing Trips" / "Plan a
+Trip" tabs at the top) rather than a standalone page — the Trips and
+Plan a Trip admin pages were merged into one page with two tabs since
+this screenshot was last taken. Capture per the project's standard
+screenshot protocol: demo admin logged in, rich demo state, backup
+banner dismissed, one window, no real secrets or mismatched identity
+visible. Tracked alongside #264/#266. -->
 
-![Plan a Trip: which partner to send a team to next](docs/assets/screenshots/trip-opportunities.png)
+**One page, one nav item ("Trips"), two tabs that answer two different
+questions.** The **Existing Trips** tab is the filterable log of every
+trip — it opens showing **Active (not completed)** trips by default
+(switch the Status filter to **All statuses** or **Completed** to see
+the rest), with its two count tiles always showing both the filtered
+count and the true all-time total so neither reads as the other. **+
+New Trip** offers a choice: **Start recruiting a new trip** (pick a
+partner and trip type, then land on that trip's own detail page to
+fill in the rest — the same `createTrip` call the Plan a Trip tab's own
+"Start a new trip" button makes, team size auto-filled from the
+partner's own Trip Capacity fields) or **Log a trip that already
+happened** (today's quick historical backfill — partner, dates, trip
+type, description, a Photo/Video Album link, and participants —
+managed entirely inline here, same as before this feature existed;
+**Edit** and **Delete** work the same way). A trip that's still
+`planning`, `accepting_applications`, or `closed` instead shows a link
+into its own fuller detail page — this tab isn't where an active
+trip's applications, team, or documents get managed. The **Plan a
+Trip** tab answers a different question — which partner to plan the
+*next* trip for — blending an **Open** row (already recruiting), a
+**Committed** row (team finalized, hasn't happened), and a **No trip
+scheduled** row (just that partner's own general trip capacity) so a
+partner never falls off the list just because nothing's on the
+calendar yet. Each row also shows that partner's past trip count and
+most recent trip date, and a **Clone trip** action (for any partner
+with at least one prior trip) that copies a trip's reusable shape —
+name, type, team size, description, support-raising goal, application
+questions, and requirement list — into a fresh `planning`-status row
+with no dates and no team, ready to fill in for a repeat. Starting a
+brand-new trip works from either tab now; Plan a Trip is still the
+better tool when you don't yet know *which* partner needs one.
+
+![The Plan a Trip tab: which partner to send a team to next](docs/assets/screenshots/trip-opportunities.png)
+
+<!-- SCREENSHOT NEEDED: trip-opportunities.png should be retaken for the
+same reason as trip-history.png above — this is now a tab on the same
+page, not its own standalone page with its own nav item. -->
 
 **On a trip's own detail page** (below the basic setup fields — name,
 status, dates, team size, support-raising goal, description, the
@@ -966,6 +978,14 @@ birth to apply, regardless of the church-wide date-of-birth defaults on
 Trips Settings):
 
 ![A full recruiting trip's detail page -- setup, flight itinerary, team, requirements, meetings, budget, contributions, applications, and the private link/question editor](docs/assets/screenshots/admin-trip-detail.png)
+
+<!-- SCREENSHOT NEEDED: admin-trip-detail.png should be retaken -- the
+Meetings table/form gained a title field and column, the Trip-wide
+documents upload form gained a title input and now shows file size,
+and the Contributions method dropdown gained an Online option, none of
+which existed the last time this screenshot was captured. Same
+protocol as every other flagged screenshot here. Tracked alongside
+#264/#266. -->
 
 - **Support-raising goal** shows a suggested per-person figure right
   under the field itself, once a budget total and a team size exist —
@@ -987,18 +1007,23 @@ Trips Settings):
   someone without going through an application.
 - **Trip-wide documents** are shared with the whole team (an itinerary,
   packing list) — separate from a document logged against one
-  specific participant.
+  specific participant. Give one a title so it's clear what it is at a
+  glance (otherwise it just shows the uploaded file's own name); file
+  size is shown once uploaded. Every team member can see and download
+  these from their own self-service page — not just admins.
 - **Trip Requirements** are your own ordered list of what this trip
   needs from each participant, in one of three kinds: a **document**
-  to upload, a plain **task** an admin checks off (e.g. "Attended
-  orientation call"), or an **e-signature** — agreement text you write
-  once, which the participant signs (typed name + a drawn signature)
-  from their own self-service page, choosing whether they're signing
-  for themselves or as a parent/guardian (recordkeeping only — nothing
-  stops a parent from using a minor's own link, same as this app has
-  never verified any signer's identity). Give any requirement a due date to
-  see it flagged once overdue, and a reminder lead time to have anyone
-  who hasn't fulfilled it emailed automatically before it's due. A new
+  to upload (a participant can upload it themselves from their own
+  self-service page — it no longer has to go through an admin), a
+  plain **task** an admin checks off (e.g. "Attended orientation
+  call"), or an **e-signature** — agreement text you write once, which
+  the participant signs (typed name + a drawn signature) from their own
+  self-service page, choosing whether they're signing for themselves or
+  as a parent/guardian (recordkeeping only — nothing stops a parent
+  from using a minor's own link, same as this app has never verified
+  any signer's identity). Give any requirement a due date to see it
+  flagged once overdue, and a reminder lead time to have anyone who
+  hasn't fulfilled it emailed automatically before it's due. A new
   actively-recruiting trip starts with whatever requirement list is
   configured on the Trips Settings page (see below); editing that
   template afterward only affects trips created later. **Add from your
@@ -1006,44 +1031,66 @@ Trips Settings):
   reusable requirement — e.g. a minor travel release form — onto this
   one trip specifically, instead of retyping it; unlike the
   auto-copied template, nothing from the library is ever added to a
-  trip until you explicitly pick it there.
+  trip until you explicitly pick it there. Adding a **document** or
+  **e-signature** requirement emails every current team member asking
+  them to take care of it — including someone added to the team
+  *after* it was already added, who gets caught up automatically the
+  moment they join (same as Meetings, below), so nobody who joins late
+  is left not knowing something's expected of them.
 - **Meetings** — schedule a date/time, an in-person location, a join
-  link (for a virtual or hybrid meeting — both can be set at once), and
-  an agenda. Each meeting is a collapsed summary row (when it is, where
-  it is, and who's RSVP'd) — click a row to expand it into the editable
-  fields, the full per-participant RSVP breakdown, and the Resend/
-  Cancel/✕ actions. Scheduling one emails every current team member an
-  invite right away, with a calendar (.ics) attachment and three
-  one-click **Yes / No / Maybe** RSVP links, and participants get a
-  reminder email the day before (also with the agenda, join link, and
-  either RSVP links or, if they already responded, what's on file).
-  Clicking an RSVP link needs no login — it's the same signed link each
-  participant already uses for their own self-service page — and
-  clicking a different one later just updates their response; the
-  summary row's tally (e.g. "3 yes · 1 no · 2 no response") and the
-  expanded view's per-participant list both reflect it immediately.
-  Changing the date/time or join link resends the invite automatically;
-  editing just the agenda updates silently. **Resend invite** sends the
-  same invite again without changing anything — useful for a late
-  addition to the team or someone who says they never got it.
-  **Cancel** calls off a meeting and emails everyone who got the
-  original invite a cancellation notice (including a calendar-cancel
-  attachment, so it actually disappears from a participant's calendar
-  app, not just their inbox, and with no RSVP links — there's nothing
-  left to RSVP to) — the meeting stays listed, struck through, rather
-  than disappearing, so there's a record of it. The ✕ button is for
-  deleting a meeting entered by mistake that was never really going to
-  happen; once a meeting has been cancelled, use Cancel instead of ✕.
+  link (for a virtual or hybrid meeting — both can be set at once), a
+  **meeting title**, and an agenda. The title is what shows in the
+  email subject line and on the calendar entry a participant adds —
+  worth setting on a trip with more than one meeting, so "Pre-field
+  training" and "Team orientation call" don't both just show up as
+  identical "Meeting: <trip name>" emails; leave it blank and that
+  trip-name fallback is exactly what's used. Each meeting is a
+  collapsed summary row (when it is, where it is, and who's RSVP'd) —
+  click a row to expand it into the editable fields, the full
+  per-participant RSVP breakdown, and the Resend/Cancel/✕ actions.
+  Scheduling one emails every current team member an invite right
+  away, with a calendar (.ics) attachment and three one-click **Yes /
+  No / Maybe** RSVP links, and participants get a reminder email the
+  day before (also with the agenda, join link, and either RSVP links
+  or, if they already responded, what's on file). Clicking an RSVP
+  link needs no login — it's the same signed link each participant
+  already uses for their own self-service page — and clicking a
+  different one later just updates their response; the summary row's
+  tally (e.g. "3 yes · 1 no · 2 no response") and the expanded view's
+  per-participant list both reflect it immediately. Changing the
+  date/time or join link resends the invite automatically; editing
+  just the agenda updates silently. **Resend invite** sends the same
+  invite again without changing anything — useful for someone who says
+  they never got it. A participant added to the team *after* a meeting
+  already exists gets that meeting's invite automatically the moment
+  they join (whether added directly or approved from an application) —
+  nobody has to remember to click Resend for them. Changing the trip's
+  own start or end date also resends every current participant the
+  updated trip-dates calendar invite, so an existing team member's
+  calendar doesn't quietly go stale. **Cancel** calls off a meeting and
+  emails everyone who got the original invite a cancellation notice
+  (including a calendar-cancel attachment, so it actually disappears
+  from a participant's calendar app, not just their inbox, and with no
+  RSVP links — there's nothing left to RSVP to) — the meeting stays
+  listed, struck through, rather than disappearing, so there's a record
+  of it. The ✕ button is for deleting a meeting entered by mistake that
+  was never really going to happen; once a meeting has been cancelled,
+  use Cancel instead of ✕. None of this backfill/resend behavior
+  applies to a trip that's already `completed`, or one whose dates are
+  already in the past — a trip entered purely as a historical record
+  never gets live emails sent on its behalf.
 - **Budget** (only shown when **Track a planned budget per trip** is on
   in Trips Settings) is a list of estimated whole-team expense lines
   (flights, lodging, in-country transport) with a running total,
   compared against what's actually been raised. Admin-only — never
   shown to applicants or participants.
 - **Contributions** is the manual giving ledger — donor name, which
-  participant (or "Trip-wide") it's credited to, amount, method, date
-  received. Donor email/phone are optional fields here too, shown only
-  when **Collect donor email/phone when logging a contribution** is on
-  in Trips Settings.
+  participant (or "Trip-wide") it's credited to, amount, method (Check,
+  Cash, Online, or Other — Online for a gift given through the
+  church's own configured online-giving link, see Giving & budget
+  below), date received. Donor email/phone are optional fields here
+  too, shown only when **Collect donor email/phone when logging a
+  contribution** is on in Trips Settings.
 - **Applications awaiting review** — **Approve** or **Decline** each
   one, with each applicant's full answers (including mailing address,
   emergency contact, and date of birth/parent-guardian info, when
@@ -1101,8 +1148,9 @@ live:
 **Two feature flags, not one** — see [§ Feature toggles](#feature-toggles)
 above:
 
-- **Mission trips** gates the whole backend capability (the Trips and
-  Plan a Trip admin pages, every `/api/trips` route). Off by default.
+- **Mission trips** gates the whole backend capability (the Trips
+  admin page and both its tabs, every `/api/trips` route). Off by
+  default.
 - **Public trip discovery** gates only the broadly-public listing
   (`/trips`) and plain, id-addressed application links. Nested under
   Mission trips, also off by default, so a church can run trips
@@ -1226,11 +1274,29 @@ reached from their own emailed access link) additionally shows the
 flight itinerary, donor contact info (when collected), and lets them
 edit their own story/photo directly — no review step, the same trust
 level as the address/emergency-contact/application answers they
-already self-report elsewhere. It's also where they sign an
-e-signature requirement, drawing their signature and typing their
-name.
+already self-report elsewhere. Under **Meetings**, each one shows its
+title, an **Add to calendar** link (downloads the same calendar entry
+the original invite email attached, for anyone who's misplaced that
+email), and the same one-click **Yes / No / Maybe** RSVP links right
+on the page — not just in the emailed invite — showing "You responded:
+X" once they've answered, with a link to change it anytime. Under
+**Trip-wide documents**, they can see and download anything shared
+with the whole team (an itinerary, packing list). Under **Still needed
+from you**, an outstanding **document**-kind requirement now has a
+real upload control here too, not just an e-signature's drawn
+signature — either kind is fulfilled directly from this page, no
+admin involved.
 
 ![A participant's self-service page -- support raising, flight itinerary, meetings, donors](docs/assets/screenshots/public-trip-self-service.png)
+
+<!-- SCREENSHOT NEEDED: public-trip-self-service.png should be retaken
+to show the new Meetings section (title + Add to calendar link + inline
+Yes/No/Maybe RSVP), the new Trip-wide documents section, and a "Still
+needed from you" document-kind requirement with its upload control
+visible -- none of this existed the last time this screenshot was
+captured. Same capture protocol as every other flagged screenshot in
+this file: demo admin's own participant view, rich demo state, backup
+banner dismissed. Tracked alongside #264/#266. -->
 
 ### Database backups
 

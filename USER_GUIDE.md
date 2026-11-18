@@ -76,7 +76,7 @@ email sending only),
 [**Monthly Support**](#financial-support--one-time-needs),
 [**One-Time Needs**](#financial-support--one-time-needs),
 [**Prayer Requests**](#prayer-requests),
-[**Trips**](#trips), [**Plan a Trip**](#trips),
+[**Trips**](#trips) (Existing Trips / Plan a Trip tabs),
 [**Newsletters & Docs**](#newsletters--docs),
 [**Print Booklet**](#printable-partner-booklet), [**Reports**](#reports)
 — visible to everyone, each one only if its
@@ -457,12 +457,16 @@ historical log — off by default; turn it on in [Enabled
 Features](ADMIN_GUIDE.md#feature-toggles) (and, separately, **Public
 trip discovery** if you want trips listed publicly — see [ADMIN_GUIDE.md
 § Trips](ADMIN_GUIDE.md#trips) for exactly what each flag and each
-private-link setting gates). Two admin pages, each answering a
-different question:
+private-link setting gates). One page, one "Trips" nav item, two tabs
+each answering a different question:
 
-![The Trips list](docs/assets/screenshots/trip-history.png)
+![The Trips page's Existing Trips tab](docs/assets/screenshots/trip-history.png)
 
-- **Trips** is the filterable log of every trip — filter by status,
+<!-- SCREENSHOT NEEDED: trip-history.png should be retaken to show the
+current tabbed page, same as the equivalent flag in ADMIN_GUIDE.md.
+Tracked alongside #264/#266. -->
+
+- The **Existing Trips** tab is the filterable log of every trip — filter by status,
   type, year, team size. It opens showing **Active (not completed)**
   trips by default (planning, accepting applications, and closed-but-
   not-yet-happened all count as active) rather than every trip ever —
@@ -488,21 +492,25 @@ different question:
     or another provider you choose "Other" for. This app never stores the
     photos/videos themselves, just the link, and it's admin-only — it
     never appears on the public site.
-- **Plan a Trip** answers a different question — which partner to plan
-  the *next* trip for — blending three kinds of row per partner so
-  nobody falls off the list just because nothing's on the calendar yet:
-  an **Open** row (already recruiting), a **Committed** row (team
-  finalized, hasn't happened), or a **No trip scheduled** row (just
-  that partner's own general trip capacity from their Trip Capacity
-  fields). Each row also shows that partner's past trip count, and a
-  **Clone trip** action to start a repeat from an existing trip's own
-  setup instead of typing it all again. A restricted partner gets its
-  own badge here too, name withheld — see restricted-partner handling
-  below. Starting a brand-new trip works from either page now — use
-  whichever you're already on; Plan a Trip is still the better tool
-  when you don't yet know *which* partner needs one.
+- The **Plan a Trip** tab answers a different question — which partner
+  to plan the *next* trip for — blending three kinds of row per
+  partner so nobody falls off the list just because nothing's on the
+  calendar yet: an **Open** row (already recruiting), a **Committed**
+  row (team finalized, hasn't happened), or a **No trip scheduled** row
+  (just that partner's own general trip capacity from their Trip
+  Capacity fields). Each row also shows that partner's past trip
+  count, and a **Clone trip** action to start a repeat from an existing
+  trip's own setup instead of typing it all again. A restricted
+  partner gets its own badge here too, name withheld — see
+  restricted-partner handling below. Starting a brand-new trip works
+  from either tab now — use whichever you're already on; Plan a Trip is
+  still the better tool when you don't yet know *which* partner needs
+  one.
 
-![Plan a Trip](docs/assets/screenshots/trip-opportunities.png)
+![The Plan a Trip tab](docs/assets/screenshots/trip-opportunities.png)
+
+<!-- SCREENSHOT NEEDED: trip-opportunities.png should be retaken for
+the same reason as trip-history.png above. Tracked alongside #264/#266. -->
 
 **On a trip's own detail page**, beyond the basic setup fields (name,
 dates, team size, description, visible-on-public-discovery toggle, and
@@ -510,6 +518,11 @@ dates, team size, description, visible-on-public-discovery toggle, and
 it):
 
 ![A trip's full detail page](docs/assets/screenshots/admin-trip-detail.png)
+
+<!-- SCREENSHOT NEEDED: admin-trip-detail.png should be retaken -- same
+flag as ADMIN_GUIDE.md (Meetings title field/column, Trip-wide
+documents title input + file size, Contributions' new Online method).
+Tracked alongside #264/#266. -->
 
 - **Support-raising goal** shows a suggested per-person figure once a
   budget and a team size exist — always just a suggestion, never
@@ -522,33 +535,50 @@ it):
   completed it, and a link to their own detail page for everything
   else. **+ Add participant directly** adds someone without an
   application.
+- **Trip-wide documents** are files shared with the whole team — an
+  itinerary, a packing list — give one a title so it's clear what it
+  is. Every team member can see and download these from their own
+  self-service page, not just admins.
 - **Requirements** — your own list of what's needed from each
   participant, each either a **document** to upload, a plain **task**
   to check off (e.g. "Attended orientation call"), or an
   **e-signature** the participant (or, choosing "Parent or legal
   guardian," a parent signing on a minor's behalf) signs from their
-  own self-service page. Fulfillment shows right on the Confirmed Team
+  own self-service page. A document-kind requirement can now be
+  uploaded by the participant themselves from that same page too — not
+  only by an admin. Fulfillment shows right on the Confirmed Team
   table, computed from what's actually on file or signed rather than a
   status anyone updates by hand. **Add from your saved requirements**
   picks a reusable one (like a minor travel release form) onto this
-  one trip, instead of retyping it.
+  one trip, instead of retyping it. Adding a document or e-signature
+  requirement emails the whole current team — and anyone who joins the
+  team later gets caught up on it automatically too, so nobody who
+  joins after the fact is left not knowing something's expected of
+  them.
 - **Meetings** — schedule a date/time, an in-person location, a join
-  link if it's virtual or hybrid, and an agenda. Each meeting shows as a
-  short summary (when, where, and who's RSVP'd); click it to see or
-  change the details and who's responded. Scheduling one emails the
-  team an invite right away (with a calendar attachment and one-click
-  **Yes / No / Maybe** RSVP buttons they can click straight from the
-  email, no login needed), and participants get a day-before reminder
-  too, both showing the agenda and join link. Changing the time or join
-  link resends the invite automatically; **Resend invite** sends it
-  again on demand with no change needed. **Cancel** calls a meeting off
-  and emails everyone who was invited — the meeting stays listed,
-  crossed out, as a record that it happened and was called off.
+  link if it's virtual or hybrid, a **title**, and an agenda. The
+  title is what shows in the invite's subject line and on the calendar
+  entry — handy once a trip has more than one meeting, so they don't
+  all just read "Meeting: <trip name>." Each meeting shows as a short
+  summary (when, where, and who's RSVP'd); click it to see or change
+  the details and who's responded. Scheduling one emails the team an
+  invite right away (with a calendar attachment and one-click **Yes /
+  No / Maybe** RSVP buttons they can click straight from the email, no
+  login needed), and participants get a day-before reminder too, both
+  showing the agenda and join link. Changing the time or join link
+  resends the invite automatically; **Resend invite** sends it again on
+  demand with no change needed. Someone added to the team after a
+  meeting's already scheduled gets that meeting's invite the moment
+  they join — nobody has to remember to resend it for them. Changing
+  the trip's own start or end date resends everyone the updated
+  calendar invite too. **Cancel** calls a meeting off and emails
+  everyone who was invited — the meeting stays listed, crossed out, as
+  a record that it happened and was called off.
 - **Budget** (if turned on in Trips Settings) tracks estimated
   whole-team costs against what's been raised — admin-only, never
   shown to applicants or participants.
-- **Contributions** is the giving ledger — who gave, how much, to whom
-  it's credited.
+- **Contributions** is the giving ledger — who gave, how much, by
+  Check/Cash/Online/Other, to whom it's credited.
 - **Applications awaiting review** — **Approve** or **Decline** each
   one; a declined one can still be reconsidered later.
 - **Private application link** — a dedicated "Generate" button
@@ -617,9 +647,19 @@ never their flight itinerary or anyone's contact info.
 Their own private self-service page (reached from their emailed access
 link, not this public one) additionally shows the flight itinerary and
 donor details, lets them edit their own story/photo directly with no
-review step, and is where they sign an e-signature requirement.
+review step, and is where they fulfill a document or e-signature
+requirement themselves. Each meeting listed there shows its title, an
+**Add to calendar** link, and the same one-click Yes/No/Maybe RSVP
+buttons the emailed invite has — right on the page, with "You
+responded: X" once they've answered. Any trip-wide document (shared
+with the whole team) is listed here too, with a link to download it.
 
 ![A participant's self-service page](docs/assets/screenshots/public-trip-self-service.png)
+
+<!-- SCREENSHOT NEEDED: public-trip-self-service.png should be retaken
+to show the new Meetings (title + Add to calendar + inline RSVP),
+Trip-wide documents, and self-upload-a-document pieces described above
+-- same flag as ADMIN_GUIDE.md. Tracked alongside #264/#266. -->
 
 If they lose their self-service link, a **request a new link** page
 always replies the same way whether or not it found anything, so it
