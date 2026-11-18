@@ -5,9 +5,8 @@ const prisma = require("../prismaClient");
 const jwt = require("jsonwebtoken");
 const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
-const { sendEmail } = require("../utils/email");
-const { buildSubscriberConfirmUrl } = require("../utils/emailDispatchShell");
-const { renderSubscriberPage, escapeHtml, PRIVACY_LINE } = require("../utils/subscriberPage");
+const { renderSubscriberPage } = require("../utils/subscriberPage");
+const { sendConfirmEmail } = require("../utils/publicSubscribeEmails");
 
 const router = express.Router();
 
@@ -73,17 +72,6 @@ async function applySubscription(existing, email, data) {
   };
   if (!existing) return prisma.publicSubscriber.create({ data: { email, ...writeData } });
   return prisma.publicSubscriber.update({ where: { id: existing.id }, data: writeData });
-}
-
-async function sendConfirmEmail(subscriber) {
-  const confirmUrl = buildSubscriberConfirmUrl(subscriber.id);
-  if (!confirmUrl) return; // APP_BASE_URL not set -- nothing clickable to send
-  await sendEmail({
-    to: subscriber.email,
-    subject: "Confirm your prayer update subscription",
-    text: `Click to confirm: ${confirmUrl}\n\n${PRIVACY_LINE}`,
-    html: `<p>Click to confirm your subscription:</p><p><a href="${confirmUrl}">${confirmUrl}</a></p><p style="color:#888;font-size:12px;">${escapeHtml(PRIVACY_LINE)}</p>`,
-  });
 }
 
 // POST / -- subscribe (or re-scope an existing subscription). Always
