@@ -271,6 +271,7 @@ router.get("/:id", async (req, res, next) => {
             requirementId: true,
             title: true,
             fileName: true,
+            fileSize: true,
             contentType: true,
             createdAt: true,
             signerName: true,
