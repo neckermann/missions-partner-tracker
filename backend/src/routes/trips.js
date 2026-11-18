@@ -486,20 +486,11 @@ router.post("/:id/requirements", requireRole("admin", "editor"), async (req, res
     // today -- it could reuse this same trigger later, this round keeps
     // scope to the one kind that's newly actionable.
     if (created.kind === "document") {
-      const settings = await getSettings();
-      if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
-        const trip = await prisma.trip.findUnique({
-          where: { id: req.params.id },
-          include: { participants: true },
-        });
-        for (const participant of trip?.participants || []) {
-          await sendParticipantEmail(
-            participant,
-            `New item needed: ${created.label}`,
-            `A new item has been added to your checklist for ${trip.name || trip.type || "your trip"}: "${created.label}".\n\nYour trip page: ${buildTripParticipantAccessUrl(participant)}`
-          );
-        }
-      }
+      const trip = await prisma.trip.findUnique({
+        where: { id: req.params.id },
+        include: { participants: true },
+      });
+      await sendDocumentRequirementEmail(trip, created, trip?.participants || []);
     }
 
     res.status(201).json(created);
@@ -806,7 +797,10 @@ router.post("/:id/participants", requireRole("admin", "editor"), async (req, res
     const data = participantSchema
       .extend({ email: z.string().email().optional().nullable() })
       .parse(req.body);
-    const trip = await prisma.trip.findUnique({ where: { id: req.params.id }, include: { meetings: true } });
+    const trip = await prisma.trip.findUnique({
+      where: { id: req.params.id },
+      include: { meetings: true, requirements: true },
+    });
     if (!trip) return res.status(404).json({ error: "Not found" });
 
     // A participant on a completed trip is a backfill by construction
@@ -875,6 +869,22 @@ router.post("/:id/participants", requireRole("admin", "editor"), async (req, res
           meeting,
           "A meeting has been scheduled."
         );
+      }
+    }
+
+    // Same gap, document side: a participant added after a document-kind
+    // requirement already exists would otherwise never learn about it --
+    // their self-service page's "Still needed from you" list already
+    // computes this live, but nothing ever prompts them to go look.
+    // "task"/"esignature" stay out of scope here too, for the same
+    // reason sendDocumentRequirementEmail's own comment gives at the
+    // requirement-creation call site. Same completed-trip exclusion as
+    // the meeting loop above -- a completed-trip participant is a
+    // backfill, not someone who needs a checklist nudge.
+    if (trip.status !== "completed") {
+      const documentRequirements = trip.requirements.filter((r) => r.kind === "document");
+      for (const requirement of documentRequirements) {
+        await sendDocumentRequirementEmail(trip, requirement, [participant]);
       }
     }
 
@@ -1016,6 +1026,25 @@ const meetingInputSchema = z.object({
 });
 
 // Shared by create/update/resend/cancel -- every one of these sends a
+// Shared by the requirement-creation route above and the late-joiner
+// check in participant creation below -- same email, two different
+// moments a participant can first become aware a document-kind
+// requirement applies to them (a new one gets added to their trip, or
+// they get added to a trip that already has one). Gates and loops
+// internally, same shape as sendMeetingEmail just below, so neither call
+// site needs its own settings check.
+async function sendDocumentRequirementEmail(trip, requirement, participants) {
+  const settings = await getSettings();
+  if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) return;
+  for (const participant of participants) {
+    await sendParticipantEmail(
+      participant,
+      `New item needed: ${requirement.label}`,
+      `A new item has been added to your checklist for ${trip.name || trip.type || "your trip"}: "${requirement.label}".\n\nYour trip page: ${buildTripParticipantAccessUrl(participant)}`
+    );
+  }
+}
+
 // participant email with the same .ics attachment shape, just a
 // different lead sentence and (for cancel) the CANCEL variant.
 async function sendMeetingEmail(trip, meeting, lead, { cancelled = false } = {}) {

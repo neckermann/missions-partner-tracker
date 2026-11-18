@@ -1040,4 +1040,114 @@ describe("Trips: public document-requirement upload", () => {
       await setFeatures({ outboundEmail: true });
     }
   });
+
+  // The document-requirement counterpart to the late-joiner meeting-invite
+  // coverage in "Trips: meetings" above -- a participant added after a
+  // document-kind requirement already exists would otherwise never learn
+  // about it short of revisiting their own trip page unprompted.
+  test("adding a participant to a trip with an existing document requirement sends the checklist notice too", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "planning",
+        startDate: "2026-12-20",
+        endDate: "2026-12-27",
+      },
+    });
+    await prisma.tripRequirement.create({
+      data: { tripId: trip.body.id, label: "Passport photo page", kind: "document" },
+    });
+
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.body.id}/participants`, {
+        method: "POST",
+        body: { firstName: "Late", lastName: "Joiner", email: "late-doc-joiner@example.test" },
+      });
+      assert.equal(res.status, 201);
+    });
+
+    const notice = sent.find((m) => /^New item needed: Passport photo page/.test(m.Subject));
+    assert.ok(notice, "the existing document requirement must trigger a checklist notice");
+    assert.equal(notice.To, "late-doc-joiner@example.test");
+    assert.match(notice.TextBody, /\/my-trip\?token=/);
+    const welcome = sent.find((m) => /^You're on the team:/.test(m.Subject));
+    assert.ok(welcome, "the one-time welcome email must still be sent alongside it");
+  });
+
+  test("adding a participant to a trip with only a task-kind requirement sends no checklist notice", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction", status: "planning" },
+    });
+    await prisma.tripRequirement.create({
+      data: { tripId: trip.body.id, label: "Attended orientation call", kind: "task" },
+    });
+
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.body.id}/participants`, {
+        method: "POST",
+        body: { firstName: "Late", lastName: "Joiner2", email: "late-task-joiner@example.test" },
+      });
+      assert.equal(res.status, 201);
+    });
+
+    assert.ok(
+      !sent.some((m) => /^New item needed:/.test(m.Subject)),
+      "a task-kind requirement is not newly actionable and must not trigger a notice"
+    );
+  });
+
+  test("adding a participant to a trip with no requirements at all behaves unchanged", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "planning",
+        startDate: "2026-12-20",
+        endDate: "2026-12-27",
+      },
+    });
+
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.body.id}/participants`, {
+        method: "POST",
+        body: { firstName: "Solo", lastName: "Joiner2", email: "solo-doc-joiner@example.test" },
+      });
+      assert.equal(res.status, 201);
+    });
+
+    assert.equal(sent.length, 1, "only the one-time welcome email -- no requirements to notice about");
+    assert.match(sent[0].Subject, /^You're on the team:/);
+  });
+
+  test("outboundEmail off suppresses the late-joiner checklist notice too", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction", status: "planning" },
+    });
+    await prisma.tripRequirement.create({
+      data: { tripId: trip.body.id, label: "Passport photo page", kind: "document" },
+    });
+
+    await setFeatures({ outboundEmail: false });
+    try {
+      const sent = await captureEmails(async () => {
+        const res = await admin(`/api/trips/${trip.body.id}/participants`, {
+          method: "POST",
+          body: { firstName: "Quiet", lastName: "Joiner2", email: "quiet-doc-joiner@example.test" },
+        });
+        assert.equal(res.status, 201);
+      });
+      assert.equal(sent.length, 0, "outboundEmail off must suppress the checklist notice, not just the welcome email");
+    } finally {
+      await setFeatures({ outboundEmail: true });
+    }
+  });
 });
