@@ -401,6 +401,60 @@ describe("Trips: meetings", () => {
     assert.match(sent[0].TextBody, /https:\/\/zoom\.us\/j\/111/);
   });
 
+  test("a meeting's own title drives the email subject and the .ics SUMMARY, not just the trip name", async () => {
+    const { trip } = await createTripWithParticipant();
+    let meeting;
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}/meetings`, {
+        method: "POST",
+        body: { startAt: "2026-12-03T19:00:00.000Z", title: "Pre-Field Training" },
+      });
+      assert.equal(res.status, 201);
+      meeting = res.body;
+    });
+    assert.equal(meeting.title, "Pre-Field Training");
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].Subject, "Meeting: Pre-Field Training");
+    const ics = sent[0].Attachments?.find((a) => a.Name === "meeting.ics");
+    const decoded = Buffer.from(ics.Content, "base64").toString();
+    assert.match(decoded, /SUMMARY:Pre-Field Training/);
+  });
+
+  test("a meeting with no title falls back to exactly today's trip-name-only subject", async () => {
+    const { trip } = await createTripWithParticipant();
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}/meetings`, {
+        method: "POST",
+        body: { startAt: "2026-12-04T19:00:00.000Z" },
+      });
+      assert.equal(res.status, 201);
+    });
+    assert.equal(sent.length, 1);
+    // trip.name is unset in createTripWithParticipant -- falls through to
+    // trip.type ("Construction"), same as before this field existed.
+    assert.equal(sent[0].Subject, "Meeting: Construction");
+    const ics = sent[0].Attachments?.find((a) => a.Name === "meeting.ics");
+    const decoded = Buffer.from(ics.Content, "base64").toString();
+    assert.match(decoded, /SUMMARY:Construction/);
+  });
+
+  test("cancelling a titled meeting carries the title into the cancellation subject too", async () => {
+    const { trip } = await createTripWithParticipant();
+    let meeting;
+    await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}/meetings`, {
+        method: "POST",
+        body: { startAt: "2026-12-05T19:00:00.000Z", title: "Team Orientation Call" },
+      });
+      meeting = res.body;
+    });
+    const sent = await captureEmails(async () => {
+      await admin(`/api/trips/meetings/${meeting.id}/cancel`, { method: "POST" });
+    });
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].Subject, "Meeting cancelled: Team Orientation Call");
+  });
+
   test("an agenda-only edit updates silently; a meetingLink change resends the invite", async () => {
     const { trip } = await createTripWithParticipant();
     let meeting;

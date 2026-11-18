@@ -1036,6 +1036,7 @@ router.post(
 
 const meetingInputSchema = z.object({
   startAt: z.coerce.date().optional(),
+  title: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
   // An empty string (clearing the field from a form input) is treated
   // the same as omitting it -- url() rejects "" outright, and clearing
@@ -1152,16 +1153,24 @@ async function sendTripDatesUpdateEmail(trip) {
 async function sendMeetingEmail(trip, meeting, lead, { cancelled = false } = {}) {
   const settings = await getSettings();
   if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) return;
+  // Falls back to exactly today's trip-name-only subject when a meeting
+  // has no title set -- a trip with more than one meeting (the normal
+  // case) otherwise sends every meeting's email with the identical
+  // subject line, indistinguishable in an inbox until opened.
+  const subjectLabel = meeting.title || trip.name || trip.type || "your trip";
   for (const participant of trip.participants) {
     await sendParticipantEmail(
       participant,
-      `${cancelled ? "Meeting cancelled" : "Meeting"}: ${trip.name || trip.type || "your trip"}`,
+      `${cancelled ? "Meeting cancelled" : "Meeting"}: ${subjectLabel}`,
       buildMeetingEmailBody(meeting, lead, participant, { cancelled }),
       {
         attachments: [
           {
             name: "meeting.ics",
-            content: Buffer.from(buildMeetingIcs({ ...meeting, summary: trip.name }, { cancelled })),
+            // Same resolved label as the email subject above -- the
+            // calendar entry's own title and the email that delivered it
+            // should always read as the same thing, not drift apart.
+            content: Buffer.from(buildMeetingIcs({ ...meeting, title: subjectLabel }, { cancelled })),
             contentType: "text/calendar",
           },
         ],

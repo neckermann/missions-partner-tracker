@@ -467,6 +467,15 @@ model TripMeeting {
   tripId         String
   trip           Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
   startAt        DateTime
+  // Short, identifying name -- what shows as the email subject and
+  // calendar-entry title. A real, distinct need from the "two unused
+  // fields" case `agenda` below's own comment already rejected: a trip
+  // with more than one meeting (the normal case) sent every meeting's
+  // email with the exact same subject line ("Meeting: <trip name>"),
+  // indistinguishable in an inbox until opened. Optional, with a
+  // same-as-today fallback wherever it's blank -- see sendMeetingEmail
+  // and buildMeetingIcs.
+  title          String?
   location       String?
   meetingLink    String?
   // Renamed from the former `notes` -- already used at every seed call
@@ -474,7 +483,9 @@ model TripMeeting {
   // orientation and safety briefing"), just never surfaced in any UI,
   // invite, or reminder. One field, not two: adding a second
   // agenda-shaped column alongside an unused one would just be the same
-  // concept under two names.
+  // concept under two names. `title` above is a different concept
+  // (short, identifying) from this (long-form descriptive content), not
+  // a repeat of that same mistake.
   agenda         String?   @db.Text
   // Guards the day-before reminder against double-sending -- same
   // "stamp once sent" precedent DispatchRecord's own per-channel columns

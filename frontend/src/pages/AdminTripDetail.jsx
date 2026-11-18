@@ -88,6 +88,7 @@ export default function AdminTripDetail() {
   });
   const [meetingForm, setMeetingForm] = useState({
     startAt: "",
+    title: "",
     location: "",
     meetingLink: "",
     agenda: "",
@@ -419,11 +420,12 @@ export default function AdminTripDetail() {
     if (!meetingForm.startAt) return;
     await scheduleTripMeeting(id, {
       startAt: meetingForm.startAt,
+      title: meetingForm.title.trim() || null,
       location: meetingForm.location.trim() || null,
       meetingLink: meetingForm.meetingLink.trim() || null,
       agenda: meetingForm.agenda.trim() || null,
     });
-    setMeetingForm({ startAt: "", location: "", meetingLink: "", agenda: "" });
+    setMeetingForm({ startAt: "", title: "", location: "", meetingLink: "", agenda: "" });
     reload();
   }
 
@@ -715,8 +717,8 @@ export default function AdminTripDetail() {
         </div>
         <p style={{ fontSize: "0.75rem", color: "#888" }}>
           Adds date-of-birth and parent/guardian name/relationship/phone/email to this trip's own application
-          form, and requires date of birth to apply -- regardless of the church-wide defaults on the Mission
-          Trips settings page. Per-trip, not church-wide: turn this on only for a trip that actually has minors.
+          form, and requires date of birth to apply -- regardless of the church-wide defaults on the Trips
+          Settings page. Per-trip, not church-wide: turn this on only for a trip that actually has minors.
         </p>
         {savingSetup && <p style={{ color: "#888" }}>Saving…</p>}
       </div>
@@ -1284,6 +1286,7 @@ export default function AdminTripDetail() {
         <table className="admin-table">
           <thead>
             <tr>
+              <th>Title</th>
               <th>When</th>
               <th>Where</th>
               <th>RSVPs</th>
@@ -1320,6 +1323,7 @@ export default function AdminTripDetail() {
                       ...(m.cancelledAt ? { opacity: 0.6, textDecoration: "line-through" } : undefined),
                     }}
                   >
+                    <td>{m.title || <span style={{ color: "#888" }}>—</span>}</td>
                     <td>{whenLabel}</td>
                     <td>{whereLabel}</td>
                     <td>{rsvpSummary}</td>
@@ -1327,8 +1331,24 @@ export default function AdminTripDetail() {
                   </tr>
                   {expanded && (
                     <tr>
-                      <td colSpan={4} style={{ background: "#faf9f7" }}>
+                      <td colSpan={5} style={{ background: "#faf9f7" }}>
                         <div className="form-grid" style={{ marginBottom: "0.75rem" }}>
+                          <label>
+                            Meeting title
+                            <input
+                              disabled={!!m.cancelledAt}
+                              defaultValue={m.title || ""}
+                              placeholder="e.g. Pre-Field Training"
+                              onBlur={(e) =>
+                                e.target.value !== (m.title || "") &&
+                                handleUpdateMeeting(m.id, { title: e.target.value.trim() || null })
+                              }
+                            />
+                            <span style={{ display: "block", color: "#888", fontSize: "0.78rem", marginTop: "0.15rem" }}>
+                              Shows as the email subject and calendar entry title -- not the same as the longer
+                              Agenda below.
+                            </span>
+                          </label>
                           <label>
                             Date/time
                             <input
@@ -1443,7 +1463,7 @@ export default function AdminTripDetail() {
             })}
             {(trip.meetings || []).length === 0 && (
               <tr>
-                <td colSpan={4} style={{ color: "#888" }}>
+                <td colSpan={5} style={{ color: "#888" }}>
                   No meetings scheduled yet.
                 </td>
               </tr>
@@ -1451,6 +1471,17 @@ export default function AdminTripDetail() {
           </tbody>
         </table>
         <form onSubmit={handleScheduleMeeting} className="form-grid">
+          <label>
+            Meeting title
+            <input
+              value={meetingForm.title}
+              placeholder="e.g. Pre-Field Training"
+              onChange={(e) => setMeetingForm((f) => ({ ...f, title: e.target.value }))}
+            />
+            <span style={{ display: "block", color: "#888", fontSize: "0.78rem", marginTop: "0.15rem" }}>
+              Shows as the email subject and calendar entry title -- not the same as the longer Agenda below.
+            </span>
+          </label>
           <label>
             Date/time
             <input

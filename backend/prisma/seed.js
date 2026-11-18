@@ -1881,6 +1881,7 @@ async function seedTripsDemo() {
     data: {
       tripId: openTrip.id,
       startAt: pastMeetingStart,
+      title: "Pre-Field Training",
       location: "Zoom",
       meetingLink: "https://zoom.us/j/5551234567",
       agenda: "Pre-field training -- cultural orientation and safety briefing.",
@@ -1895,6 +1896,7 @@ async function seedTripsDemo() {
     data: {
       tripId: openTrip.id,
       startAt: upcomingMeetingStart,
+      title: "Team Orientation Call",
       location: "Church fellowship hall",
       agenda: "Team orientation call -- logistics overview, Q&A, meet the rest of the team.",
     },
@@ -2036,6 +2038,7 @@ async function seedTripsDemo() {
     data: {
       tripId: closedTrip.id,
       startAt: closedMeetingStart,
+      title: "Final Team Meeting",
       location: "Church fellowship hall",
       agenda: "Final team meeting -- packing list review, travel logistics.",
       reminderSentAt: new Date(closedMeetingStart.getTime() - 24 * 60 * 60 * 1000),

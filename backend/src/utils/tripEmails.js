@@ -76,7 +76,7 @@ function buildMeetingIcs(meeting, { cancelled = false } = {}) {
     `DTSTAMP:${icsDateTime(new Date())}`,
     `DTSTART:${icsDateTime(start)}`,
     `DTEND:${icsDateTime(end)}`,
-    `SUMMARY:${(meeting.summary || "Trip meeting").replace(/\r?\n/g, " ")}`,
+    `SUMMARY:${(meeting.title || "Trip meeting").replace(/\r?\n/g, " ")}`,
     meeting.location ? `LOCATION:${meeting.location.replace(/\r?\n/g, " ")}` : null,
     meeting.meetingLink ? `URL:${meeting.meetingLink}` : null,
     meeting.agenda ? `DESCRIPTION:${meeting.agenda.replace(/\r?\n/g, "\\n")}` : null,
