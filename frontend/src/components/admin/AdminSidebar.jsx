@@ -27,13 +27,12 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
     enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
     enabledFeatures.oneTimeNeeds && { to: "/admin/support/needs", label: "One-Time Needs" },
     enabledFeatures.monthlySupport && { to: "/admin/support/monthly", label: "Monthly Support" },
-    // Trips first, matching every other entry in this list (a plain noun
-    // -- "here's a list of X"). Plan a Trip used to come first specifically
-    // because Trips had no way to start a new recruiting trip at all; now
-    // that Trips' own "+ New Trip" action covers that, there's no reason
-    // left to break the list's own pattern for it.
-    enabledFeatures.trips && { to: "/admin/trips", label: "Trips", end: true },
-    enabledFeatures.trips && { to: "/admin/trips/planning", label: "Plan a Trip" },
+    // One nav item now -- Trips and Plan a Trip merged into two tabs of
+    // the same page (design review, post-#252): two separate nav items
+    // for what's fundamentally one page made the real Trips/Plan-a-Trip
+    // distinction look like an accidental duplicate, not the two
+    // genuinely different questions they actually answer.
+    enabledFeatures.trips && { to: "/admin/trips", label: "Trips" },
     enabledFeatures.booklet && { to: "/admin/booklet", label: "Print Booklet" },
     enabledFeatures.reports && { to: "/admin/reports", label: "Reports" },
   ].filter(Boolean);

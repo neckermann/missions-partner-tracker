@@ -1,6 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { fetchTrips, fetchPartners, createTrip, updateTrip, deleteTrip } from "../api/client.js";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  fetchTrips,
+  fetchPartners,
+  fetchTripPlanning,
+  createTrip,
+  updateTrip,
+  deleteTrip,
+  cloneTrip,
+} from "../api/client.js";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import AlbumLinkField from "../components/admin/AlbumLinkField.jsx";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
@@ -11,16 +19,22 @@ import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import TripStatusBadge, { STATUS_LABELS } from "../components/admin/TripStatusBadge.jsx";
+import StatusPill from "../components/admin/StatusPill.jsx";
+import TripFilterBar from "../components/admin/TripFilterBar.jsx";
 
-// Renamed from AdminTripHistory.jsx (#252) -- "History" became the one
-// word the Trip/TripParticipant unification made misleading, since a
-// Trip can now also represent something that hasn't happened yet. Every
-// trip regardless of status/lifecycle stage lives here; the fuller
-// recruiting view (applications/team/meetings/documents/support raising)
-// for an actively-recruited trip is AdminTripDetail.jsx, reached via the
-// status badge/link below -- a purely historical backfill is still
-// managed entirely inline here, same as before this feature existed.
-
+// Merged (design review, post-#252) from two previously separate pages/
+// nav items -- AdminTrips.jsx ("Trips": every real Trip row, a
+// searchable record) and AdminTripPlanning.jsx ("Plan a Trip":
+// partner-centric, blends an already-scheduled open/committed trip with
+// a partner's own general capacity so a partner is never dropped from
+// the list just because nothing concrete is on the calendar). Both
+// questions are still genuinely different queries -- that didn't
+// change -- but presenting them as two separate pages with two
+// different filter-bar idioms, two different badge components, and a
+// one-line cross-reference each made the real distinction look like an
+// accidental one. One page, one nav item, two tabs: same filter-bar
+// shell, same status-pill rendering, same table shell -- only the
+// query/columns/row-actions differ per tab.
 function yearOf(value) {
   return value ? String(value).slice(0, 4) : null;
 }
@@ -57,8 +71,13 @@ const emptyTripForm = {
 // not that the trip happened yet). Default on page load: a demo-scale church
 // can easily have 100+ completed trips on file, and "what's currently going
 // on" is almost always the more useful first view than scrolling past all of
-// those. "All statuses" (below) stays one dropdown selection away, not a
-// separate reset action -- the status filter itself carries both.
+// those. "All statuses" stays one pill away, not a separate reset action.
+const STATUS_QUICK_FILTERS = [
+  { value: "active", label: "Active (not completed)" },
+  { value: "all", label: "All statuses" },
+  ...Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label })),
+];
+
 const emptyFilters = {
   status: "active",
   entityType: "all",
@@ -68,7 +87,7 @@ const emptyFilters = {
   maxSize: "",
 };
 
-export default function AdminTrips() {
+function ExistingTripsTab() {
   const navigate = useNavigate();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [records, setRecords] = useState([]);
@@ -76,10 +95,9 @@ export default function AdminTrips() {
   const [filters, setFilters] = useState(emptyFilters);
   const [showAddForm, setShowAddForm] = useState(false);
   // Which of the two add-flows the revealed form is on -- "planning"
-  // (start a new recruiting trip, the gap this covers) is the default
-  // since it's the action this page didn't have before; "completed"
-  // (today's existing historical-backfill form, unchanged) is the
-  // alternative, not a second button -- one form, one explicit choice.
+  // (start a new recruiting trip) is the default; "completed" (today's
+  // historical-backfill form) is the alternative, not a second button --
+  // one form, one explicit choice.
   const [addKind, setAddKind] = useState("planning");
   const [newTripPartnerId, setNewTripPartnerId] = useState("");
   const [newTripType, setNewTripType] = useState("");
@@ -115,8 +133,7 @@ export default function AdminTrips() {
         // Folded in from the now-removed AdminTripDashboard.jsx (issue
         // #259) -- null for a trip with no startDate, or one already
         // underway/past (a negative days-until figure reads as "overdue,"
-        // not useful here the way it was on the dashboard's own
-        // soonest-departing-first list).
+        // not useful here).
         daysUntilDeparture:
           t.startDate && new Date(t.startDate) > new Date()
             ? Math.ceil((new Date(t.startDate) - new Date()) / (1000 * 60 * 60 * 24))
@@ -211,14 +228,12 @@ export default function AdminTrips() {
     }
   }
 
-  // Reuses the exact createTrip({status: "planning", ...}) shape Plan a
-  // Trip's own "Start a new trip" button already makes (AdminTripPlanning.jsx's
-  // handleStartTrip) -- same team-size auto-fill from the partner's own
-  // tripTeamSizeMin/Max (already present on every entry in `partners`,
-  // confirmed against routes/partners.js's own select), not asked for here
-  // a second time. Lands on the trip's own detail page immediately, same
-  // as Plan a Trip does, since there's nothing useful left to do on this
-  // list once the trip exists.
+  // Reuses the exact createTrip({status: "planning", ...}) shape the
+  // Plan a Trip tab's own "Start a new trip" button makes (same
+  // team-size auto-fill from the partner's own tripTeamSizeMin/Max) --
+  // lands on the trip's own detail page immediately, same as that tab
+  // does, since there's nothing useful left to do on this list once the
+  // trip exists.
   async function handleStartNewTrip(e) {
     e.preventDefault();
     setError("");
@@ -363,9 +378,8 @@ export default function AdminTrips() {
   }
 
   return (
-    <div className={`admin-shell ${showAddForm || editingId ? "form-has-floating-actions" : ""}`}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>Trips</h2>
+    <div className={showAddForm || editingId ? "form-has-floating-actions" : ""}>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <button
           className="btn"
           onClick={() => {
@@ -377,11 +391,6 @@ export default function AdminTrips() {
           {showAddForm ? "Cancel" : "+ New Trip"}
         </button>
       </div>
-      <p style={{ color: "#555" }}>
-        Every trip, every status — a searchable record. A quick historical backfill is managed right here; an
-        actively-recruited trip's team, applications, meetings, and support raising live on its own detail
-        page. Looking for a partner who needs a trip planned? <Link to="/admin/trips/planning">See Plan a Trip →</Link>
-      </p>
 
       {showAddForm && (
         <div className="admin-section" style={{ marginTop: "1rem" }}>
@@ -522,79 +531,59 @@ export default function AdminTrips() {
         </div>
       )}
 
-      <div className="admin-section">
-        <h3>Filters</h3>
-        <div className="form-grid">
-          <label>
-            Status
-            <select value={filters.status} onChange={(e) => updateFilter("status", e.target.value)}>
-              <option value="active">Active (not completed)</option>
-              <option value="all">All statuses</option>
-              {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Partner Type
-            <select value={filters.entityType} onChange={(e) => updateFilter("entityType", e.target.value)}>
-              <option value="all">All</option>
-              <option value="Missionary">Missionary</option>
-              <option value="Organization">Organization</option>
-            </select>
-          </label>
-          <label>
-            Trip Type
-            <select value={filters.type} onChange={(e) => updateFilter("type", e.target.value)}>
-              <option value="all">All</option>
-              {typeOptions.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Year
-            <select value={filters.year} onChange={(e) => updateFilter("year", e.target.value)}>
-              <option value="all">All</option>
-              {yearOptions.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Min Team Size
-            <input
-              type="number"
-              min="0"
-              value={filters.minSize}
-              onChange={(e) => updateFilter("minSize", e.target.value)}
-            />
-          </label>
-          <label>
-            Max Team Size
-            <input
-              type="number"
-              min="0"
-              value={filters.maxSize}
-              onChange={(e) => updateFilter("maxSize", e.target.value)}
-            />
-          </label>
-        </div>
-        <button
-          type="button"
-          className="btn secondary small"
-          style={{ marginTop: "1rem" }}
-          onClick={() => setFilters(emptyFilters)}
-        >
-          Reset Filters
-        </button>
-      </div>
+      <TripFilterBar
+        pills={{ options: STATUS_QUICK_FILTERS, value: filters.status, onChange: (v) => updateFilter("status", v) }}
+        onReset={() => setFilters(emptyFilters)}
+      >
+        <label>
+          Partner Type
+          <select value={filters.entityType} onChange={(e) => updateFilter("entityType", e.target.value)}>
+            <option value="all">All</option>
+            <option value="Missionary">Missionary</option>
+            <option value="Organization">Organization</option>
+          </select>
+        </label>
+        <label>
+          Trip Type
+          <select value={filters.type} onChange={(e) => updateFilter("type", e.target.value)}>
+            <option value="all">All</option>
+            {typeOptions.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Year
+          <select value={filters.year} onChange={(e) => updateFilter("year", e.target.value)}>
+            <option value="all">All</option>
+            {yearOptions.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Min Team Size
+          <input
+            type="number"
+            min="0"
+            value={filters.minSize}
+            onChange={(e) => updateFilter("minSize", e.target.value)}
+          />
+        </label>
+        <label>
+          Max Team Size
+          <input
+            type="number"
+            min="0"
+            value={filters.maxSize}
+            onChange={(e) => updateFilter("maxSize", e.target.value)}
+          />
+        </label>
+      </TripFilterBar>
 
       <div className="admin-section">
         <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
@@ -635,11 +624,8 @@ export default function AdminTrips() {
             <th>Status</th>
             <th>Trip Type</th>
             <th>Dates</th>
-            <th>Days Until Departure</th>
-            <th>Team Size</th>
+            <th>Team</th>
             <th>Raised</th>
-            <th>Leader(s)</th>
-            <th>Description</th>
             <th></th>
           </tr>
         </thead>
@@ -651,8 +637,12 @@ export default function AdminTrips() {
             const isHistorical = trip.status === "completed";
             return (
               <React.Fragment key={trip.id}>
-                <tr>
-                  <td>
+                <tr
+                  onClick={!isHistorical ? () => navigate(`/admin/trips/${trip.id}`) : undefined}
+                  style={!isHistorical ? { cursor: "pointer" } : undefined}
+                  title={!isHistorical ? "Click to view details" : undefined}
+                >
+                  <td onClick={(e) => e.stopPropagation()}>
                     <Link to={trip.entityLink}>{trip.entityName}</Link>
                     {trip.partner?.isRestricted && (
                       <div style={{ fontSize: "0.7rem", color: "#a6540f", fontWeight: 700 }}>
@@ -662,41 +652,39 @@ export default function AdminTrips() {
                   </td>
                   <td>{trip.entityType}</td>
                   <td>
-                    {isHistorical ? (
-                      <TripStatusBadge status={trip.status} />
-                    ) : (
-                      <Link to={`/admin/trips/${trip.id}`}>
-                        <TripStatusBadge status={trip.status} />
-                      </Link>
-                    )}
+                    <TripStatusBadge status={trip.status} />
                   </td>
                   <td>{trip.type || "—"}</td>
                   <td>
                     {trip.startDate || trip.endDate
                       ? `${formatDate(trip.startDate) || "?"} – ${formatDate(trip.endDate) || "?"}`
                       : "—"}
+                    {trip.daysUntilDeparture != null && (
+                      <div style={{ fontSize: "0.75rem", color: "#888" }}>
+                        {trip.daysUntilDeparture} days until departure
+                      </div>
+                    )}
                   </td>
-                  <td>{trip.daysUntilDeparture != null ? `${trip.daysUntilDeparture} days` : "—"}</td>
-                  <td>{trip.size}</td>
+                  <td>
+                    {trip.size} / {trip.teamSizeMax ?? "?"} filled
+                    {leaders.length > 0 && (
+                      <div style={{ fontSize: "0.75rem", color: "#888" }}>{leaders.join(", ")}</div>
+                    )}
+                  </td>
                   <td>
                     ${trip.raised}
                     {trip.supportRaisingGoal ? ` / $${trip.supportRaisingGoal}` : ""}
                   </td>
-                  <td>{leaders.length ? leaders.join(", ") : "—"}</td>
-                  <td>{trip.description || "—"}</td>
-                  <td className="table-actions">
-                    {!isHistorical && (
-                      <Link className="btn secondary small" to={`/admin/trips/${trip.id}`}>
-                        View
-                      </Link>
+                  <td className="table-actions" onClick={(e) => e.stopPropagation()}>
+                    {isHistorical && (
+                      <button
+                        type="button"
+                        className="btn secondary small"
+                        onClick={() => (editingId === trip.id ? setEditingId(null) : startEdit(trip))}
+                      >
+                        {editingId === trip.id ? "Cancel" : "Edit"}
+                      </button>
                     )}
-                    <button
-                      type="button"
-                      className="btn secondary small"
-                      onClick={() => (editingId === trip.id ? setEditingId(null) : startEdit(trip))}
-                    >
-                      {editingId === trip.id ? "Cancel" : "Edit"}
-                    </button>
                     <button type="button" className="btn danger small" onClick={() => handleDelete(trip)}>
                       Delete
                     </button>
@@ -704,7 +692,7 @@ export default function AdminTrips() {
                 </tr>
                 {editingId === trip.id && (
                   <tr>
-                    <td colSpan={11}>
+                    <td colSpan={8}>
                       <div className="form-grid">
                         <label>
                           Start Date
@@ -777,7 +765,7 @@ export default function AdminTrips() {
           })}
           {filteredTrips.length === 0 && (
             <tr>
-              <td colSpan={11} style={{ color: "#888" }}>
+              <td colSpan={8} style={{ color: "#888" }}>
                 No trips match these filters.
               </td>
             </tr>
@@ -786,6 +774,313 @@ export default function AdminTrips() {
       </table>
       <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
       {confirmElement}
+    </div>
+  );
+}
+
+const KIND_LABELS = {
+  open: "Open",
+  committed: "Committed",
+  fallback: "No trip scheduled",
+};
+const KIND_COLORS = {
+  open: "#1f6b4f",
+  committed: "#2a5d8f",
+  fallback: "#6b6f76",
+};
+
+function teamSizeLabel(min, max) {
+  if (min == null && max == null) return "Not specified";
+  return `${min ?? "?"} – ${max ?? "?"}`;
+}
+
+const QUICK_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "open", label: "Open" },
+  { value: "committed", label: "Committed" },
+  { value: "fallback", label: "No trip scheduled" },
+];
+
+// Action-link style shared by this tab's "Clone trip" secondary action --
+// same idiom as the Status column's badge+"View trip →" link pairing
+// just below it (a primary element, a small text link underneath), but
+// "Clone trip" triggers an API call before navigating rather than being
+// a plain navigation, so it has to stay a <button> styled to read as a
+// link rather than an actual <Link>.
+const linkButtonStyle = {
+  background: "none",
+  border: "none",
+  padding: 0,
+  color: "#1f6b4f",
+  textDecoration: "underline",
+  cursor: "pointer",
+  fontSize: "0.78rem",
+};
+
+function PlanATripTab() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [cloningId, setCloningId] = useState(null);
+  const [startingId, setStartingId] = useState(null);
+  const [quickFilter, setQuickFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [neverBeenOnly, setNeverBeenOnly] = useState(false);
+  // Team-size range filter -- effective size is the open/committed
+  // trip's own teamSizeMin/Max when one exists, else the partner's
+  // general capacity. "Matches" means the two ranges overlap, not that
+  // the row's range sits entirely inside the filter's.
+  const [sizeMin, setSizeMin] = useState("");
+  const [sizeMax, setSizeMax] = useState("");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchTripPlanning()
+      .then(setRows)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const tripTypes = [...new Set(rows.flatMap((r) => r.tripTypesSupported || []))].sort();
+
+  function resetFilters() {
+    setQuickFilter("all");
+    setSearch("");
+    setTypeFilter("");
+    setNeverBeenOnly(false);
+    setSizeMin("");
+    setSizeMax("");
+  }
+
+  const visibleRows = rows.filter((row) => {
+    if (quickFilter !== "all" && row.kind !== quickFilter) return false;
+    if (search && !row.displayName.toLowerCase().includes(search.toLowerCase())) return false;
+    if (typeFilter && !(row.tripTypesSupported || []).includes(typeFilter)) return false;
+    if (neverBeenOnly && row.pastTripCount > 0) return false;
+    const effectiveMin = row.trip?.teamSizeMin ?? row.teamSizeMin;
+    const effectiveMax = row.trip?.teamSizeMax ?? row.teamSizeMax;
+    if (sizeMin !== "" && effectiveMax != null && effectiveMax < Number(sizeMin)) return false;
+    if (sizeMax !== "" && effectiveMin != null && effectiveMin > Number(sizeMax)) return false;
+    return true;
+  });
+
+  const {
+    visible: visibleRowsPage,
+    hasMore,
+    remaining,
+    showMore,
+  } = useLoadMore(visibleRows, { initialCount: 25, step: 25 });
+
+  // Real gap this tab closes: before it existed, starting a trip for a
+  // partner with no prior one had no UI path at all -- the Existing
+  // Trips tab's own add-flow only ever created a status: "completed"
+  // (historical) trip.
+  async function handleStartTrip(row) {
+    setStartingId(row.partnerId);
+    try {
+      const created = await createTrip({
+        partnerId: row.partnerId,
+        status: "planning",
+        teamSizeMin: row.teamSizeMin,
+        teamSizeMax: row.teamSizeMax,
+        type: row.tripTypesSupported?.[0] || null,
+      });
+      navigate(`/admin/trips/${created.id}`, { state: { from: "planning" } });
+    } catch (err) {
+      console.error(err);
+      setStartingId(null);
+    }
+  }
+
+  async function handleClone(row) {
+    if (!row.cloneFromTripId) return;
+    setCloningId(row.partnerId);
+    try {
+      const cloned = await cloneTrip(row.cloneFromTripId);
+      navigate(`/admin/trips/${cloned.id}`, { state: { from: "planning" } });
+    } catch (err) {
+      console.error(err);
+      setCloningId(null);
+    }
+  }
+
+  return (
+    <div>
+      <TripFilterBar
+        pills={{ options: QUICK_FILTERS, value: quickFilter, onChange: setQuickFilter }}
+        onReset={resetFilters}
+      >
+        <label>
+          Search partner name
+          <input value={search} onChange={(e) => setSearch(e.target.value)} />
+        </label>
+        <label>
+          Trip type
+          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <option value="">All</option>
+            {tripTypes.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Min Team Size
+          <input type="number" min="0" value={sizeMin} onChange={(e) => setSizeMin(e.target.value)} />
+        </label>
+        <label>
+          Max Team Size
+          <input type="number" min="0" value={sizeMax} onChange={(e) => setSizeMax(e.target.value)} />
+        </label>
+        <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.4rem" }}>
+          <input
+            type="checkbox"
+            checked={neverBeenOnly}
+            onChange={(e) => setNeverBeenOnly(e.target.checked)}
+            style={{ width: "auto" }}
+          />
+          Never been (no past trips)
+        </label>
+      </TripFilterBar>
+
+      {loading ? (
+        <p>Loading…</p>
+      ) : (
+        <table className="admin-table" style={{ marginTop: "1rem" }}>
+          <thead>
+            <tr>
+              <th>Partner</th>
+              <th>Status</th>
+              <th>Dates</th>
+              <th>Team</th>
+              <th>Past Trips</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleRowsPage.map((row) => (
+              <tr key={row.partnerId}>
+                <td>
+                  <Link to={`/admin/partners/${row.partnerId}`}>{row.displayName}</Link>
+                  {row.isRestricted && (
+                    <div style={{ fontSize: "0.7rem", color: "#a6540f", fontWeight: 700 }}>
+                      Restricted partner — won't be publicly discoverable regardless of any trip setting
+                    </div>
+                  )}
+                </td>
+                <td>
+                  <StatusPill label={KIND_LABELS[row.kind]} color={KIND_COLORS[row.kind]} />
+                  {row.kind !== "fallback" && (
+                    <div style={{ marginTop: "0.2rem" }}>
+                      <Link to={`/admin/trips/${row.trip.id}`} style={{ fontSize: "0.78rem" }}>
+                        View trip →
+                      </Link>
+                    </div>
+                  )}
+                </td>
+                <td>
+                  {row.trip?.startDate || row.trip?.endDate
+                    ? `${formatDate(row.trip.startDate) || "?"} – ${formatDate(row.trip.endDate) || "?"}`
+                    : "—"}
+                </td>
+                <td>
+                  {row.trip
+                    ? `${(row.trip.participants || []).length} / ${row.trip.teamSizeMax ?? row.teamSizeMax ?? "?"} filled`
+                    : teamSizeLabel(row.teamSizeMin, row.teamSizeMax)}
+                </td>
+                <td>
+                  {row.pastTripCount} trip{row.pastTripCount === 1 ? "" : "s"}
+                  {row.mostRecentPastTripDate && (
+                    <div style={{ fontSize: "0.75rem", color: "#888" }}>
+                      last {formatDate(row.mostRecentPastTripDate)}
+                    </div>
+                  )}
+                </td>
+                <td className="table-actions">
+                  {row.kind === "fallback" && (
+                    <button
+                      type="button"
+                      className="btn secondary small"
+                      disabled={startingId === row.partnerId}
+                      onClick={() => handleStartTrip(row)}
+                    >
+                      {startingId === row.partnerId ? "Starting…" : "Start a new trip"}
+                    </button>
+                  )}
+                  {row.cloneFromTripId && (
+                    <div style={{ marginTop: row.kind === "fallback" ? "0.3rem" : 0 }}>
+                      <button
+                        type="button"
+                        style={linkButtonStyle}
+                        disabled={cloningId === row.partnerId}
+                        onClick={() => handleClone(row)}
+                      >
+                        {cloningId === row.partnerId ? "Cloning…" : "Clone trip"}
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {visibleRows.length === 0 && (
+              <tr>
+                <td colSpan={6} style={{ color: "#888" }}>
+                  {rows.length === 0
+                    ? "No partners with trip capacity on file yet."
+                    : "No partners match these filters."}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      )}
+      <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+    </div>
+  );
+}
+
+const TABS = [
+  {
+    value: "existing",
+    label: "Existing Trips",
+    description: "Every trip, every status — a searchable record. A quick historical backfill is managed right here; an actively-recruited trip's team, applications, meetings, and support raising live on its own detail page.",
+  },
+  {
+    value: "plan",
+    label: "Plan a Trip",
+    description: "Partners who could host a trip, including ones with nothing scheduled yet — blends what's already scheduled with each partner's general trip capacity, so a partner is never dropped from the list just because nothing concrete is on the calendar.",
+  },
+];
+
+export default function AdminTrips() {
+  const location = useLocation();
+  // The old /admin/trips/planning URL (bookmarks, the back-link from
+  // AdminTripDetail.jsx's `state: { from: "planning" }`) still routes
+  // here -- both routes render this same component now -- so it needs
+  // to land on the right tab rather than always defaulting to the first
+  // one.
+  const [tab, setTab] = useState(() => (location.pathname.endsWith("/planning") ? "plan" : "existing"));
+  const activeTab = TABS.find((t) => t.value === tab) || TABS[0];
+
+  return (
+    <div className="admin-shell">
+      <h2>Trips</h2>
+      <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.5rem" }}>
+        {TABS.map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            className={tab === t.value ? "btn" : "btn secondary"}
+            onClick={() => setTab(t.value)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <p style={{ color: "#555", marginTop: "0.5rem" }}>{activeTab.description}</p>
+
+      {tab === "existing" ? <ExistingTripsTab /> : <PlanATripTab />}
     </div>
   );
 }

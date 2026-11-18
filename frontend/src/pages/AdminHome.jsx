@@ -58,12 +58,7 @@ function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
     enabledFeatures.trips && {
       to: "/admin/trips",
       title: "Trips",
-      description: "All mission trips across missionaries and organizations, with filters.",
-    },
-    enabledFeatures.trips && {
-      to: "/admin/trips/planning",
-      title: "Plan a Trip",
-      description: "Find a partner to start a new trip for — including ones with nothing scheduled yet.",
+      description: "All mission trips across missionaries and organizations, or find a partner to plan a new one for — two tabs of one page.",
     },
     enabledFeatures.booklet && {
       to: "/admin/booklet",

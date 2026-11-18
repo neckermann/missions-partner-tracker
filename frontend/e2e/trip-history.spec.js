@@ -19,7 +19,10 @@ test.describe("Trip History", () => {
     // Scoped to the Add form -- the Filters section above it has its own
     // "Trip Type" select, and getByLabel would otherwise match both.
     const addForm = page.locator("form");
-    await page.click("button:has-text('+ Add Trip')");
+    await page.click("button:has-text('+ New Trip')");
+    // "Start recruiting a new trip" is the default choice; this test logs
+    // a trip that already happened, which is the second radio.
+    await page.getByLabel("Log a trip that already happened").check();
     await addForm.getByLabel("Partner").selectOption({ label: target.displayName });
     await addForm.getByLabel("Trip Type").selectOption("Construction");
     await addForm.getByLabel("Description (what the team did)").fill(uniqueDescription);
@@ -81,7 +84,8 @@ test.describe("Trip History", () => {
     await page.waitForSelector("h2:has-text('Trips')");
 
     const addForm = page.locator("form");
-    await page.click("button:has-text('+ Add Trip')");
+    await page.click("button:has-text('+ New Trip')");
+    await page.getByLabel("Log a trip that already happened").check();
     await addForm.getByLabel("Partner").selectOption({ label: target.displayName });
 
     const albumField = addForm.locator("label", { hasText: "Photo/Video Album" });

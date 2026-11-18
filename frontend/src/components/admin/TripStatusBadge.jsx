@@ -1,10 +1,14 @@
 import React from "react";
+import StatusPill from "./StatusPill.jsx";
 
-// Shared between AdminTrips.jsx (the ledger list) and AdminTripDetail.jsx
-// (a single trip's own header) -- extracted so both show the same label/
-// color for a given status instead of one of them drifting out of sync,
-// and so a status never renders as its raw snake_case value (that
-// happened on AdminTripDetail.jsx's header until this was added).
+// Shared between the Trips list (its "Existing Trips" tab) and
+// AdminTripDetail.jsx (a single trip's own header) -- extracted so both
+// show the same label/color for a given status instead of one of them
+// drifting out of sync, and so a status never renders as its raw
+// snake_case value (that happened on AdminTripDetail.jsx's header until
+// this was added). Delegates its actual rendering to the generic
+// StatusPill now, same as the trip-planning "kind" pill does -- this
+// file stays just the status->color/label lookup table.
 export const STATUS_LABELS = {
   planning: "Planning",
   accepting_applications: "Accepting applications",
@@ -19,21 +23,5 @@ const STATUS_COLORS = {
 };
 
 export default function TripStatusBadge({ status }) {
-  const label = STATUS_LABELS[status] || status;
-  const color = STATUS_COLORS[status] || "#6b6f76";
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        fontSize: "0.7rem",
-        fontWeight: 700,
-        padding: "2px 8px",
-        borderRadius: 999,
-        color,
-        background: `${color}1a`,
-      }}
-    >
-      {label}
-    </span>
-  );
+  return <StatusPill label={STATUS_LABELS[status] || status} color={STATUS_COLORS[status]} />;
 }
