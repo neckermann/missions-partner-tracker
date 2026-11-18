@@ -292,6 +292,23 @@ export default function AdminTripDetail() {
   }
 
   function handleUpdateQuestion(qId, patch) {
+    // Switching an existing question's type to select/checkboxes patches in
+    // `options: []` (ApplicationQuestionsEditor's onChange, since there's no
+    // prior options list to carry over) -- saving that immediately fails the
+    // backend's "needs at least one option" validation, and the error path
+    // below never touches `trip` state, so the controlled <select> just
+    // snaps back to the old type with no visible explanation. Skip the save
+    // in that one case; ApplicationQuestionsEditor already renders the
+    // options textarea once `type` needs one, from this same patch's `type`
+    // key -- the admin fills it in and the next onBlur save (with real
+    // options this time) goes through normally.
+    if (patch.type && (patch.type === "select" || patch.type === "checkboxes") && patch.options?.length === 0) {
+      setTrip((t) => ({
+        ...t,
+        applicationQuestions: (t.applicationQuestions || []).map((q) => (q.id === qId ? { ...q, ...patch } : q)),
+      }));
+      return Promise.resolve();
+    }
     const questions = (trip.applicationQuestions || []).map((q) => (q.id === qId ? { ...q, ...patch } : q));
     return saveQuestions(questions);
   }

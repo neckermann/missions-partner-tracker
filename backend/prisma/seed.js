@@ -484,6 +484,15 @@ This agreement is governed by the laws of the state in which the church is locat
 
 This is a starting template, not legal advice -- have it reviewed by your own church's legal counsel before relying on it.`;
 
+// Shared across every seeded passport question (two trip-level
+// applicationQuestions + the church-wide tripQuestionLibrary entry below) --
+// one wording, not three near-duplicates that could drift out of sync.
+const PASSPORT_OPTIONS = [
+  "Yes, I have a passport that will be valid for at least 6 months from the time the trip starts",
+  "No, I do not have a passport, but there is enough time to get one before the deadline",
+  "No, and there is not enough time to get one before the deadline",
+];
+
 const TRIP_TYPES = [
   "Construction",
   "Medical/Dental",
@@ -1359,7 +1368,13 @@ async function seedTripsDemo() {
       // asks lives in the template once, not retyped per trip.
       applicationQuestions: [
         { id: "q1", label: "Do you have any dietary restrictions?", required: false },
-        { id: "q3", label: "Do you have a valid passport?", required: true },
+        {
+          id: "q3",
+          type: "select",
+          label: "Do you have a valid passport?",
+          required: true,
+          options: PASSPORT_OPTIONS,
+        },
         // checkboxes (multi-select, array response) wasn't exercised
         // anywhere in this seed otherwise -- every other question here or
         // in the template/library is text/textarea/select/date.
@@ -2076,7 +2091,9 @@ async function seedTripsDemo() {
         teamSizeMin: 3,
         teamSizeMax: 6,
         supportRaisingGoal: 1200,
-        applicationQuestions: [{ id: "q1", label: "Do you have a valid passport?", required: true }],
+        applicationQuestions: [
+          { id: "q1", type: "select", label: "Do you have a valid passport?", required: true, options: PASSPORT_OPTIONS },
+        ],
         requirements: {
           create: [{ label: "Signed Confidentiality Agreement", kind: "esignature", bodyText: LIABILITY_RELEASE_TEXT }],
         },
@@ -2581,7 +2598,7 @@ async function seedTripsDemo() {
           type: "select",
           label: "Do you have a valid passport, or could you get one before the trip departs?",
           required: true,
-          options: ["Yes, I have one", "No, but I can apply in time", "No"],
+          options: PASSPORT_OPTIONS,
         },
         {
           id: "lib5",
