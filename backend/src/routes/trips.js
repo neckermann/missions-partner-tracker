@@ -476,21 +476,19 @@ router.post("/:id/requirements", requireRole("admin", "editor"), async (req, res
       .parse(req.body);
     const created = await prisma.tripRequirement.create({ data: { tripId: req.params.id, ...data } });
 
-    // A document-kind requirement is the one kind a participant can now
-    // self-serve (the public upload route below) -- tell them it exists
-    // the same moment an admin adds it, rather than leaving them to
-    // discover it only by revisiting their own trip page on their own.
-    // "task"/"esignature" aren't included: a task has nothing for a
-    // participant to do from this email (an admin checks it off), and
-    // esignature has no precedent for this kind of notification either
-    // today -- it could reuse this same trigger later, this round keeps
-    // scope to the one kind that's newly actionable.
-    if (created.kind === "document") {
+    // document- and esignature-kind requirements are the two kinds a
+    // participant can self-serve (the public upload route and the
+    // existing "Sign now" flow) -- tell them it exists the same moment an
+    // admin adds it, rather than leaving them to discover it only by
+    // revisiting their own trip page on their own. "task" stays excluded:
+    // there's nothing for a participant to do from this email for one --
+    // an admin checks it off, so a notice would just be noise.
+    if (created.kind === "document" || created.kind === "esignature") {
       const trip = await prisma.trip.findUnique({
         where: { id: req.params.id },
         include: { participants: true },
       });
-      await sendDocumentRequirementEmail(trip, created, trip?.participants || []);
+      await sendRequirementNotificationEmail(trip, created, trip?.participants || []);
     }
 
     res.status(201).json(created);
@@ -1007,15 +1005,19 @@ const meetingInputSchema = z.object({
   agenda: z.string().optional().nullable(),
 });
 
-// Shared by create/update/resend/cancel -- every one of these sends a
 // Shared by the requirement-creation route above and the late-joiner
 // check in participant creation below -- same email, two different
-// moments a participant can first become aware a document-kind
-// requirement applies to them (a new one gets added to their trip, or
-// they get added to a trip that already has one). Gates and loops
-// internally, same shape as sendMeetingEmail just below, so neither call
-// site needs its own settings check.
-async function sendDocumentRequirementEmail(trip, requirement, participants) {
+// moments a participant can first become aware a document- or
+// esignature-kind requirement applies to them (a new one gets added to
+// their trip, or they get added to a trip that already has one). Covers
+// both kinds (not "task", which has no participant-facing action) with
+// one deliberately generic "checklist item" wording rather than kind-
+// specific phrasing ("upload"/"sign") -- it already read as kind-neutral
+// before esignature was added here, so no wording change was needed, just
+// the broader scope. Gates and loops internally, same shape as
+// sendMeetingEmail just below, so neither call site needs its own
+// settings check.
+async function sendRequirementNotificationEmail(trip, requirement, participants) {
   const settings = await getSettings();
   if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) return;
   for (const participant of participants) {
@@ -1034,7 +1036,7 @@ async function sendDocumentRequirementEmail(trip, requirement, participants) {
 // the direct-add path; approval got nothing, despite being the more common
 // real-world way someone becomes a participant. Both sub-sends already
 // gate on outboundEmail internally (sendMeetingEmail/
-// sendDocumentRequirementEmail each call getSettings() themselves), so
+// sendRequirementNotificationEmail each call getSettings() themselves), so
 // this only needs to own the one cross-cutting exclusion both call sites
 // already applied: a backfilled participant doesn't need catch-up
 // notifications for things that already happened or never will.
@@ -1057,9 +1059,11 @@ async function sendLateJoinerCatchUpEmails(trip, participant) {
     await sendMeetingEmail({ ...trip, participants: [participant] }, meeting, "A meeting has been scheduled.");
   }
 
-  const documentRequirements = (trip.requirements || []).filter((r) => r.kind === "document");
-  for (const requirement of documentRequirements) {
-    await sendDocumentRequirementEmail(trip, requirement, [participant]);
+  const notifiableRequirements = (trip.requirements || []).filter(
+    (r) => r.kind === "document" || r.kind === "esignature"
+  );
+  for (const requirement of notifiableRequirements) {
+    await sendRequirementNotificationEmail(trip, requirement, [participant]);
   }
 }
 

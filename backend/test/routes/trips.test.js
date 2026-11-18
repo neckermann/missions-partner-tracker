@@ -1041,6 +1041,50 @@ describe("Trips: public document-requirement upload", () => {
     }
   });
 
+  // esignature-kind requirements are self-serve (the existing "Sign now"
+  // flow) the same way document-kind is -- they get the identical notice,
+  // not a second wording, since the email's "checklist item" phrasing was
+  // already kind-neutral.
+  test("creating an esignature-kind requirement emails every current participant a link to their own trip page", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    await prisma.tripParticipant.create({
+      data: { tripId: trip.body.id, firstName: "Avery", email: "avery-reqmail@example.test" },
+    });
+
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.body.id}/requirements`, {
+        method: "POST",
+        body: { label: "Code of Conduct", kind: "esignature", bodyText: "I agree to..." },
+      });
+      assert.equal(res.status, 201);
+    });
+    assert.equal(sent.length, 1);
+    assert.match(sent[0].Subject, /New item needed: Code of Conduct/);
+    assert.match(sent[0].TextBody, /\/my-trip\?token=/);
+  });
+
+  test("creating an esignature-kind requirement sends no email when outboundEmail is off", async () => {
+    await setFeatures({ outboundEmail: false });
+    try {
+      const partner = await createPartner();
+      const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+      await prisma.tripParticipant.create({
+        data: { tripId: trip.body.id, firstName: "Quinn", email: "quinn-reqmail@example.test" },
+      });
+      const sent = await captureEmails(async () => {
+        const res = await admin(`/api/trips/${trip.body.id}/requirements`, {
+          method: "POST",
+          body: { label: "Code of Conduct", kind: "esignature", bodyText: "I agree to..." },
+        });
+        assert.equal(res.status, 201);
+      });
+      assert.equal(sent.length, 0);
+    } finally {
+      await setFeatures({ outboundEmail: true });
+    }
+  });
+
   // The document-requirement counterpart to the late-joiner meeting-invite
   // coverage in "Trips: meetings" above -- a participant added after a
   // document-kind requirement already exists would otherwise never learn
@@ -1075,6 +1119,61 @@ describe("Trips: public document-requirement upload", () => {
     assert.match(notice.TextBody, /\/my-trip\?token=/);
     const welcome = sent.find((m) => /^You're on the team:/.test(m.Subject));
     assert.ok(welcome, "the one-time welcome email must still be sent alongside it");
+  });
+
+  test("adding a participant to a trip with an existing esignature requirement sends the checklist notice too", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "planning",
+        startDate: "2026-12-20",
+        endDate: "2026-12-27",
+      },
+    });
+    await prisma.tripRequirement.create({
+      data: { tripId: trip.body.id, label: "Code of Conduct", kind: "esignature", bodyText: "I agree to..." },
+    });
+
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.body.id}/participants`, {
+        method: "POST",
+        body: { firstName: "Late", lastName: "Signer", email: "late-esign-joiner@example.test" },
+      });
+      assert.equal(res.status, 201);
+    });
+
+    const notice = sent.find((m) => /^New item needed: Code of Conduct/.test(m.Subject));
+    assert.ok(notice, "the existing esignature requirement must trigger a checklist notice");
+    assert.equal(notice.To, "late-esign-joiner@example.test");
+    assert.match(notice.TextBody, /\/my-trip\?token=/);
+  });
+
+  test("outboundEmail off suppresses the late-joiner checklist notice for an esignature requirement too", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction", status: "planning" },
+    });
+    await prisma.tripRequirement.create({
+      data: { tripId: trip.body.id, label: "Code of Conduct", kind: "esignature", bodyText: "I agree to..." },
+    });
+
+    await setFeatures({ outboundEmail: false });
+    try {
+      const sent = await captureEmails(async () => {
+        const res = await admin(`/api/trips/${trip.body.id}/participants`, {
+          method: "POST",
+          body: { firstName: "Quiet", lastName: "Signer", email: "quiet-esign-joiner@example.test" },
+        });
+        assert.equal(res.status, 201);
+      });
+      assert.equal(sent.length, 0, "outboundEmail off must suppress the esignature checklist notice too");
+    } finally {
+      await setFeatures({ outboundEmail: true });
+    }
   });
 
   test("adding a participant to a trip with only a task-kind requirement sends no checklist notice", async () => {
@@ -1226,6 +1325,37 @@ describe("Trips: public document-requirement upload", () => {
     const notice = sent.find((m) => /^New item needed: Passport photo page/.test(m.Subject));
     assert.ok(notice, "an existing document requirement must trigger a checklist notice for the approved applicant");
     assert.equal(notice.To, "approved-doc-applicant@example.test");
+  });
+
+  test("approving an application sends the checklist notice for an existing esignature requirement too", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction", status: "accepting_applications" },
+    });
+    await prisma.tripRequirement.create({
+      data: { tripId: trip.body.id, label: "Code of Conduct", kind: "esignature", bodyText: "I agree to..." },
+    });
+    const application = await prisma.tripApplication.create({
+      data: {
+        tripId: trip.body.id,
+        firstName: "Approved",
+        lastName: "Signer",
+        email: "approved-esign-applicant@example.test",
+      },
+    });
+
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/applications/${application.id}`, {
+        method: "PUT",
+        body: { status: "approved" },
+      });
+      assert.equal(res.status, 200);
+    });
+
+    const notice = sent.find((m) => /^New item needed: Code of Conduct/.test(m.Subject));
+    assert.ok(notice, "an existing esignature requirement must trigger a checklist notice for the approved applicant");
+    assert.equal(notice.To, "approved-esign-applicant@example.test");
   });
 
   test("approving an application into a trip with no meetings or requirements behaves unchanged", async () => {
