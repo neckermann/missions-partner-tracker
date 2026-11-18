@@ -21,6 +21,9 @@ const supportNeedRoutes = require("./routes/supportNeeds");
 const supportEntryRoutes = require("./routes/supportEntries");
 const prayerRequestRoutes = require("./routes/prayerRequests");
 const tripRoutes = require("./routes/trips");
+const tripMeetingRoutes = require("./routes/tripMeetings");
+const tripRequirementRoutes = require("./routes/tripRequirements");
+const tripParticipantRoutes = require("./routes/tripParticipants");
 const partnerFileRoutes = require("./routes/partnerFiles");
 const photoRoutes = require("./routes/photos");
 const silhouetteRoutes = require("./routes/silhouette");
@@ -206,6 +209,14 @@ app.use("/api/support-needs", supportNeedRoutes); // protected (admin) — sessi
 app.use("/api/support-entries", supportEntryRoutes); // protected (admin) — session required
 app.use("/api/prayer-requests", prayerRequestRoutes); // protected (admin) — session required
 app.use("/api/trips", tripRoutes); // protected (admin) — session required
+// #271 Finding 1: three sibling sub-resource routers, same prefix as
+// tripRoutes above (not a separate API surface) -- split out of a
+// single oversized trips.js. Each still gates independently
+// (requireAuth/requireFeature("trips") at its own router level), so
+// mount order among these four doesn't matter.
+app.use("/api/trips", tripMeetingRoutes);
+app.use("/api/trips", tripRequirementRoutes);
+app.use("/api/trips", tripParticipantRoutes);
 app.use("/api/reports", reportsRoutes); // protected — read-only exports, any signed-in role
 app.use("/api/partner-files", partnerFileRoutes); // protected (admin) — session required
 app.use("/api/photos", photoRoutes); // open (public — same as when these were S3 public-read objects)
