@@ -67,6 +67,10 @@ router.get("/logo/raw", async (req, res, next) => {
     });
     if (!settings?.logoBytes) return res.status(404).end();
 
+    // Same reasoning as photos.js's /:id/raw -- without this, helmet()'s
+    // global same-origin Cross-Origin-Resource-Policy blocks a webmail
+    // client from embedding this inline (#246).
+    res.set("Cross-Origin-Resource-Policy", "cross-origin");
     res.set("Cache-Control", "public, max-age=60"); // short TTL -- unlike a Photo row, this one row's logo can change in place
     res.set("Content-Type", settings.logoContentType || "application/octet-stream");
     res.send(settings.logoBytes);

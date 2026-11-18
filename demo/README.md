@@ -32,7 +32,9 @@ sign anything is broken. Render doesn't cut over on a failed pre-deploy,
 so the demo stays up on the old version the whole time this is being
 fixed.
 
-Fix: `cd backend && npm run demo:reset:remote` (reads `demo/.env`,
-requires `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION` set to an
-explicit human confirmation -- see that script's own comment), then
-retrigger the deploy.
+Fix: `cd backend && npm run demo:reset:remote` for the live public demo,
+or `npm run dev:reset:remote` for the dev-test service (both read
+`demo/.env`, requires `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION` set
+to an explicit human confirmation -- see each script's own comment),
+then retrigger the deploy. These are independent per RUNBOOK.md's own
+note on this failure -- fixing one doesn't fix the other.

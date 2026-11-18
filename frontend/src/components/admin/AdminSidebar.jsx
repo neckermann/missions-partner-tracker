@@ -27,8 +27,12 @@ function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
     enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
     enabledFeatures.oneTimeNeeds && { to: "/admin/support/needs", label: "One-Time Needs" },
     enabledFeatures.monthlySupport && { to: "/admin/support/monthly", label: "Monthly Support" },
-    enabledFeatures.trips && { to: "/admin/trips", label: "Trip History", end: true },
-    enabledFeatures.trips && { to: "/admin/trips/opportunities", label: "Trip Opportunities" },
+    // One nav item now -- Trips and Plan a Trip merged into two tabs of
+    // the same page (design review, post-#252): two separate nav items
+    // for what's fundamentally one page made the real Trips/Plan-a-Trip
+    // distinction look like an accidental duplicate, not the two
+    // genuinely different questions they actually answer.
+    enabledFeatures.trips && { to: "/admin/trips", label: "Trips" },
     enabledFeatures.booklet && { to: "/admin/booklet", label: "Print Booklet" },
     enabledFeatures.reports && { to: "/admin/reports", label: "Reports" },
   ].filter(Boolean);
@@ -78,6 +82,7 @@ function buildSiteAdminLinks(enabledFeatures) {
       to: "/admin/settings/email",
       label: "Email",
     },
+    enabledFeatures.trips && { to: "/admin/settings/trips", label: "Trips Settings" },
     enabledFeatures.groupme && { to: "/admin/settings/groupme", label: "GroupMe" },
     enabledFeatures.whatsapp && { to: "/admin/settings/whatsapp", label: "WhatsApp" },
     // Schedule(s), GroupMe's content-type mutes, the restricted-partner
@@ -125,9 +130,15 @@ export default function AdminSidebar() {
     <aside className="admin-sidebar no-print">
       <h1 className="admin-sidebar-title">{title}</h1>
       <nav className="admin-sidebar-nav">
-        {links.map((link) => (
-          <SidebarLink key={link.to} {...link} />
-        ))}
+        {links.map((link) =>
+          link.isLabel ? (
+            <div key={link.label} className="admin-sidebar-subnav-label">
+              {link.label}
+            </div>
+          ) : (
+            <SidebarLink key={link.to} {...link} />
+          )
+        )}
         {currentUser?.role === "admin" && (
           <>
             <div className="admin-sidebar-divider" />

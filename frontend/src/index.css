@@ -860,15 +860,24 @@ a {
 }
 
 .btn-remove {
-  background: none;
-  border: none;
+  /* Previously background:none/border:none -- a bare red glyph with no
+     visible button chrome at all, easy to miss entirely (flagged from a
+     real screenshot) and no better on touch, which has no hover state to
+     reveal it. A faint standing background/border makes it read as a
+     clickable control at rest, not just on hover. */
+  background: #fdf0ef;
+  border: 1px solid #f3d4d2;
+  border-radius: 4px;
   color: #b91c1c;
   font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
-  padding: 0.25rem;
+  padding: 0.25rem 0.4rem;
 }
-.btn-remove:hover {
+.btn-remove:hover,
+.btn-remove:focus-visible {
+  background: #fbe0de;
+  border-color: #e9b3af;
   color: #7f1616;
 }
 

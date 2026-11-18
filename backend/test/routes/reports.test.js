@@ -33,10 +33,25 @@ function stripBom(text) {
 let admin;
 let viewer;
 let fixturePartnerId;
+let originalEnabledFeatures;
 
 before(async () => {
   await ensureTestUsers();
   [admin, viewer] = await Promise.all([client("admin"), client("viewer")]);
+
+  // trips defaults to off (#252); this file's own fixture trip (below)
+  // and the "feature gate" describe block further down both need it on
+  // as their baseline.
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
+  originalEnabledFeatures = settings?.enabledFeatures ?? {};
+  await prisma.churchSettings.upsert({
+    where: { id: "singleton" },
+    update: { enabledFeatures: { ...originalEnabledFeatures, trips: true } },
+    create: { id: "singleton", enabledFeatures: { trips: true } },
+  });
 
   // A partner with a known birthday in a known month, so the report has
   // something deterministic to find.
@@ -69,9 +84,9 @@ before(async () => {
       partnerId: fixturePartnerId,
       startDate: "2026-06-01",
       endDate: "2026-06-10",
-      tripType: "Construction",
+      type: "Construction",
       description: "Report fixture trip",
-      participants: [{ name: "Fixture Leader", isLeader: true }],
+      participants: [{ firstName: "Fixture", lastName: "Leader", isLeader: true }],
     },
   });
   await admin("/api/support-entries", {
@@ -83,6 +98,11 @@ before(async () => {
 after(async () => {
   await removeFixturePartners();
   await removeTestUsers();
+  await prisma.churchSettings.upsert({
+    where: { id: "singleton" },
+    update: { enabledFeatures: originalEnabledFeatures },
+    create: { id: "singleton", enabledFeatures: originalEnabledFeatures },
+  });
   await stopServer();
 });
 
@@ -159,10 +179,16 @@ describe("GET /api/reports/:id", () => {
     assert.match(res.body.error, /month/i);
   });
 
-  test("month view with no month picked 400s rather than running on a default", async () => {
-    const res = await admin("/api/reports/upcoming-birthdays?view=month");
-    assert.equal(res.status, 400);
-    assert.match(res.body.error, /month/i);
+  test("month view with no month picked defaults to the current month (issue #253)", async () => {
+    // ChurchSettings.timezone means the server now knows what month it is
+    // where the church actually is -- no reason to force the browser to
+    // supply one. Controlled via the request's own `today`, same as the
+    // year-view default test below, so this doesn't depend on which real
+    // month the suite happens to run in.
+    const res = await admin("/api/reports/upcoming-birthdays?view=month&today=2026-03-15");
+    assert.equal(res.status, 200);
+    const child = res.body.rows.find((r) => r.name === "Child Fixture");
+    assert.ok(child, "March's fixture birthday should appear when month defaults to March");
   });
 });
 

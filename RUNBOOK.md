@@ -12,7 +12,7 @@ see [SPEC.md § 8](SPEC.md).
 | Environment | URL | Branch | Purpose |
 |---|---|---|---|
 | Local | `http://localhost:5173` (frontend dev server, proxies `/api` to `:4000`) | — | Fast local loop, see [ADMIN_GUIDE.md § Local development setup](ADMIN_GUIDE.md#local-development-setup) |
-| Pre-prod test (`dev-missions-partner-tracker`) | TODO — confirm exact URL in the Render dashboard | `dev` | Live pre-release check, auto-deploys every push |
+| Pre-prod test (`dev-missions-partner-tracker`) | `https://dev-missions-partner-tracker.onrender.com` | `dev` | Live pre-release check, auto-deploys every push |
 | Production / live public demo (`missions-partner-tracker`) | `https://missions-partner-tracker.onrender.com` | `main` | What a real visitor sees, auto-deploys on merge |
 
 Both Render services are described in [SPEC.md § 8.2](SPEC.md); the
@@ -103,6 +103,23 @@ Applies to **either** Render service independently — fixing it on the
 demo doesn't fix dev-test, and vice versa; both need their own reset
 if both received the squashed migration.
 
+**A squashed-migration deploy reports `live`, but the schema never
+actually changed.** A worse variant of the failure above, not just a
+milder one — confirmed directly against dev-test after merging #252:
+the deploy went `live` with no error at all, yet the database was
+still missing every new table the squash was supposed to add. This
+project's squash convention reuses the *original* init migration's own
+name/timestamp (see `CONTRIBUTING.md`'s migration-squash steps), so an
+environment that already has that exact migration name recorded in its
+own `_prisma_migrations` history can have `prisma migrate deploy` treat
+it as already-applied and skip running its SQL entirely, rather than
+failing loudly — deploy status alone can't be trusted to catch this.
+After *any* squash, verify the live schema directly (e.g. list tables,
+or just check for the new model(s) the squash added) rather than
+assuming a green deploy means the schema actually moved — and when in
+doubt, just run the reset (above) regardless of whether the deploy
+reported success or failure.
+
 **A branch you expected to still exist is gone after a PR merge.** If
 the repo ever has `delete_branch_on_merge` enabled, merging a PR
 deletes its head branch — actively harmful for a long-lived branch
@@ -126,6 +143,3 @@ for the two tooling-level safety gates (Prisma's AI-consent
 requirement, the acting agent's own safety classifier) that apply
 regardless of project policy.
 
-## TODO
-
-- [ ] Confirm dev-test's exact Render URL and fill in the table above.

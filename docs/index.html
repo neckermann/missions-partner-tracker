@@ -95,8 +95,8 @@
           <h2>One dashboard for everything behind the scenes</h2>
           <p>
             Add, edit, and manage every missionary and organization in one filterable, searchable list,
-            support tracking, trip history &amp; capacity search, furlough/church-visit scheduling, and
-            private Newsletters &amp; Docs uploads — all with role-based user permissions.
+            support tracking, mission trip recruiting, teams &amp; support raising, furlough/church-visit
+            scheduling, and private Newsletters &amp; Docs uploads — all with role-based user permissions.
           </p>
         </div>
         <div class="feature-image">
@@ -118,8 +118,8 @@
             built-in kinds fit. Reclassify a mis-filed upload the same way you'd edit anything else, no
             separate action required. AI Request Scanning reads any uploaded file for prayer requests and
             one-time needs waiting to be pulled out, and once one's added, a direct link back to the source
-            file travels with it everywhere that request or need shows up — on the partner's page, in GroupMe,
-            in the email digest.
+            file travels with it everywhere that request or need shows up — on the partner's page, in GroupMe
+            or WhatsApp, in the admin email digest.
           </p>
         </div>
         <div class="feature-image">
@@ -222,8 +222,8 @@
       <div class="wrap">
         <h2>And everything else that keeps a missions program running</h2>
         <p>
-          A home dashboard, monthly support totals, one-time need requests, mission trip history and
-          opportunity search, the booklet generator itself, user management, church info, and every other
+          A home dashboard, monthly support totals, one-time need requests, mission trip recruiting, teams,
+          and support raising, the booklet generator itself, user management, church info, and every other
           admin-only prayer request in one place.
         </p>
         <div class="gallery">
@@ -255,21 +255,29 @@
             </a>
             <div class="caption">One-time need requests</div>
           </div>
+          <!-- These two screenshots predate the Trips/Plan-a-Trip rename, the
+          Meetings uplift (agenda/join-link/RSVP), and the new Status filter --
+          tracked by #264/#266. Captions below already reflect the current
+          UI; the images themselves still need retaking. -->
           <div class="gallery-item">
             <a href="assets/screenshots/trip-history.png" target="_blank" rel="noreferrer">
-              <img src="assets/screenshots/trip-history.png" alt="Mission trip history" loading="lazy" />
+              <img
+                src="assets/screenshots/trip-history.png"
+                alt="The Trips list, filterable by status"
+                loading="lazy"
+              />
             </a>
-            <div class="caption">Mission trip history</div>
+            <div class="caption">Every trip, filterable by status</div>
           </div>
           <div class="gallery-item">
             <a href="assets/screenshots/trip-opportunities.png" target="_blank" rel="noreferrer">
               <img
                 src="assets/screenshots/trip-opportunities.png"
-                alt="Trip opportunity search by team size and type"
+                alt="Plan a Trip: which partner to host your next trip"
                 loading="lazy"
               />
             </a>
-            <div class="caption">Find who can host your next trip</div>
+            <div class="caption">Plan a Trip: find who needs one next</div>
           </div>
           <div class="gallery-item">
             <a href="assets/screenshots/print-booklet-admin.png" target="_blank" rel="noreferrer">
@@ -321,6 +329,35 @@
       </div>
     </section>
 
+    <section class="feature">
+      <div class="wrap">
+        <div class="feature-text">
+          <h2>Optional: recruit and run short-term mission trips</h2>
+          <p>
+            Turn on Mission Trips for the whole recruiting pipeline — an application form, a confirmed team,
+            per-participant fundraising pages, and reusable document/e-signature requirement templates,
+            including a ready-to-use Minor Travel Release &amp; Consent Form for a trip with minors on it.
+            Schedule meetings with a title, an agenda, and a join link, and participants get a one-click
+            Yes/No/Maybe RSVP and an Add-to-calendar link right from the invite email — and again on their own
+            self-service page, no login required either way. From that same page, a participant can upload a
+            required document or sign an e-signature themselves — no admin has to be the middleman. Off by
+            default; turn it on from Site Administration → Enabled Features. A separate Public trip discovery
+            toggle, nested under it, adds a public listing page and plain application links for anyone
+            browsing with no link in hand — leave it off to run trips entirely by private link instead.
+          </p>
+        </div>
+        <div class="feature-image">
+          <a href="assets/screenshots/admin-trip-detail.png" target="_blank" rel="noreferrer">
+            <img
+              src="assets/screenshots/admin-trip-detail.png"
+              alt="A full recruiting trip's detail page, with team, requirements, and meetings"
+              loading="lazy"
+            />
+          </a>
+        </div>
+      </div>
+    </section>
+
     <section class="feature reverse" id="integrations">
       <div class="wrap">
         <div class="feature-text">
@@ -352,9 +389,7 @@
             Connect a GroupMe group and pick a Topic for each — prayer requests, one-time needs, and
             newsletters each get their own — and every new one posts there automatically, with a direct link
             for newsletters, so your team sees it the moment it's added without checking the admin dashboard.
-            Nothing posts anywhere until a group and access token are connected. WhatsApp works the same way,
-            as its own separate connection — see
-            <a href="dispatch-pipeline.html">how an event actually flows across every channel</a>.
+            Nothing posts anywhere until a group and access token are connected.
           </p>
         </div>
         <div class="feature-image two-up">
@@ -369,6 +404,39 @@
             <img
               src="assets/screenshots/groupme-notification-need.png"
               alt="A one-time need dispatch, as it actually appears in the GroupMe app"
+              loading="lazy"
+            />
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature reverse">
+      <div class="wrap">
+        <div class="feature-text">
+          <h2>Optional: the same dispatches, over WhatsApp</h2>
+          <p>
+            A fully independent alternative or addition to GroupMe — its own connection, its own groups, its
+            own on/off switch, not a layer built on top of GroupMe's. Link a dedicated phone number, pick a
+            WhatsApp community, then a group for prayer requests, one-time needs, and newsletters, and every
+            new one posts there the moment it's added. Because it's an unofficial connection (the number links
+            the way WhatsApp Web does), a dedicated number — never a personal one — is a must. See
+            <a href="dispatch-pipeline.html">how an event actually flows across every channel</a> for the full
+            picture of how GroupMe, WhatsApp, and email all fit together.
+          </p>
+        </div>
+        <div class="feature-image two-up">
+          <a href="assets/screenshots/whatsapp-settings.png" target="_blank" rel="noreferrer">
+            <img
+              src="assets/screenshots/whatsapp-settings.png"
+              alt="The WhatsApp settings page, with the number linked and every step configured"
+              loading="lazy"
+            />
+          </a>
+          <a href="assets/screenshots/whatsapp-prayer-requests-group.png" target="_blank" rel="noreferrer">
+            <img
+              src="assets/screenshots/whatsapp-prayer-requests-group.png"
+              alt="The Prayer Requests group showing new and answered prayer requests in the WhatsApp app"
               loading="lazy"
             />
           </a>

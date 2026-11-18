@@ -189,7 +189,7 @@
               <dt>Schedule</dt>
               <dd>Same shared daily chat hour, own cursor</dd>
               <dt>Content</dt>
-              <dd>Same types, same mutes as GroupMe</dd>
+              <dd>All types, each independently muted</dd>
               <dt>Recipients</dt>
               <dd>One WhatsApp community, up to 3 groups</dd>
             </dl>
@@ -231,11 +231,11 @@
         <div class="diagram-card">
           <pre class="mermaid">
 flowchart TD
-    PR["Prayer Request\nCreated / Answered"]
-    ND["One-Time Need\nCreated / Decided"]
-    NL["Newsletter\nCreated"]
-    RGATE{"About a restricted\npartner, and that\nchurch setting off?"}
-    NEVER["Never recorded --\nthe one exception"]
+    PR["Prayer Request<br/>Created / Answered"]
+    ND["One-Time Need<br/>Created / Decided"]
+    NL["Newsletter<br/>Created"]
+    RGATE{"About a restricted<br/>partner, and that<br/>church setting off?"}
+    NEVER["Never recorded --<br/>the one exception"]
     REC[("Event recorded")]
     PR --> RGATE
     ND --> RGATE
@@ -243,11 +243,11 @@ flowchart TD
     RGATE -- yes --> NEVER
     RGATE -- no --> REC
 
-    URGENT{"Marked urgent?\n(isUrgent -- admin/editor\nset at creation)"}
+    URGENT{"Marked urgent?<br/>(isUrgent -- admin/editor<br/>set at creation)"}
     REC --> URGENT
 
-    URGENTNOW["sendUrgentDispatch() --\nfires on every channel\nright now, no waiting"]
-    SCHED["Each channel's own\nschedule tick fires --\nchat: shared daily hour.\nemail: cadence tier"]
+    URGENTNOW["sendUrgentDispatch() --<br/>fires on every channel<br/>right now, no waiting"]
+    SCHED["Each channel's own<br/>schedule tick fires --<br/>chat: shared daily hour.<br/>email: cadence tier"]
     URGENT -- yes --> URGENTNOW
     URGENT -- no --> SCHED
 
@@ -265,13 +265,13 @@ flowchart TD
     SCHED --> PDSTART
 
     subgraph ELIG["isEligibleForChannel -- one function, same order, every channel, urgent or not"]
-        R1{"Partner restricted?\nAllowed, and\nalready reviewed?"}
-        R2{"Chat channels only\n(GroupMe/WhatsApp): this\ncontent type turned on?\n(admin digest: always\neverything. public digest:\nalways prayer-only)"}
-        R3{"Someone eligible\nright now? (urgent: any\nrecipient at all. scheduled:\nonly this tier/hour's\nrecipients)"}
+        R1{"Partner restricted?<br/>Allowed, and<br/>already reviewed?"}
+        R2{"Chat channels only<br/>(GroupMe/WhatsApp): this<br/>content type turned on?<br/>(admin digest: always<br/>everything. public digest:<br/>always prayer-only)"}
+        R3{"Someone eligible<br/>right now? (urgent: any<br/>recipient at all. scheduled:<br/>only this tier/hour's<br/>recipients)"}
         NO["Not eligible"]
         YES["Eligible -- deliver"]
-        R1 -- "restricted, and\nblocked or unreviewed" --> NO
-        R1 -- "not restricted,\nor cleared" --> R2
+        R1 -- "restricted, and<br/>blocked or unreviewed" --> NO
+        R1 -- "not restricted,<br/>or cleared" --> R2
         R2 -- no --> NO
         R2 -- yes --> R3
         R3 -- no --> NO
@@ -283,16 +283,16 @@ flowchart TD
     ADSTART --> ELIG
     PDSTART --> ELIG
 
-    SENT["Delivered on\nthat channel"]
-    SKIPPED["Skipped on\nthat channel"]
+    SENT["Delivered on<br/>that channel"]
+    SKIPPED["Skipped on<br/>that channel"]
     YES --> SENT
     NO --> SKIPPED
 
-    CLEAR{"Every channel has\neither delivered, or\npermanently can't?"}
+    CLEAR{"Every channel has<br/>either delivered, or<br/>permanently can't?"}
     SENT --> CLEAR
     SKIPPED --> CLEAR
     DELETE["Row deleted"]
-    WAIT["Stays queued --\nsome channel's\nanswer could\nstill change"]
+    WAIT["Stays queued --<br/>some channel's<br/>answer could<br/>still change"]
     CLEAR -- yes --> DELETE
     CLEAR -- no --> WAIT
           </pre>

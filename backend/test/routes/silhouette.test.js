@@ -26,4 +26,11 @@ describe("GET /api/silhouette/:category.svg -- public, no session required", () 
     const unknown = await unauthenticated("/api/silhouette/not-a-real-category.svg");
     assert.equal(unknown.body, known.body);
   });
+
+  test("Cross-Origin-Resource-Policy allows cross-origin embedding", async () => {
+    // Regression test for #246 -- see photos.test.js's identical check for
+    // the full reasoning.
+    const res = await unauthenticated("/api/silhouette/couple.svg");
+    assert.equal(res.headers.get("cross-origin-resource-policy"), "cross-origin");
+  });
 });

@@ -17,6 +17,15 @@ router.get("/:id/raw", async (req, res, next) => {
     });
     if (!photo) return res.status(404).end();
 
+    // Without this, helmet()'s global `Cross-Origin-Resource-Policy:
+    // same-origin` (server.js) blocks a cross-origin page from *embedding*
+    // this response -- which is exactly what a webmail client (Outlook on
+    // the web chief among them) is, when it renders a digest email we
+    // sent. That header never gates who can fetch this URL directly (this
+    // route has no auth either way -- see the comment above), only
+    // whether a third-party page may show it inline, so relaxing it here
+    // doesn't change access, only whether email actually renders (#246).
+    res.set("Cross-Origin-Resource-Policy", "cross-origin");
     // A photo row is never updated in place (a new upload creates a new
     // row — see the Photo model comment), so its bytes are immutable for
     // the life of this id. Safe to cache aggressively.

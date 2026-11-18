@@ -36,7 +36,9 @@ const dispatchRoutes = require("./routes/dispatches");
 const publicSubscribeRoutes = require("./routes/publicSubscribe");
 const publicUnsubscribeRoutes = require("./routes/publicUnsubscribe");
 const adminScopedDigestRoutes = require("./routes/adminScopedDigest");
+const publicTripRoutes = require("./routes/publicTrips");
 const { startEmailDispatchScheduler, startGroupMeScheduler } = require("./utils/emailDispatchScheduler");
+const { startTripReminderScheduler } = require("./utils/tripReminderScheduler");
 const whatsappClient = require("./utils/whatsappClient");
 const { isFeatureEnabled } = require("./utils/features");
 const prisma = require("./prismaClient");
@@ -60,6 +62,15 @@ app.set("trust proxy", 1);
 // need no widening — they come from this app's own origin (routes/photos.js,
 // publicSettings.js), already covered by 'self'. Marker pins don't either:
 // they're bundled as data: URIs (see PublicMap.jsx).
+//
+// This is about what THIS app's own pages may load (CSP). The opposite
+// direction -- what OTHER origins may embed FROM this app, e.g. a webmail
+// client rendering a digest email's <img> tags -- is helmet()'s separate
+// `Cross-Origin-Resource-Policy` default (`same-origin`, left as-is here
+// for defense-in-depth everywhere else), relaxed per-route instead on
+// photos.js's /:id/raw, silhouette.js, and publicSettings.js's /logo/raw
+// specifically, the only three routes meant to be embedded cross-origin
+// (#246).
 //
 // These MUST cover every entry in TILE_SOURCES in PublicMap.jsx, which
 // the map falls through in order when a provider blocks a visitor. That
@@ -210,6 +221,7 @@ app.use("/api/dispatches", dispatchRoutes); // protected (any role for read, adm
 app.use("/api/public/subscribe", publicSubscribeRoutes); // open (public, feature-gated -- see that file's own comment)
 app.use("/api/public/unsubscribe", publicUnsubscribeRoutes); // open (public, feature-gated -- sibling of publicSubscribe, not nested under it)
 app.use("/api/scoped-digest", adminScopedDigestRoutes); // protected (any role for read)
+app.use("/api/public/trips", publicTripRoutes); // open (public, feature-gated -- see that file's own comment)
 
 // Only exists at all if DEMO_RESET_TOKEN is configured — absent in every
 // normal deployment. See ADMIN_GUIDE.md § Demo mode.
@@ -279,6 +291,7 @@ if (require.main === module) {
     });
     startEmailDispatchScheduler();
     startGroupMeScheduler();
+    startTripReminderScheduler();
 
     // Open the WhatsApp session now (if the feature is on and a number is
     // paired) rather than waiting up to a minute for the first scheduler

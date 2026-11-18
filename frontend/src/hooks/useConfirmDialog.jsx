@@ -12,9 +12,22 @@ import Modal from "../components/Modal.jsx";
 // genuinely irreversible action (e.g. permanently deleting a partner) --
 // Confirm stays disabled until the typed value matches `word`,
 // case/whitespace-insensitive.
+//
+// `textInput: { label, placeholder?, rows? }` collects free text alongside
+// the confirmation (e.g. a reason for declining something) -- rendered
+// and owned by this hook itself, not by the caller's `body`, for the same
+// reason `typedConfirmation`'s own input is: a controlled input whose
+// value/onChange live inside the caller's `body` JSX would freeze at
+// whatever it was when `confirm()` was called, since `dialog.body` is a
+// snapshot stored once in this hook's own state, never recreated on every
+// keystroke. Opt-in and additive -- a call that doesn't pass `textInput`
+// gets back a plain boolean exactly as before; one that does gets back
+// `{ confirmed, text }` instead, since the caller asking for text already
+// expects a different shape.
 export default function useConfirmDialog() {
   const [dialog, setDialog] = useState(null);
   const [typedValue, setTypedValue] = useState("");
+  const [textInputValue, setTextInputValue] = useState("");
   const resolverRef = useRef(null);
 
   const confirm = useCallback(
@@ -26,24 +39,29 @@ export default function useConfirmDialog() {
       danger = false,
       maxWidth,
       typedConfirmation,
+      textInput,
     }) =>
       new Promise((resolve) => {
         resolverRef.current = resolve;
         setTypedValue("");
-        setDialog({ title, body, confirmLabel, cancelLabel, danger, maxWidth, typedConfirmation });
+        setTextInputValue("");
+        setDialog({ title, body, confirmLabel, cancelLabel, danger, maxWidth, typedConfirmation, textInput });
       }),
     []
   );
 
-  function settle(result) {
+  function settle(confirmed) {
+    const hadTextInput = !!dialog?.textInput;
+    const text = textInputValue.trim();
     setDialog(null);
-    resolverRef.current?.(result);
+    resolverRef.current?.(hadTextInput ? { confirmed, text: confirmed ? text : "" } : confirmed);
     resolverRef.current = null;
   }
 
   const typedConfirmation = dialog?.typedConfirmation;
   const typedMismatch =
     typedConfirmation && typedValue.trim().toLowerCase() !== typedConfirmation.word.toLowerCase();
+  const textInput = dialog?.textInput;
 
   const confirmElement = dialog ? (
     <Modal title={dialog.title} onClose={() => settle(false)} maxWidth={dialog.maxWidth}>
@@ -55,6 +73,19 @@ export default function useConfirmDialog() {
             type="text"
             value={typedValue}
             onChange={(e) => setTypedValue(e.target.value)}
+            autoFocus
+            style={{ display: "block", marginTop: "0.35rem", width: "100%" }}
+          />
+        </label>
+      )}
+      {textInput && (
+        <label style={{ display: "block", marginTop: "1rem" }}>
+          {textInput.label}
+          <textarea
+            rows={textInput.rows || 2}
+            placeholder={textInput.placeholder}
+            value={textInputValue}
+            onChange={(e) => setTextInputValue(e.target.value)}
             autoFocus
             style={{ display: "block", marginTop: "0.35rem", width: "100%" }}
           />

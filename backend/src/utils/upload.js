@@ -38,4 +38,25 @@ function uploadFilteredBy(resolveExt, { maxFileSize, message }) {
   });
 }
 
-module.exports = { makeExtResolver, uploadFilteredBy };
+// Shared by the admin TripDocument upload route and the public
+// self-service document-upload route (both trips.js/publicTrips.js) --
+// one allowlist and one size cap for both, so a future change to either
+// only ever happens in one place. The admin route previously had no
+// filter at all (any MIME type, any extension); the public route needs
+// one from day one since it's reachable by anyone who has a
+// participant's access-token link, not just a logged-in admin/editor.
+const TRIP_DOCUMENT_MIME_TO_EXT = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "application/pdf": "pdf",
+};
+const TRIP_DOCUMENT_MAX_FILE_SIZE = 15 * 1024 * 1024; // matches the admin route's pre-existing cap
+function tripDocumentUpload() {
+  return uploadFilteredBy(makeExtResolver(TRIP_DOCUMENT_MIME_TO_EXT), {
+    maxFileSize: TRIP_DOCUMENT_MAX_FILE_SIZE,
+    message: "That file type isn't supported here -- upload a JPG, PNG, WEBP, or PDF.",
+  });
+}
+
+module.exports = { makeExtResolver, uploadFilteredBy, tripDocumentUpload, TRIP_DOCUMENT_MAX_FILE_SIZE };

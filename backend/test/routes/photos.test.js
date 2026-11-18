@@ -75,4 +75,22 @@ describe("GET /api/photos/:id/raw -- content-type allowlist", () => {
     assert.equal(res.status, 200);
     assert.equal(res.headers.get("content-type"), "application/octet-stream");
   });
+
+  test("Cross-Origin-Resource-Policy allows cross-origin embedding", async () => {
+    // Regression test for #246: helmet()'s global default
+    // (Cross-Origin-Resource-Policy: same-origin) silently blocked a
+    // webmail client from embedding this image inline in a digest email,
+    // since that's a cross-origin <img> embed, not a same-origin request.
+    const photo = await prisma.photo.create({
+      data: {
+        partnerId,
+        bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+        receivedDate: new Date("2026-01-01"),
+        contentType: "image/png",
+      },
+    });
+
+    const res = await unauthenticated(`/api/photos/${photo.id}/raw`);
+    assert.equal(res.headers.get("cross-origin-resource-policy"), "cross-origin");
+  });
 });

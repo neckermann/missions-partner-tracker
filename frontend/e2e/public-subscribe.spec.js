@@ -8,8 +8,23 @@ import { login } from "./helpers.js";
 // beforeAll/afterAll run once per *worker*, not once globally -- forced
 // serial here so this file's own tests can't race each other toggling
 // the shared ChurchSettings row across parallel workers (confirmed no
-// other spec file touches enabledFeatures, so this is the only source
-// of that race).
+// other spec file *toggles* enabledFeatures mid-run, so this is the only
+// source of that race).
+//
+// PUT /api/settings replaces the whole enabledFeatures column with
+// whatever object it's given -- it does not merge (same contract every
+// other caller, e.g. backend/test/routes/featureGates.test.js's own
+// setFeatures(), already works around by reading current state first).
+// ci.yml enables "trips" once, globally, before the e2e suite starts --
+// a blind partial PUT here was silently wiping that back off for the
+// rest of the run the moment this file's own hooks fired. Read-merge-
+// write, same as that existing precedent, rather than overwriting.
+async function mergeFeatures(page, patch) {
+  const current = await page.request.get("/api/settings");
+  const existing = (await current.json()).enabledFeatures || {};
+  await page.request.put("/api/settings", { data: { enabledFeatures: { ...existing, ...patch } } });
+}
+
 test.describe.configure({ mode: "serial" });
 test.describe("Public subscribe page", () => {
   test.beforeAll(async ({ browser }) => {
@@ -21,9 +36,7 @@ test.describe("Public subscribe page", () => {
     // outboundEmail has to be turned on via the generic settings PUT
     // first, same two-step order backend/test/routes/publicSubscribe.test.js
     // uses.
-    await page.request.put("/api/settings", {
-      data: { enabledFeatures: { publicPrayerDigest: true, outboundEmail: true } },
-    });
+    await mergeFeatures(page, { publicPrayerDigest: true, outboundEmail: true });
     await page.request.put("/api/settings/email", {
       data: { sendEnabled: true, serverToken: "e2e-test-token", fromAddress: "updates@example.test" },
     });
@@ -34,9 +47,7 @@ test.describe("Public subscribe page", () => {
     const context = await browser.newContext();
     const page = await context.newPage();
     await login(page);
-    await page.request.put("/api/settings", {
-      data: { enabledFeatures: { publicPrayerDigest: false, outboundEmail: false } },
-    });
+    await mergeFeatures(page, { publicPrayerDigest: false, outboundEmail: false });
     await context.close();
   });
 

@@ -49,9 +49,20 @@ global.fetch = (url, options) => {
 const FIXTURE_TAG = "ZZTEST-emailDispatchDelivery";
 
 async function cleanup() {
-  await prisma.dispatchRecord.deleteMany({
-    where: { partner: { displayName: { contains: FIXTURE_TAG } } },
-  });
+  // Unconditional, not scoped to this file's own fixture partners --
+  // sendDigestTier() processes the *entire* DispatchRecord queue by
+  // design (that's its actual job in production), so any row left over
+  // from seed data (e.g. the demo's own "sample pending-dispatches
+  // queue") or another test file leaks into every exact-count/exact-
+  // array assertion in this file. Safe to wipe unconditionally: this is
+  // the local/CI test database only, tests run with
+  // --test-concurrency=1 (sequential, never overlapping another file),
+  // and every other test file that touches DispatchRecord
+  // (dispatches.test.js, groupme.test.js) always scopes its own
+  // assertions to its own partnerId and cleans up after itself in its
+  // own after() -- none of them depend on a pre-existing row surviving
+  // across files.
+  await prisma.dispatchRecord.deleteMany({});
   await prisma.userFollowedPartner.deleteMany({
     where: { partner: { displayName: { contains: FIXTURE_TAG } } },
   });
@@ -100,7 +111,20 @@ async function getSettings() {
   return prisma.churchSettings.findUnique({ where: { id: "singleton" } });
 }
 
+// Every test in this file uses tier "biweekly" -- the seeded demo admin
+// (demo@missionspartnertracker.com) defaults to exactly that cadence
+// with allPartners: true, so without neutralizing it first, it's an
+// eligible recipient for every row any test here creates, same class
+// of leak as the unscoped DispatchRecord rows above. Captured and
+// restored, same "remember the real value, put it back after" pattern
+// reports.test.js/collections.test.js/partners.test.js already use for
+// ChurchSettings.enabledFeatures -- this is shared global state too,
+// just on User instead.
+let originalUserCadences;
+
 before(async () => {
+  originalUserCadences = await prisma.user.findMany({ select: { id: true, cadence: true } });
+  await prisma.user.updateMany({ data: { cadence: null } });
   await cleanup();
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
@@ -139,6 +163,11 @@ beforeEach(async () => {
 after(async () => {
   global.fetch = realFetch;
   await cleanup();
+  await Promise.all(
+    originalUserCadences.map((u) =>
+      prisma.user.update({ where: { id: u.id }, data: { cadence: u.cadence } }).catch(() => {})
+    )
+  );
   await prisma.churchSettings.update({
     where: { id: "singleton" },
     data: { enabledFeatures: {}, postmarkServerToken: null, emailFromAddress: null, churchName: null },
