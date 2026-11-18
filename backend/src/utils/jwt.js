@@ -19,7 +19,8 @@ function signToken(user) {
     {
       id: user.id,
       email: user.email,
-      name: user.name,
+      firstName: user.firstName,
+      lastName: user.lastName,
       role: user.role,
       authProvider: user.authProvider,
     },

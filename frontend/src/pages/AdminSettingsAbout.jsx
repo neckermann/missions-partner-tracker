@@ -15,7 +15,8 @@ const emptyAddress = {
 const emptyForm = {
   churchName: "",
   phone: "",
-  contactName: "",
+  contactFirstName: "",
+  contactLastName: "",
   contactEmail: "",
   websiteLink: "",
   timezone: "UTC",
@@ -132,8 +133,18 @@ export default function AdminSettingsAbout() {
               />
             </label>
             <label>
-              Contact Name
-              <input value={form.contactName || ""} onChange={(e) => update("contactName", e.target.value)} />
+              Contact First Name
+              <input
+                value={form.contactFirstName || ""}
+                onChange={(e) => update("contactFirstName", e.target.value)}
+              />
+            </label>
+            <label>
+              Contact Last Name
+              <input
+                value={form.contactLastName || ""}
+                onChange={(e) => update("contactLastName", e.target.value)}
+              />
             </label>
             <label>
               Contact Email

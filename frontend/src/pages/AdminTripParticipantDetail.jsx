@@ -101,11 +101,11 @@ export default function AdminTripParticipantDetail() {
     trip.status !== "completed"
       ? [
           settings?.collectApplicantAddress && !participant.addressLine1 && "address",
-          settings?.collectEmergencyContact && !participant.emergencyContactName && "emergency contact",
+          settings?.collectEmergencyContact && !participant.emergencyContactFirstName && "emergency contact",
           // This trip's own flag, not a church-wide toggle -- see
           // Trip.collectParentGuardianInfo's own schema comment.
           trip.collectParentGuardianInfo && !participant.dateOfBirth && "date of birth",
-          trip.collectParentGuardianInfo && !participant.parentGuardianName && "parent/guardian name",
+          trip.collectParentGuardianInfo && !participant.parentGuardianFirstName && "parent/guardian name",
         ].filter(Boolean)
       : [];
 
@@ -384,13 +384,24 @@ export default function AdminTripParticipantDetail() {
         <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Emergency contact</h4>
         <div className="form-grid">
           <label>
-            Name
+            First Name
             <input
-              key={`emergencyContactName-${participant.id}`}
-              defaultValue={participant.emergencyContactName || ""}
+              key={`emergencyContactFirstName-${participant.id}`}
+              defaultValue={participant.emergencyContactFirstName || ""}
               onBlur={(e) =>
-                e.target.value !== (participant.emergencyContactName || "") &&
-                saveParticipant({ emergencyContactName: e.target.value.trim() || null })
+                e.target.value !== (participant.emergencyContactFirstName || "") &&
+                saveParticipant({ emergencyContactFirstName: e.target.value.trim() || null })
+              }
+            />
+          </label>
+          <label>
+            Last Name
+            <input
+              key={`emergencyContactLastName-${participant.id}`}
+              defaultValue={participant.emergencyContactLastName || ""}
+              onBlur={(e) =>
+                e.target.value !== (participant.emergencyContactLastName || "") &&
+                saveParticipant({ emergencyContactLastName: e.target.value.trim() || null })
               }
             />
           </label>
@@ -448,13 +459,24 @@ export default function AdminTripParticipantDetail() {
         <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Parent/guardian</h4>
         <div className="form-grid">
           <label>
-            Parent/guardian name
+            Parent/guardian first name
             <input
-              key={`parentGuardianName-${participant.id}`}
-              defaultValue={participant.parentGuardianName || ""}
+              key={`parentGuardianFirstName-${participant.id}`}
+              defaultValue={participant.parentGuardianFirstName || ""}
               onBlur={(e) =>
-                e.target.value !== (participant.parentGuardianName || "") &&
-                saveParticipant({ parentGuardianName: e.target.value.trim() || null })
+                e.target.value !== (participant.parentGuardianFirstName || "") &&
+                saveParticipant({ parentGuardianFirstName: e.target.value.trim() || null })
+              }
+            />
+          </label>
+          <label>
+            Parent/guardian last name
+            <input
+              key={`parentGuardianLastName-${participant.id}`}
+              defaultValue={participant.parentGuardianLastName || ""}
+              onBlur={(e) =>
+                e.target.value !== (participant.parentGuardianLastName || "") &&
+                saveParticipant({ parentGuardianLastName: e.target.value.trim() || null })
               }
             />
           </label>

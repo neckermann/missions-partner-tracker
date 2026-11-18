@@ -252,7 +252,8 @@ const applicationSchema = z.object({
   // Structured emergency contact -- same looseness/reasoning as the
   // address fields above. Rendered only when ChurchSettings.
   // collectEmergencyContact is on, but accepted here regardless.
-  emergencyContactName: z.string().optional().nullable(),
+  emergencyContactFirstName: z.string().optional().nullable(),
+  emergencyContactLastName: z.string().optional().nullable(),
   emergencyContactPhone: z.string().optional().nullable(),
   emergencyContactEmail: z.string().optional().nullable(),
   // Real structured field, not a template question -- see
@@ -261,7 +262,8 @@ const applicationSchema = z.object({
   // Only meaningful when this trip's own collectParentGuardianInfo is
   // on, but accepted regardless (same looseness as every other optional
   // field on this schema).
-  parentGuardianName: z.string().optional().nullable(),
+  parentGuardianFirstName: z.string().optional().nullable(),
+  parentGuardianLastName: z.string().optional().nullable(),
   parentGuardianRelationship: z.string().optional().nullable(),
   parentGuardianPhone: z.string().optional().nullable(),
   parentGuardianEmail: z.string().optional().nullable(),
@@ -296,11 +298,13 @@ async function createApplication(trip, settings, body, res) {
       postalCode: data.postalCode || null,
       country: data.country || null,
       dateOfBirth: data.dateOfBirth || null,
-      parentGuardianName: data.parentGuardianName || null,
+      parentGuardianFirstName: data.parentGuardianFirstName || null,
+      parentGuardianLastName: data.parentGuardianLastName || null,
       parentGuardianRelationship: data.parentGuardianRelationship || null,
       parentGuardianPhone: data.parentGuardianPhone || null,
       parentGuardianEmail: data.parentGuardianEmail || null,
-      emergencyContactName: data.emergencyContactName || null,
+      emergencyContactFirstName: data.emergencyContactFirstName || null,
+      emergencyContactLastName: data.emergencyContactLastName || null,
       emergencyContactPhone: data.emergencyContactPhone || null,
       emergencyContactEmail: data.emergencyContactEmail || null,
       responses: data.responses || {},

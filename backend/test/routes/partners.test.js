@@ -32,11 +32,17 @@ before(async () => {
     where: { id: "singleton" },
     select: {
       churchName: true,
-      contactName: true,
+      contactFirstName: true,
+      contactLastName: true,
       contactEmail: true,
       phone: true,
       websiteLink: true,
-      address: true,
+      addressLine1: true,
+      addressLine2: true,
+      city: true,
+      stateProvinceRegion: true,
+      postalCode: true,
+      country: true,
     },
   });
   // trips defaults to off (#252); the "collections are not writable
@@ -183,7 +189,7 @@ describe("partners: read models", () => {
   });
 
   test("the detail record includes its own sub-records but not the history collections", async () => {
-    const p = await createPartner({ adults: [{ name: "Test Adult" }] });
+    const p = await createPartner({ adults: [{ firstName: "Test", lastName: "Adult" }] });
     const { status, body } = await admin(`/api/partners/${p.id}`);
     assert.equal(status, 200);
     assert.equal(body.adults.length, 1);
@@ -259,11 +265,14 @@ describe("partners: collections are not writable through the partner record", ()
   });
 
   test("sub-records the partner record does own are still replaced on save", async () => {
-    const p = await createPartner({ adults: [{ name: "First" }] });
-    await admin(`/api/partners/${p.id}`, { method: "PUT", body: { adults: [{ name: "Second" }] } });
+    const p = await createPartner({ adults: [{ firstName: "First" }] });
+    await admin(`/api/partners/${p.id}`, {
+      method: "PUT",
+      body: { adults: [{ firstName: "Second" }] },
+    });
     const { body } = await admin(`/api/partners/${p.id}`);
     assert.equal(body.adults.length, 1);
-    assert.equal(body.adults[0].name, "Second");
+    assert.equal(body.adults[0].firstName, "Second");
   });
 });
 
@@ -295,11 +304,14 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
       where: { id: "singleton" },
       data: {
         churchName: `${FIXTURE_TAG} Hillside Community Church`,
-        contactName: "Amy Draycott",
+        contactFirstName: "Amy",
+        contactLastName: "Draycott",
         contactEmail: "missions@example.org",
         phone: "555-0100",
         websiteLink: "https://example.org",
-        address: { addressLine1: "1 Main St", city: "Rock Island", country: "USA" },
+        addressLine1: "1 Main St",
+        city: "Rock Island",
+        country: "USA",
       },
     });
   });
@@ -307,7 +319,8 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
   test("checking it at creation fills every Sending Church field from Church Settings", async () => {
     const p = await createPartner({ sentByOurChurch: true });
     assert.equal(p.sendingChurch.name, `${FIXTURE_TAG} Hillside Community Church`);
-    assert.equal(p.sendingChurch.contactName, "Amy Draycott");
+    assert.equal(p.sendingChurch.contactFirstName, "Amy");
+    assert.equal(p.sendingChurch.contactLastName, "Draycott");
     assert.equal(p.sendingChurch.contactEmail, "missions@example.org");
     assert.equal(p.sendingChurch.phone, "555-0100");
     assert.equal(p.sendingChurch.websiteLink, "https://example.org");
@@ -331,20 +344,22 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
       `${FIXTURE_TAG} Hillside Community Church`,
       "checking it pulls the current Church Settings value, not what was already typed"
     );
-    assert.equal(res.body.sendingChurch.contactName, "Amy Draycott");
+    assert.equal(res.body.sendingChurch.contactFirstName, "Amy");
+    assert.equal(res.body.sendingChurch.contactLastName, "Draycott");
   });
 
   test("checking it is never overridden by this same save's own sendingChurch payload -- Church Settings always wins", async () => {
     const p = await createPartner({
       sentByOurChurch: true,
-      sendingChurch: { name: "Explicit Name", contactName: "Explicit Contact" },
+      sendingChurch: { name: "Explicit Name", contactFirstName: "Explicit", contactLastName: "Contact" },
     });
     assert.equal(
       p.sendingChurch.name,
       `${FIXTURE_TAG} Hillside Community Church`,
       "checking the box means this partner's Sending Church IS the church, not a custom value"
     );
-    assert.equal(p.sendingChurch.contactName, "Amy Draycott");
+    assert.equal(p.sendingChurch.contactFirstName, "Amy");
+    assert.equal(p.sendingChurch.contactLastName, "Draycott");
   });
 
   // Regression test: the real admin UI's Sending Church box saves
@@ -364,7 +379,8 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
         sentByOurChurch: true,
         sendingChurch: {
           name: "",
-          contactName: "",
+          contactFirstName: "",
+          contactLastName: "",
           contactEmail: "",
           phone: "",
           websiteLink: "",
@@ -381,7 +397,8 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
     });
     assert.equal(res.status, 200);
     assert.equal(res.body.sendingChurch.name, `${FIXTURE_TAG} Hillside Community Church`);
-    assert.equal(res.body.sendingChurch.contactName, "Amy Draycott");
+    assert.equal(res.body.sendingChurch.contactFirstName, "Amy");
+    assert.equal(res.body.sendingChurch.contactLastName, "Draycott");
   });
 
   // The real Sending Church box always saves its full draft object (see the
@@ -400,7 +417,8 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
         sentByOurChurch: true,
         sendingChurch: {
           name: "",
-          contactName: p.sendingChurch.contactName,
+          contactFirstName: p.sendingChurch.contactFirstName,
+          contactLastName: p.sendingChurch.contactLastName,
           contactEmail: p.sendingChurch.contactEmail,
           phone: p.sendingChurch.phone,
           websiteLink: p.sendingChurch.websiteLink,
@@ -411,10 +429,11 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.sendingChurch.name, "", "a deliberate clear isn't silently refilled");
     assert.equal(
-      res.body.sendingChurch.contactName,
-      "Amy Draycott",
+      res.body.sendingChurch.contactFirstName,
+      "Amy",
       "fields resent unchanged in the same save survive"
     );
+    assert.equal(res.body.sendingChurch.contactLastName, "Draycott");
   });
 
   test("unchecking it never clears anything already filled in", async () => {
@@ -441,11 +460,14 @@ describe("partners: bulk Sending Church sync (POST /sync-sending-church)", () =>
       where: { id: "singleton" },
       data: {
         churchName: `${FIXTURE_TAG} Hillside Community Church`,
-        contactName: "Amy Draycott",
+        contactFirstName: "Amy",
+        contactLastName: "Draycott",
         contactEmail: "missions@example.org",
         phone: "555-0100",
         websiteLink: "https://example.org",
-        address: { addressLine1: "1 Main St", city: "Rock Island", country: "USA" },
+        addressLine1: "1 Main St",
+        city: "Rock Island",
+        country: "USA",
       },
     });
   });
@@ -459,7 +481,7 @@ describe("partners: bulk Sending Church sync (POST /sync-sending-church)", () =>
   test("overwrites every sent-by-us partner's Sending Church with current Church Settings, leaves others alone", async () => {
     const stale = await createPartner({
       sentByOurChurch: true,
-      sendingChurch: { name: "Stale Name", contactName: "Old Contact" },
+      sendingChurch: { name: "Stale Name", contactFirstName: "Old", contactLastName: "Contact" },
     });
     const alsoStale = await createPartner({
       sentByOurChurch: true,
@@ -480,7 +502,8 @@ describe("partners: bulk Sending Church sync (POST /sync-sending-church)", () =>
       admin(`/api/partners/${notSentByUs.id}`),
     ]);
     assert.equal(staleAfter.body.sendingChurch.name, `${FIXTURE_TAG} Hillside Community Church`);
-    assert.equal(staleAfter.body.sendingChurch.contactName, "Amy Draycott");
+    assert.equal(staleAfter.body.sendingChurch.contactFirstName, "Amy");
+    assert.equal(staleAfter.body.sendingChurch.contactLastName, "Draycott");
     assert.equal(alsoStaleAfter.body.sendingChurch.name, `${FIXTURE_TAG} Hillside Community Church`);
     assert.equal(
       untouchedAfter.body.sendingChurch.name,

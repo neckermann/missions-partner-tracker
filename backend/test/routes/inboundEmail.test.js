@@ -168,7 +168,9 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
   });
 
   test("a missionary's Adult.email matching exactly one partner files a Newsletter directly", async () => {
-    const partner = await createPartner({ adults: [{ name: "Test Adult", email: `adult@${FROM_DOMAIN}` }] });
+    const partner = await createPartner({
+      adults: [{ firstName: "Test", lastName: "Adult", email: `adult@${FROM_DOMAIN}` }],
+    });
 
     const res = await unauthenticated("/api/inbound-email/postmark", {
       method: "POST",

@@ -1830,11 +1830,17 @@ export default function AdminTripDetail() {
                                   .join(", ")}
                               </>
                             )}
-                            {(a.emergencyContactName || a.emergencyContactPhone) && (
+                            {(a.emergencyContactFirstName || a.emergencyContactPhone) && (
                               <>
                                 {" "}
                                 · <strong>Emergency contact:</strong>{" "}
-                                {[a.emergencyContactName, a.emergencyContactPhone, a.emergencyContactEmail]
+                                {[
+                                  [a.emergencyContactFirstName, a.emergencyContactLastName]
+                                    .filter(Boolean)
+                                    .join(" "),
+                                  a.emergencyContactPhone,
+                                  a.emergencyContactEmail,
+                                ]
                                   .filter(Boolean)
                                   .join(", ")}
                               </>
@@ -1952,12 +1958,14 @@ export default function AdminTripDetail() {
                                         .join(", ")}
                                     </>
                                   )}
-                                  {(a.emergencyContactName || a.emergencyContactPhone) && (
+                                  {(a.emergencyContactFirstName || a.emergencyContactPhone) && (
                                     <>
                                       {" "}
                                       · <strong>Emergency contact:</strong>{" "}
                                       {[
-                                        a.emergencyContactName,
+                                        [a.emergencyContactFirstName, a.emergencyContactLastName]
+                                          .filter(Boolean)
+                                          .join(" "),
                                         a.emergencyContactPhone,
                                         a.emergencyContactEmail,
                                       ]

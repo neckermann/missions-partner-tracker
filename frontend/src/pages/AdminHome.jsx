@@ -178,7 +178,7 @@ export default function AdminHome() {
 
   return (
     <div className="admin-shell">
-      <h2>Welcome{currentUser?.name ? `, ${currentUser.name}` : ""}</h2>
+      <h2>Welcome{currentUser?.firstName ? `, ${currentUser.firstName}` : ""}</h2>
       <p style={{ color: "#555" }}>Pick a section to get started.</p>
       <CardGrid sections={sections} />
 

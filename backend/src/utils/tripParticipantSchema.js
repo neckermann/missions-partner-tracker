@@ -21,7 +21,8 @@ const participantSchema = z.object({
   // Only meaningful when the trip's own collectParentGuardianInfo is on
   // -- see Trip.collectParentGuardianInfo's own schema comment.
   dateOfBirth: z.coerce.date().optional().nullable(),
-  parentGuardianName: z.string().optional().nullable(),
+  parentGuardianFirstName: z.string().optional().nullable(),
+  parentGuardianLastName: z.string().optional().nullable(),
   parentGuardianRelationship: z.string().optional().nullable(),
   parentGuardianPhone: z.string().optional().nullable(),
   parentGuardianEmail: z.string().optional().nullable(),

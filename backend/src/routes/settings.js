@@ -51,23 +51,19 @@ const upload = uploadFilteredBy(resolveImageExt, {
   message: "Only JPEG, PNG, or WebP images are allowed",
 });
 
-const addressSchema = z
-  .object({
-    addressLine1: z.string().optional().nullable(),
-    addressLine2: z.string().optional().nullable(),
-    city: z.string().optional().nullable(),
-    stateProvinceRegion: z.string().optional().nullable(),
-    postalCode: z.string().optional().nullable(),
-    country: z.string().optional().nullable(),
-  })
-  .optional()
-  .nullable();
-
 const settingsSchema = z.object({
   churchName: z.string().optional().nullable(),
-  address: addressSchema,
+  // #271 Finding 3: flat columns, not a nested address object -- matches
+  // SendingParty's own flat address columns directly now.
+  addressLine1: z.string().optional().nullable(),
+  addressLine2: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  stateProvinceRegion: z.string().optional().nullable(),
+  postalCode: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
-  contactName: z.string().optional().nullable(),
+  contactFirstName: z.string().optional().nullable(),
+  contactLastName: z.string().optional().nullable(),
   contactEmail: z.string().optional().nullable(),
   websiteLink: z.string().optional().nullable(),
   partnerTermSingular: z.string().optional().nullable(),

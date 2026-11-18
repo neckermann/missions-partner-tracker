@@ -243,7 +243,8 @@ async function sendUrgentDispatch(row, { id: partnerId }) {
         select: {
           id: true,
           email: true,
-          name: true,
+          firstName: true,
+          lastName: true,
           cadence: true,
           allPartners: true,
           followedPartners: { select: { partnerId: true } },

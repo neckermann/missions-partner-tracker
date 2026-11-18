@@ -72,7 +72,8 @@ function renderFamilyBlock(m, fields) {
     }
     (m.adults || []).forEach((a) => {
       const parts = [a.phone1, a.email].filter(Boolean).map(escapeHtml);
-      rows.push(`<p>${escapeHtml(a.name)}${parts.length ? ` — ${parts.join(" · ")}` : ""}</p>`);
+      const name = [a.firstName, a.lastName].filter(Boolean).join(" ");
+      rows.push(`<p>${escapeHtml(name)}${parts.length ? ` — ${parts.join(" · ")}` : ""}</p>`);
     });
   }
   if (fields.showChildren) {
@@ -114,16 +115,23 @@ function renderPrayerRequestsBlock(entity, maxPerPartner) {
   return `<div class="booklet-block"><h3>Prayer Requests</h3>${items}</div>`;
 }
 
+// #257/#271 Finding 4: contactFirstName/contactLastName replace the old
+// single contactName field -- composed back into one display string
+// only here, at render time.
+function contactFullName(entity) {
+  return [entity?.contactFirstName, entity?.contactLastName].filter(Boolean).join(" ");
+}
+
 function renderSendingPartyBlock(m) {
   const parts = [];
   if (m.sendingChurch?.name) {
-    const bits = [m.sendingChurch.contactName, m.sendingChurch.phone].filter(Boolean).map(escapeHtml);
+    const bits = [contactFullName(m.sendingChurch), m.sendingChurch.phone].filter(Boolean).map(escapeHtml);
     parts.push(
       `<p><strong>Sending Church:</strong> ${escapeHtml(m.sendingChurch.name)}${bits.length ? ` — ${bits.join(" · ")}` : ""}</p>`
     );
   }
   if (m.sendingOrg?.name) {
-    const bits = [m.sendingOrg.contactName, m.sendingOrg.phone].filter(Boolean).map(escapeHtml);
+    const bits = [contactFullName(m.sendingOrg), m.sendingOrg.phone].filter(Boolean).map(escapeHtml);
     parts.push(
       `<p><strong>Sending Org:</strong> ${escapeHtml(m.sendingOrg.name)}${bits.length ? ` — ${bits.join(" · ")}` : ""}</p>`
     );
@@ -134,7 +142,8 @@ function renderSendingPartyBlock(m) {
 
 function renderOrgContactBlock(o) {
   const rows = [];
-  if (o.contactName) rows.push(`<p><strong>Contact:</strong> ${escapeHtml(o.contactName)}</p>`);
+  const contactName = contactFullName(o);
+  if (contactName) rows.push(`<p><strong>Contact:</strong> ${escapeHtml(contactName)}</p>`);
   if (o.contactPhone) rows.push(`<p><strong>Phone:</strong> ${escapeHtml(o.contactPhone)}</p>`);
   if (o.contactEmail) rows.push(`<p><strong>Email:</strong> ${escapeHtml(o.contactEmail)}</p>`);
   if (o.websiteLink) rows.push(`<p><strong>Website:</strong> ${escapeHtml(o.websiteLink)}</p>`);
