@@ -30,6 +30,7 @@ const { renderSubscriberPage } = require("../utils/subscriberPage");
 const { tripDocumentUpload } = require("../utils/upload");
 const { sendStoredFile, safeFilename } = require("../utils/fileResponse");
 const { buildMeetingIcs } = require("../utils/tripEmails");
+const { isMinorForTrip } = require("../utils/tripParticipantSchema");
 const crypto = require("crypto");
 
 // Shared with the admin TripDocument upload route (trips.js) -- same
@@ -490,22 +491,28 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
     // anti-join against TripDocument; a "task" row is this participant's
     // own TripRequirementStatus.completedAt (already scoped to just this
     // participant by the `where` on requirementStatuses above).
-    const requirements = participant.trip.requirements.map((req) => ({
-      id: req.id,
-      label: req.label,
-      kind: req.kind,
-      dueAt: req.dueAt,
-      // Only meaningful for kind: "esignature" -- the agreement text to
-      // show before signing. Harmless to always include; null for the
-      // other two kinds.
-      bodyText: req.bodyText,
-      fulfilled:
-        req.kind === "task"
-          ? !!req.requirementStatuses[0]?.completedAt
-          : participant.trip.documents.some(
-              (d) => d.requirementId === req.id && d.participantId === participant.id
-            ),
-    }));
+    // #278 -- a minors-only requirement is excluded entirely for a
+    // non-minor participant, not just hidden/disabled: there's nothing
+    // for them to fulfill, so it shouldn't appear on their own list at
+    // all.
+    const requirements = participant.trip.requirements
+      .filter((req) => !req.minorsOnly || isMinorForTrip(participant.dateOfBirth, participant.trip.startDate))
+      .map((req) => ({
+        id: req.id,
+        label: req.label,
+        kind: req.kind,
+        dueAt: req.dueAt,
+        // Only meaningful for kind: "esignature" -- the agreement text to
+        // show before signing. Harmless to always include; null for the
+        // other two kinds.
+        bodyText: req.bodyText,
+        fulfilled:
+          req.kind === "task"
+            ? !!req.requirementStatuses[0]?.completedAt
+            : participant.trip.documents.some(
+                (d) => d.requirementId === req.id && d.participantId === participant.id
+              ),
+      }));
 
     res.json({
       id: participant.id,
@@ -635,7 +642,7 @@ router.post("/participants/sign/:requirementId", requireFeature("trips"), async 
 
     const participant = await prisma.tripParticipant.findUnique({
       where: { id: payload.id },
-      include: { trip: { select: { name: true, type: true } } },
+      include: { trip: { select: { name: true, type: true, startDate: true } } },
     });
     if (!participant || participant.accessTokenVersion !== payload.v) {
       return res.status(401).json({ error: "Invalid or expired link" });
@@ -647,6 +654,11 @@ router.post("/participants/sign/:requirementId", requireFeature("trips"), async 
     }
     if (requirement.kind !== "esignature") {
       return res.status(400).json({ error: "This requirement doesn't accept a signature" });
+    }
+    // #278 -- a minors-only requirement never applies to a non-minor
+    // participant, so there's nothing for them to sign.
+    if (requirement.minorsOnly && !isMinorForTrip(participant.dateOfBirth, participant.trip.startDate)) {
+      return res.status(404).json({ error: "Not found" });
     }
     const alreadySigned = await prisma.tripDocument.findFirst({
       where: { requirementId: requirement.id, participantId: participant.id },
@@ -738,7 +750,10 @@ router.post(
       const payload = verifyTripParticipantAccessToken(token);
       if (!payload) return res.status(401).json({ error: "Invalid or expired link" });
 
-      const participant = await prisma.tripParticipant.findUnique({ where: { id: payload.id } });
+      const participant = await prisma.tripParticipant.findUnique({
+        where: { id: payload.id },
+        include: { trip: { select: { startDate: true } } },
+      });
       if (!participant || participant.accessTokenVersion !== payload.v) {
         return res.status(401).json({ error: "Invalid or expired link" });
       }
@@ -751,6 +766,11 @@ router.post(
       }
       if (requirement.kind !== "document") {
         return res.status(400).json({ error: "This requirement doesn't accept an upload" });
+      }
+      // #278 -- a minors-only requirement never applies to a non-minor
+      // participant, so there's nothing for them to upload against.
+      if (requirement.minorsOnly && !isMinorForTrip(participant.dateOfBirth, participant.trip.startDate)) {
+        return res.status(404).json({ error: "Not found" });
       }
       if (!req.file) return res.status(400).json({ error: "No file provided" });
 

@@ -39,4 +39,31 @@ function defaultParticipantGoal(participant, tripGoal) {
   return participant.supportRaisingGoal !== undefined ? participant.supportRaisingGoal : (tripGoal ?? null);
 }
 
-module.exports = { participantSchema, defaultParticipantGoal };
+// #278: a participant is a minor for a given trip if they haven't turned
+// 18 by that trip's own startDate -- not today's date, since a
+// requirement's applicability is fixed at the trip the requirement
+// belongs to, not whenever someone happens to check. Shared by
+// tripRequirements.js (minorsOnly filtering), publicTrips.js (the
+// self-service requirements list), and tripReminderScheduler.js (so a
+// minors-only requirement never reminds an adult), rather than
+// reimplemented per call site.
+//
+// Missing dateOfBirth or tripStartDate defaults to "not a minor" --
+// dateOfBirth is only ever collected when a church's own
+// collectDateOfBirth/requireDateOfBirth settings call for it, so its
+// absence is routine, not an error; treating an unknown age as adult
+// is the least disruptive default (it never wrongly hides a
+// minors-only requirement from someone who might actually need it).
+function isMinorForTrip(dateOfBirth, tripStartDate) {
+  if (!dateOfBirth || !tripStartDate) return false;
+  const dob = new Date(dateOfBirth);
+  const start = new Date(tripStartDate);
+  let age = start.getUTCFullYear() - dob.getUTCFullYear();
+  const hadBirthdayByStart =
+    start.getUTCMonth() > dob.getUTCMonth() ||
+    (start.getUTCMonth() === dob.getUTCMonth() && start.getUTCDate() >= dob.getUTCDate());
+  if (!hadBirthdayByStart) age--;
+  return age < 18;
+}
+
+module.exports = { participantSchema, defaultParticipantGoal, isMinorForTrip };

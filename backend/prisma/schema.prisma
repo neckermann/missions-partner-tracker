@@ -600,6 +600,16 @@ model TripRequirement {
   dueAt            DateTime? @db.Date
   reminderLeadDays Int?
 
+  // #278: scopes this requirement to only the trip's minor participants
+  // (e.g. a minor travel release form) instead of the whole team.
+  // Checked via utils/tripParticipantSchema.js's isMinorForTrip
+  // (dateOfBirth vs. this trip's own startDate) at every point this
+  // requirement is surfaced to or reminds a participant -- never by
+  // creating or withholding a TripRequirementStatus row, since those
+  // are already lazily created on first completion/upload, not
+  // eagerly for every participant.
+  minorsOnly Boolean @default(false)
+
   documents           TripDocument[]
   requirementStatuses TripRequirementStatus[]
 

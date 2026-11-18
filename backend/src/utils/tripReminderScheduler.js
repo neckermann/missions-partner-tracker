@@ -14,6 +14,7 @@ const cron = require("node-cron");
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 const { sendParticipantEmail, buildMeetingIcs, buildMeetingEmailBody } = require("./tripEmails");
+const { isMinorForTrip } = require("./tripParticipantSchema");
 
 async function checkAndSendTripMeetingReminders() {
   const settings = await prisma.churchSettings.findUnique({
@@ -98,6 +99,11 @@ async function checkAndSendRequirementReminders() {
     if (now < reminderAt || now >= requirement.dueAt) continue;
 
     for (const participant of requirement.trip.participants) {
+      // #278 -- a minors-only requirement never reminds a non-minor
+      // participant; there's nothing for them to do about it.
+      if (requirement.minorsOnly && !isMinorForTrip(participant.dateOfBirth, requirement.trip.startDate)) {
+        continue;
+      }
       const status = requirement.requirementStatuses.find((s) => s.participantId === participant.id);
       if (status?.reminderSentAt) continue;
       const fulfilled =

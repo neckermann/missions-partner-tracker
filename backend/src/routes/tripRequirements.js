@@ -7,6 +7,7 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { sendRequirementNotificationEmail, emailParticipantSelect } = require("../utils/tripEmails");
+const { isMinorForTrip } = require("../utils/tripParticipantSchema");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -28,6 +29,10 @@ const requirementSchema = z.object({
   // enforced as a DB constraint (same style as this file's other
   // cross-field zod .refine()s).
   reminderLeadDays: z.coerce.number().int().positive().optional().nullable(),
+  // #278 -- scopes this requirement to only the trip's minor
+  // participants. See schema.prisma's own comment on this column for
+  // where it's checked.
+  minorsOnly: z.boolean().optional(),
 });
 function reminderNeedsDueDate(data) {
   return !data.reminderLeadDays || !!data.dueAt;
@@ -99,13 +104,31 @@ router.put(
   async (req, res, next) => {
     try {
       const { completed } = z.object({ completed: z.boolean() }).parse(req.body);
-      const requirement = await prisma.tripRequirement.findUnique({ where: { id: req.params.id } });
+      const requirement = await prisma.tripRequirement.findUnique({
+        where: { id: req.params.id },
+        include: { trip: { select: { startDate: true } } },
+      });
       if (!requirement) return res.status(404).json({ error: "Not found" });
       if (requirement.kind !== "task") {
         return res.status(400).json({
           error:
             "Only a task requirement can be marked complete directly -- a document or e-signature requirement is fulfilled by its own document, not this",
         });
+      }
+      // #278 -- a minors-only requirement never applies to a non-minor
+      // participant at all, so there's nothing for an admin to complete
+      // on their behalf either.
+      if (requirement.minorsOnly) {
+        const participant = await prisma.tripParticipant.findUnique({
+          where: { id: req.params.participantId },
+          select: { dateOfBirth: true },
+        });
+        if (!participant) return res.status(404).json({ error: "Not found" });
+        if (!isMinorForTrip(participant.dateOfBirth, requirement.trip.startDate)) {
+          return res.status(400).json({
+            error: "This requirement only applies to minor participants",
+          });
+        }
       }
       const status = await prisma.tripRequirementStatus.upsert({
         where: {

@@ -12,7 +12,7 @@ import {
   updateTripParticipant,
   tripParticipantPhotoUrl,
 } from "../api/client.js";
-import { formatDate } from "../utils/format.js";
+import { formatDate, isMinorForTrip } from "../utils/format.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
@@ -79,13 +79,17 @@ export default function AdminTripParticipantDetail() {
   const documents = (trip.documents || []).filter((d) => d.participantId === participantId);
   const contributions = (trip.contributions || []).filter((c) => c.participantId === participantId);
   const raised = contributions.reduce((sum, c) => sum + c.amount, 0);
-  const requirementRows = (trip.requirements || []).map((r) => ({
-    ...r,
-    fulfilled:
-      r.kind === "task"
-        ? !!(r.requirementStatuses || []).find((s) => s.participantId === participantId)?.completedAt
-        : documents.some((d) => d.requirementId === r.id),
-  }));
+  // #278 -- a minors-only requirement never applies to a non-minor
+  // participant; excluded entirely rather than shown as outstanding.
+  const requirementRows = (trip.requirements || [])
+    .filter((r) => !r.minorsOnly || isMinorForTrip(participant.dateOfBirth, trip.startDate))
+    .map((r) => ({
+      ...r,
+      fulfilled:
+        r.kind === "task"
+          ? !!(r.requirementStatuses || []).find((s) => s.participantId === participantId)?.completedAt
+          : documents.some((d) => d.requirementId === r.id),
+    }));
   const documentRequirements = requirementRows.filter((r) => r.kind !== "task");
 
   // Narrower than a blanket completeness check -- firstName/lastName/

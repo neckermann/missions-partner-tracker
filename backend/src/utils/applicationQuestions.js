@@ -43,6 +43,10 @@ const REQUIREMENT_TEMPLATE_SCHEMA = z.array(
     kind: z.enum(REQUIREMENT_KINDS).optional(),
     bodyText: z.string().optional().nullable(),
     reminderLeadDays: z.number().int().positive().optional().nullable(),
+    // #278 -- carried onto the real TripRequirement row this template/
+    // library entry copies into (see trips.js's POST / and
+    // tripRequirements.js's POST /:id/requirements).
+    minorsOnly: z.boolean().optional(),
   })
 );
 

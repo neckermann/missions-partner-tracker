@@ -299,6 +299,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
                 kind: r.kind,
                 bodyText: r.bodyText || null,
                 reminderLeadDays: r.reminderLeadDays || null,
+                minorsOnly: r.minorsOnly || false,
               })),
             }
           : undefined,
@@ -422,6 +423,7 @@ router.post("/:id/clone", requireRole("admin", "editor"), async (req, res, next)
             kind: r.kind,
             bodyText: r.bodyText,
             reminderLeadDays: r.reminderLeadDays,
+            minorsOnly: r.minorsOnly,
           })),
         },
       },

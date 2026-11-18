@@ -521,3 +521,205 @@ describe("Trips: creating a requirement notifies existing participants", () => {
     }
   });
 });
+
+// #278 -- a requirement can be scoped to only a trip's minor
+// participants (e.g. a minor travel release form). Filtered at every
+// read/reminder point, never by creating or withholding a
+// TripRequirementStatus row (those are already lazily created on first
+// completion/upload, never eagerly for every participant).
+describe("Trips: minors-only requirements (#278)", () => {
+  const { buildTripParticipantAccessToken } = require("../../src/utils/tripAccessToken");
+
+  async function captureEmails(run) {
+    const captured = [];
+    const prevFetch = global.fetch;
+    global.fetch = (url, options) => {
+      if (String(url).startsWith("https://api.postmarkapp.com") && options?.body) {
+        try {
+          captured.push(JSON.parse(options.body));
+        } catch {
+          /* non-JSON body -- not a send this test cares about */
+        }
+      }
+      return prevFetch(url, options);
+    };
+    try {
+      await run();
+    } finally {
+      global.fetch = prevFetch;
+    }
+    return captured;
+  }
+
+  // tripStartDate fixed well in the future so "minor"/"adult" is driven
+  // entirely by dateOfBirth, not by whatever date the test happens to run.
+  const TRIP_START = "2027-06-15";
+
+  async function createTripWithRequirement(kind, overrides = {}) {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction", startDate: TRIP_START, endDate: "2027-06-22" },
+    });
+    const requirement = await admin(`/api/trips/${trip.body.id}/requirements`, {
+      method: "POST",
+      body: { label: "Minor Travel Release", kind, minorsOnly: true, ...overrides },
+    });
+    assert.equal(requirement.status, 201);
+    assert.equal(requirement.body.minorsOnly, true, "minorsOnly must persist on creation");
+    return { trip: trip.body, requirement: requirement.body };
+  }
+
+  function createParticipant(tripId, dateOfBirth) {
+    return prisma.tripParticipant.create({
+      data: {
+        tripId,
+        firstName: "Jamie",
+        email: `minors-only-${Math.random().toString(36).slice(2)}@example.test`,
+        dateOfBirth: new Date(dateOfBirth),
+      },
+    });
+  }
+
+  test("the self-service page excludes a minors-only requirement for an adult, includes it for a minor", async () => {
+    const { trip, requirement } = await createTripWithRequirement("task");
+    const adult = await createParticipant(trip.id, "1980-01-01");
+    const minor = await createParticipant(trip.id, "2012-01-01");
+
+    const adultToken = buildTripParticipantAccessToken(adult);
+    const adultView = await anon(`/api/public/trips/participants/access?token=${adultToken}`);
+    assert.equal(adultView.status, 200);
+    assert.ok(
+      !adultView.body.requirements.some((r) => r.id === requirement.id),
+      "an adult must never see a minors-only requirement on their own list"
+    );
+
+    const minorToken = buildTripParticipantAccessToken(minor);
+    const minorView = await anon(`/api/public/trips/participants/access?token=${minorToken}`);
+    assert.equal(minorView.status, 200);
+    assert.ok(minorView.body.requirements.some((r) => r.id === requirement.id));
+  });
+
+  test("the admin 'complete' endpoint rejects marking a minors-only task done for an adult participant", async () => {
+    const { trip, requirement } = await createTripWithRequirement("task");
+    const adult = await createParticipant(trip.id, "1980-01-01");
+
+    const res = await admin(`/api/trips/requirements/${requirement.id}/participants/${adult.id}/complete`, {
+      method: "PUT",
+      body: { completed: true },
+    });
+    assert.equal(res.status, 400);
+  });
+
+  test("the admin 'complete' endpoint allows marking a minors-only task done for a minor participant", async () => {
+    const { trip, requirement } = await createTripWithRequirement("task");
+    const minor = await createParticipant(trip.id, "2012-01-01");
+
+    const res = await admin(`/api/trips/requirements/${requirement.id}/participants/${minor.id}/complete`, {
+      method: "PUT",
+      body: { completed: true },
+    });
+    assert.equal(res.status, 200);
+  });
+
+  test("the public upload route refuses an adult uploading against a minors-only document requirement", async () => {
+    const { trip, requirement } = await createTripWithRequirement("document");
+    const adult = await createParticipant(trip.id, "1980-01-01");
+    const token = buildTripParticipantAccessToken(adult);
+
+    const form = new FormData();
+    form.set("token", token);
+    form.set("file", new Blob([Buffer.from("%PDF-1.4")], { type: "application/pdf" }), "x.pdf");
+    const res = await anon(`/api/public/trips/participants/upload/${requirement.id}`, {
+      method: "POST",
+      body: form,
+    });
+    assert.equal(res.status, 404);
+  });
+
+  test("the public upload route allows a minor uploading against a minors-only document requirement", async () => {
+    const { trip, requirement } = await createTripWithRequirement("document");
+    const minor = await createParticipant(trip.id, "2012-01-01");
+    const token = buildTripParticipantAccessToken(minor);
+
+    const form = new FormData();
+    form.set("token", token);
+    form.set("file", new Blob([Buffer.from("%PDF-1.4")], { type: "application/pdf" }), "x.pdf");
+    const res = await anon(`/api/public/trips/participants/upload/${requirement.id}`, {
+      method: "POST",
+      body: form,
+    });
+    assert.equal(res.status, 201);
+  });
+
+  test("the public sign route refuses an adult signing a minors-only esignature requirement", async () => {
+    const { trip, requirement } = await createTripWithRequirement("esignature", { bodyText: "I agree..." });
+    const adult = await createParticipant(trip.id, "1980-01-01");
+    const token = buildTripParticipantAccessToken(adult);
+
+    const res = await anon(`/api/public/trips/participants/sign/${requirement.id}`, {
+      method: "POST",
+      body: { token, signerName: "Parent Name" },
+    });
+    assert.equal(res.status, 404);
+  });
+
+  test("the due-date reminder scheduler never reminds an adult about a minors-only requirement", async () => {
+    const { trip, requirement } = await createTripWithRequirement("document", {
+      dueAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      reminderLeadDays: 5,
+    });
+    const adult = await createParticipant(trip.id, "1980-01-01");
+    const minor = await createParticipant(trip.id, "2012-01-01");
+
+    const { checkAndSendRequirementReminders } = require("../../src/utils/tripReminderScheduler");
+    const sent = await captureEmails(async () => {
+      await checkAndSendRequirementReminders();
+    });
+
+    assert.ok(
+      !sent.some((m) => m.To === adult.email),
+      "an adult must never get a reminder for a minors-only requirement"
+    );
+    assert.ok(
+      sent.some((m) => m.To === minor.email),
+      "a minor must still get the reminder"
+    );
+  });
+
+  test("cloning a trip carries minorsOnly forward on its requirements", async () => {
+    const { trip } = await createTripWithRequirement("task");
+    const cloned = await admin(`/api/trips/${trip.id}/clone`, { method: "POST" });
+    assert.equal(cloned.status, 201);
+    assert.equal(cloned.body.requirements[0].minorsOnly, true);
+  });
+
+  test("the church-wide requirement template carries minorsOnly onto a newly-created trip", async () => {
+    const original = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { tripRequirementTemplate: true },
+    });
+    try {
+      await prisma.churchSettings.update({
+        where: { id: "singleton" },
+        data: {
+          tripRequirementTemplate: [
+            { id: "t1", label: "Minor Travel Release", kind: "task", minorsOnly: true },
+          ],
+        },
+      });
+      const partner = await createPartner();
+      const trip = await admin("/api/trips", {
+        method: "POST",
+        body: { partnerId: partner.id, type: "Construction", status: "planning" },
+      });
+      assert.equal(trip.status, 201);
+      assert.equal(trip.body.requirements[0].minorsOnly, true);
+    } finally {
+      await prisma.churchSettings.update({
+        where: { id: "singleton" },
+        data: { tripRequirementTemplate: original?.tripRequirementTemplate ?? [] },
+      });
+    }
+  });
+});
