@@ -253,7 +253,31 @@ router.get("/:id", async (req, res, next) => {
         // rsvps included so the admin Meetings UI can show a tally/
         // per-participant breakdown without a second round-trip.
         meetings: { include: { rsvps: true } },
-        documents: true,
+        // Explicit select, not `documents: true` -- that pulled every
+        // document's raw `bytes` (and `signatureImage`) inline into this
+        // response. Harmless with seed data's small PDFs, but a real
+        // uploaded photo (a few MB, base64-inflated ~33% larger in JSON)
+        // made this route slow enough to intermittently time out --
+        // reproduced directly against dev-demo. The admin UI only ever
+        // reads id/title/fileName/participantId/requirementId from this
+        // list (AdminTripDetail.jsx) and fetches actual bytes on demand
+        // via the separate GET /documents/:id/download route -- nothing
+        // here needs the content inline.
+        documents: {
+          select: {
+            id: true,
+            tripId: true,
+            participantId: true,
+            requirementId: true,
+            title: true,
+            fileName: true,
+            contentType: true,
+            createdAt: true,
+            signerName: true,
+            signerRelationship: true,
+            attestedAt: true,
+          },
+        },
         contributions: true,
       },
     });
