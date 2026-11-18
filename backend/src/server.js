@@ -40,10 +40,6 @@ const publicSubscribeRoutes = require("./routes/publicSubscribe");
 const publicUnsubscribeRoutes = require("./routes/publicUnsubscribe");
 const adminScopedDigestRoutes = require("./routes/adminScopedDigest");
 const publicTripRoutes = require("./routes/publicTrips");
-const { startEmailDispatchScheduler, startGroupMeScheduler } = require("./utils/emailDispatchScheduler");
-const { startTripReminderScheduler } = require("./utils/tripReminderScheduler");
-const whatsappClient = require("./utils/whatsappClient");
-const { isFeatureEnabled } = require("./utils/features");
 const prisma = require("./prismaClient");
 
 const app = express();
@@ -269,23 +265,25 @@ app.use(errorHandler);
 // Guarded so this file can be require()'d by the route tests, which boot
 // the real app on an ephemeral port rather than mocking it -- same reason
 // prisma/seed.js has the same guard. Running it directly still listens
-// exactly as before. The two dispatch schedulers (emailDispatchScheduler.js)
-// are started here too, under the same guard -- a once-a-minute
-// cron.schedule() timer would otherwise keep every route test file's own
-// process alive indefinitely (each test file boots this whole app fresh
-// in its own process -- see test/routes/helpers.js's own comment on
-// exactly this class of problem, #162) and fire real flush attempts
-// against the test database no test asked for.
+// exactly as before.
+//
+// #271 Phase B: the dispatch/GroupMe/trip-reminder schedulers and the
+// WhatsApp connection used to start here too, under this same guard. They
+// now live in worker.js, their own process -- this process answers HTTP
+// requests only. See worker.js's own header comment for why that split
+// exists.
 if (require.main === module) {
   (async () => {
     // ChurchSettings.timezone (see that field's own schema.prisma
-    // comment) must be applied to process.env.TZ once, here, before
-    // either scheduler starts -- changing process.env.TZ after a Date-
-    // using module has already run is documented as unreliable, so this
-    // has to happen before anything below reads the clock. Falls back to
-    // UTC on a fresh deploy (no ChurchSettings row yet) or a transient
-    // DB hiccup, matching this field's own default and Render's own
-    // actual behavior today -- never blocks startup over this.
+    // comment) must be applied to process.env.TZ once, here, before any
+    // date-sensitive route (reports, birthdays) reads the clock --
+    // changing process.env.TZ after a Date-using module has already run
+    // is documented as unreliable. worker.js does this same read
+    // independently, for its own schedulers -- the two processes have no
+    // way to share this once computed. Falls back to UTC on a fresh
+    // deploy (no ChurchSettings row yet) or a transient DB hiccup,
+    // matching this field's own default and Render's own actual behavior
+    // today -- never blocks startup over this.
     try {
       const settings = await prisma.churchSettings.findUnique({
         where: { id: "singleton" },
@@ -300,26 +298,8 @@ if (require.main === module) {
     const server = app.listen(PORT, () => {
       console.log(`Missionary Tracker API listening on port ${PORT}`);
     });
-    startEmailDispatchScheduler();
-    startGroupMeScheduler();
-    startTripReminderScheduler();
 
-    // Open the WhatsApp session now (if the feature is on and a number is
-    // paired) rather than waiting up to a minute for the first scheduler
-    // tick. A no-op for a church that doesn't use WhatsApp.
-    prisma.churchSettings
-      .findUnique({ where: { id: "singleton" } })
-      .then((settings) =>
-        whatsappClient.syncWithSettings(settings, isFeatureEnabled(settings?.enabledFeatures, "whatsapp"))
-      )
-      .catch((err) => console.error("Couldn't start the WhatsApp connection at startup:", err));
-
-    // Render runs the old and new instance side by side during a deploy,
-    // and only one may hold the WhatsApp session. Closing the socket and
-    // releasing its advisory lock on SIGTERM lets the new instance take
-    // over right away instead of waiting out its retry interval.
-    const shutdown = async () => {
-      await whatsappClient.shutdown().catch(() => {});
+    const shutdown = () => {
       server.close(() => process.exit(0));
       setTimeout(() => process.exit(0), 8000).unref();
     };

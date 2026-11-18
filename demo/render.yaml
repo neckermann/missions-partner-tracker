@@ -7,19 +7,25 @@
 # services were ever deleted and had to be rebuilt. See
 # https://render.com/docs/blueprint-spec for the format itself.
 #
-# Deliberately minimal: one web service (serves both the API and the
-# built frontend, same as every other deployment target this app
-# supports — see backend/src/server.js) and one Postgres database, which
-# also holds every uploaded photo/newsletter/document (see the comment on
-# the Newsletter model in backend/prisma/schema.prisma) — nothing else to
-# provision.
+# Two services plus one Postgres database (which also holds every
+# uploaded photo/newsletter/document -- see the comment on the Newsletter
+# model in backend/prisma/schema.prisma): a web service (serves both the
+# API and the built frontend -- see backend/src/server.js) and a
+# Background Worker (runs the email/GroupMe/trip-reminder schedulers and
+# the WhatsApp connection -- see backend/src/worker.js). #271 Phase B
+# split these into separate processes so a crash or restart in one never
+# takes down the other, and so this app can never accidentally run two
+# copies of the schedulers at once if the web service is ever scaled past
+# one instance.
 #
 # Plan values below (`starter` / `0.1c-256mb`) are the cheapest paid
-# tiers Render offers, verified against a real deploy — about $13/mo
-# combined. Free-tier equivalents exist but aren't viable for anything
-# beyond a quick check: free web services sleep after 15min idle
-# (30-60s cold start on the next request) and free Postgres instances
-# expire and get deleted after 90 days.
+# tiers Render offers, verified against a real deploy — about $13/mo for
+# the web service + database, plus another ~$7/mo for the worker. Free-
+# tier equivalents exist but aren't viable for anything beyond a quick
+# check: free web/worker services sleep after 15min idle (30-60s cold
+# start on the next request -- and a sleeping worker simply never fires
+# its schedules) and free Postgres instances expire and get deleted after
+# 90 days.
 #
 # Region is `oregon`, which is also Render's own default -- so a Blueprint
 # deploy puts everything exactly where Render would have put it anyway, and
@@ -115,6 +121,44 @@ services:
       # Real stock photos for seeded partners; without it seeding falls
       # back to generated silhouettes.
       - key: PEXELS_API_KEY
+        sync: false
+
+  # #271 Phase B -- the schedulers/WhatsApp half of what used to run
+  # inside the web service above. `type: worker` (not `web`, not `cron`):
+  # this needs to stay running continuously, not serve HTTP traffic and
+  # not start/run-once/exit. See backend/src/worker.js's own header
+  # comment for the full reasoning. No demo-only env vars here -- the
+  # reset endpoint, demo login, and seed photos are all web-service
+  # concerns, not scheduler/WhatsApp ones.
+  - name: missions-partner-tracker-worker
+    type: worker
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install --include=dev
+    startCommand: cd backend && node src/worker.js
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: missions-partner-tracker-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      # Only here so this process passes the same startup safety check
+      # (config/env.js) the web service does -- never needs to match the
+      # web service's own SESSION_SECRET, this process never signs or
+      # verifies a session itself.
+      - key: SESSION_SECRET
+        generateValue: true
+      # MUST be the exact same value as the web service's own
+      # FIELD_ENCRYPTION_KEY, copied by hand -- never generateValue: true
+      # here. This process decrypts the identical encrypted tokens
+      # (GroupMe access token, Postmark server token, WhatsApp session
+      # credentials) the web service wrote; a freshly generated key here
+      # can't decrypt anything the web service encrypted. Copy the web
+      # service's current value from Render's dashboard into this
+      # service's own Environment tab after both exist.
+      - key: FIELD_ENCRYPTION_KEY
         sync: false
 
   # --- Demo reset schedule, not in upstream's blueprint ----------------
