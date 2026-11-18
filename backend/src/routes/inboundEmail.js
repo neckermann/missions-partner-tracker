@@ -251,7 +251,16 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
       select: { enabledFeatures: true },
     });
 
-    const record = await prisma.inboundEmail.findUnique({ where: { id: req.params.id } });
+    // #274 hardening: excludes `bytes` (the raw .eml, inbound-mail-sized
+    // but still no reason to hold in memory any longer than necessary)
+    // from this initial read -- every check below (feature flags, the
+    // participant/partner lookup) only needs the small fields here.
+    // Re-fetched just below, once, immediately before whichever branch's
+    // create() actually needs it.
+    const record = await prisma.inboundEmail.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, subject: true, fileName: true, receivedAt: true },
+    });
     if (!record) return res.status(404).json({ error: "Not found" });
 
     if (tripParticipantId) {
@@ -264,16 +273,20 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
       });
       if (!participant) return res.status(400).json({ error: "That participant no longer exists" });
 
+      const { bytes } = await prisma.inboundEmail.findUnique({
+        where: { id: req.params.id },
+        select: { bytes: true },
+      });
       const created = await prisma.tripDocument.create({
         data: {
           tripId: participant.tripId,
           participantId: participant.id,
           requirementId: requirementId || null,
           title: record.subject,
-          bytes: record.bytes,
+          bytes,
           fileName: record.fileName,
           contentType: "message/rfc822",
-          fileSize: record.bytes.length,
+          fileSize: bytes.length,
         },
       });
       await prisma.inboundEmail.delete({ where: { id: req.params.id } });
@@ -292,6 +305,10 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
     const partner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { id: true } });
     if (!partner) return res.status(400).json({ error: "That partner no longer exists" });
 
+    const { bytes } = await prisma.inboundEmail.findUnique({
+      where: { id: req.params.id },
+      select: { bytes: true },
+    });
     const created = await prisma.partnerFile.create({
       data: {
         partnerId,
@@ -299,10 +316,10 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
         customKind: kind === "other" ? customKind : null,
         title: record.subject,
         receivedDate: record.receivedAt,
-        bytes: record.bytes,
+        bytes,
         fileName: record.fileName,
         contentType: "message/rfc822",
-        fileSize: record.bytes.length,
+        fileSize: bytes.length,
         notes: "Received via inbound email.",
       },
       include: { partner: partnerRefSelect },

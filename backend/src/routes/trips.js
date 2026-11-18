@@ -120,6 +120,19 @@ const tripPartnerInclude = {
   select: { id: true, kind: true, displayName: true, fieldDisplayName: true, isRestricted: true },
 };
 
+// #274 hardening: sendRequirementNotificationEmail/sendMeetingEmail (and
+// everything they call -- sendParticipantEmail, buildTripParticipantAccessUrl/
+// Token, buildMeetingEmailBody/RsvpUrls) only ever read a participant's
+// email/id/accessTokenVersion. The handlers below used to fetch
+// `participants: true` (every column, including the up-to-5MB `photo`
+// bytes) just to loop over them for a side-effect email send -- nothing
+// in a response, so not the #274 production bug itself, but real
+// avoidable memory churn on a trip with many/large participant photos.
+// A `select` this narrow, not just `omit: { photo: true }` the way
+// tripInclude.participants does for its display use-case, since these
+// call sites need almost nothing else either.
+const emailParticipantSelect = { id: true, email: true, accessTokenVersion: true };
+
 const tripInclude = {
   partner: tripPartnerInclude,
   // omit: raw photo bytes have no business in every trip list/detail
@@ -532,7 +545,7 @@ router.post("/:id/requirements", requireRole("admin", "editor"), async (req, res
     if (created.kind === "document" || created.kind === "esignature") {
       const trip = await prisma.trip.findUnique({
         where: { id: req.params.id },
-        include: { participants: true },
+        include: { participants: { select: emailParticipantSelect } },
       });
       await sendRequirementNotificationEmail(trip, created, trip?.participants || []);
     }
@@ -1192,7 +1205,7 @@ router.post("/:id/meetings", requireRole("admin", "editor"), async (req, res, ne
     const data = meetingInputSchema.required({ startAt: true }).parse(req.body);
     const trip = await prisma.trip.findUnique({
       where: { id: req.params.id },
-      include: { participants: true },
+      include: { participants: { select: emailParticipantSelect } },
     });
     if (!trip) return res.status(404).json({ error: "Not found" });
 
@@ -1215,7 +1228,7 @@ router.put("/meetings/:id", requireRole("admin", "editor"), async (req, res, nex
     const data = meetingInputSchema.parse(req.body);
     const existing = await prisma.tripMeeting.findUnique({
       where: { id: req.params.id },
-      include: { trip: { include: { participants: true } } },
+      include: { trip: { include: { participants: { select: emailParticipantSelect } } } },
     });
     if (!existing) return res.status(404).json({ error: "Not found" });
     if (existing.cancelledAt) return res.status(400).json({ error: "This meeting has been cancelled." });
@@ -1245,7 +1258,7 @@ router.post("/meetings/:id/resend", requireRole("admin", "editor"), async (req, 
   try {
     const meeting = await prisma.tripMeeting.findUnique({
       where: { id: req.params.id },
-      include: { trip: { include: { participants: true } } },
+      include: { trip: { include: { participants: { select: emailParticipantSelect } } } },
     });
     if (!meeting) return res.status(404).json({ error: "Not found" });
     if (meeting.cancelledAt) return res.status(400).json({ error: "This meeting has been cancelled." });
@@ -1266,7 +1279,7 @@ router.post("/meetings/:id/cancel", requireRole("admin", "editor"), async (req, 
   try {
     const existing = await prisma.tripMeeting.findUnique({
       where: { id: req.params.id },
-      include: { trip: { include: { participants: true } } },
+      include: { trip: { include: { participants: { select: emailParticipantSelect } } } },
     });
     if (!existing) return res.status(404).json({ error: "Not found" });
 
