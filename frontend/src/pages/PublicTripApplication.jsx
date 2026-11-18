@@ -83,6 +83,11 @@ export default function PublicTripApplication() {
       const submit = token ? submitTripApplicationByToken : submitTripApplication;
       await submit(token || id, { ...form, responses });
       setSubmitted(true);
+      // This is a long form -- the submit button sits well below the fold,
+      // so without this the success message renders off-screen above
+      // wherever the applicant happened to be scrolled, easy to miss
+      // entirely.
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       setError(err.response?.data?.error || "Couldn't submit -- please try again.");
     } finally {

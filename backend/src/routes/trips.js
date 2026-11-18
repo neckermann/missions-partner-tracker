@@ -1062,7 +1062,7 @@ async function sendRequirementNotificationEmail(trip, requirement, participants)
 //
 // "completed" alone isn't enough to detect that, though -- "closed" covers
 // two different real situations that share the same status string: a
-// roster finalized for a trip that hasn't happened yet (still wants
+// team finalized for a trip that hasn't happened yet (still wants
 // catch-up), and a trip entered after the fact purely as a historical
 // record (should get none, same as "completed", despite never being
 // marked that). Status can't tell those apart; the trip's own dates can --

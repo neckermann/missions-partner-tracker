@@ -1026,7 +1026,7 @@ function buildTrips(participantNamePool) {
         role: pick(TRIP_ROLES),
         isLeader: idx === 0,
         // Always populated now, not a coin flip -- a historical,
-        // already-completed trip's roster is exactly the kind of record
+        // already-completed trip's team is exactly the kind of record
         // a real admin would have on file in full; "sometimes missing"
         // only makes sense for a trip still in progress.
         phone: fakePhone(),
@@ -2309,7 +2309,7 @@ async function seedTripsDemo() {
 
   // A second minors trip, already completed -- the one above is still
   // accepting_applications, so nothing showed what collectParentGuardianInfo
-  // looks like after the fact (a finished trip whose roster already
+  // looks like after the fact (a finished trip whose team already
   // includes a minor, with her signed release sitting in its normal
   // historical state). Reuses openPartner rather than a fresh lookup --
   // same "a field partner hosts more than one short-term team over time"

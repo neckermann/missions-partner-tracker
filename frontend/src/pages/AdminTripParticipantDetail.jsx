@@ -26,7 +26,7 @@ function readFileAsDataUrl(file) {
 }
 
 // One participant's full picture, split out of AdminTripDetail.jsx's
-// Roster table (#252 follow-on). That table used to cram document
+// Confirmed Team table (#252 follow-on). That table used to cram document
 // upload, a requirement picker, task checkboxes, and access-link
 // controls into one action column per row -- everything here is that
 // same functionality, just given the room a person's full record
