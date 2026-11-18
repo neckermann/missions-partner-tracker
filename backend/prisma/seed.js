@@ -2254,6 +2254,21 @@ async function seedTripsDemo() {
     },
   });
 
+  // The general code-of-conduct/liability release every trip needs --
+  // this trip's own point is demonstrating collectParentGuardianInfo, but
+  // that's additive to the standard agreement every participant (minor or
+  // not) still signs, never a replacement for it. Previously missing here
+  // (flagged from a real screenshot of this trip's own Requirements
+  // section showing only the minor-specific form).
+  await prisma.tripRequirement.create({
+    data: {
+      tripId: minorsTrip.id,
+      label: "Signed Liability Release and Code of Conduct",
+      kind: "esignature",
+      bodyText: LIABILITY_RELEASE_TEXT,
+    },
+  });
+
   // Picked from tripRequirementLibrary onto this one trip -- same
   // label/kind/bodyText copy shape the real "add from library" admin
   // action uses, not a hand-shaped duplicate of it.
@@ -2383,6 +2398,18 @@ async function seedTripsDemo() {
       stateProvinceRegion: pastMinorApplication.stateProvinceRegion,
       postalCode: pastMinorApplication.postalCode,
       country: pastMinorApplication.country,
+    },
+  });
+
+  // Same general code-of-conduct/liability release added to the other
+  // minors trip above -- additive to the minor-specific form, not a
+  // replacement for it.
+  await prisma.tripRequirement.create({
+    data: {
+      tripId: pastMinorsTrip.id,
+      label: "Signed Liability Release and Code of Conduct",
+      kind: "esignature",
+      bodyText: LIABILITY_RELEASE_TEXT,
     },
   });
 
