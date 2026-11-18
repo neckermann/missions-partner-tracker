@@ -777,7 +777,7 @@ router.post("/:id/participants", requireRole("admin", "editor"), async (req, res
     const data = participantSchema
       .extend({ email: z.string().email().optional().nullable() })
       .parse(req.body);
-    const trip = await prisma.trip.findUnique({ where: { id: req.params.id } });
+    const trip = await prisma.trip.findUnique({ where: { id: req.params.id }, include: { meetings: true } });
     if (!trip) return res.status(404).json({ error: "Not found" });
 
     // A participant on a completed trip is a backfill by construction
@@ -827,6 +827,28 @@ router.post("/:id/participants", requireRole("admin", "editor"), async (req, res
         );
       }
     }
+
+    // A participant added after meetings already exist would otherwise
+    // never learn about them -- the welcome email above only covers the
+    // trip dates, and nothing else notifies a late joiner short of an
+    // admin remembering to click "Resend" on every pre-existing meeting.
+    // Only meetings that haven't happened yet and weren't cancelled are
+    // worth sending; reusing sendMeetingEmail (and its own outboundEmail
+    // gate) keeps this identical in shape to every other meeting invite
+    // -- same .ics, same RSVP links -- just scoped to this one new
+    // participant instead of the whole roster.
+    if (trip.status !== "completed") {
+      const now = new Date();
+      const futureMeetings = trip.meetings.filter((m) => !m.cancelledAt && new Date(m.startAt) > now);
+      for (const meeting of futureMeetings) {
+        await sendMeetingEmail(
+          { ...trip, participants: [participant] },
+          meeting,
+          "A meeting has been scheduled."
+        );
+      }
+    }
+
     res.status(201).json(participant);
   } catch (err) {
     next(err);

@@ -522,6 +522,117 @@ describe("Trips: meetings", () => {
     const reloaded = await prisma.tripMeeting.findUnique({ where: { id: meeting.id } });
     assert.equal(reloaded.reminderSentAt, null);
   });
+
+  // A participant added after meetings already exist would otherwise
+  // never learn about them short of an admin remembering to click
+  // "Resend" on each one -- adding them should surface every meeting
+  // still ahead of them, and only those.
+  test("adding a participant late sends an invite for each future meeting, but not past or cancelled ones", async () => {
+    const partner = await createPartner();
+    // status must be explicit -- Trip.status defaults to "completed" when
+    // omitted (a backfill-style create), under which neither the welcome
+    // email nor a future-meeting invite is sent at all.
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "planning",
+        startDate: "2026-12-20",
+        endDate: "2026-12-27",
+      },
+    });
+    const past = await prisma.tripMeeting.create({
+      data: { tripId: trip.body.id, startAt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    });
+    const cancelledFuture = await prisma.tripMeeting.create({
+      data: {
+        tripId: trip.body.id,
+        startAt: "2026-12-10T19:00:00.000Z",
+        cancelledAt: new Date(),
+      },
+    });
+    const future1 = await prisma.tripMeeting.create({
+      data: { tripId: trip.body.id, startAt: "2026-12-11T19:00:00.000Z", agenda: "Packing list" },
+    });
+    const future2 = await prisma.tripMeeting.create({
+      data: { tripId: trip.body.id, startAt: "2026-12-12T19:00:00.000Z", agenda: "Team send-off" },
+    });
+
+    let created;
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.body.id}/participants`, {
+        method: "POST",
+        body: { firstName: "Late", lastName: "Joiner", email: "late-joiner@example.test" },
+      });
+      assert.equal(res.status, 201);
+      created = res.body;
+    });
+
+    // The welcome email, plus exactly one invite per future, non-cancelled
+    // meeting -- not the past one, not the cancelled one.
+    const meetingInvites = sent.filter((m) => /^Meeting:/.test(m.Subject));
+    assert.equal(meetingInvites.length, 2, "one invite per future, non-cancelled meeting");
+    assert.ok(meetingInvites.every((m) => m.To === created.email));
+    const bodies = meetingInvites.map((m) => m.TextBody).join("\n");
+    assert.match(bodies, /Packing list/);
+    assert.match(bodies, /Team send-off/);
+    assert.ok(!bodies.includes(past.id), "no invite for the past meeting");
+    assert.ok(!bodies.includes(cancelledFuture.id), "no invite for the cancelled future meeting");
+
+    const welcome = sent.find((m) => /^You're on the team:/.test(m.Subject));
+    assert.ok(welcome, "the existing one-time welcome email must still be sent");
+  });
+
+  test("adding a participant to a trip with no meetings behaves exactly as before", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "planning",
+        startDate: "2026-12-20",
+        endDate: "2026-12-27",
+      },
+    });
+
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.body.id}/participants`, {
+        method: "POST",
+        body: { firstName: "Solo", lastName: "Joiner", email: "solo-joiner@example.test" },
+      });
+      assert.equal(res.status, 201);
+    });
+
+    assert.equal(sent.length, 1, "only the one-time welcome email, no meeting invites, no errors");
+    assert.match(sent[0].Subject, /^You're on the team:/);
+  });
+
+  test("outboundEmail off suppresses both the welcome email and any future-meeting invites", async () => {
+    await setFeatures({ outboundEmail: false });
+    try {
+      const partner = await createPartner();
+      const trip = await admin("/api/trips", {
+        method: "POST",
+        body: { partnerId: partner.id, type: "Construction", status: "planning" },
+      });
+      await prisma.tripMeeting.create({
+        data: { tripId: trip.body.id, startAt: "2026-12-15T19:00:00.000Z" },
+      });
+
+      const sent = await captureEmails(async () => {
+        const res = await admin(`/api/trips/${trip.body.id}/participants`, {
+          method: "POST",
+          body: { firstName: "Quiet", lastName: "Joiner", email: "quiet-joiner@example.test" },
+        });
+        assert.equal(res.status, 201);
+      });
+      assert.equal(sent.length, 0, "outboundEmail off must suppress every send, not just the welcome email");
+    } finally {
+      await setFeatures({ outboundEmail: true });
+    }
+  });
 });
 
 // One-click RSVP (issue #267's design decision) -- link-based only, no
