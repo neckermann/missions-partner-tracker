@@ -1,6 +1,3 @@
--- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "public";
-
 -- CreateTable
 CREATE TABLE "Partner" (
     "id" TEXT NOT NULL,
@@ -184,6 +181,7 @@ CREATE TABLE "TripMeeting" (
     "id" TEXT NOT NULL,
     "tripId" TEXT NOT NULL,
     "startAt" TIMESTAMP(3) NOT NULL,
+    "title" TEXT,
     "location" TEXT,
     "meetingLink" TEXT,
     "agenda" TEXT,
@@ -238,6 +236,7 @@ CREATE TABLE "TripDocument" (
     "bytes" BYTEA NOT NULL,
     "fileName" TEXT NOT NULL,
     "contentType" TEXT NOT NULL,
+    "fileSize" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "signerName" TEXT,
     "signerRelationship" TEXT,
@@ -289,14 +288,6 @@ CREATE TABLE "TripFlightSegment" (
     "arrivalAt" TIMESTAMP(3),
 
     CONSTRAINT "TripFlightSegment_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "_TripFlightSegmentToTripParticipant" (
-    "A" TEXT NOT NULL,
-    "B" TEXT NOT NULL,
-
-    CONSTRAINT "_TripFlightSegmentToTripParticipant_AB_pkey" PRIMARY KEY ("A","B")
 );
 
 -- CreateTable
@@ -525,12 +516,12 @@ CREATE TABLE "ChurchSettings" (
     "collectDonorContactInfo" BOOLEAN NOT NULL DEFAULT false,
     "collectApplicantAddress" BOOLEAN NOT NULL DEFAULT true,
     "collectEmergencyContact" BOOLEAN NOT NULL DEFAULT true,
-    "collectDateOfBirth" BOOLEAN NOT NULL DEFAULT true,
-    "requireDateOfBirth" BOOLEAN NOT NULL DEFAULT false,
     "allowPrivateApplicationLinks" BOOLEAN NOT NULL DEFAULT false,
     "allowPublicSupportRaisingLinks" BOOLEAN NOT NULL DEFAULT false,
     "enableTripBudgeting" BOOLEAN NOT NULL DEFAULT false,
     "inboundEmailAddress" TEXT,
+    "collectDateOfBirth" BOOLEAN NOT NULL DEFAULT true,
+    "requireDateOfBirth" BOOLEAN NOT NULL DEFAULT false,
     "tripApplicationTemplate" JSONB,
     "tripQuestionLibrary" JSONB,
     "tripRequirementTemplate" JSONB,
@@ -600,6 +591,14 @@ CREATE TABLE "WhatsAppAuthEntry" (
     CONSTRAINT "WhatsAppAuthEntry_pkey" PRIMARY KEY ("key")
 );
 
+-- CreateTable
+CREATE TABLE "_TripFlightSegmentToTripParticipant" (
+    "A" TEXT NOT NULL,
+    "B" TEXT NOT NULL,
+
+    CONSTRAINT "_TripFlightSegmentToTripParticipant_AB_pkey" PRIMARY KEY ("A","B")
+);
+
 -- CreateIndex
 CREATE INDEX "Partner_kind_idx" ON "Partner"("kind");
 
@@ -664,6 +663,9 @@ CREATE INDEX "TripDocument_tripId_idx" ON "TripDocument"("tripId");
 CREATE INDEX "TripDocument_participantId_idx" ON "TripDocument"("participantId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "TripDocument_requirementId_participantId_key" ON "TripDocument"("requirementId", "participantId");
+
+-- CreateIndex
 CREATE INDEX "TripContribution_tripId_idx" ON "TripContribution"("tripId");
 
 -- CreateIndex
@@ -674,9 +676,6 @@ CREATE INDEX "TripBudgetLine_tripId_idx" ON "TripBudgetLine"("tripId");
 
 -- CreateIndex
 CREATE INDEX "TripFlightSegment_tripId_idx" ON "TripFlightSegment"("tripId");
-
--- CreateIndex
-CREATE INDEX "_TripFlightSegmentToTripParticipant_B_index" ON "_TripFlightSegmentToTripParticipant"("B");
 
 -- CreateIndex
 CREATE INDEX "Furlough_partnerId_idx" ON "Furlough"("partnerId");
@@ -731,6 +730,9 @@ CREATE INDEX "PublicSubscriber_confirmedAt_idx" ON "PublicSubscriber"("confirmed
 
 -- CreateIndex
 CREATE INDEX "PublicSubscriberPartner_partnerId_idx" ON "PublicSubscriberPartner"("partnerId");
+
+-- CreateIndex
+CREATE INDEX "_TripFlightSegmentToTripParticipant_B_index" ON "_TripFlightSegmentToTripParticipant"("B");
 
 -- AddForeignKey
 ALTER TABLE "Adult" ADD CONSTRAINT "Adult_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -842,4 +844,3 @@ ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSeg
 
 -- AddForeignKey
 ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSegmentToTripParticipant_B_fkey" FOREIGN KEY ("B") REFERENCES "TripParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
