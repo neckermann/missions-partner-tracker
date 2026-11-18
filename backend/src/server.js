@@ -45,6 +45,8 @@ const publicSubscribeRoutes = require("./routes/publicSubscribe");
 const publicUnsubscribeRoutes = require("./routes/publicUnsubscribe");
 const adminScopedDigestRoutes = require("./routes/adminScopedDigest");
 const publicTripRoutes = require("./routes/publicTrips");
+const publicTripApplicationRoutes = require("./routes/publicTripApplications");
+const publicTripParticipantRoutes = require("./routes/publicTripParticipants");
 const prisma = require("./prismaClient");
 
 const app = express();
@@ -244,6 +246,13 @@ app.use("/api/public/subscribe", publicSubscribeRoutes); // open (public, featur
 app.use("/api/public/unsubscribe", publicUnsubscribeRoutes); // open (public, feature-gated -- sibling of publicSubscribe, not nested under it)
 app.use("/api/scoped-digest", adminScopedDigestRoutes); // protected (any role for read)
 app.use("/api/public/trips", publicTripRoutes); // open (public, feature-gated -- see that file's own comment)
+// #271 Finding: two sibling sub-resource routers, same prefix as
+// publicTripRoutes above (not a separate API surface) -- split out of a
+// single oversized publicTrips.js, same pattern as the admin-side
+// trips.js/settings.js splits above. Each still gates independently
+// at its own router level, so mount order among these doesn't matter.
+app.use("/api/public/trips", publicTripApplicationRoutes);
+app.use("/api/public/trips", publicTripParticipantRoutes);
 
 // Only exists at all if DEMO_RESET_TOKEN is configured — absent in every
 // normal deployment. See ADMIN_GUIDE.md § Demo mode.

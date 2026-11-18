@@ -3,7 +3,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { matchesFileSignature } = require("../utils/fileSignature");
-const { FEATURES, FEATURE_KEYS, isFeatureEnabled } = require("../utils/features");
+const { FEATURES, FEATURE_KEYS } = require("../utils/features");
 const { encryptField } = require("../utils/crypto");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 
