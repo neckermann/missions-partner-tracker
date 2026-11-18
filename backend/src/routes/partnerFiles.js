@@ -69,7 +69,8 @@ router.get("/", async (req, res, next) => {
     const records = await prisma.partnerFile.findMany({
       where,
       include: fileInclude,
-      omit: { bytes: true }, // file content only ever comes back via GET /:id/download
+      // No omit needed -- file content lives in its own table (bytesRow)
+      // now, never selected here, only via GET /:id/download.
       // createdAt as a tiebreaker -- see the same comment in prayerRequests.js.
       orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }],
     });
@@ -96,13 +97,12 @@ router.post("/", requireRole("admin", "editor"), upload.single("file"), async (r
     const created = await prisma.partnerFile.create({
       data: {
         ...meta,
-        bytes: req.file.buffer,
         fileName: req.file.originalname,
         contentType: req.file.mimetype || "application/octet-stream",
         fileSize: req.file.size,
+        bytesRow: { create: { bytes: req.file.buffer } },
       },
       include: fileInclude,
-      omit: { bytes: true },
     });
 
     if (created.kind === "newsletter") {
@@ -122,10 +122,13 @@ router.post("/", requireRole("admin", "editor"), upload.single("file"), async (r
 // since there's no external store to sign a URL for).
 router.get("/:id/download", async (req, res, next) => {
   try {
-    const record = await prisma.partnerFile.findUnique({ where: { id: req.params.id } });
-    if (!record) return res.status(404).json({ error: "Not found" });
+    const record = await prisma.partnerFile.findUnique({
+      where: { id: req.params.id },
+      include: { bytesRow: { select: { bytes: true } } },
+    });
+    if (!record?.bytesRow) return res.status(404).json({ error: "Not found" });
 
-    sendStoredFile(res, record);
+    sendStoredFile(res, { ...record, bytes: record.bytesRow.bytes });
   } catch (err) {
     next(err);
   }
@@ -141,7 +144,7 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     const data = metaObjectSchema.partial().parse(req.body);
 
     const existing = await prisma.partnerFile.findUnique({ where: { id: req.params.id } });
-    if (!existing) return res.status(404).json({ error: "Not found" });
+    if (!existing) return res.status(404).json({ error: "Not found" }); // no bytesRow needed -- metadata only
 
     // The one metaSchema refinement that still needs re-checking on a
     // partial update: either field can arrive alone, so "other" requires
@@ -160,7 +163,6 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
       where: { id: req.params.id },
       data,
       include: fileInclude,
-      omit: { bytes: true },
     });
     res.json(updated);
   } catch (err) {

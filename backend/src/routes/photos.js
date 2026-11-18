@@ -13,9 +13,9 @@ router.get("/:id/raw", async (req, res, next) => {
   try {
     const photo = await prisma.photo.findUnique({
       where: { id: req.params.id },
-      select: { bytes: true, contentType: true },
+      select: { contentType: true, bytesRow: { select: { bytes: true } } },
     });
-    if (!photo) return res.status(404).end();
+    if (!photo?.bytesRow) return res.status(404).end();
 
     // Without this, helmet()'s global `Cross-Origin-Resource-Policy:
     // same-origin` (server.js) blocks a cross-origin page from *embedding*
@@ -43,7 +43,7 @@ router.get("/:id/raw", async (req, res, next) => {
       ? photo.contentType
       : "application/octet-stream";
     res.set("Content-Type", contentType);
-    res.send(photo.bytes);
+    res.send(photo.bytesRow.bytes);
   } catch (err) {
     next(err);
   }

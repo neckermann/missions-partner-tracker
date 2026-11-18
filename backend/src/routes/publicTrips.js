@@ -397,7 +397,7 @@ router.get("/participants/by-token/:shareToken", requireFeature("trips"), async 
       firstName: participant.firstName,
       lastName: participant.lastName,
       story: participant.story,
-      hasPhoto: !!participant.photo,
+      hasPhoto: !!participant.photoContentType,
       supportRaisingGoal: participant.supportRaisingGoal,
       raised,
       trip: {
@@ -519,7 +519,7 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
       firstName: participant.firstName,
       lastName: participant.lastName,
       story: participant.story,
-      hasPhoto: !!participant.photo,
+      hasPhoto: !!participant.photoContentType,
       // Previously omitted entirely -- the self-service page had no way
       // to show (or even know about) the participant's own public link.
       shareToken: participant.shareToken,
@@ -603,11 +603,14 @@ router.get("/participants/documents/:id/download", requireFeature("trips"), asyn
       return res.status(401).json({ error: "Invalid or expired link" });
     }
 
-    const record = await prisma.tripDocument.findUnique({ where: { id: req.params.id } });
-    if (!record || record.tripId !== participant.tripId || record.participantId !== null) {
+    const record = await prisma.tripDocument.findUnique({
+      where: { id: req.params.id },
+      include: { bytesRow: { select: { bytes: true } } },
+    });
+    if (!record?.bytesRow || record.tripId !== participant.tripId || record.participantId !== null) {
       return res.status(404).json({ error: "Not found" });
     }
-    sendStoredFile(res, record);
+    sendStoredFile(res, { ...record, bytes: record.bytesRow.bytes });
   } catch (err) {
     next(err);
   }
@@ -707,19 +710,17 @@ router.post("/participants/sign/:requirementId", requireFeature("trips"), async 
         participantId: participant.id,
         requirementId: requirement.id,
         title: requirement.label,
-        bytes: pdfBytes,
         fileName: `${requirement.label.replace(/[^a-z0-9]+/gi, "-")}.pdf`,
         contentType: "application/pdf",
         fileSize: pdfBytes.length,
         signerName,
         signerRelationship: signerRelationship || null,
-        signatureImage: signatureImageBuffer,
         attestedAt,
         ip,
         documentTextSnapshot: documentText,
         documentTextHash,
+        bytesRow: { create: { bytes: pdfBytes, signatureImage: signatureImageBuffer } },
       },
-      omit: { bytes: true },
     });
 
     res.status(201).json({ tripDocumentId: tripDocument.id });
@@ -774,12 +775,12 @@ router.post(
       }
       if (!req.file) return res.status(400).json({ error: "No file provided" });
 
-      const data = {
+      const bytes = req.file.buffer;
+      const meta = {
         tripId: participant.tripId,
         participantId: participant.id,
         requirementId: requirement.id,
         title: requirement.label,
-        bytes: req.file.buffer,
         fileName: req.file.originalname,
         contentType: req.file.mimetype || "application/octet-stream",
         fileSize: req.file.size,
@@ -788,8 +789,8 @@ router.post(
         where: {
           requirementId_participantId: { requirementId: requirement.id, participantId: participant.id },
         },
-        create: data,
-        update: data,
+        create: { ...meta, bytesRow: { create: { bytes } } },
+        update: { ...meta, bytesRow: { upsert: { create: { bytes }, update: { bytes } } } },
       });
       res.status(201).json({ uploaded: true });
     } catch (err) {
@@ -825,7 +826,10 @@ router.put("/participants/self-service", requireFeature("trips"), async (req, re
 
     const data = {};
     if (story !== undefined) data.story = story?.trim() || null;
-    if (photo) data.photo = decodePhotoDataUrl(photo, photoContentType);
+    if (photo) {
+      const decoded = decodePhotoDataUrl(photo, photoContentType);
+      data.photoBytesRow = { upsert: { create: { photo: decoded }, update: { photo: decoded } } };
+    }
     if (photo && photoContentType) data.photoContentType = photoContentType;
 
     await prisma.tripParticipant.update({ where: { id: participant.id }, data });
@@ -846,12 +850,12 @@ router.get("/participants/:id/photo", requireFeature("trips"), async (req, res, 
   try {
     const participant = await prisma.tripParticipant.findUnique({
       where: { id: req.params.id },
-      select: { photo: true, photoContentType: true },
+      select: { photoContentType: true, photoBytesRow: { select: { photo: true } } },
     });
-    if (!participant || !participant.photo) return res.status(404).json({ error: "Not found" });
+    if (!participant?.photoBytesRow) return res.status(404).json({ error: "Not found" });
     res.set("Content-Type", participant.photoContentType || "application/octet-stream");
     res.set("Cache-Control", "public, max-age=3600");
-    res.send(participant.photo);
+    res.send(participant.photoBytesRow.photo);
   } catch (err) {
     next(err);
   }

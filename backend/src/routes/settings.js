@@ -16,14 +16,13 @@ const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
 
-// The logo's bytes live right on this row (logoBytes/logoContentType —
-// see the comment on that field in schema.prisma) but every query below
-// omits logoBytes and every response synthesizes this `{ url } | null`
-// shape instead — the frontend just needs a fetchable URL, never the raw
-// bytes inline. Presence is read off logoContentType (always set
-// together with logoBytes — see POST /logo below) rather than
-// logoBytes itself, so checking "is there a logo" never requires
-// fetching the image data at all.
+// The logo's bytes live in their own one-to-one table (ChurchSettingsLogo
+// -- see schema.prisma), never selected by anything below; every response
+// synthesizes this `{ url } | null` shape instead — the frontend just
+// needs a fetchable URL, never the raw bytes inline. Presence is read off
+// logoContentType (always set together with the bytes — see POST /logo
+// below) rather than the bytes themselves, so checking "is there a logo"
+// never requires fetching the image data at all.
 function shapeSettings(settings) {
   if (!settings) return settings;
   const { logoContentType, ...rest } = settings;
@@ -109,7 +108,6 @@ router.get("/", async (req, res, next) => {
       prisma.churchSettings.findUnique({
         where: { id: "singleton" },
         omit: {
-          logoBytes: true,
           groupmeAccessToken: true,
           whatsappPhoneNumber: true,
           joshuaProjectApiKey: true,
@@ -148,15 +146,19 @@ router.put("/", requireRole("admin"), async (req, res, next) => {
     // frontend ever sends it as is `null`, to clear an existing logo (a
     // set goes through POST /logo below instead). Anything else about it
     // in the request is ignored, same as before this was split into two
-    // columns.
-    const clearLogo = logo === null ? { logoBytes: null, logoContentType: null } : {};
+    // columns. The bytes row itself is deleted via a plain deleteMany --
+    // a no-op if there was never a logo set, unlike a nested `delete`,
+    // which throws if the related row doesn't already exist.
+    if (logo === null) {
+      await prisma.churchSettingsLogo.deleteMany({ where: { id: "singleton" } });
+    }
+    const clearLogo = logo === null ? { logoContentType: null } : {};
 
     const updated = await prisma.churchSettings.upsert({
       where: { id: "singleton" },
       create: { id: "singleton", ...data, ...clearLogo, updatedById: req.user.id },
       update: { ...data, ...clearLogo, updatedById: req.user.id },
       omit: {
-        logoBytes: true,
         groupmeAccessToken: true,
         whatsappPhoneNumber: true,
         joshuaProjectApiKey: true,
@@ -193,13 +195,21 @@ router.post("/logo", requireRole("admin"), upload.single("image"), async (req, r
       where: { id: "singleton" },
       create: {
         id: "singleton",
-        logoBytes: req.file.buffer,
         logoContentType: signatureMime,
         updatedById: req.user.id,
+        logoRow: { create: { logoBytes: req.file.buffer } },
       },
-      update: { logoBytes: req.file.buffer, logoContentType: signatureMime, updatedById: req.user.id },
+      update: {
+        logoContentType: signatureMime,
+        updatedById: req.user.id,
+        logoRow: {
+          upsert: {
+            create: { logoBytes: req.file.buffer },
+            update: { logoBytes: req.file.buffer },
+          },
+        },
+      },
       omit: {
-        logoBytes: true,
         groupmeAccessToken: true,
         whatsappPhoneNumber: true,
         joshuaProjectApiKey: true,

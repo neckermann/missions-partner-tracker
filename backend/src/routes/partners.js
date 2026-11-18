@@ -62,9 +62,11 @@ const partnerRecordInclude = {
   furloughs: { orderBy: { startDate: "desc" } },
   // createdAt as a tiebreaker -- see the same comment in prayerRequests.js.
   churchVisits: { orderBy: [{ visitDate: "desc" }, { createdAt: "desc" }] },
-  // Full history, newest-received first — photos[0] is "current". Bytes are
-  // never wanted here; the image comes from routes/photos.js.
-  photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], omit: { bytes: true } },
+  // Full history, newest-received first — photos[0] is "current". Bytes
+  // are never wanted here (they live in their own table now, never
+  // selected unless explicitly included); the image comes from
+  // routes/photos.js.
+  photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }] },
 };
 
 // What GET / returns per row: enough to render a list, and nothing more.
@@ -486,10 +488,10 @@ router.post("/:id/image", requireRole("admin", "editor"), upload.single("image")
     await prisma.photo.create({
       data: {
         partnerId: req.params.id,
-        bytes,
         receivedDate,
         contentType,
         fileSize,
+        bytesRow: { create: { bytes } },
       },
     });
 

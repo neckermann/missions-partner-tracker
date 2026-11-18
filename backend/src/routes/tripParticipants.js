@@ -328,15 +328,17 @@ router.put("/participants/:id", requireRole("admin", "editor"), async (req, res,
   try {
     const { photo, photoContentType, ...rest } = adminParticipantUpdateSchema.parse(req.body);
     const data = { ...rest };
-    if (photo) data.photo = decodePhotoDataUrl(photo, photoContentType);
+    if (photo) {
+      const decoded = decodePhotoDataUrl(photo, photoContentType);
+      data.photoBytesRow = { upsert: { create: { photo: decoded }, update: { photo: decoded } } };
+    }
     if (photo && photoContentType) data.photoContentType = photoContentType;
 
-    // omit: the raw photo bytes have no business in a JSON response --
-    // same reasoning the sign route already applies to TripDocument.bytes.
+    // No omit needed -- the raw photo bytes live in their own table now,
+    // never selected here at all.
     const participant = await prisma.tripParticipant.update({
       where: { id: req.params.id },
       data,
-      omit: { photo: true },
     });
     res.json(participant);
   } catch (err) {

@@ -42,9 +42,12 @@ async function outboundEmailEnabled() {
 // bytes) just to loop over them for a side-effect email send -- nothing
 // in a response, so not the #274 production bug itself, but real
 // avoidable memory churn on a trip with many/large participant photos.
-// A `select` this narrow, not just `omit: { photo: true }` the way
-// tripInclude.participants does for its display use-case in trips.js,
-// since these call sites need almost nothing else either.
+// A `select` this narrow, not the plain `participants: true`
+// tripInclude.participants now uses for its own display use-case in
+// trips.js (the photo's bytes live in their own table since #274's
+// hardening follow-up, so a bare `true` there no longer pulls them in
+// either) -- these call sites need almost nothing else even once that's
+// accounted for.
 const emailParticipantSelect = { id: true, email: true, accessTokenVersion: true };
 
 // Same small "Lost your link?" line on every one of this feature's

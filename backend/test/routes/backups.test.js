@@ -81,15 +81,17 @@ describe("backup/restore round trip", () => {
         receivedDate: new Date("2026-01-01"),
         fileName: "fixture.bin",
         contentType: "application/octet-stream",
-        bytes: originalBytes,
+        bytesRow: { create: { bytes: originalBytes } },
       },
     });
 
     const { buffer } = await buildBackup(prisma);
     const text = zlib.gunzipSync(buffer).toString("utf8");
     const { rowsByModel } = parseBackup(text);
-    const exportedRow = rowsByModel.partnerFile.find((r) => r.id === file.id);
-    assert.ok(exportedRow, "the fixture file should appear in the backup");
+    // The bytes themselves live in their own table now (#274's hardening
+    // follow-up) -- same shared id as the parent partnerFile row.
+    const exportedRow = rowsByModel.partnerFileBytes.find((r) => r.id === file.id);
+    assert.ok(exportedRow, "the fixture file's bytes row should appear in the backup");
     assert.ok(Buffer.isBuffer(exportedRow.bytes), "decoded bytes should be a real Buffer");
     assert.ok(originalBytes.equals(exportedRow.bytes), "bytes should round-trip exactly");
 

@@ -277,9 +277,10 @@ describe("Trips: public document-requirement upload", () => {
 
     const doc = await prisma.tripDocument.findFirst({
       where: { requirementId: requirement.id, participantId: participant.id },
+      include: { bytesRow: { select: { bytes: true } } },
     });
     assert.equal(doc.fileName, "passport.pdf");
-    assert.equal(Buffer.from(doc.bytes).toString(), pdf.toString());
+    assert.equal(Buffer.from(doc.bytesRow.bytes).toString(), pdf.toString());
 
     const selfService = await anon(`/api/public/trips/participants/access?token=${token}`);
     const found = selfService.body.requirements.find((r) => r.id === requirement.id);

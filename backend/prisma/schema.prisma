@@ -394,11 +394,16 @@ model TripParticipant {
   // story/shareToken above -- not a relation like Partner's own Photo
   // model, which exists because a partner accumulates a real gallery
   // over years. A participant's support-raising photo is just one
-  // picture, replaced wholesale when changed, no versioning. Bytes
-  // in-row, no separate file storage, per CONTRIBUTING.md -- same
-  // convention as TripDocument/PartnerFile.
-  photo            Bytes?
+  // picture, replaced wholesale when changed, no versioning. The bytes
+  // themselves live in their own one-to-one table (TripParticipantPhoto,
+  // below) -- still Postgres, no separate file storage per CONTRIBUTING.md,
+  // just split off so a plain TripParticipant query can never accidentally
+  // pull the image in (the #274 production-hang bug class: a relation
+  // include with no select/omit base64-inlining a multi-MB file into an
+  // unrelated JSON response -- this makes that structurally impossible
+  // here instead of relying on every future query remembering to omit).
   photoContentType String?
+  photoBytesRow     TripParticipantPhoto?
 
   // Bumped to invalidate every previously-issued self-service link at
   // once -- same revocation reasoning as User.mfaLastTimeStep's replay
@@ -416,6 +421,16 @@ model TripParticipant {
   meetingRsvps        TripMeetingRsvp[]
 
   @@index([tripId])
+}
+
+// Split off from TripParticipant.photo -- see that field's own comment for
+// why. Shared primary key with its parent (id is both this table's own PK
+// and its FK into TripParticipant), the same one-to-one pattern every new
+// Bytes table in this schema uses.
+model TripParticipantPhoto {
+  id          String          @id
+  participant TripParticipant @relation(fields: [id], references: [id], onDelete: Cascade)
+  photo       Bytes
 }
 
 // A submitted application to a Trip whose status is accepting_applications.
@@ -660,7 +675,9 @@ model TripDocument {
   requirement   TripRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
 
   title       String?
-  bytes       Bytes
+  // bytes and signatureImage both live in TripDocumentBytes (below), a
+  // one-to-one split-off table -- see TripParticipantPhoto's own comment
+  // for why.
   fileName    String
   contentType String
   fileSize    Int? // bytes -- populated on new uploads only, same convention as PartnerFile.fileSize; existing rows stay null rather than a backfill migration for display-only metadata
@@ -687,7 +704,6 @@ model TripDocument {
   // signing page's label) are honest about who's expected to sign,
   // not to enforce it.
   signerRelationship   String?
-  signatureImage       Bytes? // drawn-signature PNG, stored in-row per CONTRIBUTING.md's no-separate-file-storage rule; null if they only typed their name
   attestedAt           DateTime?
   ip                   String?
   // Snapshot of the exact text they agreed to, plus a hash of it --
@@ -698,10 +714,18 @@ model TripDocument {
   // later-edited requirement detectable, not just theoretically possible.
   documentTextSnapshot String?   @db.Text
   documentTextHash     String?
+  bytesRow             TripDocumentBytes?
 
   @@unique([requirementId, participantId])
   @@index([tripId])
   @@index([participantId])
+}
+
+model TripDocumentBytes {
+  id             String       @id
+  document       TripDocument @relation(fields: [id], references: [id], onDelete: Cascade)
+  bytes          Bytes
+  signatureImage Bytes? // drawn-signature PNG; null if they only typed their name
 }
 
 // A manual ledger entry for an offline gift (check/cash) toward a trip
@@ -1003,11 +1027,14 @@ model PartnerFile {
 
   title        String?
   receivedDate DateTime @db.Date
-  bytes        Bytes // the file itself — see the comment above this model
-  fileName     String // original uploaded filename, for display/download
-  contentType  String
-  fileSize     Int? // bytes
-  notes        String?  @db.Text
+  // The file's own bytes live in PartnerFileBytes (below), a one-to-one
+  // split-off table -- see TripParticipantPhoto's own comment for why
+  // (structurally prevents the #274 production-hang bug class rather than
+  // relying on every future query remembering to select/omit).
+  fileName    String // original uploaded filename, for display/download
+  contentType String
+  fileSize    Int? // bytes
+  notes       String? @db.Text
 
   createdAt DateTime @default(now())
 
@@ -1016,9 +1043,16 @@ model PartnerFile {
   // but Prisma requires both sides of a relation declared.
   sourcedPrayerRequests PrayerRequest[]
   sourcedSupportNeeds   SupportNeed[]
+  bytesRow              PartnerFileBytes?
 
   @@index([partnerId])
   @@index([kind])
+}
+
+model PartnerFileBytes {
+  id    String      @id
+  file  PartnerFile @relation(fields: [id], references: [id], onDelete: Cascade)
+  bytes Bytes
 }
 
 // Inbound email (see #72) that couldn't be auto-matched to a partner --
@@ -1033,9 +1067,17 @@ model InboundEmail {
   receivedAt  DateTime @default(now())
   fromAddress String
   subject     String?
-  bytes       Bytes // the raw .eml source -- same storage shape as PartnerFile.bytes above
-  fileName    String
-  createdAt   DateTime @default(now())
+  // The raw .eml source lives in InboundEmailBytes (below), a one-to-one
+  // split-off table -- see TripParticipantPhoto's own comment for why.
+  fileName  String
+  createdAt DateTime @default(now())
+  bytesRow  InboundEmailBytes?
+}
+
+model InboundEmailBytes {
+  id    String       @id
+  email InboundEmail @relation(fields: [id], references: [id], onDelete: Cascade)
+  bytes Bytes
 }
 
 // A recorded event, capable of independently producing up to four
@@ -1145,14 +1187,22 @@ model Photo {
   partnerId String
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
-  bytes        Bytes // the image itself
+  // The image itself lives in PhotoBytes (below), a one-to-one split-off
+  // table -- see TripParticipantPhoto's own comment for why.
   receivedDate DateTime @db.Date // when this photo was actually taken/received, not upload time
   contentType  String?
   fileSize     Int? // bytes
 
   createdAt DateTime @default(now())
+  bytesRow  PhotoBytes?
 
   @@index([partnerId])
+}
+
+model PhotoBytes {
+  id    String @id
+  photo Photo  @relation(fields: [id], references: [id], onDelete: Cascade)
+  bytes Bytes
 }
 
 // Single-row table describing the church running this instance — used to
@@ -1205,14 +1255,14 @@ model ChurchSettings {
   headerColor     String? // hex, overrides --brand-header-color; header + admin sidebar background
   highlightColor  String? // hex, overrides --brand-highlight-color; hover/focus/active/selected feedback
   brandFont       String? // literal CSS font-family stack (not an abstract key), overrides --brand-font; curated choices offered in AdminSettingsBranding.jsx
-  // The site logo, stored right in this row — see the comment on the
-  // PartnerFile model for why this app keeps file bytes in Postgres
-  // instead of an object store. Public, served unauthenticated at
-  // GET /api/public/settings/logo/raw when set. API responses synthesize
-  // a `logo: { url: "..." } | null` shape from these two columns rather
-  // than ever returning logoBytes inline — same discipline as Photo.
-  logoBytes       Bytes?
+  // The site logo -- see TripParticipantPhoto's own comment for why the
+  // bytes live in their own one-to-one table (ChurchSettingsLogo, below)
+  // rather than this row, still Postgres, no object store. Public, served
+  // unauthenticated at GET /api/public/settings/logo/raw when set. API
+  // responses synthesize a `logo: { url: "..." } | null` shape rather than
+  // ever returning the bytes inline — same discipline as Photo.
   logoContentType String?
+  logoRow         ChurchSettingsLogo?
 
   // GroupMe integration (see backend/src/utils/groupmeChannel.js). The user's
   // own personal access token, not a bot -- GroupMe Topics (a group chat
@@ -1581,6 +1631,12 @@ model ChurchSettings {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   updatedById String?
+}
+
+model ChurchSettingsLogo {
+  id        String         @id
+  settings  ChurchSettings @relation(fields: [id], references: [id], onDelete: Cascade)
+  logoBytes Bytes
 }
 
 // Users who can log into the admin backend.

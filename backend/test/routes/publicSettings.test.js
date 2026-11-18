@@ -63,22 +63,42 @@ describe("GET /api/public/settings/logo/raw -- embeddable by third parties", () 
   before(async () => {
     originalLogo = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      select: { logoBytes: true, logoContentType: true },
+      select: { logoContentType: true, logoRow: { select: { logoBytes: true } } },
     });
     await prisma.churchSettings.upsert({
       where: { id: "singleton" },
-      update: { logoBytes: Buffer.from([0x89, 0x50, 0x4e, 0x47]), logoContentType: "image/png" },
+      update: {
+        logoContentType: "image/png",
+        logoRow: {
+          upsert: {
+            create: { logoBytes: Buffer.from([0x89, 0x50, 0x4e, 0x47]) },
+            update: { logoBytes: Buffer.from([0x89, 0x50, 0x4e, 0x47]) },
+          },
+        },
+      },
       create: {
         id: "singleton",
-        logoBytes: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
         logoContentType: "image/png",
+        logoRow: { create: { logoBytes: Buffer.from([0x89, 0x50, 0x4e, 0x47]) } },
       },
     });
   });
 
   after(async () => {
     if (originalLogo) {
-      await prisma.churchSettings.update({ where: { id: "singleton" }, data: originalLogo });
+      if (originalLogo.logoRow) {
+        await prisma.churchSettingsLogo.upsert({
+          where: { id: "singleton" },
+          create: { id: "singleton", logoBytes: originalLogo.logoRow.logoBytes },
+          update: { logoBytes: originalLogo.logoRow.logoBytes },
+        });
+      } else {
+        await prisma.churchSettingsLogo.deleteMany({ where: { id: "singleton" } });
+      }
+      await prisma.churchSettings.update({
+        where: { id: "singleton" },
+        data: { logoContentType: originalLogo.logoContentType },
+      });
     }
   });
 

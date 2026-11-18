@@ -89,11 +89,12 @@ const tripPartnerInclude = {
 
 const tripInclude = {
   partner: tripPartnerInclude,
-  // omit: raw photo bytes have no business in every trip list/detail
-  // response -- the admin UI uses the dedicated GET
+  // No omit needed -- the participant photo's raw bytes live in their own
+  // table now, never selected by a plain `participants: true`-style
+  // include. The admin UI uses the dedicated GET
   // /public/trips/participants/:id/photo route to render one, same as
   // the public/self-service pages do.
-  participants: { omit: { photo: true } },
+  participants: true,
   // Needed on the plain list endpoint too (not just GET /:id, which
   // already spread this in separately below) -- the Unmatched Emails
   // queue flattens every trip's participants into one picker and needs
@@ -567,12 +568,12 @@ router.post(
     try {
       if (!req.file) return res.status(400).json({ error: "No file provided" });
       const { participantId, requirementId, title } = req.body;
-      const data = {
+      const bytes = req.file.buffer;
+      const meta = {
         tripId: req.params.id,
         participantId: participantId || null,
         requirementId: requirementId || null,
         title: title || null,
-        bytes: req.file.buffer,
         fileName: req.file.originalname,
         contentType: req.file.mimetype || "application/octet-stream",
         fileSize: req.file.size,
@@ -586,16 +587,17 @@ router.post(
       // than hitting that constraint as an error. Either participantId
       // or requirementId null (a trip-wide document, or one with no
       // tracked requirement) always creates a new row -- the constraint
-      // only applies once both are non-null.
+      // only applies once both are non-null. The bytes themselves live in
+      // their own table (bytesRow) now -- a nested upsert on the update
+      // branch replaces them in place on a reupload, same as before.
       const created =
         participantId && requirementId
           ? await prisma.tripDocument.upsert({
               where: { requirementId_participantId: { requirementId, participantId } },
-              create: data,
-              update: data,
-              omit: { bytes: true },
+              create: { ...meta, bytesRow: { create: { bytes } } },
+              update: { ...meta, bytesRow: { upsert: { create: { bytes }, update: { bytes } } } },
             })
-          : await prisma.tripDocument.create({ data, omit: { bytes: true } });
+          : await prisma.tripDocument.create({ data: { ...meta, bytesRow: { create: { bytes } } } });
       res.status(201).json(created);
     } catch (err) {
       next(err);
@@ -611,9 +613,12 @@ router.post(
 // title/fileName metadata, never the actual bytes.
 router.get("/documents/:id/download", async (req, res, next) => {
   try {
-    const record = await prisma.tripDocument.findUnique({ where: { id: req.params.id } });
-    if (!record) return res.status(404).json({ error: "Not found" });
-    sendStoredFile(res, record);
+    const record = await prisma.tripDocument.findUnique({
+      where: { id: req.params.id },
+      include: { bytesRow: { select: { bytes: true } } },
+    });
+    if (!record?.bytesRow) return res.status(404).json({ error: "Not found" });
+    sendStoredFile(res, { ...record, bytes: record.bytesRow.bytes });
   } catch (err) {
     next(err);
   }
