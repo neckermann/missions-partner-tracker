@@ -27,7 +27,7 @@ import {
   updateTripFlightSegment,
   deleteTripFlightSegment,
 } from "../api/client.js";
-import { formatDate } from "../utils/format.js";
+import { formatDate, formatFileSize } from "../utils/format.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestionsEditor.jsx";
@@ -112,6 +112,7 @@ export default function AdminTripDetail() {
   // is nullable specifically for it); there was never any UI for it until
   // now.
   const [tripWideFile, setTripWideFile] = useState(null);
+  const [tripWideTitle, setTripWideTitle] = useState("");
 
   const reload = useCallback(() => {
     fetchTrip(id).then(setTrip).catch(console.error);
@@ -469,8 +470,9 @@ export default function AdminTripDetail() {
   async function handleUploadTripWideDocument() {
     if (!tripWideFile) return;
     try {
-      await uploadTripDocument(id, tripWideFile, {});
+      await uploadTripDocument(id, tripWideFile, { title: tripWideTitle.trim() || undefined });
       setTripWideFile(null);
+      setTripWideTitle("");
       reload();
     } catch (err) {
       setError(err.response?.data?.error || "Couldn't upload this document.");
@@ -1069,7 +1071,10 @@ export default function AdminTripDetail() {
             .filter((d) => !d.participantId)
             .map((d) => (
               <li key={d.id} style={{ marginBottom: "0.3rem" }}>
-                {d.title || d.fileName}{" "}
+                {d.title || d.fileName}
+                {d.fileSize != null && (
+                  <span style={{ color: "#888", fontSize: "0.8rem" }}> ({formatFileSize(d.fileSize)})</span>
+                )}{" "}
                 <button type="button" className="btn secondary small" onClick={() => handleViewDocument(d)}>
                   View
                 </button>{" "}
@@ -1082,9 +1087,20 @@ export default function AdminTripDetail() {
             <p style={{ color: "#888" }}>No trip-wide documents yet.</p>
           )}
         </ul>
+        <label style={{ display: "block", maxWidth: 300, fontWeight: 400, fontSize: "0.85rem" }}>
+          Title (optional)
+          <input
+            type="text"
+            placeholder="e.g. Packing list"
+            value={tripWideTitle}
+            onChange={(e) => setTripWideTitle(e.target.value)}
+            style={{ display: "block", width: "100%", marginTop: "0.2rem" }}
+          />
+        </label>
         <input
           type="file"
           aria-label="Trip-wide document file"
+          style={{ marginTop: "0.5rem" }}
           onChange={(e) => setTripWideFile(e.target.files[0] || null)}
         />
         <button

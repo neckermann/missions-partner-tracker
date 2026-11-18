@@ -158,6 +158,7 @@ router.post("/postmark", async (req, res, next) => {
           bytes,
           fileName,
           contentType: "message/rfc822",
+          fileSize: bytes.length,
         },
       });
       return res.status(200).json({ matched: true });
@@ -272,6 +273,7 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
           bytes: record.bytes,
           fileName: record.fileName,
           contentType: "message/rfc822",
+          fileSize: record.bytes.length,
         },
       });
       await prisma.inboundEmail.delete({ where: { id: req.params.id } });

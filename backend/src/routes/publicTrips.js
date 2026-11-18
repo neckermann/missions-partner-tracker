@@ -27,6 +27,7 @@ const { buildSignedDocumentPdf } = require("../utils/pdfGeneration");
 const { decodePhotoDataUrl } = require("../utils/participantPhoto");
 const { renderSubscriberPage } = require("../utils/subscriberPage");
 const { tripDocumentUpload } = require("../utils/upload");
+const { sendStoredFile } = require("../utils/fileResponse");
 const crypto = require("crypto");
 
 // Shared with the admin TripDocument upload route (trips.js) -- same
@@ -438,7 +439,27 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
               include: { participants: { select: { id: true } } },
             },
             meetings: true,
-            documents: { where: { OR: [{ participantId: payload.id }, { participantId: null }] } },
+            // Explicit select, not a bare `where` -- same latent issue the
+            // admin trip-detail route actually hit in production (commit
+            // 4aa3534): an un-selected include here still pulls every
+            // document's raw `bytes`/`signatureImage` into server memory
+            // on every self-service page load, even though neither field
+            // is ever used below (the fulfilled check only needs
+            // requirementId/participantId, and tripWideDocuments below is
+            // metadata-only). Never serialized to the client either way,
+            // but no reason to carry multi-MB blobs through Prisma at all.
+            documents: {
+              where: { OR: [{ participantId: payload.id }, { participantId: null }] },
+              select: {
+                id: true,
+                participantId: true,
+                requirementId: true,
+                title: true,
+                fileName: true,
+                fileSize: true,
+                createdAt: true,
+              },
+            },
             requirements: { include: { requirementStatuses: { where: { participantId: payload.id } } } },
             partner: { select: { displayName: true, fieldDisplayName: true } },
           },
@@ -514,11 +535,55 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
       // (unfiltered) view is for instead.
       meetings: participant.trip.meetings.filter((m) => !m.cancelledAt),
       requirements,
+      // Trip-wide documents only (participantId: null) -- this
+      // participant's OWN documents (passport photo, signed waiver) are
+      // never exposed here; they're tracked via `requirements[].fulfilled`
+      // above instead, not re-listed as files to avoid this page reading
+      // like it's handing back someone's own uploaded ID photo as a
+      // generic "document." Metadata only, consistent with the query
+      // above -- actual bytes are fetched on demand via the new
+      // token-gated GET /participants/documents/:id/download route.
+      tripWideDocuments: participant.trip.documents
+        .filter((d) => !d.participantId)
+        .map(({ id: docId, title, fileName, fileSize, createdAt }) => ({
+          id: docId,
+          title,
+          fileName,
+          fileSize,
+          createdAt,
+        })),
       giving: {
         onlineGivingUrl: settings?.onlineGivingUrl || null,
         onlineGivingInstructions: settings?.onlineGivingInstructions || null,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /participants/documents/:id/download -- the token-gated counterpart
+// to trips.js's admin-only GET /documents/:id/download (that one sits
+// behind router.use(requireAuth), which a self-service page with no login
+// session can't use at all). Scoped strictly to trip-wide documents
+// (participantId: null) on the token's OWN trip -- never a document
+// belonging to another participant, even another participant on the same
+// trip. Same token verification as every other self-service route here.
+router.get("/participants/documents/:id/download", requireFeature("trips"), async (req, res, next) => {
+  try {
+    const payload = verifyTripParticipantAccessToken(String(req.query.token || ""));
+    if (!payload) return res.status(401).json({ error: "Invalid or expired link" });
+
+    const participant = await prisma.tripParticipant.findUnique({ where: { id: payload.id } });
+    if (!participant || participant.accessTokenVersion !== payload.v) {
+      return res.status(401).json({ error: "Invalid or expired link" });
+    }
+
+    const record = await prisma.tripDocument.findUnique({ where: { id: req.params.id } });
+    if (!record || record.tripId !== participant.tripId || record.participantId !== null) {
+      return res.status(404).json({ error: "Not found" });
+    }
+    sendStoredFile(res, record);
   } catch (err) {
     next(err);
   }
@@ -616,6 +681,7 @@ router.post("/participants/sign/:requirementId", requireFeature("trips"), async 
         bytes: pdfBytes,
         fileName: `${requirement.label.replace(/[^a-z0-9]+/gi, "-")}.pdf`,
         contentType: "application/pdf",
+        fileSize: pdfBytes.length,
         signerName,
         signerRelationship: signerRelationship || null,
         signatureImage: signatureImageBuffer,
@@ -677,6 +743,7 @@ router.post(
         bytes: req.file.buffer,
         fileName: req.file.originalname,
         contentType: req.file.mimetype || "application/octet-stream",
+        fileSize: req.file.size,
       };
       await prisma.tripDocument.upsert({
         where: { requirementId_participantId: { requirementId: requirement.id, participantId: participant.id } },

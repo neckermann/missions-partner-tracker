@@ -1344,6 +1344,7 @@ router.post(
         bytes: req.file.buffer,
         fileName: req.file.originalname,
         contentType: req.file.mimetype || "application/octet-stream",
+        fileSize: req.file.size,
       };
       // Upsert, not a plain create, when both fields are set -- the
       // public self-service upload route (publicTrips.js) relies on the

@@ -1719,3 +1719,102 @@ describe("Trips: public document-requirement upload", () => {
     );
   });
 });
+
+describe("Trips: trip-wide document title/fileSize, and participant visibility", () => {
+  const { buildTripParticipantAccessToken } = require("../../src/utils/tripAccessToken");
+
+  async function createTripWithParticipant() {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    const participant = await prisma.tripParticipant.create({
+      data: { tripId: trip.body.id, firstName: "Riley", email: "riley-tripwide@example.test" },
+    });
+    return { trip: trip.body, participant };
+  }
+
+  test("an admin-uploaded trip-wide document stores the given title and fileSize", async () => {
+    const { trip } = await createTripWithParticipant();
+    const bytes = Buffer.from("packing list contents");
+    const form = new FormData();
+    form.set("file", new Blob([bytes], { type: "application/pdf" }), "packing-list.pdf");
+    form.set("title", "Packing List");
+
+    const res = await admin(`/api/trips/${trip.id}/documents`, { method: "POST", body: form });
+    assert.equal(res.status, 201);
+
+    const doc = await prisma.tripDocument.findFirst({ where: { tripId: trip.id, participantId: null } });
+    assert.equal(doc.title, "Packing List");
+    assert.equal(doc.fileSize, bytes.length);
+  });
+
+  test("the self-service response includes trip-wide documents but not another participant's own document", async () => {
+    const { trip, participant } = await createTripWithParticipant();
+    const otherParticipant = await prisma.tripParticipant.create({
+      data: { tripId: trip.id, firstName: "Other", email: "other-tripwide@example.test" },
+    });
+
+    // Trip-wide (participantId: null) -- should be visible to anyone on this trip.
+    const tripWideForm = new FormData();
+    tripWideForm.set("file", new Blob([Buffer.from("itinerary")], { type: "application/pdf" }), "itinerary.pdf");
+    tripWideForm.set("title", "Flight Itinerary");
+    const tripWideRes = await admin(`/api/trips/${trip.id}/documents`, { method: "POST", body: tripWideForm });
+    assert.equal(tripWideRes.status, 201);
+
+    // The OTHER participant's own document -- must never appear in this
+    // participant's self-service response under tripWideDocuments or
+    // anywhere else.
+    const otherForm = new FormData();
+    otherForm.set("file", new Blob([Buffer.from("their passport")], { type: "application/pdf" }), "passport.pdf");
+    otherForm.set("participantId", otherParticipant.id);
+    const otherRes = await admin(`/api/trips/${trip.id}/documents`, { method: "POST", body: otherForm });
+    assert.equal(otherRes.status, 201);
+
+    const token = buildTripParticipantAccessToken(participant);
+    const res = await anon(`/api/public/trips/participants/access?token=${token}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.tripWideDocuments.length, 1);
+    assert.equal(res.body.tripWideDocuments[0].title, "Flight Itinerary");
+    assert.ok(res.body.tripWideDocuments[0].fileSize > 0);
+    assert.equal(res.body.tripWideDocuments[0].bytes, undefined, "metadata only, never the raw bytes");
+  });
+
+  test("a participant can download a trip-wide document via the token-gated route", async () => {
+    const { trip, participant } = await createTripWithParticipant();
+    const bytes = Buffer.from("itinerary contents");
+    const form = new FormData();
+    form.set("file", new Blob([bytes], { type: "application/pdf" }), "itinerary.pdf");
+    const uploadRes = await admin(`/api/trips/${trip.id}/documents`, { method: "POST", body: form });
+    const docId = uploadRes.body.id;
+
+    const token = buildTripParticipantAccessToken(participant);
+    const res = await anon(`/api/public/trips/participants/documents/${docId}/download?token=${token}`);
+    assert.equal(res.status, 200);
+  });
+
+  test("the download route rejects a missing/invalid token", async () => {
+    const { trip } = await createTripWithParticipant();
+    const form = new FormData();
+    form.set("file", new Blob([Buffer.from("x")], { type: "application/pdf" }), "x.pdf");
+    const uploadRes = await admin(`/api/trips/${trip.id}/documents`, { method: "POST", body: form });
+    const docId = uploadRes.body.id;
+
+    const res = await anon(`/api/public/trips/participants/documents/${docId}/download?token=not-a-real-token`);
+    assert.equal(res.status, 401);
+  });
+
+  test("the download route refuses a participant-owned document, even with a valid token for that same trip", async () => {
+    const { trip, participant } = await createTripWithParticipant();
+    const otherParticipant = await prisma.tripParticipant.create({
+      data: { tripId: trip.id, firstName: "Other", email: "other-dl@example.test" },
+    });
+    const form = new FormData();
+    form.set("file", new Blob([Buffer.from("their passport")], { type: "application/pdf" }), "passport.pdf");
+    form.set("participantId", otherParticipant.id);
+    const uploadRes = await admin(`/api/trips/${trip.id}/documents`, { method: "POST", body: form });
+    const docId = uploadRes.body.id;
+
+    const token = buildTripParticipantAccessToken(participant);
+    const res = await anon(`/api/public/trips/participants/documents/${docId}/download?token=${token}`);
+    assert.equal(res.status, 404, "a valid token for this trip still can't reach another participant's own document");
+  });
+});

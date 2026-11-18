@@ -688,6 +688,14 @@ export async function updateTripParticipantSelfService(payload) {
 export function tripParticipantPhotoUrl(participantId) {
   return `/api/public/trips/participants/${participantId}/photo`;
 }
+// Token-gated, not session-auth -- the token travels as a query param the
+// same way every other self-service GET on this page already does (e.g.
+// fetchTripParticipantSelfService). Returns the route path, not bytes --
+// callers point a plain link/window.open at it, same convention as the
+// admin page's own handleViewDocument.
+export function tripDocumentDownloadUrl(documentId, token) {
+  return `/api/public/trips/participants/documents/${documentId}/download?token=${encodeURIComponent(token)}`;
+}
 
 export async function fetchPrayerRequests(params = {}) {
   const { data } = await api.get("/prayer-requests", { params });

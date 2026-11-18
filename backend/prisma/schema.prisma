@@ -629,6 +629,7 @@ model TripDocument {
   bytes       Bytes
   fileName    String
   contentType String
+  fileSize    Int? // bytes -- populated on new uploads only, same convention as PartnerFile.fileSize; existing rows stay null rather than a backfill migration for display-only metadata
 
   createdAt DateTime @default(now())
 

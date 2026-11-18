@@ -9,8 +9,9 @@ import {
   uploadTripRequirementDocument,
   updateTripParticipantSelfService,
   tripParticipantPhotoUrl,
+  tripDocumentDownloadUrl,
 } from "../api/client.js";
-import { formatDate } from "../utils/format.js";
+import { formatDate, formatFileSize } from "../utils/format.js";
 import SignatureCapture from "../components/SignatureCapture.jsx";
 
 function readFileAsDataUrl(file) {
@@ -399,6 +400,36 @@ export default function PublicTripParticipant() {
                     </li>
                   );
                 })}
+            </ul>
+          </div>
+        )}
+
+        {/* Shared files from the admin's own "Trip-wide documents" section
+        (AdminTripDetail.jsx) -- an itinerary, packing list, etc. Previously
+        fetched by this page's own data route but never exposed in the
+        response or rendered anywhere, so no participant could ever see one
+        despite the admin page's own copy calling them "shared with the
+        whole team." */}
+        {selfService && data.tripWideDocuments?.length > 0 && (
+          <div className="admin-section">
+            <h3>Trip-wide documents</h3>
+            <ul style={{ listStyle: "none", padding: 0 }}>
+              {data.tripWideDocuments.map((doc) => (
+                <li key={doc.id} style={{ marginBottom: "0.3rem" }}>
+                  {doc.title || doc.fileName}
+                  {doc.fileSize != null && (
+                    <span style={{ color: "#888", fontSize: "0.8rem" }}> ({formatFileSize(doc.fileSize)})</span>
+                  )}{" "}
+                  <a
+                    href={tripDocumentDownloadUrl(doc.id, accessToken)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn secondary small"
+                  >
+                    View
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
         )}
