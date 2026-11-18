@@ -635,6 +635,158 @@ describe("Trips: meetings", () => {
   });
 });
 
+// A different gap than the late-joiner suite above: an EXISTING
+// participant, not a new one. Every participant's welcome email attaches
+// the trip-dates .ics at the moment they join -- but nothing used to
+// resend it if an admin later changed startDate/endDate, so an existing
+// participant's calendar kept showing the old, now-wrong dates.
+describe("Trips: reschedule resends trip dates", () => {
+  async function captureEmails(run) {
+    const captured = [];
+    const prevFetch = global.fetch;
+    global.fetch = (url, options) => {
+      if (String(url).startsWith("https://api.postmarkapp.com") && options?.body) {
+        try {
+          captured.push(JSON.parse(options.body));
+        } catch {
+          /* non-JSON body -- not a send this test cares about */
+        }
+      }
+      return prevFetch(url, options);
+    };
+    try {
+      await run();
+    } finally {
+      global.fetch = prevFetch;
+    }
+    return captured;
+  }
+
+  async function createTripWithParticipant(fields = {}) {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "planning",
+        startDate: "2026-12-01",
+        endDate: "2026-12-08",
+        ...fields,
+      },
+    });
+    const participant = await prisma.tripParticipant.create({
+      data: { tripId: trip.body.id, firstName: "Jamie", email: "jamie-reschedule@example.test" },
+    });
+    return { trip: trip.body, participant };
+  }
+
+  test("changing startDate resends the updated trip-dates invite to every current participant", async () => {
+    const { trip } = await createTripWithParticipant();
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}`, { method: "PUT", body: { startDate: "2026-12-03" } });
+      assert.equal(res.status, 200);
+    });
+    assert.equal(sent.length, 1);
+    assert.match(sent[0].Subject, /^Trip dates updated:/);
+    assert.equal(sent[0].To, "jamie-reschedule@example.test");
+    const ics = sent[0].Attachments?.find((a) => a.Name === "trip-dates.ics");
+    assert.ok(ics, "the updated-dates email must attach a new .ics");
+    const decoded = Buffer.from(ics.Content, "base64").toString();
+    assert.match(decoded, /DTSTART;VALUE=DATE:20261203/, "the attached .ics must reflect the NEW date, not the old one");
+  });
+
+  test("changing endDate resends too", async () => {
+    const { trip } = await createTripWithParticipant();
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}`, { method: "PUT", body: { endDate: "2026-12-10" } });
+      assert.equal(res.status, 200);
+    });
+    assert.equal(sent.length, 1);
+    assert.match(sent[0].Subject, /^Trip dates updated:/);
+  });
+
+  test("changing an unrelated field sends nothing", async () => {
+    const { trip } = await createTripWithParticipant();
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}`, {
+        method: "PUT",
+        body: { description: "Updated description", teamSizeMax: 12 },
+      });
+      assert.equal(res.status, 200);
+    });
+    assert.equal(sent.length, 0, "an edit that doesn't touch startDate/endDate must not resend anything");
+  });
+
+  test("setting a date to the value it already has sends nothing", async () => {
+    const { trip } = await createTripWithParticipant();
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}`, { method: "PUT", body: { startDate: "2026-12-01" } });
+      assert.equal(res.status, 200);
+    });
+    assert.equal(sent.length, 0, "an unchanged date value must not count as a reschedule");
+  });
+
+  test("a trip with no participants behaves unchanged", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "planning",
+        startDate: "2026-12-01",
+        endDate: "2026-12-08",
+      },
+    });
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.body.id}`, { method: "PUT", body: { startDate: "2026-12-05" } });
+      assert.equal(res.status, 200);
+    });
+    assert.equal(sent.length, 0, "no participants means no error and nothing sent");
+  });
+
+  test("a completed trip's reschedule skips the resend", async () => {
+    const { trip } = await createTripWithParticipant({ status: "completed" });
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}`, { method: "PUT", body: { startDate: "2026-12-03" } });
+      assert.equal(res.status, 200);
+    });
+    assert.equal(sent.length, 0, "a completed trip must not resend a dates update");
+  });
+
+  test("a closed trip already in the past skips the resend", async () => {
+    const { trip } = await createTripWithParticipant({
+      status: "closed",
+      startDate: "2020-01-01",
+      endDate: "2020-01-08",
+    });
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}`, { method: "PUT", body: { endDate: "2020-01-10" } });
+      assert.equal(res.status, 200);
+    });
+    assert.equal(
+      sent.length,
+      0,
+      "a closed-and-already-past trip is historical -- no resend even though endDate changed"
+    );
+  });
+
+  test("outboundEmail off suppresses the resend", async () => {
+    await setFeatures({ outboundEmail: false });
+    try {
+      const { trip } = await createTripWithParticipant();
+      const sent = await captureEmails(async () => {
+        const res = await admin(`/api/trips/${trip.id}`, { method: "PUT", body: { startDate: "2026-12-05" } });
+        assert.equal(res.status, 200);
+      });
+      assert.equal(sent.length, 0, "outboundEmail off must suppress the dates-update resend too");
+    } finally {
+      await setFeatures({ outboundEmail: true });
+    }
+  });
+});
+
 // One-click RSVP (issue #267's design decision) -- link-based only, no
 // inbound email. Each link is a plain GET, verified by the exact same
 // signed access token the self-service page already uses, so this

@@ -336,6 +336,20 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     // the trip already had.
     const effectiveGoal = data.supportRaisingGoal !== undefined ? data.supportRaisingGoal : existing.supportRaisingGoal;
 
+    // Same "did this actually change" shape PUT /meetings/:id already uses
+    // for its own reschedule-resend check -- only startDate/endDate count
+    // (not every field this route can touch), and only when the incoming
+    // value actually differs from what's stored (datesChanged helper
+    // treats a present-but-unchanged field, or a field left out of this
+    // request entirely, the same way: no resend).
+    function dateChanged(incoming, current) {
+      if (incoming === undefined) return false;
+      const incomingTime = incoming ? new Date(incoming).getTime() : null;
+      const currentTime = current ? new Date(current).getTime() : null;
+      return incomingTime !== currentTime;
+    }
+    const datesChanged = dateChanged(data.startDate, existing.startDate) || dateChanged(data.endDate, existing.endDate);
+
     const updated = await prisma.$transaction(async (tx) => {
       if (participants !== undefined) {
         await tx.tripParticipant.deleteMany({ where: { tripId: req.params.id, applicationId: null } });
@@ -357,6 +371,11 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
         include: tripInclude,
       });
     });
+
+    if (datesChanged) {
+      await sendTripDatesUpdateEmail(updated);
+    }
+
     res.json(updated);
   } catch (err) {
     next(err);
@@ -1048,12 +1067,18 @@ async function sendRequirementNotificationEmail(trip, requirement, participants)
 // record (should get none, same as "completed", despite never being
 // marked that). Status can't tell those apart; the trip's own dates can --
 // so check both signals, not just status, rather than replacing one with
-// the other.
-async function sendLateJoinerCatchUpEmails(trip, participant) {
-  const now = new Date();
+// the other. Shared with sendTripDatesUpdateEmail below, which needs the
+// exact same exclusion for the same reason (a historical-record trip
+// shouldn't get a "dates changed" email either).
+function isTripHistorical(trip) {
   const referenceDate = trip.endDate || trip.startDate;
-  const alreadyHappened = referenceDate && new Date(referenceDate) < now;
-  if (trip.status === "completed" || alreadyHappened) return;
+  const alreadyHappened = referenceDate && new Date(referenceDate) < new Date();
+  return trip.status === "completed" || !!alreadyHappened;
+}
+
+async function sendLateJoinerCatchUpEmails(trip, participant) {
+  if (isTripHistorical(trip)) return;
+  const now = new Date();
   const futureMeetings = (trip.meetings || []).filter((m) => !m.cancelledAt && new Date(m.startAt) > now);
   for (const meeting of futureMeetings) {
     await sendMeetingEmail({ ...trip, participants: [participant] }, meeting, "A meeting has been scheduled.");
@@ -1064,6 +1089,37 @@ async function sendLateJoinerCatchUpEmails(trip, participant) {
   );
   for (const requirement of notifiableRequirements) {
     await sendRequirementNotificationEmail(trip, requirement, [participant]);
+  }
+}
+
+// A different gap than the late-joiner one above: an EXISTING participant,
+// not a new one. Every participant's welcome email attaches the trip-dates
+// .ics at the moment they join (buildTripDatesIcs, same UID-per-trip
+// convention as buildMeetingIcs) -- but if an admin later changes
+// startDate/endDate, nothing resent that .ics, so every participant who
+// already joined kept a calendar entry with the old, now-wrong dates. The
+// reused UID means a calendar client updates its existing entry rather
+// than creating a duplicate one, exactly as a meeting reschedule's resend
+// already relies on for the same reason.
+async function sendTripDatesUpdateEmail(trip) {
+  if (isTripHistorical(trip) || !trip.startDate || !trip.endDate) return;
+  const settings = await getSettings();
+  if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) return;
+  for (const participant of trip.participants || []) {
+    await sendParticipantEmail(
+      participant,
+      `Trip dates updated: ${trip.name || trip.type || "your trip"}`,
+      `This trip's dates have changed -- attached is an updated calendar invite.\n\nYour trip page: ${buildTripParticipantAccessUrl(participant)}`,
+      {
+        attachments: [
+          {
+            name: "trip-dates.ics",
+            content: Buffer.from(buildTripDatesIcs(trip)),
+            contentType: "text/calendar",
+          },
+        ],
+      }
+    );
   }
 }
 
