@@ -6,6 +6,7 @@ import {
   fetchPublicTripParticipantByToken,
   fetchTripParticipantSelfService,
   signTripRequirement,
+  uploadTripRequirementDocument,
   updateTripParticipantSelfService,
   tripParticipantPhotoUrl,
 } from "../api/client.js";
@@ -35,6 +36,8 @@ export default function PublicTripParticipant() {
   const [signingId, setSigningId] = useState(null);
   const [signingError, setSigningError] = useState("");
   const [submittingSignature, setSubmittingSignature] = useState(false);
+  const [uploadingRequirementId, setUploadingRequirementId] = useState(null);
+  const [uploadError, setUploadError] = useState("");
   const [storyDraft, setStoryDraft] = useState(null);
   const [photoUploading, setPhotoUploading] = useState(false);
   // Object URL for a just-picked file, shown immediately next to the file
@@ -75,6 +78,23 @@ export default function PublicTripParticipant() {
       setSigningError(err.response?.data?.error || "Couldn't record your signature -- please try again.");
     } finally {
       setSubmittingSignature(false);
+    }
+  }
+
+  // Document-kind requirement counterpart to handleSign below -- same
+  // "fulfilled by the server, reload to pick up the new state" shape,
+  // just a file instead of a signature.
+  async function handleUploadRequirementDocument(requirementId, file) {
+    if (!file) return;
+    setUploadingRequirementId(requirementId);
+    setUploadError("");
+    try {
+      await uploadTripRequirementDocument(requirementId, { token: accessToken, file });
+      await reload();
+    } catch (err) {
+      setUploadError(err.response?.data?.error || "Couldn't upload that file -- please try again.");
+    } finally {
+      setUploadingRequirementId(null);
     }
   }
 
@@ -322,16 +342,39 @@ export default function PublicTripParticipant() {
                 {signingError}
               </p>
             )}
+            {uploadError && (
+              <p style={{ color: "#b91c1c" }} role="alert">
+                {uploadError}
+              </p>
+            )}
             <ul>
               {data.requirements
                 .filter((r) => !r.fulfilled)
                 .map((r) => {
                   const overdue = r.dueAt && new Date(r.dueAt) < new Date();
                   return (
-                    <li key={r.id} style={{ marginBottom: r.kind === "esignature" ? "0.6rem" : 0 }}>
+                    <li
+                      key={r.id}
+                      style={{ marginBottom: r.kind === "esignature" || r.kind === "document" ? "0.6rem" : 0 }}
+                    >
                       {r.label}
                       {r.dueAt && ` — due ${formatDate(r.dueAt)}`}
                       {overdue && <strong style={{ color: "#b91c1c" }}> (overdue)</strong>}
+                      {r.kind === "document" && (
+                        <div style={{ marginTop: "0.3rem" }}>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,application/pdf"
+                            disabled={uploadingRequirementId === r.id}
+                            onChange={(e) =>
+                              handleUploadRequirementDocument(r.id, e.target.files[0] || null)
+                            }
+                          />
+                          {uploadingRequirementId === r.id && (
+                            <span style={{ fontSize: "0.8rem", color: "#888" }}> Uploading…</span>
+                          )}
+                        </div>
+                      )}
                       {r.kind === "esignature" && (
                         <>
                           {" "}

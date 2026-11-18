@@ -653,6 +653,7 @@ model TripDocument {
   documentTextSnapshot String? @db.Text
   documentTextHash     String?
 
+  @@unique([requirementId, participantId])
   @@index([tripId])
   @@index([participantId])
 }

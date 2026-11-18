@@ -664,6 +664,18 @@ export async function signTripRequirement(requirementId, payload) {
   const { data } = await api.post(`/public/trips/participants/sign/${requirementId}`, payload);
   return data;
 }
+// Document-kind counterpart to the e-signature route above -- multipart,
+// not JSON, since this carries an actual file (reuses the same shared
+// file-type/size rules as the admin upload route -- see backend/src/
+// utils/upload.js). Re-uploading via the same link replaces the prior
+// file rather than adding a second one.
+export async function uploadTripRequirementDocument(requirementId, { token, file }) {
+  const formData = new FormData();
+  formData.append("token", token);
+  formData.append("file", file);
+  const { data } = await api.post(`/public/trips/participants/upload/${requirementId}`, formData);
+  return data;
+}
 // Self-service story/photo edit -- payload is { token, story?, photo?
 // (base64 data URL), photoContentType? }. No review step.
 export async function updateTripParticipantSelfService(payload) {

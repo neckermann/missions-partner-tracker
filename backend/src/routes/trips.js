@@ -14,7 +14,7 @@ const { isFeatureEnabled } = require("../utils/features");
 const { APPLICATION_QUESTION_SCHEMA } = require("../utils/applicationQuestions");
 const { sendStoredFile } = require("../utils/fileResponse");
 const { decodePhotoDataUrl } = require("../utils/participantPhoto");
-const multer = require("multer");
+const { tripDocumentUpload } = require("../utils/upload");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -22,7 +22,9 @@ router.use(requireAuth); // everything below requires a logged-in user
 // Trip/TripParticipant and every sibling model below.
 router.use(requireFeature("trips"));
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
+// Shared with the public self-service upload route (publicTrips.js) --
+// same allowlist/size cap, one place to change either (backend/src/utils/upload.js).
+const upload = tripDocumentUpload();
 
 async function getSettings() {
   return prisma.churchSettings.findUnique({
@@ -473,6 +475,33 @@ router.post("/:id/requirements", requireRole("admin", "editor"), async (req, res
       .refine(reminderNeedsDueDate, REMINDER_NEEDS_DUE_DATE_ISSUE)
       .parse(req.body);
     const created = await prisma.tripRequirement.create({ data: { tripId: req.params.id, ...data } });
+
+    // A document-kind requirement is the one kind a participant can now
+    // self-serve (the public upload route below) -- tell them it exists
+    // the same moment an admin adds it, rather than leaving them to
+    // discover it only by revisiting their own trip page on their own.
+    // "task"/"esignature" aren't included: a task has nothing for a
+    // participant to do from this email (an admin checks it off), and
+    // esignature has no precedent for this kind of notification either
+    // today -- it could reuse this same trigger later, this round keeps
+    // scope to the one kind that's newly actionable.
+    if (created.kind === "document") {
+      const settings = await getSettings();
+      if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+        const trip = await prisma.trip.findUnique({
+          where: { id: req.params.id },
+          include: { participants: true },
+        });
+        for (const participant of trip?.participants || []) {
+          await sendParticipantEmail(
+            participant,
+            `New item needed: ${created.label}`,
+            `A new item has been added to your checklist for ${trip.name || trip.type || "your trip"}: "${created.label}".\n\nYour trip page: ${buildTripParticipantAccessUrl(participant)}`
+          );
+        }
+      }
+    }
+
     res.status(201).json(created);
   } catch (err) {
     next(err);
@@ -1167,18 +1196,34 @@ router.post(
     try {
       if (!req.file) return res.status(400).json({ error: "No file provided" });
       const { participantId, requirementId, title } = req.body;
-      const created = await prisma.tripDocument.create({
-        data: {
-          tripId: req.params.id,
-          participantId: participantId || null,
-          requirementId: requirementId || null,
-          title: title || null,
-          bytes: req.file.buffer,
-          fileName: req.file.originalname,
-          contentType: req.file.mimetype || "application/octet-stream",
-        },
-        omit: { bytes: true },
-      });
+      const data = {
+        tripId: req.params.id,
+        participantId: participantId || null,
+        requirementId: requirementId || null,
+        title: title || null,
+        bytes: req.file.buffer,
+        fileName: req.file.originalname,
+        contentType: req.file.mimetype || "application/octet-stream",
+      };
+      // Upsert, not a plain create, when both fields are set -- the
+      // public self-service upload route (publicTrips.js) relies on the
+      // same @@unique([requirementId, participantId]) constraint to make
+      // a reupload replace rather than duplicate, and an admin
+      // re-uploading a corrected file for the same requirement+
+      // participant pair gets the identical "replace" behavior rather
+      // than hitting that constraint as an error. Either participantId
+      // or requirementId null (a trip-wide document, or one with no
+      // tracked requirement) always creates a new row -- the constraint
+      // only applies once both are non-null.
+      const created =
+        participantId && requirementId
+          ? await prisma.tripDocument.upsert({
+              where: { requirementId_participantId: { requirementId, participantId } },
+              create: data,
+              update: data,
+              omit: { bytes: true },
+            })
+          : await prisma.tripDocument.create({ data, omit: { bytes: true } });
       res.status(201).json(created);
     } catch (err) {
       next(err);

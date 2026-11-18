@@ -26,7 +26,12 @@ const {
 const { buildSignedDocumentPdf } = require("../utils/pdfGeneration");
 const { decodePhotoDataUrl } = require("../utils/participantPhoto");
 const { renderSubscriberPage } = require("../utils/subscriberPage");
+const { tripDocumentUpload } = require("../utils/upload");
 const crypto = require("crypto");
+
+// Shared with the admin TripDocument upload route (trips.js) -- same
+// allowlist/size cap for both, see that helper's own comment.
+const upload = tripDocumentUpload();
 
 const router = express.Router();
 
@@ -627,6 +632,63 @@ router.post("/participants/sign/:requirementId", requireFeature("trips"), async 
     next(err);
   }
 });
+
+// POST /api/public/trips/participants/upload/:requirementId -- the
+// document-kind counterpart to the sign route above. Same signed-
+// access-token authentication (token travels as a multipart field here,
+// since the request body is multipart/form-data, not JSON -- multer
+// parses both the file and the other fields before this handler runs).
+// participantId is taken ONLY from the verified token, never from the
+// request, so a caller can only ever upload against their own
+// participant row. Upsert (TripDocument's @@unique([requirementId,
+// participantId])): re-using the same link to upload a corrected file
+// replaces the prior one rather than leaving both around for an admin
+// to sort out -- same reasoning the admin-side upload route now follows
+// too (see that route's own comment).
+router.post(
+  "/participants/upload/:requirementId",
+  requireFeature("trips"),
+  upload.single("file"),
+  async (req, res, next) => {
+    try {
+      const token = String(req.body.token || "");
+      const payload = verifyTripParticipantAccessToken(token);
+      if (!payload) return res.status(401).json({ error: "Invalid or expired link" });
+
+      const participant = await prisma.tripParticipant.findUnique({ where: { id: payload.id } });
+      if (!participant || participant.accessTokenVersion !== payload.v) {
+        return res.status(401).json({ error: "Invalid or expired link" });
+      }
+
+      const requirement = await prisma.tripRequirement.findUnique({ where: { id: req.params.requirementId } });
+      if (!requirement || requirement.tripId !== participant.tripId) {
+        return res.status(404).json({ error: "Not found" });
+      }
+      if (requirement.kind !== "document") {
+        return res.status(400).json({ error: "This requirement doesn't accept an upload" });
+      }
+      if (!req.file) return res.status(400).json({ error: "No file provided" });
+
+      const data = {
+        tripId: participant.tripId,
+        participantId: participant.id,
+        requirementId: requirement.id,
+        title: requirement.label,
+        bytes: req.file.buffer,
+        fileName: req.file.originalname,
+        contentType: req.file.mimetype || "application/octet-stream",
+      };
+      await prisma.tripDocument.upsert({
+        where: { requirementId_participantId: { requirementId: requirement.id, participantId: participant.id } },
+        create: data,
+        update: data,
+      });
+      res.status(201).json({ uploaded: true });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 const selfServiceUpdateSchema = z.object({
   token: z.string(),
