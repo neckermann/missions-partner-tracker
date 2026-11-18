@@ -688,7 +688,7 @@ model TripContribution {
   donorEmail String?
   donorPhone String?
   amount     Int // whole dollars, matching SupportEntry.amount
-  method     String // "check" | "cash" | "other"
+  method     String // "check" | "cash" | "online" | "other"
   reference  String?
   receivedDate DateTime @db.Date
 

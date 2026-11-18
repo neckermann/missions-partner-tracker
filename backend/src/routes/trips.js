@@ -1405,7 +1405,7 @@ const contributionSchema = z.object({
   donorEmail: z.string().email().optional().nullable(),
   donorPhone: z.string().optional().nullable(),
   amount: z.coerce.number().int().positive(),
-  method: z.enum(["check", "cash", "other"]),
+  method: z.enum(["check", "cash", "online", "other"]),
   reference: z.string().optional().nullable(),
   receivedDate: z.coerce.date(),
 });

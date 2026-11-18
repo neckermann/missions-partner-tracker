@@ -1707,6 +1707,7 @@ export default function AdminTripDetail() {
             >
               <option value="check">Check</option>
               <option value="cash">Cash</option>
+              <option value="online">Online</option>
               <option value="other">Other</option>
             </select>
           </label>
