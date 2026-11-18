@@ -29,6 +29,11 @@ const photoRoutes = require("./routes/photos");
 const silhouetteRoutes = require("./routes/silhouette");
 const reportsRoutes = require("./routes/reports");
 const settingsRoutes = require("./routes/settings");
+const settingsGroupMeRoutes = require("./routes/settingsGroupMe");
+const settingsWhatsAppRoutes = require("./routes/settingsWhatsApp");
+const settingsEmailRoutes = require("./routes/settingsEmail");
+const settingsTripsRoutes = require("./routes/settingsTrips");
+const settingsDispatchesRoutes = require("./routes/settingsDispatches");
 const publicSettingsRoutes = require("./routes/publicSettings");
 const versionRoutes = require("./routes/version");
 const systemInfoRoutes = require("./routes/systemInfo");
@@ -218,6 +223,16 @@ app.use("/api/partner-files", partnerFileRoutes); // protected (admin) — sessi
 app.use("/api/photos", photoRoutes); // open (public — same as when these were S3 public-read objects)
 app.use("/api/silhouette", silhouetteRoutes); // open (public — needs to load with no session cookie, e.g. in an email client)
 app.use("/api/settings", settingsRoutes); // protected (admin for write, any role for read)
+// #271 Finding: five sibling sub-resource routers, same prefix as
+// settingsRoutes above (not a separate API surface) -- split out of a
+// single oversized settings.js, same pattern as the trips.js split
+// above. Each still gates independently at its own router level, so
+// mount order among these doesn't matter.
+app.use("/api/settings", settingsGroupMeRoutes);
+app.use("/api/settings", settingsWhatsAppRoutes);
+app.use("/api/settings", settingsEmailRoutes);
+app.use("/api/settings", settingsTripsRoutes);
+app.use("/api/settings", settingsDispatchesRoutes);
 app.use("/api/public/settings", publicSettingsRoutes); // open (public site + admin nav branding)
 app.use("/api/version-check", versionRoutes); // protected (admin role only)
 app.use("/api/system-info", systemInfoRoutes); // protected (admin role only)
