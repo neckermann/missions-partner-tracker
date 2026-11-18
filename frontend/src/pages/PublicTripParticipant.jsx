@@ -37,13 +37,22 @@ export default function PublicTripParticipant() {
   const [submittingSignature, setSubmittingSignature] = useState(false);
   const [storyDraft, setStoryDraft] = useState(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+  // Object URL for a just-picked file, shown immediately next to the file
+  // input (not the header above) -- the only existing photo indicator was
+  // that header image, scrolled out of view from the input itself, so
+  // there was no way to tell a photo was already on file (or that a new
+  // pick actually worked) without scrolling up.
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null);
   const selfService = !!accessToken;
 
   const reload = React.useCallback(() => {
     const fetcher = selfService
       ? fetchTripParticipantSelfService(accessToken)
       : fetchPublicTripParticipantByToken(shareToken);
-    fetcher.then(setData).catch(() => setNotFound(true));
+    // Returned (not fire-and-forget) so handlePhotoChange can wait for the
+    // server-confirmed photo before dropping its own object-URL preview --
+    // otherwise there'd be a flash back to "no photo" in between.
+    return fetcher.then(setData).catch(() => setNotFound(true));
   }, [shareToken, accessToken, selfService]);
 
   useEffect(() => {
@@ -81,6 +90,8 @@ export default function PublicTripParticipant() {
 
   async function handlePhotoChange(file) {
     if (!file) return;
+    const previewUrl = URL.createObjectURL(file);
+    setPhotoPreviewUrl(previewUrl);
     setPhotoUploading(true);
     try {
       const dataUrl = await readFileAsDataUrl(file);
@@ -89,9 +100,15 @@ export default function PublicTripParticipant() {
         photo: dataUrl,
         photoContentType: file.type,
       });
-      reload();
+      await reload();
     } finally {
       setPhotoUploading(false);
+      // Drop the local preview once `data.hasPhoto`/`tripParticipantPhotoUrl`
+      // has the real, server-confirmed image to show instead -- revoking
+      // before that point (e.g. on a failed upload) would just blank the
+      // image rather than leave a stale one on screen.
+      setPhotoPreviewUrl(null);
+      URL.revokeObjectURL(previewUrl);
     }
   }
 
@@ -203,11 +220,25 @@ export default function PublicTripParticipant() {
             </label>
             <label style={{ display: "block", marginTop: "0.6rem" }}>
               Your photo
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(e) => handlePhotoChange(e.target.files[0] || null)}
-              />
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "0.3rem" }}>
+                {(photoPreviewUrl || data.hasPhoto) && (
+                  <img
+                    src={photoPreviewUrl || tripParticipantPhotoUrl(data.id)}
+                    alt=""
+                    style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                  />
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => handlePhotoChange(e.target.files[0] || null)}
+                />
+              </div>
+              {!photoPreviewUrl && !data.hasPhoto && (
+                <span style={{ display: "block", fontSize: "0.8rem", color: "#888", marginTop: "0.2rem" }}>
+                  No photo on file yet.
+                </span>
+              )}
               {photoUploading && <span style={{ fontSize: "0.8rem", color: "#888" }}> Uploading…</span>}
             </label>
           </div>
