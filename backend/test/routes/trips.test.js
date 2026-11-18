@@ -1023,6 +1023,104 @@ describe("Trips: meeting RSVP", () => {
     const res = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=yes`);
     assert.equal(res.status, 404);
   });
+
+  test("the self-service page shows myRsvp per meeting, never the raw rsvps array", async () => {
+    const { trip, participant } = await createTripWithParticipant();
+    const meeting = await prisma.tripMeeting.create({
+      data: { tripId: trip.id, startAt: new Date("2026-12-17T19:00:00.000Z") },
+    });
+    const otherMeeting = await prisma.tripMeeting.create({
+      data: { tripId: trip.id, startAt: new Date("2026-12-18T19:00:00.000Z") },
+    });
+    const token = buildTripParticipantAccessToken(participant);
+
+    // Before responding: null, and the raw per-participant-filtered
+    // array must never leak through under its own key -- that would be
+    // a real data-exposure bug if it ever included another participant's
+    // row (see the next test), not just an API-shape nicety.
+    let selfService = await anon(`/api/public/trips/participants/access?token=${token}`);
+    let found = selfService.body.meetings.find((m) => m.id === meeting.id);
+    assert.equal(found.myRsvp, null);
+    assert.equal(found.rsvps, undefined);
+
+    await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=maybe`);
+
+    selfService = await anon(`/api/public/trips/participants/access?token=${token}`);
+    found = selfService.body.meetings.find((m) => m.id === meeting.id);
+    assert.equal(found.myRsvp, "maybe");
+    // Responding to one meeting must not bleed into another on the same trip.
+    const other = selfService.body.meetings.find((m) => m.id === otherMeeting.id);
+    assert.equal(other.myRsvp, null);
+  });
+
+  test("myRsvp only ever reflects this participant's own response, not another participant's", async () => {
+    const { trip, participant } = await createTripWithParticipant();
+    const otherParticipant = await prisma.tripParticipant.create({
+      data: { tripId: trip.id, firstName: "Jordan", email: "jordan-rsvp@example.test" },
+    });
+    const meeting = await prisma.tripMeeting.create({
+      data: { tripId: trip.id, startAt: new Date("2026-12-19T19:00:00.000Z") },
+    });
+    const otherToken = buildTripParticipantAccessToken(otherParticipant);
+    await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${otherToken}&response=yes`);
+
+    const token = buildTripParticipantAccessToken(participant);
+    const selfService = await anon(`/api/public/trips/participants/access?token=${token}`);
+    const found = selfService.body.meetings.find((m) => m.id === meeting.id);
+    assert.equal(found.myRsvp, null);
+  });
+});
+
+// "Add to calendar" for the self-service page -- same token/ownership
+// pattern as meeting RSVP above, reusing buildMeetingIcs unchanged.
+describe("Trips: meeting .ics download", () => {
+  const { buildTripParticipantAccessToken } = require("../../src/utils/tripAccessToken");
+
+  async function createTripWithParticipant() {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction" },
+    });
+    const participant = await prisma.tripParticipant.create({
+      data: { tripId: trip.body.id, firstName: "Taylor", email: "taylor-ics@example.test" },
+    });
+    return { trip: trip.body, participant };
+  }
+
+  test("a valid token downloads a .ics whose SUMMARY carries the meeting's title", async () => {
+    const { trip, participant } = await createTripWithParticipant();
+    const meeting = await prisma.tripMeeting.create({
+      data: { tripId: trip.id, startAt: new Date("2026-12-20T19:00:00.000Z"), title: "Team Orientation Call" },
+    });
+    const token = buildTripParticipantAccessToken(participant);
+
+    const res = await anon(`/api/public/trips/meetings/${meeting.id}/ics?token=${token}`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get("content-type"), /text\/calendar/);
+    assert.match(res.body, /SUMMARY:Team Orientation Call/);
+  });
+
+  test("a missing/invalid token is rejected", async () => {
+    const { trip } = await createTripWithParticipant();
+    const meeting = await prisma.tripMeeting.create({
+      data: { tripId: trip.id, startAt: new Date("2026-12-21T19:00:00.000Z") },
+    });
+    const res = await anon(`/api/public/trips/meetings/${meeting.id}/ics?token=not-a-real-token`);
+    assert.equal(res.status, 401);
+  });
+
+  test("a token for a different trip's meeting is refused", async () => {
+    const { participant: otherParticipant } = await createTripWithParticipant();
+    const { trip } = await createTripWithParticipant();
+    const meeting = await prisma.tripMeeting.create({
+      data: { tripId: trip.id, startAt: new Date("2026-12-22T19:00:00.000Z") },
+    });
+    const token = buildTripParticipantAccessToken(otherParticipant);
+
+    const res = await anon(`/api/public/trips/meetings/${meeting.id}/ics?token=${token}`);
+    assert.equal(res.status, 404);
+  });
 });
 
 // Public self-service document upload (requirement self-serve round) --

@@ -22,12 +22,14 @@ const { toInitials } = require("../utils/maskData");
 const {
   verifyTripParticipantAccessToken,
   sendTripParticipantAccessLinks,
+  appBaseUrl,
 } = require("../utils/tripAccessToken");
 const { buildSignedDocumentPdf } = require("../utils/pdfGeneration");
 const { decodePhotoDataUrl } = require("../utils/participantPhoto");
 const { renderSubscriberPage } = require("../utils/subscriberPage");
 const { tripDocumentUpload } = require("../utils/upload");
-const { sendStoredFile } = require("../utils/fileResponse");
+const { sendStoredFile, safeFilename } = require("../utils/fileResponse");
+const { buildMeetingIcs } = require("../utils/tripEmails");
 const crypto = require("crypto");
 
 // Shared with the admin TripDocument upload route (trips.js) -- same
@@ -438,7 +440,11 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
               orderBy: { departureAt: "asc" },
               include: { participants: { select: { id: true } } },
             },
-            meetings: true,
+            // rsvps filtered to just this participant -- at most one row
+            // (unique on meetingId+participantId), so the self-service
+            // page can show "you already said X" instead of always just
+            // bare Yes/No/Maybe links with no memory of a prior answer.
+            meetings: { include: { rsvps: { where: { participantId: payload.id } } } },
             // Explicit select, not a bare `where` -- same latent issue the
             // admin trip-detail route actually hit in production (commit
             // 4aa3534): an un-selected include here still pulls every
@@ -533,7 +539,12 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
       // more likely to read as "is this still happening?" than as
       // useful record-keeping, which is what the admin side's own
       // (unfiltered) view is for instead.
-      meetings: participant.trip.meetings.filter((m) => !m.cancelledAt),
+      meetings: participant.trip.meetings
+        .filter((m) => !m.cancelledAt)
+        // rsvps -> myRsvp: this participant's own prior response (or null),
+        // not the raw per-participant-filtered array -- the frontend only
+        // ever needs its own answer, never the shape of how that's queried.
+        .map(({ rsvps, ...m }) => ({ ...m, myRsvp: rsvps[0]?.response || null })),
       requirements,
       // Trip-wide documents only (participantId: null) -- this
       // participant's OWN documents (passport photo, signed waiver) are
@@ -884,13 +895,54 @@ router.get("/meetings/:meetingId/rsvp", requireFeature("trips"), async (req, res
       update: { response, respondedAt: new Date() },
     });
 
+    // A link back to the self-service page -- without this, clicking
+    // Yes/No/Maybe from that page itself (not just from the original
+    // email) strands the participant on this static confirmation page
+    // with no way back except browser back. Safe to build directly: the
+    // token already verified above is a signed JWT (base64url + dots),
+    // nothing that could break out of an href attribute.
+    const backLink = `<a href="${appBaseUrl()}/my-trip?token=${encodeURIComponent(
+      req.query.token
+    )}" style="color:#2a5d3c;">Back to your trip page</a>`;
     res.send(
       await renderSubscriberPage(
-        `Got it — you're marked as <strong>${RSVP_PAGE_LABELS[response]}</strong> for this meeting. You can click a different link in the email anytime to change your response.`,
+        `Got it — you're marked as <strong>${RSVP_PAGE_LABELS[response]}</strong> for this meeting. You can click a different link in the email anytime to change your response.<br><br>${backLink}`,
         "",
         "Meeting RSVP"
       )
     );
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/public/trips/meetings/:meetingId/ics?token=... -- a direct
+// "Add to calendar" download for the self-service page, so a participant
+// doesn't have to dig up the original invite email's attachment to get a
+// meeting onto their own calendar. Same token/ownership checks as the
+// RSVP route just above (participant token valid, meeting belongs to
+// their trip) -- GET, not POST, since this is just a file fetch a
+// calendar app or browser link-click triggers, nothing mutates.
+router.get("/meetings/:meetingId/ics", requireFeature("trips"), async (req, res, next) => {
+  try {
+    const payload = verifyTripParticipantAccessToken(String(req.query.token || ""));
+    if (!payload) return res.status(401).json({ error: "Invalid or expired link" });
+
+    const participant = await prisma.tripParticipant.findUnique({ where: { id: payload.id } });
+    if (!participant || participant.accessTokenVersion !== payload.v) {
+      return res.status(401).json({ error: "Invalid or expired link" });
+    }
+
+    const meeting = await prisma.tripMeeting.findUnique({ where: { id: req.params.meetingId } });
+    if (!meeting || meeting.tripId !== participant.tripId) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    const filename = safeFilename(`${meeting.title || "meeting"}.ics`);
+    res.set("Content-Type", "text/calendar; charset=utf-8");
+    res.set("Content-Disposition", `attachment; filename="${filename}"`);
+    res.set("Cache-Control", "private, no-store");
+    res.send(buildMeetingIcs(meeting, { cancelled: !!meeting.cancelledAt }));
   } catch (err) {
     next(err);
   }

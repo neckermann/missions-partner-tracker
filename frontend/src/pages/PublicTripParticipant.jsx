@@ -10,9 +10,14 @@ import {
   updateTripParticipantSelfService,
   tripParticipantPhotoUrl,
   tripDocumentDownloadUrl,
+  tripMeetingIcsUrl,
+  tripMeetingRsvpUrl,
 } from "../api/client.js";
 import { formatDate, formatFileSize } from "../utils/format.js";
 import SignatureCapture from "../components/SignatureCapture.jsx";
+
+// Same wording as the email invite's own RSVP links (backend/src/utils/tripEmails.js).
+const RSVP_LABELS = { yes: "Yes", no: "No", maybe: "Maybe" };
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -317,18 +322,34 @@ export default function PublicTripParticipant() {
                   }}
                 >
                   <div style={{ fontWeight: 600 }}>
+                    {m.title ? `${m.title} — ` : ""}
                     {formatDate(m.startAt)} {m.location ? `— ${m.location}` : ""}
                   </div>
-                  {m.meetingLink && (
-                    <div style={{ fontSize: "0.85rem" }}>
+                  <div style={{ fontSize: "0.85rem", display: "flex", gap: "0.8rem", flexWrap: "wrap" }}>
+                    {m.meetingLink && (
                       <a href={m.meetingLink} target="_blank" rel="noreferrer">
                         Join online
                       </a>
-                    </div>
-                  )}
+                    )}
+                    <a href={tripMeetingIcsUrl(m.id, accessToken)}>Add to calendar</a>
+                  </div>
                   {m.agenda && (
                     <div style={{ fontSize: "0.85rem", color: "#555", whiteSpace: "pre-wrap" }}>{m.agenda}</div>
                   )}
+                  <div style={{ fontSize: "0.85rem", marginTop: "0.4rem" }}>
+                    {m.myRsvp ? (
+                      <>
+                        You responded: <strong>{RSVP_LABELS[m.myRsvp] || m.myRsvp}</strong>. Changed your mind?{" "}
+                      </>
+                    ) : (
+                      "Will you be there? "
+                    )}
+                    <a href={tripMeetingRsvpUrl(m.id, "yes", accessToken)}>Yes</a>
+                    {" · "}
+                    <a href={tripMeetingRsvpUrl(m.id, "no", accessToken)}>No</a>
+                    {" · "}
+                    <a href={tripMeetingRsvpUrl(m.id, "maybe", accessToken)}>Maybe</a>
+                  </div>
                 </li>
               ))}
             </ul>

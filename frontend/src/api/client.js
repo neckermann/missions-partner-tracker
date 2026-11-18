@@ -697,6 +697,21 @@ export function tripDocumentDownloadUrl(documentId, token) {
   return `/api/public/trips/participants/documents/${documentId}/download?token=${encodeURIComponent(token)}`;
 }
 
+// Plain GET, same convention as tripDocumentDownloadUrl above -- a direct
+// link/window.open target, not an axios call, so the browser/calendar app
+// handles the .ics download itself.
+export function tripMeetingIcsUrl(meetingId, token) {
+  return `/api/public/trips/meetings/${meetingId}/ics?token=${encodeURIComponent(token)}`;
+}
+
+// Plain GET link, same existing route the email invite's own RSVP links
+// already point to (backend/src/routes/publicTrips.js) -- clicking
+// navigates to a small confirmation page and records the response
+// server-side; no separate self-service-specific RSVP mechanism.
+export function tripMeetingRsvpUrl(meetingId, response, token) {
+  return `/api/public/trips/meetings/${meetingId}/rsvp?token=${encodeURIComponent(token)}&response=${response}`;
+}
+
 export async function fetchPrayerRequests(params = {}) {
   const { data } = await api.get("/prayer-requests", { params });
   return data;
