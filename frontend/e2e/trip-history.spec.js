@@ -15,6 +15,15 @@ test.describe("Trip History", () => {
     await page.waitForSelector("h2:has-text('Trips')");
 
     const uniqueDescription = `E2E trip ${Date.now()}`;
+    // The consolidated table has no Description column (#252's redesign
+    // dropped it -- Description only ever shows up in the Add/Edit forms),
+    // so a row can't be located by this text. 1901 is the same "a year
+    // nothing real uses" convention backend/test/routes/trips.test.js
+    // already relies on for its own "year with nothing in it" case --
+    // tagging this trip with it, and filtering the Year select down to
+    // it, is what actually makes the row unique and findable, regardless
+    // of how much other Trips demo/seed data exists.
+    const uniqueStartDate = "1901-06-15";
 
     // Scoped to the Add form -- the Filters section above it has its own
     // "Trip Type" select, and getByLabel would otherwise match both.
@@ -24,6 +33,7 @@ test.describe("Trip History", () => {
     // a trip that already happened, which is the second radio.
     await page.getByLabel("Log a trip that already happened").check();
     await addForm.getByLabel("Partner").selectOption({ label: target.displayName });
+    await addForm.getByLabel("Start Date").fill(uniqueStartDate);
     await addForm.getByLabel("Trip Type").selectOption("Construction");
     await addForm.getByLabel("Description (what the team did)").fill(uniqueDescription);
     await addForm.getByRole("button", { name: "+ Add Participant" }).click();
@@ -36,31 +46,27 @@ test.describe("Trip History", () => {
     // The Trips page's default quick filter is "Active (not completed)" --
     // a trip logged via "Log a trip that already happened" saves as
     // completed, so it's hidden from the list until switching to "All
-    // statuses".
+    // statuses". The Year select's options are generated from whatever
+    // years already exist in the loaded trips, so "1901" only appears
+    // once this trip has saved and the list has reloaded with it.
     await page.getByRole("button", { name: "All statuses" }).click();
+    await page.getByLabel("Year").selectOption("1901");
 
-    const row = page.locator("tr", { hasText: uniqueDescription });
-    await expect(row).toContainText(target.displayName);
+    const row = page.locator("tbody tr", { hasText: target.displayName });
     await expect(row).toContainText("Construction");
     await expect(row).toContainText("1"); // team size
 
-    // Edit: change the description and confirm it round-trips.
+    // Edit: change the description. The table never displays it (see
+    // above), so the round-trip is confirmed against the API, the same
+    // way the cleanup step below already looks this trip up.
     const updatedDescription = `${uniqueDescription} (edited)`;
     await row.getByRole("button", { name: "Edit" }).click();
     await page.getByLabel("Description (what the team did)").fill(updatedDescription);
     await page.click('button:has-text("Save")');
-    await expect(page.locator("tr", { hasText: updatedDescription })).toBeVisible();
 
-    // Cleanup via the API directly (same authenticated browser context --
-    // Playwright's page.request shares cookies with the page), matching
-    // admin-missionary-crud.spec.js's approach rather than driving the
-    // native confirm() delete prompt through the UI.
     // The "Save" click's own async work (PUT then reload()) isn't awaited
-    // by the click itself, and reload()'s two list fetches race the
-    // click handler's return -- the on-screen assertion above already
-    // waited for the UI to catch up, but a fresh page.request.get() here
-    // can still land a beat before the write is visible, so poll briefly
-    // rather than trusting a single read.
+    // by the click itself, and reload()'s two list fetches race the click
+    // handler's return, so poll briefly rather than trusting a single read.
     let created;
     await expect
       .poll(async () => {
@@ -70,6 +76,11 @@ test.describe("Trip History", () => {
         return Boolean(created);
       })
       .toBeTruthy();
+
+    // Cleanup via the API directly (same authenticated browser context --
+    // Playwright's page.request shares cookies with the page), matching
+    // admin-missionary-crud.spec.js's approach rather than driving the
+    // native confirm() delete prompt through the UI.
     const del = await page.request.delete(`/api/trips/${created.id}`);
     expect(del.ok()).toBeTruthy();
   });
