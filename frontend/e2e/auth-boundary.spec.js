@@ -96,7 +96,8 @@ test.describe("user management", () => {
     const email = `e2e-managed-${Date.now()}@example.test`;
     await page.goto("/admin/settings/users/new");
     await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Name").fill("Managed User");
+    await page.getByLabel("First Name").fill("Managed");
+    await page.getByLabel("Last Name").fill("User");
     await page.getByLabel("Role").selectOption("viewer");
     await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
     await page.click('button[type="submit"]');

@@ -58,7 +58,7 @@ test.describe("Reports", () => {
       data: {
         kind: "missionary",
         displayName: `${marker} Report Family`,
-        adults: [{ name: `${marker} Adult`, birthday: "1985-03-11" }],
+        adults: [{ firstName: marker, lastName: "Adult", birthday: "1985-03-11" }],
         children: [{ name: `${marker} Child`, birthday: "2015-03-02" }],
       },
     });
