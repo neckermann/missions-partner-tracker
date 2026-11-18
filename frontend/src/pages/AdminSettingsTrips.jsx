@@ -291,11 +291,11 @@ export default function AdminSettingsTrips() {
             </div>
           )}
           <p style={{ color: "#888", fontSize: "0.85rem" }}>
-            A real field on the application form, not a custom question -- supports minor/parent-guardian info,
-            which needs a real date to check against a trip's own start date. A specific trip with "Collect
-            parent/guardian info" turned on (its own per-trip setting, on that trip's own detail page -- not
-            here, since not every trip at the same church has minors) always collects and requires this,
-            regardless of these two church-wide defaults.
+            A real field on the application form, not a custom question -- supports minor/parent-guardian
+            info, which needs a real date to check against a trip's own start date. A specific trip with
+            "Collect parent/guardian info" turned on (its own per-trip setting, on that trip's own detail page
+            -- not here, since not every trip at the same church has minors) always collects and requires
+            this, regardless of these two church-wide defaults.
           </p>
 
           <h3 style={{ marginTop: "1.5rem" }}>Applicant mailing address</h3>

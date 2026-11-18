@@ -116,7 +116,10 @@ export default function AdminTripParticipantDetail() {
   // through an approved application; null for a directly-admin-added or
   // historical-backfill participant, same as every address/emergency-
   // contact field above.
-  const combinedQuestions = [...(settings?.tripApplicationTemplate || []), ...(trip.applicationQuestions || [])];
+  const combinedQuestions = [
+    ...(settings?.tripApplicationTemplate || []),
+    ...(trip.applicationQuestions || []),
+  ];
   const applicationAnswers = participant.application
     ? combinedQuestions.map((q) => {
         const raw = participant.application.responses?.[q.id];
@@ -230,9 +233,7 @@ export default function AdminTripParticipantDetail() {
         </p>
       )}
       {missingFields.length > 0 && (
-        <p style={{ color: "#a6540f", fontSize: "0.85rem" }}>
-          Missing: {missingFields.join(", ")}
-        </p>
+        <p style={{ color: "#a6540f", fontSize: "0.85rem" }}>Missing: {missingFields.join(", ")}</p>
       )}
 
       <div className="admin-section">
@@ -433,9 +434,7 @@ export default function AdminTripParticipantDetail() {
               type="date"
               key={`dateOfBirth-${participant.id}`}
               defaultValue={participant.dateOfBirth ? participant.dateOfBirth.slice(0, 10) : ""}
-              onBlur={(e) =>
-                saveParticipant({ dateOfBirth: e.target.value || null })
-              }
+              onBlur={(e) => saveParticipant({ dateOfBirth: e.target.value || null })}
             />
           </label>
         </div>
@@ -539,7 +538,9 @@ export default function AdminTripParticipantDetail() {
 
       <div className="admin-section">
         <h3>Support raising</h3>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 600 }}>
+        <div
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 600 }}
+        >
           <span>${raised} raised</span>
           <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: 400 }}>
             <span style={{ color: "#6b6f76" }}>of $</span>

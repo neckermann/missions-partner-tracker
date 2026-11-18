@@ -1421,8 +1421,10 @@ async function seedTripsDemo() {
             responses: {
               tmpl2: "Yes",
               tmpl3: "Yes",
-              tmpl6: "I grew up going to church, but it wasn't until a mission trip in college that my faith became my own.",
-              tmpl7: "I'm hoping to serve wherever there's a need and come back with a deeper dependence on God.",
+              tmpl6:
+                "I grew up going to church, but it wasn't until a mission trip in college that my faith became my own.",
+              tmpl7:
+                "I'm hoping to serve wherever there's a need and come back with a deeper dependence on God.",
               tmpl8: "Blue Cross Blue Shield, Policy #BC-48213",
               q1: "Vegetarian, no peanuts.",
               q3: "Yes",
@@ -1454,7 +1456,8 @@ async function seedTripsDemo() {
             responses: {
               tmpl2: "Yes",
               tmpl3: "Yes",
-              tmpl6: "I've been part of my church's missions committee for three years and wanted to finally go myself.",
+              tmpl6:
+                "I've been part of my church's missions committee for three years and wanted to finally go myself.",
               tmpl7: "I expect it to be physically demanding, and I'm ready for that.",
               tmpl8: "Aetna, Group #AE-90217",
               q1: "No restrictions.",
@@ -1786,7 +1789,10 @@ async function seedTripsDemo() {
     });
     // David completes the document requirement only -- a different
     // partial-completion combination from Amara's (task-only) above.
-    const davidPassportPdf = buildFakePdf("Passport Photo Page", "Seed placeholder -- not a real passport scan.");
+    const davidPassportPdf = buildFakePdf(
+      "Passport Photo Page",
+      "Seed placeholder -- not a real passport scan."
+    );
     await prisma.tripDocument.create({
       data: {
         tripId: openTrip.id,
@@ -2095,10 +2101,22 @@ async function seedTripsDemo() {
         teamSizeMax: 6,
         supportRaisingGoal: 1200,
         applicationQuestions: [
-          { id: "q1", type: "select", label: "Do you have a valid passport?", required: true, options: PASSPORT_OPTIONS },
+          {
+            id: "q1",
+            type: "select",
+            label: "Do you have a valid passport?",
+            required: true,
+            options: PASSPORT_OPTIONS,
+          },
         ],
         requirements: {
-          create: [{ label: "Signed Confidentiality Agreement", kind: "esignature", bodyText: LIABILITY_RELEASE_TEXT }],
+          create: [
+            {
+              label: "Signed Confidentiality Agreement",
+              kind: "esignature",
+              bodyText: LIABILITY_RELEASE_TEXT,
+            },
+          ],
         },
       },
     });
@@ -2523,11 +2541,13 @@ async function seedTripsDemo() {
         publicTripDiscovery: true,
         booklet: true,
         reports: true,
-        outboundEmail: Boolean(integrationSettings?.postmarkServerToken && integrationSettings?.emailFromAddress),
+        outboundEmail: Boolean(
+          integrationSettings?.postmarkServerToken && integrationSettings?.emailFromAddress
+        ),
         inboundEmail: Boolean(
           integrationSettings?.postmarkServerToken &&
-            integrationSettings?.inboundEmailWebhookUsername &&
-            integrationSettings?.inboundEmailWebhookPassword
+          integrationSettings?.inboundEmailWebhookUsername &&
+          integrationSettings?.inboundEmailWebhookPassword
         ),
         groupme: Boolean(integrationSettings?.groupmeAccessToken),
         whatsapp: true,
@@ -2561,7 +2581,7 @@ async function seedTripsDemo() {
       // "Donate" button has nothing to point at and never renders at all.
       onlineGivingUrl: "https://give.example.org/missions",
       onlineGivingInstructions:
-        "Choose \"Missions Trips\" as the fund, and include the team member's name in the memo/notes field so their support is credited correctly.",
+        'Choose "Missions Trips" as the fund, and include the team member\'s name in the memo/notes field so their support is credited correctly.',
       // tmpl5 ("Date of birth," a free-text "date" question) existed
       // briefly and was dropped once ChurchSettings.collectDateOfBirth
       // shipped a real structured field on the application form itself --

@@ -747,7 +747,11 @@ describe("Trips: reschedule resends trip dates", () => {
     const ics = sent[0].Attachments?.find((a) => a.Name === "trip-dates.ics");
     assert.ok(ics, "the updated-dates email must attach a new .ics");
     const decoded = Buffer.from(ics.Content, "base64").toString();
-    assert.match(decoded, /DTSTART;VALUE=DATE:20261203/, "the attached .ics must reflect the NEW date, not the old one");
+    assert.match(
+      decoded,
+      /DTSTART;VALUE=DATE:20261203/,
+      "the attached .ics must reflect the NEW date, not the old one"
+    );
   });
 
   test("changing endDate resends too", async () => {
@@ -794,7 +798,10 @@ describe("Trips: reschedule resends trip dates", () => {
       },
     });
     const sent = await captureEmails(async () => {
-      const res = await admin(`/api/trips/${trip.body.id}`, { method: "PUT", body: { startDate: "2026-12-05" } });
+      const res = await admin(`/api/trips/${trip.body.id}`, {
+        method: "PUT",
+        body: { startDate: "2026-12-05" },
+      });
       assert.equal(res.status, 200);
     });
     assert.equal(sent.length, 0, "no participants means no error and nothing sent");
@@ -831,7 +838,10 @@ describe("Trips: reschedule resends trip dates", () => {
     try {
       const { trip } = await createTripWithParticipant();
       const sent = await captureEmails(async () => {
-        const res = await admin(`/api/trips/${trip.id}`, { method: "PUT", body: { startDate: "2026-12-05" } });
+        const res = await admin(`/api/trips/${trip.id}`, {
+          method: "PUT",
+          body: { startDate: "2026-12-05" },
+        });
         assert.equal(res.status, 200);
       });
       assert.equal(sent.length, 0, "outboundEmail off must suppress the dates-update resend too");
@@ -993,7 +1003,9 @@ describe("Trips: meeting RSVP", () => {
       data: { tripId: trip.id, startAt: new Date("2026-12-13T19:00:00.000Z") },
     });
     const token = buildTripParticipantAccessToken(participant);
-    const res = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=definitely`);
+    const res = await anon(
+      `/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=definitely`
+    );
     assert.equal(res.status, 400);
   });
 
@@ -1091,7 +1103,11 @@ describe("Trips: meeting .ics download", () => {
   test("a valid token downloads a .ics whose SUMMARY carries the meeting's title", async () => {
     const { trip, participant } = await createTripWithParticipant();
     const meeting = await prisma.tripMeeting.create({
-      data: { tripId: trip.id, startAt: new Date("2026-12-20T19:00:00.000Z"), title: "Team Orientation Call" },
+      data: {
+        tripId: trip.id,
+        startAt: new Date("2026-12-20T19:00:00.000Z"),
+        title: "Team Orientation Call",
+      },
     });
     const token = buildTripParticipantAccessToken(participant);
 
@@ -1290,7 +1306,10 @@ describe("Trips: public document-requirement upload", () => {
 
   test("creating a document-kind requirement emails every current participant a link to their own trip page", async () => {
     const partner = await createPartner();
-    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction" },
+    });
     await prisma.tripParticipant.create({
       data: { tripId: trip.body.id, firstName: "Jordan", email: "jordan-reqmail@example.test" },
     });
@@ -1309,7 +1328,10 @@ describe("Trips: public document-requirement upload", () => {
 
   test("creating a task-kind requirement sends no email (only document-kind is newly actionable)", async () => {
     const partner = await createPartner();
-    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction" },
+    });
     await prisma.tripParticipant.create({
       data: { tripId: trip.body.id, firstName: "Morgan", email: "morgan-reqmail@example.test" },
     });
@@ -1328,7 +1350,10 @@ describe("Trips: public document-requirement upload", () => {
     await setFeatures({ outboundEmail: false });
     try {
       const partner = await createPartner();
-      const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+      const trip = await admin("/api/trips", {
+        method: "POST",
+        body: { partnerId: partner.id, type: "Construction" },
+      });
       await prisma.tripParticipant.create({
         data: { tripId: trip.body.id, firstName: "Riley", email: "riley-reqmail@example.test" },
       });
@@ -1351,7 +1376,10 @@ describe("Trips: public document-requirement upload", () => {
   // already kind-neutral.
   test("creating an esignature-kind requirement emails every current participant a link to their own trip page", async () => {
     const partner = await createPartner();
-    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction" },
+    });
     await prisma.tripParticipant.create({
       data: { tripId: trip.body.id, firstName: "Avery", email: "avery-reqmail@example.test" },
     });
@@ -1372,7 +1400,10 @@ describe("Trips: public document-requirement upload", () => {
     await setFeatures({ outboundEmail: false });
     try {
       const partner = await createPartner();
-      const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+      const trip = await admin("/api/trips", {
+        method: "POST",
+        body: { partnerId: partner.id, type: "Construction" },
+      });
       await prisma.tripParticipant.create({
         data: { tripId: trip.body.id, firstName: "Quinn", email: "quinn-reqmail@example.test" },
       });
@@ -1548,7 +1579,11 @@ describe("Trips: public document-requirement upload", () => {
         });
         assert.equal(res.status, 201);
       });
-      assert.equal(sent.length, 0, "outboundEmail off must suppress the checklist notice, not just the welcome email");
+      assert.equal(
+        sent.length,
+        0,
+        "outboundEmail off must suppress the checklist notice, not just the welcome email"
+      );
     } finally {
       await setFeatures({ outboundEmail: true });
     }
@@ -1627,7 +1662,10 @@ describe("Trips: public document-requirement upload", () => {
     });
 
     const notice = sent.find((m) => /^New item needed: Passport photo page/.test(m.Subject));
-    assert.ok(notice, "an existing document requirement must trigger a checklist notice for the approved applicant");
+    assert.ok(
+      notice,
+      "an existing document requirement must trigger a checklist notice for the approved applicant"
+    );
     assert.equal(notice.To, "approved-doc-applicant@example.test");
   });
 
@@ -1658,7 +1696,10 @@ describe("Trips: public document-requirement upload", () => {
     });
 
     const notice = sent.find((m) => /^New item needed: Code of Conduct/.test(m.Subject));
-    assert.ok(notice, "an existing esignature requirement must trigger a checklist notice for the approved applicant");
+    assert.ok(
+      notice,
+      "an existing esignature requirement must trigger a checklist notice for the approved applicant"
+    );
     assert.equal(notice.To, "approved-esign-applicant@example.test");
   });
 
@@ -1823,7 +1864,10 @@ describe("Trips: trip-wide document title/fileSize, and participant visibility",
 
   async function createTripWithParticipant() {
     const partner = await createPartner();
-    const trip = await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } });
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction" },
+    });
     const participant = await prisma.tripParticipant.create({
       data: { tripId: trip.body.id, firstName: "Riley", email: "riley-tripwide@example.test" },
     });
@@ -1853,16 +1897,27 @@ describe("Trips: trip-wide document title/fileSize, and participant visibility",
 
     // Trip-wide (participantId: null) -- should be visible to anyone on this trip.
     const tripWideForm = new FormData();
-    tripWideForm.set("file", new Blob([Buffer.from("itinerary")], { type: "application/pdf" }), "itinerary.pdf");
+    tripWideForm.set(
+      "file",
+      new Blob([Buffer.from("itinerary")], { type: "application/pdf" }),
+      "itinerary.pdf"
+    );
     tripWideForm.set("title", "Flight Itinerary");
-    const tripWideRes = await admin(`/api/trips/${trip.id}/documents`, { method: "POST", body: tripWideForm });
+    const tripWideRes = await admin(`/api/trips/${trip.id}/documents`, {
+      method: "POST",
+      body: tripWideForm,
+    });
     assert.equal(tripWideRes.status, 201);
 
     // The OTHER participant's own document -- must never appear in this
     // participant's self-service response under tripWideDocuments or
     // anywhere else.
     const otherForm = new FormData();
-    otherForm.set("file", new Blob([Buffer.from("their passport")], { type: "application/pdf" }), "passport.pdf");
+    otherForm.set(
+      "file",
+      new Blob([Buffer.from("their passport")], { type: "application/pdf" }),
+      "passport.pdf"
+    );
     otherForm.set("participantId", otherParticipant.id);
     const otherRes = await admin(`/api/trips/${trip.id}/documents`, { method: "POST", body: otherForm });
     assert.equal(otherRes.status, 201);
@@ -1896,7 +1951,9 @@ describe("Trips: trip-wide document title/fileSize, and participant visibility",
     const uploadRes = await admin(`/api/trips/${trip.id}/documents`, { method: "POST", body: form });
     const docId = uploadRes.body.id;
 
-    const res = await anon(`/api/public/trips/participants/documents/${docId}/download?token=not-a-real-token`);
+    const res = await anon(
+      `/api/public/trips/participants/documents/${docId}/download?token=not-a-real-token`
+    );
     assert.equal(res.status, 401);
   });
 
@@ -1913,6 +1970,10 @@ describe("Trips: trip-wide document title/fileSize, and participant visibility",
 
     const token = buildTripParticipantAccessToken(participant);
     const res = await anon(`/api/public/trips/participants/documents/${docId}/download?token=${token}`);
-    assert.equal(res.status, 404, "a valid token for this trip still can't reach another participant's own document");
+    assert.equal(
+      res.status,
+      404,
+      "a valid token for this trip still can't reach another participant's own document"
+    );
   });
 });

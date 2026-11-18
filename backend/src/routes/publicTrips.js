@@ -528,7 +528,9 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
         // filtered server-side (issue #265) so this participant's own
         // page can't be used to enumerate who else is on a segment.
         flightSegments: participant.trip.flightSegments
-          .filter((seg) => seg.participants.length === 0 || seg.participants.some((p) => p.id === participant.id))
+          .filter(
+            (seg) => seg.participants.length === 0 || seg.participants.some((p) => p.id === participant.id)
+          )
           .map(({ participants, ...seg }) => seg),
         fieldDisplayName:
           participant.trip.partner?.fieldDisplayName || participant.trip.partner?.displayName || null,
@@ -737,7 +739,9 @@ router.post(
         return res.status(401).json({ error: "Invalid or expired link" });
       }
 
-      const requirement = await prisma.tripRequirement.findUnique({ where: { id: req.params.requirementId } });
+      const requirement = await prisma.tripRequirement.findUnique({
+        where: { id: req.params.requirementId },
+      });
       if (!requirement || requirement.tripId !== participant.tripId) {
         return res.status(404).json({ error: "Not found" });
       }
@@ -757,7 +761,9 @@ router.post(
         fileSize: req.file.size,
       };
       await prisma.tripDocument.upsert({
-        where: { requirementId_participantId: { requirementId: requirement.id, participantId: participant.id } },
+        where: {
+          requirementId_participantId: { requirementId: requirement.id, participantId: participant.id },
+        },
         create: data,
         update: data,
       });
@@ -867,7 +873,9 @@ router.get("/meetings/:meetingId/rsvp", requireFeature("trips"), async (req, res
 
     const meeting = await prisma.tripMeeting.findUnique({ where: { id: req.params.meetingId } });
     if (!meeting || meeting.tripId !== participant.tripId) {
-      return res.status(404).send(await renderSubscriberPage("This meeting couldn't be found.", "", "Meeting RSVP"));
+      return res
+        .status(404)
+        .send(await renderSubscriberPage("This meeting couldn't be found.", "", "Meeting RSVP"));
     }
     // A cancelled meeting has nothing left to RSVP to -- an already-sent
     // link (from before the cancellation) should say so plainly rather

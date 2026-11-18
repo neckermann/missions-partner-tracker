@@ -334,12 +334,15 @@ export default function PublicTripParticipant() {
                     <a href={tripMeetingIcsUrl(m.id, accessToken)}>Add to calendar</a>
                   </div>
                   {m.agenda && (
-                    <div style={{ fontSize: "0.85rem", color: "#555", whiteSpace: "pre-wrap" }}>{m.agenda}</div>
+                    <div style={{ fontSize: "0.85rem", color: "#555", whiteSpace: "pre-wrap" }}>
+                      {m.agenda}
+                    </div>
                   )}
                   <div style={{ fontSize: "0.85rem", marginTop: "0.4rem" }}>
                     {m.myRsvp ? (
                       <>
-                        You responded: <strong>{RSVP_LABELS[m.myRsvp] || m.myRsvp}</strong>. Changed your mind?{" "}
+                        You responded: <strong>{RSVP_LABELS[m.myRsvp] || m.myRsvp}</strong>. Changed your
+                        mind?{" "}
                       </>
                     ) : (
                       "Will you be there? "
@@ -377,7 +380,9 @@ export default function PublicTripParticipant() {
                   return (
                     <li
                       key={r.id}
-                      style={{ marginBottom: r.kind === "esignature" || r.kind === "document" ? "0.6rem" : 0 }}
+                      style={{
+                        marginBottom: r.kind === "esignature" || r.kind === "document" ? "0.6rem" : 0,
+                      }}
                     >
                       {r.label}
                       {r.dueAt && ` — due ${formatDate(r.dueAt)}`}
@@ -388,9 +393,7 @@ export default function PublicTripParticipant() {
                             type="file"
                             accept="image/jpeg,image/png,image/webp,application/pdf"
                             disabled={uploadingRequirementId === r.id}
-                            onChange={(e) =>
-                              handleUploadRequirementDocument(r.id, e.target.files[0] || null)
-                            }
+                            onChange={(e) => handleUploadRequirementDocument(r.id, e.target.files[0] || null)}
                           />
                           {uploadingRequirementId === r.id && (
                             <span style={{ fontSize: "0.8rem", color: "#888" }}> Uploading…</span>
@@ -439,7 +442,10 @@ export default function PublicTripParticipant() {
                 <li key={doc.id} style={{ marginBottom: "0.3rem" }}>
                   {doc.title || doc.fileName}
                   {doc.fileSize != null && (
-                    <span style={{ color: "#888", fontSize: "0.8rem" }}> ({formatFileSize(doc.fileSize)})</span>
+                    <span style={{ color: "#888", fontSize: "0.8rem" }}>
+                      {" "}
+                      ({formatFileSize(doc.fileSize)})
+                    </span>
                   )}{" "}
                   <a
                     href={tripDocumentDownloadUrl(doc.id, accessToken)}

@@ -66,7 +66,7 @@ const participantSchema = z.object({
 // changing the trip's goal afterward never retroactively rewrites an
 // already-created participant's own number.
 function defaultParticipantGoal(participant, tripGoal) {
-  return participant.supportRaisingGoal !== undefined ? participant.supportRaisingGoal : tripGoal ?? null;
+  return participant.supportRaisingGoal !== undefined ? participant.supportRaisingGoal : (tripGoal ?? null);
 }
 
 const tripSchema = z.object({
@@ -359,7 +359,8 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     // The goal actually in effect once this update applies -- this call's
     // own value if it's touching supportRaisingGoal, otherwise whatever
     // the trip already had.
-    const effectiveGoal = data.supportRaisingGoal !== undefined ? data.supportRaisingGoal : existing.supportRaisingGoal;
+    const effectiveGoal =
+      data.supportRaisingGoal !== undefined ? data.supportRaisingGoal : existing.supportRaisingGoal;
 
     // Same "did this actually change" shape PUT /meetings/:id already uses
     // for its own reschedule-resend check -- only startDate/endDate count
@@ -373,7 +374,8 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
       const currentTime = current ? new Date(current).getTime() : null;
       return incomingTime !== currentTime;
     }
-    const datesChanged = dateChanged(data.startDate, existing.startDate) || dateChanged(data.endDate, existing.endDate);
+    const datesChanged =
+      dateChanged(data.startDate, existing.startDate) || dateChanged(data.endDate, existing.endDate);
 
     const updated = await prisma.$transaction(async (tx) => {
       if (participants !== undefined) {
@@ -641,7 +643,8 @@ router.put("/flight-segments/:id", requireRole("admin", "editor"), async (req, r
         ...data,
         // `set` replaces the whole relation outright -- the admin UI
         // always sends the complete selected list, never a delta.
-        participants: participantIds !== undefined ? { set: participantIds.map((id) => ({ id })) } : undefined,
+        participants:
+          participantIds !== undefined ? { set: participantIds.map((id) => ({ id })) } : undefined,
       },
       include: { participants: { select: { id: true, firstName: true, lastName: true } } },
     });
@@ -1107,7 +1110,11 @@ async function sendLateJoinerCatchUpEmails(trip, participant) {
   const now = new Date();
   const futureMeetings = (trip.meetings || []).filter((m) => !m.cancelledAt && new Date(m.startAt) > now);
   for (const meeting of futureMeetings) {
-    await sendMeetingEmail({ ...trip, participants: [participant] }, meeting, "A meeting has been scheduled.");
+    await sendMeetingEmail(
+      { ...trip, participants: [participant] },
+      meeting,
+      "A meeting has been scheduled."
+    );
   }
 
   const notifiableRequirements = (trip.requirements || []).filter(

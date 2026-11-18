@@ -532,7 +532,11 @@ function ExistingTripsTab() {
       )}
 
       <TripFilterBar
-        pills={{ options: STATUS_QUICK_FILTERS, value: filters.status, onChange: (v) => updateFilter("status", v) }}
+        pills={{
+          options: STATUS_QUICK_FILTERS,
+          value: filters.status,
+          onChange: (v) => updateFilter("status", v),
+        }}
         onReset={() => setFilters(emptyFilters)}
       >
         <label>
@@ -1044,12 +1048,14 @@ const TABS = [
   {
     value: "existing",
     label: "Existing Trips",
-    description: "Every trip, every status — a searchable record. A quick historical backfill is managed right here; an actively-recruited trip's team, applications, meetings, and support raising live on its own detail page.",
+    description:
+      "Every trip, every status — a searchable record. A quick historical backfill is managed right here; an actively-recruited trip's team, applications, meetings, and support raising live on its own detail page.",
   },
   {
     value: "plan",
     label: "Plan a Trip",
-    description: "Partners who could host a trip, including ones with nothing scheduled yet — blends what's already scheduled with each partner's general trip capacity, so a partner is never dropped from the list just because nothing concrete is on the calendar.",
+    description:
+      "Partners who could host a trip, including ones with nothing scheduled yet — blends what's already scheduled with each partner's general trip capacity, so a partner is never dropped from the list just because nothing concrete is on the calendar.",
   },
 ];
 

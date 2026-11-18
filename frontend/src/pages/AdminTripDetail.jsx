@@ -304,10 +304,16 @@ export default function AdminTripDetail() {
     // options textarea once `type` needs one, from this same patch's `type`
     // key -- the admin fills it in and the next onBlur save (with real
     // options this time) goes through normally.
-    if (patch.type && (patch.type === "select" || patch.type === "checkboxes") && patch.options?.length === 0) {
+    if (
+      patch.type &&
+      (patch.type === "select" || patch.type === "checkboxes") &&
+      patch.options?.length === 0
+    ) {
       setTrip((t) => ({
         ...t,
-        applicationQuestions: (t.applicationQuestions || []).map((q) => (q.id === qId ? { ...q, ...patch } : q)),
+        applicationQuestions: (t.applicationQuestions || []).map((q) =>
+          q.id === qId ? { ...q, ...patch } : q
+        ),
       }));
       return Promise.resolve();
     }
@@ -458,7 +464,12 @@ export default function AdminTripDetail() {
   async function handleDeleteMeeting(meetingId) {
     const confirmed = await confirmDialog({
       title: "Delete this meeting?",
-      body: <ConfirmMessageBody>This cannot be undone. Use this only for a meeting entered by mistake -- use Cancel instead for a real meeting that's been called off.</ConfirmMessageBody>,
+      body: (
+        <ConfirmMessageBody>
+          This cannot be undone. Use this only for a meeting entered by mistake -- use Cancel instead for a
+          real meeting that's been called off.
+        </ConfirmMessageBody>
+      ),
       confirmLabel: "Delete",
       danger: true,
     });
@@ -960,7 +971,9 @@ export default function AdminTripDetail() {
                     <th key={r.id} style={{ whiteSpace: "nowrap" }}>
                       {r.label}
                       {r.dueAt && (
-                        <div style={{ fontWeight: 400, fontSize: "0.7rem", color: overdue ? "#b91c1c" : "#888" }}>
+                        <div
+                          style={{ fontWeight: 400, fontSize: "0.7rem", color: overdue ? "#b91c1c" : "#888" }}
+                        >
                           due {formatDate(r.dueAt)}
                           {overdue ? " (overdue)" : ""}
                         </div>
@@ -1291,7 +1304,6 @@ export default function AdminTripDetail() {
         </form>
       </div>
 
-
       {/* Meetings -- a cancelled row stays visible (struck through, with
       its own "Cancelled" label) rather than disappearing, same
       record-keeping precedent as the rest of this app (DispatchRecord,
@@ -1360,9 +1372,16 @@ export default function AdminTripDetail() {
                                 handleUpdateMeeting(m.id, { title: e.target.value.trim() || null })
                               }
                             />
-                            <span style={{ display: "block", color: "#888", fontSize: "0.78rem", marginTop: "0.15rem" }}>
-                              Shows as the email subject and calendar entry title -- not the same as the longer
-                              Agenda below.
+                            <span
+                              style={{
+                                display: "block",
+                                color: "#888",
+                                fontSize: "0.78rem",
+                                marginTop: "0.15rem",
+                              }}
+                            >
+                              Shows as the email subject and calendar entry title -- not the same as the
+                              longer Agenda below.
                             </span>
                           </label>
                           <label>
@@ -1371,7 +1390,9 @@ export default function AdminTripDetail() {
                               type="datetime-local"
                               disabled={!!m.cancelledAt}
                               defaultValue={m.startAt ? m.startAt.slice(0, 16) : ""}
-                              onBlur={(e) => e.target.value && handleUpdateMeeting(m.id, { startAt: e.target.value })}
+                              onBlur={(e) =>
+                                e.target.value && handleUpdateMeeting(m.id, { startAt: e.target.value })
+                              }
                             />
                           </label>
                           <label>
@@ -1432,21 +1453,35 @@ export default function AdminTripDetail() {
                         a real state rather than an empty list. */}
                         <div style={{ marginBottom: "0.75rem" }}>
                           <strong style={{ fontSize: "0.85rem" }}>Who's responded</strong>
-                          <ul style={{ margin: "0.25rem 0 0", padding: 0, listStyle: "none", fontSize: "0.85rem" }}>
+                          <ul
+                            style={{
+                              margin: "0.25rem 0 0",
+                              padding: 0,
+                              listStyle: "none",
+                              fontSize: "0.85rem",
+                            }}
+                          >
                             {participants.map((p) => {
                               const rsvp = rsvps.find((r) => r.participantId === p.id);
-                              const label = { yes: "Yes", no: "No", maybe: "Maybe" }[rsvp?.response] || "No response yet";
+                              const label =
+                                { yes: "Yes", no: "No", maybe: "Maybe" }[rsvp?.response] || "No response yet";
                               return (
                                 <li key={p.id} style={{ padding: "0.15rem 0" }}>
                                   {p.firstName} {p.lastName} — {label}
                                 </li>
                               );
                             })}
-                            {participants.length === 0 && <li style={{ color: "#888" }}>No participants yet.</li>}
+                            {participants.length === 0 && (
+                              <li style={{ color: "#888" }}>No participants yet.</li>
+                            )}
                           </ul>
                         </div>
 
-                        <div className="table-actions" role="presentation" onClick={(e) => e.stopPropagation()}>
+                        <div
+                          className="table-actions"
+                          role="presentation"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {m.cancelledAt ? (
                             <span style={{ fontSize: "0.8rem", color: "#888" }}>Cancelled</span>
                           ) : (
@@ -1465,7 +1500,11 @@ export default function AdminTripDetail() {
                               >
                                 Cancel
                               </button>{" "}
-                              <button type="button" className="btn-remove" onClick={() => handleDeleteMeeting(m.id)}>
+                              <button
+                                type="button"
+                                className="btn-remove"
+                                onClick={() => handleDeleteMeeting(m.id)}
+                              >
                                 ✕
                               </button>
                             </>

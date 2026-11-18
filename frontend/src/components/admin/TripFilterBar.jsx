@@ -17,7 +17,15 @@ import React from "react";
 export default function TripFilterBar({ pills, onReset, children }) {
   return (
     <div className="admin-section">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "0.5rem",
+        }}
+      >
         <h3 style={{ margin: 0 }}>Filters</h3>
         <button type="button" className="btn secondary small" onClick={onReset}>
           Reset Filters

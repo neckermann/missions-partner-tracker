@@ -46,9 +46,14 @@ async function checkAndSendTripMeetingReminders() {
       await sendParticipantEmail(
         participant,
         `Reminder: meeting tomorrow for ${meeting.trip.name || meeting.trip.type || "your trip"}`,
-        buildMeetingEmailBody(meeting, "This is a reminder that your trip meeting is tomorrow.", participant, {
-          existingResponse: rsvpByParticipantId.get(participant.id) || null,
-        }),
+        buildMeetingEmailBody(
+          meeting,
+          "This is a reminder that your trip meeting is tomorrow.",
+          participant,
+          {
+            existingResponse: rsvpByParticipantId.get(participant.id) || null,
+          }
+        ),
         {
           attachments: [
             {

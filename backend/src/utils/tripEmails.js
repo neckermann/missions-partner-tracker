@@ -124,7 +124,12 @@ const RSVP_LABELS = { yes: "Yes", no: "No", maybe: "Maybe" };
 // plain links with no "previously RSVP'd" framing: resending the exact
 // same invite content is the simpler, more predictable choice, and
 // clicking a link again is already a harmless overwrite either way.
-function buildMeetingEmailBody(meeting, lead, participant, { cancelled = false, existingResponse = null } = {}) {
+function buildMeetingEmailBody(
+  meeting,
+  lead,
+  participant,
+  { cancelled = false, existingResponse = null } = {}
+) {
   const lines = [lead];
   if (meeting.location) lines.push(`Location: ${meeting.location}`);
   if (meeting.meetingLink) lines.push(`Join online: ${meeting.meetingLink}`);

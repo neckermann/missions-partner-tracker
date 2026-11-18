@@ -26,7 +26,10 @@ const path = require("node:path");
 const { Prisma } = require("@prisma/client");
 
 const SCHEMA_PATH = path.join(__dirname, "../../prisma/schema.prisma");
-const PARTICIPANT_PAGE_PATH = path.join(__dirname, "../../../frontend/src/pages/AdminTripParticipantDetail.jsx");
+const PARTICIPANT_PAGE_PATH = path.join(
+  __dirname,
+  "../../../frontend/src/pages/AdminTripParticipantDetail.jsx"
+);
 const OPT_OUT_MARKER = "tripFieldVisibility: intentionally admin-invisible";
 
 function fieldsNeedingVisibility(modelName, schemaLines) {
