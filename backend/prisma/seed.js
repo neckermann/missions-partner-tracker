@@ -676,7 +676,7 @@ async function maybeAddNewsletter({ partnerId, name, slug, field }) {
       kind: "newsletter",
       title: subject,
       receivedDate: dateBetween(1, 0),
-      bytes: buffer,
+      bytesRow: { create: { bytes: buffer } },
       fileName: "update.eml",
       contentType: "message/rfc822",
       fileSize: buffer.length,
@@ -808,7 +808,7 @@ async function maybeAddDocument({ partnerId, name, slug, field }) {
       title,
       receivedDate: dateBetween(1, 0),
       notes: chance(0.5) ? pick(DOCUMENT_NOTES) : null,
-      bytes: buffer,
+      bytesRow: { create: { bytes: buffer } },
       fileName,
       contentType,
       fileSize: buffer.length,
@@ -1258,7 +1258,7 @@ async function seedUnmatchedEmails() {
       data: {
         fromAddress: sender.email,
         subject,
-        bytes: buffer,
+        bytesRow: { create: { bytes: buffer } },
         fileName: "email.eml",
         receivedAt,
       },
@@ -1606,7 +1606,7 @@ async function seedTripsDemo() {
       if (photo) {
         await prisma.tripParticipant.update({
           where: { id: john.id },
-          data: { photo: photo.bytes, photoContentType: photo.contentType },
+          data: { photoBytesRow: { create: { photo: photo.bytes } }, photoContentType: photo.contentType },
         });
       }
     }
@@ -1654,7 +1654,7 @@ async function seedTripsDemo() {
       if (photo) {
         await prisma.tripParticipant.update({
           where: { id: david.id },
-          data: { photo: photo.bytes, photoContentType: photo.contentType },
+          data: { photoBytesRow: { create: { photo: photo.bytes } }, photoContentType: photo.contentType },
         });
       }
     }
@@ -1815,7 +1815,7 @@ async function seedTripsDemo() {
         participantId: priya.id,
         requirementId: docReq.id,
         title: "Passport photo page",
-        bytes: passportPdf,
+        bytesRow: { create: { bytes: passportPdf } },
         fileName: "passport.pdf",
         contentType: "application/pdf",
       },
@@ -1832,7 +1832,7 @@ async function seedTripsDemo() {
         participantId: david.id,
         requirementId: docReq.id,
         title: "Passport photo page",
-        bytes: davidPassportPdf,
+        bytesRow: { create: { bytes: davidPassportPdf } },
         fileName: "passport.pdf",
         contentType: "application/pdf",
       },
@@ -1868,7 +1868,7 @@ async function seedTripsDemo() {
           participantId: priya.id,
           requirementId: esigReq.id,
           title: esigReq.label,
-          bytes: pdfBytes,
+          bytesRow: { create: { bytes: pdfBytes } },
           fileName: "signed-liability-release.pdf",
           contentType: "application/pdf",
           // Merged from the former, separate TripSignature model (§20.1
@@ -1898,7 +1898,7 @@ async function seedTripsDemo() {
       tripId: openTrip.id,
       participantId: null,
       title: "Team itinerary & packing list",
-      bytes: itineraryPdf,
+      bytesRow: { create: { bytes: itineraryPdf } },
       fileName: "team-itinerary.pdf",
       contentType: "application/pdf",
     },
@@ -2055,7 +2055,7 @@ async function seedTripsDemo() {
           participantId: marcus.id,
           requirementId: closedEsigReq.id,
           title: closedEsigReq.label,
-          bytes: pdfBytes,
+          bytesRow: { create: { bytes: pdfBytes } },
           fileName: "signed-waiver.pdf",
           contentType: "application/pdf",
           signerName: `${marcus.firstName} ${marcus.lastName}`,
@@ -2094,7 +2094,7 @@ async function seedTripsDemo() {
       if (photo) {
         await prisma.tripParticipant.update({
           where: { id: marcus.id },
-          data: { photo: photo.bytes, photoContentType: photo.contentType },
+          data: { photoBytesRow: { create: { photo: photo.bytes } }, photoContentType: photo.contentType },
         });
       }
     }
@@ -2365,7 +2365,7 @@ async function seedTripsDemo() {
         participantId: lily.id,
         requirementId: minorReleaseRequirement.id,
         title: minorReleaseRequirement.label,
-        bytes: pdfBytes,
+        bytesRow: { create: { bytes: pdfBytes } },
         fileName: "minor-travel-release.pdf",
         contentType: "application/pdf",
         signerName: `${minorApplication.parentGuardianFirstName} ${minorApplication.parentGuardianLastName}`,
@@ -2507,7 +2507,7 @@ async function seedTripsDemo() {
         participantId: noah.id,
         requirementId: pastMinorReleaseRequirement.id,
         title: pastMinorReleaseRequirement.label,
-        bytes: pdfBytes,
+        bytesRow: { create: { bytes: pdfBytes } },
         fileName: "minor-travel-release.pdf",
         contentType: "application/pdf",
         signerName: `${pastMinorApplication.parentGuardianFirstName} ${pastMinorApplication.parentGuardianLastName}`,
@@ -2975,7 +2975,11 @@ async function main() {
         instagram: chance(0.4) ? `https://instagram.com/${last.toLowerCase()}family` : null,
         linkedin: chance(0.15) ? `https://linkedin.com/in/${last.toLowerCase()}` : null,
         photos: {
-          create: { bytes: photo.bytes, contentType: photo.contentType, receivedDate: dateBetween(1, 0) },
+          create: {
+            bytesRow: { create: { bytes: photo.bytes } },
+            contentType: photo.contentType,
+            receivedDate: dateBetween(1, 0),
+          },
         },
         emergencyContactName: hasEmergencyContact ? `${pick(FIRST_M.concat(FIRST_F))} ${pick(LAST)}` : null,
         emergencyContactPhone: hasEmergencyContact ? fakePhone() : null,
@@ -3124,7 +3128,11 @@ async function main() {
         tripSeasonNotes: chance(0.5) ? pick(SEASON_NOTES) : null,
         tripLogisticsNotes: chance(0.5) ? pick(LOGISTICS_NOTES) : null,
         photos: {
-          create: { bytes: logo.bytes, contentType: logo.contentType, receivedDate: dateBetween(1, 0) },
+          create: {
+            bytesRow: { create: { bytes: logo.bytes } },
+            contentType: logo.contentType,
+            receivedDate: dateBetween(1, 0),
+          },
         },
         addresses: {
           create: [
