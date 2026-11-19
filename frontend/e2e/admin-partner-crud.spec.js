@@ -30,7 +30,12 @@ test.describe("Admin partner CRUD", () => {
     // than asking for it.
     await page.locator('input[list="new-partner-country-list"]').fill("Philippines");
 
-    await page.click('button[type="submit"]:has-text("Create Partner")');
+    // New Partner is a 3-step Wizard (Phase 6 of the UX-rebuild plan) --
+    // Basics / Details / Visibility & status. Neither later step has
+    // anything required to fill in for this test.
+    await page.click('button:has-text("Next")');
+    await page.click('button:has-text("Next")');
+    await page.click('button:has-text("Finish")');
     await page.waitForURL(/\/admin\/partners\/[a-zA-Z0-9-]+$/);
     await expect(page.locator("h2").first()).toHaveText(uniqueName);
 
@@ -80,7 +85,9 @@ test.describe("Admin partner CRUD", () => {
     await page.getByLabel("Organization Name").fill(uniqueName);
     await page.locator('input[list="new-partner-country-list"]').fill("Bolivia");
 
-    await page.click('button[type="submit"]:has-text("Create Partner")');
+    await page.click('button:has-text("Next")');
+    await page.click('button:has-text("Next")');
+    await page.click('button:has-text("Finish")');
     await page.waitForURL(/\/admin\/partners\/[a-zA-Z0-9-]+$/);
     await expect(page.locator("h2").first()).toHaveText(uniqueName);
     await expect(section(page, "Serving Location")).toContainText("Bolivia");
