@@ -221,9 +221,23 @@ git switch dev
 git pull
 # ... work, commit ...
 git push origin dev
+# bump backend/package.json + frontend/package.json to the release version
 gh pr create --base main --head dev    # CI runs here
 # four checks go green, then merge -> Render deploys
+# then: git tag vX.Y.Z && git push origin vX.Y.Z && gh release create vX.Y.Z --generate-notes
 ```
+
+The version bump happens **in the `dev` → `main` PR itself**, not as a
+separate follow-up — see
+[WORKFLOW.md § 3](WORKFLOW.md#3-pr-dev--main). `versionCheck.js` reads
+`backend/package.json` as the source of truth for "what's currently
+deployed" and compares it against the latest tagged Release, so a
+release that skips the bump makes that comparison wrong immediately.
+`.github/workflows/release-version-check.yml` catches a tag/version
+mismatch after the fact (it can't block the tag itself, only fail
+loudly once pushed) — this exists because both existing releases,
+`v1.0.0` and `v1.1.0`, shipped without the bump and nothing caught it
+(see [issue #277](https://github.com/neckermann/missions-partner-tracker/issues/277)).
 
 CI runs on the **pull request**, and only there. Nothing runs on a plain
 push, so open the PR early — a draft still runs the checks — rather than

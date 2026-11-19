@@ -655,7 +655,7 @@ function buildFakeEml(fromName, fromSlug, subject, field) {
   const body = `${pick(NEWSLETTER_OPENERS)} as we serve in ${field}. This season has brought both challenges and encouragement, and we're excited to share a bit of both with you.${extras ? `\n\n${extras}` : ""}\n\nThank you for partnering with us.\n\nIn Him,\n${fromName}`;
   const eml = [
     `From: ${fromName} <${fromSlug}@example.com>`,
-    `To: missions@example.org`,
+    `To: receive@updates.missionspartnertracker.com`,
     `Subject: ${subject}`,
     `Date: ${dateBetween(1, 0).toUTCString()}`,
     `Content-Type: text/plain; charset="utf-8"`,
@@ -1245,7 +1245,7 @@ async function seedUnmatchedEmails() {
     const body = `Hi,\n\nI hope this finds you well. ${pick(UNMATCHED_EMAIL_OPENERS)}\n\nThanks,\n${sender.name}`;
     const eml = [
       `From: ${sender.name} <${sender.email}>`,
-      `To: missions@example.org`,
+      `To: receive@updates.missionspartnertracker.com`,
       `Subject: ${subject}`,
       `Date: ${receivedAt.toUTCString()}`,
       `Content-Type: text/plain; charset="utf-8"`,

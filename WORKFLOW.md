@@ -62,6 +62,13 @@ database, not just the demo's).
 
 ### 3. PR `dev` → `main`
 
+**Bump the version first, in this same PR** — `backend/package.json`
+and `frontend/package.json` to the version this release will be
+tagged as. Not a follow-up step: `versionCheck.js` compares
+`backend/package.json`'s version against this repo's latest GitHub
+Release tag to show admins an "update available" banner, so a merge
+that skips the bump makes that banner wrong the moment it deploys.
+
 ```bash
 gh pr create --base main --head dev
 ```
@@ -81,6 +88,24 @@ Merging the PR deploys automatically — Render's production
 
 Same migration-squash caveat as step 2 applies here, against the
 production database — see [demo/README.md](demo/README.md).
+
+**Right after merging, cut the matching git tag and GitHub Release**
+(`vX.Y.Z`, matching the version just bumped to in step 3):
+
+```bash
+git switch main && git pull
+git tag vX.Y.Z
+git push origin vX.Y.Z
+gh release create vX.Y.Z --generate-notes
+```
+
+`.github/workflows/release-version-check.yml` runs on every tag push
+and fails loudly (no way to block the push itself, since the tag
+already exists by the time CI sees it) if the tag's version doesn't
+match `backend/package.json` at that commit — the enforcement exists
+because this was skipped for both `v1.0.0` and `v1.1.0` and nothing
+caught it (see
+[issue #277](https://github.com/neckermann/missions-partner-tracker/issues/277)).
 
 ### Rollback
 
