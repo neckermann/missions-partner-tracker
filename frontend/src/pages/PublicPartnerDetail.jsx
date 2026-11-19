@@ -6,6 +6,7 @@ import PublicSubscribeForm from "../components/PublicSubscribeForm.jsx";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { formatYear } from "../utils/format.js";
+import PhotoTile from "../components/shared/PhotoTile.jsx";
 
 // Restricted partners simply won't have most of these keys in the API
 // response at all (see toPublicPartner in maskData.js), so the
@@ -79,14 +80,14 @@ export default function PublicPartnerDetail() {
             // sense for a generic icon, so only non-restricted photos are
             // wrapped as a link.
             partner.isRestricted ? (
-              <img src={partner.photo} alt={name} className="partner-detail-photo" />
+              <PhotoTile src={partner.photo} alt={name} shape="circle" size={160} className="partner-detail-photo" />
             ) : (
               <a href={partner.photo} target="_blank" rel="noreferrer">
-                <img src={partner.photo} alt={name} className="partner-detail-photo" />
+                <PhotoTile src={partner.photo} alt={name} shape="circle" size={160} className="partner-detail-photo" />
               </a>
             )
           ) : (
-            <div className="partner-detail-photo" />
+            <PhotoTile src={null} shape="circle" size={160} className="partner-detail-photo" />
           )}
           <div>
             <h2 style={{ margin: "0 0 0.25rem" }}>

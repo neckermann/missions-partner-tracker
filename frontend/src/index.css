@@ -415,13 +415,9 @@ a {
   gap: 0.3rem;
   margin-bottom: 0.5rem;
 }
+/* .popup-avatar's dimensions now come from PhotoTile.jsx's inline style --
+   class kept as a styling hook (nothing else sets it). */
 .popup-avatar {
-  width: 176px;
-  height: 176px;
-  object-fit: cover;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: #eee;
   cursor: pointer;
 }
 .popup-name {
@@ -511,13 +507,8 @@ a {
   border-color: var(--brand-highlight-color, #a6540f);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
-.partner-card-photo {
-  width: 100%;
-  height: 160px;
-  object-fit: cover;
-  background: #eee;
-  display: block;
-}
+/* .partner-card-photo's styling now comes entirely from PhotoTile.jsx's
+   inline style. */
 .partner-card-body {
   padding: 1rem;
 }
@@ -542,14 +533,8 @@ a {
   align-items: flex-start;
   flex-wrap: wrap;
 }
-.partner-detail-photo {
-  width: 160px;
-  height: 160px;
-  object-fit: cover;
-  border-radius: 50%;
-  background: #eee;
-  flex-shrink: 0;
-}
+/* .partner-detail-photo's styling now comes entirely from PhotoTile.jsx's
+   inline style. */
 .partner-links {
   display: flex;
   flex-wrap: wrap;
