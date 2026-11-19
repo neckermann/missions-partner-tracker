@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { fetchEmailSettings, updateEmailSettings, sendTestEmail } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
+import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 
 // Sending (#71) and receiving (#72) email both go through Postmark -- one
 // account, one settings page -- but are gated by two independent Enabled
@@ -119,7 +120,7 @@ export default function AdminSettingsEmail() {
 
   return (
     <div className="admin-shell">
-      <h2>Email</h2>
+      <SettingsPageHeader title="Email" />
       <p style={{ color: "#555" }}>
         Sends and receives email through{" "}
         <a href="https://postmarkapp.com" target="_blank" rel="noreferrer">

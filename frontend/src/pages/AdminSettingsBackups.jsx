@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { updateChurchSettings } from "../api/client.js";
 import useChurchSettings from "../hooks/useChurchSettings.js";
+import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 
 // A full database export, streamed straight from GET /api/backups/download
 // as a file download -- nothing is persisted server-side (see
@@ -50,7 +51,7 @@ export default function AdminSettingsBackups() {
 
   return (
     <div className="admin-shell">
-      <h2>Backups</h2>
+      <SettingsPageHeader title="Backups" />
       <p style={{ color: "#555" }}>
         A full export of everything in the database — every partner, user, and uploaded file — as a single
         file you download and keep somewhere safe. See{" "}

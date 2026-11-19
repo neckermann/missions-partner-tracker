@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import { fetchSystemInfo } from "../api/client.js";
+import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return "Unknown";
@@ -44,7 +45,7 @@ export default function AdminSystemInfo() {
   if (error) {
     return (
       <div className="admin-shell">
-        <h2>System Info</h2>
+        <SettingsPageHeader title="System Info" />
         <p style={{ color: "#b91c1c" }} role="alert">
           {error}
         </p>
@@ -56,7 +57,7 @@ export default function AdminSystemInfo() {
 
   return (
     <div className="admin-shell">
-      <h2>System Info</h2>
+      <SettingsPageHeader title="System Info" />
       <p style={{ color: "#555" }}>
         What's actually running on this instance -- useful when debugging something, or checking what you're
         on before filing a bug.

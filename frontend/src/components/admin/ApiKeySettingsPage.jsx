@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import SettingsPageHeader from "./SettingsPageHeader.jsx";
 
 // The "one write-only API key, admin-only, GET returns { configured }"
 // settings page. AdminSettingsJoshuaProject.jsx and
@@ -63,7 +64,7 @@ export default function ApiKeySettingsPage({
 
   return (
     <div className="admin-shell">
-      <h2>{title}</h2>
+      <SettingsPageHeader title={title} />
       <p style={{ color: "#555" }}>{description}</p>
 
       {error && (

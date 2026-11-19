@@ -8,6 +8,7 @@ import {
   fetchWhatsAppGroups,
   unlinkWhatsApp,
 } from "../api/client.js";
+import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
@@ -307,7 +308,7 @@ export default function AdminSettingsWhatsApp() {
   return (
     <div className="admin-shell">
       {confirmElement}
-      <h2>WhatsApp</h2>
+      <SettingsPageHeader title="WhatsApp" />
       <p style={{ color: "#555" }}>
         Posts new prayer requests, one-time needs, and newsletters to your WhatsApp community groups, on the
         same daily schedule as GroupMe (set under <a href="/admin/settings/dispatches">Dispatch Settings</a>).

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { fetchTripsSettings, updateTripsSettings } from "../api/client.js";
 import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestionsEditor.jsx";
+import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 
 // New (#252) -- church-wide settings for the whole Trips feature area.
 // Not per-trip (so it doesn't belong on AdminTripDetail.jsx) and not
@@ -199,7 +200,7 @@ export default function AdminSettingsTrips() {
 
   return (
     <div className="admin-shell form-has-floating-actions">
-      <h2>Trips Settings</h2>
+      <SettingsPageHeader title="Trips Settings" />
       <form onSubmit={handleSubmit} className="admin-section">
         {/* Grouped with real visual dividers (issue #262 -- the page read
         as nine undifferentiated h3's in a row with no way to tell "this is

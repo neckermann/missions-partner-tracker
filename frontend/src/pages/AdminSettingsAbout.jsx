@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { updateChurchSettings, syncAllSendingChurch } from "../api/client.js";
 import AddressFields from "../components/admin/AddressFields.jsx";
+import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
 
 const emptyAddress = {
@@ -110,7 +111,7 @@ export default function AdminSettingsAbout() {
 
   return (
     <div className="admin-shell form-has-floating-actions">
-      <h2>About Church</h2>
+      <SettingsPageHeader title="About Church" />
       <p style={{ color: "#555" }}>
         Basic church info — used to auto-fill the Sending Church section when this church is the sender, and
         for contact details shown across the admin app.

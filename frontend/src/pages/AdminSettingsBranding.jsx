@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { updateChurchSettings, uploadChurchLogo } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
+import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 
 const emptyForm = {
   partnerTermSingular: "",
@@ -123,7 +124,7 @@ export default function AdminSettingsBranding() {
 
   return (
     <div className="admin-shell form-has-floating-actions">
-      <h2>Branding</h2>
+      <SettingsPageHeader title="Branding" />
       <p style={{ color: "#555" }}>
         How this church presents itself — public-site tagline, about text, brand colors, font, logo, and what
         to call its partners.

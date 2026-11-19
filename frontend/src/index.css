@@ -623,6 +623,11 @@ a {
   margin: 2rem auto;
   padding: 0 1rem;
 }
+.settings-back-link {
+  display: inline-block;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
 .admin-table {
   width: 100%;
   border-collapse: collapse;

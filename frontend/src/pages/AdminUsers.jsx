@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { fetchUsers, deleteUser, fetchCurrentUser, resetUserMfa } from "../api/client.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
+import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 
 export default function AdminUsers() {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
@@ -53,12 +54,14 @@ export default function AdminUsers() {
 
   return (
     <div className="admin-shell">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>Users ({users.length})</h2>
-        <Link to="/admin/settings/users/new" className="btn">
-          + Add User
-        </Link>
-      </div>
+      <SettingsPageHeader
+        title={`Users (${users.length})`}
+        actions={
+          <Link to="/admin/settings/users/new" className="btn">
+            + Add User
+          </Link>
+        }
+      />
 
       <table className="admin-table">
         <thead>

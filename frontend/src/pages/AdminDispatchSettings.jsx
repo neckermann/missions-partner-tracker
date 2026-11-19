@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { fetchDispatchSettings, updateDispatchSettings, fetchScopedDigestSummary } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { joinWithAnd } from "../utils/urgentSend.js";
+import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -81,7 +82,7 @@ export default function AdminDispatchSettings() {
 
   return (
     <div className="admin-shell form-has-floating-actions">
-      <h2>Dispatch Settings</h2>
+      <SettingsPageHeader title="Dispatch Settings" />
       <p style={{ color: "#555" }}>
         Schedules for the admin/public email dispatch and for {chatLabel || "GroupMe/WhatsApp"}, the chat
         channels' own content-type mutes, the restricted-partner safety gate, and email dispatch appearance.

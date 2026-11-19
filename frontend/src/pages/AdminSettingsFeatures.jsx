@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { updateChurchSettings } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
+import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 
 // A plain div, not <label> -- .admin-shell label forces flex-direction:
 // column (stacked, for the usual label-above-input fields elsewhere in
@@ -113,7 +114,7 @@ export default function AdminSettingsFeatures() {
 
   return (
     <div className="admin-shell form-has-floating-actions">
-      <h2>Enabled Features</h2>
+      <SettingsPageHeader title="Enabled Features" />
       <p style={{ color: "#555" }}>
         Turn off anything this church isn't using — hides it from the admin nav (and, for public-facing
         features, from visitors) without losing any data already on file.
