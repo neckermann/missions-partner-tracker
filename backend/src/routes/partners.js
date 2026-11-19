@@ -9,6 +9,7 @@ const { matchesFileSignature } = require("../utils/fileSignature");
 const heicConvert = require("heic-convert");
 const { flattenSendingParty, shapeSendingParties } = require("../utils/sendingParty");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
+const { countriesInContinent } = require("../utils/countryContinents");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -313,7 +314,10 @@ async function syncSendingChurch(client, partnerId) {
 
 // GET /api/partners  (list — summary rows only)
 // Optional ?kind=missionary|organization, ?archived=true|false (omit for
-// both), ?q= name/field search.
+// both), ?q= name/field search, ?isPublic=true|false, ?restricted=true|false,
+// ?country= exact physical-address country, ?continent= (resolved to a
+// country list via utils/countryContinents.js, since continent itself
+// isn't a stored column).
 //
 // ?include=full opts into the deep record for every partner instead. The
 // printed booklet is the one screen that genuinely needs that -- it lays
@@ -326,12 +330,22 @@ router.get("/", async (req, res, next) => {
     if (req.query.kind) where.kind = String(req.query.kind);
     if (req.query.archived === "true") where.archived = true;
     if (req.query.archived === "false") where.archived = false;
+    if (req.query.isPublic === "true") where.isPublic = true;
+    if (req.query.isPublic === "false") where.isPublic = false;
+    if (req.query.restricted === "true") where.isRestricted = true;
+    if (req.query.restricted === "false") where.isRestricted = false;
     if (req.query.q) {
       const q = String(req.query.q);
       where.OR = [
         { displayName: { contains: q, mode: "insensitive" } },
         { fieldDisplayName: { contains: q, mode: "insensitive" } },
       ];
+    }
+    if (req.query.country) {
+      where.addresses = { some: { type: "physical", country: String(req.query.country) } };
+    } else if (req.query.continent) {
+      const countries = countriesInContinent(String(req.query.continent));
+      where.addresses = { some: { type: "physical", country: { in: countries } } };
     }
 
     if (req.query.include === "full") {
