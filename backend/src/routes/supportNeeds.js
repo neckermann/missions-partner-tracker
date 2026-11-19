@@ -67,11 +67,21 @@ const supportNeedInclude = {
   sourceFile: { select: { id: true, kind: true, title: true, fileName: true, receivedDate: true } },
 };
 
-// GET /api/support-needs?partnerId=  (all partners combined, newest request first)
+// GET /api/support-needs?partnerId=&status=&from=&to=  (all partners combined, newest request first)
+// status/from/to mirror reports/oneTimeNeeds.js's own filtering exactly
+// (status derived from approvedAmount being null/not-null, same as there --
+// SupportNeed has no separate status column).
 router.get("/", async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
+    if (req.query.status === "pending") where.approvedAmount = null;
+    if (req.query.status === "decided") where.approvedAmount = { not: null };
+    if (req.query.from || req.query.to) {
+      where.requestDate = {};
+      if (req.query.from) where.requestDate.gte = new Date(String(req.query.from));
+      if (req.query.to) where.requestDate.lte = new Date(String(req.query.to));
+    }
 
     const records = await prisma.supportNeed.findMany({
       where,

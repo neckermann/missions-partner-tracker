@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   fetchSupportNeeds,
@@ -10,10 +10,9 @@ import {
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import SourceLink from "../components/admin/SourceLink.jsx";
-import SourcePicker from "../components/admin/SourcePicker.jsx";
+import SupportNeedFormFields from "../components/admin/SupportNeedFormFields.jsx";
 import { formatDate, formatCurrency as formatMoney } from "../utils/format.js";
-import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
-import { urgentSendDescription } from "../utils/urgentSend.js";
+import { DATE_RANGE_OPTIONS, resolveQuickRangeDates } from "../utils/dateRange.js";
 import { entityFor } from "../utils/partnerEntity.js";
 import { supportNeedStatus as statusFor } from "../utils/supportNeedStatus.js";
 import useLoadMore from "../hooks/useLoadMore.js";
@@ -25,11 +24,15 @@ import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import UrgentSendConfirmBody from "../components/admin/UrgentSendConfirmBody.jsx";
 import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
+import FilterBar from "../components/shared/FilterBar.jsx";
+import useFilterState from "../hooks/useFilterState.js";
 
 // Thin binding so the call sites below stay unchanged; the formatting
 // itself lives in utils/format.js, which is also where the em-dash
 // convention for "no amount recorded" is documented.
 const formatCurrency = (amount) => formatMoney(amount, { fallback: "—" });
+
+const emptyFilters = { status: "all", dateRange: "all", includeArchived: false };
 
 const emptyNewNeed = {
   partnerId: "",
@@ -42,6 +45,15 @@ const emptyNewNeed = {
   sourceFileId: null,
 };
 
+// Phase 2 of the UX-rebuild plan: filters (status/date-range/archived) are
+// now FilterBar, with status and date-range now real backend query params
+// (GET /api/support-needs) -- same reuse as reports/oneTimeNeeds.js's
+// existing where-clause logic (status derived from approvedAmount,
+// nothing new invented). Kept as a card list rather than moving onto
+// <Table>, same reasoning as AdminPrayerRequests.jsx: each row has a
+// variable-length description plus two independent inline forms (edit,
+// record decision) that don't reduce to table cells without either
+// cramming or truncating real content.
 export default function AdminOneTimeNeeds() {
   const { enabledFeatures } = useSettings();
   // Whether any channel exists at all to ever deliver a recorded event --
@@ -52,9 +64,25 @@ export default function AdminOneTimeNeeds() {
     enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
   const [needs, setNeeds] = useState([]);
   const [partners, setPartners] = useState([]);
-  const [statusFilter, setStatusFilter] = useState("all"); // all | pending | decided
-  const [dateRangeFilter, setDateRangeFilter] = useState("all");
-  const [includeArchived, setIncludeArchived] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const fields = useMemo(
+    () => [
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        options: [
+          { value: "all", label: "All" },
+          { value: "pending", label: "Pending decision" },
+          { value: "decided", label: "Decided" },
+        ],
+      },
+      { name: "dateRange", label: "Requested", type: "select", options: DATE_RANGE_OPTIONS },
+      { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
+    ],
+    []
+  );
+  const { values: filters, setValue: updateFilter, reset: resetFilters } = useFilterState(fields, emptyFilters);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newNeed, setNewNeed] = useState(emptyNewNeed);
   const [saving, setSaving] = useState(false);
@@ -83,20 +111,25 @@ export default function AdminOneTimeNeeds() {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
 
   function reload() {
-    fetchSupportNeeds().then(setNeeds).catch(console.error);
+    setLoading(true);
+    const params = {};
+    if (filters.status !== "all") params.status = filters.status;
+    const { from, to } = resolveQuickRangeDates(filters.dateRange);
+    if (from) params.from = from;
+    if (to) params.to = to;
+    fetchSupportNeeds(params)
+      .then(setNeeds)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }
 
   useEffect(() => {
     reload();
     fetchPartners().then(setPartners).catch(console.error);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.status, filters.dateRange]);
 
-  const filteredNeeds = needs.filter((need) => {
-    if (statusFilter === "pending" && need.approvedAmount != null) return false;
-    if (statusFilter === "decided" && need.approvedAmount == null) return false;
-    if (!includeArchived && need.partner?.archived) return false;
-    return inDateRange(need.requestDate, dateRangeFilter);
-  });
+  const filteredNeeds = needs.filter((need) => filters.includeArchived || !need.partner?.archived);
   const {
     visible: visibleNeeds,
     hasMore,
@@ -236,97 +269,29 @@ export default function AdminOneTimeNeeds() {
 
       {showAddForm && (
         <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
-          <div className="form-grid">
-            <label style={{ gridColumn: "1 / -1" }}>
-              Partner
-              <PartnerSelect
-                partners={partners}
-                value={newNeed.partnerId}
-                onChange={(partnerId) => {
-                  setNewNeed((f) => ({ ...f, partnerId, sourceFileId: null }));
-                  loadSourceFiles(partnerId);
-                }}
-                required
-              />
-            </label>
-            <label style={{ gridColumn: "1 / -1" }}>
-              Description
-              <input
-                value={newNeed.description}
-                onChange={(e) => setNewNeed((f) => ({ ...f, description: e.target.value }))}
-                placeholder="e.g. One-time gift to help a family in their congregation"
-                required
-              />
-            </label>
-            <label>
-              Requested Amount ($)
-              <input
-                type="number"
-                min="0"
-                value={newNeed.requestedAmount}
-                onChange={(e) => setNewNeed((f) => ({ ...f, requestedAmount: e.target.value }))}
-                required
-              />
-            </label>
-            <label>
-              Request Date
-              <input
-                type="date"
-                value={newNeed.requestDate}
-                onChange={(e) => setNewNeed((f) => ({ ...f, requestDate: e.target.value }))}
-                required
-              />
-            </label>
-            <SourcePicker
-              files={sourceFiles}
-              sourceFileId={newNeed.sourceFileId}
-              onChange={(source) => setNewNeed((f) => ({ ...f, ...source }))}
-            />
-            <label style={{ gridColumn: "1 / -1" }}>
-              Notes
-              <input
-                value={newNeed.notes}
-                onChange={(e) => setNewNeed((f) => ({ ...f, notes: e.target.value }))}
-              />
-            </label>
-            {hasEnabledChannel && (
-              <div style={{ gridColumn: "1 / -1" }}>
-                <div className="admin-checkbox-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={newNeed.isUrgent}
-                      onChange={(e) => setNewNeed((f) => ({ ...f, isUrgent: e.target.checked }))}
-                    />
-                    Mark as urgent -- send right away
-                  </label>
-                </div>
-                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-                  {urgentSendDescription(enabledFeatures)}
-                </p>
-              </div>
-            )}
-            {canApproveNow && (
-              <div style={{ gridColumn: "1 / -1" }}>
-                <div className="admin-checkbox-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={newNeed.approveNow}
-                      onChange={(e) => setNewNeed((f) => ({ ...f, approveNow: e.target.checked }))}
-                    />
-                    Review and approve now
-                  </label>
-                </div>
-                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-                  This partner is restricted, so nothing above sends anywhere until an admin or editor reviews
-                  it -- normally from the Pending Dispatches page afterward. Checking this confirms, right
-                  now, that the text you just typed is safe to send verbatim, skipping that extra trip. You'll
-                  be asked to confirm the exact wording before saving.
-                </p>
-              </div>
-            )}
-          </div>
+          <SupportNeedFormFields
+            form={newNeed}
+            setForm={setNewNeed}
+            files={sourceFiles}
+            mode="create"
+            hasEnabledChannel={hasEnabledChannel}
+            canApproveNow={canApproveNow}
+            enabledFeatures={enabledFeatures}
+            partnerPicker={
+              <label style={{ gridColumn: "1 / -1" }}>
+                Partner
+                <PartnerSelect
+                  partners={partners}
+                  value={newNeed.partnerId}
+                  onChange={(partnerId) => {
+                    setNewNeed((f) => ({ ...f, partnerId, sourceFileId: null }));
+                    loadSourceFiles(partnerId);
+                  }}
+                  required
+                />
+              </label>
+            }
+          />
           {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
           <div style={{ marginTop: "1rem" }}>
             <button type="submit" className="btn" disabled={saving}>
@@ -336,51 +301,9 @@ export default function AdminOneTimeNeeds() {
         </form>
       )}
 
-      <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
-        <label
-          htmlFor="needs-status-filter"
-          style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}
-        >
-          Show:
-        </label>
-        <select
-          id="needs-status-filter"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          style={{ width: "auto" }}
-        >
-          <option value="all">All</option>
-          <option value="pending">Pending decision</option>
-          <option value="decided">Decided</option>
-        </select>
-        <label
-          htmlFor="needs-date-range-filter"
-          style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}
-        >
-          Requested:
-        </label>
-        <select
-          id="needs-date-range-filter"
-          value={dateRangeFilter}
-          onChange={(e) => setDateRangeFilter(e.target.value)}
-          style={{ width: "auto" }}
-        >
-          {DATE_RANGE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-          <input
-            type="checkbox"
-            checked={includeArchived}
-            onChange={(e) => setIncludeArchived(e.target.checked)}
-          />
-          Include archived partners
-        </label>
-      </div>
+      <FilterBar fields={fields} values={filters} onChange={updateFilter} onReset={resetFilters} />
 
+      {loading && <p style={{ color: "#888", marginTop: "1rem" }}>Loading…</p>}
       {visibleNeeds.map((need) => {
         const entity = entityFor(need);
         const status = statusFor(need);
@@ -418,47 +341,9 @@ export default function AdminOneTimeNeeds() {
             </div>
 
             {editingId === need.id ? (
-              <div className="form-grid" style={{ marginTop: "0.5rem" }}>
-                <label style={{ gridColumn: "1 / -1" }}>
-                  Description
-                  <input
-                    value={editForm.description}
-                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Requested Amount ($)
-                  <input
-                    type="number"
-                    min="0"
-                    value={editForm.requestedAmount}
-                    onChange={(e) => setEditForm((f) => ({ ...f, requestedAmount: e.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Request Date
-                  <input
-                    type="date"
-                    value={editForm.requestDate}
-                    onChange={(e) => setEditForm((f) => ({ ...f, requestDate: e.target.value }))}
-                    required
-                  />
-                </label>
-                <SourcePicker
-                  files={sourceFiles}
-                  sourceFileId={editForm.sourceFileId}
-                  onChange={(source) => setEditForm((f) => ({ ...f, ...source }))}
-                />
-                <label style={{ gridColumn: "1 / -1" }}>
-                  Notes
-                  <input
-                    value={editForm.notes}
-                    onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-                  />
-                </label>
-                <div style={{ gridColumn: "1 / -1", display: "flex", gap: "0.5rem" }}>
+              <div style={{ marginTop: "0.5rem" }}>
+                <SupportNeedFormFields form={editForm} setForm={setEditForm} files={sourceFiles} mode="edit" />
+                <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button type="button" className="btn small" onClick={() => submitEdit(need.id)}>
                     Save
                   </button>

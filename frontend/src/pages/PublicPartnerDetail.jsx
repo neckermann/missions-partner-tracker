@@ -11,10 +11,11 @@ import { formatYear } from "../utils/format.js";
 // response at all (see toPublicPartner in maskData.js), so the
 // conditional rendering below already degrades correctly with no
 // type-specific handling needed.
+// newsletterSignup deliberately isn't here -- it gets its own prominent
+// widget further down the page instead of blending into this generic row.
 const LINK_FIELDS = [
   ["websiteLink", "Website"],
   ["supportLink", "Support / Donate"],
-  ["newsletterSignup", "Newsletter Signup"],
   ["facebook", "Facebook"],
   ["twitter", "Twitter"],
   ["instagram", "Instagram"],
@@ -145,6 +146,24 @@ export default function PublicPartnerDetail() {
           </div>
         )}
 
+        {partner.newsletterSignup && (
+          // Its own widget, shown regardless of the publicPrayerDigest
+          // toggle below -- this is {name}'s own external newsletter,
+          // unrelated to this site's prayer-digest subscription feature,
+          // so it shouldn't disappear just because that feature is off.
+          // Previously folded into the prayer-digest widget's description
+          // text, invisible whenever that feature was disabled.
+          <div className="admin-section" style={{ marginTop: "1.5rem" }}>
+            <h3 style={{ marginTop: 0 }}>{name}&rsquo;s Newsletter</h3>
+            <p style={{ color: "#555" }}>
+              Hear directly from {name} with their own newsletter updates.
+            </p>
+            <a href={partner.newsletterSignup} target="_blank" rel="noopener noreferrer" className="btn secondary">
+              Sign up for their newsletter
+            </a>
+          </div>
+        )}
+
         {enabledFeatures.publicPrayerDigest && (
           <>
             <PublicSubscribeForm
@@ -154,15 +173,6 @@ export default function PublicPartnerDetail() {
               description={`Get an email when there's a new or answered prayer request we've received about ${name} -- gathered from their newsletters and other updates to us.`}
             />
             <p style={{ marginTop: "0.5rem", fontSize: "0.9rem", color: "#555" }}>
-              {partner.newsletterSignup && (
-                <>
-                  This doesn't replace {name}'s own newsletter —{" "}
-                  <a href={partner.newsletterSignup} target="_blank" rel="noopener noreferrer">
-                    sign up for that directly
-                  </a>{" "}
-                  to hear from them yourself.{" "}
-                </>
-              )}
               Want to pray for more than just {name}?{" "}
               <Link to="/subscribe">Pray for all of our {partnerTermPlural}, or pick several</Link>.
             </p>

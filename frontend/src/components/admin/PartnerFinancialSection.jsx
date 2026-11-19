@@ -6,7 +6,6 @@ import {
   formatDateLong,
   formatCurrency,
 } from "../../utils/format.js";
-import { urgentSendDescription } from "../../utils/urgentSend.js";
 import {
   createSupportEntry,
   deleteSupportEntry,
@@ -22,7 +21,8 @@ import useChurchSettings from "../../hooks/useChurchSettings.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import LoadMoreButton from "../LoadMoreButton.jsx";
 import SourceLink from "./SourceLink.jsx";
-import SourcePicker from "./SourcePicker.jsx";
+import SupportEntryFormFields from "./SupportEntryFormFields.jsx";
+import SupportNeedFormFields from "./SupportNeedFormFields.jsx";
 import { supportNeedStatus as needStatus } from "../../utils/supportNeedStatus.js";
 import UrgentSendConfirmBody from "./UrgentSendConfirmBody.jsx";
 import ApproveRestrictedTextConfirmBody from "./ApproveRestrictedTextConfirmBody.jsx";
@@ -260,35 +260,7 @@ export default function PartnerFinancialSection({
 
           {addingEntry && (
             <form onSubmit={submitEntry} style={{ marginBottom: "1rem" }}>
-              <div className="form-grid">
-                <label>
-                  Monthly Amount (USD)
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={entry.amount}
-                    onChange={(e) => setEntry((f) => ({ ...f, amount: e.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Effective Date
-                  <input
-                    type="date"
-                    value={entry.effectiveDate}
-                    onChange={(e) => setEntry((f) => ({ ...f, effectiveDate: e.target.value }))}
-                    required
-                  />
-                </label>
-                <label style={{ gridColumn: "1 / -1" }}>
-                  Notes
-                  <input
-                    value={entry.notes}
-                    onChange={(e) => setEntry((f) => ({ ...f, notes: e.target.value }))}
-                  />
-                </label>
-              </div>
+              <SupportEntryFormFields form={entry} setForm={setEntry} />
               <button type="submit" className="btn small" style={{ marginTop: "0.75rem" }} disabled={saving}>
                 {saving ? "Saving..." : "Add Entry"}
               </button>
@@ -346,84 +318,15 @@ export default function PartnerFinancialSection({
 
           {addingNeed && (
             <form onSubmit={submitNeed} style={{ margin: "1rem 0" }}>
-              <div className="form-grid">
-                <label style={{ gridColumn: "1 / -1" }}>
-                  Description
-                  <input
-                    value={need.description}
-                    onChange={(e) => setNeed((f) => ({ ...f, description: e.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Requested Amount (USD)
-                  <input
-                    type="number"
-                    min="0"
-                    value={need.requestedAmount}
-                    onChange={(e) => setNeed((f) => ({ ...f, requestedAmount: e.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Request Date
-                  <input
-                    type="date"
-                    value={need.requestDate}
-                    onChange={(e) => setNeed((f) => ({ ...f, requestDate: e.target.value }))}
-                    required
-                  />
-                </label>
-                <SourcePicker
-                  files={files}
-                  sourceFileId={need.sourceFileId}
-                  onChange={(source) => setNeed((f) => ({ ...f, ...source }))}
-                />
-                <label style={{ gridColumn: "1 / -1" }}>
-                  Notes
-                  <input
-                    value={need.notes}
-                    onChange={(e) => setNeed((f) => ({ ...f, notes: e.target.value }))}
-                  />
-                </label>
-                {hasEnabledChannel && (
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <div className="admin-checkbox-row">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={need.isUrgent}
-                          onChange={(e) => setNeed((f) => ({ ...f, isUrgent: e.target.checked }))}
-                        />
-                        Mark as urgent -- send right away
-                      </label>
-                    </div>
-                    <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-                      {urgentSendDescription(enabledFeatures)}
-                    </p>
-                  </div>
-                )}
-                {canApproveNow && (
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <div className="admin-checkbox-row">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={need.approveNow}
-                          onChange={(e) => setNeed((f) => ({ ...f, approveNow: e.target.checked }))}
-                        />
-                        Review and approve now
-                      </label>
-                    </div>
-                    <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-                      This partner is restricted, so nothing above sends anywhere until an admin or editor
-                      reviews it -- normally from the Pending Dispatches page afterward. Checking this
-                      confirms, right now, that the text you just typed is safe to send verbatim, skipping
-                      that extra trip. You'll be asked to confirm the exact wording before saving.
-                    </p>
-                  </div>
-                )}
-              </div>
+              <SupportNeedFormFields
+                form={need}
+                setForm={setNeed}
+                files={files}
+                mode="create"
+                hasEnabledChannel={hasEnabledChannel}
+                canApproveNow={canApproveNow}
+                enabledFeatures={enabledFeatures}
+              />
               <button type="submit" className="btn small" style={{ marginTop: "0.75rem" }} disabled={saving}>
                 {saving ? "Saving..." : "Add Need"}
               </button>

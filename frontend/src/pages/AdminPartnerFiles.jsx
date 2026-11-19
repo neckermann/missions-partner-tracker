@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   fetchPartnerFiles,
@@ -13,13 +13,16 @@ import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
 import { formatDate, todayInputValue, formatFileSize } from "../utils/format.js";
-import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
+import { DATE_RANGE_OPTIONS, resolveQuickRangeDates } from "../utils/dateRange.js";
 import { entityFor } from "../utils/partnerEntity.js";
 import { isScannable } from "../utils/scannable.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
+import FilterBar from "../components/shared/FilterBar.jsx";
+import Table from "../components/shared/Table.jsx";
+import useFilterState from "../hooks/useFilterState.js";
 
 const emptyNewFile = {
   partnerId: "",
@@ -30,21 +33,31 @@ const emptyNewFile = {
   notes: "",
 };
 
+const emptyFilters = {
+  entityType: "all",
+  kind: "all",
+  dateRange: "all",
+  includeArchived: false,
+};
+
+// Phase 2 of the UX-rebuild plan: entityType/kind/date-range are now real
+// backend query params (GET /api/partner-files -- kind already existed,
+// entityType and from/to are new), same reuse argument the plan made for
+// Prayer Requests/One-Time Needs: the exact filter logic already existed
+// for this dataset's Report version. includeArchived stays client-side --
+// this route has no archived passthrough and adding one wasn't asked for.
 export default function AdminPartnerFiles() {
   const { enabledFeatures } = useSettings();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [scanning, setScanning] = useState(null); // the file being reviewed, or null
   const [files, setFiles] = useState([]);
   const [partners, setPartners] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newFile, setNewFile] = useState(emptyNewFile);
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [entityFilter, setEntityFilter] = useState("all");
-  const [kindFilter, setKindFilter] = useState("all");
-  const [dateRangeFilter, setDateRangeFilter] = useState("all");
-  const [includeArchived, setIncludeArchived] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({
     partnerId: "",
@@ -55,14 +68,55 @@ export default function AdminPartnerFiles() {
     notes: "",
   });
 
+  const fields = useMemo(
+    () => [
+      {
+        name: "entityType",
+        label: "Show",
+        type: "select",
+        options: [
+          { value: "all", label: "All" },
+          { value: "missionary", label: "Missionaries" },
+          { value: "organization", label: "Organizations" },
+        ],
+      },
+      {
+        name: "kind",
+        label: "Kind",
+        type: "select",
+        options: [{ value: "all", label: "All" }, ...FILE_KINDS.map((k) => ({ value: k.value, label: k.label }))],
+      },
+      {
+        name: "dateRange",
+        label: "Received",
+        type: "select",
+        options: DATE_RANGE_OPTIONS,
+      },
+      { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
+    ],
+    []
+  );
+  const { values: filters, setValue: updateFilter, reset: resetFilters } = useFilterState(fields, emptyFilters);
+
   function reload() {
-    fetchPartnerFiles().then(setFiles).catch(console.error);
+    setLoading(true);
+    const params = {};
+    if (filters.entityType !== "all") params.entityType = filters.entityType;
+    if (filters.kind !== "all") params.kind = filters.kind;
+    const { from, to } = resolveQuickRangeDates(filters.dateRange);
+    if (from) params.from = from;
+    if (to) params.to = to;
+    fetchPartnerFiles(params)
+      .then(setFiles)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }
 
   useEffect(() => {
     reload();
     fetchPartners().then(setPartners).catch(console.error);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.entityType, filters.kind, filters.dateRange]);
 
   async function handleAddSubmit(e) {
     e.preventDefault();
@@ -164,12 +218,9 @@ export default function AdminPartnerFiles() {
     }
   }
 
-  const filtered = files.filter(
-    (f) =>
-      (entityFilter === "all" || entityFor(f).type === entityFilter) &&
-      (kindFilter === "all" || f.kind === kindFilter) &&
-      (includeArchived || !f.partner?.archived) &&
-      inDateRange(f.receivedDate, dateRangeFilter)
+  const filtered = useMemo(
+    () => files.filter((f) => filters.includeArchived || !f.partner?.archived),
+    [files, filters.includeArchived]
   );
   const {
     visible: visibleFiles,
@@ -180,6 +231,15 @@ export default function AdminPartnerFiles() {
     initialCount: 25,
     step: 25,
   });
+
+  const rows = useMemo(
+    () =>
+      visibleFiles.map((f) => {
+        const entity = entityFor(f);
+        return { ...f, entityType: entity.type, entityLink: entity.link, entityName: entity.name };
+      }),
+    [visibleFiles]
+  );
 
   return (
     <div className="admin-shell">
@@ -273,221 +333,128 @@ export default function AdminPartnerFiles() {
         </form>
       )}
 
-      <div
-        className="admin-checkbox-row"
-        style={{ marginTop: "1rem", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label htmlFor="partner-files-entity-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>
-            Show:
-          </label>
-          <select
-            id="partner-files-entity-filter"
-            value={entityFilter}
-            onChange={(e) => setEntityFilter(e.target.value)}
-            style={{ width: "auto" }}
-          >
-            <option value="all">All</option>
-            <option value="Missionary">Missionaries</option>
-            <option value="Organization">Organizations</option>
-          </select>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label htmlFor="partner-files-kind-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>
-            Kind:
-          </label>
-          <select
-            id="partner-files-kind-filter"
-            value={kindFilter}
-            onChange={(e) => setKindFilter(e.target.value)}
-            style={{ width: "auto" }}
-          >
-            <option value="all">All</option>
-            {FILE_KINDS.map((k) => (
-              <option key={k.value} value={k.value}>
-                {k.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label
-            htmlFor="partner-files-date-range-filter"
-            style={{ flexDirection: "row", fontWeight: "normal" }}
-          >
-            Received:
-          </label>
-          <select
-            id="partner-files-date-range-filter"
-            value={dateRangeFilter}
-            onChange={(e) => setDateRangeFilter(e.target.value)}
-            style={{ width: "auto" }}
-          >
-            {DATE_RANGE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-          <input
-            type="checkbox"
-            checked={includeArchived}
-            onChange={(e) => setIncludeArchived(e.target.checked)}
-          />
-          Include archived partners
-        </label>
-      </div>
+      <FilterBar fields={fields} values={filters} onChange={updateFilter} onReset={resetFilters} />
 
       <div className="table-scroll">
-        <table className="admin-table" style={{ marginTop: "1rem" }}>
-          <thead>
-            <tr>
-              <th>Partner</th>
-              <th>Type</th>
-              <th>Kind</th>
-              <th>Title</th>
-              <th>Received</th>
-              <th>File</th>
-              <th>Notes</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleFiles.map((f) => {
-              const entity = entityFor(f);
-              return (
-                <React.Fragment key={f.id}>
-                  <tr>
-                    <td>{entity.link ? <Link to={entity.link}>{entity.name}</Link> : entity.name}</td>
-                    <td>{entity.type}</td>
-                    <td>{fileKindLabel(f)}</td>
-                    <td>{f.title || "—"}</td>
-                    <td>
-                      {editingId === f.id ? formatDate(editForm.receivedDate) : formatDate(f.receivedDate)}
-                    </td>
-                    <td>
-                      {f.fileName}
-                      {f.fileSize != null && (
-                        <span style={{ color: "#888", fontSize: "0.85rem" }}>
-                          {" "}
-                          ({formatFileSize(f.fileSize)})
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ maxWidth: "16rem" }}>
-                      {editingId === f.id ? editForm.notes || "—" : f.notes || "—"}
-                    </td>
-                    <td className="table-actions">
-                      <button type="button" className="btn secondary small" onClick={() => handleView(f)}>
-                        View
-                      </button>
-                      {enabledFeatures.aiExtraction && isScannable(f) && (
-                        <button type="button" className="btn secondary small" onClick={() => setScanning(f)}>
-                          Scan for requests
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="btn secondary small"
-                        onClick={() =>
-                          editingId === f.id ? (setEditingId(null), setError("")) : startEdit(f)
-                        }
-                      >
-                        {editingId === f.id ? "Cancel" : "Edit"}
-                      </button>
-                      <button type="button" className="btn danger small" onClick={() => handleDelete(f)}>
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                  {editingId === f.id && (
-                    <tr>
-                      <td colSpan={8}>
-                        <div className="form-grid">
-                          <label
-                            style={{ gridColumn: "1 / -1" }}
-                            title="Everything but the file itself can be edited."
-                          >
-                            Partner
-                            <PartnerSelect
-                              partners={partners}
-                              value={editForm.partnerId}
-                              onChange={(partnerId) => setEditForm((f) => ({ ...f, partnerId }))}
-                              required
-                            />
-                          </label>
-                          <label>
-                            Kind
-                            <select
-                              value={editForm.kind}
-                              onChange={(e) => setEditForm((f) => ({ ...f, kind: e.target.value }))}
-                            >
-                              {FILE_KINDS.map((k) => (
-                                <option key={k.value} value={k.value}>
-                                  {k.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          {editForm.kind === "other" && (
-                            <label>
-                              Kind label
-                              <input
-                                value={editForm.customKind}
-                                onChange={(e) => setEditForm((f) => ({ ...f, customKind: e.target.value }))}
-                                placeholder="e.g. Background Check"
-                                required
-                              />
-                            </label>
-                          )}
-                          <label>
-                            Title
-                            <input
-                              value={editForm.title}
-                              onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                              placeholder="e.g. Summer 2026 Update"
-                            />
-                          </label>
-                          <label>
-                            Received Date
-                            <input
-                              type="date"
-                              value={editForm.receivedDate}
-                              onChange={(e) => setEditForm((f) => ({ ...f, receivedDate: e.target.value }))}
-                              required
-                            />
-                          </label>
-                          <label style={{ gridColumn: "1 / -1" }}>
-                            Notes
-                            <input
-                              value={editForm.notes}
-                              onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-                            />
-                          </label>
-                        </div>
-                        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-                        <div style={{ marginTop: "0.5rem" }}>
-                          <button type="button" className="btn small" onClick={() => submitEdit(f.id)}>
-                            Save
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+        <Table
+          style={{ marginTop: "1rem" }}
+          rows={rows}
+          rowKey={(row) => row.id}
+          emptyMessage={loading ? "Loading…" : "No files on record."}
+          expandedRowId={editingId}
+          renderExpanded={(f) => (
+            <div className="form-grid">
+              <label style={{ gridColumn: "1 / -1" }} title="Everything but the file itself can be edited.">
+                Partner
+                <PartnerSelect
+                  partners={partners}
+                  value={editForm.partnerId}
+                  onChange={(partnerId) => setEditForm((ef) => ({ ...ef, partnerId }))}
+                  required
+                />
+              </label>
+              <label>
+                Kind
+                <select value={editForm.kind} onChange={(e) => setEditForm((ef) => ({ ...ef, kind: e.target.value }))}>
+                  {FILE_KINDS.map((k) => (
+                    <option key={k.value} value={k.value}>
+                      {k.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {editForm.kind === "other" && (
+                <label>
+                  Kind label
+                  <input
+                    value={editForm.customKind}
+                    onChange={(e) => setEditForm((ef) => ({ ...ef, customKind: e.target.value }))}
+                    placeholder="e.g. Background Check"
+                    required
+                  />
+                </label>
+              )}
+              <label>
+                Title
+                <input
+                  value={editForm.title}
+                  onChange={(e) => setEditForm((ef) => ({ ...ef, title: e.target.value }))}
+                  placeholder="e.g. Summer 2026 Update"
+                />
+              </label>
+              <label>
+                Received Date
+                <input
+                  type="date"
+                  value={editForm.receivedDate}
+                  onChange={(e) => setEditForm((ef) => ({ ...ef, receivedDate: e.target.value }))}
+                  required
+                />
+              </label>
+              <label style={{ gridColumn: "1 / -1" }}>
+                Notes
+                <input
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm((ef) => ({ ...ef, notes: e.target.value }))}
+                />
+              </label>
+              {error && (
+                <p style={{ gridColumn: "1 / -1", color: "#b91c1c" }}>{error}</p>
+              )}
+              <div style={{ gridColumn: "1 / -1" }}>
+                <button type="button" className="btn small" onClick={() => submitEdit(f.id)}>
+                  Save
+                </button>
+              </div>
+            </div>
+          )}
+          columns={[
+            {
+              key: "entityName",
+              label: "Partner",
+              render: (f) => (f.entityLink ? <Link to={f.entityLink}>{f.entityName}</Link> : f.entityName),
+            },
+            { key: "entityType", label: "Type" },
+            { key: "kind", label: "Kind", render: (f) => fileKindLabel(f) },
+            { key: "title", label: "Title" },
+            { key: "receivedDate", label: "Received", type: "date" },
+            {
+              key: "fileName",
+              label: "File",
+              render: (f) => (
+                <>
+                  {f.fileName}
+                  {f.fileSize != null && (
+                    <span style={{ color: "#888", fontSize: "0.85rem" }}> ({formatFileSize(f.fileSize)})</span>
                   )}
-                </React.Fragment>
-              );
-            })}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={8} style={{ color: "#888" }}>
-                  No files on record.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                </>
+              ),
+            },
+            { key: "notes", label: "Notes" },
+          ]}
+          renderActions={(f) => (
+            <>
+              <button type="button" className="btn secondary small" onClick={() => handleView(f)}>
+                View
+              </button>
+              {enabledFeatures.aiExtraction && isScannable(f) && (
+                <button type="button" className="btn secondary small" onClick={() => setScanning(f)}>
+                  Scan for requests
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={() => (editingId === f.id ? (setEditingId(null), setError("")) : startEdit(f))}
+              >
+                {editingId === f.id ? "Cancel" : "Edit"}
+              </button>
+              <button type="button" className="btn danger small" onClick={() => handleDelete(f)}>
+                Delete
+              </button>
+            </>
+          )}
+        />
       </div>
       <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
 

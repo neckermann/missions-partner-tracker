@@ -1,0 +1,150 @@
+import React from "react";
+import SourcePicker from "./SourcePicker.jsx";
+import { urgentSendDescription } from "../../utils/urgentSend.js";
+
+// Phase 2 of the UX-rebuild plan: the field set duplicated verbatim
+// between PrayerRequestSection.jsx (embedded in a Partner's own page,
+// fixed partnerId) and AdminPrayerRequests.jsx (consolidated list,
+// partner picked from a dropdown) -- extracted once, used by both. Only
+// renders the <div className="form-grid">...</div> body, not a <form>
+// wrapper or a submit button, so each caller keeps its own onSubmit,
+// save/cancel buttons, and error display exactly as before.
+//
+// `mode="create"` adds the untracked/isUrgent/approveNow blocks, which
+// only make sense at creation time (status/isUrgent broadcasting/approval
+// review are one-time decisions, not something an edit should silently
+// redo) -- `mode="edit"` (the default) omits them, matching both callers'
+// existing startEdit()/submitEdit() scope boundary comment.
+//
+// `partnerPicker`, when given, renders first -- only the consolidated
+// page's create form needs it (the embedded section already has a fixed
+// partnerId from its own props).
+export default function PrayerRequestFormFields({
+  form,
+  setForm,
+  files,
+  mode = "edit",
+  hasEnabledChannel,
+  canApproveNow,
+  enabledFeatures,
+  partnerPicker,
+}) {
+  return (
+    <div className="form-grid">
+      {partnerPicker}
+      <label>
+        Category
+        <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
+          <option value="strategic">Strategic (ministry vision/calling — can be shared publicly)</option>
+          <option value="situational">Situational (health, travel, family, logistics — admin-only)</option>
+        </select>
+      </label>
+      <label>
+        Date Received
+        <input
+          type="date"
+          value={form.dateReceived}
+          onChange={(e) => setForm((f) => ({ ...f, dateReceived: e.target.value }))}
+          required
+        />
+      </label>
+      <label style={{ gridColumn: "1 / -1" }}>
+        Prayer Request
+        <textarea
+          rows={2}
+          value={form.requestText}
+          onChange={(e) => setForm((f) => ({ ...f, requestText: e.target.value }))}
+          required
+        />
+      </label>
+      {form.category === "strategic" && (
+        <div className="admin-checkbox-row" style={{ gridColumn: mode === "edit" ? "1 / -1" : undefined }}>
+          <label title="Shows on this partner's public profile page, if the public site is enabled.">
+            <input
+              type="checkbox"
+              checked={form.isPublic}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  isPublic: e.target.checked,
+                  includeInBooklet: e.target.checked && f.includeInBooklet,
+                }))
+              }
+            />
+            Show on public profile
+          </label>
+          {form.isPublic && (
+            <label title="Eligible to print in the booklet -- the actual number shown per partner is capped there (see the Booklet page) so this section doesn't take over the page.">
+              <input
+                type="checkbox"
+                checked={form.includeInBooklet}
+                onChange={(e) => setForm((f) => ({ ...f, includeInBooklet: e.target.checked }))}
+              />
+              Include in printed booklet
+            </label>
+          )}
+        </div>
+      )}
+      {mode === "create" && (
+        <>
+          <div className="admin-checkbox-row">
+            <label>
+              <input
+                type="checkbox"
+                checked={form.untracked}
+                onChange={(e) => setForm((f) => ({ ...f, untracked: e.target.checked }))}
+              />
+              Not tracking this one for a specific answer
+            </label>
+          </div>
+          {hasEnabledChannel && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <div className="admin-checkbox-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={form.isUrgent}
+                    onChange={(e) => setForm((f) => ({ ...f, isUrgent: e.target.checked }))}
+                  />
+                  Mark as urgent -- send right away
+                </label>
+              </div>
+              <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                {urgentSendDescription(enabledFeatures)}
+              </p>
+            </div>
+          )}
+          {canApproveNow && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <div className="admin-checkbox-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={form.approveNow}
+                    onChange={(e) => setForm((f) => ({ ...f, approveNow: e.target.checked }))}
+                  />
+                  Review and approve now
+                </label>
+              </div>
+              <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                This partner is restricted, so nothing above sends anywhere until an admin or editor reviews it
+                -- normally from the Pending Dispatches page afterward. Checking this confirms, right now, that
+                the text you just typed is safe to send verbatim, skipping that extra trip. You'll be asked to
+                confirm the exact wording before saving.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+      <SourcePicker
+        files={files}
+        sourceFileId={form.sourceFileId}
+        onChange={(source) => setForm((f) => ({ ...f, ...source }))}
+      />
+      <label style={{ gridColumn: "1 / -1" }}>
+        Admin Notes (optional, never shown publicly)
+        <input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+      </label>
+    </div>
+  );
+}

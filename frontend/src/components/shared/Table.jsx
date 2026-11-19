@@ -29,6 +29,11 @@ import { formatCurrency, formatDate } from "../../utils/format.js";
 // "Edit" button opening a form in a colSpan'd row directly beneath it)
 // without each page re-deriving the colSpan or the <tr> wrapping by
 // hand.
+//
+// `rowAttrs(row)`, when present, spreads extra DOM attributes onto each
+// <tr> -- e.g. `data-partner-id` for an e2e spec's locator. Added in
+// Phase 2 of the UX-rebuild plan after AdminMonthlySupport.jsx's own
+// migration silently dropped the attribute its e2e spec depended on.
 function alignClass(column) {
   if (column.align) return column.align === "right" ? "num" : undefined;
   return column.type === "currency" || column.type === "number" ? "num" : undefined;
@@ -56,6 +61,7 @@ export default function Table({
   renderActions,
   expandedRowId,
   renderExpanded,
+  rowAttrs,
   emptyMessage = "Nothing to show.",
   className = "admin-table",
   style,
@@ -84,6 +90,7 @@ export default function Table({
               <tr
                 onClick={clickable ? () => onRowClick(row) : undefined}
                 style={clickable ? { cursor: "pointer" } : undefined}
+                {...(rowAttrs ? rowAttrs(row) : null)}
               >
                 {columns.map((c) => (
                   <td

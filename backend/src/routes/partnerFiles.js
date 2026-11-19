@@ -61,12 +61,22 @@ const metaSchema = metaObjectSchema.refine(
   }
 );
 
-// GET /?partnerId=&kind= (all partners combined, newest first)
+// GET /?partnerId=&kind=&entityType=&from=&to= (all partners combined, newest first)
+// entityType ("missionary"|"organization") filters by the owning partner's
+// own kind -- AdminPartnerFiles.jsx's "Show: Missionaries/Organizations"
+// filter was client-side-only before this; from/to filter receivedDate,
+// same range shape as prayerRequests.js/supportNeeds.js just added above.
 router.get("/", async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
     if (req.query.kind) where.kind = String(req.query.kind);
+    if (req.query.entityType) where.partner = { kind: String(req.query.entityType) };
+    if (req.query.from || req.query.to) {
+      where.receivedDate = {};
+      if (req.query.from) where.receivedDate.gte = new Date(String(req.query.from));
+      if (req.query.to) where.receivedDate.lte = new Date(String(req.query.to));
+    }
 
     const records = await prisma.partnerFile.findMany({
       where,

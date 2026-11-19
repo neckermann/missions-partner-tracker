@@ -6,13 +6,12 @@ import {
   fetchUrgentRecipientCount,
 } from "../../api/client.js";
 import { formatDate, todayInputValue, toDateInputValue } from "../../utils/format.js";
-import { urgentSendDescription } from "../../utils/urgentSend.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import useChurchSettings from "../../hooks/useChurchSettings.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import SourceLink from "./SourceLink.jsx";
-import SourcePicker from "./SourcePicker.jsx";
+import PrayerRequestFormFields from "./PrayerRequestFormFields.jsx";
 import LoadMoreButton from "../LoadMoreButton.jsx";
 import UrgentSendConfirmBody from "./UrgentSendConfirmBody.jsx";
 import ApproveRestrictedTextConfirmBody from "./ApproveRestrictedTextConfirmBody.jsx";
@@ -213,127 +212,15 @@ export default function PrayerRequestSection({ partnerId, isRestricted, prayerRe
 
       {showAddForm && (
         <form onSubmit={handleSubmit} style={{ marginTop: "1rem" }}>
-          <div className="form-grid">
-            <label>
-              Category
-              <select
-                value={newRequest.category}
-                onChange={(e) => setNewRequest((f) => ({ ...f, category: e.target.value }))}
-              >
-                <option value="strategic">
-                  Strategic (ministry vision/calling — can be shared publicly)
-                </option>
-                <option value="situational">
-                  Situational (health, travel, family, logistics — admin-only)
-                </option>
-              </select>
-            </label>
-            <label>
-              Date Received
-              <input
-                type="date"
-                value={newRequest.dateReceived}
-                onChange={(e) => setNewRequest((f) => ({ ...f, dateReceived: e.target.value }))}
-                required
-              />
-            </label>
-            <label style={{ gridColumn: "1 / -1" }}>
-              Prayer Request
-              <textarea
-                rows={2}
-                value={newRequest.requestText}
-                onChange={(e) => setNewRequest((f) => ({ ...f, requestText: e.target.value }))}
-                required
-              />
-            </label>
-            {newRequest.category === "strategic" && (
-              <div className="admin-checkbox-row">
-                <label title="Shows on this partner's public profile page, if the public site is enabled.">
-                  <input
-                    type="checkbox"
-                    checked={newRequest.isPublic}
-                    onChange={(e) =>
-                      setNewRequest((f) => ({
-                        ...f,
-                        isPublic: e.target.checked,
-                        includeInBooklet: e.target.checked && f.includeInBooklet,
-                      }))
-                    }
-                  />
-                  Show on public profile
-                </label>
-                {newRequest.isPublic && (
-                  <label title="Eligible to print in the booklet -- the actual number shown per partner is capped there (see the Booklet page) so this section doesn't take over the page.">
-                    <input
-                      type="checkbox"
-                      checked={newRequest.includeInBooklet}
-                      onChange={(e) => setNewRequest((f) => ({ ...f, includeInBooklet: e.target.checked }))}
-                    />
-                    Include in printed booklet
-                  </label>
-                )}
-              </div>
-            )}
-            <div className="admin-checkbox-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={newRequest.untracked}
-                  onChange={(e) => setNewRequest((f) => ({ ...f, untracked: e.target.checked }))}
-                />
-                Not tracking this one for a specific answer
-              </label>
-            </div>
-            {hasEnabledChannel && (
-              <div style={{ gridColumn: "1 / -1" }}>
-                <div className="admin-checkbox-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={newRequest.isUrgent}
-                      onChange={(e) => setNewRequest((f) => ({ ...f, isUrgent: e.target.checked }))}
-                    />
-                    Mark as urgent -- send right away
-                  </label>
-                </div>
-                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-                  {urgentSendDescription(enabledFeatures)}
-                </p>
-              </div>
-            )}
-            {canApproveNow && (
-              <div style={{ gridColumn: "1 / -1" }}>
-                <div className="admin-checkbox-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={newRequest.approveNow}
-                      onChange={(e) => setNewRequest((f) => ({ ...f, approveNow: e.target.checked }))}
-                    />
-                    Review and approve now
-                  </label>
-                </div>
-                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-                  This partner is restricted, so nothing above sends anywhere until an admin or editor reviews
-                  it -- normally from the Pending Dispatches page afterward. Checking this confirms, right
-                  now, that the text you just typed is safe to send verbatim, skipping that extra trip. You'll
-                  be asked to confirm the exact wording before saving.
-                </p>
-              </div>
-            )}
-            <SourcePicker
-              files={files}
-              sourceFileId={newRequest.sourceFileId}
-              onChange={(source) => setNewRequest((f) => ({ ...f, ...source }))}
-            />
-            <label style={{ gridColumn: "1 / -1" }}>
-              Admin Notes (optional, never shown publicly)
-              <input
-                value={newRequest.notes}
-                onChange={(e) => setNewRequest((f) => ({ ...f, notes: e.target.value }))}
-              />
-            </label>
-          </div>
+          <PrayerRequestFormFields
+            form={newRequest}
+            setForm={setNewRequest}
+            files={files}
+            mode="create"
+            hasEnabledChannel={hasEnabledChannel}
+            canApproveNow={canApproveNow}
+            enabledFeatures={enabledFeatures}
+          />
           {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
           <div style={{ marginTop: "1rem" }}>
             <button type="submit" className="btn" disabled={saving}>
@@ -357,82 +244,9 @@ export default function PrayerRequestSection({ partnerId, isRestricted, prayerRe
                 }}
               >
                 {editingId === p.id ? (
-                  <div className="form-grid" style={{ flex: 1 }}>
-                    <label>
-                      Category
-                      <select
-                        value={editForm.category}
-                        onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
-                      >
-                        <option value="strategic">
-                          Strategic (ministry vision/calling — can be shared publicly)
-                        </option>
-                        <option value="situational">
-                          Situational (health, travel, family, logistics — admin-only)
-                        </option>
-                      </select>
-                    </label>
-                    <label>
-                      Date Received
-                      <input
-                        type="date"
-                        value={editForm.dateReceived}
-                        onChange={(e) => setEditForm((f) => ({ ...f, dateReceived: e.target.value }))}
-                        required
-                      />
-                    </label>
-                    <label style={{ gridColumn: "1 / -1" }}>
-                      Prayer Request
-                      <textarea
-                        rows={2}
-                        value={editForm.requestText}
-                        onChange={(e) => setEditForm((f) => ({ ...f, requestText: e.target.value }))}
-                        required
-                      />
-                    </label>
-                    {editForm.category === "strategic" && (
-                      <div className="admin-checkbox-row" style={{ gridColumn: "1 / -1" }}>
-                        <label title="Shows on this partner's public profile page, if the public site is enabled.">
-                          <input
-                            type="checkbox"
-                            checked={editForm.isPublic}
-                            onChange={(e) =>
-                              setEditForm((f) => ({
-                                ...f,
-                                isPublic: e.target.checked,
-                                includeInBooklet: e.target.checked && f.includeInBooklet,
-                              }))
-                            }
-                          />
-                          Show on public profile
-                        </label>
-                        {editForm.isPublic && (
-                          <label title="Eligible to print in the booklet -- the actual number shown per partner is capped there (see the Booklet page) so this section doesn't take over the page.">
-                            <input
-                              type="checkbox"
-                              checked={editForm.includeInBooklet}
-                              onChange={(e) =>
-                                setEditForm((f) => ({ ...f, includeInBooklet: e.target.checked }))
-                              }
-                            />
-                            Include in printed booklet
-                          </label>
-                        )}
-                      </div>
-                    )}
-                    <SourcePicker
-                      files={files}
-                      sourceFileId={editForm.sourceFileId}
-                      onChange={(source) => setEditForm((f) => ({ ...f, ...source }))}
-                    />
-                    <label style={{ gridColumn: "1 / -1" }}>
-                      Admin Notes (optional, never shown publicly)
-                      <input
-                        value={editForm.notes}
-                        onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-                      />
-                    </label>
-                    <div style={{ gridColumn: "1 / -1", display: "flex", gap: "0.5rem" }}>
+                  <div style={{ flex: 1 }}>
+                    <PrayerRequestFormFields form={editForm} setForm={setEditForm} files={files} mode="edit" />
+                    <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
                       <button type="button" className="btn small" onClick={() => submitEdit(p.id)}>
                         Save
                       </button>

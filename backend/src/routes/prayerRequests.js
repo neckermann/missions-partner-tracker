@@ -78,11 +78,19 @@ const prayerRequestInclude = {
   sourceFile: { select: { id: true, kind: true, title: true, fileName: true, receivedDate: true } },
 };
 
-// GET /api/prayer-requests?partnerId=  (all partners combined, newest received first)
+// GET /api/prayer-requests?partnerId=&from=&to=  (all partners combined, newest received first)
+// from/to mirror reports/prayerRequests.js's own date-range filtering --
+// same Prisma where-clause shape, now also usable from the live list page's
+// FilterBar, not just the read-only Report.
 router.get("/", async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
+    if (req.query.from || req.query.to) {
+      where.dateReceived = {};
+      if (req.query.from) where.dateReceived.gte = new Date(String(req.query.from));
+      if (req.query.to) where.dateReceived.lte = new Date(String(req.query.to));
+    }
 
     const records = await prisma.prayerRequest.findMany({
       where,
