@@ -4,7 +4,8 @@ import { fetchUser, createUser, updateUser } from "../api/client.js";
 
 const emptyForm = {
   email: "",
-  name: "",
+  firstName: "",
+  lastName: "",
   role: "editor",
   authProvider: "local",
   active: true,
@@ -104,8 +105,12 @@ export default function AdminUserForm() {
               />
             </label>
             <label>
-              Name
-              <input value={form.name || ""} onChange={(e) => update("name", e.target.value)} />
+              First Name
+              <input value={form.firstName || ""} onChange={(e) => update("firstName", e.target.value)} />
+            </label>
+            <label>
+              Last Name
+              <input value={form.lastName || ""} onChange={(e) => update("lastName", e.target.value)} />
             </label>
             <label>
               Role

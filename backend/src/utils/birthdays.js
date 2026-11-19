@@ -68,9 +68,15 @@ function birthdaysInMonth(partners, month, { inYear = new Date().getFullYear() }
       const birth = toMonthDay(person.birthday);
       if (!birth || birth.month !== month) continue;
 
+      // #257/#271 Finding 4: Adult.name split first/last; Child.name
+      // deliberately stays a single field (see that model's own schema
+      // comment) -- compose only for the adult case.
+      const name =
+        personType === "adult" ? `${person.firstName} ${person.lastName || ""}`.trim() : person.name;
+
       rows.push({
         id: person.id,
-        name: person.name,
+        name,
         personType,
         day: birth.day,
         month: birth.month,

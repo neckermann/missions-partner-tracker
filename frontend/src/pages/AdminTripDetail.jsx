@@ -27,7 +27,7 @@ import {
   updateTripFlightSegment,
   deleteTripFlightSegment,
 } from "../api/client.js";
-import { formatDate, formatFileSize } from "../utils/format.js";
+import { formatDate, formatFileSize, isMinorForTrip } from "../utils/format.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestionsEditor.jsx";
@@ -53,6 +53,7 @@ export default function AdminTripDetail() {
     bodyText: "",
     dueAt: "",
     reminderLeadDays: "",
+    minorsOnly: false,
   });
   const [questionLibrary, setQuestionLibrary] = useState([]);
   const [requirementLibrary, setRequirementLibrary] = useState([]);
@@ -219,8 +220,16 @@ export default function AdminTripDetail() {
       bodyText: newRequirement.kind === "esignature" ? newRequirement.bodyText.trim() || null : null,
       dueAt: newRequirement.dueAt || null,
       reminderLeadDays: newRequirement.reminderLeadDays ? Number(newRequirement.reminderLeadDays) : null,
+      minorsOnly: newRequirement.minorsOnly,
     });
-    setNewRequirement({ label: "", kind: "document", bodyText: "", dueAt: "", reminderLeadDays: "" });
+    setNewRequirement({
+      label: "",
+      kind: "document",
+      bodyText: "",
+      dueAt: "",
+      reminderLeadDays: "",
+      minorsOnly: false,
+    });
     reload();
   }
 
@@ -238,6 +247,7 @@ export default function AdminTripDetail() {
       kind: entry.kind,
       bodyText: entry.bodyText || null,
       reminderLeadDays: entry.reminderLeadDays || null,
+      minorsOnly: entry.minorsOnly || false,
     });
     setRequirementLibraryPick("");
     reload();
@@ -269,6 +279,12 @@ export default function AdminTripDetail() {
     await updateTripRequirement(reqId, {
       reminderLeadDays: reminderLeadDays ? Number(reminderLeadDays) : null,
     });
+    reload();
+  }
+
+  // #278
+  async function handleSetRequirementMinorsOnly(reqId, minorsOnly) {
+    await updateTripRequirement(reqId, { minorsOnly });
     reload();
   }
 
@@ -970,6 +986,9 @@ export default function AdminTripDetail() {
                   return (
                     <th key={r.id} style={{ whiteSpace: "nowrap" }}>
                       {r.label}
+                      {r.minorsOnly && (
+                        <div style={{ fontWeight: 400, fontSize: "0.7rem", color: "#888" }}>minors only</div>
+                      )}
                       {r.dueAt && (
                         <div
                           style={{ fontWeight: 400, fontSize: "0.7rem", color: overdue ? "#b91c1c" : "#888" }}
@@ -1002,6 +1021,17 @@ export default function AdminTripDetail() {
                       {p.supportRaisingGoal ? ` / $${p.supportRaisingGoal}` : ""}
                     </td>
                     {(trip.requirements || []).map((r) => {
+                      // #278 -- a minors-only requirement was never this
+                      // participant's to fulfill at all if they're not a
+                      // minor for this trip; showing Missing/✕ here would
+                      // read as a real outstanding item when it isn't one.
+                      if (r.minorsOnly && !isMinorForTrip(p.dateOfBirth, trip.startDate)) {
+                        return (
+                          <td key={r.id} style={{ textAlign: "center", color: "#ccc" }} title="Minors only">
+                            —
+                          </td>
+                        );
+                      }
                       const fulfilled = !!fulfillment.find((f) => f.id === r.id)?.fulfilled;
                       return (
                         <td key={r.id} style={{ textAlign: "center" }}>
@@ -1175,6 +1205,22 @@ export default function AdminTripDetail() {
                       gap: "0.3rem",
                     }}
                   >
+                    <input
+                      type="checkbox"
+                      checked={!!r.minorsOnly}
+                      onChange={(e) => handleSetRequirementMinorsOnly(r.id, e.target.checked)}
+                    />
+                    Minors only
+                  </label>
+                  <label
+                    style={{
+                      fontWeight: 400,
+                      fontSize: "0.8rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.3rem",
+                    }}
+                  >
                     Due
                     <input
                       type="date"
@@ -1297,6 +1343,22 @@ export default function AdminTripDetail() {
               value={newRequirement.dueAt}
               onChange={(e) => setNewRequirement((f) => ({ ...f, dueAt: e.target.value }))}
             />
+          </label>
+          <label
+            style={{
+              fontWeight: 400,
+              fontSize: "0.85rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.3rem",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={newRequirement.minorsOnly}
+              onChange={(e) => setNewRequirement((f) => ({ ...f, minorsOnly: e.target.checked }))}
+            />
+            Minors only
           </label>
           <button type="submit" className="btn secondary small">
             + Add
@@ -1830,11 +1892,17 @@ export default function AdminTripDetail() {
                                   .join(", ")}
                               </>
                             )}
-                            {(a.emergencyContactName || a.emergencyContactPhone) && (
+                            {(a.emergencyContactFirstName || a.emergencyContactPhone) && (
                               <>
                                 {" "}
                                 · <strong>Emergency contact:</strong>{" "}
-                                {[a.emergencyContactName, a.emergencyContactPhone, a.emergencyContactEmail]
+                                {[
+                                  [a.emergencyContactFirstName, a.emergencyContactLastName]
+                                    .filter(Boolean)
+                                    .join(" "),
+                                  a.emergencyContactPhone,
+                                  a.emergencyContactEmail,
+                                ]
                                   .filter(Boolean)
                                   .join(", ")}
                               </>
@@ -1952,12 +2020,14 @@ export default function AdminTripDetail() {
                                         .join(", ")}
                                     </>
                                   )}
-                                  {(a.emergencyContactName || a.emergencyContactPhone) && (
+                                  {(a.emergencyContactFirstName || a.emergencyContactPhone) && (
                                     <>
                                       {" "}
                                       · <strong>Emergency contact:</strong>{" "}
                                       {[
-                                        a.emergencyContactName,
+                                        [a.emergencyContactFirstName, a.emergencyContactLastName]
+                                          .filter(Boolean)
+                                          .join(" "),
                                         a.emergencyContactPhone,
                                         a.emergencyContactEmail,
                                       ]

@@ -148,7 +148,8 @@ function fakeEmergencyContact(participantLastName) {
   const lastName = participantLastName || pick(LAST);
   const emailLocal = `${firstName}.${lastName}`.toLowerCase().replace(/[^a-z.]/g, "");
   return {
-    emergencyContactName: `${firstName} ${lastName}`,
+    emergencyContactFirstName: firstName,
+    emergencyContactLastName: lastName,
     emergencyContactPhone: fakePhone(),
     emergencyContactEmail: `${emailLocal}@example.com`,
   };
@@ -675,7 +676,7 @@ async function maybeAddNewsletter({ partnerId, name, slug, field }) {
       kind: "newsletter",
       title: subject,
       receivedDate: dateBetween(1, 0),
-      bytes: buffer,
+      bytesRow: { create: { bytes: buffer } },
       fileName: "update.eml",
       contentType: "message/rfc822",
       fileSize: buffer.length,
@@ -807,7 +808,7 @@ async function maybeAddDocument({ partnerId, name, slug, field }) {
       title,
       receivedDate: dateBetween(1, 0),
       notes: chance(0.5) ? pick(DOCUMENT_NOTES) : null,
-      bytes: buffer,
+      bytesRow: { create: { bytes: buffer } },
       fileName,
       contentType,
       fileSize: buffer.length,
@@ -1257,7 +1258,7 @@ async function seedUnmatchedEmails() {
       data: {
         fromAddress: sender.email,
         subject,
-        bytes: buffer,
+        bytesRow: { create: { bytes: buffer } },
         fileName: "email.eml",
         receivedAt,
       },
@@ -1266,10 +1267,38 @@ async function seedUnmatchedEmails() {
 }
 
 const ADDITIONAL_USERS = [
-  { name: "Pat Reynolds", role: "editor", cadence: null, active: true, mfaSetupRequired: false },
-  { name: "Jordan Lee", role: "editor", cadence: null, active: true, mfaSetupRequired: true },
-  { name: "Casey Nguyen", role: "viewer", cadence: null, active: true, mfaSetupRequired: false },
-  { name: "Morgan Patel", role: "admin", cadence: null, active: false, mfaSetupRequired: false },
+  {
+    firstName: "Pat",
+    lastName: "Reynolds",
+    role: "editor",
+    cadence: null,
+    active: true,
+    mfaSetupRequired: false,
+  },
+  {
+    firstName: "Jordan",
+    lastName: "Lee",
+    role: "editor",
+    cadence: null,
+    active: true,
+    mfaSetupRequired: true,
+  },
+  {
+    firstName: "Casey",
+    lastName: "Nguyen",
+    role: "viewer",
+    cadence: null,
+    active: true,
+    mfaSetupRequired: false,
+  },
+  {
+    firstName: "Morgan",
+    lastName: "Patel",
+    role: "admin",
+    cadence: null,
+    active: false,
+    mfaSetupRequired: false,
+  },
 ];
 
 // Beyond the one env-var-driven demo admin (createAdmin.js), a handful
@@ -1400,7 +1429,8 @@ async function seedTripsDemo() {
             lastName: "Okonkwo",
             email: "james.okonkwo@example.org",
             phone: "555-0198",
-            emergencyContactName: "Grace Okonkwo",
+            emergencyContactFirstName: "Grace",
+            emergencyContactLastName: "Okonkwo",
             emergencyContactPhone: "555-0142",
             emergencyContactEmail: "grace.okonkwo@example.org",
             // Structured address (#252 follow-on) -- at least one seeded
@@ -1442,7 +1472,8 @@ async function seedTripsDemo() {
             lastName: "Palmquist",
             email: "derek.palmquist@example.org",
             phone: "555-0176",
-            emergencyContactName: "Wendy Palmquist",
+            emergencyContactFirstName: "Wendy",
+            emergencyContactLastName: "Palmquist",
             emergencyContactPhone: "555-0177",
             addressLine1: "19 Birch Court",
             city: "Davenport",
@@ -1575,7 +1606,7 @@ async function seedTripsDemo() {
       if (photo) {
         await prisma.tripParticipant.update({
           where: { id: john.id },
-          data: { photo: photo.bytes, photoContentType: photo.contentType },
+          data: { photoBytesRow: { create: { photo: photo.bytes } }, photoContentType: photo.contentType },
         });
       }
     }
@@ -1623,7 +1654,7 @@ async function seedTripsDemo() {
       if (photo) {
         await prisma.tripParticipant.update({
           where: { id: david.id },
-          data: { photo: photo.bytes, photoContentType: photo.contentType },
+          data: { photoBytesRow: { create: { photo: photo.bytes } }, photoContentType: photo.contentType },
         });
       }
     }
@@ -1656,7 +1687,8 @@ async function seedTripsDemo() {
       stateProvinceRegion: "IL",
       postalCode: "61265",
       country: "USA",
-      emergencyContactName: "Chidi Chukwu",
+      emergencyContactFirstName: "Chidi",
+      emergencyContactLastName: "Chukwu",
       emergencyContactPhone: "555-0164",
       emergencyContactEmail: "chidi.chukwu@example.org",
       dateOfBirth: new Date(Date.UTC(1995, 6, 19)),
@@ -1687,7 +1719,8 @@ async function seedTripsDemo() {
       stateProvinceRegion: amaraApplication.stateProvinceRegion,
       postalCode: amaraApplication.postalCode,
       country: amaraApplication.country,
-      emergencyContactName: amaraApplication.emergencyContactName,
+      emergencyContactFirstName: amaraApplication.emergencyContactFirstName,
+      emergencyContactLastName: amaraApplication.emergencyContactLastName,
       emergencyContactPhone: amaraApplication.emergencyContactPhone,
       emergencyContactEmail: amaraApplication.emergencyContactEmail,
       dateOfBirth: amaraApplication.dateOfBirth,
@@ -1782,7 +1815,7 @@ async function seedTripsDemo() {
         participantId: priya.id,
         requirementId: docReq.id,
         title: "Passport photo page",
-        bytes: passportPdf,
+        bytesRow: { create: { bytes: passportPdf } },
         fileName: "passport.pdf",
         contentType: "application/pdf",
       },
@@ -1799,7 +1832,7 @@ async function seedTripsDemo() {
         participantId: david.id,
         requirementId: docReq.id,
         title: "Passport photo page",
-        bytes: davidPassportPdf,
+        bytesRow: { create: { bytes: davidPassportPdf } },
         fileName: "passport.pdf",
         contentType: "application/pdf",
       },
@@ -1835,7 +1868,7 @@ async function seedTripsDemo() {
           participantId: priya.id,
           requirementId: esigReq.id,
           title: esigReq.label,
-          bytes: pdfBytes,
+          bytesRow: { create: { bytes: pdfBytes } },
           fileName: "signed-liability-release.pdf",
           contentType: "application/pdf",
           // Merged from the former, separate TripSignature model (§20.1
@@ -1865,7 +1898,7 @@ async function seedTripsDemo() {
       tripId: openTrip.id,
       participantId: null,
       title: "Team itinerary & packing list",
-      bytes: itineraryPdf,
+      bytesRow: { create: { bytes: itineraryPdf } },
       fileName: "team-itinerary.pdf",
       contentType: "application/pdf",
     },
@@ -2022,7 +2055,7 @@ async function seedTripsDemo() {
           participantId: marcus.id,
           requirementId: closedEsigReq.id,
           title: closedEsigReq.label,
-          bytes: pdfBytes,
+          bytesRow: { create: { bytes: pdfBytes } },
           fileName: "signed-waiver.pdf",
           contentType: "application/pdf",
           signerName: `${marcus.firstName} ${marcus.lastName}`,
@@ -2061,7 +2094,7 @@ async function seedTripsDemo() {
       if (photo) {
         await prisma.tripParticipant.update({
           where: { id: marcus.id },
-          data: { photo: photo.bytes, photoContentType: photo.contentType },
+          data: { photoBytesRow: { create: { photo: photo.bytes } }, photoContentType: photo.contentType },
         });
       }
     }
@@ -2216,11 +2249,13 @@ async function seedTripsDemo() {
       stateProvinceRegion: "IL",
       postalCode: "61201",
       country: "USA",
-      parentGuardianName: "Karen Thompson",
+      parentGuardianFirstName: "Karen",
+      parentGuardianLastName: "Thompson",
       parentGuardianRelationship: "Mother",
       parentGuardianPhone: "555-0212",
       parentGuardianEmail: "karen.thompson@example.org",
-      emergencyContactName: "Karen Thompson",
+      emergencyContactFirstName: "Karen",
+      emergencyContactLastName: "Thompson",
       emergencyContactPhone: "555-0212",
       emergencyContactEmail: "karen.thompson@example.org",
     },
@@ -2239,11 +2274,13 @@ async function seedTripsDemo() {
       stateProvinceRegion: minorApplication.stateProvinceRegion,
       postalCode: minorApplication.postalCode,
       country: minorApplication.country,
-      parentGuardianName: minorApplication.parentGuardianName,
+      parentGuardianFirstName: minorApplication.parentGuardianFirstName,
+      parentGuardianLastName: minorApplication.parentGuardianLastName,
       parentGuardianRelationship: minorApplication.parentGuardianRelationship,
       parentGuardianPhone: minorApplication.parentGuardianPhone,
       parentGuardianEmail: minorApplication.parentGuardianEmail,
-      emergencyContactName: minorApplication.emergencyContactName,
+      emergencyContactFirstName: minorApplication.emergencyContactFirstName,
+      emergencyContactLastName: minorApplication.emergencyContactLastName,
       emergencyContactPhone: minorApplication.emergencyContactPhone,
       emergencyContactEmail: minorApplication.emergencyContactEmail,
       supportRaisingGoal: minorsTrip.supportRaisingGoal,
@@ -2316,7 +2353,7 @@ async function seedTripsDemo() {
       tripLabel: minorsTrip.name,
       participantName: `${lily.firstName} ${lily.lastName}`,
       documentText,
-      signerName: minorApplication.parentGuardianName,
+      signerName: `${minorApplication.parentGuardianFirstName} ${minorApplication.parentGuardianLastName}`,
       signatureImage: null,
       attestedAt,
       documentTextHash,
@@ -2328,10 +2365,10 @@ async function seedTripsDemo() {
         participantId: lily.id,
         requirementId: minorReleaseRequirement.id,
         title: minorReleaseRequirement.label,
-        bytes: pdfBytes,
+        bytesRow: { create: { bytes: pdfBytes } },
         fileName: "minor-travel-release.pdf",
         contentType: "application/pdf",
-        signerName: minorApplication.parentGuardianName,
+        signerName: `${minorApplication.parentGuardianFirstName} ${minorApplication.parentGuardianLastName}`,
         signerRelationship: "parent/guardian",
         attestedAt,
         ip: "203.0.113.19",
@@ -2384,11 +2421,13 @@ async function seedTripsDemo() {
       reviewedAt: dateBetween(3, 2),
       reviewedById: admin?.id || null,
       dateOfBirth: pastMinorDob,
-      parentGuardianName: "Diane Castellano",
+      parentGuardianFirstName: "Diane",
+      parentGuardianLastName: "Castellano",
       parentGuardianRelationship: "Mother",
       parentGuardianPhone: "555-0234",
       parentGuardianEmail: "diane.castellano@example.org",
-      emergencyContactName: "Diane Castellano",
+      emergencyContactFirstName: "Diane",
+      emergencyContactLastName: "Castellano",
       emergencyContactPhone: "555-0234",
       emergencyContactEmail: "diane.castellano@example.org",
       addressLine1: "212 Hawthorn Lane",
@@ -2407,11 +2446,13 @@ async function seedTripsDemo() {
       email: pastMinorApplication.email,
       phone: pastMinorApplication.phone,
       dateOfBirth: pastMinorApplication.dateOfBirth,
-      parentGuardianName: pastMinorApplication.parentGuardianName,
+      parentGuardianFirstName: pastMinorApplication.parentGuardianFirstName,
+      parentGuardianLastName: pastMinorApplication.parentGuardianLastName,
       parentGuardianRelationship: pastMinorApplication.parentGuardianRelationship,
       parentGuardianPhone: pastMinorApplication.parentGuardianPhone,
       parentGuardianEmail: pastMinorApplication.parentGuardianEmail,
-      emergencyContactName: pastMinorApplication.emergencyContactName,
+      emergencyContactFirstName: pastMinorApplication.emergencyContactFirstName,
+      emergencyContactLastName: pastMinorApplication.emergencyContactLastName,
       emergencyContactPhone: pastMinorApplication.emergencyContactPhone,
       emergencyContactEmail: pastMinorApplication.emergencyContactEmail,
       addressLine1: pastMinorApplication.addressLine1,
@@ -2454,7 +2495,7 @@ async function seedTripsDemo() {
       tripLabel: pastMinorsTrip.name,
       participantName: `${noah.firstName} ${noah.lastName}`,
       documentText,
-      signerName: pastMinorApplication.parentGuardianName,
+      signerName: `${pastMinorApplication.parentGuardianFirstName} ${pastMinorApplication.parentGuardianLastName}`,
       signatureImage: null,
       attestedAt,
       documentTextHash,
@@ -2466,10 +2507,10 @@ async function seedTripsDemo() {
         participantId: noah.id,
         requirementId: pastMinorReleaseRequirement.id,
         title: pastMinorReleaseRequirement.label,
-        bytes: pdfBytes,
+        bytesRow: { create: { bytes: pdfBytes } },
         fileName: "minor-travel-release.pdf",
         contentType: "application/pdf",
-        signerName: pastMinorApplication.parentGuardianName,
+        signerName: `${pastMinorApplication.parentGuardianFirstName} ${pastMinorApplication.parentGuardianLastName}`,
         signerRelationship: "parent/guardian",
         attestedAt,
         ip: "203.0.113.55",
@@ -2703,13 +2744,14 @@ async function seedAdditionalUsers() {
   const bcrypt = require("bcryptjs");
   const passwordHash = await bcrypt.hash("SeedDemoUser2026!", 12);
   for (const u of ADDITIONAL_USERS) {
-    const email = `${slugify(u.name)}@example.org`;
+    const email = `${slugify(`${u.firstName} ${u.lastName}`)}@example.org`;
     await prisma.user.upsert({
       where: { email },
       update: {},
       create: {
         email,
-        name: u.name,
+        firstName: u.firstName,
+        lastName: u.lastName,
         passwordHash,
         role: u.role,
         active: u.active,
@@ -2841,14 +2883,18 @@ async function main() {
     const adults = isFamily
       ? [
           {
-            name: `${displayName.split(" and ")[0]} ${last}`,
+            firstName: displayName.split(" and ")[0],
+            lastName: last,
             phone1: fakePhone(),
             phone2: chance(0.25) ? fakePhone() : null,
             email: `${slugify(displayName.split(" and ")[0])}.${slugify(last)}@example.com`,
             birthday: dateBetween(60, 28),
           },
           {
-            name: displayName.split(" and ")[1],
+            // displayName.split(" and ")[1] is "<firstName> <lastName>" --
+            // the second spouse's own first name plus the shared last name.
+            firstName: displayName.split(" and ")[1].split(" ")[0],
+            lastName: last,
             phone1: fakePhone(),
             phone2: null,
             email: `${slugify(displayName.split(" and ")[1])}@example.com`,
@@ -2857,7 +2903,8 @@ async function main() {
         ]
       : [
           {
-            name: displayName,
+            firstName: displayName.split(" ")[0],
+            lastName: last,
             phone1: fakePhone(),
             phone2: chance(0.15) ? fakePhone() : null,
             email: `${slugify(displayName)}@example.com`,
@@ -2894,6 +2941,7 @@ async function main() {
       : [];
 
     const photo = await resolveMissionaryPhoto(photoPools, isFamily, childCount);
+    const hasEmergencyContact = chance(0.5);
 
     const createdMissionary = await prisma.partner.create({
       data: {
@@ -2927,11 +2975,15 @@ async function main() {
         instagram: chance(0.4) ? `https://instagram.com/${last.toLowerCase()}family` : null,
         linkedin: chance(0.15) ? `https://linkedin.com/in/${last.toLowerCase()}` : null,
         photos: {
-          create: { bytes: photo.bytes, contentType: photo.contentType, receivedDate: dateBetween(1, 0) },
+          create: {
+            bytesRow: { create: { bytes: photo.bytes } },
+            contentType: photo.contentType,
+            receivedDate: dateBetween(1, 0),
+          },
         },
-        emergencyContact: chance(0.5)
-          ? { name: `${pick(FIRST_M.concat(FIRST_F))} ${pick(LAST)}`, phone: fakePhone(), email: null }
-          : {},
+        emergencyContactName: hasEmergencyContact ? `${pick(FIRST_M.concat(FIRST_F))} ${pick(LAST)}` : null,
+        emergencyContactPhone: hasEmergencyContact ? fakePhone() : null,
+        emergencyContactEmail: null,
         adults: { create: adults },
         children: { create: children },
         addresses: {
@@ -2961,26 +3013,32 @@ async function main() {
         supportEntries: { create: buildSupportEntries() },
         needRequests: { create: buildNeedRequests() },
         prayerRequests: { create: buildPrayerRequests() },
-        // SendingParty rows store the mailing address as flat columns (see
-        // schema.prisma), so churchSettings.address (still the old nested
-        // JSON shape from ChurchSettings) is spread directly rather than
-        // assigned to a `mailingAddress` key.
+        // #271 Finding 3: ChurchSettings' address fields are flat columns
+        // now, same shape/names as SendingParty's own, so they're just
+        // picked straight across rather than spread from a nested object.
         sendingParties: {
           create: [
             sentByOurChurch
               ? {
                   type: "church",
                   name: churchSettings.churchName,
-                  contactName: churchSettings.contactName,
+                  contactFirstName: churchSettings.contactFirstName,
+                  contactLastName: churchSettings.contactLastName,
                   contactEmail: churchSettings.contactEmail,
                   websiteLink: churchSettings.websiteLink,
                   phone: churchSettings.phone,
-                  ...(churchSettings.address || {}),
+                  addressLine1: churchSettings.addressLine1,
+                  addressLine2: churchSettings.addressLine2,
+                  city: churchSettings.city,
+                  stateProvinceRegion: churchSettings.stateProvinceRegion,
+                  postalCode: churchSettings.postalCode,
+                  country: churchSettings.country,
                 }
               : {
                   type: "church",
                   name: fallbackChurchName,
-                  contactName: `${pick(FIRST_M.concat(FIRST_F))} ${pick(LAST)}`,
+                  contactFirstName: pick(FIRST_M.concat(FIRST_F)),
+                  contactLastName: pick(LAST),
                   contactEmail: chance(0.6) ? `missions@${slugify(fallbackChurchName)}.example.org` : null,
                   websiteLink: chance(0.5) ? `https://${slugify(fallbackChurchName)}.example.org` : null,
                   phone: chance(0.5) ? fakePhone() : null,
@@ -2988,7 +3046,8 @@ async function main() {
             {
               type: "org",
               name: sendingOrgName,
-              contactName: `${pick(FIRST_M.concat(FIRST_F))} ${pick(LAST)}`,
+              contactFirstName: pick(FIRST_M.concat(FIRST_F)),
+              contactLastName: pick(LAST),
               contactEmail: chance(0.7) ? `partnercare@${slugify(sendingOrgName)}.example.org` : null,
               websiteLink: chance(0.6) ? `https://${slugify(sendingOrgName)}.example.org` : null,
               phone: chance(0.5) ? fakePhone() : null,
@@ -3051,7 +3110,8 @@ async function main() {
         overviewShort,
         focusArea: `Primary focus: ${focusList.join(", ")}.`,
         supportingSince: new Date(year, 0, 1),
-        contactName: `${pick(FIRST_M.concat(FIRST_F))} ${pick(LAST)}`,
+        contactFirstName: pick(FIRST_M.concat(FIRST_F)),
+        contactLastName: pick(LAST),
         contactPhone: fakePhone(),
         contactEmail: `info@${slugify(name)}.example.org`,
         preferredContactMethod: pick(CONTACT_METHODS),
@@ -3068,7 +3128,11 @@ async function main() {
         tripSeasonNotes: chance(0.5) ? pick(SEASON_NOTES) : null,
         tripLogisticsNotes: chance(0.5) ? pick(LOGISTICS_NOTES) : null,
         photos: {
-          create: { bytes: logo.bytes, contentType: logo.contentType, receivedDate: dateBetween(1, 0) },
+          create: {
+            bytesRow: { create: { bytes: logo.bytes } },
+            contentType: logo.contentType,
+            receivedDate: dateBetween(1, 0),
+          },
         },
         addresses: {
           create: [

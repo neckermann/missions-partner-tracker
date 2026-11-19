@@ -40,7 +40,13 @@ const emptyForm = {
 // one, since neither of this component's own two consumers is itself
 // a library being picked *from*.
 function RequirementTemplateEditor({ items, onChange }) {
-  const [draft, setDraft] = useState({ label: "", kind: "document", bodyText: "", reminderLeadDays: "" });
+  const [draft, setDraft] = useState({
+    label: "",
+    kind: "document",
+    bodyText: "",
+    reminderLeadDays: "",
+    minorsOnly: false,
+  });
 
   function update(index, patch) {
     onChange(items.map((item, i) => (i === index ? { ...item, ...patch } : item)));
@@ -59,9 +65,10 @@ function RequirementTemplateEditor({ items, onChange }) {
         kind: draft.kind,
         bodyText: draft.kind === "esignature" ? draft.bodyText.trim() || null : null,
         reminderLeadDays: draft.reminderLeadDays ? Number(draft.reminderLeadDays) : null,
+        minorsOnly: draft.minorsOnly,
       },
     ]);
-    setDraft({ label: "", kind: "document", bodyText: "", reminderLeadDays: "" });
+    setDraft({ label: "", kind: "document", bodyText: "", reminderLeadDays: "", minorsOnly: false });
   }
 
   return (
@@ -80,6 +87,22 @@ function RequirementTemplateEditor({ items, onChange }) {
                 <option value="task">Task</option>
                 <option value="esignature">E-signature</option>
               </select>
+              <label
+                style={{
+                  fontWeight: 400,
+                  fontSize: "0.85rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.3rem",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!item.minorsOnly}
+                  onChange={(e) => update(index, { minorsOnly: e.target.checked })}
+                />
+                Minors only
+              </label>
               <button type="button" className="btn-remove" onClick={() => remove(index)}>
                 ✕
               </button>
@@ -108,6 +131,22 @@ function RequirementTemplateEditor({ items, onChange }) {
           <option value="task">Task</option>
           <option value="esignature">E-signature</option>
         </select>
+        <label
+          style={{
+            fontWeight: 400,
+            fontSize: "0.85rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.3rem",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={draft.minorsOnly}
+            onChange={(e) => setDraft((f) => ({ ...f, minorsOnly: e.target.checked }))}
+          />
+          Minors only
+        </label>
         {draft.kind === "esignature" && (
           <textarea
             style={{ flex: "1 1 100%", minWidth: 220 }}

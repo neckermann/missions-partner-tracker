@@ -14,12 +14,15 @@ the Render dashboard or a maintainer's own machine.
   `ChurchSettings` on every reset. Never commit this file -- `.gitignore`
   already excludes every `.env`/`.env.*` anywhere in the repo.
 - **`render.yaml`** -- the demo's own Render Blueprint: the production
-  web service plus the nightly reset cron job, including the four
-  demo-only env vars (`DEMO_RESET_TOKEN`, `DEMO_ADMIN_EMAIL/PASSWORD`,
-  `PEXELS_API_KEY`) that must never appear on a real church's instance.
-  Record-keeping only right now -- Render isn't actively syncing from
-  this file; it's what to restore from if the demo's services were ever
-  deleted and had to be rebuilt.
+  web service, the background worker (#271 Phase B -- schedulers and the
+  WhatsApp connection, split out of the web service), plus the nightly
+  reset cron job, including the four demo-only env vars
+  (`DEMO_RESET_TOKEN`, `DEMO_ADMIN_EMAIL/PASSWORD`, `PEXELS_API_KEY`) that
+  must never appear on a real church's instance -- all four stay on the
+  web service only, the worker needs none of them. Record-keeping only
+  right now -- Render isn't actively syncing from this file; it's what to
+  restore from if the demo's services were ever deleted and had to be
+  rebuilt.
 
 ## Recovering after a migration squash
 

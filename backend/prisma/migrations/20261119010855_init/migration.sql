@@ -16,13 +16,16 @@ CREATE TABLE "Partner" (
     "preferredContactMethod" TEXT,
     "contactSafe" BOOLEAN NOT NULL DEFAULT true,
     "sentByOurChurch" BOOLEAN NOT NULL DEFAULT false,
-    "contactName" TEXT,
+    "contactFirstName" TEXT,
+    "contactLastName" TEXT,
     "contactPhone" TEXT,
     "contactEmail" TEXT,
     "orgType" TEXT,
     "anniversary" DATE,
     "languagesSpoken" TEXT[] DEFAULT ARRAY[]::TEXT[],
-    "emergencyContact" JSONB,
+    "emergencyContactName" TEXT,
+    "emergencyContactPhone" TEXT,
+    "emergencyContactEmail" TEXT,
     "tripTeamSizeMin" INTEGER,
     "tripTeamSizeMax" INTEGER,
     "tripTypesSupported" TEXT[] DEFAULT ARRAY[]::TEXT[],
@@ -47,7 +50,8 @@ CREATE TABLE "Partner" (
 CREATE TABLE "Adult" (
     "id" TEXT NOT NULL,
     "partnerId" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
+    "firstName" TEXT,
+    "lastName" TEXT,
     "phone1" TEXT,
     "phone2" TEXT,
     "email" TEXT,
@@ -127,21 +131,30 @@ CREATE TABLE "TripParticipant" (
     "stateProvinceRegion" TEXT,
     "postalCode" TEXT,
     "country" TEXT,
-    "emergencyContactName" TEXT,
+    "emergencyContactFirstName" TEXT,
+    "emergencyContactLastName" TEXT,
     "emergencyContactPhone" TEXT,
     "emergencyContactEmail" TEXT,
     "dateOfBirth" DATE,
-    "parentGuardianName" TEXT,
+    "parentGuardianFirstName" TEXT,
+    "parentGuardianLastName" TEXT,
     "parentGuardianRelationship" TEXT,
     "parentGuardianPhone" TEXT,
     "parentGuardianEmail" TEXT,
     "shareToken" TEXT,
     "story" TEXT,
-    "photo" BYTEA,
     "photoContentType" TEXT,
     "accessTokenVersion" INTEGER NOT NULL DEFAULT 0,
 
     CONSTRAINT "TripParticipant_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TripParticipantPhoto" (
+    "id" TEXT NOT NULL,
+    "photo" BYTEA NOT NULL,
+
+    CONSTRAINT "TripParticipantPhoto_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -160,11 +173,13 @@ CREATE TABLE "TripApplication" (
     "stateProvinceRegion" TEXT,
     "postalCode" TEXT,
     "country" TEXT,
-    "emergencyContactName" TEXT,
+    "emergencyContactFirstName" TEXT,
+    "emergencyContactLastName" TEXT,
     "emergencyContactPhone" TEXT,
     "emergencyContactEmail" TEXT,
     "dateOfBirth" DATE,
-    "parentGuardianName" TEXT,
+    "parentGuardianFirstName" TEXT,
+    "parentGuardianLastName" TEXT,
     "parentGuardianRelationship" TEXT,
     "parentGuardianPhone" TEXT,
     "parentGuardianEmail" TEXT,
@@ -211,6 +226,7 @@ CREATE TABLE "TripRequirement" (
     "bodyText" TEXT,
     "dueAt" DATE,
     "reminderLeadDays" INTEGER,
+    "minorsOnly" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "TripRequirement_pkey" PRIMARY KEY ("id")
 );
@@ -233,20 +249,27 @@ CREATE TABLE "TripDocument" (
     "participantId" TEXT,
     "requirementId" TEXT,
     "title" TEXT,
-    "bytes" BYTEA NOT NULL,
     "fileName" TEXT NOT NULL,
     "contentType" TEXT NOT NULL,
     "fileSize" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "signerName" TEXT,
     "signerRelationship" TEXT,
-    "signatureImage" BYTEA,
     "attestedAt" TIMESTAMP(3),
     "ip" TEXT,
     "documentTextSnapshot" TEXT,
     "documentTextHash" TEXT,
 
     CONSTRAINT "TripDocument_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TripDocumentBytes" (
+    "id" TEXT NOT NULL,
+    "bytes" BYTEA NOT NULL,
+    "signatureImage" BYTEA,
+
+    CONSTRAINT "TripDocumentBytes_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -318,7 +341,8 @@ CREATE TABLE "SendingParty" (
     "partnerId" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "name" TEXT,
-    "contactName" TEXT,
+    "contactFirstName" TEXT,
+    "contactLastName" TEXT,
     "contactEmail" TEXT,
     "websiteLink" TEXT,
     "phone" TEXT,
@@ -390,7 +414,6 @@ CREATE TABLE "PartnerFile" (
     "customKind" TEXT,
     "title" TEXT,
     "receivedDate" DATE NOT NULL,
-    "bytes" BYTEA NOT NULL,
     "fileName" TEXT NOT NULL,
     "contentType" TEXT NOT NULL,
     "fileSize" INTEGER,
@@ -401,16 +424,31 @@ CREATE TABLE "PartnerFile" (
 );
 
 -- CreateTable
+CREATE TABLE "PartnerFileBytes" (
+    "id" TEXT NOT NULL,
+    "bytes" BYTEA NOT NULL,
+
+    CONSTRAINT "PartnerFileBytes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "InboundEmail" (
     "id" TEXT NOT NULL,
     "receivedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "fromAddress" TEXT NOT NULL,
     "subject" TEXT,
-    "bytes" BYTEA NOT NULL,
     "fileName" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "InboundEmail_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "InboundEmailBytes" (
+    "id" TEXT NOT NULL,
+    "bytes" BYTEA NOT NULL,
+
+    CONSTRAINT "InboundEmailBytes_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -436,7 +474,6 @@ CREATE TABLE "DispatchRecord" (
 CREATE TABLE "Photo" (
     "id" TEXT NOT NULL,
     "partnerId" TEXT NOT NULL,
-    "bytes" BYTEA NOT NULL,
     "receivedDate" DATE NOT NULL,
     "contentType" TEXT,
     "fileSize" INTEGER,
@@ -446,12 +483,26 @@ CREATE TABLE "Photo" (
 );
 
 -- CreateTable
+CREATE TABLE "PhotoBytes" (
+    "id" TEXT NOT NULL,
+    "bytes" BYTEA NOT NULL,
+
+    CONSTRAINT "PhotoBytes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "ChurchSettings" (
     "id" TEXT NOT NULL DEFAULT 'singleton',
     "churchName" TEXT,
-    "address" JSONB,
+    "addressLine1" TEXT,
+    "addressLine2" TEXT,
+    "city" TEXT,
+    "stateProvinceRegion" TEXT,
+    "postalCode" TEXT,
+    "country" TEXT,
     "phone" TEXT,
-    "contactName" TEXT,
+    "contactFirstName" TEXT,
+    "contactLastName" TEXT,
     "contactEmail" TEXT,
     "websiteLink" TEXT,
     "partnerTermSingular" TEXT,
@@ -463,7 +514,6 @@ CREATE TABLE "ChurchSettings" (
     "headerColor" TEXT,
     "highlightColor" TEXT,
     "brandFont" TEXT,
-    "logoBytes" BYTEA,
     "logoContentType" TEXT,
     "groupmeAccessToken" TEXT,
     "groupmeGroupId" TEXT,
@@ -534,10 +584,19 @@ CREATE TABLE "ChurchSettings" (
 );
 
 -- CreateTable
+CREATE TABLE "ChurchSettingsLogo" (
+    "id" TEXT NOT NULL,
+    "logoBytes" BYTEA NOT NULL,
+
+    CONSTRAINT "ChurchSettingsLogo_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
-    "name" TEXT,
+    "firstName" TEXT,
+    "lastName" TEXT,
     "passwordHash" TEXT,
     "authProvider" TEXT NOT NULL DEFAULT 'local',
     "role" TEXT NOT NULL DEFAULT 'editor',
@@ -753,6 +812,9 @@ ALTER TABLE "TripParticipant" ADD CONSTRAINT "TripParticipant_tripId_fkey" FOREI
 ALTER TABLE "TripParticipant" ADD CONSTRAINT "TripParticipant_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "TripApplication"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "TripParticipantPhoto" ADD CONSTRAINT "TripParticipantPhoto_id_fkey" FOREIGN KEY ("id") REFERENCES "TripParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "TripApplication" ADD CONSTRAINT "TripApplication_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "Trip"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -781,6 +843,9 @@ ALTER TABLE "TripDocument" ADD CONSTRAINT "TripDocument_participantId_fkey" FORE
 
 -- AddForeignKey
 ALTER TABLE "TripDocument" ADD CONSTRAINT "TripDocument_requirementId_fkey" FOREIGN KEY ("requirementId") REFERENCES "TripRequirement"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TripDocumentBytes" ADD CONSTRAINT "TripDocumentBytes_id_fkey" FOREIGN KEY ("id") REFERENCES "TripDocument"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "TripContribution" ADD CONSTRAINT "TripContribution_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "Trip"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -822,10 +887,22 @@ ALTER TABLE "PrayerRequest" ADD CONSTRAINT "PrayerRequest_sourceFileId_fkey" FOR
 ALTER TABLE "PartnerFile" ADD CONSTRAINT "PartnerFile_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "PartnerFileBytes" ADD CONSTRAINT "PartnerFileBytes_id_fkey" FOREIGN KEY ("id") REFERENCES "PartnerFile"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "InboundEmailBytes" ADD CONSTRAINT "InboundEmailBytes_id_fkey" FOREIGN KEY ("id") REFERENCES "InboundEmail"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "DispatchRecord" ADD CONSTRAINT "DispatchRecord_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Photo" ADD CONSTRAINT "Photo_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PhotoBytes" ADD CONSTRAINT "PhotoBytes_id_fkey" FOREIGN KEY ("id") REFERENCES "Photo"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ChurchSettingsLogo" ADD CONSTRAINT "ChurchSettingsLogo_id_fkey" FOREIGN KEY ("id") REFERENCES "ChurchSettings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "UserFollowedPartner" ADD CONSTRAINT "UserFollowedPartner_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

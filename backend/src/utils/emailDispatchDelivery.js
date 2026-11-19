@@ -33,7 +33,10 @@ function normalizeRecipient(source, kind) {
   return {
     id: source.id,
     email: source.email,
-    name: source.name || null,
+    // #257/#271 Finding 4: User.name split into firstName/lastName --
+    // PublicSubscriber has neither field at all, so this composes to
+    // null for that kind exactly as source.name || null already did.
+    name: [source.firstName, source.lastName].filter(Boolean).join(" ") || null,
     kind, // CHANNELS.EMAIL_ADMIN | CHANNELS.EMAIL_PUBLIC
     cadence: source.cadence,
     allPartners: source.allPartners,
@@ -163,7 +166,8 @@ async function sendDigestTier(tier, settings) {
       select: {
         id: true,
         email: true,
-        name: true,
+        firstName: true,
+        lastName: true,
         cadence: true,
         allPartners: true,
         followedPartners: { select: { partnerId: true } },

@@ -25,7 +25,7 @@ describe("GET /api/photos/:id/raw -- content-type allowlist", () => {
     const photo = await prisma.photo.create({
       data: {
         partnerId,
-        bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47]), // PNG signature, not a full valid file -- irrelevant here
+        bytesRow: { create: { bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47]) } }, // PNG signature, not a full valid file -- irrelevant here
         receivedDate: new Date("2026-01-01"),
         contentType: "image/png",
       },
@@ -44,7 +44,7 @@ describe("GET /api/photos/:id/raw -- content-type allowlist", () => {
     const photo = await prisma.photo.create({
       data: {
         partnerId,
-        bytes: Buffer.from("RIFF\0\0\0\0WEBP"), // WebP signature, not a full valid file -- irrelevant here
+        bytesRow: { create: { bytes: Buffer.from("RIFF\0\0\0\0WEBP") } }, // WebP signature, not a full valid file -- irrelevant here
         receivedDate: new Date("2026-01-01"),
         contentType: "image/webp",
       },
@@ -65,7 +65,7 @@ describe("GET /api/photos/:id/raw -- content-type allowlist", () => {
     const photo = await prisma.photo.create({
       data: {
         partnerId,
-        bytes: Buffer.from("<script>alert(1)</script>"),
+        bytesRow: { create: { bytes: Buffer.from("<script>alert(1)</script>") } },
         receivedDate: new Date("2026-01-01"),
         contentType: "text/html",
       },
@@ -84,7 +84,7 @@ describe("GET /api/photos/:id/raw -- content-type allowlist", () => {
     const photo = await prisma.photo.create({
       data: {
         partnerId,
-        bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+        bytesRow: { create: { bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47]) } },
         receivedDate: new Date("2026-01-01"),
         contentType: "image/png",
       },

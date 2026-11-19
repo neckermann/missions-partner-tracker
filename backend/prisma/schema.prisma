@@ -76,15 +76,24 @@ model Partner {
   sentByOurChurch        Boolean @default(false)
   // Organization-only: the person to reach at the organization. A
   // missionary is their own contact, so these stay null for that kind.
-  contactName            String?
+  // #257/#271 Finding 4: split first/last, same treatment as every
+  // other individual-person name field in this schema.
+  contactFirstName       String?
+  contactLastName        String?
   contactPhone           String?
   contactEmail           String?
 
   // --- Kind-specific profile fields ---
-  orgType          String? // organization-only: "Local" | "National"
-  anniversary      DateTime? @db.Date // missionary-only
-  languagesSpoken  String[]  @default([]) // missionary-only
-  emergencyContact Json? // missionary-only: { name, phone, email }
+  orgType               String? // organization-only: "Local" | "National"
+  anniversary           DateTime? @db.Date // missionary-only
+  languagesSpoken       String[]  @default([]) // missionary-only
+  // #271 Finding 3: flat columns, not a Json blob -- missionary-only,
+  // same fixed name/phone/email shape as SendingParty/TripParticipant's
+  // own emergency-contact columns, which is the convention this schema
+  // actually follows for a fixed, non-variable shape.
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  emergencyContactEmail String?
 
   // --- Mission trip capacity: what kind of team this partner can host ---
   tripTeamSizeMin    Int?
@@ -153,7 +162,16 @@ model Adult {
   id        String    @id @default(uuid())
   partnerId String
   partner   Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  name      String
+  // #257/#271 Finding 4: split first/last -- Child.name (below) is
+  // deliberately left as a single freeform field, since it's commonly
+  // single-word and a forced split would create artificial/empty
+  // lastName values for no benefit; an adult's name doesn't share that
+  // problem. firstName is nullable at the DB level (unlike the single
+  // `name` column it replaces) purely to let this migration add it to a
+  // non-empty table with no default -- app-level validation
+  // (routes/partners.js's zod schema) still requires it on every write.
+  firstName String?
+  lastName  String?
   phone1    String?
   phone2    String?
   email     String?
@@ -205,7 +223,7 @@ model Address {
 // Partner.tripTypesSupported etc, which this trip's own fields are
 // pre-filled from at creation but can then diverge from per-instance.
 model Trip {
-  id        String  @id @default(uuid())
+  id        String   @id @default(uuid())
   partnerId String?
   partner   Partner? @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
@@ -229,11 +247,11 @@ model Trip {
   // "trip" qualifier since it lives on a model with many unrelated
   // fields, where dropping the prefix would be ambiguous.
   type        String? // e.g. "Construction", "Medical/Dental" — preset or custom
-  description String? @db.Text // what the team did/will do -- doubles as the public trip overview when isPublic is on
-  notes       String? @db.Text // admin-only
+  description String?   @db.Text // what the team did/will do -- doubles as the public trip overview when isPublic is on
+  notes       String?   @db.Text // admin-only
 
-  teamSizeMin      Int? // pre-filled from Partner.tripTeamSizeMin at creation, then editable per-instance
-  teamSizeMax      Int?
+  teamSizeMin        Int? // pre-filled from Partner.tripTeamSizeMin at creation, then editable per-instance
+  teamSizeMax        Int?
   supportRaisingGoal Int? // whole-dollar team total, matching SupportEntry.amount's existing Int convention
 
   // Gates this trip's discovery-page listing and whether its plain,
@@ -280,13 +298,13 @@ model Trip {
   albumProvider String? // "google_photos" | "icloud" | "other"
   albumUrl      String?
 
-  participants  TripParticipant[]
-  applications  TripApplication[]
-  meetings      TripMeeting[]
-  documents     TripDocument[]
-  requirements  TripRequirement[]
-  contributions TripContribution[]
-  budgetLines   TripBudgetLine[]
+  participants   TripParticipant[]
+  applications   TripApplication[]
+  meetings       TripMeeting[]
+  documents      TripDocument[]
+  requirements   TripRequirement[]
+  contributions  TripContribution[]
+  budgetLines    TripBudgetLine[]
   flightSegments TripFlightSegment[]
 
   @@index([partnerId])
@@ -297,9 +315,9 @@ model Trip {
 // (applicationId: null, no support-raising fields populated) and a team
 // member who came through an approved application.
 model TripParticipant {
-  id       String  @id @default(uuid())
-  tripId   String
-  trip     Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  tripId String
+  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
   // New participant/applicant records use split name fields (issue
   // #257's broader uplift is separate, later work) -- this model's own
@@ -335,16 +353,19 @@ model TripParticipant {
   postalCode          String?
   country             String?
 
-  // Flat columns, not a Json blob -- Adult.emergencyContact (Json? {name,
-  // phone, email}) is judged the inconsistent outlier in this schema, not
-  // the convention to match: SendingParty/Address both use flat columns
-  // for a similarly fixed, non-variable shape, which is the better fit
-  // for something that's always exactly name/phone/email. Copied from the
+  // Flat columns, not a Json blob -- Partner.emergencyContact (also flat
+  // now, #271 Finding 3) is no longer the inconsistent outlier in this
+  // schema: SendingParty/Address both use flat columns for a similarly
+  // fixed, non-variable shape, which is the better fit for something
+  // that's always exactly name/phone/email. Copied from the
   // originating TripApplication on approval, same as the address fields
   // above. Gated on the public form by ChurchSettings.collectEmergencyContact.
-  emergencyContactName  String?
-  emergencyContactPhone String?
-  emergencyContactEmail String?
+  // #257/#271 Finding 4: split first/last, same treatment as every other
+  // individual-person name field in this schema.
+  emergencyContactFirstName String?
+  emergencyContactLastName  String?
+  emergencyContactPhone     String?
+  emergencyContactEmail     String?
 
   // Only ever collected/shown when the trip's own collectParentGuardianInfo
   // is on (Trip's own field, not a church-wide setting -- see its schema
@@ -354,11 +375,12 @@ model TripParticipant {
   // blob answer keyed by an admin-editable question id can't reliably
   // provide. Copied from the originating TripApplication on approval,
   // same as address/emergency contact above.
-  dateOfBirth               DateTime? @db.Date
-  parentGuardianName        String?
+  dateOfBirth                DateTime? @db.Date
+  parentGuardianFirstName    String?
+  parentGuardianLastName     String?
   parentGuardianRelationship String?
-  parentGuardianPhone       String?
-  parentGuardianEmail       String?
+  parentGuardianPhone        String?
+  parentGuardianEmail        String?
 
   // Short random secret for this participant's public support-raising URL --
   // a private share-secret functioning as the page's access control, not
@@ -372,28 +394,43 @@ model TripParticipant {
   // story/shareToken above -- not a relation like Partner's own Photo
   // model, which exists because a partner accumulates a real gallery
   // over years. A participant's support-raising photo is just one
-  // picture, replaced wholesale when changed, no versioning. Bytes
-  // in-row, no separate file storage, per CONTRIBUTING.md -- same
-  // convention as TripDocument/PartnerFile.
-  photo            Bytes?
+  // picture, replaced wholesale when changed, no versioning. The bytes
+  // themselves live in their own one-to-one table (TripParticipantPhoto,
+  // below) -- still Postgres, no separate file storage per CONTRIBUTING.md,
+  // just split off so a plain TripParticipant query can never accidentally
+  // pull the image in (the #274 production-hang bug class: a relation
+  // include with no select/omit base64-inlining a multi-MB file into an
+  // unrelated JSON response -- this makes that structurally impossible
+  // here instead of relying on every future query remembering to omit).
   photoContentType String?
+  photoBytesRow     TripParticipantPhoto?
 
   // Bumped to invalidate every previously-issued self-service link at
   // once -- same revocation reasoning as User.mfaLastTimeStep's replay
   // protection, applied to a link instead of a TOTP code.
   accessTokenVersion Int @default(0) // tripFieldVisibility: intentionally admin-invisible -- an internal revocation counter, bumped by the resend/regenerate actions themselves, never a value an admin reads or edits directly
 
-  documents     TripDocument[]
-  contributions TripContribution[]
+  documents           TripDocument[]
+  contributions       TripContribution[]
   requirementStatuses TripRequirementStatus[]
   // Reverse side of TripFlightSegment.participants -- which segments (if
   // any) this participant is specifically called out on. Empty doesn't
   // mean "not flying" -- every segment with nobody selected still
   // applies to them regardless (see TripFlightSegment's own comment).
-  flightSegments TripFlightSegment[]
-  meetingRsvps TripMeetingRsvp[]
+  flightSegments      TripFlightSegment[]
+  meetingRsvps        TripMeetingRsvp[]
 
   @@index([tripId])
+}
+
+// Split off from TripParticipant.photo -- see that field's own comment for
+// why. Shared primary key with its parent (id is both this table's own PK
+// and its FK into TripParticipant), the same one-to-one pattern every new
+// Bytes table in this schema uses.
+model TripParticipantPhoto {
+  id          String          @id
+  participant TripParticipant @relation(fields: [id], references: [id], onDelete: Cascade)
+  photo       Bytes
 }
 
 // A submitted application to a Trip whose status is accepting_applications.
@@ -411,7 +448,7 @@ model TripApplication {
   email     String
   phone     String?
 
-  status    String   @default("pending") // "pending" | "approved" | "declined" | "withdrawn" -- tripFieldVisibility: intentionally admin-invisible on the participant page specifically, since every application reachable from an approved participant is, by construction, always "approved"; the pending-review list is where this status actually matters and does show it
+  status    String @default("pending") // "pending" | "approved" | "declined" | "withdrawn" -- tripFieldVisibility: intentionally admin-invisible on the participant page specifically, since every application reachable from an approved participant is, by construction, always "approved"; the pending-review list is where this status actually matters and does show it
   responses Json?
 
   // Structured mailing address, same shape as SendingParty's own flat
@@ -428,27 +465,29 @@ model TripApplication {
   // Flat columns -- see TripParticipant's matching fields for the full
   // rationale. Only ever collected when ChurchSettings.collectEmergencyContact
   // is on; null otherwise.
-  emergencyContactName  String?
-  emergencyContactPhone String?
-  emergencyContactEmail String?
+  emergencyContactFirstName String?
+  emergencyContactLastName  String?
+  emergencyContactPhone     String?
+  emergencyContactEmail     String?
 
   // See TripParticipant's matching fields for the full rationale. Only
   // ever collected/shown when the trip's own collectParentGuardianInfo
   // is on.
-  dateOfBirth               DateTime? @db.Date
-  parentGuardianName        String?
+  dateOfBirth                DateTime? @db.Date
+  parentGuardianFirstName    String?
+  parentGuardianLastName     String?
   parentGuardianRelationship String?
-  parentGuardianPhone       String?
-  parentGuardianEmail       String?
+  parentGuardianPhone        String?
+  parentGuardianEmail        String?
 
-  submittedAt  DateTime  @default(now())
-  reviewedAt   DateTime?
-  reviewedById String?
+  submittedAt    DateTime  @default(now())
+  reviewedAt     DateTime?
+  reviewedById   String?
   // Admin-only, never shown to the applicant -- set only when declining;
   // left null for an approval. A declined row isn't deleted (see
   // trips.js's own review route), so this is the one piece of context an
   // admin would otherwise have no record of after the fact.
-  declinedReason String? @db.Text // tripFieldVisibility: intentionally admin-invisible on the participant page -- always null for an approved application (only ever set on a decline, already shown in the applications review list); nothing to show here
+  declinedReason String?   @db.Text // tripFieldVisibility: intentionally admin-invisible on the participant page -- always null for an approved application (only ever set on a decline, already shown in the applications review list); nothing to show here
 
   participant TripParticipant?
 
@@ -516,9 +555,9 @@ model TripMeeting {
 // response, same "re-cancelling is harmless" idempotency precedent
 // TripMeeting.cancelledAt's own route already follows.
 model TripMeetingRsvp {
-  id            String   @id @default(uuid())
+  id            String          @id @default(uuid())
   meetingId     String
-  meeting       TripMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  meeting       TripMeeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   participantId String
   participant   TripParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
   // "yes" | "no" | "maybe" -- a plain String with app-level validation,
@@ -576,6 +615,16 @@ model TripRequirement {
   dueAt            DateTime? @db.Date
   reminderLeadDays Int?
 
+  // #278: scopes this requirement to only the trip's minor participants
+  // (e.g. a minor travel release form) instead of the whole team.
+  // Checked via utils/tripParticipantSchema.js's isMinorForTrip
+  // (dateOfBirth vs. this trip's own startDate) at every point this
+  // requirement is surfaced to or reminds a participant -- never by
+  // creating or withholding a TripRequirementStatus row, since those
+  // are already lazily created on first completion/upload, not
+  // eagerly for every participant.
+  minorsOnly Boolean @default(false)
+
   documents           TripDocument[]
   requirementStatuses TripRequirementStatus[]
 
@@ -626,7 +675,9 @@ model TripDocument {
   requirement   TripRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
 
   title       String?
-  bytes       Bytes
+  // bytes and signatureImage both live in TripDocumentBytes (below), a
+  // one-to-one split-off table -- see TripParticipantPhoto's own comment
+  // for why.
   fileName    String
   contentType String
   fileSize    Int? // bytes -- populated on new uploads only, same convention as PartnerFile.fileSize; existing rows stay null rather than a backfill migration for display-only metadata
@@ -642,7 +693,7 @@ model TripDocument {
   // row -- it's the same "does a TripDocument exist for this
   // requirement+participant" anti-join every other document-fulfilled
   // requirement already uses).
-  signerName     String? // always captured, whether they typed or drew
+  signerName           String? // always captured, whether they typed or drew
   // "self" | "parent/guardian" -- free text, not a DB enum, matching
   // every other preset-String field in this schema. Recordkeeping only:
   // nothing verifies that whoever actually typed/drew the signature is
@@ -652,22 +703,29 @@ model TripDocument {
   // themselves. Exists so the signed document's own record (and the
   // signing page's label) are honest about who's expected to sign,
   // not to enforce it.
-  signerRelationship String?
-  signatureImage Bytes? // drawn-signature PNG, stored in-row per CONTRIBUTING.md's no-separate-file-storage rule; null if they only typed their name
-  attestedAt     DateTime?
-  ip             String?
+  signerRelationship   String?
+  attestedAt           DateTime?
+  ip                   String?
   // Snapshot of the exact text they agreed to, plus a hash of it --
   // computed server-side, never trusted from the client. Protects
   // against a later edit to the requirement's own bodyText (e.g. a
   // church rewording its waiver) silently being attributed to an old
   // signature; the hash makes any mismatch between this snapshot and a
   // later-edited requirement detectable, not just theoretically possible.
-  documentTextSnapshot String? @db.Text
+  documentTextSnapshot String?   @db.Text
   documentTextHash     String?
+  bytesRow             TripDocumentBytes?
 
   @@unique([requirementId, participantId])
   @@index([tripId])
   @@index([participantId])
+}
+
+model TripDocumentBytes {
+  id             String       @id
+  document       TripDocument @relation(fields: [id], references: [id], onDelete: Cascade)
+  bytes          Bytes
+  signatureImage Bytes? // drawn-signature PNG; null if they only typed their name
 }
 
 // A manual ledger entry for an offline gift (check/cash) toward a trip
@@ -684,12 +742,12 @@ model TripContribution {
   participantId String?
   participant   TripParticipant? @relation(fields: [participantId], references: [id], onDelete: SetNull)
 
-  donorName  String
-  donorEmail String?
-  donorPhone String?
-  amount     Int // whole dollars, matching SupportEntry.amount
-  method     String // "check" | "cash" | "online" | "other"
-  reference  String?
+  donorName    String
+  donorEmail   String?
+  donorPhone   String?
+  amount       Int // whole dollars, matching SupportEntry.amount
+  method       String // "check" | "cash" | "online" | "other"
+  reference    String?
   receivedDate DateTime @db.Date
 
   createdAt DateTime @default(now())
@@ -790,7 +848,9 @@ model SendingParty {
   partner             Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   type                String // "church" | "org"
   name                String?
-  contactName         String?
+  // #257/#271 Finding 4: split first/last.
+  contactFirstName    String?
+  contactLastName     String?
   contactEmail        String?
   websiteLink         String?
   phone               String?
@@ -967,11 +1027,14 @@ model PartnerFile {
 
   title        String?
   receivedDate DateTime @db.Date
-  bytes        Bytes // the file itself — see the comment above this model
-  fileName     String // original uploaded filename, for display/download
-  contentType  String
-  fileSize     Int? // bytes
-  notes        String?  @db.Text
+  // The file's own bytes live in PartnerFileBytes (below), a one-to-one
+  // split-off table -- see TripParticipantPhoto's own comment for why
+  // (structurally prevents the #274 production-hang bug class rather than
+  // relying on every future query remembering to select/omit).
+  fileName    String // original uploaded filename, for display/download
+  contentType String
+  fileSize    Int? // bytes
+  notes       String? @db.Text
 
   createdAt DateTime @default(now())
 
@@ -980,9 +1043,16 @@ model PartnerFile {
   // but Prisma requires both sides of a relation declared.
   sourcedPrayerRequests PrayerRequest[]
   sourcedSupportNeeds   SupportNeed[]
+  bytesRow              PartnerFileBytes?
 
   @@index([partnerId])
   @@index([kind])
+}
+
+model PartnerFileBytes {
+  id    String      @id
+  file  PartnerFile @relation(fields: [id], references: [id], onDelete: Cascade)
+  bytes Bytes
 }
 
 // Inbound email (see #72) that couldn't be auto-matched to a partner --
@@ -997,9 +1067,17 @@ model InboundEmail {
   receivedAt  DateTime @default(now())
   fromAddress String
   subject     String?
-  bytes       Bytes // the raw .eml source -- same storage shape as PartnerFile.bytes above
-  fileName    String
-  createdAt   DateTime @default(now())
+  // The raw .eml source lives in InboundEmailBytes (below), a one-to-one
+  // split-off table -- see TripParticipantPhoto's own comment for why.
+  fileName  String
+  createdAt DateTime @default(now())
+  bytesRow  InboundEmailBytes?
+}
+
+model InboundEmailBytes {
+  id    String       @id
+  email InboundEmail @relation(fields: [id], references: [id], onDelete: Cascade)
+  bytes Bytes
 }
 
 // A recorded event, capable of independently producing up to four
@@ -1109,14 +1187,22 @@ model Photo {
   partnerId String
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
-  bytes        Bytes // the image itself
+  // The image itself lives in PhotoBytes (below), a one-to-one split-off
+  // table -- see TripParticipantPhoto's own comment for why.
   receivedDate DateTime @db.Date // when this photo was actually taken/received, not upload time
   contentType  String?
   fileSize     Int? // bytes
 
   createdAt DateTime @default(now())
+  bytesRow  PhotoBytes?
 
   @@index([partnerId])
+}
+
+model PhotoBytes {
+  id    String @id
+  photo Photo  @relation(fields: [id], references: [id], onDelete: Cascade)
+  bytes Bytes
 }
 
 // Single-row table describing the church running this instance — used to
@@ -1127,12 +1213,22 @@ model Photo {
 model ChurchSettings {
   id String @id @default("singleton")
 
-  churchName   String?
-  address      Json? // { addressLine1, addressLine2, city, stateProvinceRegion, postalCode, country } — same shape as SendingParty's address columns, for a direct copy on autofill
-  phone        String?
-  contactName  String?
-  contactEmail String?
-  websiteLink  String?
+  churchName          String?
+  // #271 Finding 3: flat columns, not a Json blob -- same shape and
+  // reasoning as SendingParty's own address columns, which this was
+  // always meant to match for a direct copy on autofill.
+  addressLine1        String?
+  addressLine2        String?
+  city                String?
+  stateProvinceRegion String?
+  postalCode          String?
+  country             String?
+  phone               String?
+  // #257/#271 Finding 4: split first/last.
+  contactFirstName    String?
+  contactLastName     String?
+  contactEmail        String?
+  websiteLink         String?
 
   // What this church calls its partners, e.g. "Go Team Partner(s)".
   // Nullable — app code falls back to "Missionary"/"Missionaries" so an
@@ -1159,14 +1255,14 @@ model ChurchSettings {
   headerColor     String? // hex, overrides --brand-header-color; header + admin sidebar background
   highlightColor  String? // hex, overrides --brand-highlight-color; hover/focus/active/selected feedback
   brandFont       String? // literal CSS font-family stack (not an abstract key), overrides --brand-font; curated choices offered in AdminSettingsBranding.jsx
-  // The site logo, stored right in this row — see the comment on the
-  // PartnerFile model for why this app keeps file bytes in Postgres
-  // instead of an object store. Public, served unauthenticated at
-  // GET /api/public/settings/logo/raw when set. API responses synthesize
-  // a `logo: { url: "..." } | null` shape from these two columns rather
-  // than ever returning logoBytes inline — same discipline as Photo.
-  logoBytes       Bytes?
+  // The site logo -- see TripParticipantPhoto's own comment for why the
+  // bytes live in their own one-to-one table (ChurchSettingsLogo, below)
+  // rather than this row, still Postgres, no object store. Public, served
+  // unauthenticated at GET /api/public/settings/logo/raw when set. API
+  // responses synthesize a `logo: { url: "..." } | null` shape rather than
+  // ever returning the bytes inline — same discipline as Photo.
   logoContentType String?
+  logoRow         ChurchSettingsLogo?
 
   // GroupMe integration (see backend/src/utils/groupmeChannel.js). The user's
   // own personal access token, not a bot -- GroupMe Topics (a group chat
@@ -1328,8 +1424,8 @@ model ChurchSettings {
   // above but at daily granularity -- no day-of-week/day-of-month field
   // needed, since there's no larger period to pick a day within. See
   // groupmeChannel.js's shouldFlushGroupMe.
-  chatDispatchHour            Int? // 0 - 23, in this church's configured timezone
-  lastGroupmeChatDispatchSentAt DateTime?
+  chatDispatchHour               Int? // 0 - 23, in this church's configured timezone
+  lastGroupmeChatDispatchSentAt  DateTime?
   // WhatsApp shares chatDispatchHour above (and the three
   // chatDispatch* content-type mutes) -- one chat schedule, not two --
   // but keeps its own dedupe cursor. A shared cursor would let whichever
@@ -1361,9 +1457,9 @@ model ChurchSettings {
   // where muting one content type while keeping others is a real,
   // worthwhile control. Default true (matches this app's long-standing
   // behavior: every content type dispatched unless muted).
-  chatDispatchPrayerRequests          Boolean @default(true)
-  chatDispatchOneTimeNeeds            Boolean @default(true)
-  chatDispatchNewsletters             Boolean @default(true)
+  chatDispatchPrayerRequests     Boolean @default(true)
+  chatDispatchOneTimeNeeds       Boolean @default(true)
+  chatDispatchNewsletters        Boolean @default(true)
   // The one setting that applies to every channel equally (GroupMe,
   // WhatsApp, and both email dispatches), not just the chat channels --
   // a creation-time safety gate, not a delivery preference: off means a
@@ -1433,7 +1529,7 @@ model ChurchSettings {
   // Church-wide gate on the "Generate private application link" action
   // -- without this on, no Trip.applicationShareToken can ever be
   // created, and a privately-recruited trip is admin-entry-only.
-  allowPrivateApplicationLinks Boolean @default(false)
+  allowPrivateApplicationLinks   Boolean @default(false)
   // Church-wide gate on whether a TripParticipant.shareToken is ever
   // generated at all -- a church that wants team/meeting/document/
   // contribution management but no individual public-facing support-raising
@@ -1537,6 +1633,12 @@ model ChurchSettings {
   updatedById String?
 }
 
+model ChurchSettingsLogo {
+  id        String         @id
+  settings  ChurchSettings @relation(fields: [id], references: [id], onDelete: Cascade)
+  logoBytes Bytes
+}
+
 // Users who can log into the admin backend.
 //
 // authProvider is always "local" (email + password, optionally with TOTP
@@ -1549,7 +1651,9 @@ model ChurchSettings {
 model User {
   id           String    @id @default(uuid())
   email        String    @unique
-  name         String?
+  // #257/#271 Finding 4: split first/last.
+  firstName    String?
+  lastName     String?
   passwordHash String? // nullable only for historical rows; every account created now is local
   authProvider String    @default("local")
   role         String    @default("editor") // "admin" | "editor" | "viewer"

@@ -44,6 +44,7 @@ export default function AdminPartnerFiles() {
   const [entityFilter, setEntityFilter] = useState("all");
   const [kindFilter, setKindFilter] = useState("all");
   const [dateRangeFilter, setDateRangeFilter] = useState("all");
+  const [includeArchived, setIncludeArchived] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({
     partnerId: "",
@@ -167,6 +168,7 @@ export default function AdminPartnerFiles() {
     (f) =>
       (entityFilter === "all" || entityFor(f).type === entityFilter) &&
       (kindFilter === "all" || f.kind === kindFilter) &&
+      (includeArchived || !f.partner?.archived) &&
       inDateRange(f.receivedDate, dateRangeFilter)
   );
   const {
@@ -328,6 +330,14 @@ export default function AdminPartnerFiles() {
             ))}
           </select>
         </div>
+        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
+          <input
+            type="checkbox"
+            checked={includeArchived}
+            onChange={(e) => setIncludeArchived(e.target.checked)}
+          />
+          Include archived partners
+        </label>
       </div>
 
       <div className="table-scroll">

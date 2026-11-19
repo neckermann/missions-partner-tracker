@@ -168,7 +168,9 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
   });
 
   test("a missionary's Adult.email matching exactly one partner files a Newsletter directly", async () => {
-    const partner = await createPartner({ adults: [{ name: "Test Adult", email: `adult@${FROM_DOMAIN}` }] });
+    const partner = await createPartner({
+      adults: [{ firstName: "Test", lastName: "Adult", email: `adult@${FROM_DOMAIN}` }],
+    });
 
     const res = await unauthenticated("/api/inbound-email/postmark", {
       method: "POST",
@@ -261,7 +263,7 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
       data: {
         fromAddress: `listable@${FROM_DOMAIN}`,
         subject: "Listable",
-        bytes: Buffer.from("raw source"),
+        bytesRow: { create: { bytes: Buffer.from("raw source") } },
         fileName: "inbound-listable.eml",
       },
     });
@@ -282,7 +284,7 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
       data: {
         fromAddress: `raw@${FROM_DOMAIN}`,
         subject: "hi",
-        bytes: Buffer.from(rawSource),
+        bytesRow: { create: { bytes: Buffer.from(rawSource) } },
         fileName: "inbound-raw.eml",
       },
     });
@@ -305,7 +307,7 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
       data: {
         fromAddress: `assignable@${FROM_DOMAIN}`,
         subject: "Assign me",
-        bytes: Buffer.from("raw source"),
+        bytesRow: { create: { bytes: Buffer.from("raw source") } },
         fileName: "inbound-assignable.eml",
       },
     });
@@ -338,7 +340,7 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
       data: {
         fromAddress: `survey@${FROM_DOMAIN}`,
         subject: "Survey response",
-        bytes: Buffer.from("raw source"),
+        bytesRow: { create: { bytes: Buffer.from("raw source") } },
         fileName: "inbound-survey.eml",
       },
     });
@@ -360,7 +362,7 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
       data: {
         fromAddress: `other1@${FROM_DOMAIN}`,
         subject: "Something else",
-        bytes: Buffer.from("raw source"),
+        bytesRow: { create: { bytes: Buffer.from("raw source") } },
         fileName: "inbound-other1.eml",
       },
     });
@@ -375,7 +377,7 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
       data: {
         fromAddress: `other2@${FROM_DOMAIN}`,
         subject: "Something else, with a label",
-        bytes: Buffer.from("raw source"),
+        bytesRow: { create: { bytes: Buffer.from("raw source") } },
         fileName: "inbound-other2.eml",
       },
     });
@@ -395,7 +397,7 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
       data: {
         fromAddress: `orphaned@${FROM_DOMAIN}`,
         subject: "Orphaned",
-        bytes: Buffer.from("raw source"),
+        bytesRow: { create: { bytes: Buffer.from("raw source") } },
         fileName: "inbound-orphaned.eml",
       },
     });
@@ -415,7 +417,7 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
       data: {
         fromAddress: `discardable@${FROM_DOMAIN}`,
         subject: "Discard me",
-        bytes: Buffer.from("raw source"),
+        bytesRow: { create: { bytes: Buffer.from("raw source") } },
         fileName: "inbound-discardable.eml",
       },
     });
@@ -454,7 +456,7 @@ describe("POST /:id/assign -- trip participant (#252)", () => {
       data: {
         fromAddress: `trip-assign@${FROM_DOMAIN}`,
         subject: "Signed waiver attached",
-        bytes: Buffer.from("raw source"),
+        bytesRow: { create: { bytes: Buffer.from("raw source") } },
         fileName: "inbound-trip-assign.eml",
       },
     });
@@ -487,7 +489,7 @@ describe("POST /:id/assign -- trip participant (#252)", () => {
       data: {
         fromAddress: `trip-off@${FROM_DOMAIN}`,
         subject: "x",
-        bytes: Buffer.from("raw source"),
+        bytesRow: { create: { bytes: Buffer.from("raw source") } },
         fileName: "inbound-trip-off.eml",
       },
     });
@@ -511,7 +513,7 @@ describe("POST /:id/assign -- trip participant (#252)", () => {
       data: {
         fromAddress: `trip-gone@${FROM_DOMAIN}`,
         subject: "x",
-        bytes: Buffer.from("raw source"),
+        bytesRow: { create: { bytes: Buffer.from("raw source") } },
         fileName: "inbound-trip-gone.eml",
       },
     });
@@ -532,7 +534,7 @@ describe("POST /:id/assign -- trip participant (#252)", () => {
       data: {
         fromAddress: `trip-both@${FROM_DOMAIN}`,
         subject: "x",
-        bytes: Buffer.from("raw source"),
+        bytesRow: { create: { bytes: Buffer.from("raw source") } },
         fileName: "inbound-trip-both.eml",
       },
     });

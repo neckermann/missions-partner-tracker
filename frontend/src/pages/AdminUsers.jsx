@@ -77,7 +77,7 @@ export default function AdminUsers() {
           {users.map((u) => (
             <tr key={u.id}>
               <td>{u.email}</td>
-              <td>{u.name}</td>
+              <td>{[u.firstName, u.lastName].filter(Boolean).join(" ")}</td>
               <td>{u.role}</td>
               <td>{u.authProvider}</td>
               <td>{u.active ? "Yes" : "No"}</td>

@@ -143,3 +143,24 @@ export function formatMonthDay(month, day, { locale = undefined } = {}) {
     day: "numeric",
   });
 }
+
+// #278: mirrors backend/src/utils/tripParticipantSchema.js's own
+// isMinorForTrip exactly (same "age as of the trip's own startDate, not
+// today" reasoning, same "missing data defaults to not-a-minor" choice)
+// -- the frontend needs this too, to hide a minors-only requirement
+// from an adult participant's row in the admin roster table rather
+// than showing a confusing Missing/✕ for something that was never
+// theirs to fulfill. Two copies because frontend/backend are separate
+// runtimes, not because the rule itself is allowed to drift -- keep
+// both in sync if this logic ever changes.
+export function isMinorForTrip(dateOfBirth, tripStartDate) {
+  if (!dateOfBirth || !tripStartDate) return false;
+  const dob = new Date(dateOfBirth);
+  const start = new Date(tripStartDate);
+  let age = start.getUTCFullYear() - dob.getUTCFullYear();
+  const hadBirthdayByStart =
+    start.getUTCMonth() > dob.getUTCMonth() ||
+    (start.getUTCMonth() === dob.getUTCMonth() && start.getUTCDate() >= dob.getUTCDate());
+  if (!hadBirthdayByStart) age--;
+  return age < 18;
+}

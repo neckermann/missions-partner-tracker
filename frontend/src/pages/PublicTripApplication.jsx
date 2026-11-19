@@ -43,11 +43,13 @@ export default function PublicTripApplication() {
     stateProvinceRegion: "",
     postalCode: "",
     country: "",
-    emergencyContactName: "",
+    emergencyContactFirstName: "",
+    emergencyContactLastName: "",
     emergencyContactPhone: "",
     emergencyContactEmail: "",
     dateOfBirth: "",
-    parentGuardianName: "",
+    parentGuardianFirstName: "",
+    parentGuardianLastName: "",
     parentGuardianRelationship: "",
     parentGuardianPhone: "",
     parentGuardianEmail: "",
@@ -216,10 +218,17 @@ export default function PublicTripApplication() {
                 reason. */}
                 <div style={{ gridColumn: "1 / -1", fontWeight: 600 }}>Emergency contact</div>
                 <label>
-                  Name
+                  First Name
                   <input
-                    value={form.emergencyContactName}
-                    onChange={(e) => setForm((f) => ({ ...f, emergencyContactName: e.target.value }))}
+                    value={form.emergencyContactFirstName}
+                    onChange={(e) => setForm((f) => ({ ...f, emergencyContactFirstName: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Last Name
+                  <input
+                    value={form.emergencyContactLastName}
+                    onChange={(e) => setForm((f) => ({ ...f, emergencyContactLastName: e.target.value }))}
                   />
                 </label>
                 <label>
@@ -262,10 +271,17 @@ export default function PublicTripApplication() {
                   Parent/guardian (required if the applicant is a minor)
                 </div>
                 <label>
-                  Name
+                  First Name
                   <input
-                    value={form.parentGuardianName}
-                    onChange={(e) => setForm((f) => ({ ...f, parentGuardianName: e.target.value }))}
+                    value={form.parentGuardianFirstName}
+                    onChange={(e) => setForm((f) => ({ ...f, parentGuardianFirstName: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Last Name
+                  <input
+                    value={form.parentGuardianLastName}
+                    onChange={(e) => setForm((f) => ({ ...f, parentGuardianLastName: e.target.value }))}
                   />
                 </label>
                 <label>

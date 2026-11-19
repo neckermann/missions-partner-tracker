@@ -60,7 +60,7 @@ before(async () => {
     body: {
       kind: "missionary",
       displayName: `${FIXTURE_TAG} Birthday Family`,
-      adults: [{ name: "Adult Fixture", birthday: "1980-03-14" }],
+      adults: [{ firstName: "Adult", lastName: "Fixture", birthday: "1980-03-14" }],
       children: [{ name: "Child Fixture", birthday: "2015-03-02" }],
     },
   });

@@ -60,6 +60,7 @@ export default function AdminPrayerRequests() {
   // PartnerSelect already renders from.
   const [categoryFilter, setCategoryFilter] = useState("all"); // all | strategic | situational
   const [dateRangeFilter, setDateRangeFilter] = useState("all");
+  const [includeArchived, setIncludeArchived] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
   const [saving, setSaving] = useState(false);
@@ -97,7 +98,8 @@ export default function AdminPrayerRequests() {
   const filteredRequests = requests.filter(
     (r) =>
       (categoryFilter === "all" || r.category === categoryFilter) &&
-      inDateRange(r.dateReceived, dateRangeFilter)
+      inDateRange(r.dateReceived, dateRangeFilter) &&
+      (includeArchived || !r.partner?.archived)
   );
   const answeredCount = requests.filter((r) => r.status === "answered").length;
   const {
@@ -431,6 +433,14 @@ export default function AdminPrayerRequests() {
             </option>
           ))}
         </select>
+        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
+          <input
+            type="checkbox"
+            checked={includeArchived}
+            onChange={(e) => setIncludeArchived(e.target.checked)}
+          />
+          Include archived partners
+        </label>
       </div>
 
       {visibleRequests.map((request) => {

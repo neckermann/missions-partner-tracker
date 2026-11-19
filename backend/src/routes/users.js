@@ -9,7 +9,8 @@ router.use(requireRole("admin")); // user management is admin-only
 
 const createUserSchema = z.object({
   email: z.string().email(),
-  name: z.string().optional().nullable(),
+  firstName: z.string().optional().nullable(),
+  lastName: z.string().optional().nullable(),
   role: z.enum(["admin", "editor", "viewer"]).default("editor"),
   // Every account is local now. The column stays (see the User model in
   // schema.prisma) because auth.js still refuses to password-authenticate
@@ -20,7 +21,8 @@ const createUserSchema = z.object({
 });
 
 const updateUserSchema = z.object({
-  name: z.string().optional().nullable(),
+  firstName: z.string().optional().nullable(),
+  lastName: z.string().optional().nullable(),
   role: z.enum(["admin", "editor", "viewer"]).optional(),
   active: z.boolean().optional(),
   password: z.string().min(8).optional(), // admin resetting someone's password
@@ -72,7 +74,8 @@ router.post("/", async (req, res, next) => {
     const created = await prisma.user.create({
       data: {
         email: data.email.toLowerCase().trim(),
-        name: data.name,
+        firstName: data.firstName,
+        lastName: data.lastName,
         role: data.role,
         authProvider: data.authProvider,
         passwordHash,

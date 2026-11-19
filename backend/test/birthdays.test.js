@@ -71,8 +71,8 @@ describe("birthdaysInMonth", () => {
       displayName: "Frank and Lori Wexford",
       fieldDisplayName: "Catalonia",
       adults: [
-        { id: "a1", name: "Frank Wexford", birthday: new Date("1980-11-20T00:00:00.000Z") },
-        { id: "a2", name: "Lori Wexford", birthday: new Date("1982-03-02T00:00:00.000Z") },
+        { id: "a1", firstName: "Frank", lastName: "Wexford", birthday: new Date("1980-11-20T00:00:00.000Z") },
+        { id: "a2", firstName: "Lori", lastName: "Wexford", birthday: new Date("1982-03-02T00:00:00.000Z") },
       ],
       children: [{ id: "c1", name: "Eli Wexford", birthday: new Date("2017-11-05T00:00:00.000Z") }],
     },
@@ -80,14 +80,16 @@ describe("birthdaysInMonth", () => {
       id: "p2",
       displayName: "Grace Tillman",
       fieldDisplayName: "Kathmandu Valley",
-      adults: [{ id: "a3", name: "Grace Tillman", birthday: new Date("1990-11-02T00:00:00.000Z") }],
+      adults: [
+        { id: "a3", firstName: "Grace", lastName: "Tillman", birthday: new Date("1990-11-02T00:00:00.000Z") },
+      ],
       children: [],
     },
     {
       id: "p3",
       displayName: "No Birthdays Here",
       fieldDisplayName: null,
-      adults: [{ id: "a4", name: "Unknown Birthday", birthday: null }],
+      adults: [{ id: "a4", firstName: "Unknown", lastName: "Birthday", birthday: null }],
       children: [],
     },
   ];

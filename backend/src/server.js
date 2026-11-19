@@ -21,11 +21,19 @@ const supportNeedRoutes = require("./routes/supportNeeds");
 const supportEntryRoutes = require("./routes/supportEntries");
 const prayerRequestRoutes = require("./routes/prayerRequests");
 const tripRoutes = require("./routes/trips");
+const tripMeetingRoutes = require("./routes/tripMeetings");
+const tripRequirementRoutes = require("./routes/tripRequirements");
+const tripParticipantRoutes = require("./routes/tripParticipants");
 const partnerFileRoutes = require("./routes/partnerFiles");
 const photoRoutes = require("./routes/photos");
 const silhouetteRoutes = require("./routes/silhouette");
 const reportsRoutes = require("./routes/reports");
 const settingsRoutes = require("./routes/settings");
+const settingsGroupMeRoutes = require("./routes/settingsGroupMe");
+const settingsWhatsAppRoutes = require("./routes/settingsWhatsApp");
+const settingsEmailRoutes = require("./routes/settingsEmail");
+const settingsTripsRoutes = require("./routes/settingsTrips");
+const settingsDispatchesRoutes = require("./routes/settingsDispatches");
 const publicSettingsRoutes = require("./routes/publicSettings");
 const versionRoutes = require("./routes/version");
 const systemInfoRoutes = require("./routes/systemInfo");
@@ -37,10 +45,8 @@ const publicSubscribeRoutes = require("./routes/publicSubscribe");
 const publicUnsubscribeRoutes = require("./routes/publicUnsubscribe");
 const adminScopedDigestRoutes = require("./routes/adminScopedDigest");
 const publicTripRoutes = require("./routes/publicTrips");
-const { startEmailDispatchScheduler, startGroupMeScheduler } = require("./utils/emailDispatchScheduler");
-const { startTripReminderScheduler } = require("./utils/tripReminderScheduler");
-const whatsappClient = require("./utils/whatsappClient");
-const { isFeatureEnabled } = require("./utils/features");
+const publicTripApplicationRoutes = require("./routes/publicTripApplications");
+const publicTripParticipantRoutes = require("./routes/publicTripParticipants");
 const prisma = require("./prismaClient");
 
 const app = express();
@@ -206,11 +212,29 @@ app.use("/api/support-needs", supportNeedRoutes); // protected (admin) — sessi
 app.use("/api/support-entries", supportEntryRoutes); // protected (admin) — session required
 app.use("/api/prayer-requests", prayerRequestRoutes); // protected (admin) — session required
 app.use("/api/trips", tripRoutes); // protected (admin) — session required
+// #271 Finding 1: three sibling sub-resource routers, same prefix as
+// tripRoutes above (not a separate API surface) -- split out of a
+// single oversized trips.js. Each still gates independently
+// (requireAuth/requireFeature("trips") at its own router level), so
+// mount order among these four doesn't matter.
+app.use("/api/trips", tripMeetingRoutes);
+app.use("/api/trips", tripRequirementRoutes);
+app.use("/api/trips", tripParticipantRoutes);
 app.use("/api/reports", reportsRoutes); // protected — read-only exports, any signed-in role
 app.use("/api/partner-files", partnerFileRoutes); // protected (admin) — session required
 app.use("/api/photos", photoRoutes); // open (public — same as when these were S3 public-read objects)
 app.use("/api/silhouette", silhouetteRoutes); // open (public — needs to load with no session cookie, e.g. in an email client)
 app.use("/api/settings", settingsRoutes); // protected (admin for write, any role for read)
+// #271 Finding: five sibling sub-resource routers, same prefix as
+// settingsRoutes above (not a separate API surface) -- split out of a
+// single oversized settings.js, same pattern as the trips.js split
+// above. Each still gates independently at its own router level, so
+// mount order among these doesn't matter.
+app.use("/api/settings", settingsGroupMeRoutes);
+app.use("/api/settings", settingsWhatsAppRoutes);
+app.use("/api/settings", settingsEmailRoutes);
+app.use("/api/settings", settingsTripsRoutes);
+app.use("/api/settings", settingsDispatchesRoutes);
 app.use("/api/public/settings", publicSettingsRoutes); // open (public site + admin nav branding)
 app.use("/api/version-check", versionRoutes); // protected (admin role only)
 app.use("/api/system-info", systemInfoRoutes); // protected (admin role only)
@@ -222,6 +246,13 @@ app.use("/api/public/subscribe", publicSubscribeRoutes); // open (public, featur
 app.use("/api/public/unsubscribe", publicUnsubscribeRoutes); // open (public, feature-gated -- sibling of publicSubscribe, not nested under it)
 app.use("/api/scoped-digest", adminScopedDigestRoutes); // protected (any role for read)
 app.use("/api/public/trips", publicTripRoutes); // open (public, feature-gated -- see that file's own comment)
+// #271 Finding: two sibling sub-resource routers, same prefix as
+// publicTripRoutes above (not a separate API surface) -- split out of a
+// single oversized publicTrips.js, same pattern as the admin-side
+// trips.js/settings.js splits above. Each still gates independently
+// at its own router level, so mount order among these doesn't matter.
+app.use("/api/public/trips", publicTripApplicationRoutes);
+app.use("/api/public/trips", publicTripParticipantRoutes);
 
 // Only exists at all if DEMO_RESET_TOKEN is configured — absent in every
 // normal deployment. See ADMIN_GUIDE.md § Demo mode.
@@ -258,23 +289,25 @@ app.use(errorHandler);
 // Guarded so this file can be require()'d by the route tests, which boot
 // the real app on an ephemeral port rather than mocking it -- same reason
 // prisma/seed.js has the same guard. Running it directly still listens
-// exactly as before. The two dispatch schedulers (emailDispatchScheduler.js)
-// are started here too, under the same guard -- a once-a-minute
-// cron.schedule() timer would otherwise keep every route test file's own
-// process alive indefinitely (each test file boots this whole app fresh
-// in its own process -- see test/routes/helpers.js's own comment on
-// exactly this class of problem, #162) and fire real flush attempts
-// against the test database no test asked for.
+// exactly as before.
+//
+// #271 Phase B: the dispatch/GroupMe/trip-reminder schedulers and the
+// WhatsApp connection used to start here too, under this same guard. They
+// now live in worker.js, their own process -- this process answers HTTP
+// requests only. See worker.js's own header comment for why that split
+// exists.
 if (require.main === module) {
   (async () => {
     // ChurchSettings.timezone (see that field's own schema.prisma
-    // comment) must be applied to process.env.TZ once, here, before
-    // either scheduler starts -- changing process.env.TZ after a Date-
-    // using module has already run is documented as unreliable, so this
-    // has to happen before anything below reads the clock. Falls back to
-    // UTC on a fresh deploy (no ChurchSettings row yet) or a transient
-    // DB hiccup, matching this field's own default and Render's own
-    // actual behavior today -- never blocks startup over this.
+    // comment) must be applied to process.env.TZ once, here, before any
+    // date-sensitive route (reports, birthdays) reads the clock --
+    // changing process.env.TZ after a Date-using module has already run
+    // is documented as unreliable. worker.js does this same read
+    // independently, for its own schedulers -- the two processes have no
+    // way to share this once computed. Falls back to UTC on a fresh
+    // deploy (no ChurchSettings row yet) or a transient DB hiccup,
+    // matching this field's own default and Render's own actual behavior
+    // today -- never blocks startup over this.
     try {
       const settings = await prisma.churchSettings.findUnique({
         where: { id: "singleton" },
@@ -289,26 +322,8 @@ if (require.main === module) {
     const server = app.listen(PORT, () => {
       console.log(`Missionary Tracker API listening on port ${PORT}`);
     });
-    startEmailDispatchScheduler();
-    startGroupMeScheduler();
-    startTripReminderScheduler();
 
-    // Open the WhatsApp session now (if the feature is on and a number is
-    // paired) rather than waiting up to a minute for the first scheduler
-    // tick. A no-op for a church that doesn't use WhatsApp.
-    prisma.churchSettings
-      .findUnique({ where: { id: "singleton" } })
-      .then((settings) =>
-        whatsappClient.syncWithSettings(settings, isFeatureEnabled(settings?.enabledFeatures, "whatsapp"))
-      )
-      .catch((err) => console.error("Couldn't start the WhatsApp connection at startup:", err));
-
-    // Render runs the old and new instance side by side during a deploy,
-    // and only one may hold the WhatsApp session. Closing the socket and
-    // releasing its advisory lock on SIGTERM lets the new instance take
-    // over right away instead of waiting out its retry interval.
-    const shutdown = async () => {
-      await whatsappClient.shutdown().catch(() => {});
+    const shutdown = () => {
       server.close(() => process.exit(0));
       setTimeout(() => process.exit(0), 8000).unref();
     };

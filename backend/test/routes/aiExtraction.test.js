@@ -228,9 +228,9 @@ describe("prayer request / one-time need source linking", () => {
         kind: "newsletter",
         title: "Spring Update",
         receivedDate: new Date("2026-03-01"),
-        bytes: Buffer.from("fixture"),
         fileName: "spring-update.pdf",
         contentType: "application/pdf",
+        bytesRow: { create: { bytes: Buffer.from("fixture") } },
       },
     });
     newsletterId = newsletter.id;
@@ -241,9 +241,9 @@ describe("prayer request / one-time need source linking", () => {
         customKind: "Background Check",
         title: "Prayer Letter",
         receivedDate: new Date("2026-04-01"),
-        bytes: Buffer.from("fixture"),
         fileName: "prayer-letter.pdf",
         contentType: "application/pdf",
+        bytesRow: { create: { bytes: Buffer.from("fixture") } },
       },
     });
     documentId = document.id;

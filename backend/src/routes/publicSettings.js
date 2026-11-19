@@ -12,11 +12,11 @@ const router = express.Router();
 // principle as toPublicMissionary/toPublicOrganization in maskData.js.
 router.get("/", async (req, res, next) => {
   try {
-    // logoContentType (not logoBytes) signals presence — see the comment
-    // on shapeSettings in routes/settings.js for why.
+    // logoContentType (not the logo's bytes) signals presence — see the
+    // comment on shapeSettings in routes/settings.js for why. The bytes
+    // live in their own table now, never selected here at all.
     const settings = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      omit: { logoBytes: true },
     });
     res.json({
       churchName: settings?.churchName || null,
@@ -63,9 +63,9 @@ router.get("/logo/raw", async (req, res, next) => {
   try {
     const settings = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      select: { logoBytes: true, logoContentType: true },
+      select: { logoContentType: true, logoRow: { select: { logoBytes: true } } },
     });
-    if (!settings?.logoBytes) return res.status(404).end();
+    if (!settings?.logoRow) return res.status(404).end();
 
     // Same reasoning as photos.js's /:id/raw -- without this, helmet()'s
     // global same-origin Cross-Origin-Resource-Policy blocks a webmail
@@ -73,7 +73,7 @@ router.get("/logo/raw", async (req, res, next) => {
     res.set("Cross-Origin-Resource-Policy", "cross-origin");
     res.set("Cache-Control", "public, max-age=60"); // short TTL -- unlike a Photo row, this one row's logo can change in place
     res.set("Content-Type", settings.logoContentType || "application/octet-stream");
-    res.send(settings.logoBytes);
+    res.send(settings.logoRow.logoBytes);
   } catch (err) {
     next(err);
   }

@@ -62,9 +62,11 @@ const partnerRecordInclude = {
   furloughs: { orderBy: { startDate: "desc" } },
   // createdAt as a tiebreaker -- see the same comment in prayerRequests.js.
   churchVisits: { orderBy: [{ visitDate: "desc" }, { createdAt: "desc" }] },
-  // Full history, newest-received first — photos[0] is "current". Bytes are
-  // never wanted here; the image comes from routes/photos.js.
-  photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], omit: { bytes: true } },
+  // Full history, newest-received first — photos[0] is "current". Bytes
+  // are never wanted here (they live in their own table now, never
+  // selected unless explicitly included); the image comes from
+  // routes/photos.js.
+  photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }] },
 };
 
 // What GET / returns per row: enough to render a list, and nothing more.
@@ -148,7 +150,8 @@ const addressesSchema = z
 const sendingPartySchema = z
   .object({
     name: z.string().optional().nullable(),
-    contactName: z.string().optional().nullable(),
+    contactFirstName: z.string().optional().nullable(),
+    contactLastName: z.string().optional().nullable(),
     contactEmail: z.string().optional().nullable(),
     websiteLink: z.string().optional().nullable(),
     mailingAddress: addressFieldsSchema
@@ -212,7 +215,8 @@ const partnerSchema = z.object({
 
   // --- Organization-only ---
   orgType: z.string().optional().nullable(),
-  contactName: z.string().optional().nullable(),
+  contactFirstName: z.string().optional().nullable(),
+  contactLastName: z.string().optional().nullable(),
   contactPhone: z.string().optional().nullable(),
   contactEmail: z.string().optional().nullable(),
 
@@ -221,11 +225,14 @@ const partnerSchema = z.object({
   sentByOurChurch: z.boolean().optional(),
   anniversary: z.coerce.date().optional().nullable(),
   languagesSpoken: z.array(z.string()).optional(),
-  emergencyContact: z.any().optional(),
+  emergencyContactName: z.string().optional().nullable(),
+  emergencyContactPhone: z.string().optional().nullable(),
+  emergencyContactEmail: z.string().optional().nullable(),
   adults: z
     .array(
       z.object({
-        name: z.string(),
+        firstName: z.string(),
+        lastName: z.string().optional().nullable(),
         phone1: z.string().optional().nullable(),
         phone2: z.string().optional().nullable(),
         email: z.string().optional().nullable(),
@@ -275,26 +282,26 @@ async function buildAddressRows(addresses) {
 // action (POST /sync-sending-church) below, for pushing a later Church
 // Settings change out to every partner already marked sent-by-us.
 // Unchecking never clears anything; this only ever runs on the way in.
-// ChurchSettings.address is deliberately the same shape as SendingParty's
-// address columns (see that comment in schema.prisma) for exactly this
+// ChurchSettings' address columns are deliberately the same flat shape as
+// SendingParty's own (see that comment in schema.prisma) for exactly this
 // direct a copy.
 async function syncSendingChurch(client, partnerId) {
   const settings = await client.churchSettings.findUnique({ where: { id: "singleton" } });
   if (!settings) return;
 
-  const address = settings.address || {};
   const filled = {
     name: settings.churchName || null,
-    contactName: settings.contactName || null,
+    contactFirstName: settings.contactFirstName || null,
+    contactLastName: settings.contactLastName || null,
     contactEmail: settings.contactEmail || null,
     phone: settings.phone || null,
     websiteLink: settings.websiteLink || null,
-    addressLine1: address.addressLine1 || null,
-    addressLine2: address.addressLine2 || null,
-    city: address.city || null,
-    stateProvinceRegion: address.stateProvinceRegion || null,
-    postalCode: address.postalCode || null,
-    country: address.country || null,
+    addressLine1: settings.addressLine1 || null,
+    addressLine2: settings.addressLine2 || null,
+    city: settings.city || null,
+    stateProvinceRegion: settings.stateProvinceRegion || null,
+    postalCode: settings.postalCode || null,
+    country: settings.country || null,
   };
 
   await client.sendingParty.upsert({
@@ -481,10 +488,10 @@ router.post("/:id/image", requireRole("admin", "editor"), upload.single("image")
     await prisma.photo.create({
       data: {
         partnerId: req.params.id,
-        bytes,
         receivedDate,
         contentType,
         fileSize,
+        bytesRow: { create: { bytes } },
       },
     });
 

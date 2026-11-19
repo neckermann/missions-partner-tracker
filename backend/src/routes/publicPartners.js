@@ -33,7 +33,7 @@ const publicInclude = {
   addresses: { where: { type: "physical" } }, // only the pin coordinates are ever surfaced publicly
   // Only the current photo (most recently received) is ever surfaced
   // publicly — never the upload history.
-  photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], take: 1, omit: { bytes: true } },
+  photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], take: 1 },
 };
 
 // GET /api/public/partners?kind=missionary|organization

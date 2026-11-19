@@ -378,8 +378,13 @@ export default function AdminPartnerDetail() {
                   // Drop rows the user added but never named, rather than
                   // persisting a blank person.
                   adults: d.adults
-                    .map((a) => ({ ...a, name: (a.name || "").trim(), birthday: dateOrNull(a.birthday) }))
-                    .filter((a) => a.name),
+                    .map((a) => ({
+                      ...a,
+                      firstName: (a.firstName || "").trim(),
+                      lastName: (a.lastName || "").trim() || null,
+                      birthday: dateOrNull(a.birthday),
+                    }))
+                    .filter((a) => a.firstName),
                   children: d.children
                     .map((c) => ({ ...c, name: (c.name || "").trim(), birthday: dateOrNull(c.birthday) }))
                     .filter((c) => c.name),
@@ -398,7 +403,7 @@ export default function AdminPartnerDetail() {
                   {p.adults?.map((a) => (
                     <div key={a.id} className="repeatable-row">
                       <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-                        <Field label="Name" value={a.name} />
+                        <Field label="Name" value={[a.firstName, a.lastName].filter(Boolean).join(" ")} />
                         <Field label="Birthday" value={formatDateLong(a.birthday)} />
                         <Field label="Phone 1" value={a.phone1} />
                         <Field label="Phone 2" value={a.phone2} />
@@ -432,12 +437,22 @@ export default function AdminPartnerDetail() {
                   <RepeatableRows
                     rows={d.adults}
                     onChange={(rows) => set("adults", rows)}
-                    blank={{ name: "", phone1: "", phone2: "", email: "", birthday: "" }}
+                    blank={{ firstName: "", lastName: "", phone1: "", phone2: "", email: "", birthday: "" }}
                     render={(row, setField) => (
                       <div className="form-grid">
                         <label>
-                          Name
-                          <input value={row.name || ""} onChange={(e) => setField("name", e.target.value)} />
+                          First Name
+                          <input
+                            value={row.firstName || ""}
+                            onChange={(e) => setField("firstName", e.target.value)}
+                          />
+                        </label>
+                        <label>
+                          Last Name
+                          <input
+                            value={row.lastName || ""}
+                            onChange={(e) => setField("lastName", e.target.value)}
+                          />
                         </label>
                         <label>
                           Birthday
@@ -539,11 +554,17 @@ export default function AdminPartnerDetail() {
             <EditableSection
               title="Emergency Contact"
               onSaved={reload}
-              onSave={(d) => save({ emergencyContact: d })}
+              onSave={(d) =>
+                save({
+                  emergencyContactName: d.name,
+                  emergencyContactPhone: d.phone,
+                  emergencyContactEmail: d.email,
+                })
+              }
               value={{
-                name: p.emergencyContact?.name || "",
-                phone: p.emergencyContact?.phone || "",
-                email: p.emergencyContact?.email || "",
+                name: p.emergencyContactName || "",
+                phone: p.emergencyContactPhone || "",
+                email: p.emergencyContactEmail || "",
               }}
               view={(v) => (
                 <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
@@ -665,7 +686,8 @@ export default function AdminPartnerDetail() {
               displayName: p.displayName,
               orgType: p.orgType || "Local",
               preferredContactMethod: p.preferredContactMethod || "",
-              contactName: p.contactName || "",
+              contactFirstName: p.contactFirstName || "",
+              contactLastName: p.contactLastName || "",
               contactPhone: p.contactPhone || "",
               contactEmail: p.contactEmail || "",
             }}
@@ -681,7 +703,11 @@ export default function AdminPartnerDetail() {
                 </div>
                 {isOrg && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", marginTop: "0.75rem" }}>
-                    <Field label="Contact Name" value={v.contactName} showEmpty />
+                    <Field
+                      label="Contact Name"
+                      value={[v.contactFirstName, v.contactLastName].filter(Boolean).join(" ")}
+                      showEmpty
+                    />
                     <Field label="Contact Phone" value={v.contactPhone} showEmpty />
                     <Field label="Contact Email" value={v.contactEmail} showEmpty />
                   </div>
@@ -723,8 +749,18 @@ export default function AdminPartnerDetail() {
                   {isOrg && (
                     <>
                       <label>
-                        Contact Name
-                        <input value={d.contactName} onChange={(e) => set("contactName", e.target.value)} />
+                        Contact First Name
+                        <input
+                          value={d.contactFirstName}
+                          onChange={(e) => set("contactFirstName", e.target.value)}
+                        />
+                      </label>
+                      <label>
+                        Contact Last Name
+                        <input
+                          value={d.contactLastName}
+                          onChange={(e) => set("contactLastName", e.target.value)}
+                        />
                       </label>
                       <label>
                         Contact Phone
@@ -767,7 +803,8 @@ export default function AdminPartnerDetail() {
                 }}
                 value={{
                   name: p[key]?.name || "",
-                  contactName: p[key]?.contactName || "",
+                  contactFirstName: p[key]?.contactFirstName || "",
+                  contactLastName: p[key]?.contactLastName || "",
                   contactEmail: p[key]?.contactEmail || "",
                   phone: p[key]?.phone || "",
                   websiteLink: p[key]?.websiteLink || "",
@@ -788,7 +825,10 @@ export default function AdminPartnerDetail() {
                       <>
                         <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
                           <Field label="Name" value={v.name} />
-                          <Field label="Contact" value={v.contactName} />
+                          <Field
+                            label="Contact"
+                            value={[v.contactFirstName, v.contactLastName].filter(Boolean).join(" ")}
+                          />
                           <Field label="Contact Email" value={v.contactEmail} />
                           <Field label="Phone" value={v.phone} />
                           <Field
@@ -831,8 +871,18 @@ export default function AdminPartnerDetail() {
                         <input value={d.name} onChange={(e) => set("name", e.target.value)} />
                       </label>
                       <label>
-                        Contact Name
-                        <input value={d.contactName} onChange={(e) => set("contactName", e.target.value)} />
+                        Contact First Name
+                        <input
+                          value={d.contactFirstName}
+                          onChange={(e) => set("contactFirstName", e.target.value)}
+                        />
+                      </label>
+                      <label>
+                        Contact Last Name
+                        <input
+                          value={d.contactLastName}
+                          onChange={(e) => set("contactLastName", e.target.value)}
+                        />
                       </label>
                       <label>
                         Contact Email

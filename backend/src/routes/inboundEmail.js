@@ -128,14 +128,13 @@ router.post("/postmark", async (req, res, next) => {
           kind: "newsletter",
           title: subject,
           receivedDate: new Date(),
-          bytes,
           fileName,
           contentType: "message/rfc822",
           fileSize: bytes.length,
           notes: "Received via inbound email.",
+          bytesRow: { create: { bytes } },
         },
         include: { partner: partnerRefSelect },
-        omit: { bytes: true },
       });
       // Best-effort, same reasoning as every other newsletter-creation
       // path -- a broken notification channel must never affect whether
@@ -155,10 +154,10 @@ router.post("/postmark", async (req, res, next) => {
           ).tripId,
           participantId: participantMatches[0].id,
           title: subject,
-          bytes,
           fileName,
           contentType: "message/rfc822",
           fileSize: bytes.length,
+          bytesRow: { create: { bytes } },
         },
       });
       return res.status(200).json({ matched: true });
@@ -167,7 +166,9 @@ router.post("/postmark", async (req, res, next) => {
     // Zero matches, more than one match of either type, or exactly one
     // of each (which would each individually look unambiguous in
     // isolation) -- don't guess. Queue it.
-    await prisma.inboundEmail.create({ data: { fromAddress, subject, bytes, fileName } });
+    await prisma.inboundEmail.create({
+      data: { fromAddress, subject, fileName, bytesRow: { create: { bytes } } },
+    });
     res.status(200).json({ matched: false });
   } catch (err) {
     next(err);
@@ -179,7 +180,9 @@ router.post("/postmark", async (req, res, next) => {
 router.use(requireAuth);
 router.use(requireFeature("inboundEmail"));
 
-const inboundEmailInclude = { omit: { bytes: true } };
+// No omit needed any more -- bytes lives in its own table (bytesRow) now,
+// never selected here at all.
+const inboundEmailInclude = {};
 
 // GET /api/inbound-email -- the pending queue, newest first. No role
 // restriction beyond being logged in, same as GET /api/partner-files.
@@ -202,9 +205,12 @@ router.get("/", async (req, res, next) => {
 // comment in schema.prisma).
 router.get("/:id/raw", async (req, res, next) => {
   try {
-    const record = await prisma.inboundEmail.findUnique({ where: { id: req.params.id } });
-    if (!record) return res.status(404).json({ error: "Not found" });
-    sendStoredFile(res, { ...record, contentType: "message/rfc822" });
+    const record = await prisma.inboundEmail.findUnique({
+      where: { id: req.params.id },
+      include: { bytesRow: { select: { bytes: true } } },
+    });
+    if (!record?.bytesRow) return res.status(404).json({ error: "Not found" });
+    sendStoredFile(res, { ...record, bytes: record.bytesRow.bytes, contentType: "message/rfc822" });
   } catch (err) {
     next(err);
   }
@@ -251,7 +257,16 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
       select: { enabledFeatures: true },
     });
 
-    const record = await prisma.inboundEmail.findUnique({ where: { id: req.params.id } });
+    // #274 hardening: excludes `bytes` (the raw .eml, inbound-mail-sized
+    // but still no reason to hold in memory any longer than necessary)
+    // from this initial read -- every check below (feature flags, the
+    // participant/partner lookup) only needs the small fields here.
+    // Re-fetched just below, once, immediately before whichever branch's
+    // create() actually needs it.
+    const record = await prisma.inboundEmail.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, subject: true, fileName: true, receivedAt: true },
+    });
     if (!record) return res.status(404).json({ error: "Not found" });
 
     if (tripParticipantId) {
@@ -264,20 +279,24 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
       });
       if (!participant) return res.status(400).json({ error: "That participant no longer exists" });
 
+      const emailBytesRow = await prisma.inboundEmail.findUnique({
+        where: { id: req.params.id },
+        select: { bytesRow: { select: { bytes: true } } },
+      });
       const created = await prisma.tripDocument.create({
         data: {
           tripId: participant.tripId,
           participantId: participant.id,
           requirementId: requirementId || null,
           title: record.subject,
-          bytes: record.bytes,
           fileName: record.fileName,
           contentType: "message/rfc822",
-          fileSize: record.bytes.length,
+          fileSize: emailBytesRow.bytesRow.bytes.length,
+          bytesRow: { create: { bytes: emailBytesRow.bytesRow.bytes } },
         },
       });
       await prisma.inboundEmail.delete({ where: { id: req.params.id } });
-      return res.status(200).json({ ...created, bytes: undefined });
+      return res.status(200).json(created);
     }
 
     // Must be on too -- not just "inboundEmail" (checked by the
@@ -292,6 +311,10 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
     const partner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { id: true } });
     if (!partner) return res.status(400).json({ error: "That partner no longer exists" });
 
+    const emailBytesRow = await prisma.inboundEmail.findUnique({
+      where: { id: req.params.id },
+      select: { bytesRow: { select: { bytes: true } } },
+    });
     const created = await prisma.partnerFile.create({
       data: {
         partnerId,
@@ -299,14 +322,13 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
         customKind: kind === "other" ? customKind : null,
         title: record.subject,
         receivedDate: record.receivedAt,
-        bytes: record.bytes,
         fileName: record.fileName,
         contentType: "message/rfc822",
-        fileSize: record.bytes.length,
+        fileSize: emailBytesRow.bytesRow.bytes.length,
         notes: "Received via inbound email.",
+        bytesRow: { create: { bytes: emailBytesRow.bytesRow.bytes } },
       },
       include: { partner: partnerRefSelect },
-      omit: { bytes: true },
     });
     await prisma.inboundEmail.delete({ where: { id: req.params.id } });
 

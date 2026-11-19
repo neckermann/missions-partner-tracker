@@ -30,8 +30,18 @@ export default function SendingPartySection({ title, value, onChange, checkbox }
           <input value={value.name || ""} onChange={(e) => update("name", e.target.value)} />
         </label>
         <label>
-          Contact Name
-          <input value={value.contactName || ""} onChange={(e) => update("contactName", e.target.value)} />
+          Contact First Name
+          <input
+            value={value.contactFirstName || ""}
+            onChange={(e) => update("contactFirstName", e.target.value)}
+          />
+        </label>
+        <label>
+          Contact Last Name
+          <input
+            value={value.contactLastName || ""}
+            onChange={(e) => update("contactLastName", e.target.value)}
+          />
         </label>
         <label>
           Contact Email

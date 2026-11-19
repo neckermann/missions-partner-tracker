@@ -519,7 +519,7 @@ export async function resendParticipantAccessLink(participantId) {
 }
 // Generalized (#252 follow-on) -- a requirement is a document or a plain
 // task, optionally with a due date and a reminder lead time; `payload`
-// is { label, kind?, dueAt?, reminderLeadDays? }.
+// is { label, kind?, dueAt?, reminderLeadDays?, minorsOnly? } (#278).
 export async function addTripRequirement(tripId, payload) {
   const { data } = await api.post(`/trips/${tripId}/requirements`, payload);
   return data;

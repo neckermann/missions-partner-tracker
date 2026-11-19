@@ -349,6 +349,17 @@ well for a small church team:
 | Database | [Neon](https://neon.tech), [Supabase](https://supabase.com), [Railway](https://railway.app), or any managed/self-hosted Postgres |
 | App | [Railway](https://railway.app), [Fly.io](https://fly.io), a plain VPS running `npm run start` behind nginx + `pm2` — anything that can run a long-lived Node process. There's no Dockerfile in this repo, so a platform that builds straight from a Node buildpack needs the least setup. Whatever you use needs to run the frontend build (`cd frontend && npm run build`) *before* starting the backend, so `backend/public` is populated. |
 
+This is two long-lived processes now, not one (#271 Phase B): `npm run
+start` (`src/server.js`) answers web requests, and `npm run start:worker`
+(`src/worker.js`) runs the email/GroupMe/trip-reminder schedulers and the
+WhatsApp connection. Both need to stay running continuously -- `pm2` (or
+your platform's equivalent) should manage both as separate long-lived
+processes, not one restarting the other. Run exactly one copy of the
+worker regardless of how many copies of the web process you run: every
+scheduled digest, reminder, and WhatsApp/GroupMe post only ever needs to
+fire once per schedule, and running two worker copies would fire
+everything twice.
+
 Wherever you land, the deployment steps are the same shape regardless of
 provider:
 
@@ -356,10 +367,15 @@ provider:
    `backend/`, with `DATABASE_URL` set).
 2. Build the frontend (`cd frontend && npm run build`) — this writes into
    `backend/public`, so do this *before* the next step.
-3. Deploy the backend (including the now-populated `backend/public`) with
-   every variable from the
+3. Deploy the backend (including the now-populated `backend/public`),
+   starting both `npm run start` and `npm run start:worker` as separate
+   processes, with every variable from the
    [Environment variables table](#environment-variables) set as that
-   platform's environment/config vars — never commit `.env`.
+   platform's environment/config vars on *both* processes — never commit
+   `.env`. `FIELD_ENCRYPTION_KEY` specifically must be the exact same
+   value on both; the worker decrypts tokens the web process encrypted; a
+   different key on either side breaks decryption for whichever
+   credentials were written under the other one.
 4. Visit your new site and go to `/setup` to create your first admin
    account right in the browser — or, if you'd rather do it from a
    shell with `DATABASE_URL` set, `node prisma/createAdmin.js

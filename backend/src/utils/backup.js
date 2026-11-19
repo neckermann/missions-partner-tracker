@@ -22,6 +22,12 @@ const { APP_VERSION } = require("./versionCheck");
 // real session and get it logged out. After a restore the admin re-pairs
 // (the app notices the missing session and clears the "paired" state on
 // its own -- see whatsappClient.js).
+// partnerFileBytes/photoBytes/churchSettingsLogo each sit immediately
+// after their own parent model -- the same FK-safe-order reasoning as
+// partnerFile's own placement above applies again here, one level down:
+// restoreRows creates rows in this exact order, so a bytes-table row's
+// own FK (its id doubles as the FK into its parent) needs that parent to
+// already exist.
 const MODELS = [
   "partner",
   "adult",
@@ -33,11 +39,14 @@ const MODELS = [
   "churchVisit",
   "sendingParty",
   "partnerFile",
+  "partnerFileBytes",
   "supportEntry",
   "supportNeed",
   "prayerRequest",
   "photo",
+  "photoBytes",
   "churchSettings",
+  "churchSettingsLogo",
   "user",
 ];
 
@@ -46,10 +55,13 @@ const MODELS = [
 // values (roughly 4x the original size), so these are base64-encoded
 // explicitly instead (roughly 1.33x) and decoded back to a Buffer on
 // restore.
+// #274's hardening follow-up moved each of these onto its own one-to-one
+// table (see schema.prisma) -- the bytes field names stayed the same,
+// just keyed by the new table's model name instead of its parent's.
 const BYTES_FIELDS = {
-  partnerFile: ["bytes"],
-  photo: ["bytes"],
-  churchSettings: ["logoBytes"],
+  partnerFileBytes: ["bytes"],
+  photoBytes: ["bytes"],
+  churchSettingsLogo: ["logoBytes"],
 };
 
 function encodeBytesFields(model, row) {
