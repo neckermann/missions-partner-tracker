@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { createTrip, updateTrip, deleteTrip } from "../../api/client.js";
-import PresetOrCustomSelect from "./PresetOrCustomSelect.jsx";
-import AlbumLinkField from "./AlbumLinkField.jsx";
+import TripFormFields, { emptyTripForm, cleanTripParticipants } from "./TripFormFields.jsx";
 import { formatDate, toDateInputValue } from "../../utils/format.js";
 import useLoadMore from "../../hooks/useLoadMore.js";
 import LoadMoreButton from "../LoadMoreButton.jsx";
@@ -9,67 +8,25 @@ import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../ConfirmMessageBody.jsx";
 
 // Trips for one partner, on that partner's own page. Same records and same
-// endpoints as the consolidated Trip History page -- this is just the view
-// scoped to a single partner, the way prayer requests and newsletters
-// already worked.
-
-const TRIP_TYPE_PRESETS = [
-  "Construction",
-  "Medical/Dental",
-  "VBS/Children's Ministry",
-  "Evangelism/Outreach",
-  "Teaching/Discipleship",
-  "Prayer",
-  "General Labor",
-  "Sports Ministry",
-  "Music/Worship",
-  "Administrative/Support",
-];
-
-const emptyParticipant = { firstName: "", lastName: "", role: "", isLeader: false, phone: "", email: "" };
-const emptyForm = {
-  startDate: "",
-  endDate: "",
-  type: "",
-  description: "",
-  notes: "",
-  albumProvider: null,
-  albumUrl: null,
-  participants: [],
-};
+// endpoints as the consolidated Trips page's "Existing Trips" tab -- this
+// is just the view scoped to a single partner, the way prayer requests and
+// newsletters already worked. Field set lives in TripFormFields.jsx (Phase
+// 3b of the UX-rebuild plan), shared with that tab's own add/edit forms.
 
 export default function PartnerTripSection({ partnerId, trips, onChange }) {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [showAddForm, setShowAddForm] = useState(false);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(emptyTripForm);
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const { visible, hasMore, remaining, showMore } = useLoadMore(trips);
 
   function resetForm() {
-    setForm(emptyForm);
+    setForm(emptyTripForm);
     setShowAddForm(false);
     setEditingId(null);
     setError("");
-  }
-
-  function set(field, value) {
-    setForm((f) => ({ ...f, [field]: value }));
-  }
-
-  function addParticipant() {
-    setForm((f) => ({ ...f, participants: [...f.participants, { ...emptyParticipant }] }));
-  }
-  function updateParticipant(index, field, value) {
-    setForm((f) => {
-      const next = [...f.participants];
-      next[index] = { ...next[index], [field]: value };
-      return { ...f, participants: next };
-    });
-  }
-  function removeParticipant(index) {
-    setForm((f) => ({ ...f, participants: f.participants.filter((_, i) => i !== index) }));
   }
 
   function startEdit(trip) {
@@ -77,6 +34,7 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
     setShowAddForm(false);
     setError("");
     setForm({
+      ...emptyTripForm,
       startDate: toDateInputValue(trip.startDate),
       endDate: toDateInputValue(trip.endDate),
       type: trip.type || "",
@@ -100,9 +58,7 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
       notes: form.notes || null,
       albumProvider: form.albumProvider || null,
       albumUrl: form.albumUrl || null,
-      participants: form.participants
-        .map((p) => ({ ...p, firstName: p.firstName.trim() }))
-        .filter((p) => p.firstName),
+      participants: cleanTripParticipants(form.participants),
     };
     try {
       if (editingId) await updateTrip(editingId, payload);
@@ -137,7 +93,7 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
         <button
           type="button"
           className="btn secondary small"
-          onClick={() => (formOpen ? resetForm() : (setForm(emptyForm), setShowAddForm(true)))}
+          onClick={() => (formOpen ? resetForm() : (setForm(emptyTripForm), setShowAddForm(true)))}
         >
           {formOpen ? "Cancel" : "+ Add Trip"}
         </button>
@@ -145,110 +101,7 @@ export default function PartnerTripSection({ partnerId, trips, onChange }) {
 
       {formOpen && (
         <form onSubmit={submit} style={{ marginTop: "1rem" }}>
-          <div className="form-grid">
-            <label>
-              Start Date
-              <input type="date" value={form.startDate} onChange={(e) => set("startDate", e.target.value)} />
-            </label>
-            <label>
-              End Date
-              <input type="date" value={form.endDate} onChange={(e) => set("endDate", e.target.value)} />
-            </label>
-            <label>
-              Trip Type
-              <PresetOrCustomSelect
-                value={form.type}
-                onChange={(v) => set("type", v)}
-                presets={TRIP_TYPE_PRESETS}
-                placeholder="e.g. Photography"
-              />
-            </label>
-          </div>
-          <label style={{ marginTop: "0.75rem" }}>
-            Description (what the team did)
-            <textarea
-              rows={2}
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-            />
-          </label>
-          <label style={{ marginTop: "0.75rem" }}>
-            Notes
-            <textarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} />
-          </label>
-          <label style={{ marginTop: "0.75rem" }}>
-            Photo/Video Album
-            <AlbumLinkField
-              provider={form.albumProvider}
-              url={form.albumUrl}
-              onChange={(provider, url) => setForm((f) => ({ ...f, albumProvider: provider, albumUrl: url }))}
-            />
-          </label>
-
-          <h4 style={{ marginTop: "1rem" }}>Participants</h4>
-          {form.participants.map((p, i) => (
-            <div className="repeatable-row" key={i} style={{ background: "white" }}>
-              <button
-                type="button"
-                className="btn-remove"
-                onClick={() => removeParticipant(i)}
-                title="Remove"
-              >
-                ✕
-              </button>
-              <div className="form-grid">
-                <label>
-                  First Name
-                  <input
-                    value={p.firstName}
-                    onChange={(e) => updateParticipant(i, "firstName", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Last Name
-                  <input
-                    value={p.lastName || ""}
-                    onChange={(e) => updateParticipant(i, "lastName", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Role
-                  <input
-                    value={p.role || ""}
-                    onChange={(e) => updateParticipant(i, "role", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Phone
-                  <input
-                    value={p.phone || ""}
-                    onChange={(e) => updateParticipant(i, "phone", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Email
-                  <input
-                    value={p.email || ""}
-                    onChange={(e) => updateParticipant(i, "email", e.target.value)}
-                  />
-                </label>
-              </div>
-              <div className="admin-checkbox-row" style={{ marginTop: "0.5rem" }}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={!!p.isLeader}
-                    onChange={(e) => updateParticipant(i, "isLeader", e.target.checked)}
-                  />
-                  Trip Leader
-                </label>
-              </div>
-            </div>
-          ))}
-          <button type="button" className="btn secondary small" onClick={addParticipant}>
-            + Add Participant
-          </button>
-
+          <TripFormFields form={form} setForm={setForm} />
           <div className="form-save-bar">
             <button type="submit" className="btn" disabled={saving}>
               {saving ? "Saving..." : editingId ? "Save Trip" : "Add Trip"}

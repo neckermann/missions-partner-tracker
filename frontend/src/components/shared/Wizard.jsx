@@ -15,8 +15,11 @@ import React, { useState } from "react";
 //
 // Fully controlled on completion: nothing here calls an API. `onFinish
 // (values)` fires after Next on the last step passes validation; the
-// caller decides what "finishing" means.
-export default function Wizard({ steps, initialValues = {}, onFinish, onCancel }) {
+// caller decides what "finishing" means. Pass `finishing: true` while
+// that call is in flight to disable the last step's button and prevent
+// a double-submit -- this component has no idea whether `onFinish` is
+// sync or async, so it can't infer that state on its own.
+export default function Wizard({ steps, initialValues = {}, onFinish, onCancel, finishing = false }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [values, setValues] = useState(initialValues);
   const [error, setError] = useState(null);
@@ -100,8 +103,8 @@ export default function Wizard({ steps, initialValues = {}, onFinish, onCancel }
             Skip
           </button>
         )}
-        <button type="button" className="btn" onClick={goNext}>
-          {isLast ? "Finish" : "Next"}
+        <button type="button" className="btn" onClick={goNext} disabled={isLast && finishing}>
+          {isLast ? (finishing ? "Submitting..." : "Finish") : "Next"}
         </button>
       </div>
     </div>

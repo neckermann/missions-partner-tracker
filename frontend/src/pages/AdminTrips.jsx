@@ -10,8 +10,8 @@ import {
   cloneTrip,
 } from "../api/client.js";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
-import AlbumLinkField from "../components/admin/AlbumLinkField.jsx";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
+import TripFormFields, { TRIP_TYPE_PRESETS, emptyTripForm, cleanTripParticipants } from "../components/admin/TripFormFields.jsx";
 import { formatDate, toDateInputValue } from "../utils/format.js";
 import { partnerKindLabel } from "../utils/partnerEntity.js";
 import useLoadMore from "../hooks/useLoadMore.js";
@@ -40,32 +40,6 @@ import useFilterState from "../hooks/useFilterState.js";
 function yearOf(value) {
   return value ? String(value).slice(0, 4) : null;
 }
-
-const TRIP_TYPE_PRESETS = [
-  "Construction",
-  "Medical/Dental",
-  "VBS/Children's Ministry",
-  "Evangelism/Outreach",
-  "Teaching/Discipleship",
-  "Prayer",
-  "General Labor",
-  "Sports Ministry",
-  "Music/Worship",
-  "Administrative/Support",
-];
-
-const emptyParticipant = { firstName: "", lastName: "", role: "", isLeader: false, phone: "", email: "" };
-const emptyTripForm = {
-  partnerId: "",
-  startDate: "",
-  endDate: "",
-  type: "",
-  description: "",
-  notes: "",
-  albumProvider: null,
-  albumUrl: null,
-  participants: [],
-};
 
 // "active" is its own filter value, not one of Trip.status's real four --
 // it means "every status except completed" (planning, accepting_applications,
@@ -210,27 +184,6 @@ function ExistingTripsTab() {
     showMore,
   } = useLoadMore(filteredTrips, { initialCount: 25, step: 25 });
 
-  function addParticipant(which) {
-    const setter = which === "new" ? setNewTrip : setEditForm;
-    setter((f) => ({ ...f, participants: [...f.participants, { ...emptyParticipant }] }));
-  }
-  function updateParticipant(which, index, field, value) {
-    const setter = which === "new" ? setNewTrip : setEditForm;
-    setter((f) => {
-      const next = [...f.participants];
-      next[index] = { ...next[index], [field]: value };
-      return { ...f, participants: next };
-    });
-  }
-  function removeParticipant(which, index) {
-    const setter = which === "new" ? setNewTrip : setEditForm;
-    setter((f) => ({ ...f, participants: f.participants.filter((_, i) => i !== index) }));
-  }
-
-  function cleanParticipants(participants) {
-    return participants.map((p) => ({ ...p, firstName: p.firstName.trim() })).filter((p) => p.firstName);
-  }
-
   async function handleAddSubmit(e) {
     e.preventDefault();
     setError("");
@@ -250,7 +203,7 @@ function ExistingTripsTab() {
         notes: newTrip.notes || null,
         albumProvider: newTrip.albumProvider || null,
         albumUrl: newTrip.albumUrl || null,
-        participants: cleanParticipants(newTrip.participants),
+        participants: cleanTripParticipants(newTrip.participants),
       });
       setNewTrip(emptyTripForm);
       setShowAddForm(false);
@@ -319,7 +272,7 @@ function ExistingTripsTab() {
         notes: editForm.notes || null,
         albumProvider: editForm.albumProvider || null,
         albumUrl: editForm.albumUrl || null,
-        participants: cleanParticipants(editForm.participants),
+        participants: cleanTripParticipants(editForm.participants),
       });
       setEditingId(null);
       reload();
@@ -338,77 +291,6 @@ function ExistingTripsTab() {
     if (!confirmed) return;
     await deleteTrip(trip.id);
     reload();
-  }
-
-  function renderParticipantsEditor(which, form) {
-    return (
-      <>
-        <h4 style={{ marginTop: "1rem" }}>Participants</h4>
-        {form.participants.map((p, pIndex) => (
-          <div className="repeatable-row" key={pIndex} style={{ background: "white" }}>
-            <button
-              type="button"
-              className="btn-remove"
-              onClick={() => removeParticipant(which, pIndex)}
-              title="Remove"
-            >
-              ✕
-            </button>
-            <div className="form-grid">
-              <label>
-                First Name
-                <input
-                  value={p.firstName}
-                  onChange={(e) => updateParticipant(which, pIndex, "firstName", e.target.value)}
-                />
-              </label>
-              <label>
-                Last Name
-                <input
-                  value={p.lastName || ""}
-                  onChange={(e) => updateParticipant(which, pIndex, "lastName", e.target.value)}
-                />
-              </label>
-              <label>
-                Role
-                <input
-                  value={p.role || ""}
-                  onChange={(e) => updateParticipant(which, pIndex, "role", e.target.value)}
-                  placeholder="e.g. Construction"
-                />
-              </label>
-              <label>
-                Phone
-                <input
-                  value={p.phone || ""}
-                  onChange={(e) => updateParticipant(which, pIndex, "phone", e.target.value)}
-                />
-              </label>
-              <label>
-                Email
-                <input
-                  value={p.email || ""}
-                  onChange={(e) => updateParticipant(which, pIndex, "email", e.target.value)}
-                />
-              </label>
-            </div>
-            <div className="admin-checkbox-row" style={{ marginTop: "0.5rem" }}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={!!p.isLeader}
-                  onChange={(e) => updateParticipant(which, pIndex, "isLeader", e.target.checked)}
-                />
-                Trip Leader
-              </label>
-            </div>
-          </div>
-        ))}
-        <button type="button" className="btn secondary small" onClick={() => addParticipant(which)}>
-          + Add Participant
-        </button>
-      </>
-    );
   }
 
   return (
@@ -487,69 +369,21 @@ function ExistingTripsTab() {
             </form>
           ) : (
             <form onSubmit={handleAddSubmit}>
-              <div className="form-grid">
-                <label style={{ gridColumn: "1 / -1" }}>
-                  Partner
-                  <PartnerSelect
-                    partners={partners}
-                    value={newTrip.partnerId}
-                    onChange={(partnerId) => setNewTrip((f) => ({ ...f, partnerId }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Start Date
-                  <input
-                    type="date"
-                    value={newTrip.startDate}
-                    onChange={(e) => setNewTrip((f) => ({ ...f, startDate: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  End Date
-                  <input
-                    type="date"
-                    value={newTrip.endDate}
-                    onChange={(e) => setNewTrip((f) => ({ ...f, endDate: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Trip Type
-                  <PresetOrCustomSelect
-                    value={newTrip.type}
-                    onChange={(val) => setNewTrip((f) => ({ ...f, type: val }))}
-                    presets={TRIP_TYPE_PRESETS}
-                    placeholder="e.g. Photography"
-                  />
-                </label>
-              </div>
-              <label style={{ marginTop: "0.75rem" }}>
-                Description (what the team did)
-                <textarea
-                  rows={2}
-                  value={newTrip.description}
-                  onChange={(e) => setNewTrip((f) => ({ ...f, description: e.target.value }))}
-                />
-              </label>
-              <label style={{ marginTop: "0.75rem" }}>
-                Notes
-                <textarea
-                  rows={2}
-                  value={newTrip.notes}
-                  onChange={(e) => setNewTrip((f) => ({ ...f, notes: e.target.value }))}
-                />
-              </label>
-              <label style={{ marginTop: "0.75rem" }}>
-                Photo/Video Album
-                <AlbumLinkField
-                  provider={newTrip.albumProvider}
-                  url={newTrip.albumUrl}
-                  onChange={(provider, url) =>
-                    setNewTrip((f) => ({ ...f, albumProvider: provider, albumUrl: url }))
-                  }
-                />
-              </label>
-              {renderParticipantsEditor("new", newTrip)}
+              <TripFormFields
+                form={newTrip}
+                setForm={setNewTrip}
+                partnerPicker={
+                  <label style={{ gridColumn: "1 / -1" }}>
+                    Partner
+                    <PartnerSelect
+                      partners={partners}
+                      value={newTrip.partnerId}
+                      onChange={(partnerId) => setNewTrip((f) => ({ ...f, partnerId }))}
+                      required
+                    />
+                  </label>
+                }
+              />
               <div className="form-save-bar">
                 <button type="submit" className="btn" disabled={saving}>
                   {saving ? "Saving..." : "Save Trip"}
@@ -694,58 +528,7 @@ function ExistingTripsTab() {
         )}
         renderExpanded={(trip) => (
           <>
-            <div className="form-grid">
-              <label>
-                Start Date
-                <input
-                  type="date"
-                  value={editForm.startDate}
-                  onChange={(e) => setEditForm((f) => ({ ...f, startDate: e.target.value }))}
-                />
-              </label>
-              <label>
-                End Date
-                <input
-                  type="date"
-                  value={editForm.endDate}
-                  onChange={(e) => setEditForm((f) => ({ ...f, endDate: e.target.value }))}
-                />
-              </label>
-              <label>
-                Trip Type
-                <PresetOrCustomSelect
-                  value={editForm.type}
-                  onChange={(val) => setEditForm((f) => ({ ...f, type: val }))}
-                  presets={TRIP_TYPE_PRESETS}
-                  placeholder="e.g. Photography"
-                />
-              </label>
-            </div>
-            <label style={{ marginTop: "0.75rem" }}>
-              Description (what the team did)
-              <textarea
-                rows={2}
-                value={editForm.description}
-                onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-              />
-            </label>
-            <label style={{ marginTop: "0.75rem" }}>
-              Notes
-              <textarea
-                rows={2}
-                value={editForm.notes}
-                onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-              />
-            </label>
-            <label style={{ marginTop: "0.75rem" }}>
-              Photo/Video Album
-              <AlbumLinkField
-                provider={editForm.albumProvider}
-                url={editForm.albumUrl}
-                onChange={(provider, url) => setEditForm((f) => ({ ...f, albumProvider: provider, albumUrl: url }))}
-              />
-            </label>
-            {renderParticipantsEditor("edit", editForm)}
+            <TripFormFields form={editForm} setForm={setEditForm} />
             <div className="form-save-bar">
               <button type="button" className="btn small" onClick={() => submitEdit(trip.id)}>
                 Save

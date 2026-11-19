@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import DemoBanner from "../components/DemoBanner.jsx";
+import Wizard from "../components/shared/Wizard.jsx";
 import {
   fetchPublicTrip,
   fetchPublicTripByToken,
@@ -21,6 +22,34 @@ function formatTripDateRange(trip) {
   return start === end ? start : `${start} - ${end}`;
 }
 
+const initialValues = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  dateOfBirth: "",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  stateProvinceRegion: "",
+  postalCode: "",
+  country: "",
+  emergencyContactFirstName: "",
+  emergencyContactLastName: "",
+  emergencyContactPhone: "",
+  emergencyContactEmail: "",
+  parentGuardianFirstName: "",
+  parentGuardianLastName: "",
+  parentGuardianRelationship: "",
+  parentGuardianPhone: "",
+  parentGuardianEmail: "",
+  responses: {},
+};
+
+function setResponse(values, setValue, questionId, next) {
+  setValue("responses", { ...(values.responses || {}), [questionId]: next });
+}
+
 // New (#252) -- the public application form. Serves two addressing
 // modes: plain id-addressed (only for a listed, accepting_applications,
 // isPublic trip) and applicationShareToken-addressed (the private link,
@@ -28,33 +57,20 @@ function formatTripDateRange(trip) {
 // partner renders a masked destination instead of 404ing). Renders
 // exactly whatever questions that specific trip's applicationQuestions
 // defines, nothing hardcoded.
+//
+// Phase 3b of the UX-rebuild plan: restructured onto the Wizard shell's
+// 3 steps -- same fields/validation/conditional sections as before (no
+// new scope), just regrouped so a long form doesn't dump every section
+// at once: 1) applicant info, 2) address/emergency/guardian (whichever
+// this trip actually collects), 3) the trip's own custom questions plus
+// submit. A trip collecting none of step 2's optional sections still
+// gets a (now-empty-bodied) step rather than a dynamically-vanishing
+// step count -- simpler for an applicant to reason about ("3 of 3")
+// than a wizard whose length changes per trip.
 export default function PublicTripApplication() {
   const { id, token } = useParams();
   const [trip, setTrip] = useState(null);
   const [notFound, setNotFound] = useState(false);
-  const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    addressLine1: "",
-    addressLine2: "",
-    city: "",
-    stateProvinceRegion: "",
-    postalCode: "",
-    country: "",
-    emergencyContactFirstName: "",
-    emergencyContactLastName: "",
-    emergencyContactPhone: "",
-    emergencyContactEmail: "",
-    dateOfBirth: "",
-    parentGuardianFirstName: "",
-    parentGuardianLastName: "",
-    parentGuardianRelationship: "",
-    parentGuardianPhone: "",
-    parentGuardianEmail: "",
-  });
-  const [responses, setResponses] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -77,18 +93,17 @@ export default function PublicTripApplication() {
   }
   if (!trip) return <div className="admin-shell">Loading…</div>;
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleFinish(values) {
     setBusy(true);
     setError("");
     try {
       const submit = token ? submitTripApplicationByToken : submitTripApplication;
-      await submit(token || id, { ...form, responses });
+      await submit(token || id, values);
       setSubmitted(true);
-      // This is a long form -- the submit button sits well below the fold,
-      // so without this the success message renders off-screen above
-      // wherever the applicant happened to be scrolled, easy to miss
-      // entirely.
+      // This is a multi-step form -- the submit button sits well below
+      // the fold on the last step, so without this the success message
+      // renders off-screen above wherever the applicant happened to be
+      // scrolled, easy to miss entirely.
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       setError(err.response?.data?.error || "Couldn't submit -- please try again.");
@@ -96,6 +111,302 @@ export default function PublicTripApplication() {
       setBusy(false);
     }
   }
+
+  const steps = [
+    {
+      key: "applicant",
+      label: "Your info",
+      validate: (values) => {
+        if (!values.firstName.trim() || !values.lastName.trim()) return "First and last name are required.";
+        if (!values.email.trim()) return "Email is required.";
+        if (trip.collectDateOfBirth && trip.requireDateOfBirth && !values.dateOfBirth) {
+          return "Date of birth is required.";
+        }
+        return null;
+      },
+      render: ({ values, setValue }) => (
+        <>
+          <div className="form-grid">
+            <label>
+              First name
+              <input
+                required
+                value={values.firstName}
+                onChange={(e) => setValue("firstName", e.target.value)}
+              />
+            </label>
+            <label>
+              Last name
+              <input required value={values.lastName} onChange={(e) => setValue("lastName", e.target.value)} />
+            </label>
+            <label>
+              Email
+              <input
+                type="email"
+                required
+                value={values.email}
+                onChange={(e) => setValue("email", e.target.value)}
+              />
+            </label>
+            <label>
+              Phone
+              <input value={values.phone} onChange={(e) => setValue("phone", e.target.value)} />
+            </label>
+          </div>
+          {/* A real field, not a custom question -- see
+          ChurchSettings.collectDateOfBirth's own schema comment. Always
+          on, and always required, when this trip collects parent/
+          guardian info, regardless of the church-wide defaults. */}
+          {trip.collectDateOfBirth && (
+            <div className="form-grid" style={{ marginTop: "0.75rem" }}>
+              <label>
+                Date of birth{trip.requireDateOfBirth ? "" : " (optional)"}
+                <input
+                  type="date"
+                  required={trip.requireDateOfBirth}
+                  value={values.dateOfBirth}
+                  onChange={(e) => setValue("dateOfBirth", e.target.value)}
+                />
+              </label>
+            </div>
+          )}
+        </>
+      ),
+    },
+    {
+      key: "address-contacts",
+      label: "Address & contacts",
+      // Nothing here is ever required at the field level beyond what the
+      // original single form already enforced (nothing was required in
+      // this section) -- a trip collecting none of these three sections
+      // just renders an empty step, not a missing one, so step numbering
+      // ("2 of 3") stays predictable regardless of per-trip config.
+      render: ({ values, setValue }) => (
+        <>
+          {trip.collectApplicantAddress && (
+            <div className="form-grid">
+              <label style={{ gridColumn: "1 / -1" }}>
+                Mailing address
+                <input
+                  placeholder="Street address"
+                  value={values.addressLine1}
+                  onChange={(e) => setValue("addressLine1", e.target.value)}
+                />
+              </label>
+              <label style={{ gridColumn: "1 / -1" }}>
+                Address line 2 (optional)
+                <input
+                  value={values.addressLine2}
+                  onChange={(e) => setValue("addressLine2", e.target.value)}
+                />
+              </label>
+              <label>
+                City
+                <input value={values.city} onChange={(e) => setValue("city", e.target.value)} />
+              </label>
+              <label>
+                State/Province
+                <input
+                  value={values.stateProvinceRegion}
+                  onChange={(e) => setValue("stateProvinceRegion", e.target.value)}
+                />
+              </label>
+              <label>
+                Postal code
+                <input value={values.postalCode} onChange={(e) => setValue("postalCode", e.target.value)} />
+              </label>
+              <label>
+                Country
+                <input value={values.country} onChange={(e) => setValue("country", e.target.value)} />
+              </label>
+            </div>
+          )}
+          {trip.collectEmergencyContact && (
+            <div className="form-grid" style={{ marginTop: trip.collectApplicantAddress ? "0.75rem" : 0 }}>
+              {/* Not a form label -- a plain section heading, no control
+              of its own to associate with (the three fields below each
+              have their own). A <label> with nothing inside it fails
+              jsx-a11y/label-has-associated-control for exactly that
+              reason. */}
+              <div style={{ gridColumn: "1 / -1", fontWeight: 600 }}>Emergency contact</div>
+              <label>
+                First Name
+                <input
+                  value={values.emergencyContactFirstName}
+                  onChange={(e) => setValue("emergencyContactFirstName", e.target.value)}
+                />
+              </label>
+              <label>
+                Last Name
+                <input
+                  value={values.emergencyContactLastName}
+                  onChange={(e) => setValue("emergencyContactLastName", e.target.value)}
+                />
+              </label>
+              <label>
+                Phone
+                <input
+                  value={values.emergencyContactPhone}
+                  onChange={(e) => setValue("emergencyContactPhone", e.target.value)}
+                />
+              </label>
+              <label>
+                Email (optional)
+                <input
+                  type="email"
+                  value={values.emergencyContactEmail}
+                  onChange={(e) => setValue("emergencyContactEmail", e.target.value)}
+                />
+              </label>
+            </div>
+          )}
+          {trip.collectParentGuardianInfo && (
+            <div
+              className="form-grid"
+              style={{
+                marginTop: trip.collectApplicantAddress || trip.collectEmergencyContact ? "0.75rem" : 0,
+              }}
+            >
+              <div style={{ gridColumn: "1 / -1", fontWeight: 600 }}>
+                Parent/guardian (required if the applicant is a minor)
+              </div>
+              <label>
+                First Name
+                <input
+                  value={values.parentGuardianFirstName}
+                  onChange={(e) => setValue("parentGuardianFirstName", e.target.value)}
+                />
+              </label>
+              <label>
+                Last Name
+                <input
+                  value={values.parentGuardianLastName}
+                  onChange={(e) => setValue("parentGuardianLastName", e.target.value)}
+                />
+              </label>
+              <label>
+                Relationship
+                <input
+                  placeholder="e.g. Mother, Father, Legal guardian"
+                  value={values.parentGuardianRelationship}
+                  onChange={(e) => setValue("parentGuardianRelationship", e.target.value)}
+                />
+              </label>
+              <label>
+                Phone
+                <input
+                  value={values.parentGuardianPhone}
+                  onChange={(e) => setValue("parentGuardianPhone", e.target.value)}
+                />
+              </label>
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={values.parentGuardianEmail}
+                  onChange={(e) => setValue("parentGuardianEmail", e.target.value)}
+                />
+              </label>
+            </div>
+          )}
+          {!trip.collectApplicantAddress && !trip.collectEmergencyContact && !trip.collectParentGuardianInfo && (
+            <p style={{ color: "#888" }}>Nothing else needed here for this trip -- continue to the next step.</p>
+          )}
+        </>
+      ),
+    },
+    {
+      key: "questions",
+      label: "Trip questions",
+      validate: (values) => {
+        for (const q of trip.applicationQuestions || []) {
+          if (!q.required) continue;
+          const answer = (values.responses || {})[q.id];
+          if (q.type === "checkboxes" ? !(answer || []).length : !answer) {
+            return `"${q.label}" is required.`;
+          }
+        }
+        return null;
+      },
+      render: ({ values, setValue }) =>
+        (trip.applicationQuestions || []).length === 0 ? (
+          <p style={{ color: "#888" }}>No additional questions for this trip -- review and submit below.</p>
+        ) : (
+          (trip.applicationQuestions || []).map((q) => {
+            const type = q.type || "text";
+            const responses = values.responses || {};
+            return (
+              <label key={q.id} style={{ display: "block", marginTop: "0.75rem" }}>
+                {q.label} {q.required && <span style={{ color: "#a6540f" }}>*</span>}
+                {type === "textarea" && (
+                  <textarea
+                    rows={3}
+                    required={q.required}
+                    value={responses[q.id] || ""}
+                    onChange={(e) => setResponse(values, setValue, q.id, e.target.value)}
+                  />
+                )}
+                {type === "select" && (
+                  <select
+                    required={q.required}
+                    value={responses[q.id] || ""}
+                    onChange={(e) => setResponse(values, setValue, q.id, e.target.value)}
+                  >
+                    <option value="">Select...</option>
+                    {(q.options || []).map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {type === "checkboxes" && (
+                  <div>
+                    {(q.options || []).map((opt) => {
+                      const selected = responses[q.id] || [];
+                      const checked = selected.includes(opt);
+                      return (
+                        <label
+                          key={opt}
+                          style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 400 }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = e.target.checked
+                                ? [...selected, opt]
+                                : selected.filter((o) => o !== opt);
+                              setResponse(values, setValue, q.id, next);
+                            }}
+                          />
+                          {opt}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+                {type === "text" && (
+                  <input
+                    required={q.required}
+                    value={responses[q.id] || ""}
+                    onChange={(e) => setResponse(values, setValue, q.id, e.target.value)}
+                  />
+                )}
+                {type === "date" && (
+                  <input
+                    type="date"
+                    required={q.required}
+                    value={responses[q.id] || ""}
+                    onChange={(e) => setResponse(values, setValue, q.id, e.target.value)}
+                  />
+                )}
+              </label>
+            );
+          })
+        ),
+    },
+  ];
 
   return (
     <div>
@@ -127,273 +438,14 @@ export default function PublicTripApplication() {
         {submitted ? (
           <p style={{ color: "#1f6b4f" }}>Thanks! Your application has been submitted.</p>
         ) : (
-          <form onSubmit={handleSubmit} className="admin-section">
-            <div className="form-grid">
-              <label>
-                First name
-                <input
-                  required
-                  value={form.firstName}
-                  onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                />
-              </label>
-              <label>
-                Last name
-                <input
-                  required
-                  value={form.lastName}
-                  onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                />
-              </label>
-              <label>
-                Email
-                <input
-                  type="email"
-                  required
-                  value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                />
-              </label>
-              <label>
-                Phone
-                <input
-                  value={form.phone}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                />
-              </label>
-            </div>
-            {trip.collectApplicantAddress && (
-              <div className="form-grid" style={{ marginTop: "0.75rem" }}>
-                <label style={{ gridColumn: "1 / -1" }}>
-                  Mailing address
-                  <input
-                    placeholder="Street address"
-                    value={form.addressLine1}
-                    onChange={(e) => setForm((f) => ({ ...f, addressLine1: e.target.value }))}
-                  />
-                </label>
-                <label style={{ gridColumn: "1 / -1" }}>
-                  Address line 2 (optional)
-                  <input
-                    value={form.addressLine2}
-                    onChange={(e) => setForm((f) => ({ ...f, addressLine2: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  City
-                  <input
-                    value={form.city}
-                    onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  State/Province
-                  <input
-                    value={form.stateProvinceRegion}
-                    onChange={(e) => setForm((f) => ({ ...f, stateProvinceRegion: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Postal code
-                  <input
-                    value={form.postalCode}
-                    onChange={(e) => setForm((f) => ({ ...f, postalCode: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Country
-                  <input
-                    value={form.country}
-                    onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
-                  />
-                </label>
-              </div>
+          <div className="admin-section">
+            <Wizard steps={steps} initialValues={initialValues} onFinish={handleFinish} finishing={busy} />
+            {error && (
+              <p style={{ color: "#b91c1c", marginTop: "0.5rem" }} role="alert">
+                {error}
+              </p>
             )}
-            {trip.collectEmergencyContact && (
-              <div className="form-grid" style={{ marginTop: "0.75rem" }}>
-                {/* Not a form label -- a plain section heading, no control
-                of its own to associate with (the three fields below each
-                have their own). A <label> with nothing inside it fails
-                jsx-a11y/label-has-associated-control for exactly that
-                reason. */}
-                <div style={{ gridColumn: "1 / -1", fontWeight: 600 }}>Emergency contact</div>
-                <label>
-                  First Name
-                  <input
-                    value={form.emergencyContactFirstName}
-                    onChange={(e) => setForm((f) => ({ ...f, emergencyContactFirstName: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Last Name
-                  <input
-                    value={form.emergencyContactLastName}
-                    onChange={(e) => setForm((f) => ({ ...f, emergencyContactLastName: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Phone
-                  <input
-                    value={form.emergencyContactPhone}
-                    onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Email (optional)
-                  <input
-                    type="email"
-                    value={form.emergencyContactEmail}
-                    onChange={(e) => setForm((f) => ({ ...f, emergencyContactEmail: e.target.value }))}
-                  />
-                </label>
-              </div>
-            )}
-            {/* A real field, not a custom question -- see
-            ChurchSettings.collectDateOfBirth's own schema comment. Always
-            on, and always required, when this trip collects parent/
-            guardian info, regardless of the church-wide defaults. */}
-            {trip.collectDateOfBirth && (
-              <div className="form-grid" style={{ marginTop: "0.75rem" }}>
-                <label>
-                  Date of birth{trip.requireDateOfBirth ? "" : " (optional)"}
-                  <input
-                    type="date"
-                    required={trip.requireDateOfBirth}
-                    value={form.dateOfBirth}
-                    onChange={(e) => setForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
-                  />
-                </label>
-              </div>
-            )}
-            {trip.collectParentGuardianInfo && (
-              <div className="form-grid" style={{ marginTop: "0.75rem" }}>
-                <div style={{ gridColumn: "1 / -1", fontWeight: 600 }}>
-                  Parent/guardian (required if the applicant is a minor)
-                </div>
-                <label>
-                  First Name
-                  <input
-                    value={form.parentGuardianFirstName}
-                    onChange={(e) => setForm((f) => ({ ...f, parentGuardianFirstName: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Last Name
-                  <input
-                    value={form.parentGuardianLastName}
-                    onChange={(e) => setForm((f) => ({ ...f, parentGuardianLastName: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Relationship
-                  <input
-                    placeholder="e.g. Mother, Father, Legal guardian"
-                    value={form.parentGuardianRelationship}
-                    onChange={(e) => setForm((f) => ({ ...f, parentGuardianRelationship: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Phone
-                  <input
-                    value={form.parentGuardianPhone}
-                    onChange={(e) => setForm((f) => ({ ...f, parentGuardianPhone: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Email
-                  <input
-                    type="email"
-                    value={form.parentGuardianEmail}
-                    onChange={(e) => setForm((f) => ({ ...f, parentGuardianEmail: e.target.value }))}
-                  />
-                </label>
-              </div>
-            )}
-            {(trip.applicationQuestions || []).map((q) => {
-              const type = q.type || "text";
-              return (
-                <label key={q.id} style={{ display: "block", marginTop: "0.75rem" }}>
-                  {q.label} {q.required && <span style={{ color: "#a6540f" }}>*</span>}
-                  {type === "textarea" && (
-                    <textarea
-                      rows={3}
-                      required={q.required}
-                      value={responses[q.id] || ""}
-                      onChange={(e) => setResponses((r) => ({ ...r, [q.id]: e.target.value }))}
-                    />
-                  )}
-                  {type === "select" && (
-                    <select
-                      required={q.required}
-                      value={responses[q.id] || ""}
-                      onChange={(e) => setResponses((r) => ({ ...r, [q.id]: e.target.value }))}
-                    >
-                      <option value="">Select...</option>
-                      {(q.options || []).map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  {type === "checkboxes" && (
-                    <div>
-                      {(q.options || []).map((opt) => {
-                        const selected = responses[q.id] || [];
-                        const checked = selected.includes(opt);
-                        return (
-                          <label
-                            key={opt}
-                            style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 400 }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(e) =>
-                                setResponses((r) => {
-                                  const current = r[q.id] || [];
-                                  const next = e.target.checked
-                                    ? [...current, opt]
-                                    : current.filter((o) => o !== opt);
-                                  return { ...r, [q.id]: next };
-                                })
-                              }
-                            />
-                            {opt}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {type === "text" && (
-                    <input
-                      required={q.required}
-                      value={responses[q.id] || ""}
-                      onChange={(e) => setResponses((r) => ({ ...r, [q.id]: e.target.value }))}
-                    />
-                  )}
-                  {type === "date" && (
-                    <input
-                      type="date"
-                      required={q.required}
-                      value={responses[q.id] || ""}
-                      onChange={(e) => setResponses((r) => ({ ...r, [q.id]: e.target.value }))}
-                    />
-                  )}
-                </label>
-              );
-            })}
-            <div className="form-save-bar">
-              <button type="submit" className="btn" disabled={busy}>
-                {busy ? "Submitting..." : "Submit application"}
-              </button>
-              {error && (
-                <span style={{ color: "#b91c1c" }} role="alert">
-                  {error}
-                </span>
-              )}
-            </div>
-          </form>
+          </div>
         )}
       </div>
     </div>
