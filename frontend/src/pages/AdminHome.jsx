@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   fetchCurrentUser,
@@ -77,9 +77,10 @@ function RecentlyViewed() {
   return (
     <div className="admin-section">
       <h3 style={{ marginTop: 0 }}>Recently viewed</h3>
-      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+      <div className="recent-row">
         {entries.map((entry) => (
-          <Link key={entry.to} to={entry.to} className="btn secondary small">
+          <Link key={entry.to} to={entry.to} className="recent-chip">
+            <b>{entry.kind}</b>
             {entry.label}
           </Link>
         ))}
@@ -110,6 +111,7 @@ function useNeedsAttention(enabledFeatures) {
             if (blurbs.length > 0) {
               next.push({
                 to: "/admin/pending-dispatches",
+                category: "Communications",
                 title: "Pending Dispatches",
                 description:
                   needingReview > 0
@@ -129,6 +131,7 @@ function useNeedsAttention(enabledFeatures) {
             if (emails.length > 0) {
               next.push({
                 to: "/admin/inbound-email",
+                category: "Communications",
                 title: "Unmatched Emails",
                 description: `${emails.length} inbound email${emails.length === 1 ? "" : "s"} to assign or discard`,
               });
@@ -154,6 +157,7 @@ function useNeedsAttention(enabledFeatures) {
             if (departingSoon.length > 0) {
               next.push({
                 to: "/admin/trips",
+                category: "Trips",
                 title: "Trips Departing Soon",
                 description: `${departingSoon.length} trip${departingSoon.length === 1 ? "" : "s"} departing in the next two weeks`,
               });
@@ -176,14 +180,34 @@ function useNeedsAttention(enabledFeatures) {
   return cards;
 }
 
+// ⌘ on Mac, Ctrl elsewhere -- matches the convention every desktop app's
+// own command-palette/search shortcut already uses on each platform.
+const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPod|iPad/.test(navigator.platform || "");
+const SEARCH_SHORTCUT_HINT = isMac ? "⌘K" : "Ctrl+K";
+
 export default function AdminHome() {
   const [currentUser, setCurrentUser] = useState(null);
   const [search, setSearch] = useState("");
   const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const needsAttention = useNeedsAttention(enabledFeatures);
+  const searchInputRef = useRef(null);
 
   useEffect(() => {
     fetchCurrentUser().then(setCurrentUser);
+  }, []);
+
+  // Cmd/Ctrl+K focuses the Home search box from anywhere on the page --
+  // the shortcut hint shown next to it would be misleading if it didn't
+  // actually do anything.
+  useEffect(() => {
+    function onKeyDown(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
   const partnerLabel = usePartnerTermInAdmin ? partnerTermPlural : "Partners";
@@ -193,15 +217,23 @@ export default function AdminHome() {
       <h2>Welcome{currentUser?.firstName ? `, ${currentUser.firstName}` : ""}</h2>
 
       <div className="admin-section">
-        <label>
+        <label htmlFor="home-search-input" style={{ display: "block", marginBottom: "0.4rem" }}>
           {`Search ${partnerLabel.toLowerCase()}`}
+        </label>
+        <div className="home-search">
+          <span aria-hidden="true">🔍</span>
           <input
+            id="home-search-input"
+            ref={searchInputRef}
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={`Find a ${partnerLabel.toLowerCase().replace(/s$/, "")} by name…`}
           />
-        </label>
+          <span className="home-search-kbd-hint" aria-hidden="true">
+            {SEARCH_SHORTCUT_HINT}
+          </span>
+        </div>
         <div style={{ marginTop: "0.75rem" }}>
           <SearchResults term={search} />
         </div>

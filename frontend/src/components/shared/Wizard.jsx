@@ -61,6 +61,18 @@ export default function Wizard({ steps, initialValues = {}, onFinish, onCancel, 
 
   return (
     <div className="wizard">
+      {/* Purely decorative step-dot bar, matching the design-reference
+          artifact's .wizard-progress -- not shown for a 1-step wizard
+          (e.g. New User), the same call that artifact's own "New User"
+          example makes: a progress bar isn't worth showing when there's
+          only one step to begin with. */}
+      {steps.length > 1 && (
+        <div className="wizard-progress">
+          {steps.map((s, i) => (
+            <div key={s.key} className={i <= stepIndex ? "done" : undefined} />
+          ))}
+        </div>
+      )}
       <div className="wizard-steps" style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
         {steps.map((s, i) => (
           <span

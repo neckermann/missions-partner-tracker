@@ -1,5 +1,39 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap");
+
 * {
   box-sizing: border-box;
+}
+/* Shared visual tokens (UX-rebuild Phase 9: visual design) -- lifted
+   directly from the "Admin Navigation Options" design-reference
+   artifact's own :root. Sora for headings/sidebar-title/card titles,
+   Inter for body text, matching the artifact's font pairing exactly.
+   Shadow/radius scale too, so every shared component (admin-card,
+   admin-section, modal-panel, admin-table) reads as one system instead
+   of each having its own one-off border/radius. These are plain
+   visual tokens, not brand-customizable -- the 4 real --brand-* vars
+   (set by SettingsContext.jsx from ChurchSettings) stay the only
+   per-church-configurable colors. */
+:root {
+  --heading-font: Sora, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --body-font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --surface: #ffffff;
+  --surface-2: #f4f5f7;
+  --border-soft: #dde1e7;
+  --muted-text: #677080;
+  --shadow-card: 0 1px 2px rgba(20, 25, 30, 0.06), 0 8px 24px rgba(20, 25, 30, 0.05);
+  --radius-lg: 16px;
+  --radius-md: 10px;
+  --radius-sm: 7px;
+  --radius-pill: 999px;
+}
+h1,
+h2,
+h3,
+h4,
+.admin-sidebar-title,
+.admin-card h3,
+.wizard-steps {
+  font-family: var(--heading-font);
 }
 /* Brand customization, all set at runtime by SettingsContext.jsx from
    ChurchSettings (see routes/publicSettings.js / schema.prisma for the
@@ -17,7 +51,7 @@
    accessibility e2e suite. */
 body {
   margin: 0;
-  font-family: var(--brand-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-family: var(--brand-font, var(--body-font));
   background: #f7f5f0;
   color: #222;
 }
@@ -78,6 +112,7 @@ a {
      bottom of a long page. */
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--brand-header-color, #2c2a28);
   color: white;
   padding: 1.5rem 1rem;
@@ -85,11 +120,78 @@ a {
   flex-direction: column;
   position: sticky;
   top: 0;
+  transition: width 0.18s ease;
+}
+/* Collapsed state (Phase 9) -- icon-only rail, toggled by
+   .admin-sidebar-collapse-btn and persisted per-browser in
+   localStorage (AdminSidebar.jsx), same per-viewer-convenience
+   pattern useRecentlyViewed.js already uses. Labels/captions hide;
+   icons and the collapse/bell buttons stay put so the rail is still a
+   real, if narrower, nav. */
+.admin-sidebar.collapsed {
+  width: 64px;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.admin-sidebar.collapsed .sb-label,
+.admin-sidebar.collapsed .admin-sidebar-subnav,
+.admin-sidebar.collapsed .admin-sidebar-subnav-label,
+.admin-sidebar.collapsed .admin-sidebar-title-text,
+.admin-sidebar.collapsed .admin-sidebar-group-arrow {
+  display: none;
+}
+.admin-sidebar.collapsed .admin-sidebar-title {
+  justify-content: center;
 }
 .admin-sidebar-title {
   font-size: 1.05rem;
+  font-weight: 600;
   margin: 0 0 1.5rem;
   line-height: 1.3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.admin-sidebar-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+/* Collapse toggle + the reserved notification-bell slot -- both match
+   the design-reference artifact's .sb-collapse-btn/.sb-bell-btn
+   exactly. The bell is deliberately inert: no dropdown, no real
+   content, no backend call -- it's reserved layout space for a future
+   in-app-notifications feature (planned, not yet designed) so that
+   feature won't need to rework this header row when it ships. */
+.admin-sidebar-collapse-btn,
+.admin-sidebar-bell-btn {
+  position: relative;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  border-radius: var(--radius-sm);
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.admin-sidebar-collapse-btn:hover,
+.admin-sidebar-bell-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.admin-sidebar-bell-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  font-size: 0.56rem;
+  padding: 0 4px;
+  line-height: 1.4;
 }
 .admin-sidebar-nav {
   display: flex;
@@ -108,16 +210,25 @@ a {
 .admin-sidebar-nav button,
 .admin-sidebar-footer a,
 .admin-sidebar-footer button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   color: white;
   text-decoration: none;
   padding: 0.55rem 0.6rem;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
   text-align: left;
   background: none;
   border: none;
   cursor: pointer;
   font-family: inherit;
+}
+.admin-sidebar.collapsed .admin-sidebar-nav a,
+.admin-sidebar.collapsed .admin-sidebar-nav button,
+.admin-sidebar.collapsed .admin-sidebar-footer a,
+.admin-sidebar.collapsed .admin-sidebar-footer button {
+  justify-content: center;
 }
 .admin-sidebar-nav a:hover,
 .admin-sidebar-nav button:hover,
@@ -401,15 +512,16 @@ a {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(20, 25, 30, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 1rem;
 }
 .modal-panel {
-  background: #fff;
   width: 90%;
+  max-width: 32rem;
   max-height: 85vh;
   overflow-y: auto;
 }
@@ -652,23 +764,32 @@ a {
 .table-scroll .table-actions {
   flex-wrap: nowrap;
 }
-.admin-table th,
+.admin-table th {
+  text-align: left;
+  padding: 0 0.5rem 0.6rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-text);
+  font-weight: 700;
+}
 .admin-table td {
   text-align: left;
-  padding: 0.5rem;
-  border-bottom: 1px solid #eee;
+  padding: 0.65rem 0.5rem;
+  border-top: 1px solid var(--border-soft);
 }
 .admin-table tbody tr:hover {
-  background: #f0f6f1;
+  background: var(--surface-2);
 }
 .btn {
   background: var(--brand-color, #2a5d3c);
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 0.9rem;
+  font-weight: 600;
 }
 /* Accent at rest, highlight on hover -- :not(.secondary):not(.danger) so
    those variants' own distinct semantic colors (gray/red) aren't overridden
@@ -786,9 +907,10 @@ a {
   z-index: 50;
 }
 .admin-section {
-  background: white;
-  border: 1px solid #e2e2e2;
-  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   padding: 1.25rem 1.5rem;
 }
 
@@ -1022,10 +1144,11 @@ a {
 
 .status-pill {
   display: inline-block;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
   padding: 0.15rem 0.6rem;
-  border-radius: 12px;
-  background: #eee;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
   color: #444;
 }
 .status-pill.warn {
@@ -1095,10 +1218,11 @@ a {
 }
 .admin-card {
   display: block;
-  background: white;
-  border: 1px solid #e2e2e2;
-  border-radius: 8px;
-  padding: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 1.1rem 1.25rem;
   text-decoration: none;
   color: inherit;
   transition:
@@ -1108,6 +1232,18 @@ a {
 .admin-card:hover {
   border-color: var(--brand-highlight-color, #a6540f);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+/* Eyebrow category label (e.g. "Communications", "Trips") shown above a
+   card's title -- CardGrid.jsx's optional `category` field. Omitted
+   entirely (no empty space reserved) when a call site doesn't pass one. */
+.admin-card-eyebrow {
+  display: block;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--brand-color, #2a5d3c);
+  font-weight: 700;
+  margin-bottom: 0.35rem;
 }
 .admin-card h3 {
   margin: 0 0 0.5rem;
@@ -1388,4 +1524,87 @@ a {
   a[href]::after {
     content: "";
   }
+}
+
+/* AdminHome.jsx's search box + Cmd/Ctrl+K hint, and its "Recently
+   viewed" chips -- Phase 9 visual design, matching the design-reference
+   artifact's .home-search/.recent-chip exactly. */
+.home-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 0.7rem 1rem;
+}
+.home-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 0.95rem;
+}
+.home-search input:focus {
+  outline: none;
+}
+.home-search-kbd-hint {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  color: var(--muted-text);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+.recent-row {
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+.recent-chip {
+  flex-shrink: 0;
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.8rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  text-decoration: none;
+  color: inherit;
+}
+.recent-chip:hover {
+  border-color: var(--brand-highlight-color, #a6540f);
+}
+.recent-chip b {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted-text);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 2px;
+}
+
+/* Wizard.jsx's step-dot progress bar, above the existing numbered step
+   labels -- purely decorative (same role as the design-reference
+   artifact's .wizard-progress), so it's hidden rather than squashed at
+   a single step, matching that artifact's own 1-step "New User" note
+   that a progress bar isn't worth showing there. */
+.wizard-progress {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+.wizard-progress div {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border-soft);
+}
+.wizard-progress div.done {
+  background: var(--brand-color, #2a5d3c);
 }

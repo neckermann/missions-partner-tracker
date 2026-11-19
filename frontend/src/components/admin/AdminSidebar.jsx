@@ -24,6 +24,24 @@ import { useSettings } from "../../context/SettingsContext.jsx";
 // untouched) -- e2e coverage (auth-boundary.spec.js) asserts on the
 // button's current name, and nothing about its own internal grouping
 // needed to change here.
+// Icon per group/link -- Phase 9 visual design, matching the
+// design-reference artifact's icon language 1:1. Purely decorative
+// (aria-hidden in SidebarLink/SidebarGroup below) -- the link text
+// itself is unchanged, so this never affects a link's accessible name.
+const GROUP_ICONS = { partnerCare: "❤️", trips: "✈️", communications: "📨", reports: "📊" };
+const LINK_ICONS = {
+  "/admin/partners": "👤",
+  "/admin/prayer-requests": "🙏",
+  "/admin/support/needs": "🎁",
+  "/admin/support/monthly": "💰",
+  "/admin/partner-files": "📰",
+  "/admin/trips": "✈️",
+  "/admin/inbound-email": "📥",
+  "/admin/pending-dispatches": "📨",
+  "/admin/booklet": "📘",
+  "/admin/reports": "📊",
+};
+
 function buildGroups(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
   return [
     {
@@ -75,10 +93,11 @@ function groupContainsPath(group, pathname) {
   return group.links.some((link) => pathname === link.to || pathname.startsWith(`${link.to}/`));
 }
 
-function SidebarLink({ to, label, end }) {
+function SidebarLink({ to, label, end, icon }) {
   return (
     <RouterNavLink to={to} end={end} className={({ isActive }) => (isActive ? "active" : undefined)}>
-      {label}
+      {icon && <span aria-hidden="true">{icon}</span>}
+      <span className="sb-label">{label}</span>
     </RouterNavLink>
   );
 }
@@ -89,7 +108,7 @@ function SidebarLink({ to, label, end }) {
 // its own group collapsed with no indication of where you are).
 // `expanded`/`onToggle` are lifted to the parent only so each group's
 // state is independent of the others.
-function SidebarGroup({ label, links, expanded, onToggle }) {
+function SidebarGroup({ label, icon, links, expanded, onToggle }) {
   return (
     <>
       <button
@@ -98,13 +117,16 @@ function SidebarGroup({ label, links, expanded, onToggle }) {
         aria-expanded={expanded}
         onClick={onToggle}
       >
-        {label}
+        <span style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
+          {icon && <span aria-hidden="true">{icon}</span>}
+          <span className="sb-label">{label}</span>
+        </span>
         <span className="admin-sidebar-group-arrow">{expanded ? "▾" : "▸"}</span>
       </button>
       {expanded && (
         <div className="admin-sidebar-subnav">
           {links.map((link) => (
-            <SidebarLink key={link.to} {...link} />
+            <SidebarLink key={link.to} {...link} icon={LINK_ICONS[link.to]} />
           ))}
         </div>
       )}
@@ -132,7 +154,7 @@ function SidebarGroup({ label, links, expanded, onToggle }) {
 function buildSiteAdminLinks(enabledFeatures) {
   return [
     { to: "/admin/settings/about", label: "About Church" },
-    { to: "/admin/settings/users", label: "Manage Users" },
+    { to: "/admin/settings/users", label: "Manage Users", icon: "👥" },
     { to: "/admin/settings/branding", label: "Branding" },
     { to: "/admin/settings/features", label: "Enabled Features" },
     { to: "/admin/settings/backups", label: "Backups" },
@@ -172,6 +194,28 @@ function buildSiteAdminLinks(enabledFeatures) {
   ].filter(Boolean);
 }
 
+// Collapsed/expanded is a pure per-browser convenience (not synced
+// anywhere, not read back by any other page) -- localStorage, same
+// pattern useRecentlyViewed.js already uses, wrapped in try/catch so a
+// private window or blocked storage just falls back to expanded.
+const SIDEBAR_COLLAPSED_KEY = "admin.sidebarCollapsed";
+
+function readSidebarCollapsed() {
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeSidebarCollapsed(value) {
+  try {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, value ? "1" : "0");
+  } catch {
+    // Private-window/blocked-storage -- not worth surfacing an error for.
+  }
+}
+
 export default function AdminSidebar() {
   const [currentUser, setCurrentUser] = useState(null);
   // Manual toggles per group, keyed by group.key -- each independent of
@@ -183,6 +227,7 @@ export default function AdminSidebar() {
   // own label) rather than folded into buildGroups/manuallyExpanded --
   // see buildGroups' own comment for why.
   const [siteAdminExpanded, setSiteAdminExpanded] = useState(false);
+  const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
   const navigate = useNavigate();
   const location = useLocation();
   const { churchName, partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
@@ -196,19 +241,50 @@ export default function AdminSidebar() {
     return Boolean(manuallyExpanded[group.key]) || groupContainsPath(group, location.pathname);
   }
 
+  function toggleCollapsed() {
+    setCollapsed((v) => {
+      writeSidebarCollapsed(!v);
+      return !v;
+    });
+  }
+
   useEffect(() => {
     fetchCurrentUser().then(setCurrentUser);
   }, []);
 
   return (
-    <aside className="admin-sidebar no-print">
-      <h1 className="admin-sidebar-title">{title}</h1>
+    <aside className={collapsed ? "admin-sidebar no-print collapsed" : "admin-sidebar no-print"}>
+      <div className="admin-sidebar-title">
+        <h1 className="admin-sidebar-title-text" style={{ fontSize: "inherit", fontWeight: "inherit", margin: 0 }}>
+          {title}
+        </h1>
+        <span className="admin-sidebar-title-actions">
+          {/* Reserved layout space, not a built feature -- in-app
+              notifications are planned but not yet designed (a separate
+              system from the email/GroupMe digest redesign). No
+              dropdown, no real content, no backend call: just holding
+              this header row's slot so that feature won't need to
+              rework it once it's actually scoped. */}
+          <button type="button" className="admin-sidebar-bell-btn" title="Notifications (coming soon)">
+            🔔
+          </button>
+          <button
+            type="button"
+            className="admin-sidebar-collapse-btn"
+            onClick={toggleCollapsed}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? "⟩⟩" : "⟨⟨"}
+          </button>
+        </span>
+      </div>
       <nav className="admin-sidebar-nav">
-        <SidebarLink to="/admin" label="Home" end />
+        <SidebarLink to="/admin" label="Home" end icon="🏠" />
         {groups.map((group) => (
           <SidebarGroup
             key={group.key}
             label={group.label}
+            icon={GROUP_ICONS[group.key]}
             links={group.links}
             expanded={expandedFor(group)}
             onToggle={() => setManuallyExpanded((m) => ({ ...m, [group.key]: !expandedFor(group) }))}
@@ -223,7 +299,10 @@ export default function AdminSidebar() {
               aria-expanded={showSiteAdmin}
               onClick={() => setSiteAdminExpanded((v) => !v)}
             >
-              Settings
+              <span style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
+                <span aria-hidden="true">⚙️</span>
+                <span className="sb-label">Settings</span>
+              </span>
               <span className="admin-sidebar-group-arrow">{showSiteAdmin ? "▾" : "▸"}</span>
             </button>
             {showSiteAdmin && (
@@ -243,30 +322,34 @@ export default function AdminSidebar() {
         )}
       </nav>
       <div className="admin-sidebar-footer">
-        <SidebarLink to="/admin/account" label="My Account" />
+        <SidebarLink to="/admin/account" label="My Account" icon="🙋" />
         {/* Prefers the directory as the primary public entry point; falls
             back to the map if only that's on, and hides entirely if
             neither public-facing page is enabled. New tab so following it
             never navigates the admin itself away from where it was. */}
         {enabledFeatures.publicDirectory ? (
           <Link to="/" target="_blank" rel="noopener noreferrer">
-            View public site
+            <span aria-hidden="true">🌐</span>
+            <span className="sb-label">View public site</span>
           </Link>
         ) : (
           enabledFeatures.publicMap && (
             <Link to="/map" target="_blank" rel="noopener noreferrer">
-              View public map
+              <span aria-hidden="true">🌐</span>
+              <span className="sb-label">View public map</span>
             </Link>
           )
         )}
         <button
           className="btn secondary"
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.55rem" }}
           onClick={async () => {
             await logout();
             navigate("/login");
           }}
         >
-          Log out
+          <span aria-hidden="true">🚪</span>
+          <span className="sb-label">Log out</span>
         </button>
       </div>
     </aside>
