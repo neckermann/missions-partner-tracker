@@ -1,0 +1,30 @@
+name: Release version check
+
+# Fails loudly if a pushed release tag's version doesn't match
+# backend/package.json at that commit. Can't block the tag itself --
+# by the time this runs the tag already exists -- so this is a
+# catch-after-the-fact alarm, not a gate. See CONTRIBUTING.md
+# § Branches and releasing and WORKFLOW.md § 3/4: the version bump is
+# supposed to happen in the dev -> main PR itself, before the tag is
+# cut. Added because both v1.0.0 and v1.1.0 shipped without the bump
+# and nothing caught it -- see issue #277.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare tag to backend/package.json
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          pkg_version="$(node -p "require('./backend/package.json').version")"
+          echo "Tag: $GITHUB_REF_NAME -> expected package version: $tag_version"
+          echo "backend/package.json version at this commit: $pkg_version"
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match backend/package.json version ($pkg_version). The version bump must land in the PR that becomes this release, before the tag is cut -- see CONTRIBUTING.md § Branches and releasing."
+            exit 1
+          fi
