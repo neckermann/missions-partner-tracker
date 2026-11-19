@@ -72,6 +72,30 @@ describe("GET /api/prayer-requests", () => {
     assert.ok(listed.body.some((r) => r.id === res.body.id));
     assert.ok(listed.body.every((r) => r.partnerId === partnerId));
   });
+
+  // The admin list page hides an archived partner's requests by default
+  // (AdminPrayerRequests.jsx), the same convention the matching report
+  // (reports/prayerRequests.js) already applies server-side -- but that
+  // page's filter is client-side, so what this route owes it is just the
+  // partner's current archived state to filter on.
+  test("a listed request's embedded partner carries its current archived state", async () => {
+    const res = await create({
+      category: "situational",
+      requestText: `${FIXTURE_TAG} archived-state check`,
+      dateReceived: "2026-01-01",
+    });
+
+    let listed = await viewer(`/api/prayer-requests?partnerId=${partnerId}`);
+    const before = listed.body.find((r) => r.id === res.body.id);
+    assert.equal(before.partner.archived, false);
+
+    await admin(`/api/partners/${partnerId}/archive`, { method: "POST" });
+    listed = await viewer(`/api/prayer-requests?partnerId=${partnerId}`);
+    const after = listed.body.find((r) => r.id === res.body.id);
+    assert.equal(after.partner.archived, true);
+
+    await admin(`/api/partners/${partnerId}/unarchive`, { method: "POST" });
+  });
 });
 
 describe("POST /api/prayer-requests", () => {

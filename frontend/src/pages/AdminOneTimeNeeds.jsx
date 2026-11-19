@@ -54,6 +54,7 @@ export default function AdminOneTimeNeeds() {
   const [partners, setPartners] = useState([]);
   const [statusFilter, setStatusFilter] = useState("all"); // all | pending | decided
   const [dateRangeFilter, setDateRangeFilter] = useState("all");
+  const [includeArchived, setIncludeArchived] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newNeed, setNewNeed] = useState(emptyNewNeed);
   const [saving, setSaving] = useState(false);
@@ -93,6 +94,7 @@ export default function AdminOneTimeNeeds() {
   const filteredNeeds = needs.filter((need) => {
     if (statusFilter === "pending" && need.approvedAmount != null) return false;
     if (statusFilter === "decided" && need.approvedAmount == null) return false;
+    if (!includeArchived && need.partner?.archived) return false;
     return inDateRange(need.requestDate, dateRangeFilter);
   });
   const {
@@ -369,6 +371,14 @@ export default function AdminOneTimeNeeds() {
             </option>
           ))}
         </select>
+        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
+          <input
+            type="checkbox"
+            checked={includeArchived}
+            onChange={(e) => setIncludeArchived(e.target.checked)}
+          />
+          Include archived partners
+        </label>
       </div>
 
       {visibleNeeds.map((need) => {

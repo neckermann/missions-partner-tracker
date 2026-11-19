@@ -15,7 +15,9 @@ const router = express.Router();
 router.use(requireAuth); // admin-only for now -- no public routes for this yet
 router.use(requireFeature("partnerFiles"));
 
-const fileInclude = { partner: partnerRefSelect };
+// Extends partnerRefSelect's own fields with `archived` -- same reasoning
+// as prayerRequests.js's own prayerRequestInclude.
+const fileInclude = { partner: { select: { ...partnerRefSelect.select, archived: true } } };
 
 // .eml files don't have a reliable MIME type across browsers/OSes (often
 // reported as application/octet-stream or blank), so they're recognized

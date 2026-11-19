@@ -62,7 +62,14 @@ const ANSWERED_DATE_ISSUE = {
 };
 
 const prayerRequestInclude = {
-  partner: partnerRefSelect,
+  // Extends partnerRefSelect's own fields with `archived` -- needed so the
+  // admin list page can hide a request for an archived partner by default,
+  // the same convention the matching report (reports/prayerRequests.js)
+  // already applies server-side. Done locally rather than adding `archived`
+  // to the shared constant itself, since partnerRefSelect also backs
+  // several files (dispatchRecording.js, supportEntries.js, etc.) that have
+  // no use for it.
+  partner: { select: { ...partnerRefSelect.select, archived: true } },
   // Just enough for the "From: <title>, <date>" admin card link -- never
   // the file bytes themselves, same omit discipline as every other
   // PartnerFile list query. `kind` is what tells SourceLink.jsx (and the

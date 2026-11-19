@@ -56,7 +56,9 @@ const APPROVED_PAIR_ISSUE = {
 };
 
 const supportNeedInclude = {
-  partner: partnerRefSelect,
+  // Extends partnerRefSelect's own fields with `archived` -- same reasoning
+  // as prayerRequests.js's own supportNeedInclude/prayerRequestInclude.
+  partner: { select: { ...partnerRefSelect.select, archived: true } },
   // Just enough for the "From: <title>, <date>" admin card link -- never
   // the file bytes themselves, same omit discipline as every other
   // PartnerFile list query. `kind` is what tells SourceLink.jsx (and the
