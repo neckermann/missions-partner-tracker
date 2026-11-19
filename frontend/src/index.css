@@ -149,15 +149,33 @@ a {
   margin: 0 0 1.5rem;
   line-height: 1.3;
   display: flex;
-  align-items: center;
+  /* flex-start, not center: a long church name (ChurchSettings.churchName
+     has no length limit) can clamp to 2 lines below -- flex-start keeps
+     the bell/collapse buttons pinned at the top of the row either way,
+     instead of drifting toward the vertical middle of a 2-line title. */
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.5rem;
+}
+/* min-width: 0 overrides the flex item's default auto min-width, which
+   would otherwise refuse to shrink below the text's natural (unwrapped)
+   width and silently defeat both the wrap and the clamp below. */
+.admin-sidebar-title-text {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .admin-sidebar-title-actions {
   display: flex;
   align-items: center;
   gap: 0.35rem;
   flex-shrink: 0;
+  /* Matches the title text's own first-line height so the buttons read
+     as sitting on the title's first line, not floating above it. */
+  margin-top: 0.1rem;
 }
 /* Collapse toggle + the reserved notification-bell slot -- both match
    the design-reference artifact's .sb-collapse-btn/.sb-bell-btn

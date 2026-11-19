@@ -255,7 +255,11 @@ export default function AdminSidebar() {
   return (
     <aside className={collapsed ? "admin-sidebar no-print collapsed" : "admin-sidebar no-print"}>
       <div className="admin-sidebar-title">
-        <h1 className="admin-sidebar-title-text" style={{ fontSize: "inherit", fontWeight: "inherit", margin: 0 }}>
+        <h1
+          className="admin-sidebar-title-text"
+          title={title}
+          style={{ fontSize: "inherit", fontWeight: "inherit", margin: 0 }}
+        >
           {title}
         </h1>
         <span className="admin-sidebar-title-actions">
