@@ -168,7 +168,14 @@ export default function AdminPartners() {
   async function handleDelete(row) {
     const confirmed = await confirmDialog({
       title: `Permanently delete ${row.name}?`,
-      body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+      body: (
+        <ConfirmMessageBody>
+          This deletes everything tied to them: their household, address, prayer requests, one-time needs,
+          support history, documents and newsletters, photos, church visits, and furlough records -- plus any
+          trips organized around them, including those trips&apos; own rosters, applications, and documents.
+          Every admin and public subscriber following them will stop. This cannot be undone.
+        </ConfirmMessageBody>
+      ),
       confirmLabel: "Delete permanently",
       danger: true,
       typedConfirmation: { word: "confirm", label: 'Type "confirm" to proceed' },
