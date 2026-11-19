@@ -15,6 +15,8 @@ import {
 import { formatDate, isMinorForTrip } from "../utils/format.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
+import EditableSection from "../components/admin/EditableSection.jsx";
+import { mapServerErrorMessage } from "../utils/friendlyError.js";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -25,20 +27,20 @@ function readFileAsDataUrl(file) {
   });
 }
 
-// One participant's full picture, split out of AdminTripDetail.jsx's
-// Confirmed Team table (#252 follow-on). That table used to cram document
-// upload, a requirement picker, task checkboxes, and access-link
-// controls into one action column per row -- everything here is that
-// same functionality, just given the room a person's full record
-// actually needs instead of fighting a flat table row for space.
-// AdminTripDetail.jsx's Confirmed Team table still covers "who's on the
-// team and what's outstanding across everyone, at a glance"; this page
-// is the canonical complete record for one person -- every scalar
-// column TripParticipant/TripApplication carries is meant to have a
-// home here (enforced by test/routes/tripFieldVisibility.test.js, not
-// just this comment -- a column with no UI home by design needs the
-// explicit `// tripFieldVisibility: intentionally admin-invisible`
-// marker next to it in schema.prisma, not a silent gap).
+// One participant's full picture, split out of the Trips Team page's
+// Confirmed Team table (#252 follow-on). That table used to cram
+// document upload, a requirement picker, task checkboxes, and access-
+// link controls into one action column per row -- everything here is
+// that same functionality, just given the room a person's full record
+// actually needs. The Team page's Confirmed Team table still covers
+// "who's on the team and what's outstanding across everyone, at a
+// glance"; this page is the canonical complete record for one person.
+//
+// Phase 3 (UX rebuild): migrated off onBlur-autosave onto EditableSection
+// for the two scalar-field groups (Contact & access, Support-raising
+// goal) -- the same silent-failure bug class named in the plan existed
+// here too (handlePhotoChange and handleSaveStory had no error handling
+// at all before this pass).
 export default function AdminTripParticipantDetail() {
   const { tripId, participantId } = useParams();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
@@ -57,10 +59,6 @@ export default function AdminTripParticipantDetail() {
 
   useEffect(() => {
     reload();
-    // Needed just for allowPublicSupportRaisingLinks -- whether the
-    // story/photo-edit controls and the public-page preview link exist
-    // at all (same "doesn't render, not disabled" treatment
-    // enableTripBudgeting already established elsewhere in this app).
     fetchTripsSettings().then(setSettings).catch(console.error);
   }, [reload]);
 
@@ -79,8 +77,6 @@ export default function AdminTripParticipantDetail() {
   const documents = (trip.documents || []).filter((d) => d.participantId === participantId);
   const contributions = (trip.contributions || []).filter((c) => c.participantId === participantId);
   const raised = contributions.reduce((sum, c) => sum + c.amount, 0);
-  // #278 -- a minors-only requirement never applies to a non-minor
-  // participant; excluded entirely rather than shown as outstanding.
   const requirementRows = (trip.requirements || [])
     .filter((r) => !r.minorsOnly || isMinorForTrip(participant.dateOfBirth, trip.startDate))
     .map((r) => ({
@@ -92,34 +88,16 @@ export default function AdminTripParticipantDetail() {
     }));
   const documentRequirements = requirementRows.filter((r) => r.kind !== "task");
 
-  // Narrower than a blanket completeness check -- firstName/lastName/
-  // email are now required at creation for anyone added to a non-
-  // completed trip (backend/src/routes/trips.js), so there's nothing
-  // left to flag there. Address/emergency contact stay legitimately
-  // optional-or-not based on the church's own collection toggles, not
-  // on whether this participant is a backfill -- the one residual case
-  // this can't catch at creation time is a toggle turned on *after*
-  // someone already applied, which this banner exists to surface.
-  // Never shown on a completed trip -- there's no one left to chase.
   const missingFields =
     trip.status !== "completed"
       ? [
           settings?.collectApplicantAddress && !participant.addressLine1 && "address",
           settings?.collectEmergencyContact && !participant.emergencyContactFirstName && "emergency contact",
-          // This trip's own flag, not a church-wide toggle -- see
-          // Trip.collectParentGuardianInfo's own schema comment.
           trip.collectParentGuardianInfo && !participant.dateOfBirth && "date of birth",
           trip.collectParentGuardianInfo && !participant.parentGuardianFirstName && "parent/guardian name",
         ].filter(Boolean)
       : [];
 
-  // Same combined order AdminTripDetail.jsx's own pending-applications
-  // review list uses (template questions first, then this trip's own) --
-  // a church can define totally different questions trip to trip, so this
-  // can't be hardcoded. Only ever populated for a participant who came
-  // through an approved application; null for a directly-admin-added or
-  // historical-backfill participant, same as every address/emergency-
-  // contact field above.
   const combinedQuestions = [
     ...(settings?.tripApplicationTemplate || []),
     ...(trip.applicationQuestions || []),
@@ -132,49 +110,61 @@ export default function AdminTripParticipantDetail() {
       })
     : [];
 
+  function reportError(err, fallback) {
+    setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
+  }
+
   async function handleGenerateSupportRaisingLink() {
     try {
       await generateSupportRaisingLink(participantId);
       reload();
+      setError("");
     } catch (err) {
-      setError(
-        err.response?.data?.error ||
-          "Couldn't generate link -- check that public support-raising links are enabled in Trip settings."
+      reportError(
+        err,
+        "Couldn't generate link -- check that public support-raising links are enabled in Trip settings."
       );
     }
   }
 
-  // Contact details -- always available, independent of whether the
-  // church uses public support-raising pages at all (plain record-
-  // keeping, not gated on allowPublicSupportRaisingLinks).
   async function saveParticipant(fields) {
-    try {
-      await updateTripParticipant(participantId, fields);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Couldn't save.");
-    }
+    await updateTripParticipant(participantId, fields);
+    reload();
   }
 
-  // Story/photo -- admin editing the same fields a participant could
-  // also self-edit, no review step (same as the participant's own
-  // edit), gated on allowPublicSupportRaisingLinks by the caller.
   async function handleSaveStory() {
     if (storyDraft === null) return;
-    await saveParticipant({ story: storyDraft });
-    setStoryDraft(null);
+    try {
+      await saveParticipant({ story: storyDraft });
+      setError("");
+    } catch (err) {
+      reportError(err, "Couldn't save their story.");
+    } finally {
+      setStoryDraft(null);
+    }
   }
 
   async function handlePhotoChange(file) {
     if (!file) return;
     setPhotoFile(file);
-    const dataUrl = await readFileAsDataUrl(file);
-    await saveParticipant({ photo: dataUrl, photoContentType: file.type });
-    setPhotoFile(null);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      await saveParticipant({ photo: dataUrl, photoContentType: file.type });
+      setError("");
+    } catch (err) {
+      reportError(err, "Couldn't upload this photo.");
+    } finally {
+      setPhotoFile(null);
+    }
   }
 
   async function handleResendAccessLink() {
-    await resendParticipantAccessLink(participantId);
+    try {
+      await resendParticipantAccessLink(participantId);
+      setError("");
+    } catch (err) {
+      reportError(err, "Couldn't resend the access link.");
+    }
   }
 
   async function handleRequestDocuments() {
@@ -182,10 +172,9 @@ export default function AdminTripParticipantDetail() {
     try {
       await requestTripDocuments(tripId, participantId, docMessage);
       setDocMessage("");
+      setError("");
     } catch (err) {
-      setError(
-        err.response?.data?.error || "Couldn't send -- check that outbound and inbound email are configured."
-      );
+      reportError(err, "Couldn't send -- check that outbound and inbound email are configured.");
     }
   }
 
@@ -199,8 +188,9 @@ export default function AdminTripParticipantDetail() {
       setDocFile(null);
       setDocRequirementChoice("");
       reload();
+      setError("");
     } catch (err) {
-      setError(err.response?.data?.error || "Couldn't log this document.");
+      reportError(err, "Couldn't log this document.");
     }
   }
 
@@ -216,13 +206,23 @@ export default function AdminTripParticipantDetail() {
       danger: true,
     });
     if (!confirmed) return;
-    await deleteTripDocument(docId);
-    reload();
+    try {
+      await deleteTripDocument(docId);
+      reload();
+      setError("");
+    } catch (err) {
+      reportError(err, "Couldn't remove this document.");
+    }
   }
 
   async function handleToggleTaskComplete(requirementId, completed) {
-    await setTripRequirementComplete(requirementId, participantId, completed);
-    reload();
+    try {
+      await setTripRequirementComplete(requirementId, participantId, completed);
+      reload();
+      setError("");
+    } catch (err) {
+      reportError(err, "Couldn't update that task.");
+    }
   }
 
   return (
@@ -240,310 +240,261 @@ export default function AdminTripParticipantDetail() {
         <p style={{ color: "#a6540f", fontSize: "0.85rem" }}>Missing: {missingFields.join(", ")}</p>
       )}
 
-      <div className="admin-section">
-        <h3>Contact &amp; access</h3>
-        {/* Previously read-only everywhere on this page -- a participant
-        entered via a quick admin-add, or whose details changed, had no
-        way to be corrected. Always available, independent of
-        allowPublicSupportRaisingLinks -- plain record-keeping. */}
-        <div className="form-grid">
-          <label>
-            First name
-            <input
-              key={`firstName-${participant.id}`}
-              defaultValue={participant.firstName || ""}
-              onBlur={(e) =>
-                e.target.value.trim() &&
-                e.target.value !== (participant.firstName || "") &&
-                saveParticipant({ firstName: e.target.value.trim() })
-              }
-            />
-          </label>
-          <label>
-            Last name
-            <input
-              key={`lastName-${participant.id}`}
-              defaultValue={participant.lastName || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.lastName || "") &&
-                saveParticipant({ lastName: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            Email
-            <input
-              key={`email-${participant.id}`}
-              defaultValue={participant.email || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.email || "") &&
-                saveParticipant({ email: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            Phone
-            <input
-              key={`phone-${participant.id}`}
-              defaultValue={participant.phone || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.phone || "") &&
-                saveParticipant({ phone: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            Role
-            <input
-              key={`role-${participant.id}`}
-              defaultValue={participant.role || ""}
-              placeholder="e.g. Medical, Construction, Translator"
-              onBlur={(e) =>
-                e.target.value !== (participant.role || "") &&
-                saveParticipant({ role: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem" }}>
-            <input
-              type="checkbox"
-              style={{ width: "auto" }}
-              checked={!!participant.isLeader}
-              onChange={(e) => saveParticipant({ isLeader: e.target.checked })}
-            />
-            Trip Leader
-          </label>
-        </div>
-
-        <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Address</h4>
-        <div className="form-grid">
-          <label>
-            Address line 1
-            <input
-              key={`addressLine1-${participant.id}`}
-              defaultValue={participant.addressLine1 || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.addressLine1 || "") &&
-                saveParticipant({ addressLine1: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            Address line 2
-            <input
-              key={`addressLine2-${participant.id}`}
-              defaultValue={participant.addressLine2 || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.addressLine2 || "") &&
-                saveParticipant({ addressLine2: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            City
-            <input
-              key={`city-${participant.id}`}
-              defaultValue={participant.city || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.city || "") &&
-                saveParticipant({ city: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            State / Province / Region
-            <input
-              key={`stateProvinceRegion-${participant.id}`}
-              defaultValue={participant.stateProvinceRegion || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.stateProvinceRegion || "") &&
-                saveParticipant({ stateProvinceRegion: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            Postal code
-            <input
-              key={`postalCode-${participant.id}`}
-              defaultValue={participant.postalCode || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.postalCode || "") &&
-                saveParticipant({ postalCode: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            Country
-            <input
-              key={`country-${participant.id}`}
-              defaultValue={participant.country || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.country || "") &&
-                saveParticipant({ country: e.target.value.trim() || null })
-              }
-            />
-          </label>
-        </div>
-
-        <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Emergency contact</h4>
-        <div className="form-grid">
-          <label>
-            First Name
-            <input
-              key={`emergencyContactFirstName-${participant.id}`}
-              defaultValue={participant.emergencyContactFirstName || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.emergencyContactFirstName || "") &&
-                saveParticipant({ emergencyContactFirstName: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            Last Name
-            <input
-              key={`emergencyContactLastName-${participant.id}`}
-              defaultValue={participant.emergencyContactLastName || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.emergencyContactLastName || "") &&
-                saveParticipant({ emergencyContactLastName: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            Phone
-            <input
-              key={`emergencyContactPhone-${participant.id}`}
-              defaultValue={participant.emergencyContactPhone || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.emergencyContactPhone || "") &&
-                saveParticipant({ emergencyContactPhone: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            Email
-            <input
-              key={`emergencyContactEmail-${participant.id}`}
-              defaultValue={participant.emergencyContactEmail || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.emergencyContactEmail || "") &&
-                saveParticipant({ emergencyContactEmail: e.target.value.trim() || null })
-              }
-            />
-          </label>
-        </div>
-
-        {/* This participant's own date of birth -- a church-wide field
-        (ChurchSettings.collectDateOfBirth), not specific to minors, so it
-        gets its own heading rather than sharing one with the
-        parent/guardian block below -- combining the two read as if this
-        were the parent's date of birth, which it never is: there is no
-        parent/guardian date-of-birth field anywhere in this app. Shown
-        and editable regardless of the toggle, same "plain record-keeping"
-        treatment as every other contact field on this page. */}
-        <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Date of birth</h4>
-        <div className="form-grid">
-          <label>
-            Date of birth
-            <input
-              type="date"
-              key={`dateOfBirth-${participant.id}`}
-              defaultValue={participant.dateOfBirth ? participant.dateOfBirth.slice(0, 10) : ""}
-              onBlur={(e) => saveParticipant({ dateOfBirth: e.target.value || null })}
-            />
-          </label>
-        </div>
-
-        {/* Parent/guardian -- only meaningful when this trip's own
-        collectParentGuardianInfo is on (Trip.collectParentGuardianInfo's
-        own schema comment has the full why), but shown and editable
-        regardless, same reasoning as the date-of-birth block above. Kept
-        as its own section, separate from this participant's own date of
-        birth above -- these are two different people's information. */}
-        <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Parent/guardian</h4>
-        <div className="form-grid">
-          <label>
-            Parent/guardian first name
-            <input
-              key={`parentGuardianFirstName-${participant.id}`}
-              defaultValue={participant.parentGuardianFirstName || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.parentGuardianFirstName || "") &&
-                saveParticipant({ parentGuardianFirstName: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            Parent/guardian last name
-            <input
-              key={`parentGuardianLastName-${participant.id}`}
-              defaultValue={participant.parentGuardianLastName || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.parentGuardianLastName || "") &&
-                saveParticipant({ parentGuardianLastName: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            Relationship
-            <input
-              key={`parentGuardianRelationship-${participant.id}`}
-              defaultValue={participant.parentGuardianRelationship || ""}
-              placeholder="e.g. Mother, Father, Legal guardian"
-              onBlur={(e) =>
-                e.target.value !== (participant.parentGuardianRelationship || "") &&
-                saveParticipant({ parentGuardianRelationship: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            Parent/guardian phone
-            <input
-              key={`parentGuardianPhone-${participant.id}`}
-              defaultValue={participant.parentGuardianPhone || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.parentGuardianPhone || "") &&
-                saveParticipant({ parentGuardianPhone: e.target.value.trim() || null })
-              }
-            />
-          </label>
-          <label>
-            Parent/guardian email
-            <input
-              key={`parentGuardianEmail-${participant.id}`}
-              defaultValue={participant.parentGuardianEmail || ""}
-              onBlur={(e) =>
-                e.target.value !== (participant.parentGuardianEmail || "") &&
-                saveParticipant({ parentGuardianEmail: e.target.value.trim() || null })
-              }
-            />
-          </label>
-        </div>
-
-        <div className="table-actions" style={{ marginTop: "0.5rem" }}>
-          <button type="button" className="btn secondary small" onClick={handleResendAccessLink}>
-            Resend access link
-          </button>
-          {/* "Regenerate" now, always available while the setting is on --
-          previously vanished forever once a token existed, with no way
-          to rotate a leaked link. Overwrite-as-revocation (the backend
-          route already just overwrites) is enough, same precedent
-          Trip.applicationShareToken's own regenerate already uses. */}
-          {settings?.allowPublicSupportRaisingLinks && (
-            <button type="button" className="btn secondary small" onClick={handleGenerateSupportRaisingLink}>
-              {participant.shareToken ? "Regenerate support-raising link" : "Generate support-raising link"}
+      <EditableSection
+        title="Contact & access"
+        value={{
+          firstName: participant.firstName || "",
+          lastName: participant.lastName || "",
+          email: participant.email || "",
+          phone: participant.phone || "",
+          role: participant.role || "",
+          isLeader: !!participant.isLeader,
+          addressLine1: participant.addressLine1 || "",
+          addressLine2: participant.addressLine2 || "",
+          city: participant.city || "",
+          stateProvinceRegion: participant.stateProvinceRegion || "",
+          postalCode: participant.postalCode || "",
+          country: participant.country || "",
+          emergencyContactFirstName: participant.emergencyContactFirstName || "",
+          emergencyContactLastName: participant.emergencyContactLastName || "",
+          emergencyContactPhone: participant.emergencyContactPhone || "",
+          emergencyContactEmail: participant.emergencyContactEmail || "",
+          dateOfBirth: participant.dateOfBirth ? participant.dateOfBirth.slice(0, 10) : "",
+          parentGuardianFirstName: participant.parentGuardianFirstName || "",
+          parentGuardianLastName: participant.parentGuardianLastName || "",
+          parentGuardianRelationship: participant.parentGuardianRelationship || "",
+          parentGuardianPhone: participant.parentGuardianPhone || "",
+          parentGuardianEmail: participant.parentGuardianEmail || "",
+        }}
+        onSave={(draft) =>
+          saveParticipant({
+            firstName: draft.firstName.trim(),
+            lastName: draft.lastName.trim() || null,
+            email: draft.email.trim() || null,
+            phone: draft.phone.trim() || null,
+            role: draft.role.trim() || null,
+            isLeader: draft.isLeader,
+            addressLine1: draft.addressLine1.trim() || null,
+            addressLine2: draft.addressLine2.trim() || null,
+            city: draft.city.trim() || null,
+            stateProvinceRegion: draft.stateProvinceRegion.trim() || null,
+            postalCode: draft.postalCode.trim() || null,
+            country: draft.country.trim() || null,
+            emergencyContactFirstName: draft.emergencyContactFirstName.trim() || null,
+            emergencyContactLastName: draft.emergencyContactLastName.trim() || null,
+            emergencyContactPhone: draft.emergencyContactPhone.trim() || null,
+            emergencyContactEmail: draft.emergencyContactEmail.trim() || null,
+            dateOfBirth: draft.dateOfBirth || null,
+            parentGuardianFirstName: draft.parentGuardianFirstName.trim() || null,
+            parentGuardianLastName: draft.parentGuardianLastName.trim() || null,
+            parentGuardianRelationship: draft.parentGuardianRelationship.trim() || null,
+            parentGuardianPhone: draft.parentGuardianPhone.trim() || null,
+            parentGuardianEmail: draft.parentGuardianEmail.trim() || null,
+          })
+        }
+        actions={
+          <>
+            <button type="button" className="btn secondary small" onClick={handleResendAccessLink}>
+              Resend access link
             </button>
-          )}
-        </div>
-      </div>
+            {settings?.allowPublicSupportRaisingLinks && (
+              <button type="button" className="btn secondary small" onClick={handleGenerateSupportRaisingLink}>
+                {participant.shareToken ? "Regenerate support-raising link" : "Generate support-raising link"}
+              </button>
+            )}
+          </>
+        }
+        view={(v) => (
+          <div>
+            <div className="form-grid">
+              <ViewField label="First name" value={v.firstName} />
+              <ViewField label="Last name" value={v.lastName} />
+              <ViewField label="Email" value={v.email} />
+              <ViewField label="Phone" value={v.phone} />
+              <ViewField label="Role" value={v.role} />
+              <ViewField label="Trip Leader" value={v.isLeader ? "Yes" : "No"} />
+            </div>
+            <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Address</h4>
+            <div className="form-grid">
+              <ViewField label="Address line 1" value={v.addressLine1} />
+              <ViewField label="Address line 2" value={v.addressLine2} />
+              <ViewField label="City" value={v.city} />
+              <ViewField label="State / Province / Region" value={v.stateProvinceRegion} />
+              <ViewField label="Postal code" value={v.postalCode} />
+              <ViewField label="Country" value={v.country} />
+            </div>
+            <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Emergency contact</h4>
+            <div className="form-grid">
+              <ViewField label="First Name" value={v.emergencyContactFirstName} />
+              <ViewField label="Last Name" value={v.emergencyContactLastName} />
+              <ViewField label="Phone" value={v.emergencyContactPhone} />
+              <ViewField label="Email" value={v.emergencyContactEmail} />
+            </div>
+            <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Date of birth</h4>
+            <div className="form-grid">
+              <ViewField label="Date of birth" value={v.dateOfBirth} />
+            </div>
+            <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Parent/guardian</h4>
+            <div className="form-grid">
+              <ViewField label="Parent/guardian first name" value={v.parentGuardianFirstName} />
+              <ViewField label="Parent/guardian last name" value={v.parentGuardianLastName} />
+              <ViewField label="Relationship" value={v.parentGuardianRelationship} />
+              <ViewField label="Parent/guardian phone" value={v.parentGuardianPhone} />
+              <ViewField label="Parent/guardian email" value={v.parentGuardianEmail} />
+            </div>
+          </div>
+        )}
+        edit={(draft, set) => (
+          <div>
+            <div className="form-grid">
+              <label>
+                First name
+                <input value={draft.firstName} onChange={(e) => set("firstName", e.target.value)} />
+              </label>
+              <label>
+                Last name
+                <input value={draft.lastName} onChange={(e) => set("lastName", e.target.value)} />
+              </label>
+              <label>
+                Email
+                <input value={draft.email} onChange={(e) => set("email", e.target.value)} />
+              </label>
+              <label>
+                Phone
+                <input value={draft.phone} onChange={(e) => set("phone", e.target.value)} />
+              </label>
+              <label>
+                Role
+                <input
+                  value={draft.role}
+                  placeholder="e.g. Medical, Construction, Translator"
+                  onChange={(e) => set("role", e.target.value)}
+                />
+              </label>
+              <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem" }}>
+                <input
+                  type="checkbox"
+                  style={{ width: "auto" }}
+                  checked={draft.isLeader}
+                  onChange={(e) => set("isLeader", e.target.checked)}
+                />
+                Trip Leader
+              </label>
+            </div>
+            <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Address</h4>
+            <div className="form-grid">
+              <label>
+                Address line 1
+                <input value={draft.addressLine1} onChange={(e) => set("addressLine1", e.target.value)} />
+              </label>
+              <label>
+                Address line 2
+                <input value={draft.addressLine2} onChange={(e) => set("addressLine2", e.target.value)} />
+              </label>
+              <label>
+                City
+                <input value={draft.city} onChange={(e) => set("city", e.target.value)} />
+              </label>
+              <label>
+                State / Province / Region
+                <input
+                  value={draft.stateProvinceRegion}
+                  onChange={(e) => set("stateProvinceRegion", e.target.value)}
+                />
+              </label>
+              <label>
+                Postal code
+                <input value={draft.postalCode} onChange={(e) => set("postalCode", e.target.value)} />
+              </label>
+              <label>
+                Country
+                <input value={draft.country} onChange={(e) => set("country", e.target.value)} />
+              </label>
+            </div>
+            <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Emergency contact</h4>
+            <div className="form-grid">
+              <label>
+                First Name
+                <input
+                  value={draft.emergencyContactFirstName}
+                  onChange={(e) => set("emergencyContactFirstName", e.target.value)}
+                />
+              </label>
+              <label>
+                Last Name
+                <input
+                  value={draft.emergencyContactLastName}
+                  onChange={(e) => set("emergencyContactLastName", e.target.value)}
+                />
+              </label>
+              <label>
+                Phone
+                <input
+                  value={draft.emergencyContactPhone}
+                  onChange={(e) => set("emergencyContactPhone", e.target.value)}
+                />
+              </label>
+              <label>
+                Email
+                <input
+                  value={draft.emergencyContactEmail}
+                  onChange={(e) => set("emergencyContactEmail", e.target.value)}
+                />
+              </label>
+            </div>
+            <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Date of birth</h4>
+            <div className="form-grid">
+              <label>
+                Date of birth
+                <input type="date" value={draft.dateOfBirth} onChange={(e) => set("dateOfBirth", e.target.value)} />
+              </label>
+            </div>
+            <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Parent/guardian</h4>
+            <div className="form-grid">
+              <label>
+                Parent/guardian first name
+                <input
+                  value={draft.parentGuardianFirstName}
+                  onChange={(e) => set("parentGuardianFirstName", e.target.value)}
+                />
+              </label>
+              <label>
+                Parent/guardian last name
+                <input
+                  value={draft.parentGuardianLastName}
+                  onChange={(e) => set("parentGuardianLastName", e.target.value)}
+                />
+              </label>
+              <label>
+                Relationship
+                <input
+                  value={draft.parentGuardianRelationship}
+                  placeholder="e.g. Mother, Father, Legal guardian"
+                  onChange={(e) => set("parentGuardianRelationship", e.target.value)}
+                />
+              </label>
+              <label>
+                Parent/guardian phone
+                <input
+                  value={draft.parentGuardianPhone}
+                  onChange={(e) => set("parentGuardianPhone", e.target.value)}
+                />
+              </label>
+              <label>
+                Parent/guardian email
+                <input
+                  value={draft.parentGuardianEmail}
+                  onChange={(e) => set("parentGuardianEmail", e.target.value)}
+                />
+              </label>
+            </div>
+          </div>
+        )}
+      />
 
       {participant.application && (
         <div className="admin-section">
           <h3>Application answers</h3>
-          {/* Read-only -- this is the applicant's own record of what they
-          answered at submission time, not something an admin corrects
-          here. Submitted {formatDate(...)} gives a reference point, since
-          a trip's own question set can change after someone applied. */}
           <p style={{ fontSize: "0.8rem", color: "#888", marginTop: 0 }}>
             Submitted {formatDate(participant.application.submittedAt)}
           </p>
@@ -562,102 +513,102 @@ export default function AdminTripParticipantDetail() {
         </div>
       )}
 
-      <div className="admin-section">
-        <h3>Support raising</h3>
-        <div
-          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 600 }}
-        >
-          <span>${raised} raised</span>
-          <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: 400 }}>
-            <span style={{ color: "#6b6f76" }}>of $</span>
-            <input
-              key={`supportRaisingGoal-${participant.id}`}
-              type="number"
-              style={{ width: "5.5rem" }}
-              defaultValue={participant.supportRaisingGoal || ""}
-              onBlur={(e) =>
-                Number(e.target.value || 0) !== (participant.supportRaisingGoal || 0) &&
-                saveParticipant({ supportRaisingGoal: e.target.value ? Number(e.target.value) : null })
-              }
-            />
-            <span style={{ color: "#6b6f76" }}>goal</span>
-          </label>
-        </div>
-        {/* Same "doesn't exist, not disabled" treatment enableTripBudgeting
-        already established -- when the setting's off, or this specific
-        participant doesn't have a shareToken yet, there's no real public
-        page for any of this to be about, so none of it renders at all. */}
-        {settings?.allowPublicSupportRaisingLinks && participant.shareToken && (
-          <>
-            <p style={{ fontSize: "0.75rem", marginTop: "0.4rem" }}>
-              <code>{`${window.location.origin}/trip-support-raising/${participant.shareToken}`}</code>{" "}
-              <a
-                href={`${window.location.origin}/trip-support-raising/${participant.shareToken}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Preview their public page →
-              </a>
-            </p>
-
-            <div style={{ marginTop: "0.75rem" }}>
-              <h4 style={{ margin: "0 0 0.4rem" }}>Their public page</h4>
-              <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start", flexWrap: "wrap" }}>
-                {participant.photoContentType && (
-                  <img
-                    src={tripParticipantPhotoUrl(participant.id)}
-                    alt={`${participant.firstName} ${participant.lastName}`}
-                    style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover" }}
-                  />
-                )}
-                <div style={{ flex: 1, minWidth: 220 }}>
-                  <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "0.3rem" }}>
-                    Photo of {participant.firstName} (shown on their public page)
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    aria-label={`Photo of ${participant.firstName} ${participant.lastName}`}
-                    onChange={(e) => handlePhotoChange(e.target.files[0] || null)}
-                  />
-                  {photoFile && <span style={{ fontSize: "0.75rem", color: "#888" }}> Uploading…</span>}
-                </div>
-              </div>
-              <label style={{ display: "block", marginTop: "0.6rem" }}>
-                Story (what shows on their public page)
-                <textarea
-                  rows={3}
-                  defaultValue={participant.story || ""}
-                  onChange={(e) => setStoryDraft(e.target.value)}
-                  onBlur={handleSaveStory}
-                />
-              </label>
+      <EditableSection
+        title="Support raising"
+        value={{ supportRaisingGoal: participant.supportRaisingGoal ?? "" }}
+        onSave={(draft) =>
+          saveParticipant({
+            supportRaisingGoal: draft.supportRaisingGoal === "" ? null : Number(draft.supportRaisingGoal),
+          })
+        }
+        view={(v) => (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 600 }}>
+              <span>${raised} raised</span>
+              <span>of ${v.supportRaisingGoal || 0} goal</span>
             </div>
-          </>
+            {settings?.allowPublicSupportRaisingLinks && participant.shareToken && (
+              <>
+                <p style={{ fontSize: "0.75rem", marginTop: "0.4rem" }}>
+                  <code>{`${window.location.origin}/trip-support-raising/${participant.shareToken}`}</code>{" "}
+                  <a
+                    href={`${window.location.origin}/trip-support-raising/${participant.shareToken}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Preview their public page →
+                  </a>
+                </p>
+                <div style={{ marginTop: "0.75rem" }}>
+                  <h4 style={{ margin: "0 0 0.4rem" }}>Their public page</h4>
+                  <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start", flexWrap: "wrap" }}>
+                    {participant.photoContentType && (
+                      <img
+                        src={tripParticipantPhotoUrl(participant.id)}
+                        alt={`${participant.firstName} ${participant.lastName}`}
+                        style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover" }}
+                      />
+                    )}
+                    <div style={{ flex: 1, minWidth: 220 }}>
+                      <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "0.3rem" }}>
+                        Photo of {participant.firstName} (shown on their public page)
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        aria-label={`Photo of ${participant.firstName} ${participant.lastName}`}
+                        onChange={(e) => handlePhotoChange(e.target.files[0] || null)}
+                      />
+                      {photoFile && <span style={{ fontSize: "0.75rem", color: "#888" }}> Uploading…</span>}
+                    </div>
+                  </div>
+                  <label style={{ display: "block", marginTop: "0.6rem" }}>
+                    Story (what shows on their public page)
+                    <textarea
+                      rows={3}
+                      defaultValue={participant.story || ""}
+                      onChange={(e) => setStoryDraft(e.target.value)}
+                      onBlur={handleSaveStory}
+                    />
+                  </label>
+                </div>
+              </>
+            )}
+            {contributions.length > 0 && (
+              <table className="admin-table" style={{ marginTop: "0.5rem" }}>
+                <thead>
+                  <tr>
+                    <th>Donor</th>
+                    <th>Amount</th>
+                    <th>Method</th>
+                    <th>Received</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contributions.map((c) => (
+                    <tr key={c.id}>
+                      <td>{c.donorName}</td>
+                      <td>${c.amount}</td>
+                      <td>{c.method}</td>
+                      <td>{formatDate(c.receivedDate)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         )}
-        {contributions.length > 0 && (
-          <table className="admin-table" style={{ marginTop: "0.5rem" }}>
-            <thead>
-              <tr>
-                <th>Donor</th>
-                <th>Amount</th>
-                <th>Method</th>
-                <th>Received</th>
-              </tr>
-            </thead>
-            <tbody>
-              {contributions.map((c) => (
-                <tr key={c.id}>
-                  <td>{c.donorName}</td>
-                  <td>${c.amount}</td>
-                  <td>{c.method}</td>
-                  <td>{formatDate(c.receivedDate)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        edit={(draft, set) => (
+          <label style={{ maxWidth: 220 }}>
+            Support-raising goal ($)
+            <input
+              type="number"
+              value={draft.supportRaisingGoal}
+              onChange={(e) => set("supportRaisingGoal", e.target.value)}
+            />
+          </label>
         )}
-      </div>
+      />
 
       <div className="admin-section">
         <h3>Requirements</h3>
@@ -666,10 +617,7 @@ export default function AdminTripParticipantDetail() {
         ) : (
           <ul style={{ listStyle: "none", padding: 0 }}>
             {requirementRows.map((r) => (
-              <li
-                key={r.id}
-                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}
-              >
+              <li key={r.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}>
                 {r.kind === "task" ? (
                   <div className="admin-checkbox-row">
                     <label>
@@ -730,15 +678,7 @@ export default function AdminTripParticipantDetail() {
         </div>
 
         <div style={{ marginTop: "0.5rem" }}>
-          {/* Manually log a document received by any means other than inbound
-          email (which already files straight to a participant via the
-          Unmatched Emails queue) -- mail, in person, a file the admin
-          already has. */}
-          <input
-            type="file"
-            aria-label="Document file"
-            onChange={(e) => setDocFile(e.target.files[0] || null)}
-          />
+          <input type="file" aria-label="Document file" onChange={(e) => setDocFile(e.target.files[0] || null)} />
           {documentRequirements.length > 0 && (
             <select
               aria-label="Fulfills requirement"
@@ -754,17 +694,21 @@ export default function AdminTripParticipantDetail() {
               ))}
             </select>
           )}
-          <button
-            type="button"
-            className="btn secondary small"
-            disabled={!docFile}
-            onClick={handleLogDocument}
-          >
+          <button type="button" className="btn secondary small" disabled={!docFile} onClick={handleLogDocument}>
             Log document
           </button>
         </div>
       </div>
       {confirmElement}
+    </div>
+  );
+}
+
+function ViewField({ label, value }) {
+  return (
+    <div>
+      <div style={{ fontSize: "0.75rem", color: "#888", fontWeight: 600 }}>{label}</div>
+      <div>{value || "—"}</div>
     </div>
   );
 }

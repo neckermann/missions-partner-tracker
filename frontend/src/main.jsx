@@ -60,7 +60,13 @@ const AdminMonthlySupport = lazy(() => import("./pages/AdminMonthlySupport.jsx")
 const AdminOneTimeNeeds = lazy(() => import("./pages/AdminOneTimeNeeds.jsx"));
 const AdminPrayerRequests = lazy(() => import("./pages/AdminPrayerRequests.jsx"));
 const AdminTrips = lazy(() => import("./pages/AdminTrips.jsx"));
-const AdminTripDetail = lazy(() => import("./pages/AdminTripDetail.jsx"));
+const TripDetailLayout = lazy(() => import("./components/admin/TripDetailLayout.jsx"));
+const AdminTripOverview = lazy(() => import("./pages/AdminTripOverview.jsx"));
+const AdminTripTeam = lazy(() => import("./pages/AdminTripTeam.jsx"));
+const AdminTripMeetings = lazy(() => import("./pages/AdminTripMeetings.jsx"));
+const AdminTripRequirements = lazy(() => import("./pages/AdminTripRequirements.jsx"));
+const AdminTripBudget = lazy(() => import("./pages/AdminTripBudget.jsx"));
+const AdminTripFlights = lazy(() => import("./pages/AdminTripFlights.jsx"));
 const AdminTripParticipantDetail = lazy(() => import("./pages/AdminTripParticipantDetail.jsx"));
 const AdminSettingsTrips = lazy(() => import("./pages/AdminSettingsTrips.jsx"));
 const AdminPartnerFiles = lazy(() => import("./pages/AdminPartnerFiles.jsx"));
@@ -216,10 +222,17 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   path="trips/:id"
                   element={
                     <RequireAdminFeature feature="trips">
-                      <AdminTripDetail />
+                      <TripDetailLayout />
                     </RequireAdminFeature>
                   }
-                />
+                >
+                  <Route index element={<AdminTripOverview />} />
+                  <Route path="team" element={<AdminTripTeam />} />
+                  <Route path="meetings" element={<AdminTripMeetings />} />
+                  <Route path="requirements" element={<AdminTripRequirements />} />
+                  <Route path="budget" element={<AdminTripBudget />} />
+                  <Route path="flights" element={<AdminTripFlights />} />
+                </Route>
                 <Route
                   path="trips/:tripId/participants/:participantId"
                   element={
