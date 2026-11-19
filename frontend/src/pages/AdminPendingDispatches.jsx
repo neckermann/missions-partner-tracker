@@ -3,6 +3,7 @@ import { fetchPendingDispatches, deletePendingDispatch, updatePendingDispatch } 
 import DispatchReviewModal from "../components/admin/DispatchReviewModal.jsx";
 import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import StatusPill from "../components/admin/StatusPill.jsx";
 
 // Groups blurbs by partner, nesting a request/need under the newsletter
 // blurb it was sourced from -- same structure adminEmailDispatchContent.js
@@ -64,19 +65,8 @@ const RESTRICTED_BG = "#fffbeb";
 
 function RestrictedBadge() {
   return (
-    <span
-      style={{
-        marginLeft: "0.5rem",
-        padding: "0.1rem 0.5rem",
-        borderRadius: "999px",
-        background: RESTRICTED_BORDER,
-        color: "#fff",
-        fontSize: "0.75rem",
-        fontWeight: 600,
-        verticalAlign: "middle",
-      }}
-    >
-      🔒 Restricted
+    <span style={{ marginLeft: "0.5rem" }}>
+      <StatusPill label="🔒 Restricted" color={RESTRICTED_BORDER} />
     </span>
   );
 }
@@ -86,19 +76,8 @@ function RestrictedBadge() {
 // reviewed," not just "this row's content is masked" (#187).
 function AwaitingReviewBadge() {
   return (
-    <span
-      style={{
-        marginLeft: "0.5rem",
-        padding: "0.1rem 0.5rem",
-        borderRadius: "999px",
-        background: RESTRICTED_BORDER,
-        color: "#fff",
-        fontSize: "0.75rem",
-        fontWeight: 600,
-        verticalAlign: "middle",
-      }}
-    >
-      Awaiting review
+    <span style={{ marginLeft: "0.5rem" }}>
+      <StatusPill label="Awaiting review" color={RESTRICTED_BORDER} />
     </span>
   );
 }
@@ -258,7 +237,7 @@ export default function AdminPendingDispatches() {
         New prayer requests, one-time needs, and newsletters queue here instead of posting immediately -- each
         one clears once every channel it's relevant to (GroupMe, WhatsApp, the admin email, the public email)
         has handled it, on its own schedule. For schedules, the chat channels' content-type mutes, and email
-        dispatch appearance, see Site Administration → Dispatch Settings.
+        dispatch appearance, see Settings → Dispatch Settings.
       </p>
 
       <div className="admin-section" style={{ marginTop: "1rem" }}>

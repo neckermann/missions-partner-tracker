@@ -1578,7 +1578,7 @@ model ChurchSettings {
   // first, before that trip's own applicationQuestions (Trip model, above).
   // Same shape as applicationQuestions -- see utils/applicationQuestions.js
   // for the one shared zod definition both this field and Trip's own use.
-  // Configured once under Site Administration -> Mission Trips instead of
+  // Configured once under Settings -> Mission Trips instead of
   // re-typed on every trip -- closes the "keep forks upgradable" gap a
   // hardcoded starter question set would otherwise create. See
   // publicTrips.js's shapeTripForApplicant for where the two layers get

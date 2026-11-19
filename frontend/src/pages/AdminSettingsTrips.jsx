@@ -7,7 +7,7 @@ import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestions
 // general church info (so it doesn't belong on the About Church page
 // either). A two-page split was tried (issue #262) and reverted -- the
 // split introduced a worse problem than it solved (it surfaced two
-// settings pages outside the admin-only Site Administration group) for
+// settings pages outside the admin-only Settings group) for
 // a smaller one (page length), which this app's own biggest page
 // (AdminPartnerDetail.jsx, ~1,200 lines) already shows isn't a problem
 // clearly-labeled sections can't handle on their own. Sections below are

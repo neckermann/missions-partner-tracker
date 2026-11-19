@@ -8,7 +8,7 @@ import React, { useEffect, useState } from "react";
 // registerApiKeySetting() factory in routes/settings.js, which collapsed
 // the same duplication server-side.
 //
-// The other Site Administration pages (Backups, Features, GroupMe,
+// The other Settings pages (Backups, Features, GroupMe,
 // Branding, About) each have a genuinely different shape -- some have no
 // loading state at all, GroupMe has several independent save actions
 // sharing one `saving` flag, Branding has a file upload, About has an

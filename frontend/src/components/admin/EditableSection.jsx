@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import useUnsavedChangesGuard from "../../hooks/useUnsavedChangesGuard.js";
+import { mapServerErrorMessage } from "../../utils/friendlyError.js";
 
 // A section of the partner page that can be edited in place.
 //
@@ -26,10 +28,15 @@ export default function EditableSection({ title, value, onSave, onSaved, view, e
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [justSaved, setJustSaved] = useState(false);
+
+  const hasUnsavedChanges = editing && JSON.stringify(draft) !== JSON.stringify(value);
+  useUnsavedChangesGuard(hasUnsavedChanges);
 
   function startEdit() {
     setDraft(value);
     setError("");
+    setJustSaved(false);
     setEditing(true);
   }
 
@@ -49,10 +56,10 @@ export default function EditableSection({ title, value, onSave, onSaved, view, e
       await onSave(draft);
       setEditing(false);
       await onSaved?.();
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 3000);
     } catch (err) {
-      setError(
-        err.response?.data?.error?.[0]?.message || err.response?.data?.error || "Failed to save changes"
-      );
+      setError(mapServerErrorMessage(err.response?.data?.error) || "Failed to save changes");
     } finally {
       setSaving(false);
     }
@@ -83,7 +90,12 @@ export default function EditableSection({ title, value, onSave, onSaved, view, e
 
       <div style={{ marginTop: "1rem" }}>{editing ? edit(draft, set, setDraft) : view(value)}</div>
 
-      {error && <p style={{ color: "#b91c1c", marginTop: "0.75rem" }}>{error}</p>}
+      {error && (
+        <p className="form-error" role="alert" style={{ marginTop: "0.75rem" }}>
+          {error}
+        </p>
+      )}
+      {justSaved && !error && <p style={{ color: "#2a5d3c", marginTop: "0.75rem" }}>Saved ✓</p>}
     </div>
   );
 }

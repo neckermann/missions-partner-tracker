@@ -41,7 +41,7 @@ function mfaSection(page) {
 }
 
 test.describe("role gating in the UI", () => {
-  test("an editor can read partners but cannot reach Site Administration", async ({ page }) => {
+  test("an editor can read partners but cannot reach Settings", async ({ page }) => {
     await login(page);
     const editor = await createUser(page, { role: "editor", suffix: "editor" });
 
@@ -57,7 +57,7 @@ test.describe("role gating in the UI", () => {
       await expect(page.locator("table tbody tr").first(), "an editor sees the partner list").toBeVisible();
 
       // The admin-only settings area is neither offered nor reachable.
-      await expect(page.getByRole("button", { name: /Site Administration/i })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: /Settings/i })).toHaveCount(0);
 
       await page.goto("/admin/settings/users");
       await expect(page, "an editor is redirected away from user management").toHaveURL(/\/admin$/);

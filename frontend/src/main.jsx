@@ -35,6 +35,7 @@ const AdminReports = lazy(() => import("./pages/AdminReports.jsx"));
 const PublicMap = lazy(() => import("./pages/PublicMap.jsx"));
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout.jsx"));
 const AdminHome = lazy(() => import("./pages/AdminHome.jsx"));
+const AdminPartnerCare = lazy(() => import("./pages/AdminPartnerCare.jsx"));
 const AdminPartners = lazy(() => import("./pages/AdminPartners.jsx"));
 const AdminPartnerForm = lazy(() => import("./pages/AdminPartnerForm.jsx"));
 const AdminPartnerDetail = lazy(() => import("./pages/AdminPartnerDetail.jsx"));
@@ -151,6 +152,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 }
               >
                 <Route index element={<AdminHome />} />
+                <Route path="partner-care" element={<AdminPartnerCare />} />
                 <Route path="partners" element={<AdminPartners />} />
                 <Route path="partners/new" element={<AdminPartnerForm />} />
                 <Route path="partners/:id" element={<AdminPartnerDetail />} />
@@ -251,13 +253,13 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   }
                 />
                 <Route path="account" element={<AccountSettings />} />
-                {/* Site Administration -- one admin-only guard on the whole
-                sub-tree instead of repeating RequireAdminAuth per leaf
-                route. No shared visual layout here (no wrapper element,
-                just Outlet) -- unlike the rest of /admin/*, these pages are
-                reached via the sidebar's own expandable "Site
-                Administration" group (see AdminSidebar.jsx), not a
-                same-page tab bar, so each page owns its own heading. */}
+                {/* Settings -- one admin-only guard on the whole sub-tree
+                instead of repeating RequireAdminAuth per leaf route. No
+                shared visual layout here (no wrapper element, just
+                Outlet) -- unlike the rest of /admin/*, these pages are
+                reached via the sidebar's own expandable "Settings" group
+                (see AdminSidebar.jsx), not a same-page tab bar, so each
+                page owns its own heading. */}
                 <Route
                   path="settings"
                   element={

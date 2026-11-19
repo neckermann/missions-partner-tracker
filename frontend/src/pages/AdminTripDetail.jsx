@@ -32,6 +32,7 @@ import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestionsEditor.jsx";
 import TripStatusBadge from "../components/admin/TripStatusBadge.jsx";
+import { useRecordRecentlyViewed } from "../hooks/useRecentlyViewed.js";
 
 // New (#252) -- the fuller single-trip page for an actively-recruited
 // trip (applications/team/meetings/documents/support raising). A purely
@@ -138,6 +139,14 @@ export default function AdminTripDetail() {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useRecordRecentlyViewed(
+    trip && {
+      to: `/admin/trips/${trip.id}`,
+      label: trip.partner?.fieldDisplayName || trip.partner?.displayName || "Trip",
+      kind: "Trip",
+    }
+  );
 
   if (!trip) return <div className="admin-shell">Loading…</div>;
 
@@ -2090,7 +2099,7 @@ export default function AdminTripDetail() {
       <div className="admin-section">
         <h3>Application questions</h3>
         <p style={{ color: "#555" }}>
-          Added after the church-wide questions (Site Administration → Trips Settings) on both the public and
+          Added after the church-wide questions (Settings → Trips Settings) on both the public and
           private application forms for this trip specifically.
         </p>
         <ApplicationQuestionsEditor

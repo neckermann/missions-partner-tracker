@@ -21,7 +21,7 @@ async function client() {
   });
   if (!settings?.postmarkServerToken || !settings?.emailFromAddress) {
     const err = new Error(
-      "Email isn't configured -- add a Postmark server token and From address under Site Administration → Email"
+      "Email isn't configured -- add a Postmark server token and From address under Settings → Email"
     );
     err.status = 400;
     throw err;

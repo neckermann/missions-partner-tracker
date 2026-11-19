@@ -70,7 +70,7 @@ a {
 .admin-sidebar {
   width: 230px;
   flex-shrink: 0;
-  /* height (not min-height): with Site Administration expanded, the nav
+  /* height (not min-height): with Settings expanded, the nav
      list can run taller than the viewport. Capping the box here and
      scrolling it internally is what lets you actually reach Log out --
      previously the box just grew past the viewport with no way to bring
@@ -140,7 +140,7 @@ a {
   margin: 0.75rem 0.6rem;
 }
 
-/* "Site Administration" -- a disclosure toggle (button, not a link; it
+/* "Settings" -- a disclosure toggle (button, not a link; it
    doesn't navigate anywhere itself) that expands a nested list of admin
    sub-pages, rather than a separate page with its own tab bar -- keeps
    "where am I" answered by the sidebar itself, the same way every other
@@ -171,7 +171,7 @@ a {
   font-size: 0.85rem;
   font-weight: normal;
 }
-/* A plain caption splitting the Site Administration subnav into groups
+/* A plain caption splitting the Settings subnav into groups
    (e.g. "Communications" ahead of GroupMe/Email) -- text, not a link, so
    no :hover/active states to style. */
 .admin-sidebar-subnav-label {

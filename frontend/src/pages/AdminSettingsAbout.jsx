@@ -36,9 +36,9 @@ const TIMEZONES = Intl.supportedValuesOf("timeZone");
 // Settings is a singleton — GET returns { featureRegistry } with everything
 // else absent before it's ever been saved (see routes/settings.js), so
 // `s?.id` (not `!s`) is the actual "has this church configured anything
-// yet" check — same pattern as the other Site Administration pages. Only
+// yet" check — same pattern as the other Settings pages. Only
 // pulls in the fields this page owns -- Branding/Features/Users are
-// separate pages under the sidebar's Site Administration group (see
+// separate pages under the sidebar's Settings group (see
 // AdminSidebar.jsx), each PUTting just its own slice, so saving here never
 // touches the others' fields.
 function mergeFetchedRecord(s) {

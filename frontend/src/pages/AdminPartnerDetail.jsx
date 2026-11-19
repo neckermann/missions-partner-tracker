@@ -24,6 +24,7 @@ import { formatDateLong, toDateInputValue, todayInputValue } from "../utils/form
 import { addressByType } from "../utils/addresses.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
+import { useRecordRecentlyViewed } from "../hooks/useRecentlyViewed.js";
 
 // A cleared <input type="date"> is "", which `z.coerce.date()` turns into an
 // Invalid Date and rejects -- "no date" has to travel as null.
@@ -207,6 +208,9 @@ export default function AdminPartnerDetail() {
   // Hooks. useLoadMore itself treats a null/undefined list as empty.
   const churchVisitsLoadMore = useLoadMore(p?.churchVisits);
   const furloughsLoadMore = useLoadMore(p?.furloughs);
+  useRecordRecentlyViewed(
+    p && { to: `/admin/partners/${p.id}`, label: p.displayName, kind: "Partner" }
+  );
 
   if (!p) return <p style={{ padding: "2rem" }}>Loading...</p>;
 

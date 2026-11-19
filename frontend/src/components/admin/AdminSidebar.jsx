@@ -14,28 +14,65 @@ import { useSettings } from "../../context/SettingsContext.jsx";
 // two links read identically, which looked like a bug. "Partners" is the
 // generic default label; it swaps to the church's own term when
 // usePartnerTermInAdmin is on.
-function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
+//
+// Grouped into real top-level collapsible sections (UX-rebuild Phase 0)
+// instead of one flat list -- Partner Care / Trips / Communications /
+// Reports, same expand/auto-expand-on-current-page mechanism Settings
+// already had (see renderGroup below), generalized rather than
+// reinvented. "Settings" (nee "Site Administration") itself stays a
+// separate group further down (its own isLabel-divider sub-structure is
+// untouched) -- e2e coverage (auth-boundary.spec.js) asserts on the
+// button's current name, and nothing about its own internal grouping
+// needed to change here.
+function buildGroups(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
   return [
-    { to: "/admin", label: "Home", end: true },
-    { to: "/admin/partners", label: usePartnerTermInAdmin ? partnerTermPlural : "Partners" },
-    enabledFeatures.inboundEmail && { to: "/admin/inbound-email", label: "Unmatched Emails" },
-    (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
-      to: "/admin/pending-dispatches",
-      label: "Pending Dispatches",
+    {
+      key: "partnerCare",
+      label: "Partner Care",
+      links: [
+        { to: "/admin/partners", label: usePartnerTermInAdmin ? partnerTermPlural : "Partners" },
+        enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
+        enabledFeatures.oneTimeNeeds && { to: "/admin/support/needs", label: "One-Time Needs" },
+        enabledFeatures.monthlySupport && { to: "/admin/support/monthly", label: "Monthly Support" },
+        enabledFeatures.partnerFiles && { to: "/admin/partner-files", label: "Newsletters & Docs" },
+      ].filter(Boolean),
     },
-    enabledFeatures.partnerFiles && { to: "/admin/partner-files", label: "Newsletters & Docs" },
-    enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
-    enabledFeatures.oneTimeNeeds && { to: "/admin/support/needs", label: "One-Time Needs" },
-    enabledFeatures.monthlySupport && { to: "/admin/support/monthly", label: "Monthly Support" },
     // One nav item now -- Trips and Plan a Trip merged into two tabs of
     // the same page (design review, post-#252): two separate nav items
     // for what's fundamentally one page made the real Trips/Plan-a-Trip
     // distinction look like an accidental duplicate, not the two
-    // genuinely different questions they actually answer.
-    enabledFeatures.trips && { to: "/admin/trips", label: "Trips" },
-    enabledFeatures.booklet && { to: "/admin/booklet", label: "Print Booklet" },
-    enabledFeatures.reports && { to: "/admin/reports", label: "Reports" },
-  ].filter(Boolean);
+    // genuinely different questions they actually answer. Its own
+    // group regardless, since a later phase splits its detail page into
+    // real sub-pages under this same heading.
+    enabledFeatures.trips && {
+      key: "trips",
+      label: "Trips",
+      links: [{ to: "/admin/trips", label: "Trips" }],
+    },
+    {
+      key: "communications",
+      label: "Communications",
+      links: [
+        enabledFeatures.inboundEmail && { to: "/admin/inbound-email", label: "Unmatched Emails" },
+        (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
+          to: "/admin/pending-dispatches",
+          label: "Pending Dispatches",
+        },
+      ].filter(Boolean),
+    },
+    {
+      key: "reports",
+      label: "Reports",
+      links: [
+        enabledFeatures.booklet && { to: "/admin/booklet", label: "Print Booklet" },
+        enabledFeatures.reports && { to: "/admin/reports", label: "Reports" },
+      ].filter(Boolean),
+    },
+  ].filter((group) => group && group.links.length > 0);
+}
+
+function groupContainsPath(group, pathname) {
+  return group.links.some((link) => pathname === link.to || pathname.startsWith(`${link.to}/`));
 }
 
 function SidebarLink({ to, label, end }) {
@@ -43,6 +80,35 @@ function SidebarLink({ to, label, end }) {
     <RouterNavLink to={to} end={end} className={({ isActive }) => (isActive ? "active" : undefined)}>
       {label}
     </RouterNavLink>
+  );
+}
+
+// One collapsible top-level group -- manually toggled, OR auto-expanded
+// while already on one of its own pages (same reasoning Settings' own
+// toggle already had: landing on a bookmarked deep link shouldn't show
+// its own group collapsed with no indication of where you are).
+// `expanded`/`onToggle` are lifted to the parent only so each group's
+// state is independent of the others.
+function SidebarGroup({ label, links, expanded, onToggle }) {
+  return (
+    <>
+      <button
+        type="button"
+        className="admin-sidebar-group-toggle"
+        aria-expanded={expanded}
+        onClick={onToggle}
+      >
+        {label}
+        <span className="admin-sidebar-group-arrow">{expanded ? "▾" : "▸"}</span>
+      </button>
+      {expanded && (
+        <div className="admin-sidebar-subnav">
+          {links.map((link) => (
+            <SidebarLink key={link.to} {...link} />
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -60,9 +126,9 @@ function SidebarLink({ to, label, end }) {
 // page, so one link covers both); Joshua Project and AI Features
 // *pull data in* or process content, never communicate with anyone.
 // isLabel marks a plain section caption (rendered as text, not a link)
-// rather than adding a second collapsible level under Site
-// Administration -- two dividers over nine total sub-items is still far
-// less machinery than a nested expandable group.
+// rather than adding a second collapsible level under Settings -- two
+// dividers over nine total sub-items is still far less machinery than a
+// nested expandable group.
 function buildSiteAdminLinks(enabledFeatures) {
   return [
     { to: "/admin/settings/about", label: "About Church" },
@@ -108,19 +174,27 @@ function buildSiteAdminLinks(enabledFeatures) {
 
 export default function AdminSidebar() {
   const [currentUser, setCurrentUser] = useState(null);
-  // Manually-toggled OR auto-expanded while already on one of its own
-  // pages, so navigating straight to e.g. /admin/settings/branding (a
-  // bookmark, a page refresh) doesn't leave the group looking collapsed
-  // with no visible indication of where you are.
-  const [expanded, setExpanded] = useState(false);
+  // Manual toggles per group, keyed by group.key -- each independent of
+  // the others. A group not yet in here just falls back to whether the
+  // current page is one of its own (see `expandedFor` below).
+  const [manuallyExpanded, setManuallyExpanded] = useState({});
+  // Same "manually-toggled OR auto-expanded while already on one of its
+  // own pages" idea as the groups above, kept separate (its own state,
+  // own label) rather than folded into buildGroups/manuallyExpanded --
+  // see buildGroups' own comment for why.
+  const [siteAdminExpanded, setSiteAdminExpanded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { churchName, partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
-  const links = buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures);
+  const groups = buildGroups(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures);
   const siteAdminLinks = buildSiteAdminLinks(enabledFeatures);
   const title = churchName ? `${churchName} Admin` : "Missions Team Admin";
   const inSiteAdmin = location.pathname.startsWith("/admin/settings");
-  const showSiteAdmin = expanded || inSiteAdmin;
+  const showSiteAdmin = siteAdminExpanded || inSiteAdmin;
+
+  function expandedFor(group) {
+    return Boolean(manuallyExpanded[group.key]) || groupContainsPath(group, location.pathname);
+  }
 
   useEffect(() => {
     fetchCurrentUser().then(setCurrentUser);
@@ -130,15 +204,18 @@ export default function AdminSidebar() {
     <aside className="admin-sidebar no-print">
       <h1 className="admin-sidebar-title">{title}</h1>
       <nav className="admin-sidebar-nav">
-        {links.map((link) =>
-          link.isLabel ? (
-            <div key={link.label} className="admin-sidebar-subnav-label">
-              {link.label}
-            </div>
-          ) : (
-            <SidebarLink key={link.to} {...link} />
-          )
-        )}
+        <SidebarLink to="/admin" label="Home" end />
+        {groups.map((group) => (
+          <SidebarGroup
+            key={group.key}
+            label={group.label}
+            links={group.links}
+            expanded={expandedFor(group)}
+            onToggle={() =>
+              setManuallyExpanded((m) => ({ ...m, [group.key]: !expandedFor(group) }))
+            }
+          />
+        ))}
         {currentUser?.role === "admin" && (
           <>
             <div className="admin-sidebar-divider" />
@@ -146,9 +223,9 @@ export default function AdminSidebar() {
               type="button"
               className="admin-sidebar-group-toggle"
               aria-expanded={showSiteAdmin}
-              onClick={() => setExpanded((v) => !v)}
+              onClick={() => setSiteAdminExpanded((v) => !v)}
             >
-              Site Administration
+              Settings
               <span className="admin-sidebar-group-arrow">{showSiteAdmin ? "▾" : "▸"}</span>
             </button>
             {showSiteAdmin && (

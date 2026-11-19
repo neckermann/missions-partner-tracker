@@ -135,7 +135,7 @@ the backend and always calls `/api` on its own origin.
 
 ## Feature toggles
 
-Site Administration → Enabled Features (`/admin/settings/features`) lets an
+Settings → Enabled Features (`/admin/settings/features`) lets an
 admin turn off parts of the app a church isn't using — hides the corresponding nav
 link/section (and, for the public-site toggles, the site itself) without
 losing any data already on file. Enforced server-side too (not just hidden
@@ -161,19 +161,19 @@ prayer digest nested under Email (Sending) since it depends on it), and
 | Public trip discovery | **Off** | The public Trip Opportunities listing (`/trips`) and plain, id-addressed application links. Also requires Mission trips to be on. A church can run trips entirely by private link with this off and Mission trips on — see [§ Trips](#trips) below. |
 | Print booklet | On | The printable prayer & support directory generator. |
 | Reports | On | Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history, furlough — with CSV download and a print view. |
-| GroupMe dispatch | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Site Administration → Dispatch Settings, or via manual send from Pending Dispatches. Configured entirely in the UI (Site Administration → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only). |
-| WhatsApp dispatch | **Off** | The same three dispatch types as GroupMe, posted to their own groups inside one WhatsApp community, on the same daily schedule and content-type mutes as GroupMe (a church can run either or both). Configured entirely in the UI (Site Administration → WhatsApp): link a **dedicated** phone number by scanning a QR code, pick the community, then a group per dispatch type. Off by default because it's an **unofficial** connection — see [Dispatch: WhatsApp](#dispatch-whatsapp) below before turning it on. See [USER_GUIDE.md § WhatsApp dispatch](USER_GUIDE.md#whatsapp-dispatch-admin-only). |
-| Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Site Administration → Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
-| AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Site Administration → AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
-| Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Site Administration → Email. Today's only sender is the batched dispatch digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
-| Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Site Administration → Email page as Sending, independently toggled. Also sets the one informational **Inbound Email Address** field — not required for the webhook itself, but needed for the Reply-To on a trip's "Request documents" email (see [§ Trips](#trips) below). See [§ Email (Postmark)](#email-postmark) below. |
+| GroupMe dispatch | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Settings → Dispatch Settings, or via manual send from Pending Dispatches. Configured entirely in the UI (Settings → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only). |
+| WhatsApp dispatch | **Off** | The same three dispatch types as GroupMe, posted to their own groups inside one WhatsApp community, on the same daily schedule and content-type mutes as GroupMe (a church can run either or both). Configured entirely in the UI (Settings → WhatsApp): link a **dedicated** phone number by scanning a QR code, pick the community, then a group per dispatch type. Off by default because it's an **unofficial** connection — see [Dispatch: WhatsApp](#dispatch-whatsapp) below before turning it on. See [USER_GUIDE.md § WhatsApp dispatch](USER_GUIDE.md#whatsapp-dispatch-admin-only). |
+| Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Settings → Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
+| AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Settings → AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
+| Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Settings → Email. Today's only sender is the batched dispatch digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
+| Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Settings → Email page as Sending, independently toggled. Also sets the one informational **Inbound Email Address** field — not required for the webhook itself, but needed for the Reply-To on a trip's "Request documents" email (see [§ Trips](#trips) below). See [§ Email (Postmark)](#email-postmark) below. |
 | Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the public **Subscribe** page (`/subscribe`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on — shown nested under Email (Sending) on this page, and its checkbox can't be turned on until that one is. See [§ Dispatch: GroupMe, the admin digest, and the public digest](#dispatch-groupme-the-admin-digest-and-the-public-digest) below. |
 
 The registry backing this list lives in `backend/src/utils/features.js` —
 adding a new toggle later is a one-line entry there plus a `requireFeature("key")`
 check on the relevant route(s), not a database migration.
 
-All of this lives under **Site Administration**, an expandable group in
+All of this lives under **Settings**, an expandable group in
 the admin sidebar itself (not a separate page with its own tab bar) —
 click it to reveal About Church, Manage Users, Branding, Enabled
 Features, and Backups, then two further sub-groups shown only once
@@ -554,7 +554,7 @@ gets masked: [USER_GUIDE.md § Understanding restricted-access partners](USER_GU
 
 ### Email (Postmark)
 
-Sending and receiving email (Site Administration → Email) both go
+Sending and receiving email (Settings → Email) both go
 through [Postmark](https://postmarkapp.com), a dedicated transactional
 email provider — not SMTP against this church's own Gmail/Microsoft
 mailbox, and not this app sending/polling mail directly. It's the option
@@ -572,7 +572,7 @@ no OAuth app to register and maintain. Setup: create a free Postmark
 account, verify a sending domain (adds SPF/DKIM records to that
 domain's DNS — a one-time step with whoever manages it), then paste the
 **Server API Token** and a
-**From Address** on that domain into Site Administration → Email. **Send
+**From Address** on that domain into Settings → Email. **Send
 Test Email** confirms it actually works before anything depends on it.
 Free tier is 100 emails/month with no card required; a small church's
 outbound volume plausibly fits inside that indefinitely.
@@ -616,11 +616,11 @@ right partner (or an admin can discard it). Setup:
 4. Set the **Inbound webhook** URL to
    `https://<username>:<password>@yourapp.com/api/inbound-email/postmark`,
    using a username/password you choose yourself — paste the same two
-   values into Site Administration → Email. Postmark sends them as HTTP
+   values into Settings → Email. Postmark sends them as HTTP
    Basic Auth on every request; this app verifies them with a
    constant-time comparison before accepting anything, and a wrong
    password gets a plain 401, never a hint about what's missing.
-5. Turn **Email (Receiving)** on at Site Administration → Enabled
+5. Turn **Email (Receiving)** on at Settings → Enabled
    Features once it's configured — independent of whether **Email
    (Sending)** is also on.
 
@@ -652,7 +652,7 @@ know before turning it on:
   volume low — a handful of messages a day is what it's built for. The
   anti-ban layer spaces sends out like a person would, blocks identical
   repeats, and **pauses sending automatically** if the number's ban risk
-  climbs (the Site Administration → WhatsApp page shows a warning, and
+  climbs (the Settings → WhatsApp page shows a warning, and
   anything not sent simply stays queued for the next daily send). It
   reduces the risk; it can't remove it.
 - **The number must be a member** of the community and of every group you
@@ -794,7 +794,7 @@ exact scheduled minute just skips that one occurrence, picking it up
 at the next.
 
 Those schedules are interpreted in this church's own configured
-timezone (Site Administration → About Church → **Timezone**), not the
+timezone (Settings → About Church → **Timezone**), not the
 server's. Every "send at hour N" field in this app depends on that
 setting — without it, "9" would mean 9am on the server (effectively
 UTC on Render, never a church's own local time). Changing the timezone
@@ -851,7 +851,7 @@ same cadence + all-partners-or-specific-partners choice is also
 available to any admin/editor/viewer from their own [Account
 Settings](#your-account-settings) — unlike the public digest, an
 admin's own digest still includes one-time needs and newsletters, same
-as always. Turned on at Site Administration → Enabled Features
+as always. Turned on at Settings → Enabled Features
 (**Public prayer digest**, off by default); also needs Public
 directory and Email (Sending) on, since there's no public site to
 follow a partner from without the first and no way to send a
@@ -930,7 +930,7 @@ Trips tracks a mission trip's full lifecycle — recruiting, team,
 meetings, documents, budget, support raising — not just a historical
 log of past trips. A trip belongs to a planning partner and moves
 through `planning` → `accepting_applications` → `closed` →
-`completed`. Settings live at Site Administration → Trips Settings
+`completed`. Settings live at Settings → Trips Settings
 (`/admin/settings/trips`); per-trip management (setup, team,
 applications, requirements, meetings, budget) is on each trip's own
 detail page, reached from either tab described below.
@@ -1223,7 +1223,7 @@ record.
 
 ![Lost-link recovery form](docs/assets/screenshots/public-trip-access-recovery.png)
 
-**Site Administration → Trips Settings** holds everything church-wide
+**Settings → Trips Settings** holds everything church-wide
 for this feature, grouped by when in a trip's life it applies:
 
 ![Trips Settings](docs/assets/screenshots/trips-settings.png)
@@ -1322,7 +1322,7 @@ out of the box. Confirm your provider's backup retention matches how much
 data loss your church would tolerate before you're relying on real
 partner data.
 
-On top of that, **Site Administration → Backups** gives any admin a
+On top of that, **Settings → Backups** gives any admin a
 self-service way to download a full backup on demand — every partner,
 user, and uploaded file, as a single gzipped file — without connecting a
 storage provider or setting anything up first. Nothing about this is
@@ -1405,7 +1405,7 @@ to `FIELD_ENCRYPTION_KEY` at all, so normal login is unaffected.
 
 ### System Info
 
-The **System Info** page (Site Administration, alongside Backups) is
+The **System Info** page (Settings, alongside Backups) is
 "what's actually running" on this instance — useful when debugging
 something, or checking what you're on before filing a bug against a
 fork, without needing shell/SSH access:
