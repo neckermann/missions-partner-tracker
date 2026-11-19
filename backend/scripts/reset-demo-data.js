@@ -246,22 +246,21 @@ async function resetDemoData() {
   // Filled in beyond just churchName -- this is also what the Sending
   // Church auto-fill/sync (see routes/partners.js's syncSendingChurch)
   // copies into every seeded "sent by us" missionary below, so leaving
-  // phone/contactName/contactEmail/websiteLink/address blank here meant
+  // phone/contactFirstName/contactLastName/contactEmail/websiteLink/address blank here meant
   // every one of those demo partners showed a Sending Church box that was
   // mostly empty too.
   const churchDetails = {
     churchName: "Missions Partner Tracker Demo",
-    contactName: "Alex Morgan",
+    contactFirstName: "Alex",
+    contactLastName: "Morgan",
     contactEmail: "missions@example.org",
     phone: "(309) 555-0100",
     websiteLink: "https://missions.example.org",
-    address: {
-      addressLine1: "100 Fellowship Way",
-      city: "Rock Island",
-      stateProvinceRegion: "IL",
-      postalCode: "61201",
-      country: "USA",
-    },
+    addressLine1: "100 Fellowship Way",
+    city: "Rock Island",
+    stateProvinceRegion: "IL",
+    postalCode: "61201",
+    country: "USA",
     publicTagline: "Supporting our missionary and organization partners around the world",
     aboutText:
       "We partner with missionaries and organizations serving around the world, supporting them in prayer, finances, and care.",
