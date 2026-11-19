@@ -149,7 +149,9 @@ function MissionaryPopup({ m }) {
     >
       <div className="popup-card">
         <div className="popup-header">
-          {m.photo && <PhotoTile src={m.photo} alt={m.displayName} shape="circle" size={176} className="popup-avatar" />}
+          {m.photo && (
+            <PhotoTile src={m.photo} alt={m.displayName} shape="circle" size={176} className="popup-avatar" />
+          )}
           <h3 className="popup-name">{m.displayName}</h3>
           <p className="popup-meta">
             {[m.fieldDisplayName, m.supportingSince && `Supporting since ${formatYear(m.supportingSince)}`]
@@ -182,7 +184,9 @@ function OrganizationPopup({ o }) {
     >
       <div className="popup-card">
         <div className="popup-header">
-          {o.photo && <PhotoTile src={o.photo} alt={o.displayName} shape="circle" size={176} className="popup-avatar" />}
+          {o.photo && (
+            <PhotoTile src={o.photo} alt={o.displayName} shape="circle" size={176} className="popup-avatar" />
+          )}
           <h3 className="popup-name">{o.displayName}</h3>
           <p className="popup-meta">{[o.orgType, o.fieldDisplayName].filter(Boolean).join(" · ")}</p>
           {o.overviewShort && <p className="popup-summary">{o.overviewShort}</p>}

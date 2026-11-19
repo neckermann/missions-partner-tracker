@@ -191,7 +191,11 @@ export default function AdminTripFlights() {
                 </div>
               </td>
               <td className="table-actions">
-                <button type="button" className="btn-remove" onClick={() => handleDeleteFlightSegment(seg.id)}>
+                <button
+                  type="button"
+                  className="btn-remove"
+                  onClick={() => handleDeleteFlightSegment(seg.id)}
+                >
                   ✕
                 </button>
               </td>
@@ -208,7 +212,13 @@ export default function AdminTripFlights() {
       </table>
       <form
         onSubmit={handleAddFlightSegment}
-        style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginTop: "0.5rem" }}
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "0.5rem",
+          alignItems: "center",
+          marginTop: "0.5rem",
+        }}
       >
         <select
           multiple

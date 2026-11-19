@@ -165,7 +165,13 @@ function useNeedsAttention(enabledFeatures) {
 
     Promise.all(loaders).then(() => setCards(next));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabledFeatures.groupme, enabledFeatures.whatsapp, enabledFeatures.outboundEmail, enabledFeatures.inboundEmail, enabledFeatures.trips]);
+  }, [
+    enabledFeatures.groupme,
+    enabledFeatures.whatsapp,
+    enabledFeatures.outboundEmail,
+    enabledFeatures.inboundEmail,
+    enabledFeatures.trips,
+  ]);
 
   return cards;
 }

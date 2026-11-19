@@ -227,7 +227,7 @@ router.get("/:id", async (req, res, next) => {
         // made this route slow enough to intermittently time out --
         // reproduced directly against dev-demo. The admin UI only ever
         // reads id/title/fileName/participantId/requirementId from this
-        // list (AdminTripDetail.jsx) and fetches actual bytes on demand
+        // list (AdminTripRequirements.jsx/AdminTripTeam.jsx) and fetches actual bytes on demand
         // via the separate GET /documents/:id/download route -- nothing
         // here needs the content inline.
         documents: {

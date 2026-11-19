@@ -82,8 +82,7 @@ export default function AdminPartners() {
   }, []);
 
   const availableContinents = useMemo(
-    () =>
-      [...new Set(allForOptions.map((p) => getContinent(resolveCountry(p))).filter(Boolean))].sort(),
+    () => [...new Set(allForOptions.map((p) => getContinent(resolveCountry(p))).filter(Boolean))].sort(),
     [allForOptions]
   );
 
@@ -123,7 +122,10 @@ export default function AdminPartners() {
         name: "continent",
         label: "Continent",
         type: "select",
-        options: [{ value: "all", label: "All" }, ...availableContinents.map((c) => ({ value: c, label: c }))],
+        options: [
+          { value: "all", label: "All" },
+          ...availableContinents.map((c) => ({ value: c, label: c })),
+        ],
       },
       { name: "country", label: "Country" },
       { name: "showArchived", label: "Show archived", type: "checkbox" },
@@ -131,7 +133,11 @@ export default function AdminPartners() {
     ],
     [availableContinents]
   );
-  const { values: filters, setValue: updateFilter, reset: resetFilters } = useFilterState(fields, emptyFilters);
+  const {
+    values: filters,
+    setValue: updateFilter,
+    reset: resetFilters,
+  } = useFilterState(fields, emptyFilters);
 
   function reload() {
     setLoading(true);
@@ -149,7 +155,14 @@ export default function AdminPartners() {
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(reload, [filters.type, filters.isPublic, filters.restricted, filters.continent, filters.country, filters.showArchived]);
+  useEffect(reload, [
+    filters.type,
+    filters.isPublic,
+    filters.restricted,
+    filters.continent,
+    filters.country,
+    filters.showArchived,
+  ]);
 
   const rows = useMemo(
     () =>
@@ -247,12 +260,20 @@ export default function AdminPartners() {
 
   return (
     <div className="admin-shell">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "0.5rem",
+        }}
+      >
         <h2>
           {sectionTitle} ({visible.length})
         </h2>
-        <div>
-          <Link to="/admin/partners/new?kind=missionary" className="btn" style={{ marginRight: "0.5rem" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+          <Link to="/admin/partners/new?kind=missionary" className="btn">
             + Add Missionary
           </Link>
           <Link to="/admin/partners/new?kind=organization" className="btn">
@@ -268,81 +289,79 @@ export default function AdminPartners() {
         </p>
       )}
 
-      <div className="table-scroll">
-        <Table
-          className="admin-table"
-          style={{ marginTop: "0.75rem" }}
-          rows={visible}
-          rowKey={(row) => `${row.type}-${row.id}`}
-          onRowClick={(row) => navigate(row.detailLink)}
-          emptyMessage={loading ? "Loading…" : "No partners match these filters."}
-          columns={[
-            {
-              key: "photo",
-              label: "Photo",
-              render: (row) =>
-                row.photo ? (
-                  <img
-                    src={row.photo}
-                    alt={row.name}
-                    className="missionary-thumb"
-                    onError={(e) => (e.target.style.display = "none")}
-                  />
-                ) : (
-                  ""
-                ),
-            },
-            {
-              key: "name",
-              label: "Name",
-              render: (row) => (
-                <>
-                  {row.name}
-                  {row.archived && (
-                    <span style={{ marginLeft: "0.5rem" }}>
-                      <StatusPill label="Archived" color="#a6540f" />
-                    </span>
-                  )}
-                </>
-              ),
-            },
-            { key: "typeLabel", label: "Type" },
-            { key: "field", label: "Field" },
-            { key: "isPublic", label: "Public", render: (row) => (row.isPublic ? "Yes" : "No") },
-            { key: "isRestricted", label: "Restricted", render: (row) => (row.isRestricted ? "Yes" : "No") },
-            {
-              key: "sentByOurChurch",
-              label: sentByLabel,
-              render: (row) => (row.type === "missionary" ? (row.sentByOurChurch ? "Yes" : "No") : "—"),
-            },
-            {
-              key: "supportEntries",
-              label: "Monthly Support",
-              render: (row) => currentSupport(row.supportEntries),
-            },
-            { key: "churchVisits", label: "Last Visit", render: (row) => lastVisit(row.churchVisits) },
-          ]}
-          renderActions={(row) => (
-            <>
-              <Link to={row.detailLink}>Open</Link>
-              {row.archived ? (
-                <>
-                  <button className="btn secondary small" onClick={() => handleUnarchive(row)}>
-                    Unarchive
-                  </button>
-                  <button className="btn danger small" onClick={() => handleDelete(row)}>
-                    Delete
-                  </button>
-                </>
+      <Table
+        className="admin-table"
+        style={{ marginTop: "0.75rem" }}
+        rows={visible}
+        rowKey={(row) => `${row.type}-${row.id}`}
+        onRowClick={(row) => navigate(row.detailLink)}
+        emptyMessage={loading ? "Loading…" : "No partners match these filters."}
+        columns={[
+          {
+            key: "photo",
+            label: "Photo",
+            render: (row) =>
+              row.photo ? (
+                <img
+                  src={row.photo}
+                  alt={row.name}
+                  className="missionary-thumb"
+                  onError={(e) => (e.target.style.display = "none")}
+                />
               ) : (
-                <button className="btn secondary small" onClick={() => handleArchive(row)}>
-                  Archive
+                ""
+              ),
+          },
+          {
+            key: "name",
+            label: "Name",
+            render: (row) => (
+              <>
+                {row.name}
+                {row.archived && (
+                  <span style={{ marginLeft: "0.5rem" }}>
+                    <StatusPill label="Archived" color="#a6540f" />
+                  </span>
+                )}
+              </>
+            ),
+          },
+          { key: "typeLabel", label: "Type" },
+          { key: "field", label: "Field" },
+          { key: "isPublic", label: "Public", render: (row) => (row.isPublic ? "Yes" : "No") },
+          { key: "isRestricted", label: "Restricted", render: (row) => (row.isRestricted ? "Yes" : "No") },
+          {
+            key: "sentByOurChurch",
+            label: sentByLabel,
+            render: (row) => (row.type === "missionary" ? (row.sentByOurChurch ? "Yes" : "No") : "—"),
+          },
+          {
+            key: "supportEntries",
+            label: "Monthly Support",
+            render: (row) => currentSupport(row.supportEntries),
+          },
+          { key: "churchVisits", label: "Last Visit", render: (row) => lastVisit(row.churchVisits) },
+        ]}
+        renderActions={(row) => (
+          <>
+            <Link to={row.detailLink}>Open</Link>
+            {row.archived ? (
+              <>
+                <button className="btn secondary small" onClick={() => handleUnarchive(row)}>
+                  Unarchive
                 </button>
-              )}
-            </>
-          )}
-        />
-      </div>
+                <button className="btn danger small" onClick={() => handleDelete(row)}>
+                  Delete
+                </button>
+              </>
+            ) : (
+              <button className="btn secondary small" onClick={() => handleArchive(row)}>
+                Archive
+              </button>
+            )}
+          </>
+        )}
+      />
       {confirmElement}
     </div>
   );

@@ -30,7 +30,9 @@ export const emptyTripForm = {
 };
 
 export function cleanTripParticipants(participants) {
-  return (participants || []).map((p) => ({ ...p, firstName: p.firstName.trim() })).filter((p) => p.firstName);
+  return (participants || [])
+    .map((p) => ({ ...p, firstName: p.firstName.trim() }))
+    .filter((p) => p.firstName);
 }
 
 // Phase 3b of the UX-rebuild plan: the dates/type/description/notes/album/
@@ -110,7 +112,10 @@ export default function TripFormFields({ form, setForm, partnerPicker }) {
           <div className="form-grid">
             <label>
               First Name
-              <input value={p.firstName} onChange={(e) => updateParticipant(i, "firstName", e.target.value)} />
+              <input
+                value={p.firstName}
+                onChange={(e) => updateParticipant(i, "firstName", e.target.value)}
+              />
             </label>
             <label>
               Last Name

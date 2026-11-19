@@ -192,7 +192,9 @@ export default function AdminTripMeetings() {
                             type="datetime-local"
                             disabled={!!m.cancelledAt}
                             defaultValue={m.startAt ? m.startAt.slice(0, 16) : ""}
-                            onBlur={(e) => e.target.value && handleUpdateMeeting(m.id, { startAt: e.target.value })}
+                            onBlur={(e) =>
+                              e.target.value && handleUpdateMeeting(m.id, { startAt: e.target.value })
+                            }
                           />
                         </label>
                         <label>
@@ -249,7 +251,14 @@ export default function AdminTripMeetings() {
 
                       <div style={{ marginBottom: "0.75rem" }}>
                         <strong style={{ fontSize: "0.85rem" }}>Who's responded</strong>
-                        <ul style={{ margin: "0.25rem 0 0", padding: 0, listStyle: "none", fontSize: "0.85rem" }}>
+                        <ul
+                          style={{
+                            margin: "0.25rem 0 0",
+                            padding: 0,
+                            listStyle: "none",
+                            fontSize: "0.85rem",
+                          }}
+                        >
                           {participants.map((p) => {
                             const rsvp = rsvps.find((r) => r.participantId === p.id);
                             const label =
@@ -260,7 +269,9 @@ export default function AdminTripMeetings() {
                               </li>
                             );
                           })}
-                          {participants.length === 0 && <li style={{ color: "#888" }}>No participants yet.</li>}
+                          {participants.length === 0 && (
+                            <li style={{ color: "#888" }}>No participants yet.</li>
+                          )}
                         </ul>
                       </div>
 
@@ -283,7 +294,11 @@ export default function AdminTripMeetings() {
                             >
                               Cancel
                             </button>{" "}
-                            <button type="button" className="btn-remove" onClick={() => handleDeleteMeeting(m.id)}>
+                            <button
+                              type="button"
+                              className="btn-remove"
+                              onClick={() => handleDeleteMeeting(m.id)}
+                            >
                               ✕
                             </button>
                           </>

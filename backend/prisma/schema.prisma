@@ -1537,7 +1537,7 @@ model ChurchSettings {
   allowPublicSupportRaisingLinks Boolean @default(false)
 
   // Church-wide gate on whether the Budget section (TripBudgetLine)
-  // shows on AdminTripDetail.jsx at all -- defaults to `false`, matched
+  // shows on AdminTripBudget.jsx at all -- defaults to `false`, matched
   // against allowPrivateApplicationLinks/allowPublicSupportRaisingLinks'
   // precedent (an opt-in admin planning capability a church either wants
   // or doesn't), not collectApplicantAddress/collectEmergencyContact's

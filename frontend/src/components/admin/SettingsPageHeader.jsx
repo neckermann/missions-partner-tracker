@@ -17,7 +17,13 @@ export default function SettingsPageHeader({ title, actions = null }) {
       </Link>
       {actions ? (
         <div
-          style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", justifyContent: "space-between", alignItems: "center" }}
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "0.5rem",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
         >
           <h2 style={{ marginBottom: 0 }}>{title}</h2>
           {actions}

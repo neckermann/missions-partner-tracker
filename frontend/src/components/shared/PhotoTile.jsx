@@ -7,7 +7,14 @@ import React from "react";
 // already fell back to -- not a silhouette icon (that's maskData.js's job
 // server-side for restricted partners, which this component has no opinion
 // on; it just renders whatever src it's given, or nothing).
-export default function PhotoTile({ src, alt = "", shape = "circle", size = 160, fluidWidth = false, className }) {
+export default function PhotoTile({
+  src,
+  alt = "",
+  shape = "circle",
+  size = 160,
+  fluidWidth = false,
+  className,
+}) {
   const style = {
     width: fluidWidth ? "100%" : size,
     height: size,

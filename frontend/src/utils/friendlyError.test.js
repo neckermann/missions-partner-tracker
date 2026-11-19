@@ -19,9 +19,9 @@ describe("mapServerErrorMessage", () => {
   });
 
   test("preserves the (+N more) suffix", () => {
-    expect(
-      mapServerErrorMessage("a: Invalid email address; b: Invalid URL (+2 more)")
-    ).toBe("a must be a valid email address; b must be a valid web address (+2 more)");
+    expect(mapServerErrorMessage("a: Invalid email address; b: Invalid URL (+2 more)")).toBe(
+      "a must be a valid email address; b must be a valid web address (+2 more)"
+    );
   });
 
   test("returns an unrecognized message unchanged", () => {

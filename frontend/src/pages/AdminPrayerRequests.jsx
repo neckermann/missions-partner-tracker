@@ -93,7 +93,11 @@ export default function AdminPrayerRequests() {
     ],
     []
   );
-  const { values: filters, setValue: updateFilter, reset: resetFilters } = useFilterState(fields, emptyFilters);
+  const {
+    values: filters,
+    setValue: updateFilter,
+    reset: resetFilters,
+  } = useFilterState(fields, emptyFilters);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
   const [saving, setSaving] = useState(false);
@@ -223,7 +227,7 @@ export default function AdminPrayerRequests() {
       setAnsweringId(null);
       reload();
     } catch (err) {
-      alert(err.response?.data?.error || "Failed to record the answer");
+      setError(err.response?.data?.error || "Failed to record the answer");
     }
   }
 
@@ -263,7 +267,7 @@ export default function AdminPrayerRequests() {
       setEditForm(null);
       reload();
     } catch (err) {
-      alert(err.response?.data?.error || "Failed to save changes");
+      setError(err.response?.data?.error || "Failed to save changes");
     }
   }
 
@@ -292,6 +296,8 @@ export default function AdminPrayerRequests() {
         {requests.length} on file · {answeredCount} answered so far
       </p>
 
+      {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+
       {showAddForm && (
         <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
           <PrayerRequestFormFields
@@ -317,7 +323,6 @@ export default function AdminPrayerRequests() {
               </label>
             }
           />
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
           <div style={{ marginTop: "1rem" }}>
             <button type="submit" className="btn" disabled={saving}>
               {saving ? "Saving..." : "Add Prayer Request"}
@@ -368,7 +373,12 @@ export default function AdminPrayerRequests() {
 
             {editingId === request.id ? (
               <div style={{ marginTop: "0.5rem" }}>
-                <PrayerRequestFormFields form={editForm} setForm={setEditForm} files={sourceFiles} mode="edit" />
+                <PrayerRequestFormFields
+                  form={editForm}
+                  setForm={setEditForm}
+                  files={sourceFiles}
+                  mode="edit"
+                />
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button type="button" className="btn small" onClick={() => submitEdit(request.id)}>
                     Save

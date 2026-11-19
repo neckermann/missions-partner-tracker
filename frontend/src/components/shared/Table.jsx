@@ -68,61 +68,70 @@ export default function Table({
 }) {
   const colSpan = columns.length + (renderActions ? 1 : 0);
 
+  // Always wrapped in .table-scroll (index.css) -- a table with enough
+  // columns to not fit a narrow viewport scrolls horizontally within its
+  // own box instead of forcing the whole page wider. Harmless for a
+  // table that already fits (overflow-x: auto does nothing when there's
+  // nothing to scroll), so every caller gets it for free rather than
+  // needing to remember the wrapper -- two pages already added it by
+  // hand before this was moved in here.
   return (
-    <table className={className} style={style}>
-      <thead>
-        <tr>
-          {columns.map((c) => (
-            <th key={c.key} className={alignClass(c)}>
-              {c.label}
-            </th>
-          ))}
-          {renderActions && <th></th>}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => {
-          const key = rowKey(row);
-          const clickable = onRowClick && (!isRowClickable || isRowClickable(row));
-          const expanded = expandedRowId != null && key === expandedRowId;
-          return (
-            <React.Fragment key={key}>
-              <tr
-                onClick={clickable ? () => onRowClick(row) : undefined}
-                style={clickable ? { cursor: "pointer" } : undefined}
-                {...(rowAttrs ? rowAttrs(row) : null)}
-              >
-                {columns.map((c) => (
-                  <td
-                    key={c.key}
-                    className={alignClass(c)}
-                    onClick={c.stopRowClick ? (e) => e.stopPropagation() : undefined}
-                  >
-                    {c.render ? c.render(row) : defaultCell(c, row)}
-                  </td>
-                ))}
-                {renderActions && (
-                  <td className="table-actions" onClick={(e) => e.stopPropagation()}>
-                    {renderActions(row)}
-                  </td>
-                )}
-              </tr>
-              {expanded && renderExpanded && (
-                <tr>
-                  <td colSpan={colSpan}>{renderExpanded(row)}</td>
-                </tr>
-              )}
-            </React.Fragment>
-          );
-        })}
-        {rows.length === 0 && (
+    <div className="table-scroll" style={style}>
+      <table className={className}>
+        <thead>
           <tr>
-            <td colSpan={colSpan || 1} style={{ color: "#888" }}>
-              {emptyMessage}
-            </td>
+            {columns.map((c) => (
+              <th key={c.key} className={alignClass(c)}>
+                {c.label}
+              </th>
+            ))}
+            {renderActions && <th></th>}
           </tr>
-        )}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const key = rowKey(row);
+            const clickable = onRowClick && (!isRowClickable || isRowClickable(row));
+            const expanded = expandedRowId != null && key === expandedRowId;
+            return (
+              <React.Fragment key={key}>
+                <tr
+                  onClick={clickable ? () => onRowClick(row) : undefined}
+                  style={clickable ? { cursor: "pointer" } : undefined}
+                  {...(rowAttrs ? rowAttrs(row) : null)}
+                >
+                  {columns.map((c) => (
+                    <td
+                      key={c.key}
+                      className={alignClass(c)}
+                      onClick={c.stopRowClick ? (e) => e.stopPropagation() : undefined}
+                    >
+                      {c.render ? c.render(row) : defaultCell(c, row)}
+                    </td>
+                  ))}
+                  {renderActions && (
+                    <td className="table-actions" onClick={(e) => e.stopPropagation()}>
+                      {renderActions(row)}
+                    </td>
+                  )}
+                </tr>
+                {expanded && renderExpanded && (
+                  <tr>
+                    <td colSpan={colSpan}>{renderExpanded(row)}</td>
+                  </tr>
+                )}
+              </React.Fragment>
+            );
+          })}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={colSpan || 1} style={{ color: "#888" }}>
+                {emptyMessage}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }

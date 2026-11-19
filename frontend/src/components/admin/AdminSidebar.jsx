@@ -211,9 +211,7 @@ export default function AdminSidebar() {
             label={group.label}
             links={group.links}
             expanded={expandedFor(group)}
-            onToggle={() =>
-              setManuallyExpanded((m) => ({ ...m, [group.key]: !expandedFor(group) }))
-            }
+            onToggle={() => setManuallyExpanded((m) => ({ ...m, [group.key]: !expandedFor(group) }))}
           />
         ))}
         {currentUser?.role === "admin" && (

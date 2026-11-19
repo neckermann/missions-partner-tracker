@@ -80,10 +80,22 @@ export default function PublicPartnerDetail() {
             // sense for a generic icon, so only non-restricted photos are
             // wrapped as a link.
             partner.isRestricted ? (
-              <PhotoTile src={partner.photo} alt={name} shape="circle" size={160} className="partner-detail-photo" />
+              <PhotoTile
+                src={partner.photo}
+                alt={name}
+                shape="circle"
+                size={160}
+                className="partner-detail-photo"
+              />
             ) : (
               <a href={partner.photo} target="_blank" rel="noreferrer">
-                <PhotoTile src={partner.photo} alt={name} shape="circle" size={160} className="partner-detail-photo" />
+                <PhotoTile
+                  src={partner.photo}
+                  alt={name}
+                  shape="circle"
+                  size={160}
+                  className="partner-detail-photo"
+                />
               </a>
             )
           ) : (
@@ -156,10 +168,13 @@ export default function PublicPartnerDetail() {
           // text, invisible whenever that feature was disabled.
           <div className="admin-section" style={{ marginTop: "1.5rem" }}>
             <h3 style={{ marginTop: 0 }}>{name}&rsquo;s Newsletter</h3>
-            <p style={{ color: "#555" }}>
-              Hear directly from {name} with their own newsletter updates.
-            </p>
-            <a href={partner.newsletterSignup} target="_blank" rel="noopener noreferrer" className="btn secondary">
+            <p style={{ color: "#555" }}>Hear directly from {name} with their own newsletter updates.</p>
+            <a
+              href={partner.newsletterSignup}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn secondary"
+            >
               Sign up for their newsletter
             </a>
           </div>

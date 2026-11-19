@@ -154,7 +154,14 @@ export default function PublicDirectory() {
       <div className="partner-grid">
         {filtered.map((p) => (
           <Link key={`${p.type}-${p.id}`} to={`/partners/${p.id}`} className="partner-card">
-            <PhotoTile src={p.photo} alt={p.name} shape="rect" size={160} fluidWidth className="partner-card-photo" />
+            <PhotoTile
+              src={p.photo}
+              alt={p.name}
+              shape="rect"
+              size={160}
+              fluidWidth
+              className="partner-card-photo"
+            />
             <div className="partner-card-body">
               <h3>
                 {p.name}

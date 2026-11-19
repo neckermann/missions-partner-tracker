@@ -429,14 +429,16 @@ export default function PublicTripParticipant() {
         )}
 
         {/* Shared files from the admin's own "Trip-wide documents" section
-        (AdminTripDetail.jsx) -- an itinerary, packing list, etc. Previously
-        fetched by this page's own data route but never exposed in the
-        response or rendered anywhere, so no participant could ever see one
-        despite the admin page's own copy calling them "shared with the
-        whole team." */}
+        (AdminTripRequirements.jsx) -- an itinerary, packing list, etc.
+        Previously fetched by this page's own data route but never exposed in
+        the response or rendered anywhere, so no participant could ever see
+        one despite the admin page's own copy calling them "shared with the
+        whole team." Labeled for this audience ("Documents for this trip"),
+        not copied verbatim from the admin-internal "Trip-wide" label, which
+        only means something to an admin managing many trips' files at once. */}
         {selfService && data.tripWideDocuments?.length > 0 && (
           <div className="admin-section">
-            <h3>Trip-wide documents</h3>
+            <h3>Documents for this trip</h3>
             <ul style={{ listStyle: "none", padding: 0 }}>
               {data.tripWideDocuments.map((doc) => (
                 <li key={doc.id} style={{ marginBottom: "0.3rem" }}>

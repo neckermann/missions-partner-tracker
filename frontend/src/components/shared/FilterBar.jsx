@@ -28,12 +28,7 @@ function renderField(field, values, onChange) {
       );
     case "number":
       return (
-        <input
-          type="number"
-          min="0"
-          value={value}
-          onChange={(e) => onChange(field.name, e.target.value)}
-        />
+        <input type="number" min="0" value={value} onChange={(e) => onChange(field.name, e.target.value)} />
       );
     case "date":
       return <input type="date" value={value} onChange={(e) => onChange(field.name, e.target.value)} />;

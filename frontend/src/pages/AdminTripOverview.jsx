@@ -55,7 +55,9 @@ export default function AdminTripOverview() {
             <Field label="End Date" value={v.endDate || "—"} />
             <Field
               label="Team size"
-              value={v.teamSizeMin || v.teamSizeMax ? `${v.teamSizeMin || "?"} – ${v.teamSizeMax || "?"}` : "—"}
+              value={
+                v.teamSizeMin || v.teamSizeMax ? `${v.teamSizeMin || "?"} – ${v.teamSizeMax || "?"}` : "—"
+              }
             />
             <Field
               label="Support-raising goal"
@@ -66,7 +68,9 @@ export default function AdminTripOverview() {
           <p style={{ marginTop: "0.5rem", fontSize: "0.85rem" }}>
             {v.isPublic ? "Visible on public discovery page" : "Not on public discovery page"}
             {" · "}
-            {v.collectParentGuardianInfo ? "Collects parent/guardian info" : "No parent/guardian info collected"}
+            {v.collectParentGuardianInfo
+              ? "Collects parent/guardian info"
+              : "No parent/guardian info collected"}
           </p>
           {trip.partner?.isRestricted && (
             <div
@@ -134,8 +138,9 @@ export default function AdminTripOverview() {
               />
               {enableTripBudgeting && budgetTotal > 0 && (draft.teamSizeMax || draft.teamSizeMin) && (
                 <span style={{ display: "block", color: "#888", fontSize: "0.75rem", marginTop: "0.3rem" }}>
-                  Suggested: ~${Math.ceil(budgetTotal / Number(draft.teamSizeMax || draft.teamSizeMin))}/person,
-                  based on ${budgetTotal} budgeted ÷ a {draft.teamSizeMax || draft.teamSizeMin}-person team.
+                  Suggested: ~${Math.ceil(budgetTotal / Number(draft.teamSizeMax || draft.teamSizeMin))}
+                  /person, based on ${budgetTotal} budgeted ÷ a {draft.teamSizeMax || draft.teamSizeMin}
+                  -person team.
                 </span>
               )}
             </label>
@@ -169,9 +174,10 @@ export default function AdminTripOverview() {
             </label>
           </div>
           <p style={{ fontSize: "0.75rem", color: "#888" }}>
-            Adds date-of-birth and parent/guardian name/relationship/phone/email to this trip's own application
-            form, and requires date of birth to apply -- regardless of the church-wide defaults on the Trips
-            Settings page. Per-trip, not church-wide: turn this on only for a trip that actually has minors.
+            Adds date-of-birth and parent/guardian name/relationship/phone/email to this trip's own
+            application form, and requires date of birth to apply -- regardless of the church-wide defaults on
+            the Trips Settings page. Per-trip, not church-wide: turn this on only for a trip that actually has
+            minors.
           </p>
         </div>
       )}

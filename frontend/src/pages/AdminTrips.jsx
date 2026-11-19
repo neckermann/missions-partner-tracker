@@ -11,7 +11,11 @@ import {
 } from "../api/client.js";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
-import TripFormFields, { TRIP_TYPE_PRESETS, emptyTripForm, cleanTripParticipants } from "../components/admin/TripFormFields.jsx";
+import TripFormFields, {
+  TRIP_TYPE_PRESETS,
+  emptyTripForm,
+  cleanTripParticipants,
+} from "../components/admin/TripFormFields.jsx";
 import { formatDate, toDateInputValue } from "../utils/format.js";
 import { partnerKindLabel } from "../utils/partnerEntity.js";
 import useLoadMore from "../hooks/useLoadMore.js";
@@ -157,7 +161,11 @@ function ExistingTripsTab() {
     ],
     [typeOptions, yearOptions]
   );
-  const { values: filters, setValue: updateFilter, reset: resetFilters } = useFilterState(fields, emptyFilters);
+  const {
+    values: filters,
+    setValue: updateFilter,
+    reset: resetFilters,
+  } = useFilterState(fields, emptyFilters);
 
   const filteredTrips = trips.filter((t) => {
     if (filters.status === "active" && t.status === "completed") return false;
@@ -623,7 +631,11 @@ function PlanATripTab() {
     ],
     [tripTypes]
   );
-  const { values: filters, setValue: updateFilter, reset: resetFilters } = useFilterState(fields, {
+  const {
+    values: filters,
+    setValue: updateFilter,
+    reset: resetFilters,
+  } = useFilterState(fields, {
     quickFilter: "all",
     search: "",
     typeFilter: "",
@@ -639,8 +651,10 @@ function PlanATripTab() {
     if (filters.neverBeenOnly && row.pastTripCount > 0) return false;
     const effectiveMin = row.trip?.teamSizeMin ?? row.teamSizeMin;
     const effectiveMax = row.trip?.teamSizeMax ?? row.teamSizeMax;
-    if (filters.sizeMin !== "" && effectiveMax != null && effectiveMax < Number(filters.sizeMin)) return false;
-    if (filters.sizeMax !== "" && effectiveMin != null && effectiveMin > Number(filters.sizeMax)) return false;
+    if (filters.sizeMin !== "" && effectiveMax != null && effectiveMax < Number(filters.sizeMin))
+      return false;
+    if (filters.sizeMax !== "" && effectiveMin != null && effectiveMin > Number(filters.sizeMax))
+      return false;
     return true;
   });
 
@@ -702,7 +716,9 @@ function PlanATripTab() {
           rows={visibleRowsPage}
           rowKey={(row) => row.partnerId}
           emptyMessage={
-            rows.length === 0 ? "No partners with trip capacity on file yet." : "No partners match these filters."
+            rows.length === 0
+              ? "No partners with trip capacity on file yet."
+              : "No partners match these filters."
           }
           columns={[
             {
@@ -817,8 +833,9 @@ const TABS = [
 export default function AdminTrips() {
   const location = useLocation();
   // The old /admin/trips/planning URL (bookmarks, the back-link from
-  // AdminTripDetail.jsx's `state: { from: "planning" }`) still routes
-  // here -- both routes render this same component now -- so it needs
+  // TripDetailLayout.jsx's "← Back to Plan a Trip" link, which reads this
+  // same `state: { from: "planning" }`) still routes here -- both routes
+  // render this same component now -- so it needs
   // to land on the right tab rather than always defaulting to the first
   // one.
   const [tab, setTab] = useState(() => (location.pathname.endsWith("/planning") ? "plan" : "existing"));

@@ -190,6 +190,19 @@ a {
 @media (max-width: 800px) {
   .admin-layout {
     flex-direction: column;
+    /* .admin-layout's own align-items: flex-start (above) means
+       "don't stretch" on the cross axis -- vertical height in the
+       default row layout, which is the right call there (the sidebar
+       and main content shouldn't be forced to equal heights). Flipping
+       to a column layout here swaps the cross axis to horizontal
+       (width), so the same flex-start now means "don't stretch width"
+       instead -- .admin-main was rendering at its own content's
+       natural width (900px+) rather than the viewport's, forcing the
+       whole page to scroll horizontally on every admin page. Explicit
+       stretch here restores the intended "fill the viewport width"
+       behavior for the column layout specifically, without touching
+       the row layout's own vertical alignment. */
+    align-items: stretch;
   }
   .admin-sidebar {
     width: 100%;
@@ -1106,9 +1119,16 @@ a {
   font-size: 0.9rem;
 }
 
+/* max-width is a real US Letter page width (8.5in) -- deliberately not
+   shrunk to fit a narrow viewport, since this previews actual print
+   proportions. overflow-x: auto on the outer scroller lets a phone-width
+   admin scroll it horizontally instead of the whole page doing so. */
+.booklet-preview-scroll {
+  overflow-x: auto;
+  margin: 1.5rem auto;
+}
 .booklet-preview {
   max-width: 8.5in;
-  margin: 1.5rem auto;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.15);
 }
 

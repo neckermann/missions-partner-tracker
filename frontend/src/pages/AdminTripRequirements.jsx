@@ -159,7 +159,12 @@ export default function AdminTripRequirements() {
             return (
               <li
                 key={r.id}
-                style={{ border: "1px solid #e1dfdb", borderRadius: 6, padding: "0.5rem 0.6rem", marginBottom: "0.5rem" }}
+                style={{
+                  border: "1px solid #e1dfdb",
+                  borderRadius: 6,
+                  padding: "0.5rem 0.6rem",
+                  marginBottom: "0.5rem",
+                }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                   <span
@@ -169,13 +174,22 @@ export default function AdminTripRequirements() {
                       padding: "2px 8px",
                       borderRadius: 999,
                       color: r.kind === "task" ? "#2a5d8f" : r.kind === "esignature" ? "#a6540f" : "#1f6b4f",
-                      background: r.kind === "task" ? "#e8eff7" : r.kind === "esignature" ? "#fbeee0" : "#e7f3ee",
+                      background:
+                        r.kind === "task" ? "#e8eff7" : r.kind === "esignature" ? "#fbeee0" : "#e7f3ee",
                     }}
                   >
                     {r.kind === "task" ? "Task" : r.kind === "esignature" ? "E-signature" : "Document"}
                   </span>
                   <strong style={{ flex: 1 }}>{r.label}</strong>
-                  <label style={{ fontWeight: 400, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                  <label
+                    style={{
+                      fontWeight: 400,
+                      fontSize: "0.8rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.3rem",
+                    }}
+                  >
                     <input
                       type="checkbox"
                       checked={!!r.minorsOnly}
@@ -183,7 +197,15 @@ export default function AdminTripRequirements() {
                     />
                     Minors only
                   </label>
-                  <label style={{ fontWeight: 400, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                  <label
+                    style={{
+                      fontWeight: 400,
+                      fontSize: "0.8rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.3rem",
+                    }}
+                  >
                     Due
                     <input
                       type="date"
@@ -193,7 +215,15 @@ export default function AdminTripRequirements() {
                     />
                   </label>
                   {r.dueAt && (
-                    <label style={{ fontWeight: 400, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                    <label
+                      style={{
+                        fontWeight: 400,
+                        fontSize: "0.8rem",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.3rem",
+                      }}
+                    >
                       Remind
                       <input
                         type="number"
@@ -201,19 +231,25 @@ export default function AdminTripRequirements() {
                         placeholder="days before"
                         defaultValue={r.reminderLeadDays || ""}
                         onBlur={(e) =>
-                          updateReq(r.id, { reminderLeadDays: e.target.value ? Number(e.target.value) : null })
+                          updateReq(r.id, {
+                            reminderLeadDays: e.target.value ? Number(e.target.value) : null,
+                          })
                         }
                         style={{ width: "6rem" }}
                       />
                     </label>
                   )}
-                  {overdue && <span style={{ color: "#b91c1c", fontSize: "0.75rem", fontWeight: 600 }}>Overdue</span>}
+                  {overdue && (
+                    <span style={{ color: "#b91c1c", fontSize: "0.75rem", fontWeight: 600 }}>Overdue</span>
+                  )}
                   <button type="button" className="btn-remove" onClick={() => handleDeleteRequirement(r.id)}>
                     ✕
                   </button>
                 </div>
                 {r.kind === "esignature" && (
-                  <label style={{ display: "block", marginTop: "0.5rem", fontWeight: 400, fontSize: "0.8rem" }}>
+                  <label
+                    style={{ display: "block", marginTop: "0.5rem", fontWeight: 400, fontSize: "0.8rem" }}
+                  >
                     Agreement text (shown to the participant before they sign)
                     <textarea
                       rows={4}
@@ -253,14 +289,20 @@ export default function AdminTripRequirements() {
             </button>
           </div>
         )}
-        <form onSubmit={handleAddRequirement} style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
+        <form
+          onSubmit={handleAddRequirement}
+          style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}
+        >
           <input
             style={{ flex: 1, minWidth: 220 }}
             value={newRequirement.label}
             onChange={(e) => setNewRequirement((f) => ({ ...f, label: e.target.value }))}
             placeholder="e.g. Signed Waiver, or Attended orientation call"
           />
-          <select value={newRequirement.kind} onChange={(e) => setNewRequirement((f) => ({ ...f, kind: e.target.value }))}>
+          <select
+            value={newRequirement.kind}
+            onChange={(e) => setNewRequirement((f) => ({ ...f, kind: e.target.value }))}
+          >
             <option value="document">Document</option>
             <option value="task">Task</option>
             <option value="esignature">E-signature</option>
@@ -274,11 +316,31 @@ export default function AdminTripRequirements() {
               onChange={(e) => setNewRequirement((f) => ({ ...f, bodyText: e.target.value }))}
             />
           )}
-          <label style={{ fontWeight: 400, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+          <label
+            style={{
+              fontWeight: 400,
+              fontSize: "0.85rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.3rem",
+            }}
+          >
             Due (optional)
-            <input type="date" value={newRequirement.dueAt} onChange={(e) => setNewRequirement((f) => ({ ...f, dueAt: e.target.value }))} />
+            <input
+              type="date"
+              value={newRequirement.dueAt}
+              onChange={(e) => setNewRequirement((f) => ({ ...f, dueAt: e.target.value }))}
+            />
           </label>
-          <label style={{ fontWeight: 400, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+          <label
+            style={{
+              fontWeight: 400,
+              fontSize: "0.85rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.3rem",
+            }}
+          >
             <input
               type="checkbox"
               checked={newRequirement.minorsOnly}
@@ -295,8 +357,8 @@ export default function AdminTripRequirements() {
       <div className="admin-section">
         <h3>Trip-wide documents</h3>
         <p style={{ color: "#888", fontSize: "0.85rem" }}>
-          Shared with the whole team -- an itinerary, packing list, or anything else that isn't specific to one
-          person.
+          Shared with the whole team -- an itinerary, packing list, or anything else that isn't specific to
+          one person.
         </p>
         <ul style={{ listStyle: "none", padding: 0 }}>
           {(trip.documents || [])
@@ -335,7 +397,12 @@ export default function AdminTripRequirements() {
           style={{ marginTop: "0.5rem" }}
           onChange={(e) => setTripWideFile(e.target.files[0] || null)}
         />
-        <button type="button" className="btn secondary small" disabled={!tripWideFile} onClick={handleUploadTripWideDocument}>
+        <button
+          type="button"
+          className="btn secondary small"
+          disabled={!tripWideFile}
+          onClick={handleUploadTripWideDocument}
+        >
           Upload
         </button>
       </div>

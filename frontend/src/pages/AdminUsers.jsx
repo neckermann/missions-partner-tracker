@@ -4,11 +4,17 @@ import { fetchUsers, deleteUser, fetchCurrentUser, resetUserMfa } from "../api/c
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
+import { mapServerErrorMessage } from "../utils/friendlyError.js";
 
 export default function AdminUsers() {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [error, setError] = useState("");
+
+  function reportError(err, fallback) {
+    setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
+  }
 
   function reload() {
     fetchUsers().then(setUsers).catch(console.error);
@@ -27,11 +33,12 @@ export default function AdminUsers() {
       danger: true,
     });
     if (!confirmed) return;
+    setError("");
     try {
       await deleteUser(id);
       reload();
     } catch (err) {
-      alert(err.response?.data?.error || "Failed to delete user");
+      reportError(err, "Failed to delete user");
     }
   }
 
@@ -44,11 +51,12 @@ export default function AdminUsers() {
       confirmLabel: "Reset",
     });
     if (!confirmed) return;
+    setError("");
     try {
       await resetUserMfa(id);
       reload();
     } catch (err) {
-      alert(err.response?.data?.error || "Failed to reset MFA");
+      reportError(err, "Failed to reset MFA");
     }
   }
 
@@ -62,6 +70,12 @@ export default function AdminUsers() {
           </Link>
         }
       />
+
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
 
       <table className="admin-table">
         <thead>

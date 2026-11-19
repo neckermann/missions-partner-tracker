@@ -27,7 +27,9 @@ export default function SupportNeedFormFields({
         <input
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-          placeholder={mode === "create" ? "e.g. One-time gift to help a family in their congregation" : undefined}
+          placeholder={
+            mode === "create" ? "e.g. One-time gift to help a family in their congregation" : undefined
+          }
           required
         />
       </label>
@@ -91,10 +93,10 @@ export default function SupportNeedFormFields({
                 </label>
               </div>
               <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-                This partner is restricted, so nothing above sends anywhere until an admin or editor reviews it
-                -- normally from the Pending Dispatches page afterward. Checking this confirms, right now, that
-                the text you just typed is safe to send verbatim, skipping that extra trip. You'll be asked to
-                confirm the exact wording before saving.
+                This partner is restricted, so nothing above sends anywhere until an admin or editor reviews
+                it -- normally from the Pending Dispatches page afterward. Checking this confirms, right now,
+                that the text you just typed is safe to send verbatim, skipping that extra trip. You'll be
+                asked to confirm the exact wording before saving.
               </p>
             </div>
           )}

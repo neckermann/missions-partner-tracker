@@ -38,7 +38,9 @@ test.describe("Public trip application wizard", () => {
         type: "Construction",
         startDate: "2027-07-01",
         endDate: "2027-07-10",
-        applicationQuestions: [{ id: "why", label: "Why do you want to go?", type: "textarea", required: true }],
+        applicationQuestions: [
+          { id: "why", label: "Why do you want to go?", type: "textarea", required: true },
+        ],
       },
     });
     expect(tripRes.ok()).toBeTruthy();

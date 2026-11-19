@@ -82,7 +82,11 @@ export default function AdminOneTimeNeeds() {
     ],
     []
   );
-  const { values: filters, setValue: updateFilter, reset: resetFilters } = useFilterState(fields, emptyFilters);
+  const {
+    values: filters,
+    setValue: updateFilter,
+    reset: resetFilters,
+  } = useFilterState(fields, emptyFilters);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newNeed, setNewNeed] = useState(emptyNewNeed);
   const [saving, setSaving] = useState(false);
@@ -209,7 +213,7 @@ export default function AdminOneTimeNeeds() {
       setDecidingId(null);
       reload();
     } catch (err) {
-      alert(err.response?.data?.error || "Failed to record decision");
+      setError(err.response?.data?.error || "Failed to record decision");
     }
   }
 
@@ -241,7 +245,7 @@ export default function AdminOneTimeNeeds() {
       setEditForm(null);
       reload();
     } catch (err) {
-      alert(err.response?.data?.error || "Failed to save changes");
+      setError(err.response?.data?.error || "Failed to save changes");
     }
   }
 
@@ -266,6 +270,8 @@ export default function AdminOneTimeNeeds() {
           {showAddForm ? "Cancel" : "+ Add Need"}
         </button>
       </div>
+
+      {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
 
       {showAddForm && (
         <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
@@ -292,7 +298,6 @@ export default function AdminOneTimeNeeds() {
               </label>
             }
           />
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
           <div style={{ marginTop: "1rem" }}>
             <button type="submit" className="btn" disabled={saving}>
               {saving ? "Saving..." : "Add Need"}
@@ -342,7 +347,12 @@ export default function AdminOneTimeNeeds() {
 
             {editingId === need.id ? (
               <div style={{ marginTop: "0.5rem" }}>
-                <SupportNeedFormFields form={editForm} setForm={setEditForm} files={sourceFiles} mode="edit" />
+                <SupportNeedFormFields
+                  form={editForm}
+                  setForm={setEditForm}
+                  files={sourceFiles}
+                  mode="edit"
+                />
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button type="button" className="btn small" onClick={() => submitEdit(need.id)}>
                     Save

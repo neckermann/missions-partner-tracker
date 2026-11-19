@@ -298,7 +298,11 @@ export default function AdminTripParticipantDetail() {
               Resend access link
             </button>
             {settings?.allowPublicSupportRaisingLinks && (
-              <button type="button" className="btn secondary small" onClick={handleGenerateSupportRaisingLink}>
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={handleGenerateSupportRaisingLink}
+              >
                 {participant.shareToken ? "Regenerate support-raising link" : "Generate support-raising link"}
               </button>
             )}
@@ -446,7 +450,11 @@ export default function AdminTripParticipantDetail() {
             <div className="form-grid">
               <label>
                 Date of birth
-                <input type="date" value={draft.dateOfBirth} onChange={(e) => set("dateOfBirth", e.target.value)} />
+                <input
+                  type="date"
+                  value={draft.dateOfBirth}
+                  onChange={(e) => set("dateOfBirth", e.target.value)}
+                />
               </label>
             </div>
             <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Parent/guardian</h4>
@@ -523,7 +531,14 @@ export default function AdminTripParticipantDetail() {
         }
         view={(v) => (
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 600 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                fontWeight: 600,
+              }}
+            >
               <span>${raised} raised</span>
               <span>of ${v.supportRaisingGoal || 0} goal</span>
             </div>
@@ -617,7 +632,10 @@ export default function AdminTripParticipantDetail() {
         ) : (
           <ul style={{ listStyle: "none", padding: 0 }}>
             {requirementRows.map((r) => (
-              <li key={r.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}>
+              <li
+                key={r.id}
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}
+              >
                 {r.kind === "task" ? (
                   <div className="admin-checkbox-row">
                     <label>
@@ -678,7 +696,11 @@ export default function AdminTripParticipantDetail() {
         </div>
 
         <div style={{ marginTop: "0.5rem" }}>
-          <input type="file" aria-label="Document file" onChange={(e) => setDocFile(e.target.files[0] || null)} />
+          <input
+            type="file"
+            aria-label="Document file"
+            onChange={(e) => setDocFile(e.target.files[0] || null)}
+          />
           {documentRequirements.length > 0 && (
             <select
               aria-label="Fulfills requirement"
@@ -694,7 +716,12 @@ export default function AdminTripParticipantDetail() {
               ))}
             </select>
           )}
-          <button type="button" className="btn secondary small" disabled={!docFile} onClick={handleLogDocument}>
+          <button
+            type="button"
+            className="btn secondary small"
+            disabled={!docFile}
+            onClick={handleLogDocument}
+          >
             Log document
           </button>
         </div>

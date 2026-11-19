@@ -41,8 +41,15 @@ export default function AdminMonthlySupport() {
   const [history, setHistory] = useState([]);
   const navigate = useNavigate();
 
-  const fields = useMemo(() => [{ name: "includeArchived", label: "Include archived", type: "checkbox" }], []);
-  const { values: filters, setValue: updateFilter, reset: resetFilters } = useFilterState(fields, emptyFilters);
+  const fields = useMemo(
+    () => [{ name: "includeArchived", label: "Include archived", type: "checkbox" }],
+    []
+  );
+  const {
+    values: filters,
+    setValue: updateFilter,
+    reset: resetFilters,
+  } = useFilterState(fields, emptyFilters);
 
   // Clicking History on partner A, then quickly clicking it on partner B
   // before A's slower fetch resolves, would otherwise let A's history
@@ -143,7 +150,15 @@ export default function AdminMonthlySupport() {
 
   return (
     <div className="admin-shell">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "0.5rem",
+        }}
+      >
         <h2>Monthly Support</h2>
         <button
           className="btn"
@@ -219,7 +234,11 @@ export default function AdminMonthlySupport() {
                   <td>{formatDate(entry.effectiveDate)}</td>
                   <td>{entry.notes || "—"}</td>
                   <td className="table-actions">
-                    <button type="button" className="btn danger small" onClick={() => handleDeleteEntry(entry)}>
+                    <button
+                      type="button"
+                      className="btn danger small"
+                      onClick={() => handleDeleteEntry(entry)}
+                    >
                       Delete
                     </button>
                   </td>

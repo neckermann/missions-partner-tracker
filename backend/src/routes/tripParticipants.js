@@ -382,9 +382,7 @@ router.post(
       const { message } = z.object({ message: z.string().min(1) }).parse(req.body);
       const settings = await getSettings();
       if (!settings?.inboundEmailAddress) {
-        return res
-          .status(400)
-          .json({ error: "Set an inbound email address under Settings → Email first" });
+        return res.status(400).json({ error: "Set an inbound email address under Settings → Email first" });
       }
       const participant = await prisma.tripParticipant.findUnique({ where: { id: req.params.id } });
       if (!participant) return res.status(404).json({ error: "Not found" });

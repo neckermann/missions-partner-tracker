@@ -137,7 +137,11 @@ export default function PublicTripApplication() {
             </label>
             <label>
               Last name
-              <input required value={values.lastName} onChange={(e) => setValue("lastName", e.target.value)} />
+              <input
+                required
+                value={values.lastName}
+                onChange={(e) => setValue("lastName", e.target.value)}
+              />
             </label>
             <label>
               Email
@@ -309,9 +313,13 @@ export default function PublicTripApplication() {
               </label>
             </div>
           )}
-          {!trip.collectApplicantAddress && !trip.collectEmergencyContact && !trip.collectParentGuardianInfo && (
-            <p style={{ color: "#888" }}>Nothing else needed here for this trip -- continue to the next step.</p>
-          )}
+          {!trip.collectApplicantAddress &&
+            !trip.collectEmergencyContact &&
+            !trip.collectParentGuardianInfo && (
+              <p style={{ color: "#888" }}>
+                Nothing else needed here for this trip -- continue to the next step.
+              </p>
+            )}
         </>
       ),
     },

@@ -4,8 +4,9 @@ import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestions
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 
 // New (#252) -- church-wide settings for the whole Trips feature area.
-// Not per-trip (so it doesn't belong on AdminTripDetail.jsx) and not
-// general church info (so it doesn't belong on the About Church page
+// Not per-trip (so it doesn't belong on any single trip's own pages --
+// AdminTripOverview.jsx etc.) and not general church info (so it doesn't
+// belong on the About Church page
 // either). A two-page split was tried (issue #262) and reverted -- the
 // split introduced a worse problem than it solved (it surfaced two
 // settings pages outside the admin-only Settings group) for

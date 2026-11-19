@@ -125,7 +125,9 @@ export default function AdminTripTeam() {
       fulfilled:
         req.kind === "task"
           ? !!(req.requirementStatuses || []).find((s) => s.participantId === participantId)?.completedAt
-          : (trip.documents || []).some((d) => d.requirementId === req.id && d.participantId === participantId),
+          : (trip.documents || []).some(
+              (d) => d.requirementId === req.id && d.participantId === participantId
+            ),
     }));
 
   const pending = applications.filter((a) => a.status === "pending");
@@ -156,7 +158,9 @@ export default function AdminTripTeam() {
                         <div style={{ fontWeight: 400, fontSize: "0.7rem", color: "#888" }}>minors only</div>
                       )}
                       {r.dueAt && (
-                        <div style={{ fontWeight: 400, fontSize: "0.7rem", color: overdue ? "#b91c1c" : "#888" }}>
+                        <div
+                          style={{ fontWeight: 400, fontSize: "0.7rem", color: overdue ? "#b91c1c" : "#888" }}
+                        >
                           due {formatDate(r.dueAt)}
                           {overdue ? " (overdue)" : ""}
                         </div>
@@ -403,7 +407,9 @@ export default function AdminTripTeam() {
         </p>
         <ApplicationQuestionsEditor
           questions={trip.applicationQuestions || []}
-          onAdd={(input) => saveQuestions([...(trip.applicationQuestions || []), { id: crypto.randomUUID(), ...input }])}
+          onAdd={(input) =>
+            saveQuestions([...(trip.applicationQuestions || []), { id: crypto.randomUUID(), ...input }])
+          }
           onUpdate={(qId, patch) =>
             saveQuestions(
               (trip.applicationQuestions || []).map((q) => (q.id === qId ? { ...q, ...patch } : q))

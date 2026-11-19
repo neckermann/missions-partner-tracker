@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { addTripContribution, addTripBudgetLine, updateTripBudgetLine, deleteTripBudgetLine } from "../api/client.js";
+import {
+  addTripContribution,
+  addTripBudgetLine,
+  updateTripBudgetLine,
+  deleteTripBudgetLine,
+} from "../api/client.js";
 import { formatDate } from "../utils/format.js";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
@@ -154,7 +159,16 @@ export default function AdminTripBudget() {
             )}
           </tbody>
         </table>
-        <form onSubmit={handleAddBudgetLine} style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginTop: "0.5rem" }}>
+        <form
+          onSubmit={handleAddBudgetLine}
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "0.5rem",
+            alignItems: "center",
+            marginTop: "0.5rem",
+          }}
+        >
           <input
             style={{ flex: 1, minWidth: 220 }}
             value={newBudgetLine.label}
@@ -173,7 +187,8 @@ export default function AdminTripBudget() {
           </button>
         </form>
         <p style={{ marginTop: "0.6rem", fontWeight: 600 }}>
-          Est. total cost: ${budgetTotal} · Raised: ${raised} · Still needed: ${Math.max(budgetTotal - raised, 0)}
+          Est. total cost: ${budgetTotal} · Raised: ${raised} · Still needed: $
+          {Math.max(budgetTotal - raised, 0)}
         </p>
       </div>
 
@@ -193,7 +208,9 @@ export default function AdminTripBudget() {
             {(trip.contributions || []).map((c) => (
               <tr key={c.id}>
                 <td>{c.donorName}</td>
-                <td>{(trip.participants || []).find((p) => p.id === c.participantId)?.firstName || "Trip-wide"}</td>
+                <td>
+                  {(trip.participants || []).find((p) => p.id === c.participantId)?.firstName || "Trip-wide"}
+                </td>
                 <td>${c.amount}</td>
                 <td>{c.method}</td>
                 <td>{formatDate(c.receivedDate)}</td>
@@ -218,15 +235,25 @@ export default function AdminTripBudget() {
           </label>
           <label>
             Donor name
-            <input value={newContribution.donorName} onChange={(e) => setNewContribution((f) => ({ ...f, donorName: e.target.value }))} />
+            <input
+              value={newContribution.donorName}
+              onChange={(e) => setNewContribution((f) => ({ ...f, donorName: e.target.value }))}
+            />
           </label>
           <label>
             Amount ($)
-            <input type="number" value={newContribution.amount} onChange={(e) => setNewContribution((f) => ({ ...f, amount: e.target.value }))} />
+            <input
+              type="number"
+              value={newContribution.amount}
+              onChange={(e) => setNewContribution((f) => ({ ...f, amount: e.target.value }))}
+            />
           </label>
           <label>
             Method
-            <select value={newContribution.method} onChange={(e) => setNewContribution((f) => ({ ...f, method: e.target.value }))}>
+            <select
+              value={newContribution.method}
+              onChange={(e) => setNewContribution((f) => ({ ...f, method: e.target.value }))}
+            >
               <option value="check">Check</option>
               <option value="cash">Cash</option>
               <option value="online">Online</option>
@@ -235,7 +262,11 @@ export default function AdminTripBudget() {
           </label>
           <label>
             Received
-            <input type="date" value={newContribution.receivedDate} onChange={(e) => setNewContribution((f) => ({ ...f, receivedDate: e.target.value }))} />
+            <input
+              type="date"
+              value={newContribution.receivedDate}
+              onChange={(e) => setNewContribution((f) => ({ ...f, receivedDate: e.target.value }))}
+            />
           </label>
           <button type="submit" className="btn secondary small" style={{ alignSelf: "end" }}>
             + Log contribution

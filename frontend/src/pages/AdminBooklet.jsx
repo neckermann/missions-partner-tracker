@@ -762,7 +762,9 @@ export default function AdminBooklet() {
         </div>
       </div>
 
-      <div className="booklet-preview" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+      <div className="booklet-preview-scroll">
+        <div className="booklet-preview" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+      </div>
     </>
   );
 }

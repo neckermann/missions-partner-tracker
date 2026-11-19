@@ -145,7 +145,7 @@ export default function PrayerRequestSection({ partnerId, isRestricted, prayerRe
       setAnsweringId(null);
       await onChange();
     } catch (err) {
-      alert(err.response?.data?.error || "Failed to record the answer");
+      setError(err.response?.data?.error || "Failed to record the answer");
     }
   }
 
@@ -193,7 +193,7 @@ export default function PrayerRequestSection({ partnerId, isRestricted, prayerRe
       setEditForm(null);
       await onChange();
     } catch (err) {
-      alert(err.response?.data?.error || "Failed to save changes");
+      setError(err.response?.data?.error || "Failed to save changes");
     }
   }
 
@@ -210,6 +210,8 @@ export default function PrayerRequestSection({ partnerId, isRestricted, prayerRe
         </button>
       </div>
 
+      {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+
       {showAddForm && (
         <form onSubmit={handleSubmit} style={{ marginTop: "1rem" }}>
           <PrayerRequestFormFields
@@ -221,7 +223,6 @@ export default function PrayerRequestSection({ partnerId, isRestricted, prayerRe
             canApproveNow={canApproveNow}
             enabledFeatures={enabledFeatures}
           />
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
           <div style={{ marginTop: "1rem" }}>
             <button type="submit" className="btn" disabled={saving}>
               {saving ? "Saving..." : "Add Prayer Request"}
@@ -245,7 +246,12 @@ export default function PrayerRequestSection({ partnerId, isRestricted, prayerRe
               >
                 {editingId === p.id ? (
                   <div style={{ flex: 1 }}>
-                    <PrayerRequestFormFields form={editForm} setForm={setEditForm} files={files} mode="edit" />
+                    <PrayerRequestFormFields
+                      form={editForm}
+                      setForm={setEditForm}
+                      files={files}
+                      mode="edit"
+                    />
                     <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
                       <button type="button" className="btn small" onClick={() => submitEdit(p.id)}>
                         Save

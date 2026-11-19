@@ -8,11 +8,7 @@ const steps = [
     key: "one",
     label: "Step One",
     render: ({ values, setValue }) => (
-      <input
-        aria-label="name"
-        value={values.name || ""}
-        onChange={(e) => setValue("name", e.target.value)}
-      />
+      <input aria-label="name" value={values.name || ""} onChange={(e) => setValue("name", e.target.value)} />
     ),
     validate: (values) => (values.name ? null : "Name is required"),
   },

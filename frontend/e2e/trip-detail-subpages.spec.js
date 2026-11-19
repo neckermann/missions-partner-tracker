@@ -11,7 +11,9 @@ test("trip detail sub-pages render without errors", async ({ page }) => {
   await expect(page.getByText("Trip setup")).toBeVisible();
   for (const tab of ["Team", "Meetings", "Requirements", "Flights"]) {
     await page.getByRole("link", { name: new RegExp("^" + tab) }).click();
-    await expect(page.locator("body")).not.toContainText(/cannot read|undefined is not|something went wrong/i);
+    await expect(page.locator("body")).not.toContainText(
+      /cannot read|undefined is not|something went wrong/i
+    );
   }
 
   // A participant's own detail page, reached from the Team tab -- the
@@ -21,6 +23,8 @@ test("trip detail sub-pages render without errors", async ({ page }) => {
   if (await viewDetails.count()) {
     await viewDetails.click();
     await expect(page.getByText("Contact & access")).toBeVisible();
-    await expect(page.locator("body")).not.toContainText(/cannot read|undefined is not|something went wrong/i);
+    await expect(page.locator("body")).not.toContainText(
+      /cannot read|undefined is not|something went wrong/i
+    );
   }
 });
