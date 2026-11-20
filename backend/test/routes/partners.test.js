@@ -189,10 +189,10 @@ describe("partners: read models", () => {
   });
 
   test("the detail record includes its own sub-records but not the history collections", async () => {
-    const p = await createPartner({ adults: [{ firstName: "Test", lastName: "Adult" }] });
+    const p = await createPartner({ addresses: { physical: { country: "Kenya" } } });
     const { status, body } = await admin(`/api/partners/${p.id}`);
     assert.equal(status, 200);
-    assert.equal(body.adults.length, 1);
+    assert.equal(body.addresses[0].country, "Kenya");
     for (const absent of [
       "trips",
       "supportEntries",
@@ -200,9 +200,37 @@ describe("partners: read models", () => {
       "prayerRequests",
       "newsletters",
       "documents",
+      "adults",
+      "children",
+      "furloughs",
+      "churchVisits",
+      "links",
+      "languages",
     ]) {
       assert.ok(!(absent in body), `detail record should not include ${absent}`);
     }
+  });
+
+  test("adults/children/furloughs/church visits created at creation time are reachable only through their own endpoints", async () => {
+    const p = await createPartner({
+      adults: [{ firstName: "Test", lastName: "Adult" }],
+      children: [{ name: "Test Child" }],
+      furloughs: [{ startDate: "2026-01-01" }],
+      churchVisits: [{ visitDate: "2026-01-01" }],
+    });
+
+    const [adults, children, furloughs, churchVisits] = await Promise.all([
+      admin(`/api/adults?partnerId=${p.id}`),
+      admin(`/api/children?partnerId=${p.id}`),
+      admin(`/api/furloughs?partnerId=${p.id}`),
+      admin(`/api/church-visits?partnerId=${p.id}`),
+    ]);
+    assert.equal(adults.body.length, 1);
+    assert.equal(adults.body[0].firstName, "Test");
+    assert.equal(children.body.length, 1);
+    assert.equal(children.body[0].name, "Test Child");
+    assert.equal(furloughs.body.length, 1);
+    assert.equal(churchVisits.body.length, 1);
   });
 
   test("kind and archived filters work", async () => {
@@ -265,14 +293,54 @@ describe("partners: collections are not writable through the partner record", ()
   });
 
   test("sub-records the partner record does own are still replaced on save", async () => {
-    const p = await createPartner({ adults: [{ firstName: "First" }] });
+    const p = await createPartner({ addresses: { physical: { country: "First Country" } } });
     await admin(`/api/partners/${p.id}`, {
       method: "PUT",
-      body: { adults: [{ firstName: "Second" }] },
+      body: { addresses: { physical: { country: "Second Country" } } },
     });
     const { body } = await admin(`/api/partners/${p.id}`);
-    assert.equal(body.adults.length, 1);
-    assert.equal(body.adults[0].firstName, "Second");
+    assert.equal(body.addresses.length, 1);
+    assert.equal(body.addresses[0].country, "Second Country");
+  });
+
+  test("a partner save cannot delete adults/children/furloughs/church visits/links/languages either", async () => {
+    const p = await createPartner({ adults: [{ firstName: "Original" }] });
+
+    const [adult, link, language] = await Promise.all([
+      admin("/api/adults", { method: "POST", body: { partnerId: p.id, firstName: "Added" } }),
+      admin("/api/partner-links", {
+        method: "POST",
+        body: { partnerId: p.id, type: "website", url: "https://example.com" },
+      }),
+      admin("/api/partner-languages", {
+        method: "POST",
+        body: { partnerId: p.id, language: "Spanish" },
+      }),
+    ]);
+    assert.equal(adult.status, 201);
+    assert.equal(link.status, 201);
+    assert.equal(language.status, 201);
+
+    const saved = await admin(`/api/partners/${p.id}`, {
+      method: "PUT",
+      body: {
+        overview: "edited again",
+        adults: [],
+        children: [],
+        furloughs: [],
+        churchVisits: [],
+        links: [],
+        languages: [],
+      },
+    });
+    assert.equal(saved.status, 200);
+
+    const adults = await admin(`/api/adults?partnerId=${p.id}`);
+    const links = await admin(`/api/partner-links?partnerId=${p.id}`);
+    const languages = await admin(`/api/partner-languages?partnerId=${p.id}`);
+    assert.equal(adults.body.length, 2, "both adults (creation-time and added after) must survive");
+    assert.equal(links.body.length, 1, "link must survive a partner save");
+    assert.equal(languages.body.length, 1, "language must survive a partner save");
   });
 });
 

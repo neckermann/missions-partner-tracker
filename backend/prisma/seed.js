@@ -534,6 +534,37 @@ const LANGUAGES_POOL = [
   "Romanian",
   "Mongolian",
 ];
+// ILR scale -- see backend/src/routes/proficiencyLevels.js for the full
+// reasoning. Not every seeded language gets one, same as real data: a
+// freshly-added language often has no assessed level yet.
+const PROFICIENCY_LEVELS = ["0", "0+", "1", "1+", "2", "2+", "3", "3+", "4", "4+", "5"];
+function buildLanguages() {
+  return pickN(LANGUAGES_POOL, randInt(0, 2)).map((language) => ({
+    language,
+    proficiency: chance(0.7) ? pick(PROFICIENCY_LEVELS) : null,
+  }));
+}
+
+// Replaces the old fixed websiteLink/supportLink/newsletterSignup/
+// facebook/twitter/instagram/linkedin columns -- see
+// backend/src/routes/linkTypes.js for the full reasoning. `slug` is
+// whatever each caller already uses for its own example.com URLs (the
+// missionary's last name lowercased, or the org's slugified name) --
+// these fake URLs never render anywhere real, so one shared shape for
+// both kinds is fine even though the original inline values varied
+// slightly between them.
+function buildLinks(slug) {
+  const candidates = [
+    chance(0.4) ? { type: "website", url: `https://${slug}.example.com` } : null,
+    chance(0.5) ? { type: "support", url: `https://give.example.com/${slug}` } : null,
+    chance(0.35) ? { type: "newsletterSignup", url: `https://newsletter.example.com/${slug}` } : null,
+    chance(0.5) ? { type: "facebook", url: `https://facebook.com/${slug}` } : null,
+    chance(0.2) ? { type: "twitter", url: `https://twitter.com/${slug}` } : null,
+    chance(0.4) ? { type: "instagram", url: `https://instagram.com/${slug}` } : null,
+    chance(0.15) ? { type: "linkedin", url: `https://linkedin.com/in/${slug}` } : null,
+  ];
+  return candidates.filter(Boolean);
+}
 const SENDING_ORGS = [
   "ABWE",
   "SEND International",
@@ -2961,19 +2992,13 @@ async function main() {
         focusArea: `Primary focus: ${focusList.join(", ")}.`,
         supportingSince: new Date(year, 0, 1),
         anniversary: isFamily ? dateBetween(35, 5) : null,
-        languagesSpoken: pickN(LANGUAGES_POOL, randInt(0, 2)),
+        languages: { create: buildLanguages() },
         tripTeamSizeMin: chance(0.7) ? randInt(2, 6) : null,
         tripTeamSizeMax: chance(0.7) ? randInt(8, 15) : null,
         tripTypesSupported: pickN(TRIP_TYPES, randInt(1, 3)),
         tripSeasonNotes: chance(0.5) ? pick(SEASON_NOTES) : null,
         tripLogisticsNotes: chance(0.5) ? pick(LOGISTICS_NOTES) : null,
-        websiteLink: chance(0.4) ? `https://${last.toLowerCase()}family.example.com` : null,
-        supportLink: chance(0.5) ? `https://give.example.com/${last.toLowerCase()}` : null,
-        newsletterSignup: chance(0.35) ? `https://newsletter.example.com/${last.toLowerCase()}` : null,
-        facebook: chance(0.5) ? `https://facebook.com/${last.toLowerCase()}family` : null,
-        twitter: chance(0.2) ? `https://twitter.com/${last.toLowerCase()}family` : null,
-        instagram: chance(0.4) ? `https://instagram.com/${last.toLowerCase()}family` : null,
-        linkedin: chance(0.15) ? `https://linkedin.com/in/${last.toLowerCase()}` : null,
+        links: { create: buildLinks(`${last.toLowerCase()}family`) },
         photos: {
           create: {
             bytesRow: { create: { bytes: photo.bytes } },
@@ -3115,13 +3140,7 @@ async function main() {
         contactPhone: fakePhone(),
         contactEmail: `info@${slugify(name)}.example.org`,
         preferredContactMethod: pick(CONTACT_METHODS),
-        websiteLink: chance(0.5) ? `https://${slugify(name)}.example.org` : null,
-        supportLink: chance(0.5) ? `https://give.example.com/${slugify(name)}` : null,
-        newsletterSignup: chance(0.3) ? `https://newsletter.example.com/${slugify(name)}` : null,
-        facebook: chance(0.4) ? `https://facebook.com/${slugify(name)}` : null,
-        twitter: chance(0.15) ? `https://twitter.com/${slugify(name)}` : null,
-        instagram: chance(0.3) ? `https://instagram.com/${slugify(name)}` : null,
-        linkedin: chance(0.2) ? `https://linkedin.com/company/${slugify(name)}` : null,
+        links: { create: buildLinks(slugify(name)) },
         tripTeamSizeMin: chance(0.7) ? randInt(4, 8) : null,
         tripTeamSizeMax: chance(0.7) ? randInt(10, 20) : null,
         tripTypesSupported: pickN(TRIP_TYPES, randInt(1, 3)),

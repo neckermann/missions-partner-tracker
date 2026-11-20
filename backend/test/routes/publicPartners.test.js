@@ -39,7 +39,7 @@ async function createPartner(overrides) {
       kind: "missionary",
       displayName: `${FIXTURE_TAG} Jordan Rivera`,
       overview: "SECRET-OVERVIEW-TEXT",
-      websiteLink: "https://secret.example.com",
+      links: [{ type: "website", url: "https://secret.example.com" }],
       addresses: { physical: { country: "Thailand", gpsLat: 13.75, gpsLng: 100.5 } },
       ...overrides,
     },

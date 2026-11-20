@@ -10,6 +10,8 @@ const heicConvert = require("heic-convert");
 const { flattenSendingParty, shapeSendingParties } = require("../utils/sendingParty");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 const { countriesInContinent } = require("../utils/countryContinents");
+const { LINK_TYPES } = require("./linkTypes");
+const { PROFICIENCY_LEVELS } = require("./proficiencyLevels");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -51,18 +53,14 @@ const upload = uploadFilteredBy(resolveImageExt, {
 // ever written through this route.
 //
 // Deliberately NOT the history collections (trips, support entries,
-// one-time needs, prayer requests, partner files). Those are
-// independent resources with their own endpoints, and each section of the
-// partner page loads the one it needs -- a list row shouldn't drag ten
-// years of history across the wire to render a name.
+// one-time needs, prayer requests, partner files, adults, children,
+// furloughs, church visits, links, languages). Those are independent
+// resources with their own endpoints, and each section of the partner
+// page loads the one it needs -- a list row shouldn't drag ten years of
+// history across the wire to render a name.
 const partnerRecordInclude = {
-  adults: true,
-  children: true,
   sendingParties: true,
   addresses: true,
-  furloughs: { orderBy: { startDate: "desc" } },
-  // createdAt as a tiebreaker -- see the same comment in prayerRequests.js.
-  churchVisits: { orderBy: [{ visitDate: "desc" }, { createdAt: "desc" }] },
   // Full history, newest-received first — photos[0] is "current". Bytes
   // are never wanted here (they live in their own table now, never
   // selected unless explicitly included); the image comes from
@@ -189,6 +187,13 @@ const churchVisitSchema = z.object({
 // an organization simply never sends the missionary-only ones and vice
 // versa — the same arrangement the database uses (nullable columns and
 // naturally-empty relations) rather than two parallel schemas.
+// Scalars and the addresses/sendingChurch/sendingOrg sub-records only --
+// shared by both POST and PUT. adults/children/furloughs/churchVisits/
+// links/languages are deliberately NOT here: each is its own resource with
+// its own endpoint (see routes/adults.js etc.), same as trips/support
+// entries/one-time needs/prayer requests/partner files already were. PUT
+// uses this schema directly, so sending any of those six on an update is a
+// silent no-op (Zod drops unrecognized keys) rather than touching them.
 const partnerSchema = z.object({
   kind: z.enum(["missionary", "organization"]),
   displayName: z.string().min(1),
@@ -200,13 +205,6 @@ const partnerSchema = z.object({
   overview: z.string().optional().nullable(),
   overviewShort: z.string().optional().nullable(),
   focusArea: z.string().optional().nullable(),
-  websiteLink: z.string().optional().nullable(),
-  supportLink: z.string().optional().nullable(),
-  newsletterSignup: z.string().optional().nullable(),
-  facebook: z.string().optional().nullable(),
-  twitter: z.string().optional().nullable(),
-  instagram: z.string().optional().nullable(),
-  linkedin: z.string().optional().nullable(),
   supportingSince: z.coerce.date().optional().nullable(),
   tripTeamSizeMin: z.coerce.number().int().optional().nullable(),
   tripTeamSizeMax: z.coerce.number().int().optional().nullable(),
@@ -225,32 +223,43 @@ const partnerSchema = z.object({
   contactSafe: z.boolean().optional(),
   sentByOurChurch: z.boolean().optional(),
   anniversary: z.coerce.date().optional().nullable(),
-  languagesSpoken: z.array(z.string()).optional(),
   emergencyContactName: z.string().optional().nullable(),
   emergencyContactPhone: z.string().optional().nullable(),
   emergencyContactEmail: z.string().optional().nullable(),
-  adults: z
-    .array(
-      z.object({
-        firstName: z.string(),
-        lastName: z.string().optional().nullable(),
-        phone1: z.string().optional().nullable(),
-        phone2: z.string().optional().nullable(),
-        email: z.string().optional().nullable(),
-        birthday: z.coerce.date().optional().nullable(),
-      })
-    )
-    .optional(),
-  children: z
-    .array(z.object({ name: z.string(), birthday: z.coerce.date().optional().nullable() }))
-    .optional(),
   sendingChurch: sendingPartySchema,
   sendingOrg: sendingPartySchema,
 
   // --- Shared sub-records written through this route ---
   addresses: addressesSchema,
+});
+
+const adultSchema = z.object({
+  firstName: z.string(),
+  lastName: z.string().optional().nullable(),
+  phone1: z.string().optional().nullable(),
+  phone2: z.string().optional().nullable(),
+  email: z.string().optional().nullable(),
+  birthday: z.coerce.date().optional().nullable(),
+});
+const childSchema = z.object({ name: z.string(), birthday: z.coerce.date().optional().nullable() });
+const partnerLinkSchema = z.object({ type: z.enum(LINK_TYPES), url: z.string().min(1) });
+const partnerLanguageSchema = z.object({
+  language: z.string().min(1),
+  proficiency: z.enum(PROFICIENCY_LEVELS).optional().nullable(),
+});
+
+// POST-only: a brand-new partner's household/furlough history/links/
+// languages are normally known upfront (see Wizard.jsx's own comment on
+// why "New Partner" bundles these at creation, unlike a Trip's team), so
+// creation still accepts them as nested arrays -- same convenience as
+// before, just no longer also accepted on every subsequent PUT.
+const partnerCreateSchema = partnerSchema.extend({
+  adults: z.array(adultSchema).optional(),
+  children: z.array(childSchema).optional(),
   furloughs: z.array(furloughSchema).optional(),
   churchVisits: z.array(churchVisitSchema).optional(),
+  links: z.array(partnerLinkSchema).optional(),
+  languages: z.array(partnerLanguageSchema).optional(),
 });
 
 // Converts the { physical, mailing } shape used by the API into the row
@@ -404,9 +413,19 @@ router.get("/:id", async (req, res, next) => {
 // POST /api/partners  (create — editor or admin)
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const data = partnerSchema.parse(req.body);
-    const { adults, children, sendingChurch, sendingOrg, addresses, furloughs, churchVisits, ...scalarData } =
-      data;
+    const data = partnerCreateSchema.parse(req.body);
+    const {
+      adults,
+      children,
+      sendingChurch,
+      sendingOrg,
+      addresses,
+      furloughs,
+      churchVisits,
+      links,
+      languages,
+      ...scalarData
+    } = data;
     const addressRows = await buildAddressRows(addresses);
     const sendingPartyRows = [
       ...(sendingChurch ? [flattenSendingParty(sendingChurch, "church")] : []),
@@ -424,6 +443,8 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
         addresses: addressRows?.length ? { create: addressRows } : undefined,
         furloughs: furloughs ? { create: furloughs } : undefined,
         churchVisits: churchVisits ? { create: churchVisits } : undefined,
+        links: links ? { create: links } : undefined,
+        languages: languages ? { create: languages } : undefined,
       },
       include: partnerRecordInclude,
     });
@@ -544,21 +565,24 @@ router.delete("/:id/photos/:photoId", requireRole("admin"), async (req, res, nex
 // PUT /api/partners/:id (update — editor or admin)
 //
 // Handles the partner record and the sub-records this route is the *only*
-// writer for: adults, children, addresses, sending parties, furloughs and
-// church visits. Those are still replaced wholesale when their key is
-// present, which is safe precisely because nothing else writes them.
+// writer for: addresses and sending parties. Those are still replaced
+// wholesale when their key is present, which is safe precisely because
+// each type has at most one row per partner (@@unique([partnerId, type]))
+// -- there's no "add a new one without touching the other" case the way
+// there is for a growing list.
 //
-// Trips, support entries, one-time needs, prayer requests, and partner
-// files are deliberately NOT accepted here, even if the client sends
-// them. Each has its own per-row endpoint, and accepting them here meant
-// deleting and recreating every row on each save — which churned their ids,
-// reset their timestamps, and silently destroyed any row added through the
-// other endpoint since the client last loaded the record.
+// Trips, support entries, one-time needs, prayer requests, partner files,
+// adults, children, furloughs, church visits, links, and languages are
+// deliberately NOT accepted here, even if the client sends them (Zod
+// silently drops unrecognized keys). Each has its own per-row endpoint,
+// and accepting them here meant deleting and recreating every row on each
+// save — which churned their ids, reset their timestamps, and silently
+// destroyed any row added through the other endpoint since the client
+// last loaded the record.
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const data = partnerSchema.partial().parse(req.body);
-    const { adults, children, sendingChurch, sendingOrg, addresses, furloughs, churchVisits, ...scalarData } =
-      data;
+    const { sendingChurch, sendingOrg, addresses, ...scalarData } = data;
     const addressRows = await buildAddressRows(addresses);
 
     // Read before the transaction, specifically to compare against
@@ -570,11 +594,7 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     if (!before) return res.status(404).json({ error: "Not found" });
 
     const updated = await prisma.$transaction(async (tx) => {
-      if (adults) await tx.adult.deleteMany({ where: { partnerId: req.params.id } });
-      if (children) await tx.child.deleteMany({ where: { partnerId: req.params.id } });
       if (addressRows) await tx.address.deleteMany({ where: { partnerId: req.params.id } });
-      if (furloughs) await tx.furlough.deleteMany({ where: { partnerId: req.params.id } });
-      if (churchVisits) await tx.churchVisit.deleteMany({ where: { partnerId: req.params.id } });
       // sendingChurch/sendingOrg are handled independently of each other —
       // each is only touched if its own field was actually sent.
       if (sendingChurch)
@@ -591,12 +611,8 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
         data: {
           ...scalarData,
           updatedById: req.user.id,
-          adults: adults ? { create: adults } : undefined,
-          children: children ? { create: children } : undefined,
           sendingParties: sendingPartyRows.length ? { create: sendingPartyRows } : undefined,
           addresses: addressRows?.length ? { create: addressRows } : undefined,
-          furloughs: furloughs ? { create: furloughs } : undefined,
-          churchVisits: churchVisits ? { create: churchVisits } : undefined,
         },
         include: partnerRecordInclude,
       });

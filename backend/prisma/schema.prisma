@@ -86,7 +86,6 @@ model Partner {
   // --- Kind-specific profile fields ---
   orgType               String? // organization-only: "Local" | "National"
   anniversary           DateTime? @db.Date // missionary-only
-  languagesSpoken       String[]  @default([]) // missionary-only
   // #271 Finding 3: flat columns, not a Json blob -- missionary-only,
   // same fixed name/phone/email shape as SendingParty/TripParticipant's
   // own emergency-contact columns, which is the convention this schema
@@ -102,22 +101,14 @@ model Partner {
   tripSeasonNotes    String?  @db.Text // best time of year, typical duration, etc.
   tripLogisticsNotes String?  @db.Text // lodging, requirements, other logistics
 
-  // --- Links — every field a real, individually validated column (no JSON blob) ---
-  websiteLink      String?
-  supportLink      String?
-  newsletterSignup String?
-  facebook         String?
-  twitter          String?
-  instagram        String?
-  linkedin         String?
-
   // --- Collections ---
   // Each is its own resource with per-row create/update/delete (see the
   // route files). Deliberately never written as a nested array on a
   // Partner update: doing that meant deleting and recreating every child
   // row on each save, which churned their ids and silently destroyed rows
   // added through the collection's own endpoint in the meantime.
-  addresses                Address[]
+  // adults/children/furloughs are missionary-only (always empty for an
+  // organization) but follow the exact same rule.
   trips                    Trip[]
   churchVisits             ChurchVisit[]
   supportEntries           SupportEntry[]
@@ -135,11 +126,25 @@ model Partner {
   // this partner, rather than every partner. Two sources, same shape.
   followedByUsers          UserFollowedPartner[]
   publicSubscriberPartners PublicSubscriberPartner[]
+  adults                   Adult[]
+  children                 Child[]
+  furloughs                Furlough[]
+  // Replaces the old fixed websiteLink/supportLink/newsletterSignup/
+  // facebook/twitter/instagram/linkedin columns -- `type` is a plain string
+  // (not a hardcoded enum) so a fork can request a new platform without a
+  // migration, same convention as PartnerFile.kind.
+  links                    PartnerLink[]
+  // Replaces the old languagesSpoken String[] column -- gives each language
+  // its own row so a proficiency level can be attached and updated per
+  // language without resending every other one.
+  languages                PartnerLanguage[]
 
-  // --- Missionary-only collections (always empty for an organization) ---
-  adults         Adult[]
-  children       Child[]
-  furloughs      Furlough[]
+  // addresses/sendingParties are the one exception to "per-row CRUD": each
+  // type has at most one row per partner (@@unique([partnerId, type])), so
+  // there's no "add a new one without touching the other" case the way
+  // there is for a growing list -- editing one is inherently replacing the
+  // whole row for that type. Still wholesale-replaced on Partner's own PUT.
+  addresses      Address[]
   sendingParties SendingParty[]
 
   // Audit is kept on Partner only, deliberately. The collections below
@@ -176,6 +181,7 @@ model Adult {
   phone2    String?
   email     String?
   birthday  DateTime? @db.Date
+  createdAt DateTime  @default(now())
 
   @@index([partnerId])
 }
@@ -186,6 +192,7 @@ model Child {
   partner   Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   name      String
   birthday  DateTime? @db.Date
+  createdAt DateTime  @default(now())
 
   @@index([partnerId])
 }
@@ -403,7 +410,7 @@ model TripParticipant {
   // unrelated JSON response -- this makes that structurally impossible
   // here instead of relying on every future query remembering to omit).
   photoContentType String?
-  photoBytesRow     TripParticipantPhoto?
+  photoBytesRow    TripParticipantPhoto?
 
   // Bumped to invalidate every previously-issued self-service link at
   // once -- same revocation reasoning as User.mfaLastTimeStep's replay
@@ -712,7 +719,7 @@ model TripDocument {
   // church rewording its waiver) silently being attributed to an old
   // signature; the hash makes any mismatch between this snapshot and a
   // later-edited requirement detectable, not just theoretically possible.
-  documentTextSnapshot String?   @db.Text
+  documentTextSnapshot String?            @db.Text
   documentTextHash     String?
   bytesRow             TripDocumentBytes?
 
@@ -817,6 +824,7 @@ model Furlough {
   startDate DateTime  @db.Date
   endDate   DateTime? @db.Date
   notes     String?   @db.Text
+  createdAt DateTime  @default(now())
 
   @@index([partnerId])
 }
@@ -832,6 +840,45 @@ model ChurchVisit {
   visitDate DateTime @db.Date
   notes     String?  @db.Text
   createdAt DateTime @default(now())
+
+  @@index([partnerId])
+}
+
+// A link to somewhere else about this partner -- website, support/donate
+// page, newsletter signup, or a social profile. Replaces the old fixed
+// websiteLink/supportLink/newsletterSignup/facebook/twitter/instagram/
+// linkedin columns on Partner: `type` is a plain validated string (see
+// routes/partnerLinks.js), not a native Prisma enum, same convention as
+// PartnerFile.kind -- the admin UI only offers today's known set via a
+// dropdown, but adding a new one later (e.g. a fork wanting TikTok) is a
+// one-line code change, not a migration. @@unique keeps today's "at most
+// one Facebook link" rule.
+model PartnerLink {
+  id        String   @id @default(uuid())
+  partnerId String
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  type      String
+  url       String
+  createdAt DateTime @default(now())
+
+  @@unique([partnerId, type])
+}
+
+// A language this partner speaks, with an optional proficiency level.
+// Replaces the old languagesSpoken String[] column -- giving each language
+// its own row lets a proficiency be attached and updated on just that one
+// language later (e.g. as someone's field language improves) without
+// resending the whole list. proficiency is a plain string (ILR scale --
+// "0".."5" with "+" half-steps -- chosen in the admin UI's own dropdown),
+// not a Prisma enum, for the same fork-extensibility reason as
+// PartnerLink.type above.
+model PartnerLanguage {
+  id          String   @id @default(uuid())
+  partnerId   String
+  partner     Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  language    String
+  proficiency String?
+  createdAt   DateTime @default(now())
 
   @@index([partnerId])
 }
@@ -1031,10 +1078,10 @@ model PartnerFile {
   // split-off table -- see TripParticipantPhoto's own comment for why
   // (structurally prevents the #274 production-hang bug class rather than
   // relying on every future query remembering to select/omit).
-  fileName    String // original uploaded filename, for display/download
-  contentType String
-  fileSize    Int? // bytes
-  notes       String? @db.Text
+  fileName     String // original uploaded filename, for display/download
+  contentType  String
+  fileSize     Int? // bytes
+  notes        String?  @db.Text
 
   createdAt DateTime @default(now())
 
@@ -1063,15 +1110,15 @@ model PartnerFileBytes {
 // worth keeping around. No partnerId/relation -- that's the whole point,
 // this is what's left *unmatched*.
 model InboundEmail {
-  id          String   @id @default(uuid())
-  receivedAt  DateTime @default(now())
+  id          String             @id @default(uuid())
+  receivedAt  DateTime           @default(now())
   fromAddress String
   subject     String?
   // The raw .eml source lives in InboundEmailBytes (below), a one-to-one
   // split-off table -- see TripParticipantPhoto's own comment for why.
-  fileName  String
-  createdAt DateTime @default(now())
-  bytesRow  InboundEmailBytes?
+  fileName    String
+  createdAt   DateTime           @default(now())
+  bytesRow    InboundEmailBytes?
 }
 
 model InboundEmailBytes {
@@ -1193,7 +1240,7 @@ model Photo {
   contentType  String?
   fileSize     Int? // bytes
 
-  createdAt DateTime @default(now())
+  createdAt DateTime    @default(now())
   bytesRow  PhotoBytes?
 
   @@index([partnerId])
@@ -1241,7 +1288,7 @@ model ChurchSettings {
   usePartnerTermInAdmin Boolean @default(false)
 
   publicTagline   String? // short subtitle under the public map/directory header
-  aboutText       String? @db.Text // optional blurb shown on the public directory
+  aboutText       String?             @db.Text // optional blurb shown on the public directory
   // Three independently-pickable brand colors (see #182's history for why
   // not a single color, and why not a full template builder): primaryColor
   // is the ACCENT role (buttons, links, headings, letterhead -- the color

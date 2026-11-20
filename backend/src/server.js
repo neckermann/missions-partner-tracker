@@ -20,6 +20,12 @@ const countryInfoRoutes = require("./routes/countryInfo");
 const supportNeedRoutes = require("./routes/supportNeeds");
 const supportEntryRoutes = require("./routes/supportEntries");
 const prayerRequestRoutes = require("./routes/prayerRequests");
+const adultRoutes = require("./routes/adults");
+const childRoutes = require("./routes/children");
+const furloughRoutes = require("./routes/furloughs");
+const churchVisitRoutes = require("./routes/churchVisits");
+const partnerLinkRoutes = require("./routes/partnerLinks");
+const partnerLanguageRoutes = require("./routes/partnerLanguages");
 const tripRoutes = require("./routes/trips");
 const tripMeetingRoutes = require("./routes/tripMeetings");
 const tripRequirementRoutes = require("./routes/tripRequirements");
@@ -211,6 +217,12 @@ app.use("/api/public/country-info", countryInfoRoutes); // open (Joshua Project 
 app.use("/api/support-needs", supportNeedRoutes); // protected (admin) — session required
 app.use("/api/support-entries", supportEntryRoutes); // protected (admin) — session required
 app.use("/api/prayer-requests", prayerRequestRoutes); // protected (admin) — session required
+app.use("/api/adults", adultRoutes); // protected (admin) — session required
+app.use("/api/children", childRoutes); // protected (admin) — session required
+app.use("/api/furloughs", furloughRoutes); // protected (admin) — session required
+app.use("/api/church-visits", churchVisitRoutes); // protected (admin) — session required
+app.use("/api/partner-links", partnerLinkRoutes); // protected (admin) — session required
+app.use("/api/partner-languages", partnerLanguageRoutes); // protected (admin) — session required
 app.use("/api/trips", tripRoutes); // protected (admin) — session required
 // #271 Finding 1: three sibling sub-resource routers, same prefix as
 // tripRoutes above (not a separate API surface) -- split out of a

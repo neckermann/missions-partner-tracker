@@ -14,10 +14,11 @@ const {
   FIXTURE_TAG,
 } = require("./helpers");
 
-// The five collections hanging off a partner (trips, support entries,
-// one-time needs, prayer requests, partner files). Each router is
-// the *only* writer for its table -- the partner record's own PUT refuses
-// them -- so the gates here are the whole story for that data.
+// The collections hanging off a partner (trips, support entries,
+// one-time needs, prayer requests, partner files, adults, children,
+// furloughs, church visits, links, languages). Each router is the *only*
+// writer for its table -- the partner record's own PUT refuses them -- so
+// the gates here are the whole story for that data.
 
 let admin;
 let editor;
@@ -120,6 +121,54 @@ function collectionCases() {
       patch: { status: "answered", dateAnswered: "2026-03-01" },
       readBack: (r) => r.status,
       expectAfterPatch: "answered",
+    },
+    {
+      name: "adults",
+      path: "/api/adults",
+      create: () => ({ partnerId: partner.id, firstName: "First" }),
+      patch: { firstName: "Edited" },
+      readBack: (r) => r.firstName,
+      expectAfterPatch: "Edited",
+    },
+    {
+      name: "children",
+      path: "/api/children",
+      create: () => ({ partnerId: partner.id, name: "Kid" }),
+      patch: { name: "Edited Kid" },
+      readBack: (r) => r.name,
+      expectAfterPatch: "Edited Kid",
+    },
+    {
+      name: "furloughs",
+      path: "/api/furloughs",
+      create: () => ({ partnerId: partner.id, startDate: "2026-01-01" }),
+      patch: { notes: "Extended" },
+      readBack: (r) => r.notes,
+      expectAfterPatch: "Extended",
+    },
+    {
+      name: "church-visits",
+      path: "/api/church-visits",
+      create: () => ({ partnerId: partner.id, visitDate: "2026-01-01" }),
+      patch: { notes: "Great visit" },
+      readBack: (r) => r.notes,
+      expectAfterPatch: "Great visit",
+    },
+    {
+      name: "partner-links",
+      path: "/api/partner-links",
+      create: () => ({ partnerId: partner.id, type: "website", url: "https://example.com" }),
+      patch: { url: "https://example.org" },
+      readBack: (r) => r.url,
+      expectAfterPatch: "https://example.org",
+    },
+    {
+      name: "partner-languages",
+      path: "/api/partner-languages",
+      create: () => ({ partnerId: partner.id, language: "Spanish" }),
+      patch: { proficiency: "3" },
+      readBack: (r) => r.proficiency,
+      expectAfterPatch: "3",
     },
   ];
 }

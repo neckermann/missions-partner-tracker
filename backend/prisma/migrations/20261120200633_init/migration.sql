@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateTable
 CREATE TABLE "Partner" (
     "id" TEXT NOT NULL,
@@ -22,7 +25,6 @@ CREATE TABLE "Partner" (
     "contactEmail" TEXT,
     "orgType" TEXT,
     "anniversary" DATE,
-    "languagesSpoken" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "emergencyContactName" TEXT,
     "emergencyContactPhone" TEXT,
     "emergencyContactEmail" TEXT,
@@ -31,13 +33,6 @@ CREATE TABLE "Partner" (
     "tripTypesSupported" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "tripSeasonNotes" TEXT,
     "tripLogisticsNotes" TEXT,
-    "websiteLink" TEXT,
-    "supportLink" TEXT,
-    "newsletterSignup" TEXT,
-    "facebook" TEXT,
-    "twitter" TEXT,
-    "instagram" TEXT,
-    "linkedin" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "createdById" TEXT,
@@ -56,6 +51,7 @@ CREATE TABLE "Adult" (
     "phone2" TEXT,
     "email" TEXT,
     "birthday" DATE,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Adult_pkey" PRIMARY KEY ("id")
 );
@@ -66,6 +62,7 @@ CREATE TABLE "Child" (
     "partnerId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "birthday" DATE,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Child_pkey" PRIMARY KEY ("id")
 );
@@ -320,6 +317,7 @@ CREATE TABLE "Furlough" (
     "startDate" DATE NOT NULL,
     "endDate" DATE,
     "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Furlough_pkey" PRIMARY KEY ("id")
 );
@@ -333,6 +331,28 @@ CREATE TABLE "ChurchVisit" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ChurchVisit_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PartnerLink" (
+    "id" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PartnerLink_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PartnerLanguage" (
+    "id" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "language" TEXT NOT NULL,
+    "proficiency" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PartnerLanguage_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -743,6 +763,12 @@ CREATE INDEX "Furlough_partnerId_idx" ON "Furlough"("partnerId");
 CREATE INDEX "ChurchVisit_partnerId_idx" ON "ChurchVisit"("partnerId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "PartnerLink_partnerId_type_key" ON "PartnerLink"("partnerId", "type");
+
+-- CreateIndex
+CREATE INDEX "PartnerLanguage_partnerId_idx" ON "PartnerLanguage"("partnerId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "SendingParty_partnerId_type_key" ON "SendingParty"("partnerId", "type");
 
 -- CreateIndex
@@ -866,6 +892,12 @@ ALTER TABLE "Furlough" ADD CONSTRAINT "Furlough_partnerId_fkey" FOREIGN KEY ("pa
 ALTER TABLE "ChurchVisit" ADD CONSTRAINT "ChurchVisit_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "PartnerLink" ADD CONSTRAINT "PartnerLink_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PartnerLanguage" ADD CONSTRAINT "PartnerLanguage_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "SendingParty" ADD CONSTRAINT "SendingParty_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -921,3 +953,4 @@ ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSeg
 
 -- AddForeignKey
 ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSegmentToTripParticipant_B_fkey" FOREIGN KEY ("B") REFERENCES "TripParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
