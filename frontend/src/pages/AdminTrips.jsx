@@ -25,6 +25,8 @@ import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import TripStatusBadge, { STATUS_LABELS } from "../components/admin/TripStatusBadge.jsx";
 import StatusPill from "../components/admin/StatusPill.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
+import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
+import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
 
@@ -157,8 +159,11 @@ function ExistingTripsTab() {
     setValue: updateFilter,
     reset: resetFilters,
   } = useFilterState(fields, emptyFilters);
+  const { partnerId: filterPartnerId, partnerName: filterPartnerName, clearPartnerFilter } =
+    usePartnerUrlFilter();
 
   const filteredTrips = trips.filter((t) => {
+    if (filterPartnerId && t.partner?.id !== filterPartnerId) return false;
     if (filters.status === "active" && t.status === "completed") return false;
     if (filters.status !== "all" && filters.status !== "active" && t.status !== filters.status) return false;
     if (filters.entityType !== "all" && t.entityType !== filters.entityType) return false;
@@ -404,6 +409,13 @@ function ExistingTripsTab() {
         onChange={updateFilter}
         onReset={resetFilters}
         pills={{ field: "status", options: STATUS_QUICK_FILTERS }}
+        extraChips={
+          <PartnerFilterChip
+            partnerId={filterPartnerId}
+            partnerName={filterPartnerName}
+            onClear={clearPartnerFilter}
+          />
+        }
       />
 
       <div className="admin-section">

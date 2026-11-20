@@ -10,17 +10,14 @@ import {
   fetchTrips,
 } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
-import PartnerFileSection from "../components/admin/PartnerFileSection.jsx";
-import PrayerRequestSection from "../components/admin/PrayerRequestSection.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
-import PartnerTripSection from "../components/admin/PartnerTripSection.jsx";
-import PartnerFinancialSection from "../components/admin/PartnerFinancialSection.jsx";
+import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import AddressFields from "../components/admin/AddressFields.jsx";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
-import { formatDateLong, toDateInputValue, todayInputValue } from "../utils/format.js";
+import { formatDateLong, formatDate, formatCurrency, toDateInputValue, todayInputValue } from "../utils/format.js";
 import { addressByType } from "../utils/addresses.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
@@ -75,6 +72,14 @@ function cleanAddress(address) {
 }
 
 // Renders a labeled value, hiding itself when empty unless `showEmpty` --
+// A one-line summary (PartnerSummaryCard) shouldn't wrap a long request/
+// description across several lines -- cut it and let "View all" be where
+// the full text lives.
+function truncate(text, max) {
+  if (!text) return text;
+  return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
+}
+
 // keeps free-form sections free of "Field: —" clutter while fixed field sets
 // still show what could be filled in.
 function Field({ label, value, showEmpty = false }) {
@@ -278,7 +283,27 @@ export default function AdminPartnerDetail() {
         {p.archived && <span className="status-pill warn">Archived {formatDateLong(p.archivedAt)}</span>}
       </div>
 
-      <div className="admin-form">
+      <div className="partner-jump-rail">
+        {[
+          { label: "Overview", href: "#section-overview" },
+          !isOrg && { label: "Family & Personal", href: "#section-family" },
+          { label: "Location & Contact", href: "#section-location" },
+          (enabledFeatures.monthlySupport || enabledFeatures.oneTimeNeeds) && {
+            label: "Financial",
+            href: "#section-financial",
+          },
+          { label: "Mission Trips", href: "#section-trips" },
+          { label: "Communication", href: "#section-communication" },
+        ]
+          .filter(Boolean)
+          .map((item) => (
+            <a key={item.href} href={item.href} className="btn secondary small">
+              {item.label}
+            </a>
+          ))}
+      </div>
+
+      <div className="admin-form" id="section-overview" style={{ scrollMarginTop: "1rem" }}>
         <EditableSection
           title="Status &amp; Visibility"
           onSaved={reload}
@@ -367,7 +392,7 @@ export default function AdminPartnerDetail() {
           )}
         />
 
-        <div className="admin-section-group">
+        <div className="admin-section-group" id="section-family">
           <h2 className="admin-group-heading">Family &amp; Personal</h2>
 
           {!isOrg && (
@@ -595,7 +620,7 @@ export default function AdminPartnerDetail() {
           )}
         </div>
 
-        <div className="admin-section-group">
+        <div className="admin-section-group" id="section-location">
           <h2 className="admin-group-heading">Location &amp; Contact</h2>
 
           <EditableSection
@@ -966,28 +991,72 @@ export default function AdminPartnerDetail() {
         </div>
 
         {(enabledFeatures.monthlySupport || enabledFeatures.oneTimeNeeds) && (
-          <div className="admin-section-group">
+          <div className="admin-section-group" id="section-financial">
             <h2 className="admin-group-heading">Financial</h2>
-            <PartnerFinancialSection
-              partnerId={p.id}
-              isRestricted={p.isRestricted}
-              supportEntries={collections.supportEntries}
-              needRequests={collections.needRequests}
-              files={collections.files}
-              showMonthlySupport={enabledFeatures.monthlySupport}
-              showOneTimeNeeds={enabledFeatures.oneTimeNeeds}
-              supportingSince={p.supportingSince}
-              onSaveSupportingSince={(date) => save({ supportingSince: dateOrNull(date) })}
-              onChange={reload}
+
+            <EditableSection
+              title="Supporting Since"
+              onSaved={reload}
+              onSave={(d) => save({ supportingSince: dateOrNull(d.supportingSince) })}
+              value={{ supportingSince: toDateInputValue(p.supportingSince) }}
+              view={(v) => <Field label="Supporting Since" value={formatDateLong(v.supportingSince)} showEmpty />}
+              edit={(d, set) => (
+                <label>
+                  Supporting Since
+                  <input
+                    type="date"
+                    value={d.supportingSince}
+                    onChange={(e) => set("supportingSince", e.target.value)}
+                  />
+                </label>
+              )}
             />
+
+            {enabledFeatures.monthlySupport && (
+              <PartnerSummaryCard
+                icon="💰"
+                title="Monthly Support"
+                count={collections.supportEntries.length}
+                summary={
+                  collections.supportEntries[0]
+                    ? `${formatCurrency(collections.supportEntries[0].amount)}/mo as of ${formatDate(
+                        collections.supportEntries[0].effectiveDate
+                      )}`
+                    : null
+                }
+                viewAllTo={`/admin/support/monthly?partnerId=${p.id}`}
+              />
+            )}
+
+            {enabledFeatures.oneTimeNeeds && (
+              <PartnerSummaryCard
+                icon="🎁"
+                title="One-Time Needs"
+                count={collections.needRequests.length}
+                summary={truncate(collections.needRequests[0]?.description, 70)}
+                viewAllTo={`/admin/support/needs?partnerId=${p.id}`}
+              />
+            )}
           </div>
         )}
 
-        <div className="admin-section-group">
+        <div className="admin-section-group" id="section-trips">
           <h2 className="admin-group-heading">Mission Trips</h2>
 
           {enabledFeatures.trips && (
-            <PartnerTripSection partnerId={p.id} trips={collections.trips} onChange={reload} />
+            <PartnerSummaryCard
+              icon="✈️"
+              title="Mission Trips"
+              count={collections.trips.length}
+              summary={
+                collections.trips[0]
+                  ? `${collections.trips[0].name || collections.trips[0].type || "Trip"}${
+                      collections.trips[0].startDate ? ` · ${formatDate(collections.trips[0].startDate)}` : ""
+                    }`
+                  : null
+              }
+              viewAllTo={`/admin/trips?partnerId=${p.id}`}
+            />
           )}
 
           <EditableSection
@@ -1097,21 +1166,31 @@ export default function AdminPartnerDetail() {
           />
         </div>
 
-        <div className="admin-section-group">
+        <div className="admin-section-group" id="section-communication">
           <h2 className="admin-group-heading">Communication</h2>
 
           {enabledFeatures.prayerRequests && (
-            <PrayerRequestSection
-              partnerId={p.id}
-              isRestricted={p.isRestricted}
-              prayerRequests={collections.prayerRequests}
-              files={collections.files}
-              onChange={reload}
+            <PartnerSummaryCard
+              icon="🙏"
+              title="Prayer Requests"
+              count={collections.prayerRequests.length}
+              summary={
+                collections.prayerRequests[0]
+                  ? truncate(collections.prayerRequests[0].requestText, 70)
+                  : null
+              }
+              viewAllTo={`/admin/prayer-requests?partnerId=${p.id}`}
             />
           )}
 
           {enabledFeatures.partnerFiles && (
-            <PartnerFileSection partnerId={p.id} files={collections.files} onChange={reload} />
+            <PartnerSummaryCard
+              icon="📰"
+              title="Newsletters & Docs"
+              count={collections.files.length}
+              summary={collections.files[0] ? collections.files[0].title || collections.files[0].fileName : null}
+              viewAllTo={`/admin/partner-files?partnerId=${p.id}`}
+            />
           )}
 
           <EditableSection

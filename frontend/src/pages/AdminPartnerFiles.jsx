@@ -25,8 +25,10 @@ import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
+import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
+import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 
 const emptyNewFile = {
   partnerId: "",
@@ -99,6 +101,8 @@ export default function AdminPartnerFiles() {
     setValue: updateFilter,
     reset: resetFilters,
   } = useFilterState(fields, emptyFilters);
+  const { partnerId: filterPartnerId, partnerName: filterPartnerName, clearPartnerFilter } =
+    usePartnerUrlFilter();
 
   function reload() {
     setLoading(true);
@@ -108,6 +112,7 @@ export default function AdminPartnerFiles() {
     const { from, to } = resolveQuickRangeDates(filters.dateRange);
     if (from) params.from = from;
     if (to) params.to = to;
+    if (filterPartnerId) params.partnerId = filterPartnerId;
     fetchPartnerFiles(params)
       .then(setFiles)
       .catch(console.error)
@@ -118,7 +123,7 @@ export default function AdminPartnerFiles() {
     reload();
     fetchPartners().then(setPartners).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.entityType, filters.kind, filters.dateRange]);
+  }, [filters.entityType, filters.kind, filters.dateRange, filterPartnerId]);
 
   async function handleAddSubmit(e) {
     e.preventDefault();
@@ -335,7 +340,19 @@ export default function AdminPartnerFiles() {
         </form>
       )}
 
-      <FilterBar fields={fields} values={filters} onChange={updateFilter} onReset={resetFilters} />
+      <FilterBar
+        fields={fields}
+        values={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
+        extraChips={
+          <PartnerFilterChip
+            partnerId={filterPartnerId}
+            partnerName={filterPartnerName}
+            onClear={clearPartnerFilter}
+          />
+        }
+      />
 
       <Table
         style={{ marginTop: "1rem" }}

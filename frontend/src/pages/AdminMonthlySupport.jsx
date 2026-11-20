@@ -8,8 +8,10 @@ import { partnerKindLabel, INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD } from "../uti
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
+import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
+import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 
 // Thin binding so the call sites below stay unchanged; the formatting
 // itself lives in utils/format.js, which is also where the em-dash
@@ -47,6 +49,8 @@ export default function AdminMonthlySupport() {
     setValue: updateFilter,
     reset: resetFilters,
   } = useFilterState(fields, emptyFilters);
+  const { partnerId: filterPartnerId, partnerName: filterPartnerName, clearPartnerFilter } =
+    usePartnerUrlFilter();
 
   // Clicking History on partner A, then quickly clicking it on partner B
   // before A's slower fetch resolves, would otherwise let A's history
@@ -74,6 +78,16 @@ export default function AdminMonthlySupport() {
       })
       .catch(console.error);
   }
+
+  // Arriving here via a partner's own "View all" link is specifically
+  // about that partner's support history, not just their current amount --
+  // open it automatically instead of making that a second click.
+  useEffect(() => {
+    if (filterPartnerId) {
+      setHistoryFor(filterPartnerId);
+      loadHistory(filterPartnerId);
+    }
+  }, [filterPartnerId]);
 
   function toggleHistory(partnerId) {
     if (historyFor === partnerId) {
@@ -104,6 +118,7 @@ export default function AdminMonthlySupport() {
     }))
     .filter((r) => r.current) // only partners with a support amount on file
     .filter((r) => filters.includeArchived || !r.archived)
+    .filter((r) => !filterPartnerId || r.id === filterPartnerId)
     .sort((a, b) => b.current.amount - a.current.amount);
 
   const total = rows.reduce((sum, r) => sum + r.current.amount, 0);
@@ -197,7 +212,19 @@ export default function AdminMonthlySupport() {
         </form>
       )}
 
-      <FilterBar fields={fields} values={filters} onChange={updateFilter} onReset={resetFilters} />
+      <FilterBar
+        fields={fields}
+        values={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
+        extraChips={
+          <PartnerFilterChip
+            partnerId={filterPartnerId}
+            partnerName={filterPartnerName}
+            onClear={clearPartnerFilter}
+          />
+        }
+      />
 
       <div className="admin-section" style={{ marginTop: "1rem" }}>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "baseline" }}>

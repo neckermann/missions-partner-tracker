@@ -18,6 +18,10 @@ const SEARCH_DEBOUNCE_MS = 250;
 // else lives behind "+ Add filter" until picked. A field's default is
 // `false` for a checkbox, `"all"` for a select, `""` for anything else --
 // the convention every fields/emptyFilters pair in this app already uses.
+//
+// `extraChips` is optional -- pre-rendered chip-styled content (e.g.
+// PartnerFilterChip) that doesn't fit the generic fields model, shown
+// after the search box.
 function renderField(field, values, onChange) {
   const value = values[field.name] ?? (field.type === "checkbox" ? false : "");
   switch (field.type) {
@@ -149,7 +153,7 @@ function AddFilterPopover({ fields, onAdd }) {
   );
 }
 
-export default function FilterBar({ fields, values, onChange, onReset, pills }) {
+export default function FilterBar({ fields, values, onChange, onReset, pills, extraChips }) {
   const [manuallyAdded, setManuallyAdded] = useState({});
 
   const searchField = fields.find((f) => f.name === "search");
@@ -196,6 +200,7 @@ export default function FilterBar({ fields, values, onChange, onReset, pills }) 
           </div>
         )}
         {searchField && <SearchBox field={searchField} value={values.search} onChange={onChange} />}
+        {extraChips}
         {activeFields.map((field) => (
           <span key={field.name} className="filter-chip on">
             {field.type === "checkbox" ? (

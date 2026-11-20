@@ -24,7 +24,9 @@ import UrgentSendConfirmBody from "../components/admin/UrgentSendConfirmBody.jsx
 import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
+import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
 import useFilterState from "../hooks/useFilterState.js";
+import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 
 const emptyFilters = { category: "all", dateRange: "all", includeArchived: false };
 
@@ -98,6 +100,8 @@ export default function AdminPrayerRequests() {
     setValue: updateFilter,
     reset: resetFilters,
   } = useFilterState(fields, emptyFilters);
+  const { partnerId: filterPartnerId, partnerName: filterPartnerName, clearPartnerFilter } =
+    usePartnerUrlFilter();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
   const [saving, setSaving] = useState(false);
@@ -130,6 +134,7 @@ export default function AdminPrayerRequests() {
     const { from, to } = resolveQuickRangeDates(filters.dateRange);
     if (from) params.from = from;
     if (to) params.to = to;
+    if (filterPartnerId) params.partnerId = filterPartnerId;
     fetchPrayerRequests(params)
       .then(setRequests)
       .catch(console.error)
@@ -140,7 +145,7 @@ export default function AdminPrayerRequests() {
     reload();
     fetchPartners().then(setPartners).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.category, filters.dateRange]);
+  }, [filters.category, filters.dateRange, filterPartnerId]);
 
   const filteredRequests = requests.filter((r) => filters.includeArchived || !r.partner?.archived);
   const answeredCount = requests.filter((r) => r.status === "answered").length;
@@ -331,7 +336,19 @@ export default function AdminPrayerRequests() {
         </form>
       )}
 
-      <FilterBar fields={fields} values={filters} onChange={updateFilter} onReset={resetFilters} />
+      <FilterBar
+        fields={fields}
+        values={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
+        extraChips={
+          <PartnerFilterChip
+            partnerId={filterPartnerId}
+            partnerName={filterPartnerName}
+            onClear={clearPartnerFilter}
+          />
+        }
+      />
 
       {loading && <p style={{ color: "#888", marginTop: "1rem" }}>Loading…</p>}
       {visibleRequests.map((request) => {

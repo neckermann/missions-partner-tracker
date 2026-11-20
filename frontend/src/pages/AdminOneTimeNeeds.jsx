@@ -25,6 +25,8 @@ import UrgentSendConfirmBody from "../components/admin/UrgentSendConfirmBody.jsx
 import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
+import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
+import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import useFilterState from "../hooks/useFilterState.js";
 
 // Thin binding so the call sites below stay unchanged; the formatting
@@ -87,6 +89,8 @@ export default function AdminOneTimeNeeds() {
     setValue: updateFilter,
     reset: resetFilters,
   } = useFilterState(fields, emptyFilters);
+  const { partnerId: filterPartnerId, partnerName: filterPartnerName, clearPartnerFilter } =
+    usePartnerUrlFilter();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newNeed, setNewNeed] = useState(emptyNewNeed);
   const [saving, setSaving] = useState(false);
@@ -121,6 +125,7 @@ export default function AdminOneTimeNeeds() {
     const { from, to } = resolveQuickRangeDates(filters.dateRange);
     if (from) params.from = from;
     if (to) params.to = to;
+    if (filterPartnerId) params.partnerId = filterPartnerId;
     fetchSupportNeeds(params)
       .then(setNeeds)
       .catch(console.error)
@@ -131,7 +136,7 @@ export default function AdminOneTimeNeeds() {
     reload();
     fetchPartners().then(setPartners).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.status, filters.dateRange]);
+  }, [filters.status, filters.dateRange, filterPartnerId]);
 
   const filteredNeeds = needs.filter((need) => filters.includeArchived || !need.partner?.archived);
   const {
@@ -306,7 +311,19 @@ export default function AdminOneTimeNeeds() {
         </form>
       )}
 
-      <FilterBar fields={fields} values={filters} onChange={updateFilter} onReset={resetFilters} />
+      <FilterBar
+        fields={fields}
+        values={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
+        extraChips={
+          <PartnerFilterChip
+            partnerId={filterPartnerId}
+            partnerName={filterPartnerName}
+            onClear={clearPartnerFilter}
+          />
+        }
+      />
 
       {loading && <p style={{ color: "#888", marginTop: "1rem" }}>Loading…</p>}
       {visibleNeeds.map((need) => {
