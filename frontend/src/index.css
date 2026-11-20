@@ -677,6 +677,11 @@ a {
   font-size: 0.8rem;
   color: #6b6f76;
   margin-bottom: 0.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 11;
+  background: #f7f5f0;
+  padding: 0.5rem 0;
 }
 .breadcrumb a {
   color: #6b6f76;
@@ -1024,7 +1029,7 @@ a {
 }
 .partner-jump-rail {
   position: sticky;
-  top: 0;
+  top: 2rem;
   z-index: 10;
   display: flex;
   flex-wrap: wrap;
