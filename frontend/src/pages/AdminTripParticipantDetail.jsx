@@ -230,7 +230,12 @@ export default function AdminTripParticipantDetail() {
     <div className="admin-shell">
       <Breadcrumb
         items={[
-          { label: "Trips", to: "/admin/trips" },
+          { label: "Partners", to: "/admin/partners" },
+          {
+            label: trip.partner?.displayName || "Partner",
+            to: `/admin/partners/${trip.partner?.id}`,
+          },
+          { label: "Trips", to: `/admin/trips?partnerId=${trip.partner?.id}` },
           { label: trip.name || trip.type || "Trip", to: `/admin/trips/${tripId}` },
           { label: `${participant.firstName} ${participant.lastName}` },
         ]}

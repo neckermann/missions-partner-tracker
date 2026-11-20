@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useParams, Link, useNavigate, useLocation, NavLink, Outlet } from "react-router-dom";
+import { useParams, Link, useNavigate, NavLink, Outlet } from "react-router-dom";
 import { fetchTrip, fetchTripApplications, fetchTripsSettings } from "../../api/client.js";
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import TripStatusBadge from "./TripStatusBadge.jsx";
@@ -19,7 +19,6 @@ import { useRecordRecentlyViewed } from "../../hooks/useRecentlyViewed.js";
 export default function TripDetailLayout() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [trip, setTrip] = useState(null);
   const [applications, setApplications] = useState([]);
@@ -70,15 +69,14 @@ export default function TripDetailLayout() {
 
   return (
     <div className="admin-shell">
-      {/* Where "Trips" in the trail goes back to is genuinely ambiguous
-      now that a new recruiting trip can start from either Trips' own "+
-      New Trip" or Plan a Trip -- the page that actually navigated here
-      passes which one via router state; a direct visit (refresh,
-      bookmark) falls back to Plan a Trip, since that's still the more
-      common path here. */}
       <Breadcrumb
         items={[
-          { label: "Trips", to: location.state?.from === "trips" ? "/admin/trips" : "/admin/trips/planning" },
+          { label: "Partners", to: "/admin/partners" },
+          {
+            label: trip.partner?.displayName || "Partner",
+            to: `/admin/partners/${trip.partner?.id}`,
+          },
+          { label: "Trips", to: `/admin/trips?partnerId=${trip.partner?.id}` },
           { label: trip.name || trip.type || "Trip" },
         ]}
       />

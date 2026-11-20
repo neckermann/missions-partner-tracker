@@ -243,7 +243,7 @@ function ExistingTripsTab() {
         teamSizeMax: partner?.tripTeamSizeMax ?? null,
         type: newTripType || null,
       });
-      navigate(`/admin/trips/${created.id}`, { state: { from: "trips" } });
+      navigate(`/admin/trips/${created.id}`);
     } catch (err) {
       setError(err.response?.data?.error || "Failed to start trip");
       setStartingTrip(false);
@@ -692,7 +692,7 @@ function PlanATripTab() {
         teamSizeMax: row.teamSizeMax,
         type: row.tripTypesSupported?.[0] || null,
       });
-      navigate(`/admin/trips/${created.id}`, { state: { from: "planning" } });
+      navigate(`/admin/trips/${created.id}`);
     } catch (err) {
       console.error(err);
       setStartingId(null);
@@ -704,7 +704,7 @@ function PlanATripTab() {
     setCloningId(row.partnerId);
     try {
       const cloned = await cloneTrip(row.cloneFromTripId);
-      navigate(`/admin/trips/${cloned.id}`, { state: { from: "planning" } });
+      navigate(`/admin/trips/${cloned.id}`);
     } catch (err) {
       console.error(err);
       setCloningId(null);
@@ -845,12 +845,9 @@ const TABS = [
 
 export default function AdminTrips() {
   const location = useLocation();
-  // The old /admin/trips/planning URL (bookmarks, the back-link from
-  // TripDetailLayout.jsx's "← Back to Plan a Trip" link, which reads this
-  // same `state: { from: "planning" }`) still routes here -- both routes
-  // render this same component now -- so it needs
-  // to land on the right tab rather than always defaulting to the first
-  // one.
+  // Both /admin/trips and /admin/trips/planning render this same
+  // component, so it needs to land on the right tab rather than always
+  // defaulting to the first one.
   const [tab, setTab] = useState(() => (location.pathname.endsWith("/planning") ? "plan" : "existing"));
   const activeTab = TABS.find((t) => t.value === tab) || TABS[0];
 
