@@ -10,6 +10,7 @@ import {
 } from "../api/client.js";
 import { FILE_KINDS, fileKindLabel } from "../utils/fileKinds.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
+import PartnerFileFormFields from "../components/admin/PartnerFileFormFields.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
 import { todayInputValue, formatFileSize } from "../utils/format.js";
@@ -273,74 +274,32 @@ export default function AdminPartnerFiles() {
 
       {showAddForm && (
         <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
-          <div className="form-grid">
-            <label style={{ gridColumn: "1 / -1" }}>
-              Partner
-              <PartnerSelect
-                partners={partners}
-                value={newFile.partnerId}
-                onChange={(partnerId) => setNewFile((f) => ({ ...f, partnerId }))}
-                required
-              />
-            </label>
-            <label style={{ gridColumn: "1 / -1" }}>
-              File (PDF, Word, Excel, .eml, JPG, or PNG)
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.eml,image/jpeg,image/png"
-                onChange={(e) => setFile(e.target.files[0] || null)}
-                required
-              />
-            </label>
-            <label>
-              Kind
-              <select
-                value={newFile.kind}
-                onChange={(e) => setNewFile((f) => ({ ...f, kind: e.target.value }))}
-              >
-                {FILE_KINDS.map((k) => (
-                  <option key={k.value} value={k.value}>
-                    {k.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {newFile.kind === "other" && (
-              <label>
-                Kind label
-                <input
-                  value={newFile.customKind}
-                  onChange={(e) => setNewFile((f) => ({ ...f, customKind: e.target.value }))}
-                  placeholder="e.g. Background Check"
+          <PartnerFileFormFields
+            form={newFile}
+            setForm={setNewFile}
+            partnerPicker={
+              <label style={{ gridColumn: "1 / -1" }}>
+                Partner
+                <PartnerSelect
+                  partners={partners}
+                  value={newFile.partnerId}
+                  onChange={(partnerId) => setNewFile((f) => ({ ...f, partnerId }))}
                   required
                 />
               </label>
-            )}
-            <label>
-              Title (optional)
-              <input
-                value={newFile.title}
-                onChange={(e) => setNewFile((f) => ({ ...f, title: e.target.value }))}
-                placeholder="e.g. Summer 2026 Update"
-              />
-            </label>
-            <label>
-              Received Date
-              <input
-                type="date"
-                value={newFile.receivedDate}
-                onChange={(e) => setNewFile((f) => ({ ...f, receivedDate: e.target.value }))}
-                required
-              />
-            </label>
-            <label style={{ gridColumn: "1 / -1" }}>
-              Notes
-              <input
-                value={newFile.notes}
-                onChange={(e) => setNewFile((f) => ({ ...f, notes: e.target.value }))}
-              />
-            </label>
-          </div>
+            }
+            fileInput={
+              <label style={{ gridColumn: "1 / -1" }}>
+                File (PDF, Word, Excel, .eml, JPG, or PNG)
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.eml,image/jpeg,image/png"
+                  onChange={(e) => setFile(e.target.files[0] || null)}
+                  required
+                />
+              </label>
+            }
+          />
           {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
           <div style={{ marginTop: "1rem" }}>
             <button type="submit" className="btn" disabled={saving}>
@@ -371,71 +330,29 @@ export default function AdminPartnerFiles() {
         emptyMessage={loading ? "Loading…" : "No files on record."}
         expandedRowId={editingId}
         renderExpanded={(f) => (
-          <div className="form-grid">
-            <label style={{ gridColumn: "1 / -1" }} title="Everything but the file itself can be edited.">
-              Partner
-              <PartnerSelect
-                partners={partners}
-                value={editForm.partnerId}
-                onChange={(partnerId) => setEditForm((ef) => ({ ...ef, partnerId }))}
-                required
-              />
-            </label>
-            <label>
-              Kind
-              <select
-                value={editForm.kind}
-                onChange={(e) => setEditForm((ef) => ({ ...ef, kind: e.target.value }))}
-              >
-                {FILE_KINDS.map((k) => (
-                  <option key={k.value} value={k.value}>
-                    {k.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {editForm.kind === "other" && (
-              <label>
-                Kind label
-                <input
-                  value={editForm.customKind}
-                  onChange={(e) => setEditForm((ef) => ({ ...ef, customKind: e.target.value }))}
-                  placeholder="e.g. Background Check"
-                  required
-                />
-              </label>
-            )}
-            <label>
-              Title
-              <input
-                value={editForm.title}
-                onChange={(e) => setEditForm((ef) => ({ ...ef, title: e.target.value }))}
-                placeholder="e.g. Summer 2026 Update"
-              />
-            </label>
-            <label>
-              Received Date
-              <input
-                type="date"
-                value={editForm.receivedDate}
-                onChange={(e) => setEditForm((ef) => ({ ...ef, receivedDate: e.target.value }))}
-                required
-              />
-            </label>
-            <label style={{ gridColumn: "1 / -1" }}>
-              Notes
-              <input
-                value={editForm.notes}
-                onChange={(e) => setEditForm((ef) => ({ ...ef, notes: e.target.value }))}
-              />
-            </label>
-            {error && <p style={{ gridColumn: "1 / -1", color: "#b91c1c" }}>{error}</p>}
-            <div style={{ gridColumn: "1 / -1" }}>
+          <>
+            <PartnerFileFormFields
+              form={editForm}
+              setForm={setEditForm}
+              partnerPicker={
+                <label style={{ gridColumn: "1 / -1" }} title="Everything but the file itself can be edited.">
+                  Partner
+                  <PartnerSelect
+                    partners={partners}
+                    value={editForm.partnerId}
+                    onChange={(partnerId) => setEditForm((ef) => ({ ...ef, partnerId }))}
+                    required
+                  />
+                </label>
+              }
+            />
+            {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+            <div style={{ marginTop: "0.75rem" }}>
               <button type="button" className="btn small" onClick={() => submitEdit(f.id)}>
                 Save
               </button>
             </div>
-          </div>
+          </>
         )}
         columns={[
           {

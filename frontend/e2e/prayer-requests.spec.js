@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { login } from "./helpers.js";
 
 test.describe("Prayer requests", () => {
-  test("create on a missionary and record an answer, with no negative framing for other open requests", async ({
+  test("quick-add from Partner Detail and record an answer, with no negative framing for other open requests", async ({
     page,
   }) => {
     await login(page);
@@ -14,36 +14,38 @@ test.describe("Prayer requests", () => {
     await page.goto(`/admin/partners/${target.id}`);
     await page.waitForSelector("h2");
 
+    const card = page.locator(".partner-summary-card", { hasText: "Prayer Requests" });
     const uniqueText = `E2E prayer request ${Date.now()}`;
-    await page.click("button:has-text('+ Add Prayer Request')");
-    await page.selectOption("select", {
+    await card.locator("button", { hasText: "+ Add" }).click();
+    await page.selectOption(".modal-panel select", {
       label: "Strategic (ministry vision/calling — can be shared publicly)",
     });
-    await page.fill("textarea", uniqueText);
-    await page.locator('input[type="checkbox"]').first().check(); // "Show on public profile"
-    await page.click('button[type="submit"]:has-text("Add Prayer Request")');
+    await page.fill(".modal-panel textarea", uniqueText);
+    await page.locator('.modal-panel input[type="checkbox"]').first().check(); // "Show on public profile"
+    await page.click('.modal-panel button[type="submit"]');
+    await expect(page.locator(".modal-panel")).toHaveCount(0);
 
-    const section = page.locator(".admin-section", { hasText: "Prayer Requests" }).first();
-    await expect(section).toContainText(uniqueText);
+    await expect(card).toContainText(uniqueText);
 
     // A freshly-created ("ongoing") request shows no status callout at all --
     // not "Pending", not "Unanswered", nothing. See the PrayerRequest model
     // comment in schema.prisma for why.
-    const sectionText = await section.innerText();
-    expect(sectionText).not.toMatch(/unanswered|pending/i);
+    const cardText = await card.innerText();
+    expect(cardText).not.toMatch(/unanswered|pending/i);
 
-    // Record an answer
-    await page.click("button:has-text('Record Answer')");
-    await page.fill('input[placeholder*="clinic"]', "Answered during this test run");
-    await page.click('button:has-text("Save")');
-    await expect(section).toContainText("✓ Answered");
-    await expect(section).toContainText("Answered during this test run");
+    // Record an answer via the card's own quick action
+    await card.locator("button", { hasText: "Mark Answered" }).click();
+    await page.fill(".modal-panel input[type=\"text\"], .modal-panel input:not([type])", "Answered during this test run");
+    await page.click('.modal-panel button[type="submit"]');
+    await expect(page.locator(".modal-panel")).toHaveCount(0);
 
-    // Cleanup
+    // Cleanup, and confirm the answer actually persisted server-side
     const prRes = await page.request.get("/api/prayer-requests");
     const all = await prRes.json();
     const created = all.find((r) => r.requestText === uniqueText);
     expect(created).toBeTruthy();
+    expect(created.status).toBe("answered");
+    expect(created.answeredNote).toBe("Answered during this test run");
     const del = await page.request.delete(`/api/prayer-requests/${created.id}`);
     expect(del.ok()).toBeTruthy();
   });

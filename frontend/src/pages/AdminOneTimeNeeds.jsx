@@ -6,7 +6,6 @@ import {
   updateSupportNeed,
   deleteSupportNeed,
   fetchPartners,
-  fetchUrgentRecipientCount,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import SourceLink from "../components/admin/SourceLink.jsx";
@@ -19,10 +18,9 @@ import useLoadMore from "../hooks/useLoadMore.js";
 import useSourceFiles from "../hooks/useSourceFiles.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
+import useUrgentApprovalGate from "../hooks/useUrgentApprovalGate.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
-import UrgentSendConfirmBody from "../components/admin/UrgentSendConfirmBody.jsx";
-import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
 import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
@@ -118,6 +116,7 @@ export default function AdminOneTimeNeeds() {
   // it), and `confirm` would read as a reference to the native global
   // this hook replaces.
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
+  const confirmBeforeCreate = useUrgentApprovalGate({ confirmDialog, enabledFeatures });
 
   function reload() {
     setLoading(true);
@@ -157,30 +156,13 @@ export default function AdminOneTimeNeeds() {
       setError("Choose a partner");
       return;
     }
-    if (newNeed.approveNow) {
-      const text = newNeed.description.trim();
-      const approved = await confirmDialog({
-        title: "Approve and send now?",
-        body: <ApproveRestrictedTextConfirmBody text={text} />,
-        confirmLabel: "Approve and save",
-      });
-      if (!approved) return;
-    }
-    if (newNeed.isUrgent) {
-      const { adminCount, publicCount } = await fetchUrgentRecipientCount(newNeed.partnerId);
-      const sent = await confirmDialog({
-        title: "Send now?",
-        body: (
-          <UrgentSendConfirmBody
-            enabledFeatures={enabledFeatures}
-            adminCount={adminCount}
-            publicCount={publicCount}
-          />
-        ),
-        confirmLabel: "Send now",
-      });
-      if (!sent) return;
-    }
+    const proceed = await confirmBeforeCreate({
+      approveNow: newNeed.approveNow,
+      isUrgent: newNeed.isUrgent,
+      partnerId: newNeed.partnerId,
+      text: newNeed.description.trim(),
+    });
+    if (!proceed) return;
     setSaving(true);
     try {
       await createSupportNeed({

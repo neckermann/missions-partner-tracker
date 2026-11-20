@@ -8,6 +8,12 @@ import {
   fetchSupportEntries,
   fetchSupportNeeds,
   fetchTrips,
+  createPrayerRequest,
+  updatePrayerRequest,
+  createSupportNeed,
+  updateSupportNeed,
+  createSupportEntry,
+  uploadPartnerFile,
 } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
@@ -16,6 +22,12 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import AddressFields from "../components/admin/AddressFields.jsx";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
+import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import PrayerRequestFormFields from "../components/admin/PrayerRequestFormFields.jsx";
+import SupportNeedFormFields from "../components/admin/SupportNeedFormFields.jsx";
+import SupportEntryFormFields from "../components/admin/SupportEntryFormFields.jsx";
+import PartnerFileFormFields from "../components/admin/PartnerFileFormFields.jsx";
+import { FILE_KINDS } from "../utils/fileKinds.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
 import { formatDateLong, formatDate, formatCurrency, toDateInputValue, todayInputValue } from "../utils/format.js";
@@ -23,6 +35,9 @@ import { addressByType } from "../utils/addresses.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import { useRecordRecentlyViewed } from "../hooks/useRecentlyViewed.js";
+import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import useChurchSettings from "../hooks/useChurchSettings.js";
+import useUrgentApprovalGate from "../hooks/useUrgentApprovalGate.jsx";
 
 // A cleared <input type="date"> is "", which `z.coerce.date()` turns into an
 // Invalid Date and rejects -- "no date" has to travel as null.
@@ -170,6 +185,17 @@ export default function AdminPartnerDetail() {
     trips: [],
   });
   const { churchName, enabledFeatures } = useSettings();
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
+  const { settings: churchSettings } = useChurchSettings();
+  const confirmBeforeCreate = useUrgentApprovalGate({ confirmDialog, enabledFeatures });
+  const [activeModal, setActiveModal] = useState(null);
+  const [prayerForm, setPrayerForm] = useState(null);
+  const [prayerAnswerForm, setPrayerAnswerForm] = useState(null);
+  const [needForm, setNeedForm] = useState(null);
+  const [needDecisionForm, setNeedDecisionForm] = useState(null);
+  const [supportEntryForm, setSupportEntryForm] = useState(null);
+  const [fileForm, setFileForm] = useState(null);
+  const [fileBlob, setFileBlob] = useState(null);
 
   // React Router keeps this same component instance mounted across a
   // /partners/:id param change -- it doesn't remount. reload() is passed
@@ -219,6 +245,167 @@ export default function AdminPartnerDetail() {
 
   const isOrg = p.kind === "organization";
   const save = (patch) => updatePartner(id, patch);
+
+  // Same precondition "Mark as urgent"/"Review and approve now" gate as
+  // AdminPrayerRequests.jsx/AdminOneTimeNeeds.jsx -- these quick-add modals
+  // reuse the exact same create flow (useUrgentApprovalGate), just with a
+  // fixed partner instead of a picker.
+  const hasEnabledChannel = enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
+  const allowRestrictedPartnerDispatch = churchSettings?.allowRestrictedPartnerDispatch !== false;
+  const canApproveNow = !!p.isRestricted && hasEnabledChannel && allowRestrictedPartnerDispatch;
+
+  function closeModal() {
+    setActiveModal(null);
+  }
+
+  function openAddPrayerRequest() {
+    setPrayerForm({
+      category: "strategic",
+      requestText: "",
+      dateReceived: todayInputValue(),
+      isPublic: false,
+      includeInBooklet: false,
+      untracked: false,
+      isUrgent: false,
+      approveNow: false,
+      notes: "",
+      sourceFileId: null,
+    });
+    setActiveModal("add-prayer");
+  }
+
+  async function submitAddPrayerRequest() {
+    const proceed = await confirmBeforeCreate({
+      approveNow: prayerForm.approveNow,
+      isUrgent: prayerForm.isUrgent,
+      partnerId: p.id,
+      text: prayerForm.requestText.trim(),
+    });
+    if (!proceed) return false;
+    const isStrategic = prayerForm.category === "strategic";
+    await createPrayerRequest({
+      partnerId: p.id,
+      category: prayerForm.category,
+      requestText: prayerForm.requestText.trim(),
+      dateReceived: prayerForm.dateReceived,
+      isPublic: isStrategic ? prayerForm.isPublic : false,
+      includeInBooklet: isStrategic && prayerForm.isPublic ? prayerForm.includeInBooklet : false,
+      status: prayerForm.untracked ? "untracked" : "ongoing",
+      isUrgent: prayerForm.isUrgent,
+      approveNow: prayerForm.approveNow,
+      notes: prayerForm.notes || null,
+      sourceFileId: prayerForm.sourceFileId,
+    });
+    await reload();
+  }
+
+  function openMarkAnswered() {
+    setPrayerAnswerForm({ dateAnswered: todayInputValue(), answeredNote: "" });
+    setActiveModal("answer-prayer");
+  }
+
+  async function submitMarkAnswered() {
+    const request = collections.prayerRequests[0];
+    await updatePrayerRequest(request.id, {
+      status: "answered",
+      dateAnswered: prayerAnswerForm.dateAnswered,
+      answeredNote: prayerAnswerForm.answeredNote || null,
+    });
+    await reload();
+  }
+
+  function openAddNeed() {
+    setNeedForm({
+      description: "",
+      requestedAmount: "",
+      requestDate: "",
+      notes: "",
+      isUrgent: false,
+      approveNow: false,
+      sourceFileId: null,
+    });
+    setActiveModal("add-need");
+  }
+
+  async function submitAddNeed() {
+    const proceed = await confirmBeforeCreate({
+      approveNow: needForm.approveNow,
+      isUrgent: needForm.isUrgent,
+      partnerId: p.id,
+      text: needForm.description.trim(),
+    });
+    if (!proceed) return false;
+    await createSupportNeed({
+      partnerId: p.id,
+      description: needForm.description.trim(),
+      requestedAmount: Number(needForm.requestedAmount),
+      requestDate: needForm.requestDate,
+      notes: needForm.notes || null,
+      approveNow: needForm.approveNow,
+      isUrgent: needForm.isUrgent,
+      sourceFileId: needForm.sourceFileId,
+    });
+    await reload();
+  }
+
+  function openRecordDecision() {
+    setNeedDecisionForm({ approvedAmount: "", approvedDate: "", decisionNote: "" });
+    setActiveModal("decide-need");
+  }
+
+  async function submitRecordDecision() {
+    const need = collections.needRequests[0];
+    await updateSupportNeed(need.id, {
+      approvedAmount: Number(needDecisionForm.approvedAmount),
+      approvedDate: needDecisionForm.approvedDate,
+      decisionNote: needDecisionForm.decisionNote || null,
+    });
+    await reload();
+  }
+
+  function openAddSupportEntry() {
+    setSupportEntryForm({ amount: "", effectiveDate: todayInputValue(), notes: "" });
+    setActiveModal("add-support");
+  }
+
+  async function submitAddSupportEntry() {
+    await createSupportEntry({
+      partnerId: p.id,
+      amount: Number(supportEntryForm.amount),
+      effectiveDate: supportEntryForm.effectiveDate,
+      notes: supportEntryForm.notes || null,
+    });
+    await reload();
+  }
+
+  function openUploadFile() {
+    setFileForm({
+      kind: FILE_KINDS[0].value,
+      customKind: "",
+      title: "",
+      receivedDate: todayInputValue(),
+      notes: "",
+    });
+    setFileBlob(null);
+    setActiveModal("add-file");
+  }
+
+  async function submitUploadFile() {
+    if (!fileBlob) throw new Error("Choose a file to upload");
+    if (fileForm.kind === "other" && !fileForm.customKind.trim()) {
+      throw new Error("Enter a label for this file's kind");
+    }
+    const formData = new FormData();
+    formData.append("file", fileBlob);
+    formData.append("partnerId", p.id);
+    formData.append("kind", fileForm.kind);
+    if (fileForm.kind === "other") formData.append("customKind", fileForm.customKind);
+    formData.append("title", fileForm.title);
+    formData.append("receivedDate", fileForm.receivedDate);
+    formData.append("notes", fileForm.notes);
+    await uploadPartnerFile(formData);
+    await reload();
+  }
 
   const physical = addressByType(p.addresses, "physical") || {};
   const mailing = addressByType(p.addresses, "mailing") || {};
@@ -1019,6 +1206,7 @@ export default function AdminPartnerDetail() {
                     : null
                 }
                 viewAllTo={`/admin/support/monthly?partnerId=${p.id}`}
+                actions={[{ label: "+ Add", onClick: openAddSupportEntry }]}
               />
             )}
 
@@ -1029,6 +1217,12 @@ export default function AdminPartnerDetail() {
                 count={collections.needRequests.length}
                 summary={truncate(collections.needRequests[0]?.description, 70)}
                 viewAllTo={`/admin/support/needs?partnerId=${p.id}`}
+                actions={[
+                  { label: "+ Add", onClick: openAddNeed },
+                  ...(collections.needRequests[0] && collections.needRequests[0].approvedAmount == null
+                    ? [{ label: "Record Decision", onClick: openRecordDecision }]
+                    : []),
+                ]}
               />
             )}
           </div>
@@ -1174,6 +1368,12 @@ export default function AdminPartnerDetail() {
                   : null
               }
               viewAllTo={`/admin/prayer-requests?partnerId=${p.id}`}
+              actions={[
+                { label: "+ Add", onClick: openAddPrayerRequest },
+                ...(collections.prayerRequests[0] && collections.prayerRequests[0].status !== "answered"
+                  ? [{ label: "Mark Answered", onClick: openMarkAnswered }]
+                  : []),
+              ]}
             />
           )}
 
@@ -1184,6 +1384,7 @@ export default function AdminPartnerDetail() {
               count={collections.files.length}
               summary={collections.files[0] ? collections.files[0].title || collections.files[0].fileName : null}
               viewAllTo={`/admin/partner-files?partnerId=${p.id}`}
+              actions={[{ label: "+ Upload", onClick: openUploadFile }]}
             />
           )}
 
@@ -1343,6 +1544,118 @@ export default function AdminPartnerDetail() {
           )}
         </div>
       </div>
+
+      {activeModal === "add-prayer" && (
+        <QuickActionModal title="Add Prayer Request" onClose={closeModal} onSubmit={submitAddPrayerRequest}>
+          <PrayerRequestFormFields
+            form={prayerForm}
+            setForm={setPrayerForm}
+            files={collections.files}
+            mode="create"
+            hasEnabledChannel={hasEnabledChannel}
+            canApproveNow={canApproveNow}
+            enabledFeatures={enabledFeatures}
+          />
+        </QuickActionModal>
+      )}
+
+      {activeModal === "answer-prayer" && (
+        <QuickActionModal title="Mark Answered" onClose={closeModal} onSubmit={submitMarkAnswered}>
+          <div className="form-grid">
+            <label>
+              Date Answered
+              <input
+                type="date"
+                value={prayerAnswerForm.dateAnswered}
+                onChange={(e) => setPrayerAnswerForm((f) => ({ ...f, dateAnswered: e.target.value }))}
+                required
+              />
+            </label>
+            <label style={{ gridColumn: "1 / -1" }}>
+              How was it answered? (optional)
+              <input
+                value={prayerAnswerForm.answeredNote}
+                onChange={(e) => setPrayerAnswerForm((f) => ({ ...f, answeredNote: e.target.value }))}
+              />
+            </label>
+          </div>
+        </QuickActionModal>
+      )}
+
+      {activeModal === "add-need" && (
+        <QuickActionModal title="Add One-Time Need" onClose={closeModal} onSubmit={submitAddNeed}>
+          <SupportNeedFormFields
+            form={needForm}
+            setForm={setNeedForm}
+            files={collections.files}
+            mode="create"
+            hasEnabledChannel={hasEnabledChannel}
+            canApproveNow={canApproveNow}
+            enabledFeatures={enabledFeatures}
+          />
+        </QuickActionModal>
+      )}
+
+      {activeModal === "decide-need" && (
+        <QuickActionModal title="Record Decision" onClose={closeModal} onSubmit={submitRecordDecision}>
+          <div className="form-grid">
+            <label>
+              Approved Amount ($)
+              <input
+                type="number"
+                min="0"
+                value={needDecisionForm.approvedAmount}
+                onChange={(e) => setNeedDecisionForm((f) => ({ ...f, approvedAmount: e.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Approved Date
+              <input
+                type="date"
+                value={needDecisionForm.approvedDate}
+                onChange={(e) => setNeedDecisionForm((f) => ({ ...f, approvedDate: e.target.value }))}
+                required
+              />
+            </label>
+            <label style={{ gridColumn: "1 / -1" }}>
+              Decision Note
+              <input
+                value={needDecisionForm.decisionNote}
+                onChange={(e) => setNeedDecisionForm((f) => ({ ...f, decisionNote: e.target.value }))}
+              />
+            </label>
+          </div>
+        </QuickActionModal>
+      )}
+
+      {activeModal === "add-support" && (
+        <QuickActionModal title="Add Support Entry" onClose={closeModal} onSubmit={submitAddSupportEntry}>
+          <SupportEntryFormFields form={supportEntryForm} setForm={setSupportEntryForm} />
+        </QuickActionModal>
+      )}
+
+      {activeModal === "add-file" && (
+        <QuickActionModal title="Upload File" onClose={closeModal} onSubmit={submitUploadFile}>
+          <PartnerFileFormFields
+            form={fileForm}
+            setForm={setFileForm}
+            fileInput={
+              <label style={{ gridColumn: "1 / -1" }}>
+                File (PDF, Word, Excel, .eml, JPG, or PNG)
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.eml,image/jpeg,image/png"
+                  onChange={(e) => setFileBlob(e.target.files[0] || null)}
+                  required
+                />
+              </label>
+            }
+          />
+        </QuickActionModal>
+      )}
+
+      {confirmElement}
     </div>
   );
 }
