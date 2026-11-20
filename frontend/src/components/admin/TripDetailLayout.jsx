@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, useLocation, NavLink, Outlet } from "reac
 import { fetchTrip, fetchTripApplications, fetchTripsSettings } from "../../api/client.js";
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import TripStatusBadge from "./TripStatusBadge.jsx";
+import Breadcrumb from "../shared/Breadcrumb.jsx";
 import { useRecordRecentlyViewed } from "../../hooks/useRecentlyViewed.js";
 
 // Phase 3 (UX rebuild) split of the former single 2,100-line
@@ -69,14 +70,18 @@ export default function TripDetailLayout() {
 
   return (
     <div className="admin-shell">
-      {/* Where to go "back" to is genuinely ambiguous now that a new
-      recruiting trip can start from either Trips' own "+ New Trip" or
-      Plan a Trip -- the page that actually navigated here passes which
-      one via router state; a direct visit (refresh, bookmark) falls back
-      to Plan a Trip, since that's still the more common path here. */}
-      <Link to={location.state?.from === "trips" ? "/admin/trips" : "/admin/trips/planning"}>
-        {location.state?.from === "trips" ? "← Back to Trips" : "← Back to Plan a Trip"}
-      </Link>
+      {/* Where "Trips" in the trail goes back to is genuinely ambiguous
+      now that a new recruiting trip can start from either Trips' own "+
+      New Trip" or Plan a Trip -- the page that actually navigated here
+      passes which one via router state; a direct visit (refresh,
+      bookmark) falls back to Plan a Trip, since that's still the more
+      common path here. */}
+      <Breadcrumb
+        items={[
+          { label: "Trips", to: location.state?.from === "trips" ? "/admin/trips" : "/admin/trips/planning" },
+          { label: trip.name || trip.type || "Trip" },
+        ]}
+      />
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem" }}>
         <h2 style={{ margin: 0 }}>{trip.name || trip.type || "Trip"}</h2>
         <TripStatusBadge status={trip.status} />

@@ -6,6 +6,7 @@ import { getFipsCode } from "../utils/countryFipsCodes.js";
 import { COUNTRY_CONTINENTS } from "../utils/countryContinents.js";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import Wizard from "../components/shared/Wizard.jsx";
+import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 
 const COUNTRY_NAMES = Object.keys(COUNTRY_CONTINENTS).sort();
 // Same presets as the detail page's own Preferred Contact Method field
@@ -227,6 +228,7 @@ export default function AdminPartnerForm() {
 
   return (
     <div className="admin-shell">
+      <Breadcrumb items={[{ label: "Partners", to: "/admin/partners" }, { label: "New Partner" }]} />
       <h2>New Partner</h2>
       <p style={{ color: "#666", marginTop: "-0.5rem" }}>
         Just enough to create the record — you'll fill in the rest on the partner's page.

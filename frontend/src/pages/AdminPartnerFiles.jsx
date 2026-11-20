@@ -26,6 +26,7 @@ import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
 import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
+import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
@@ -250,6 +251,15 @@ export default function AdminPartnerFiles() {
 
   return (
     <div className="admin-shell">
+      {filterPartnerId && (
+        <Breadcrumb
+          items={[
+            { label: "Partners", to: "/admin/partners" },
+            { label: filterPartnerName || "…", to: `/admin/partners/${filterPartnerId}` },
+            { label: "Newsletters & Docs" },
+          ]}
+        />
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Newsletters &amp; Docs</h2>
         <button className="btn" onClick={() => setShowAddForm((v) => !v)}>

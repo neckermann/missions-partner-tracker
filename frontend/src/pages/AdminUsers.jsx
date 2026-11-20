@@ -64,6 +64,7 @@ export default function AdminUsers() {
     <div className="admin-shell">
       <SettingsPageHeader
         title={`Users (${users.length})`}
+        crumbLabel="Manage Users"
         actions={
           <Link to="/admin/settings/users/new" className="btn">
             + Add User

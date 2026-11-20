@@ -7,6 +7,7 @@ import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { formatYear } from "../utils/format.js";
 import PhotoTile from "../components/shared/PhotoTile.jsx";
+import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 
 // Restricted partners simply won't have most of these keys in the API
 // response at all (see toPublicPartner in maskData.js), so the
@@ -71,7 +72,7 @@ export default function PublicPartnerDetail() {
     <div>
       <PublicSiteHeader title={`Our ${partnerTermPlural}`} />
       <div className="admin-shell">
-        <Link to="/">&larr; Back to directory</Link>
+        <Breadcrumb items={[{ label: partnerTermPlural, to: "/" }, { label: name }]} />
 
         <div className="partner-detail-header" style={{ marginTop: "1rem" }}>
           {partner.photo ? (

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { fetchUser, createUser, updateUser } from "../api/client.js";
+import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 
 const emptyForm = {
   email: "",
@@ -77,6 +78,13 @@ export default function AdminUserForm() {
   if (loadError) {
     return (
       <div className="admin-shell">
+        <Breadcrumb
+          items={[
+            { label: "Settings", to: "/admin/settings" },
+            { label: "Manage Users", to: "/admin/settings/users" },
+            { label: "Edit User" },
+          ]}
+        />
         <h2>Edit User</h2>
         <p style={{ color: "#b91c1c" }} role="alert">
           {loadError}
@@ -90,6 +98,13 @@ export default function AdminUserForm() {
 
   return (
     <div className="admin-shell">
+      <Breadcrumb
+        items={[
+          { label: "Settings", to: "/admin/settings" },
+          { label: "Manage Users", to: "/admin/settings/users" },
+          { label: isEdit ? "Edit User" : "Add User" },
+        ]}
+      />
       <h2>{isEdit ? "Edit User" : "Add User"}</h2>
       <form onSubmit={handleSubmit} className="admin-form">
         <div className="admin-section">

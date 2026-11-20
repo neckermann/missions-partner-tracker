@@ -26,6 +26,7 @@ import TripStatusBadge, { STATUS_LABELS } from "../components/admin/TripStatusBa
 import StatusPill from "../components/admin/StatusPill.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
 import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
+import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
@@ -299,6 +300,15 @@ function ExistingTripsTab() {
 
   return (
     <div className={showAddForm || editingId ? "form-has-floating-actions" : ""}>
+      {filterPartnerId && (
+        <Breadcrumb
+          items={[
+            { label: "Partners", to: "/admin/partners" },
+            { label: filterPartnerName || "…", to: `/admin/partners/${filterPartnerId}` },
+            { label: "Trips" },
+          ]}
+        />
+      )}
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <button
           className="btn"

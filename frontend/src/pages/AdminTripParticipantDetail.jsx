@@ -16,6 +16,7 @@ import { formatDate, isMinorForTrip } from "../utils/format.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
+import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 
 function readFileAsDataUrl(file) {
@@ -227,7 +228,13 @@ export default function AdminTripParticipantDetail() {
 
   return (
     <div className="admin-shell">
-      <Link to={`/admin/trips/${tripId}`}>← Back to {trip.name || trip.type || "trip"}</Link>
+      <Breadcrumb
+        items={[
+          { label: "Trips", to: "/admin/trips" },
+          { label: trip.name || trip.type || "Trip", to: `/admin/trips/${tripId}` },
+          { label: `${participant.firstName} ${participant.lastName}` },
+        ]}
+      />
       <h2 style={{ margin: "0.5rem 0" }}>
         {participant.firstName} {participant.lastName}
       </h2>

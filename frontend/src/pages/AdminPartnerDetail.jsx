@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   fetchPartner,
   updatePartner,
@@ -12,6 +12,7 @@ import {
 import CountryStats from "../components/CountryStats.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
 import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
+import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import AddressFields from "../components/admin/AddressFields.jsx";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
@@ -160,7 +161,6 @@ function RepeatableRows({ rows, onChange, blank, render }) {
 // whole-record form. See EditableSection for the reasoning.
 export default function AdminPartnerDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [p, setP] = useState(null);
   const [collections, setCollections] = useState({
     prayerRequests: [],
@@ -249,16 +249,10 @@ export default function AdminPartnerDetail() {
 
   return (
     <div className="admin-shell">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
-          <h2 style={{ marginBottom: "0.25rem" }}>{p.displayName}</h2>
-          <p style={{ color: "#666", margin: 0 }}>
-            {isOrg ? `${p.orgType || "Partner"} Organization` : "Missionary"}
-          </p>
-        </div>
-        <button type="button" className="btn secondary" onClick={() => navigate("/admin/partners")}>
-          Back to list
-        </button>
+      <Breadcrumb items={[{ label: "Partners", to: "/admin/partners" }, { label: p.displayName }]} />
+      <div>
+        <h2 style={{ marginBottom: "0.25rem" }}>{p.displayName}</h2>
+        <p style={{ color: "#666", margin: 0 }}>{isOrg ? `${p.orgType || "Partner"} Organization` : "Missionary"}</p>
       </div>
 
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", margin: "1rem 0" }}>

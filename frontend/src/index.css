@@ -672,10 +672,27 @@ a {
   margin: 2rem auto;
   padding: 0 1rem;
 }
-.settings-back-link {
-  display: inline-block;
-  font-size: 0.85rem;
+.breadcrumb {
+  display: block;
+  font-size: 0.8rem;
+  color: #6b6f76;
   margin-bottom: 0.5rem;
+}
+.breadcrumb a {
+  color: #6b6f76;
+  text-decoration: none;
+}
+.breadcrumb a:hover {
+  color: #1f2a37;
+  text-decoration: underline;
+}
+.breadcrumb-sep {
+  margin: 0 0.35rem;
+  color: #b7b3ab;
+}
+.breadcrumb-current {
+  color: #1f2a37;
+  font-weight: 600;
 }
 .admin-table {
   width: 100%;
