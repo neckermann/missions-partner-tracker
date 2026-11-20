@@ -8,21 +8,7 @@ import { useSettings } from "../context/SettingsContext.jsx";
 import { formatYear } from "../utils/format.js";
 import PhotoTile from "../components/shared/PhotoTile.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
-
-// Restricted partners simply won't have most of these keys in the API
-// response at all (see toPublicPartner in maskData.js), so the
-// conditional rendering below already degrades correctly with no
-// type-specific handling needed.
-// newsletterSignup deliberately isn't here -- it gets its own prominent
-// widget further down the page instead of blending into this generic row.
-const LINK_FIELDS = [
-  ["websiteLink", "Website"],
-  ["supportLink", "Support / Donate"],
-  ["facebook", "Facebook"],
-  ["twitter", "Twitter"],
-  ["instagram", "Instagram"],
-  ["linkedin", "LinkedIn"],
-];
+import { linkTypeLabel } from "../utils/linkTypes.js";
 
 export default function PublicPartnerDetail() {
   const { id } = useParams();
@@ -65,7 +51,12 @@ export default function PublicPartnerDetail() {
       ]
         .filter(Boolean)
         .join(" · ");
-  const links = LINK_FIELDS.filter(([key]) => partner[key]);
+  // newsletterSignup gets its own prominent widget further down the page
+  // instead of blending into this generic row. Restricted partners simply
+  // won't have this field at all (see toPublicPartner in maskData.js), so
+  // this already degrades correctly with no type-specific handling needed.
+  const links = (partner.links || []).filter((l) => l.type !== "newsletterSignup");
+  const newsletterSignup = (partner.links || []).find((l) => l.type === "newsletterSignup")?.url;
   const hasSendingParty = !isOrg && (partner.sendingChurch?.name || partner.sendingOrg?.name);
 
   return (
@@ -117,23 +108,17 @@ export default function PublicPartnerDetail() {
             <strong>Focus:</strong> {partner.focusArea}
           </p>
         )}
-        {!isOrg && partner.languagesSpoken?.length > 0 && (
+        {!isOrg && partner.languages?.length > 0 && (
           <p>
-            <strong>Languages:</strong> {partner.languagesSpoken.join(", ")}
+            <strong>Languages:</strong> {partner.languages.map((l) => l.language).join(", ")}
           </p>
         )}
 
         {links.length > 0 && (
           <div className="partner-links">
-            {links.map(([key, label]) => (
-              <a
-                key={key}
-                href={partner[key]}
-                target="_blank"
-                rel="noreferrer"
-                className="btn secondary small"
-              >
-                {label}
+            {links.map((l) => (
+              <a key={l.type} href={l.url} target="_blank" rel="noreferrer" className="btn secondary small">
+                {linkTypeLabel(l.type)}
               </a>
             ))}
           </div>
@@ -160,7 +145,7 @@ export default function PublicPartnerDetail() {
           </div>
         )}
 
-        {partner.newsletterSignup && (
+        {newsletterSignup && (
           // Its own widget, shown regardless of the publicPrayerDigest
           // toggle below -- this is {name}'s own external newsletter,
           // unrelated to this site's prayer-digest subscription feature,
@@ -170,12 +155,7 @@ export default function PublicPartnerDetail() {
           <div className="admin-section" style={{ marginTop: "1.5rem" }}>
             <h3 style={{ marginTop: 0 }}>{name}&rsquo;s Newsletter</h3>
             <p style={{ color: "#555" }}>Hear directly from {name} with their own newsletter updates.</p>
-            <a
-              href={partner.newsletterSignup}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn secondary"
-            >
+            <a href={newsletterSignup} target="_blank" rel="noopener noreferrer" className="btn secondary">
               Sign up for their newsletter
             </a>
           </div>

@@ -14,10 +14,35 @@ import {
   updateSupportNeed,
   createSupportEntry,
   uploadPartnerFile,
+  fetchAdults,
+  createAdult,
+  updateAdult,
+  deleteAdult,
+  fetchChildren,
+  createChild,
+  updateChild,
+  deleteChild,
+  fetchFurloughs,
+  createFurlough,
+  updateFurlough,
+  deleteFurlough,
+  fetchChurchVisits,
+  createChurchVisit,
+  updateChurchVisit,
+  deleteChurchVisit,
+  fetchPartnerLinks,
+  createPartnerLink,
+  updatePartnerLink,
+  deletePartnerLink,
+  fetchPartnerLanguages,
+  createPartnerLanguage,
+  updatePartnerLanguage,
+  deletePartnerLanguage,
 } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
 import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
+import PartnerRecordList from "../components/admin/PartnerRecordList.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import AddressFields from "../components/admin/AddressFields.jsx";
@@ -28,16 +53,18 @@ import SupportNeedFormFields from "../components/admin/SupportNeedFormFields.jsx
 import SupportEntryFormFields from "../components/admin/SupportEntryFormFields.jsx";
 import PartnerFileFormFields from "../components/admin/PartnerFileFormFields.jsx";
 import { FILE_KINDS } from "../utils/fileKinds.js";
+import { LINK_TYPES, linkTypeLabel } from "../utils/linkTypes.js";
+import { PROFICIENCY_LEVELS, proficiencyLabel } from "../utils/proficiencyLevels.js";
+import { LANGUAGE_NAMES } from "../utils/languageNames.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
 import { formatDateLong, formatDate, formatCurrency, toDateInputValue, todayInputValue } from "../utils/format.js";
 import { addressByType } from "../utils/addresses.js";
-import useLoadMore from "../hooks/useLoadMore.js";
-import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import { useRecordRecentlyViewed } from "../hooks/useRecentlyViewed.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
 import useUrgentApprovalGate from "../hooks/useUrgentApprovalGate.jsx";
+import usePartnerRecordCrud from "../hooks/usePartnerRecordCrud.jsx";
 
 // A cleared <input type="date"> is "", which `z.coerce.date()` turns into an
 // Invalid Date and rejects -- "no date" has to travel as null.
@@ -183,11 +210,47 @@ export default function AdminPartnerDetail() {
     supportEntries: [],
     needRequests: [],
     trips: [],
+    adults: [],
+    children: [],
+    furloughs: [],
+    churchVisits: [],
+    links: [],
+    languages: [],
   });
   const { churchName, enabledFeatures } = useSettings();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const { settings: churchSettings } = useChurchSettings();
   const confirmBeforeCreate = useUrgentApprovalGate({ confirmDialog, enabledFeatures });
+  const adultCrud = usePartnerRecordCrud({ createFn: createAdult, updateFn: updateAdult, deleteFn: deleteAdult, reload, confirmDialog });
+  const childCrud = usePartnerRecordCrud({ createFn: createChild, updateFn: updateChild, deleteFn: deleteChild, reload, confirmDialog });
+  const furloughCrud = usePartnerRecordCrud({
+    createFn: createFurlough,
+    updateFn: updateFurlough,
+    deleteFn: deleteFurlough,
+    reload,
+    confirmDialog,
+  });
+  const churchVisitCrud = usePartnerRecordCrud({
+    createFn: createChurchVisit,
+    updateFn: updateChurchVisit,
+    deleteFn: deleteChurchVisit,
+    reload,
+    confirmDialog,
+  });
+  const linkCrud = usePartnerRecordCrud({
+    createFn: createPartnerLink,
+    updateFn: updatePartnerLink,
+    deleteFn: deletePartnerLink,
+    reload,
+    confirmDialog,
+  });
+  const languageCrud = usePartnerRecordCrud({
+    createFn: createPartnerLanguage,
+    updateFn: updatePartnerLanguage,
+    deleteFn: deletePartnerLanguage,
+    reload,
+    confirmDialog,
+  });
   const [activeModal, setActiveModal] = useState(null);
   const [prayerForm, setPrayerForm] = useState(null);
   const [prayerAnswerForm, setPrayerAnswerForm] = useState(null);
@@ -220,11 +283,43 @@ export default function AdminPartnerDetail() {
         fetchSupportEntries({ partnerId: id }),
         fetchSupportNeeds({ partnerId: id }),
         enabledFeatures.trips ? fetchTrips({ partnerId: id }) : Promise.resolve([]),
-      ]).then(([prayerRequests, files, supportEntries, needRequests, trips]) => {
-        if (idRef.current === requestId) {
-          setCollections({ prayerRequests, files, supportEntries, needRequests, trips });
+        fetchAdults({ partnerId: id }),
+        fetchChildren({ partnerId: id }),
+        fetchFurloughs({ partnerId: id }),
+        fetchChurchVisits({ partnerId: id }),
+        fetchPartnerLinks({ partnerId: id }),
+        fetchPartnerLanguages({ partnerId: id }),
+      ]).then(
+        ([
+          prayerRequests,
+          files,
+          supportEntries,
+          needRequests,
+          trips,
+          adults,
+          children,
+          furloughs,
+          churchVisits,
+          links,
+          languages,
+        ]) => {
+          if (idRef.current === requestId) {
+            setCollections({
+              prayerRequests,
+              files,
+              supportEntries,
+              needRequests,
+              trips,
+              adults,
+              children,
+              furloughs,
+              churchVisits,
+              links,
+              languages,
+            });
+          }
         }
-      }),
+      ),
     ]);
   }
 
@@ -236,9 +331,7 @@ export default function AdminPartnerDetail() {
   // Called unconditionally, before the loading guard below, so the number
   // of hooks this component calls doesn't change between the "still
   // loading" render (p is null) and every render after -- see Rules of
-  // Hooks. useLoadMore itself treats a null/undefined list as empty.
-  const churchVisitsLoadMore = useLoadMore(p?.churchVisits);
-  const furloughsLoadMore = useLoadMore(p?.furloughs);
+  // Hooks.
   useRecordRecentlyViewed(p && { to: `/admin/partners/${p.id}`, label: p.displayName, kind: "Partner" });
 
   if (!p) return <p style={{ padding: "2rem" }}>Loading...</p>;
@@ -251,6 +344,7 @@ export default function AdminPartnerDetail() {
   // reuse the exact same create flow (useUrgentApprovalGate), just with a
   // fixed partner instead of a picker.
   const hasEnabledChannel = enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
+  const usedLinkTypes = new Set(collections.links.map((l) => l.type));
   const allowRestrictedPartnerDispatch = churchSettings?.allowRestrictedPartnerDispatch !== false;
   const canApproveNow = !!p.isRestricted && hasEnabledChannel && allowRestrictedPartnerDispatch;
 
@@ -578,183 +672,81 @@ export default function AdminPartnerDetail() {
 
           {!isOrg && (
             <EditableSection
-              title="Family"
+              title="Wedding Anniversary"
               onSaved={reload}
-              onSave={(d) =>
-                save({
-                  anniversary: dateOrNull(d.anniversary),
-                  // Drop rows the user added but never named, rather than
-                  // persisting a blank person.
-                  adults: d.adults
-                    .map((a) => ({
-                      ...a,
-                      firstName: (a.firstName || "").trim(),
-                      lastName: (a.lastName || "").trim() || null,
-                      birthday: dateOrNull(a.birthday),
-                    }))
-                    .filter((a) => a.firstName),
-                  children: d.children
-                    .map((c) => ({ ...c, name: (c.name || "").trim(), birthday: dateOrNull(c.birthday) }))
-                    .filter((c) => c.name),
-                })
-              }
-              value={{
-                anniversary: toDateInputValue(p.anniversary),
-                adults: (p.adults || []).map((a) => ({ ...a, birthday: toDateInputValue(a.birthday) })),
-                children: (p.children || []).map((c) => ({ ...c, birthday: toDateInputValue(c.birthday) })),
-              }}
-              view={() => (
-                <>
-                  <div style={{ marginBottom: "1rem" }}>
-                    <Field label="Wedding Anniversary" value={formatDateLong(p.anniversary)} showEmpty />
-                  </div>
-                  {p.adults?.map((a) => (
-                    <div key={a.id} className="repeatable-row">
-                      <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-                        <Field label="Name" value={[a.firstName, a.lastName].filter(Boolean).join(" ")} />
-                        <Field label="Birthday" value={formatDateLong(a.birthday)} />
-                        <Field label="Phone 1" value={a.phone1} />
-                        <Field label="Phone 2" value={a.phone2} />
-                        <Field label="Email" value={a.email} />
-                      </div>
-                    </div>
-                  ))}
-                  {p.children?.map((c) => (
-                    <div key={c.id} className="repeatable-row">
-                      <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", alignItems: "center" }}>
-                        <span className="status-pill">Child</span>
-                        <Field label="Name" value={c.name} />
-                        <Field label="Birthday" value={formatDateLong(c.birthday)} />
-                      </div>
-                    </div>
-                  ))}
-                  {!p.adults?.length && !p.children?.length && <p style={{ color: "#888" }}>None on file.</p>}
-                </>
-              )}
+              onSave={(d) => save({ anniversary: dateOrNull(d.anniversary) })}
+              value={{ anniversary: toDateInputValue(p.anniversary) }}
+              view={(v) => <Field label="Wedding Anniversary" value={formatDateLong(v.anniversary)} showEmpty />}
               edit={(d, set) => (
-                <>
-                  <label style={{ maxWidth: "220px", marginBottom: "1rem" }}>
-                    Wedding Anniversary
-                    <input
-                      type="date"
-                      value={d.anniversary}
-                      onChange={(e) => set("anniversary", e.target.value)}
-                    />
-                  </label>
-                  <h4>Adults</h4>
-                  <RepeatableRows
-                    rows={d.adults}
-                    onChange={(rows) => set("adults", rows)}
-                    blank={{ firstName: "", lastName: "", phone1: "", phone2: "", email: "", birthday: "" }}
-                    render={(row, setField) => (
-                      <div className="form-grid">
-                        <label>
-                          First Name
-                          <input
-                            value={row.firstName || ""}
-                            onChange={(e) => setField("firstName", e.target.value)}
-                          />
-                        </label>
-                        <label>
-                          Last Name
-                          <input
-                            value={row.lastName || ""}
-                            onChange={(e) => setField("lastName", e.target.value)}
-                          />
-                        </label>
-                        <label>
-                          Birthday
-                          <input
-                            type="date"
-                            value={row.birthday || ""}
-                            onChange={(e) => setField("birthday", e.target.value)}
-                          />
-                        </label>
-                        <label>
-                          Phone 1
-                          <input
-                            value={row.phone1 || ""}
-                            onChange={(e) => setField("phone1", e.target.value)}
-                          />
-                        </label>
-                        <label>
-                          Phone 2
-                          <input
-                            value={row.phone2 || ""}
-                            onChange={(e) => setField("phone2", e.target.value)}
-                          />
-                        </label>
-                        <label>
-                          Email
-                          <input
-                            value={row.email || ""}
-                            onChange={(e) => setField("email", e.target.value)}
-                          />
-                        </label>
-                      </div>
-                    )}
-                  />
-                  <h4 style={{ marginTop: "1rem" }}>Children</h4>
-                  <RepeatableRows
-                    rows={d.children}
-                    onChange={(rows) => set("children", rows)}
-                    blank={{ name: "", birthday: "" }}
-                    render={(row, setField) => (
-                      <div className="form-grid">
-                        <label>
-                          Name
-                          <input value={row.name || ""} onChange={(e) => setField("name", e.target.value)} />
-                        </label>
-                        <label>
-                          Birthday
-                          <input
-                            type="date"
-                            value={row.birthday || ""}
-                            onChange={(e) => setField("birthday", e.target.value)}
-                          />
-                        </label>
-                      </div>
-                    )}
-                  />
-                </>
+                <label style={{ maxWidth: "220px" }}>
+                  Wedding Anniversary
+                  <input type="date" value={d.anniversary} onChange={(e) => set("anniversary", e.target.value)} />
+                </label>
               )}
             />
           )}
 
           {!isOrg && (
-            <EditableSection
-              title="Languages Spoken"
-              onSaved={reload}
-              onSave={(d) =>
-                save({ languagesSpoken: d.languagesSpoken.map((l) => l.trim()).filter(Boolean) })
-              }
-              value={{ languagesSpoken: p.languagesSpoken || [] }}
-              view={(v) =>
-                v.languagesSpoken.length ? (
-                  <p>{v.languagesSpoken.join(", ")}</p>
-                ) : (
-                  <p style={{ color: "#888" }}>None on file.</p>
-                )
-              }
-              edit={(d, set) => (
-                <RepeatableRows
-                  rows={d.languagesSpoken.map((l) => ({ value: l }))}
-                  onChange={(rows) =>
-                    set(
-                      "languagesSpoken",
-                      rows.map((r) => r.value ?? "")
-                    )
-                  }
-                  blank={{ value: "" }}
-                  render={(row, setField) => (
-                    <input
-                      value={row.value || ""}
-                      onChange={(e) => setField("value", e.target.value)}
-                      placeholder="e.g. Swahili"
-                    />
-                  )}
-                />
+            <PartnerRecordList
+              title="Adults"
+              items={collections.adults}
+              renderItem={(a) => (
+                <>
+                  <Field label="Name" value={[a.firstName, a.lastName].filter(Boolean).join(" ")} />
+                  <Field label="Birthday" value={formatDateLong(a.birthday)} />
+                  <Field label="Phone 1" value={a.phone1} />
+                  <Field label="Phone 2" value={a.phone2} />
+                  <Field label="Email" value={a.email} />
+                </>
               )}
+              onAdd={() =>
+                adultCrud.openAdd({ firstName: "", lastName: "", phone1: "", phone2: "", email: "", birthday: "" })
+              }
+              onEdit={(a) =>
+                adultCrud.openEdit(a.id, {
+                  firstName: a.firstName || "",
+                  lastName: a.lastName || "",
+                  phone1: a.phone1 || "",
+                  phone2: a.phone2 || "",
+                  email: a.email || "",
+                  birthday: toDateInputValue(a.birthday),
+                })
+              }
+              onDelete={(a) =>
+                adultCrud.handleDelete(a, (item) => `Delete ${[item.firstName, item.lastName].filter(Boolean).join(" ")}?`)
+              }
+            />
+          )}
+
+          {!isOrg && (
+            <PartnerRecordList
+              title="Children"
+              items={collections.children}
+              renderItem={(c) => (
+                <>
+                  <Field label="Name" value={c.name} />
+                  <Field label="Birthday" value={formatDateLong(c.birthday)} />
+                </>
+              )}
+              onAdd={() => childCrud.openAdd({ name: "", birthday: "" })}
+              onEdit={(c) => childCrud.openEdit(c.id, { name: c.name || "", birthday: toDateInputValue(c.birthday) })}
+              onDelete={(c) => childCrud.handleDelete(c, (item) => `Delete ${item.name}?`)}
+            />
+          )}
+
+          {!isOrg && (
+            <PartnerRecordList
+              title="Languages Spoken"
+              items={collections.languages}
+              renderItem={(l) => (
+                <>
+                  <Field label="Language" value={l.language} />
+                  <Field label="Proficiency" value={l.proficiency ? proficiencyLabel(l.proficiency) : null} showEmpty />
+                </>
+              )}
+              onAdd={() => languageCrud.openAdd({ language: "", proficiency: "" })}
+              onEdit={(l) => languageCrud.openEdit(l.id, { language: l.language, proficiency: l.proficiency || "" })}
+              onDelete={(l) => languageCrud.handleDelete(l, (item) => `Delete ${item.language}?`)}
             />
           )}
 
@@ -1116,58 +1108,23 @@ export default function AdminPartnerDetail() {
               />
             ))}
 
-          <EditableSection
+          <PartnerRecordList
             title="Links &amp; Social Media"
-            onSaved={reload}
-            onSave={save}
-            value={{
-              websiteLink: p.websiteLink || "",
-              supportLink: p.supportLink || "",
-              newsletterSignup: p.newsletterSignup || "",
-              facebook: p.facebook || "",
-              twitter: p.twitter || "",
-              instagram: p.instagram || "",
-              linkedin: p.linkedin || "",
-            }}
-            view={(v) => {
-              const links = [
-                ["websiteLink", "Website"],
-                ["supportLink", "Support / Donate"],
-                ["newsletterSignup", "Newsletter Signup"],
-                ["facebook", "Facebook"],
-                ["twitter", "Twitter"],
-                ["instagram", "Instagram"],
-                ["linkedin", "LinkedIn"],
-              ].filter(([k]) => v[k]);
-              if (!links.length) return <p style={{ color: "#888" }}>None on file.</p>;
-              return (
-                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                  {links.map(([k, label]) => (
-                    <a key={k} href={v[k]} target="_blank" rel="noreferrer" className="btn secondary small">
-                      {label}
-                    </a>
-                  ))}
-                </div>
-              );
-            }}
-            edit={(d, set) => (
-              <div className="form-grid">
-                {[
-                  ["websiteLink", "Website"],
-                  ["supportLink", "Support / Donate Link"],
-                  ["newsletterSignup", "Newsletter Signup"],
-                  ["facebook", "Facebook"],
-                  ["twitter", "Twitter"],
-                  ["instagram", "Instagram"],
-                  ["linkedin", "LinkedIn"],
-                ].map(([k, label]) => (
-                  <label key={k}>
-                    {label}
-                    <input value={d[k]} onChange={(e) => set(k, e.target.value)} />
-                  </label>
-                ))}
-              </div>
+            items={collections.links}
+            renderItem={(l) => (
+              <Field
+                label={linkTypeLabel(l.type)}
+                value={
+                  <a href={l.url} target="_blank" rel="noreferrer">
+                    {l.url}
+                  </a>
+                }
+              />
             )}
+            onAdd={() => linkCrud.openAdd({ type: LINK_TYPES.find((t) => !usedLinkTypes.has(t.value))?.value || "", url: "" })}
+            addLabel={collections.links.length >= LINK_TYPES.length ? null : "+ Add Link"}
+            onEdit={(l) => linkCrud.openEdit(l.id, { type: l.type, url: l.url })}
+            onDelete={(l) => linkCrud.handleDelete(l, (item) => `Delete the ${linkTypeLabel(item.type)} link?`)}
           />
         </div>
 
@@ -1388,160 +1345,47 @@ export default function AdminPartnerDetail() {
             />
           )}
 
-          <EditableSection
+          <PartnerRecordList
             title="Church Visits"
-            onSaved={reload}
-            onSave={(d) =>
-              save({
-                churchVisits: d.churchVisits
-                  .filter((v) => v.visitDate)
-                  .map((v) => ({ visitDate: v.visitDate, notes: v.notes || null })),
-              })
-            }
-            value={{
-              churchVisits: (p.churchVisits || []).map((v) => ({
-                visitDate: toDateInputValue(v.visitDate),
-                notes: v.notes || "",
-              })),
-            }}
-            view={() => (
+            items={collections.churchVisits}
+            renderItem={(v) => (
               <>
-                <div style={{ marginBottom: "1rem" }}>
-                  <Field
-                    label="Last Visit"
-                    value={p.churchVisits?.[0] ? formatDateLong(p.churchVisits[0].visitDate) : null}
-                    showEmpty
-                  />
-                </div>
-                {p.churchVisits?.length ? (
-                  <>
-                    {churchVisitsLoadMore.visible.map((v) => (
-                      <div key={v.id} className="repeatable-row">
-                        <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-                          <Field label="Visit Date" value={formatDateLong(v.visitDate)} showEmpty />
-                          <Field label="Notes" value={v.notes} />
-                        </div>
-                      </div>
-                    ))}
-                    <LoadMoreButton
-                      hasMore={churchVisitsLoadMore.hasMore}
-                      remaining={churchVisitsLoadMore.remaining}
-                      onClick={churchVisitsLoadMore.showMore}
-                      size="small"
-                    />
-                  </>
-                ) : (
-                  <p style={{ color: "#888" }}>No visits on file.</p>
-                )}
+                <Field label="Visit Date" value={formatDateLong(v.visitDate)} showEmpty />
+                <Field label="Notes" value={v.notes} />
               </>
             )}
-            edit={(d, set) => (
-              <RepeatableRows
-                rows={d.churchVisits}
-                onChange={(rows) => set("churchVisits", rows)}
-                blank={{ visitDate: "", notes: "" }}
-                render={(row, setField) => (
-                  <div className="form-grid">
-                    <label>
-                      Visit Date
-                      <input
-                        type="date"
-                        value={row.visitDate || ""}
-                        onChange={(e) => setField("visitDate", e.target.value)}
-                      />
-                    </label>
-                    <label>
-                      Notes
-                      <input value={row.notes || ""} onChange={(e) => setField("notes", e.target.value)} />
-                    </label>
-                  </div>
-                )}
-              />
-            )}
+            onAdd={() => churchVisitCrud.openAdd({ visitDate: "", notes: "" })}
+            onEdit={(v) =>
+              churchVisitCrud.openEdit(v.id, { visitDate: toDateInputValue(v.visitDate), notes: v.notes || "" })
+            }
+            onDelete={(v) => churchVisitCrud.handleDelete(v, (item) => `Delete the visit on ${formatDateLong(item.visitDate)}?`)}
+            emptyMessage="No visits on file."
           />
 
           {!isOrg && (
-            <EditableSection
+            <PartnerRecordList
               title="Furlough"
-              onSaved={reload}
-              onSave={(d) =>
-                save({
-                  furloughs: d.furloughs
-                    .filter((f) => f.startDate)
-                    .map((f) => ({
-                      startDate: f.startDate,
-                      endDate: f.endDate || null,
-                      notes: f.notes || null,
-                    })),
-                })
-              }
-              value={{
-                furloughs: (p.furloughs || []).map((f) => ({
+              items={collections.furloughs}
+              renderItem={(f) => (
+                <>
+                  <Field label="Start Date" value={formatDateLong(f.startDate)} showEmpty />
+                  <Field label="End Date" value={f.endDate ? formatDateLong(f.endDate) : "Ongoing"} showEmpty />
+                  <Field label="Notes" value={f.notes} />
+                </>
+              )}
+              onAdd={() => furloughCrud.openAdd({ startDate: "", endDate: "", notes: "" })}
+              onEdit={(f) =>
+                furloughCrud.openEdit(f.id, {
                   startDate: toDateInputValue(f.startDate),
                   endDate: toDateInputValue(f.endDate),
                   notes: f.notes || "",
-                })),
-              }}
-              view={() =>
-                p.furloughs?.length ? (
-                  <>
-                    {furloughsLoadMore.visible.map((f) => (
-                      <div key={f.id} className="repeatable-row">
-                        <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-                          <Field label="Start Date" value={formatDateLong(f.startDate)} showEmpty />
-                          <Field
-                            label="End Date"
-                            value={f.endDate ? formatDateLong(f.endDate) : "Ongoing"}
-                            showEmpty
-                          />
-                          <Field label="Notes" value={f.notes} />
-                        </div>
-                      </div>
-                    ))}
-                    <LoadMoreButton
-                      hasMore={furloughsLoadMore.hasMore}
-                      remaining={furloughsLoadMore.remaining}
-                      onClick={furloughsLoadMore.showMore}
-                      size="small"
-                    />
-                  </>
-                ) : (
-                  <p style={{ color: "#888" }}>No furlough history on file.</p>
-                )
+                })
               }
-              edit={(d, set) => (
-                <RepeatableRows
-                  rows={d.furloughs}
-                  onChange={(rows) => set("furloughs", rows)}
-                  blank={{ startDate: "", endDate: "", notes: "" }}
-                  render={(row, setField) => (
-                    <div className="form-grid">
-                      <label>
-                        Start Date
-                        <input
-                          type="date"
-                          value={row.startDate || ""}
-                          onChange={(e) => setField("startDate", e.target.value)}
-                        />
-                      </label>
-                      <label title="Leave blank for an ongoing furlough with no settled return date.">
-                        End Date
-                        <input
-                          type="date"
-                          value={row.endDate || ""}
-                          onChange={(e) => setField("endDate", e.target.value)}
-                        />
-                      </label>
-                      <label style={{ gridColumn: "1 / -1" }}>
-                        Notes
-                        <input value={row.notes || ""} onChange={(e) => setField("notes", e.target.value)} />
-                      </label>
-                    </div>
-                  )}
-                />
-              )}
+              onDelete={(f) => furloughCrud.handleDelete(f, (item) => `Delete the furlough starting ${formatDateLong(item.startDate)}?`)}
+              emptyMessage="No furlough history on file."
             />
           )}
+
         </div>
       </div>
 
@@ -1652,6 +1496,264 @@ export default function AdminPartnerDetail() {
               </label>
             }
           />
+        </QuickActionModal>
+      )}
+
+      {adultCrud.form && (
+        <QuickActionModal
+          title={adultCrud.editingId ? "Edit Adult" : "Add Adult"}
+          onClose={adultCrud.close}
+          onSubmit={() =>
+            adultCrud.submit({
+              partnerId: p.id,
+              firstName: adultCrud.form.firstName.trim(),
+              lastName: adultCrud.form.lastName.trim() || null,
+              phone1: adultCrud.form.phone1.trim() || null,
+              phone2: adultCrud.form.phone2.trim() || null,
+              email: adultCrud.form.email.trim() || null,
+              birthday: adultCrud.form.birthday || null,
+            })
+          }
+        >
+          <div className="form-grid">
+            <label>
+              First Name
+              <input
+                value={adultCrud.form.firstName}
+                onChange={(e) => adultCrud.setForm((f) => ({ ...f, firstName: e.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Last Name
+              <input
+                value={adultCrud.form.lastName}
+                onChange={(e) => adultCrud.setForm((f) => ({ ...f, lastName: e.target.value }))}
+              />
+            </label>
+            <label>
+              Birthday
+              <input
+                type="date"
+                value={adultCrud.form.birthday}
+                onChange={(e) => adultCrud.setForm((f) => ({ ...f, birthday: e.target.value }))}
+              />
+            </label>
+            <label>
+              Phone 1
+              <input
+                value={adultCrud.form.phone1}
+                onChange={(e) => adultCrud.setForm((f) => ({ ...f, phone1: e.target.value }))}
+              />
+            </label>
+            <label>
+              Phone 2
+              <input
+                value={adultCrud.form.phone2}
+                onChange={(e) => adultCrud.setForm((f) => ({ ...f, phone2: e.target.value }))}
+              />
+            </label>
+            <label>
+              Email
+              <input
+                value={adultCrud.form.email}
+                onChange={(e) => adultCrud.setForm((f) => ({ ...f, email: e.target.value }))}
+              />
+            </label>
+          </div>
+        </QuickActionModal>
+      )}
+
+      {childCrud.form && (
+        <QuickActionModal
+          title={childCrud.editingId ? "Edit Child" : "Add Child"}
+          onClose={childCrud.close}
+          onSubmit={() =>
+            childCrud.submit({
+              partnerId: p.id,
+              name: childCrud.form.name.trim(),
+              birthday: childCrud.form.birthday || null,
+            })
+          }
+        >
+          <div className="form-grid">
+            <label>
+              Name
+              <input
+                value={childCrud.form.name}
+                onChange={(e) => childCrud.setForm((f) => ({ ...f, name: e.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Birthday
+              <input
+                type="date"
+                value={childCrud.form.birthday}
+                onChange={(e) => childCrud.setForm((f) => ({ ...f, birthday: e.target.value }))}
+              />
+            </label>
+          </div>
+        </QuickActionModal>
+      )}
+
+      {languageCrud.form && (
+        <QuickActionModal
+          title={languageCrud.editingId ? "Edit Language" : "Add Language"}
+          onClose={languageCrud.close}
+          onSubmit={() =>
+            languageCrud.submit({
+              partnerId: p.id,
+              language: languageCrud.form.language.trim(),
+              proficiency: languageCrud.form.proficiency || null,
+            })
+          }
+        >
+          <div className="form-grid">
+            <label>
+              Language
+              <input
+                value={languageCrud.form.language}
+                onChange={(e) => languageCrud.setForm((f) => ({ ...f, language: e.target.value }))}
+                list="partner-language-names"
+                placeholder="Start typing a language..."
+                required
+              />
+              {/* A datalist, not a hard <select> -- same reasoning as
+                  AddressFields.jsx's Country field. */}
+              <datalist id="partner-language-names">
+                {LANGUAGE_NAMES.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+            </label>
+            <label>
+              Proficiency (ILR scale)
+              <select
+                value={languageCrud.form.proficiency}
+                onChange={(e) => languageCrud.setForm((f) => ({ ...f, proficiency: e.target.value }))}
+              >
+                <option value="">Not assessed yet</option>
+                {PROFICIENCY_LEVELS.map((lvl) => (
+                  <option key={lvl.value} value={lvl.value}>
+                    {lvl.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </QuickActionModal>
+      )}
+
+      {linkCrud.form && (
+        <QuickActionModal
+          title={linkCrud.editingId ? "Edit Link" : "Add Link"}
+          onClose={linkCrud.close}
+          onSubmit={() =>
+            linkCrud.submit({ partnerId: p.id, type: linkCrud.form.type, url: linkCrud.form.url.trim() })
+          }
+        >
+          <div className="form-grid">
+            <label>
+              Type
+              <select
+                value={linkCrud.form.type}
+                onChange={(e) => linkCrud.setForm((f) => ({ ...f, type: e.target.value }))}
+              >
+                {LINK_TYPES.filter((t) => t.value === linkCrud.form.type || !usedLinkTypes.has(t.value)).map(
+                  (t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  )
+                )}
+              </select>
+            </label>
+            <label>
+              URL
+              <input
+                value={linkCrud.form.url}
+                onChange={(e) => linkCrud.setForm((f) => ({ ...f, url: e.target.value }))}
+                placeholder="https://..."
+                required
+              />
+            </label>
+          </div>
+        </QuickActionModal>
+      )}
+
+      {furloughCrud.form && (
+        <QuickActionModal
+          title={furloughCrud.editingId ? "Edit Furlough" : "Add Furlough"}
+          onClose={furloughCrud.close}
+          onSubmit={() =>
+            furloughCrud.submit({
+              partnerId: p.id,
+              startDate: furloughCrud.form.startDate,
+              endDate: furloughCrud.form.endDate || null,
+              notes: furloughCrud.form.notes.trim() || null,
+            })
+          }
+        >
+          <div className="form-grid">
+            <label>
+              Start Date
+              <input
+                type="date"
+                value={furloughCrud.form.startDate}
+                onChange={(e) => furloughCrud.setForm((f) => ({ ...f, startDate: e.target.value }))}
+                required
+              />
+            </label>
+            <label title="Leave blank for an ongoing furlough with no settled return date.">
+              End Date
+              <input
+                type="date"
+                value={furloughCrud.form.endDate}
+                onChange={(e) => furloughCrud.setForm((f) => ({ ...f, endDate: e.target.value }))}
+              />
+            </label>
+            <label style={{ gridColumn: "1 / -1" }}>
+              Notes
+              <input
+                value={furloughCrud.form.notes}
+                onChange={(e) => furloughCrud.setForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </label>
+          </div>
+        </QuickActionModal>
+      )}
+
+      {churchVisitCrud.form && (
+        <QuickActionModal
+          title={churchVisitCrud.editingId ? "Edit Church Visit" : "Add Church Visit"}
+          onClose={churchVisitCrud.close}
+          onSubmit={() =>
+            churchVisitCrud.submit({
+              partnerId: p.id,
+              visitDate: churchVisitCrud.form.visitDate,
+              notes: churchVisitCrud.form.notes.trim() || null,
+            })
+          }
+        >
+          <div className="form-grid">
+            <label>
+              Visit Date
+              <input
+                type="date"
+                value={churchVisitCrud.form.visitDate}
+                onChange={(e) => churchVisitCrud.setForm((f) => ({ ...f, visitDate: e.target.value }))}
+                required
+              />
+            </label>
+            <label style={{ gridColumn: "1 / -1" }}>
+              Notes
+              <input
+                value={churchVisitCrud.form.notes}
+                onChange={(e) => churchVisitCrud.setForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </label>
+          </div>
         </QuickActionModal>
       )}
 

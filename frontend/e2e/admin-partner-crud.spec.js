@@ -99,10 +99,12 @@ test.describe("Admin partner CRUD", () => {
     const created = await (await page.request.get(`/api/partners/${partnerId}`)).json();
     expect(created.fipsCountryCode).toBe("BL");
 
-    // The org has no Family or Languages sections -- those are
-    // missionary-only, and the merged page hides them by kind rather than
-    // rendering empty boxes.
-    await expect(page.getByRole("heading", { name: "Family", exact: true })).toHaveCount(0);
+    // The org has no Wedding Anniversary/Adults/Children/Languages sections
+    // -- those are missionary-only, and the merged page hides them by kind
+    // rather than rendering empty boxes.
+    for (const heading of ["Wedding Anniversary", "Adults", "Children", "Languages Spoken"]) {
+      await expect(page.getByRole("heading", { name: heading, exact: true })).toHaveCount(0);
+    }
 
     const archived = await page.request.post(`/api/partners/${partnerId}/archive`);
     expect(archived.ok()).toBeTruthy();

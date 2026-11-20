@@ -375,6 +375,15 @@ router.get("/", async (req, res, next) => {
         where,
         include: {
           ...partnerRecordInclude,
+          // These six are independent resources now (see partnerRecordInclude's
+          // own comment) and so aren't in it by default, but the booklet
+          // genuinely needs all of them to lay out each partner's page.
+          adults: true,
+          children: true,
+          furloughs: { orderBy: { startDate: "desc" } },
+          churchVisits: { orderBy: [{ visitDate: "desc" }, { createdAt: "desc" }] },
+          links: true,
+          languages: true,
           ...(isFeatureEnabled(settings?.enabledFeatures, "prayerRequests")
             ? { prayerRequests: { orderBy: { dateReceived: "desc" } } }
             : {}),
