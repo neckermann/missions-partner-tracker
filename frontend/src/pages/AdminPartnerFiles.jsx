@@ -14,7 +14,11 @@ import { useSettings } from "../context/SettingsContext.jsx";
 import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
 import { todayInputValue, formatFileSize } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, resolveQuickRangeDates } from "../utils/dateRange.js";
-import { entityFor } from "../utils/partnerEntity.js";
+import {
+  entityFor,
+  PARTNER_TYPE_FILTER_FIELD,
+  INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
+} from "../utils/partnerEntity.js";
 import { isScannable } from "../utils/scannable.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
@@ -70,16 +74,7 @@ export default function AdminPartnerFiles() {
 
   const fields = useMemo(
     () => [
-      {
-        name: "entityType",
-        label: "Show",
-        type: "select",
-        options: [
-          { value: "all", label: "All" },
-          { value: "missionary", label: "Missionaries" },
-          { value: "organization", label: "Organizations" },
-        ],
-      },
+      PARTNER_TYPE_FILTER_FIELD,
       {
         name: "kind",
         label: "Kind",
@@ -95,7 +90,7 @@ export default function AdminPartnerFiles() {
         type: "select",
         options: DATE_RANGE_OPTIONS,
       },
-      { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
+      INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
     ],
     []
   );

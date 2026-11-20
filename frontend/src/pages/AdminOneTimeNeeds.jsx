@@ -13,7 +13,7 @@ import SourceLink from "../components/admin/SourceLink.jsx";
 import SupportNeedFormFields from "../components/admin/SupportNeedFormFields.jsx";
 import { formatDate, formatCurrency as formatMoney } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, resolveQuickRangeDates } from "../utils/dateRange.js";
-import { entityFor } from "../utils/partnerEntity.js";
+import { entityFor, INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD } from "../utils/partnerEntity.js";
 import { supportNeedStatus as statusFor } from "../utils/supportNeedStatus.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import useSourceFiles from "../hooks/useSourceFiles.js";
@@ -78,7 +78,7 @@ export default function AdminOneTimeNeeds() {
         ],
       },
       { name: "dateRange", label: "Requested", type: "select", options: DATE_RANGE_OPTIONS },
-      { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
+      INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
     ],
     []
   );

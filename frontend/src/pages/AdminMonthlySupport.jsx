@@ -4,7 +4,7 @@ import { fetchPartners, fetchSupportEntries, createSupportEntry, deleteSupportEn
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import SupportEntryFormFields from "../components/admin/SupportEntryFormFields.jsx";
 import { formatDate, todayInputValue, formatCurrency as formatMoney } from "../utils/format.js";
-import { partnerKindLabel } from "../utils/partnerEntity.js";
+import { partnerKindLabel, INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD } from "../utils/partnerEntity.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
@@ -41,10 +41,7 @@ export default function AdminMonthlySupport() {
   const [history, setHistory] = useState([]);
   const navigate = useNavigate();
 
-  const fields = useMemo(
-    () => [{ name: "includeArchived", label: "Include archived", type: "checkbox" }],
-    []
-  );
+  const fields = useMemo(() => [INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD], []);
   const {
     values: filters,
     setValue: updateFilter,

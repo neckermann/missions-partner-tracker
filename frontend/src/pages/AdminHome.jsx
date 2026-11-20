@@ -176,6 +176,72 @@ function useNeedsAttention(enabledFeatures) {
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPod|iPad/.test(navigator.platform || "");
 const SEARCH_SHORTCUT_HINT = isMac ? "⌘K" : "Ctrl+K";
 
+function buildMainSections(partnerLabel, enabledFeatures, isAdmin) {
+  return [
+    {
+      to: "/admin/partners",
+      title: partnerLabel,
+      icon: "👤",
+      description: "Missionaries, families, and partner organizations — profiles, trips, and contact info.",
+    },
+    enabledFeatures.partnerFiles && {
+      to: "/admin/partner-files",
+      title: "Newsletters & Docs",
+      icon: "📰",
+      description:
+        "Upload and browse newsletters, survey responses, signed policies, and other documents from missionary and organization partners.",
+    },
+    enabledFeatures.prayerRequests && {
+      to: "/admin/prayer-requests",
+      title: "Prayer Requests",
+      icon: "🙏",
+      description: "Track prayer requests across every partner, short-term and long-term.",
+    },
+    enabledFeatures.oneTimeNeeds && {
+      to: "/admin/support/needs",
+      title: "One-Time Needs",
+      icon: "🎁",
+      description: "Track one-time gift requests and record decisions.",
+    },
+    enabledFeatures.trips && {
+      to: "/admin/trips",
+      title: "Trips",
+      icon: "✈️",
+      description: "Mission trips, team recruiting, meetings, and requirements.",
+    },
+    (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
+      to: "/admin/pending-dispatches",
+      title: "Pending Dispatches",
+      icon: "📨",
+      description: "Review and approve GroupMe, WhatsApp, and email sends before they go out.",
+    },
+    enabledFeatures.inboundEmail && {
+      to: "/admin/inbound-email",
+      title: "Unmatched Email",
+      icon: "📥",
+      description: "Inbound emails that couldn't be automatically matched to a partner.",
+    },
+    enabledFeatures.booklet && {
+      to: "/admin/booklet",
+      title: "Print Booklet",
+      icon: "📘",
+      description: "Generate the printable prayer & support directory.",
+    },
+    enabledFeatures.reports && {
+      to: "/admin/reports",
+      title: "Reports",
+      icon: "📊",
+      description: "Read-only reports over existing data — birthdays, support, trips, and more.",
+    },
+    isAdmin && {
+      to: "/admin/settings",
+      title: "Settings",
+      icon: "⚙️",
+      description: "Church info, branding, users, features, and integrations.",
+    },
+  ].filter(Boolean);
+}
+
 export default function AdminHome() {
   const [currentUser, setCurrentUser] = useState(null);
   const [search, setSearch] = useState("");
@@ -239,11 +305,10 @@ export default function AdminHome() {
         </div>
       )}
 
-      {currentUser?.role === "admin" && (
-        <p>
-          <Link to="/admin/settings/about">Settings →</Link>
-        </p>
-      )}
+      <div className="admin-section">
+        <h3 style={{ marginTop: 0 }}>Browse</h3>
+        <CardGrid sections={buildMainSections(partnerLabel, enabledFeatures, currentUser?.role === "admin")} />
+      </div>
     </div>
   );
 }

@@ -96,7 +96,7 @@ const partnerSummarySelect = {
   tripLogisticsNotes: true,
   addresses: {
     where: { type: "physical" },
-    select: { city: true, stateProvinceRegion: true, country: true, gpsLat: true, gpsLng: true },
+    select: { type: true, city: true, stateProvinceRegion: true, country: true, gpsLat: true, gpsLng: true },
   },
   // "Current" monthly support is just the latest row by effectiveDate.
   supportEntries: {

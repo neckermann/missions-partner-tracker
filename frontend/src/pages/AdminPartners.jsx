@@ -6,6 +6,7 @@ import { getContinent } from "../utils/countryContinents.js";
 import { matchesSearch } from "../utils/search.js";
 import { formatCurrency, formatDate } from "../utils/format.js";
 import { addressByType } from "../utils/addresses.js";
+import { PARTNER_TYPE_FILTER_FIELD, INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD } from "../utils/partnerEntity.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import StatusPill from "../components/admin/StatusPill.jsx";
@@ -36,41 +37,32 @@ function lastVisit(churchVisits) {
 }
 
 const emptyFilters = {
-  type: "all",
+  entityType: "all",
   isPublic: "all",
   restricted: "all",
   continent: "all",
   country: "all",
-  showArchived: false,
+  includeArchived: false,
   search: "",
 };
 
-// Missionaries and organizations used to have separate list pages, each
-// with its own nav link — once a church sets a shared partner term (see
-// Church Settings), those two links end up reading identically, which
-// looks like a bug rather than a feature. This page combined them in the
-// UI first; they're one underlying record now too, so the merging this
-// page used to do client-side is gone.
+// Missionaries and organizations share one list page and nav link --
+// once a church sets a shared partner term (see Church Settings), two
+// separate links reading identically would look like a bug.
 //
-// Phase 1 of the UX-rebuild plan: type/public/restricted/continent/country
-// are now real backend query params (GET /api/partners), proving the
-// FilterBar/Table contract generalizes past Reports with an actual network
-// round-trip, not just client-side array filtering -- `archived` was
-// already server-side filterable, now driven by the same useFilterState
-// URL sync as everything else. Free-text search stays client-side against
-// the already-filtered result set (matchesSearch over name/field/focus/
-// summary/country): debouncing a server round-trip per keystroke isn't
-// worth it for a dataset this size, same judgment AdminTrips.jsx already
-// made for several of its own filters.
+// type/public/restricted/continent/country are real backend query params
+// (GET /api/partners); `archived` is server-side filterable too. Free-text
+// search stays client-side against the already-filtered result set
+// (matchesSearch over name/field/focus/summary/country) -- debouncing a
+// server round-trip per keystroke isn't worth it for a dataset this size.
 export default function AdminPartners() {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
   // Unfiltered, fetched once -- only used to build the continent/country
-  // <select> option lists from what's actually on file (same reasoning
-  // AdminPartners used before this migration), since the main `partners`
-  // state above is now a server-filtered subset and can't be used for that
-  // without the options shrinking/disappearing as a filter narrows them.
+  // <select> option lists from what's actually on file, since the main
+  // `partners` state above is a server-filtered subset and can't be used
+  // for that without the options shrinking/disappearing as a filter narrows.
   const [allForOptions, setAllForOptions] = useState([]);
   const navigate = useNavigate();
   const { partnerTermPlural, usePartnerTermInAdmin, churchName } = useSettings();
@@ -88,16 +80,7 @@ export default function AdminPartners() {
 
   const fields = useMemo(
     () => [
-      {
-        name: "type",
-        label: "Type",
-        type: "select",
-        options: [
-          { value: "all", label: "All" },
-          { value: "missionary", label: "Missionaries" },
-          { value: "organization", label: "Organizations" },
-        ],
-      },
+      PARTNER_TYPE_FILTER_FIELD,
       {
         name: "isPublic",
         label: "Public",
@@ -127,8 +110,13 @@ export default function AdminPartners() {
           ...availableContinents.map((c) => ({ value: c, label: c })),
         ],
       },
-      { name: "country", label: "Country" },
-      { name: "showArchived", label: "Show archived", type: "checkbox" },
+      // `options` here is a placeholder -- useFilterState only ever reads
+      // `name`/`type` off a field (see its own comment), so this is safe to
+      // pass to it before `availableCountries` (below, which itself depends
+      // on `filters.continent`) exists. The real options get merged in for
+      // FilterBar specifically, in `fieldsWithCountryOptions`.
+      { name: "country", label: "Country", type: "select", options: [] },
+      INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
       { name: "search", label: "Search by name, field, focus, or summary" },
     ],
     [availableContinents]
@@ -142,12 +130,12 @@ export default function AdminPartners() {
   function reload() {
     setLoading(true);
     const params = {};
-    if (filters.type !== "all") params.kind = filters.type;
+    if (filters.entityType !== "all") params.kind = filters.entityType;
     if (filters.isPublic !== "all") params.isPublic = filters.isPublic;
     if (filters.restricted !== "all") params.restricted = filters.restricted;
     if (filters.continent !== "all") params.continent = filters.continent;
     if (filters.country !== "all" && filters.country) params.country = filters.country;
-    if (filters.showArchived) params.archived = "true";
+    if (filters.includeArchived) params.archived = "true";
     fetchPartners(params)
       .then(setPartners)
       .catch(console.error)
@@ -156,12 +144,12 @@ export default function AdminPartners() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(reload, [
-    filters.type,
+    filters.entityType,
     filters.isPublic,
     filters.restricted,
     filters.continent,
     filters.country,
-    filters.showArchived,
+    filters.includeArchived,
   ]);
 
   const rows = useMemo(
@@ -190,11 +178,11 @@ export default function AdminPartners() {
   );
 
   // Without ?archived param, the backend already returns both archived and
-  // non-archived rows -- filters.showArchived both drives the request (so
+  // non-archived rows -- filters.includeArchived both drives the request (so
   // the archived param narrows server-side when checked) and, since the
   // unchecked default omits the param entirely (both), still needs a
   // client-side pass to hide them from the default view.
-  const visibleBeforeSearch = filters.showArchived ? rows : rows.filter((r) => !r.archived);
+  const visibleBeforeSearch = filters.includeArchived ? rows : rows.filter((r) => !r.archived);
   const availableCountries = useMemo(
     () =>
       [
@@ -206,6 +194,26 @@ export default function AdminPartners() {
       ].sort(),
     [allForOptions, filters.continent]
   );
+  const fieldsWithCountryOptions = useMemo(
+    () =>
+      fields.map((f) =>
+        f.name === "country"
+          ? { ...f, options: [{ value: "all", label: "All" }, ...availableCountries.map((c) => ({ value: c, label: c }))] }
+          : f
+      ),
+    [fields, availableCountries]
+  );
+  // Switching continent can leave a previously-chosen country no longer in
+  // range (e.g. "Kenya" selected, then continent changed to Asia) -- a
+  // native <select> just silently shows nothing selected in that case
+  // while the stale value keeps filtering the request, so reset it
+  // explicitly instead of leaving that mismatch.
+  useEffect(() => {
+    if (filters.country !== "all" && !availableCountries.includes(filters.country)) {
+      updateFilter("country", "all");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableCountries]);
   const visible = visibleBeforeSearch.filter((r) =>
     matchesSearch(filters.search, r.name, r.field, r.focusArea, r.overviewShort, r.country)
   );
@@ -269,25 +277,24 @@ export default function AdminPartners() {
           gap: "0.5rem",
         }}
       >
-        <h2>
-          {sectionTitle} ({visible.length})
-        </h2>
+        <div>
+          <h2 style={{ margin: 0 }}>{sectionTitle}</h2>
+          <p style={{ margin: "0.2rem 0 0", color: "#666" }}>
+            {visible.length} active{" "}
+            {visible.length === 1 ? sectionTitle.toLowerCase().replace(/s$/, "") : sectionTitle.toLowerCase()}
+          </p>
+        </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
           <Link to="/admin/partners/new?kind=missionary" className="btn">
             + Add Missionary
           </Link>
-          <Link to="/admin/partners/new?kind=organization" className="btn">
+          <Link to="/admin/partners/new?kind=organization" className="btn secondary">
             + Add Organization
           </Link>
         </div>
       </div>
 
-      <FilterBar fields={fields} values={filters} onChange={updateFilter} onReset={resetFilters} />
-      {filters.continent !== "all" && availableCountries.length > 0 && (
-        <p style={{ fontSize: "0.8rem", color: "#888", marginTop: "0.25rem" }}>
-          Countries on file in {filters.continent}: {availableCountries.join(", ")}
-        </p>
-      )}
+      <FilterBar fields={fieldsWithCountryOptions} values={filters} onChange={updateFilter} onReset={resetFilters} />
 
       <Table
         className="admin-table"

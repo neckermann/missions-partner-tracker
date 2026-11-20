@@ -13,7 +13,7 @@ import SourceLink from "../components/admin/SourceLink.jsx";
 import PrayerRequestFormFields from "../components/admin/PrayerRequestFormFields.jsx";
 import { formatDate, todayInputValue } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, resolveQuickRangeDates } from "../utils/dateRange.js";
-import { entityFor } from "../utils/partnerEntity.js";
+import { entityFor, INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD } from "../utils/partnerEntity.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import useSourceFiles from "../hooks/useSourceFiles.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
@@ -89,7 +89,7 @@ export default function AdminPrayerRequests() {
         ],
       },
       { name: "dateRange", label: "Received", type: "select", options: DATE_RANGE_OPTIONS },
-      { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
+      INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
     ],
     []
   );

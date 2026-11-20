@@ -17,7 +17,7 @@ import TripFormFields, {
   cleanTripParticipants,
 } from "../components/admin/TripFormFields.jsx";
 import { formatDate, toDateInputValue } from "../utils/format.js";
-import { partnerKindLabel } from "../utils/partnerEntity.js";
+import { partnerKindLabel, PARTNER_TYPE_FILTER_FIELD } from "../utils/partnerEntity.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
@@ -100,7 +100,7 @@ function ExistingTripsTab() {
     () =>
       records.map((t) => ({
         ...t,
-        entityType: partnerKindLabel(t.partner?.kind),
+        entityType: t.partner?.kind || "missionary",
         entityName: t.partner?.displayName || "—",
         entityLink: t.partner ? `/admin/partners/${t.partner.id}` : null,
         size: (t.participants || []).length,
@@ -131,16 +131,7 @@ function ExistingTripsTab() {
       // Rendered via `pills` below, not the field grid -- present here so
       // useFilterState knows about it for URL-sync/reset purposes.
       { name: "status" },
-      {
-        name: "entityType",
-        label: "Partner Type",
-        type: "select",
-        options: [
-          { value: "all", label: "All" },
-          { value: "Missionary", label: "Missionary" },
-          { value: "Organization", label: "Organization" },
-        ],
-      },
+      PARTNER_TYPE_FILTER_FIELD,
       {
         name: "type",
         label: "Trip Type",
@@ -471,7 +462,7 @@ function ExistingTripsTab() {
               </>
             ),
           },
-          { key: "entityType", label: "Type" },
+          { key: "entityType", label: "Type", render: (trip) => partnerKindLabel(trip.entityType) },
           { key: "status", label: "Status", render: (trip) => <TripStatusBadge status={trip.status} /> },
           { key: "type", label: "Trip Type", render: (trip) => trip.type || "—" },
           {
@@ -616,13 +607,13 @@ function PlanATripTab() {
       { name: "quickFilter" }, // rendered via `pills`, not the field grid
       { name: "search", label: "Search partner name" },
       {
-        name: "typeFilter",
-        label: "Trip type",
+        name: "type",
+        label: "Trip Type",
         type: "select",
-        options: [{ value: "", label: "All" }, ...tripTypes.map((t) => ({ value: t, label: t }))],
+        options: [{ value: "all", label: "All" }, ...tripTypes.map((t) => ({ value: t, label: t }))],
       },
-      { name: "sizeMin", label: "Min Team Size", type: "number" },
-      { name: "sizeMax", label: "Max Team Size", type: "number" },
+      { name: "minSize", label: "Min Team Size", type: "number" },
+      { name: "maxSize", label: "Max Team Size", type: "number" },
       // Team-size range filter -- effective size is the open/committed
       // trip's own teamSizeMin/Max when one exists, else the partner's
       // general capacity. "Matches" means the two ranges overlap, not
@@ -638,22 +629,22 @@ function PlanATripTab() {
   } = useFilterState(fields, {
     quickFilter: "all",
     search: "",
-    typeFilter: "",
-    sizeMin: "",
-    sizeMax: "",
+    type: "all",
+    minSize: "",
+    maxSize: "",
     neverBeenOnly: false,
   });
 
   const visibleRows = rows.filter((row) => {
     if (filters.quickFilter !== "all" && row.kind !== filters.quickFilter) return false;
     if (filters.search && !row.displayName.toLowerCase().includes(filters.search.toLowerCase())) return false;
-    if (filters.typeFilter && !(row.tripTypesSupported || []).includes(filters.typeFilter)) return false;
+    if (filters.type !== "all" && !(row.tripTypesSupported || []).includes(filters.type)) return false;
     if (filters.neverBeenOnly && row.pastTripCount > 0) return false;
     const effectiveMin = row.trip?.teamSizeMin ?? row.teamSizeMin;
     const effectiveMax = row.trip?.teamSizeMax ?? row.teamSizeMax;
-    if (filters.sizeMin !== "" && effectiveMax != null && effectiveMax < Number(filters.sizeMin))
+    if (filters.minSize !== "" && effectiveMax != null && effectiveMax < Number(filters.minSize))
       return false;
-    if (filters.sizeMax !== "" && effectiveMin != null && effectiveMin > Number(filters.sizeMax))
+    if (filters.maxSize !== "" && effectiveMin != null && effectiveMin > Number(filters.maxSize))
       return false;
     return true;
   });

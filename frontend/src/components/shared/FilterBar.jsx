@@ -1,18 +1,23 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 
-// Generic filter-bar shell, resource-agnostic -- lifted out of
-// AdminReports.jsx's field-rendering switch and TripFilterBar.jsx's
-// pills+box chrome (both now retired into this). A resource page
-// supplies a `fields` array ({ name, label, type, options?, showWhen? },
-// the exact contract backend/src/reports/index.js's listReports()
-// already returns) plus its current `values` and an `onChange(name,
-// value)` -- typically backed by hooks/useFilterState.js, which owns
-// syncing those values to the URL query string.
+const SEARCH_DEBOUNCE_MS = 250;
+
+// Generic filter-bar shell, resource-agnostic -- a resource page supplies
+// a `fields` array ({ name, label, type, options?, showWhen? }, the exact
+// contract backend/src/reports/index.js's listReports() already returns)
+// plus its current `values` and an `onChange(name, value)` -- typically
+// backed by hooks/useFilterState.js, which owns syncing those values to
+// the URL query string.
 //
 // `pills` is optional -- a quick-filter row bound to one of `fields` by
-// name (e.g. Trip status), rendered as buttons above the field grid
-// instead of a <select> inside it. The named field is skipped in the
-// grid so it isn't rendered twice.
+// name (e.g. Trip status), rendered as buttons above the chip row instead
+// of as a chip itself. The named field is skipped in the chip row so it
+// isn't rendered twice.
+//
+// Only active (non-default) fields render as removable chips; everything
+// else lives behind "+ Add filter" until picked. A field's default is
+// `false` for a checkbox, `"all"` for a select, `""` for anything else --
+// the convention every fields/emptyFilters pair in this app already uses.
 function renderField(field, values, onChange) {
   const value = values[field.name] ?? (field.type === "checkbox" ? false : "");
   switch (field.type) {
@@ -46,61 +51,192 @@ function renderField(field, values, onChange) {
   }
 }
 
-export default function FilterBar({ fields, values, onChange, onReset, pills, title = "Filters" }) {
-  const visibleFields = fields.filter((field) => {
+// "all" is the empty-filter sentinel this app's fields/emptyFilters pairs
+// use, not just for type: "select" -- AdminPartners.jsx's own `country`
+// field is untyped (free text) but still defaults to "all", same
+// convention as its sibling selects.
+function fieldIsDefault(field, values) {
+  const v = values[field.name];
+  if (field.type === "checkbox") return !v;
+  if (field.type === "number" || field.type === "date") return v === undefined || v === "";
+  return v === undefined || v === "" || v === "all";
+}
+
+function defaultValueFor(field) {
+  if (field.type === "checkbox") return false;
+  if (field.type === "number" || field.type === "date") return "";
+  return "all";
+}
+
+function SearchBox({ field, value, onChange }) {
+  const [local, setLocal] = useState(value || "");
+  useEffect(() => setLocal(value || ""), [value]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (local !== (value || "")) onChange(field.name, local);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // Only `local` should retrigger the debounce timer -- `value`/`onChange`
+    // changing on their own (e.g. a parent re-render) shouldn't restart it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [local]);
+
+  return (
+    <div className="filter-search-box">
+      <span aria-hidden="true">🔍</span>
+      <input
+        type="text"
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        placeholder={field.label}
+      />
+      {local && (
+        <button
+          type="button"
+          className="filter-search-clear"
+          onClick={() => {
+            setLocal("");
+            onChange(field.name, "");
+          }}
+          aria-label="Clear search"
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  );
+}
+
+function AddFilterPopover({ fields, onAdd }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  if (fields.length === 0) return null;
+
+  return (
+    <div className="add-filter-wrap" ref={wrapRef}>
+      <button type="button" className="add-filter-chip" onClick={() => setOpen((v) => !v)}>
+        + Add filter
+      </button>
+      {open && (
+        <div className="filter-popover-panel">
+          {fields.map((f) => (
+            <button
+              key={f.name}
+              type="button"
+              className="fp-item"
+              onClick={() => {
+                onAdd(f);
+                setOpen(false);
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function FilterBar({ fields, values, onChange, onReset, pills }) {
+  const [manuallyAdded, setManuallyAdded] = useState({});
+
+  const searchField = fields.find((f) => f.name === "search");
+  const chippableFields = fields.filter((field) => {
+    if (field.name === "search") return false;
     if (pills && field.name === pills.field) return false;
     if (field.showWhen && values[field.showWhen.field] !== field.showWhen.equals) return false;
     return true;
   });
 
+  const activeFields = chippableFields.filter((f) => !fieldIsDefault(f, values) || manuallyAdded[f.name]);
+  const availableFields = chippableFields.filter((f) => fieldIsDefault(f, values) && !manuallyAdded[f.name]);
+
+  function removeField(field) {
+    onChange(field.name, defaultValueFor(field));
+    setManuallyAdded((m) => {
+      if (!(field.name in m)) return m;
+      const next = { ...m };
+      delete next[field.name];
+      return next;
+    });
+  }
+
+  function clearAll() {
+    onReset();
+    setManuallyAdded({});
+  }
+
   return (
     <div className="admin-section">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "0.5rem",
-        }}
-      >
-        <h3 style={{ margin: 0 }}>{title}</h3>
-        <button type="button" className="btn secondary small" onClick={onReset}>
-          Reset Filters
-        </button>
-      </div>
-      {pills && (
-        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.75rem" }}>
-          {pills.options.map((opt) => (
+      <div className="filter-bar-row">
+        {pills && (
+          <div className="filter-pill-row">
+            {pills.options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={values[pills.field] === opt.value ? "btn small" : "btn secondary small"}
+                onClick={() => onChange(pills.field, opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {searchField && <SearchBox field={searchField} value={values.search} onChange={onChange} />}
+        {activeFields.map((field) => (
+          <span key={field.name} className="filter-chip on">
+            {field.type === "checkbox" ? (
+              <span className="filter-chip-label">{field.label}</span>
+            ) : (
+              <>
+                <span className="filter-chip-label">{field.label}:</span>
+                {renderField(field, values, onChange)}
+              </>
+            )}
             <button
-              key={opt.value}
               type="button"
-              className={values[pills.field] === opt.value ? "btn small" : "btn secondary small"}
-              onClick={() => onChange(pills.field, opt.value)}
+              className="fc-x"
+              onClick={() => removeField(field)}
+              aria-label={`Remove ${field.label} filter`}
             >
-              {opt.label}
+              ✕
             </button>
-          ))}
-        </div>
-      )}
-      {visibleFields.length > 0 && (
-        <div className="form-grid" style={{ marginTop: "0.75rem" }}>
-          {visibleFields.map((field) => (
-            <label
-              key={field.name}
-              style={
-                field.type === "checkbox"
-                  ? { display: "flex", flexDirection: "row", alignItems: "center", gap: "0.4rem" }
-                  : undefined
-              }
-            >
-              {field.type === "checkbox" ? null : field.label}
-              {renderField(field, values, onChange)}
-              {field.type === "checkbox" ? field.label : null}
-            </label>
-          ))}
-        </div>
-      )}
+          </span>
+        ))}
+        {activeFields.length > 0 && (
+          <button type="button" className="clear-all-link" onClick={clearAll}>
+            Clear all
+          </button>
+        )}
+        <AddFilterPopover
+          fields={availableFields}
+          onAdd={(field) => {
+            // A checkbox field's only two states are its default (off,
+            // not shown) and added (on) -- there's no third "added but
+            // still off" state worth a visible inner checkbox for, so
+            // adding one from the popover turns it on directly instead
+            // of leaving a redundant unchecked box inside the chip.
+            if (field.type === "checkbox") {
+              onChange(field.name, true);
+            } else {
+              setManuallyAdded((m) => ({ ...m, [field.name]: true }));
+            }
+          }}
+        />
+      </div>
     </div>
   );
 }
