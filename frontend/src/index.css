@@ -91,25 +91,18 @@ a {
   color: rgba(255, 255, 255, 0.85);
 }
 
-/* Admin section layout — a persistent left sidebar (replacing the old
-   single-row top nav, which ran out of room as sections were added) plus a
-   content area on the right. Used for every /admin/* route via AdminLayout,
-   including detail/edit forms, which previously had no persistent nav at
-   all — this fixes that inconsistency as a side effect. */
 .admin-layout {
   display: flex;
   align-items: flex-start;
   min-height: 100vh;
+  --sidebar-width: 230px;
+}
+.admin-layout:has(.admin-sidebar.collapsed) {
+  --sidebar-width: 64px;
 }
 .admin-sidebar {
-  width: 230px;
+  width: var(--sidebar-width);
   flex-shrink: 0;
-  /* height (not min-height): with Settings expanded, the nav
-     list can run taller than the viewport. Capping the box here and
-     scrolling it internally is what lets you actually reach Log out --
-     previously the box just grew past the viewport with no way to bring
-     its lower items into view short of scrolling almost to the very
-     bottom of a long page. */
   height: 100vh;
   overflow-y: auto;
   overflow-x: hidden;
@@ -122,22 +115,13 @@ a {
   top: 0;
   transition: width 0.18s ease;
 }
-/* Collapsed state (Phase 9) -- icon-only rail, toggled by
-   .admin-sidebar-collapse-btn and persisted per-browser in
-   localStorage (AdminSidebar.jsx), same per-viewer-convenience
-   pattern useRecentlyViewed.js already uses. Labels/captions hide;
-   icons and the collapse/bell buttons stay put so the rail is still a
-   real, if narrower, nav. */
 .admin-sidebar.collapsed {
-  width: 64px;
   padding-left: 0.5rem;
   padding-right: 0.5rem;
 }
 .admin-sidebar.collapsed .sb-label,
 .admin-sidebar.collapsed .admin-sidebar-subnav,
-.admin-sidebar.collapsed .admin-sidebar-subnav-label,
-.admin-sidebar.collapsed .admin-sidebar-title-text,
-.admin-sidebar.collapsed .admin-sidebar-group-arrow {
+.admin-sidebar.collapsed .admin-sidebar-title-text {
   display: none;
 }
 .admin-sidebar.collapsed .admin-sidebar-title {
@@ -149,17 +133,10 @@ a {
   margin: 0 0 1.5rem;
   line-height: 1.3;
   display: flex;
-  /* flex-start, not center: a long church name (ChurchSettings.churchName
-     has no length limit) can clamp to 2 lines below -- flex-start keeps
-     the bell/collapse buttons pinned at the top of the row either way,
-     instead of drifting toward the vertical middle of a 2-line title. */
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.5rem;
 }
-/* min-width: 0 overrides the flex item's default auto min-width, which
-   would otherwise refuse to shrink below the text's natural (unwrapped)
-   width and silently defeat both the wrap and the clamp below. */
 .admin-sidebar-title-text {
   min-width: 0;
   display: -webkit-box;
@@ -173,16 +150,8 @@ a {
   align-items: center;
   gap: 0.35rem;
   flex-shrink: 0;
-  /* Matches the title text's own first-line height so the buttons read
-     as sitting on the title's first line, not floating above it. */
   margin-top: 0.1rem;
 }
-/* Collapse toggle + the reserved notification-bell slot -- both match
-   the design-reference artifact's .sb-collapse-btn/.sb-bell-btn
-   exactly. The bell is deliberately inert: no dropdown, no real
-   content, no backend call -- it's reserved layout space for a future
-   in-app-notifications feature (planned, not yet designed) so that
-   feature won't need to rework this header row when it ships. */
 .admin-sidebar-collapse-btn,
 .admin-sidebar-bell-btn {
   position: relative;
@@ -254,38 +223,9 @@ a {
 .admin-sidebar-footer button:hover {
   background: rgba(255, 255, 255, 0.12);
 }
-/* A black tint (not the old white one) so the white nav text keeps
-   sufficient contrast (WCAG AA, 4.5:1) regardless of --brand-color --
-   a church can set this to anything from Church Settings, and darkening
-   a color reliably increases contrast against white text where
-   lightening it can go either way depending on the base color. */
 .admin-sidebar-nav a.active {
   background: rgba(0, 0, 0, 0.28);
   font-weight: 600;
-}
-.admin-sidebar-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.2);
-  margin: 0.75rem 0.6rem;
-}
-
-/* "Settings" -- a disclosure toggle (button, not a link; it
-   doesn't navigate anywhere itself) that expands a nested list of admin
-   sub-pages, rather than a separate page with its own tab bar -- keeps
-   "where am I" answered by the sidebar itself, the same way every other
-   section here already works. */
-.admin-sidebar-group-toggle {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-.admin-sidebar-group-arrow {
-  font-size: 0.7rem;
-  opacity: 0.75;
-  transition: transform 0.15s ease;
 }
 .admin-sidebar-subnav {
   display: flex;
@@ -297,20 +237,10 @@ a {
 }
 .admin-sidebar-subnav a {
   padding-left: 0.6rem;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: normal;
 }
-/* A plain caption splitting the Settings subnav into groups
-   (e.g. "Communications" ahead of GroupMe/Email) -- text, not a link, so
-   no :hover/active states to style. */
-.admin-sidebar-subnav-label {
-  padding: 0.5rem 0.6rem 0.1rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.5);
-}
+
 .admin-main {
   flex: 1;
   min-width: 0;
@@ -319,18 +249,6 @@ a {
 @media (max-width: 800px) {
   .admin-layout {
     flex-direction: column;
-    /* .admin-layout's own align-items: flex-start (above) means
-       "don't stretch" on the cross axis -- vertical height in the
-       default row layout, which is the right call there (the sidebar
-       and main content shouldn't be forced to equal heights). Flipping
-       to a column layout here swaps the cross axis to horizontal
-       (width), so the same flex-start now means "don't stretch width"
-       instead -- .admin-main was rendering at its own content's
-       natural width (900px+) rather than the viewport's, forcing the
-       whole page to scroll horizontally on every admin page. Explicit
-       stretch here restores the intended "fill the viewport width"
-       behavior for the column layout specifically, without touching
-       the row layout's own vertical alignment. */
     align-items: stretch;
   }
   .admin-sidebar {
@@ -338,6 +256,9 @@ a {
     height: auto;
     overflow-y: visible;
     position: static;
+  }
+  .form-save-bar {
+    left: 0;
   }
 }
 
@@ -444,12 +365,12 @@ a {
   border-radius: 50%;
   flex-shrink: 0;
 }
-/* Church logo preview on the Branding settings page -- rendered against
-   the admin's own configured Header Color (set inline, see
-   AdminSettingsBranding.jsx) so this is a real preview of how the logo
-   will actually look in the header, not an arbitrary crop. Fixed height,
-   auto width (capped) same as .header-logo -- adapts to a square icon or
-   a wide wordmark alike. */
+/* Church logo preview on the About & Branding settings page -- rendered
+   against the admin's own configured Header Color (set inline, see
+   AdminSettingsAbout.jsx) so this is a real preview of how the logo will
+   actually look in the header, not an arbitrary crop. Fixed height, auto
+   width (capped) same as .header-logo -- adapts to a square icon or a
+   wide wordmark alike. */
 .logo-preview {
   height: 48px;
   width: auto;
@@ -913,7 +834,13 @@ a {
 .form-save-bar {
   position: fixed;
   bottom: 0;
-  left: 0;
+  /* Not 0 -- the bar used to span the full viewport width at full
+     viewport-fixed position, which put it on top of the sidebar's own
+     footer (My Account/Log out) at the bottom of the screen. Offsetting
+     past --sidebar-width (defined on .admin-layout) confines it to
+     .admin-main instead, and tracks the sidebar's collapsed/expanded
+     width automatically. */
+  left: var(--sidebar-width, 230px);
   right: 0;
   display: flex;
   align-items: center;

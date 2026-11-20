@@ -21,8 +21,8 @@ const PROVIDER_MESSAGES = {
 // check this" is worth revisiting periodically, not just once.
 //
 // That per-browser dismiss is separate from backupReminderDisabled, a
-// server-side, permanent opt-out set on the Backups settings page
-// (AdminSettingsBackups.jsx) for a church that's confirmed its backups are
+// server-side, permanent opt-out set on the About App settings page
+// (AdminSystemInfo.jsx) for a church that's confirmed its backups are
 // genuinely handled another way -- when that's on, this never renders at
 // all, regardless of the dismiss timer.
 export default function BackupReminder() {
@@ -66,7 +66,7 @@ export default function BackupReminder() {
     >
       <span>
         {PROVIDER_MESSAGES[provider]} Want a backup right now, or already covered another way?{" "}
-        <a href="/admin/settings/backups">Download a backup, or turn this off for good</a>, or{" "}
+        <a href="/admin/settings/system-info">Download a backup, or turn this off for good</a>, or{" "}
         <a
           href="https://github.com/neckermann/missions-partner-tracker/blob/main/ADMIN_GUIDE.md#database-backups"
           target="_blank"

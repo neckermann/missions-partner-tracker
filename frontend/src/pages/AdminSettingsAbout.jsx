@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { updateChurchSettings, syncAllSendingChurch } from "../api/client.js";
+import { updateChurchSettings, syncAllSendingChurch, uploadChurchLogo } from "../api/client.js";
+import { useSettings } from "../context/SettingsContext.jsx";
 import AddressFields from "../components/admin/AddressFields.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
@@ -21,35 +22,41 @@ const emptyForm = {
   contactEmail: "",
   websiteLink: "",
   timezone: "UTC",
-  // #271 Finding 3: flat columns, not a nested address object -- same
-  // shape and keys, just spread directly onto the form.
   ...emptyAddress,
+  partnerTermSingular: "",
+  partnerTermPlural: "",
+  usePartnerTermInAdmin: false,
+  publicTagline: "",
+  aboutText: "",
+  primaryColor: "",
+  headerColor: "",
+  highlightColor: "",
+  brandFont: "",
+  logo: {},
 };
 
-// A real built-in, no library needed -- returns every valid IANA zone
-// name, so an admin can only ever pick a value that's actually valid.
-// A typo'd free-text value (e.g. "America/New York" with a space, or a
-// non-IANA abbreviation like "EST") would otherwise silently fall back
-// to UTC server-side with no feedback to anyone -- see this field's own
-// comment in schema.prisma.
 const TIMEZONES = Intl.supportedValuesOf("timeZone");
 
-// Settings is a singleton — GET returns { featureRegistry } with everything
-// else absent before it's ever been saved (see routes/settings.js), so
-// `s?.id` (not `!s`) is the actual "has this church configured anything
-// yet" check — same pattern as the other Settings pages. Only
-// pulls in the fields this page owns -- Branding/Features/Users are
-// separate pages under the sidebar's Settings group (see
-// AdminSidebar.jsx), each PUTting just its own slice, so saving here never
-// touches the others' fields.
+const FONT_OPTIONS = [
+  { value: "", label: "System Default" },
+  { value: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', label: "System Sans" },
+  { value: 'Georgia, "Times New Roman", serif', label: "Classic Serif" },
+  { value: '"Helvetica Neue", Arial, sans-serif', label: "Modern Sans" },
+  { value: 'Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif', label: "Elegant Serif" },
+  { value: '"Trebuchet MS", Verdana, sans-serif', label: "Friendly Sans" },
+];
+
 function mergeFetchedRecord(s) {
   if (!s?.id) return emptyForm;
-  return { ...emptyForm, ...s };
+  return { ...emptyForm, ...s, logo: s.logo || {} };
 }
 
 export default function AdminSettingsAbout() {
+  const { refreshSettings } = useSettings();
   const [form, setForm] = useState(emptyForm);
   const [sentByOurChurchCount, setSentByOurChurchCount] = useState(0);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [syncing, setSyncing] = useState(false);
@@ -74,6 +81,29 @@ export default function AdminSettingsAbout() {
     setError("");
   }
 
+  function handleResetBranding() {
+    setForm((f) => ({ ...f, headerColor: "", primaryColor: "", highlightColor: "", brandFont: "" }));
+    setSuccess("");
+    setError("");
+  }
+
+  function handleImageSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(reader.result);
+    reader.readAsDataURL(file);
+    setSuccess("");
+    setError("");
+  }
+
+  function handleRemoveImage() {
+    setImageFile(null);
+    setImagePreview(null);
+    update("logo", null);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
@@ -81,20 +111,22 @@ export default function AdminSettingsAbout() {
     setSyncSuccess("");
     setError("");
     try {
-      const updated = await updateChurchSettings(form);
+      let updated = await updateChurchSettings(form);
+      if (imageFile) {
+        updated = await uploadChurchLogo(imageFile);
+      }
       setForm(mergeFetchedRecord(updated));
+      setImageFile(null);
+      setImagePreview(null);
       setSuccess("Saved.");
+      refreshSettings();
     } catch (err) {
-      setError(err.response?.data?.error || "Couldn't save church settings.");
+      setError(err.response?.data?.error || "Couldn't save settings.");
     } finally {
       setSaving(false);
     }
   }
 
-  // Only offered right after a save, next to "Saved." -- the moment this
-  // info just changed is exactly when it's worth asking "push that out to
-  // everyone sent by us?", rather than a button sitting there permanently
-  // regardless of whether anything's actually out of date.
   async function handleSyncAll() {
     setSyncing(true);
     setSyncSuccess("");
@@ -111,10 +143,10 @@ export default function AdminSettingsAbout() {
 
   return (
     <div className="admin-shell form-has-floating-actions">
-      <SettingsPageHeader title="About Church" />
+      <SettingsPageHeader title="About & Branding" />
       <p style={{ color: "#555" }}>
-        Basic church info — used to auto-fill the Sending Church section when this church is the sender, and
-        for contact details shown across the admin app.
+        Church info, contact details, and how this church presents itself — public-site tagline, about text,
+        brand colors, font, logo, and what to call its partners.
       </p>
 
       <form onSubmit={handleSubmit} className="admin-form">
@@ -190,6 +222,138 @@ export default function AdminSettingsAbout() {
               setError("");
             }}
           />
+        </div>
+
+        <div className="admin-section">
+          <h3>Public Site</h3>
+          <label>
+            Tagline
+            <input
+              value={form.publicTagline || ""}
+              onChange={(e) => update("publicTagline", e.target.value)}
+              placeholder="e.g. Prayer & Support Directory"
+            />
+          </label>
+          <label style={{ marginTop: "1rem" }}>
+            About
+            <textarea
+              rows={4}
+              value={form.aboutText || ""}
+              onChange={(e) => update("aboutText", e.target.value)}
+              placeholder="An optional blurb shown on the public partner directory."
+            />
+          </label>
+          <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
+            Header Color
+            <input
+              type="color"
+              value={form.headerColor || "#2c2a28"}
+              onChange={(e) => update("headerColor", e.target.value)}
+            />
+          </label>
+          <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+            The header bar and admin sidebar background.
+          </p>
+          <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
+            Accent Color
+            <input
+              type="color"
+              value={form.primaryColor || "#2a5d3c"}
+              onChange={(e) => update("primaryColor", e.target.value)}
+            />
+          </label>
+          <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+            Buttons, links, headings, and report letterheads -- the color people associate with this church.
+          </p>
+          <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
+            Highlight Color
+            <input
+              type="color"
+              value={form.highlightColor || "#a6540f"}
+              onChange={(e) => update("highlightColor", e.target.value)}
+            />
+          </label>
+          <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+            Hover, focus, and active/selected states -- e.g. a button on hover, the current nav item.
+          </p>
+          <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
+            Font
+            <select
+              value={form.brandFont || ""}
+              onChange={(e) => update("brandFont", e.target.value || null)}
+            >
+              {FONT_OPTIONS.map((opt) => (
+                <option key={opt.label} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div style={{ marginTop: "1rem" }}>
+            <button type="button" className="btn secondary small" onClick={handleResetBranding}>
+              Reset to Default
+            </button>
+          </div>
+        </div>
+
+        <div className="admin-section">
+          <h3>Logo</h3>
+          <div className="headshot-row">
+            {(imagePreview || form.logo?.url) && (
+              <img
+                src={imagePreview || form.logo.url}
+                alt="Logo preview"
+                className="logo-preview"
+                style={{ background: form.headerColor || "#2c2a28" }}
+              />
+            )}
+            <label style={{ flex: 1 }}>
+              Logo Image
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageSelect} />
+            </label>
+            {(imagePreview || form.logo?.url) && (
+              <button type="button" className="btn secondary small" onClick={handleRemoveImage}>
+                Remove logo
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="admin-section">
+          <h3>Partner Terminology</h3>
+          <p style={{ marginTop: 0, color: "#666", fontSize: "0.85rem" }}>
+            What this church calls its missionary and organization partners — e.g. "Go Team Partner" / "Go
+            Team Partners". Used on the public site regardless of whether a partner is an individual/family or
+            an organization. Leave blank to keep the default "Missionary" / "Missionaries" wording.
+          </p>
+          <div className="form-grid">
+            <label>
+              Singular
+              <input
+                value={form.partnerTermSingular || ""}
+                onChange={(e) => update("partnerTermSingular", e.target.value)}
+                placeholder="Missionary"
+              />
+            </label>
+            <label>
+              Plural
+              <input
+                value={form.partnerTermPlural || ""}
+                onChange={(e) => update("partnerTermPlural", e.target.value)}
+                placeholder="Missionaries"
+              />
+            </label>
+          </div>
+          <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
+            <label>
+              <input
+                type="checkbox"
+                checked={form.usePartnerTermInAdmin}
+                onChange={(e) => update("usePartnerTermInAdmin", e.target.checked)}
+              />
+              Also use this term in the admin interface (nav/list headings)
+            </label>
+          </div>
         </div>
 
         <div className="form-save-bar">

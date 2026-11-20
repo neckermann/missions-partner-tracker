@@ -1,6 +1,6 @@
 import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import PublicDirectory from "./pages/PublicDirectory.jsx";
 import PublicPartnerDetail from "./pages/PublicPartnerDetail.jsx";
 import PublicSubscribe from "./pages/PublicSubscribe.jsx";
@@ -35,7 +35,6 @@ const AdminReports = lazy(() => import("./pages/AdminReports.jsx"));
 const PublicMap = lazy(() => import("./pages/PublicMap.jsx"));
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout.jsx"));
 const AdminHome = lazy(() => import("./pages/AdminHome.jsx"));
-const AdminPartnerCare = lazy(() => import("./pages/AdminPartnerCare.jsx"));
 const AdminPartners = lazy(() => import("./pages/AdminPartners.jsx"));
 const AdminPartnerForm = lazy(() => import("./pages/AdminPartnerForm.jsx"));
 const AdminPartnerDetail = lazy(() => import("./pages/AdminPartnerDetail.jsx"));
@@ -43,18 +42,16 @@ const AdminBooklet = lazy(() => import("./pages/AdminBooklet.jsx"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers.jsx"));
 const AdminUserForm = lazy(() => import("./pages/AdminUserForm.jsx"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings.jsx"));
+const AdminSettingsHome = lazy(() => import("./pages/AdminSettingsHome.jsx"));
 const AdminSettingsAbout = lazy(() => import("./pages/AdminSettingsAbout.jsx"));
-const AdminSettingsBranding = lazy(() => import("./pages/AdminSettingsBranding.jsx"));
 const AdminSettingsFeatures = lazy(() => import("./pages/AdminSettingsFeatures.jsx"));
 const AdminSettingsGroupMe = lazy(() => import("./pages/AdminSettingsGroupMe.jsx"));
 const AdminSettingsWhatsApp = lazy(() => import("./pages/AdminSettingsWhatsApp.jsx"));
-const AdminSettingsJoshuaProject = lazy(() => import("./pages/AdminSettingsJoshuaProject.jsx"));
-const AdminSettingsAiExtraction = lazy(() => import("./pages/AdminSettingsAiExtraction.jsx"));
+const AdminSettingsIntegrations = lazy(() => import("./pages/AdminSettingsIntegrations.jsx"));
 const AdminSettingsEmail = lazy(() => import("./pages/AdminSettingsEmail.jsx"));
 const AdminInboundEmailQueue = lazy(() => import("./pages/AdminInboundEmailQueue.jsx"));
 const AdminPendingDispatches = lazy(() => import("./pages/AdminPendingDispatches.jsx"));
 const AdminDispatchSettings = lazy(() => import("./pages/AdminDispatchSettings.jsx"));
-const AdminSettingsBackups = lazy(() => import("./pages/AdminSettingsBackups.jsx"));
 const AdminSystemInfo = lazy(() => import("./pages/AdminSystemInfo.jsx"));
 const AdminMonthlySupport = lazy(() => import("./pages/AdminMonthlySupport.jsx"));
 const AdminOneTimeNeeds = lazy(() => import("./pages/AdminOneTimeNeeds.jsx"));
@@ -158,7 +155,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 }
               >
                 <Route index element={<AdminHome />} />
-                <Route path="partner-care" element={<AdminPartnerCare />} />
                 <Route path="partners" element={<AdminPartners />} />
                 <Route path="partners/new" element={<AdminPartnerForm />} />
                 <Route path="partners/:id" element={<AdminPartnerDetail />} />
@@ -281,9 +277,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     </RequireAdminAuth>
                   }
                 >
-                  <Route index element={<Navigate to="about" replace />} />
+                  <Route index element={<AdminSettingsHome />} />
                   <Route path="about" element={<AdminSettingsAbout />} />
-                  <Route path="branding" element={<AdminSettingsBranding />} />
                   <Route path="features" element={<AdminSettingsFeatures />} />
                   <Route path="groupme" element={<AdminSettingsGroupMe />} />
                   <Route
@@ -294,8 +289,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                       </RequireAdminFeature>
                     }
                   />
-                  <Route path="joshua-project" element={<AdminSettingsJoshuaProject />} />
-                  <Route path="ai-extraction" element={<AdminSettingsAiExtraction />} />
+                  <Route path="integrations" element={<AdminSettingsIntegrations />} />
                   <Route path="email" element={<AdminSettingsEmail />} />
                   <Route
                     path="trips"
@@ -313,7 +307,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                       </RequireAdminFeature>
                     }
                   />
-                  <Route path="backups" element={<AdminSettingsBackups />} />
                   <Route path="system-info" element={<AdminSystemInfo />} />
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="users/new" element={<AdminUserForm />} />

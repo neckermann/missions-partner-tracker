@@ -12,18 +12,9 @@ import { getRecentlyViewed } from "../hooks/useRecentlyViewed.js";
 import CardGrid from "../components/admin/CardGrid.jsx";
 
 // The admin landing page -- search, recently-viewed, and needs-attention
-// cards (UX-rebuild Phase 0), replacing the old shape: a full card-tile
-// mirror of every single sidebar link, maintained as a second,
-// independent copy of AdminSidebar.jsx's own nav structure. That's
-// exactly the "two parallel nav surfaces" problem #270 named directly --
-// Home now points at destinations worth jumping to directly (a search
+// cards. Home points at destinations worth jumping to directly (a search
 // result, something recent, something waiting on you) rather than
 // re-listing what the sidebar already lists.
-//
-// "Partner Care" keeps one card here deliberately -- it's the one group
-// that earned its own landing page (3+ children; see
-// AdminPartnerCare.jsx), so it's worth a direct way in from Home too,
-// not because every group needs one.
 const SEARCH_DEBOUNCE_MS = 250;
 
 function useDebouncedValue(value, delayMs) {
@@ -247,18 +238,6 @@ export default function AdminHome() {
           <CardGrid sections={needsAttention} />
         </div>
       )}
-
-      <div className="admin-section">
-        <CardGrid
-          sections={[
-            {
-              to: "/admin/partner-care",
-              title: "Partner Care",
-              description: `${partnerLabel}, prayer requests, support, and documents — everything tracked for an individual partner.`,
-            },
-          ]}
-        />
-      </div>
 
       {currentUser?.role === "admin" && (
         <p>
