@@ -364,7 +364,14 @@ export default function AdminPartnerFiles() {
           {
             key: "entityName",
             label: "Partner",
-            render: (f) => (f.entityLink ? <Link to={f.entityLink}>{f.entityName}</Link> : f.entityName),
+            render: (f) =>
+              f.entityLink ? (
+                <Link to={f.entityLink} style={{ fontWeight: 600 }}>
+                  {f.entityName}
+                </Link>
+              ) : (
+                <span style={{ fontWeight: 600 }}>{f.entityName}</span>
+              ),
           },
           { key: "entityType", label: "Type" },
           { key: "kind", label: "Kind", render: (f) => fileKindLabel(f) },

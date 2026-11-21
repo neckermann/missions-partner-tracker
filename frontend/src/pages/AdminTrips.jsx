@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   fetchTrips,
   fetchPartners,
@@ -166,6 +166,30 @@ function ExistingTripsTab() {
     clearPartnerFilter,
     setPartnerFilter,
   } = usePartnerUrlFilter();
+
+  // Partner Detail's Mission Trips "+ Add" links here with both
+  // ?partnerId= (the existing filter) and ?newTrip=1, to open straight
+  // into "start a new trip" pre-selected to that partner instead of
+  // landing on the filtered list and making someone find the button
+  // themselves. Strips ?newTrip= right after so refreshing/revisiting
+  // this URL later doesn't keep reopening the form.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("newTrip") === "1" && filterPartnerId) {
+      setShowAddForm(true);
+      setAddKind("planning");
+      setNewTripPartnerId(filterPartnerId);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("newTrip");
+          return next;
+        },
+        { replace: true }
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredTrips = trips.filter((t) => {
     if (filterPartnerId && t.partner?.id !== filterPartnerId) return false;
@@ -481,7 +505,9 @@ function ExistingTripsTab() {
             stopRowClick: true,
             render: (trip) => (
               <>
-                <Link to={trip.entityLink}>{trip.entityName}</Link>
+                <Link to={trip.entityLink} style={{ fontWeight: 600 }}>
+                  {trip.entityName}
+                </Link>
                 {trip.partner?.isRestricted && (
                   <div style={{ fontSize: "0.7rem", color: "#a6540f", fontWeight: 700 }}>
                     Restricted partner
@@ -745,7 +771,9 @@ function PlanATripTab() {
               label: "Partner",
               render: (row) => (
                 <>
-                  <Link to={`/admin/partners/${row.partnerId}`}>{row.displayName}</Link>
+                  <Link to={`/admin/partners/${row.partnerId}`} style={{ fontWeight: 600 }}>
+                    {row.displayName}
+                  </Link>
                   {row.isRestricted && (
                     <div style={{ fontSize: "0.7rem", color: "#a6540f", fontWeight: 700 }}>
                       Restricted partner — won't be publicly discoverable regardless of any trip setting

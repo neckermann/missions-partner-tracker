@@ -1,4 +1,5 @@
 import React from "react";
+import LoadMoreButton from "../LoadMoreButton.jsx";
 
 // The display half of the small partner-scoped record lists on Partner
 // Detail (Adults, Children, Furloughs, Church Visits, Links, Languages) --
@@ -7,6 +8,9 @@ import React from "react";
 // usePartnerRecordCrud.jsx for the add/edit/delete plumbing behind the
 // buttons. `addLabel: null` hides the Add button entirely (Links uses this
 // once every type is already on file).
+// `hasMore`/`remaining`/`onShowMore`, when given (straight from a caller's
+// own useLoadMore.js), render a "Load More" button below the list -- for
+// a list capped to a few rows by default instead of showing everything.
 export default function PartnerRecordList({
   title,
   icon,
@@ -17,6 +21,9 @@ export default function PartnerRecordList({
   onEdit,
   onDelete,
   emptyMessage = "None on file.",
+  hasMore,
+  remaining,
+  onShowMore,
 }) {
   return (
     <div className="admin-section">
@@ -50,6 +57,7 @@ export default function PartnerRecordList({
           </div>
         ))
       )}
+      {onShowMore && <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={onShowMore} size="small" />}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   fetchPartner,
   updatePartner,
@@ -14,6 +14,8 @@ import {
   updateSupportNeed,
   createSupportEntry,
   uploadPartnerFile,
+  updatePartnerFile,
+  fetchCurrentUser,
   fetchAdults,
   createAdult,
   updateAdult,
@@ -38,6 +40,10 @@ import {
   createPartnerLanguage,
   updatePartnerLanguage,
   deletePartnerLanguage,
+  fetchTripTypes,
+  createTripType,
+  updateTripType,
+  deleteTripType,
 } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
@@ -48,11 +54,12 @@ import EditableSection from "../components/admin/EditableSection.jsx";
 import AddressFields, { roundGps } from "../components/admin/AddressFields.jsx";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import Modal from "../components/Modal.jsx";
 import PrayerRequestFormFields from "../components/admin/PrayerRequestFormFields.jsx";
 import SupportNeedFormFields from "../components/admin/SupportNeedFormFields.jsx";
 import SupportEntryFormFields from "../components/admin/SupportEntryFormFields.jsx";
 import PartnerFileFormFields from "../components/admin/PartnerFileFormFields.jsx";
-import { FILE_KINDS } from "../utils/fileKinds.js";
+import { FILE_KINDS, fileKindLabel } from "../utils/fileKinds.js";
 import { LINK_TYPES, linkTypeLabel } from "../utils/linkTypes.js";
 import { PROFICIENCY_LEVELS, proficiencyLabel } from "../utils/proficiencyLevels.js";
 import { LANGUAGE_NAMES } from "../utils/languageNames.js";
@@ -169,41 +176,12 @@ function AddressSummary({ address }) {
   );
 }
 
-// A small editor for a list of objects -- adults, children, furloughs,
-// church visits. These are replaced wholesale when their key is sent, which
-// is safe because this page is their only writer.
-function RepeatableRows({ rows, onChange, blank, render }) {
-  return (
-    <>
-      {rows.map((row, i) => (
-        <div className="repeatable-row" key={i}>
-          <button
-            type="button"
-            className="btn-remove"
-            title="Remove"
-            onClick={() => onChange(rows.filter((_, j) => j !== i))}
-          >
-            ✕
-          </button>
-          {render(row, (field, value) => {
-            const next = [...rows];
-            next[i] = { ...next[i], [field]: value };
-            onChange(next);
-          })}
-        </div>
-      ))}
-      <button type="button" className="btn secondary small" onClick={() => onChange([...rows, { ...blank }])}>
-        + Add
-      </button>
-    </>
-  );
-}
-
 // The partner page *is* the record: every section saves only its own fields
 // through the partial PUT, rather than routing everything through one
 // whole-record form. See EditableSection for the reasoning.
 export default function AdminPartnerDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [p, setP] = useState(null);
   const [collections, setCollections] = useState({
     prayerRequests: [],
@@ -217,6 +195,7 @@ export default function AdminPartnerDetail() {
     churchVisits: [],
     links: [],
     languages: [],
+    tripTypes: [],
   });
   const { churchName, enabledFeatures } = useSettings();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
@@ -252,6 +231,13 @@ export default function AdminPartnerDetail() {
     reload,
     confirmDialog,
   });
+  const tripTypeCrud = usePartnerRecordCrud({
+    createFn: createTripType,
+    updateFn: updateTripType,
+    deleteFn: deleteTripType,
+    reload,
+    confirmDialog,
+  });
   const [activeModal, setActiveModal] = useState(null);
   const [prayerForm, setPrayerForm] = useState(null);
   const [prayerAnswerForm, setPrayerAnswerForm] = useState(null);
@@ -260,6 +246,13 @@ export default function AdminPartnerDetail() {
   const [supportEntryForm, setSupportEntryForm] = useState(null);
   const [fileForm, setFileForm] = useState(null);
   const [fileBlob, setFileBlob] = useState(null);
+  // Click-to-view/edit popups for an *existing* Prayer Request/One-Time
+  // Need/Newsletter & Doc item (see the summary cards below) -- `{ id,
+  // form }`, distinct from the above add-forms. Each one's `form` key
+  // only holds what that resource's own FormFields component edits.
+  const [prayerDetail, setPrayerDetail] = useState(null);
+  const [needDetail, setNeedDetail] = useState(null);
+  const [fileDetail, setFileDetail] = useState(null);
 
   // React Router keeps this same component instance mounted across a
   // /partners/:id param change -- it doesn't remount. reload() is passed
@@ -290,6 +283,7 @@ export default function AdminPartnerDetail() {
         fetchChurchVisits({ partnerId: id }),
         fetchPartnerLinks({ partnerId: id }),
         fetchPartnerLanguages({ partnerId: id }),
+        fetchTripTypes({ partnerId: id }),
       ]).then(
         ([
           prayerRequests,
@@ -303,6 +297,7 @@ export default function AdminPartnerDetail() {
           churchVisits,
           links,
           languages,
+          tripTypes,
         ]) => {
           if (idRef.current === requestId) {
             setCollections({
@@ -317,6 +312,7 @@ export default function AdminPartnerDetail() {
               churchVisits,
               links,
               languages,
+              tripTypes,
             });
           }
         }
@@ -329,6 +325,11 @@ export default function AdminPartnerDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  const [currentUser, setCurrentUser] = useState(null);
+  useEffect(() => {
+    fetchCurrentUser().then(setCurrentUser);
+  }, []);
+
   // Called unconditionally, before the loading guard below, so the number
   // of hooks this component calls doesn't change between the "still
   // loading" render (p is null) and every render after -- see Rules of
@@ -339,6 +340,8 @@ export default function AdminPartnerDetail() {
   // the consolidated Monthly Support page, which may not stick around --
   // see PartnerSummaryCard's own hasMore/remaining/onShowMore props.
   const supportEntriesLoadMore = useLoadMore(collections.supportEntries, { initialCount: 2, step: 100 });
+  const churchVisitsLoadMore = useLoadMore(collections.churchVisits, { initialCount: 2, step: 100 });
+  const furloughsLoadMore = useLoadMore(collections.furloughs, { initialCount: 2, step: 100 });
 
   if (!p) return <p style={{ padding: "2rem" }}>Loading...</p>;
 
@@ -353,6 +356,12 @@ export default function AdminPartnerDetail() {
   const usedLinkTypes = new Set(collections.links.map((l) => l.type));
   const allowRestrictedPartnerDispatch = churchSettings?.allowRestrictedPartnerDispatch !== false;
   const canApproveNow = !!p.isRestricted && hasEnabledChannel && allowRestrictedPartnerDispatch;
+  // Gates whether clicking a Prayer Request/One-Time Need/Newsletter &
+  // Doc summary-card item opens an editable form or a read-only view --
+  // matches the roles these resources' own PUT routes already require
+  // (requireRole("admin", "editor")), so a viewer never sees a Save
+  // button for something the server would reject anyway.
+  const canEdit = currentUser?.role === "admin" || currentUser?.role === "editor";
 
   function closeModal() {
     setActiveModal(null);
@@ -414,6 +423,45 @@ export default function AdminPartnerDetail() {
     await reload();
   }
 
+  // Opens any prayer request from the summary card's list, not just the
+  // most recent -- `setPrayerDetail`'s updater wraps whatever
+  // PrayerRequestFormFields passes it (a plain object or a `(prev) =>
+  // next` function, same contract every other form here uses) so it
+  // still only ever touches this item's own `form` key.
+  function openPrayerDetail(item) {
+    setPrayerDetail({
+      id: item.id,
+      form: {
+        category: item.category,
+        requestText: item.requestText,
+        dateReceived: toDateInputValue(item.dateReceived),
+        isPublic: item.isPublic,
+        includeInBooklet: item.includeInBooklet,
+        notes: item.notes || "",
+        sourceFileId: item.sourceFileId || null,
+      },
+    });
+    setActiveModal("view-prayer");
+  }
+
+  function setPrayerDetailForm(updater) {
+    setPrayerDetail((d) => ({ ...d, form: typeof updater === "function" ? updater(d.form) : updater }));
+  }
+
+  async function submitPrayerDetail() {
+    const isStrategic = prayerDetail.form.category === "strategic";
+    await updatePrayerRequest(prayerDetail.id, {
+      category: prayerDetail.form.category,
+      requestText: prayerDetail.form.requestText.trim(),
+      dateReceived: prayerDetail.form.dateReceived,
+      isPublic: isStrategic ? prayerDetail.form.isPublic : false,
+      includeInBooklet: isStrategic && prayerDetail.form.isPublic ? prayerDetail.form.includeInBooklet : false,
+      notes: prayerDetail.form.notes || null,
+      sourceFileId: prayerDetail.form.sourceFileId,
+    });
+    await reload();
+  }
+
   function openAddNeed() {
     setNeedForm({
       description: "",
@@ -463,6 +511,35 @@ export default function AdminPartnerDetail() {
     await reload();
   }
 
+  function openNeedDetail(item) {
+    setNeedDetail({
+      id: item.id,
+      form: {
+        description: item.description,
+        requestedAmount: String(item.requestedAmount),
+        requestDate: toDateInputValue(item.requestDate),
+        notes: item.notes || "",
+        sourceFileId: item.sourceFileId || null,
+      },
+    });
+    setActiveModal("view-need");
+  }
+
+  function setNeedDetailForm(updater) {
+    setNeedDetail((d) => ({ ...d, form: typeof updater === "function" ? updater(d.form) : updater }));
+  }
+
+  async function submitNeedDetail() {
+    await updateSupportNeed(needDetail.id, {
+      description: needDetail.form.description.trim(),
+      requestedAmount: Number(needDetail.form.requestedAmount),
+      requestDate: needDetail.form.requestDate,
+      notes: needDetail.form.notes || null,
+      sourceFileId: needDetail.form.sourceFileId,
+    });
+    await reload();
+  }
+
   function openAddSupportEntry() {
     setSupportEntryForm({ amount: "", effectiveDate: todayInputValue(), notes: "" });
     setActiveModal("add-support");
@@ -504,6 +581,38 @@ export default function AdminPartnerDetail() {
     formData.append("receivedDate", fileForm.receivedDate);
     formData.append("notes", fileForm.notes);
     await uploadPartnerFile(formData);
+    await reload();
+  }
+
+  function openFileDetail(file) {
+    setFileDetail({
+      id: file.id,
+      form: {
+        kind: file.kind,
+        customKind: file.customKind || "",
+        title: file.title || "",
+        receivedDate: toDateInputValue(file.receivedDate),
+        notes: file.notes || "",
+      },
+    });
+    setActiveModal("view-file");
+  }
+
+  function setFileDetailForm(updater) {
+    setFileDetail((d) => ({ ...d, form: typeof updater === "function" ? updater(d.form) : updater }));
+  }
+
+  async function submitFileDetail() {
+    if (fileDetail.form.kind === "other" && !fileDetail.form.customKind.trim()) {
+      throw new Error("Enter a label for this file's kind");
+    }
+    await updatePartnerFile(fileDetail.id, {
+      kind: fileDetail.form.kind,
+      customKind: fileDetail.form.kind === "other" ? fileDetail.form.customKind.trim() : null,
+      title: fileDetail.form.title,
+      receivedDate: fileDetail.form.receivedDate,
+      notes: fileDetail.form.notes,
+    });
     await reload();
   }
 
@@ -1173,7 +1282,6 @@ export default function AdminPartnerDetail() {
                 hasMore={supportEntriesLoadMore.hasMore}
                 remaining={supportEntriesLoadMore.remaining}
                 onShowMore={supportEntriesLoadMore.showMore}
-                viewAllTo={`/admin/support/monthly?partnerId=${p.id}`}
                 actions={[{ label: "+ Add", onClick: openAddSupportEntry }]}
               />
             )}
@@ -1183,7 +1291,9 @@ export default function AdminPartnerDetail() {
                 icon="🎁"
                 title="One-Time Needs"
                 count={collections.needRequests.length}
-                items={collections.needRequests.slice(0, 3).map((n) => truncate(n.description, 70))}
+                items={collections.needRequests
+                  .slice(0, 3)
+                  .map((n) => ({ text: truncate(n.description, 70), onClick: () => openNeedDetail(n) }))}
                 viewAllTo={`/admin/support/needs?partnerId=${p.id}`}
                 actions={[
                   { label: "+ Add", onClick: openAddNeed },
@@ -1212,6 +1322,12 @@ export default function AdminPartnerDetail() {
                   : null
               }
               viewAllTo={`/admin/trips?partnerId=${p.id}`}
+              actions={[
+                {
+                  label: "+ Add",
+                  onClick: () => navigate(`/admin/trips?partnerId=${p.id}&newTrip=1`),
+                },
+              ]}
             />
           )}
 
@@ -1222,7 +1338,6 @@ export default function AdminPartnerDetail() {
               save({
                 tripTeamSizeMin: d.tripTeamSizeMin === "" ? null : Number(d.tripTeamSizeMin),
                 tripTeamSizeMax: d.tripTeamSizeMax === "" ? null : Number(d.tripTeamSizeMax),
-                tripTypesSupported: d.tripTypesSupported.map((t) => t.trim()).filter(Boolean),
                 tripSeasonNotes: d.tripSeasonNotes || null,
                 tripLogisticsNotes: d.tripLogisticsNotes || null,
               })
@@ -1230,7 +1345,6 @@ export default function AdminPartnerDetail() {
             value={{
               tripTeamSizeMin: p.tripTeamSizeMin ?? "",
               tripTeamSizeMax: p.tripTeamSizeMax ?? "",
-              tripTypesSupported: p.tripTypesSupported || [],
               tripSeasonNotes: p.tripSeasonNotes || "",
               tripLogisticsNotes: p.tripLogisticsNotes || "",
             }}
@@ -1247,13 +1361,6 @@ export default function AdminPartnerDetail() {
                   }
                   showEmpty
                 />
-                <div style={{ marginTop: "0.75rem" }}>
-                  <Field
-                    label="Trip Types Supported"
-                    value={v.tripTypesSupported.length ? v.tripTypesSupported.join(", ") : null}
-                    showEmpty
-                  />
-                </div>
                 <div style={{ marginTop: "0.75rem" }}>
                   <Field label="Best Time of Year / Duration Notes" value={v.tripSeasonNotes} />
                   <Field label="Lodging &amp; Logistics Notes" value={v.tripLogisticsNotes} />
@@ -1282,25 +1389,6 @@ export default function AdminPartnerDetail() {
                     />
                   </label>
                 </div>
-                <h4 style={{ marginTop: "1rem" }}>Trip Types Supported</h4>
-                <RepeatableRows
-                  rows={d.tripTypesSupported.map((t) => ({ value: t }))}
-                  onChange={(rows) =>
-                    set(
-                      "tripTypesSupported",
-                      rows.map((r) => r.value ?? "")
-                    )
-                  }
-                  blank={{ value: "" }}
-                  render={(row, setField) => (
-                    <PresetOrCustomSelect
-                      value={row.value}
-                      onChange={(v) => setField("value", v)}
-                      presets={TRIP_TYPE_PRESETS}
-                      placeholder="e.g. Photography"
-                    />
-                  )}
-                />
                 <label style={{ marginTop: "1rem" }}>
                   Best Time of Year / Duration Notes
                   <textarea
@@ -1320,6 +1408,15 @@ export default function AdminPartnerDetail() {
               </>
             )}
           />
+
+          <PartnerRecordList
+            title="Trip Types Supported"
+            items={collections.tripTypes}
+            renderItem={(t) => <Field label="Type" value={t.type} />}
+            onAdd={() => tripTypeCrud.openAdd({ type: "" })}
+            onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
+            onDelete={(t) => tripTypeCrud.handleDelete(t, (item) => `Delete "${item.type}"?`)}
+          />
         </div>
 
         <div className="admin-section-group" id="section-communication">
@@ -1330,7 +1427,9 @@ export default function AdminPartnerDetail() {
               icon="🙏"
               title="Prayer Requests"
               count={collections.prayerRequests.length}
-              items={collections.prayerRequests.slice(0, 3).map((r) => truncate(r.requestText, 70))}
+              items={collections.prayerRequests
+                .slice(0, 3)
+                .map((r) => ({ text: truncate(r.requestText, 70), onClick: () => openPrayerDetail(r) }))}
               viewAllTo={`/admin/prayer-requests?partnerId=${p.id}`}
               actions={[
                 { label: "+ Add", onClick: openAddPrayerRequest },
@@ -1346,7 +1445,9 @@ export default function AdminPartnerDetail() {
               icon="📰"
               title="Newsletters & Docs"
               count={collections.files.length}
-              items={collections.files.slice(0, 3).map((f) => f.title || f.fileName)}
+              items={collections.files
+                .slice(0, 3)
+                .map((f) => ({ text: f.title || f.fileName, onClick: () => openFileDetail(f) }))}
               viewAllTo={`/admin/partner-files?partnerId=${p.id}`}
               actions={[{ label: "+ Upload", onClick: openUploadFile }]}
             />
@@ -1354,7 +1455,7 @@ export default function AdminPartnerDetail() {
 
           <PartnerRecordList
             title="Church Visits"
-            items={collections.churchVisits}
+            items={churchVisitsLoadMore.visible}
             renderItem={(v) => (
               <>
                 <Field label="Visit Date" value={formatDateLong(v.visitDate)} showEmpty />
@@ -1367,12 +1468,15 @@ export default function AdminPartnerDetail() {
             }
             onDelete={(v) => churchVisitCrud.handleDelete(v, (item) => `Delete the visit on ${formatDateLong(item.visitDate)}?`)}
             emptyMessage="No visits on file."
+            hasMore={churchVisitsLoadMore.hasMore}
+            remaining={churchVisitsLoadMore.remaining}
+            onShowMore={churchVisitsLoadMore.showMore}
           />
 
           {!isOrg && (
             <PartnerRecordList
               title="Furlough"
-              items={collections.furloughs}
+              items={furloughsLoadMore.visible}
               renderItem={(f) => (
                 <>
                   <Field label="Start Date" value={formatDateLong(f.startDate)} showEmpty />
@@ -1390,6 +1494,9 @@ export default function AdminPartnerDetail() {
               }
               onDelete={(f) => furloughCrud.handleDelete(f, (item) => `Delete the furlough starting ${formatDateLong(item.startDate)}?`)}
               emptyMessage="No furlough history on file."
+              hasMore={furloughsLoadMore.hasMore}
+              remaining={furloughsLoadMore.remaining}
+              onShowMore={furloughsLoadMore.showMore}
             />
           )}
 
@@ -1432,6 +1539,26 @@ export default function AdminPartnerDetail() {
           </div>
         </QuickActionModal>
       )}
+
+      {activeModal === "view-prayer" &&
+        prayerDetail &&
+        (canEdit ? (
+          <QuickActionModal title="Prayer Request" onClose={closeModal} onSubmit={submitPrayerDetail}>
+            <PrayerRequestFormFields
+              form={prayerDetail.form}
+              setForm={setPrayerDetailForm}
+              files={collections.files}
+              mode="edit"
+            />
+          </QuickActionModal>
+        ) : (
+          <Modal title="Prayer Request" onClose={closeModal}>
+            <Field label="Category" value={prayerDetail.form.category === "strategic" ? "Strategic" : "Situational"} />
+            <Field label="Date Received" value={formatDateLong(prayerDetail.form.dateReceived)} />
+            <Field label="Prayer Request" value={prayerDetail.form.requestText} />
+            <Field label="Admin Notes" value={prayerDetail.form.notes} />
+          </Modal>
+        ))}
 
       {activeModal === "add-need" && (
         <QuickActionModal title="Add One-Time Need" onClose={closeModal} onSubmit={submitAddNeed}>
@@ -1480,6 +1607,21 @@ export default function AdminPartnerDetail() {
         </QuickActionModal>
       )}
 
+      {activeModal === "view-need" &&
+        needDetail &&
+        (canEdit ? (
+          <QuickActionModal title="One-Time Need" onClose={closeModal} onSubmit={submitNeedDetail}>
+            <SupportNeedFormFields form={needDetail.form} setForm={setNeedDetailForm} files={collections.files} mode="edit" />
+          </QuickActionModal>
+        ) : (
+          <Modal title="One-Time Need" onClose={closeModal}>
+            <Field label="Description" value={needDetail.form.description} />
+            <Field label="Requested Amount" value={formatCurrency(needDetail.form.requestedAmount)} />
+            <Field label="Request Date" value={formatDateLong(needDetail.form.requestDate)} />
+            <Field label="Notes" value={needDetail.form.notes} />
+          </Modal>
+        ))}
+
       {activeModal === "add-support" && (
         <QuickActionModal title="Add Support Entry" onClose={closeModal} onSubmit={submitAddSupportEntry}>
           <SupportEntryFormFields form={supportEntryForm} setForm={setSupportEntryForm} />
@@ -1505,6 +1647,21 @@ export default function AdminPartnerDetail() {
           />
         </QuickActionModal>
       )}
+
+      {activeModal === "view-file" &&
+        fileDetail &&
+        (canEdit ? (
+          <QuickActionModal title="Newsletter / Doc" onClose={closeModal} onSubmit={submitFileDetail}>
+            <PartnerFileFormFields form={fileDetail.form} setForm={setFileDetailForm} />
+          </QuickActionModal>
+        ) : (
+          <Modal title="Newsletter / Doc" onClose={closeModal}>
+            <Field label="Kind" value={fileKindLabel(fileDetail.form)} />
+            <Field label="Title" value={fileDetail.form.title} />
+            <Field label="Received Date" value={formatDateLong(fileDetail.form.receivedDate)} />
+            <Field label="Notes" value={fileDetail.form.notes} />
+          </Modal>
+        ))}
 
       {adultCrud.form && (
         <QuickActionModal
@@ -1655,6 +1812,26 @@ export default function AdminPartnerDetail() {
                   </option>
                 ))}
               </select>
+            </label>
+          </div>
+        </QuickActionModal>
+      )}
+
+      {tripTypeCrud.form && (
+        <QuickActionModal
+          title={tripTypeCrud.editingId ? "Edit Trip Type" : "Add Trip Type"}
+          onClose={tripTypeCrud.close}
+          onSubmit={() => tripTypeCrud.submit({ partnerId: p.id, type: tripTypeCrud.form.type.trim() })}
+        >
+          <div className="form-grid">
+            <label style={{ gridColumn: "1 / -1" }}>
+              Trip Type
+              <PresetOrCustomSelect
+                value={tripTypeCrud.form.type}
+                onChange={(v) => tripTypeCrud.setForm((f) => ({ ...f, type: v }))}
+                presets={TRIP_TYPE_PRESETS}
+                placeholder="e.g. Photography"
+              />
             </label>
           </div>
         </QuickActionModal>

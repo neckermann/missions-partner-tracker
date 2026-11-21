@@ -528,6 +528,22 @@ export async function deletePartnerLanguage(id) {
   await api.delete(`/partner-languages/${id}`);
 }
 
+export async function fetchTripTypes(params = {}) {
+  const { data } = await api.get("/trip-types", { params });
+  return data;
+}
+export async function createTripType(payload) {
+  const { data } = await api.post("/trip-types", payload);
+  return data;
+}
+export async function updateTripType(id, payload) {
+  const { data } = await api.put(`/trip-types/${id}`, payload);
+  return data;
+}
+export async function deleteTripType(id) {
+  await api.delete(`/trip-types/${id}`);
+}
+
 // Optional { partnerId, tripType, year } filters — the Trip History page
 // used to fetch every partner with all their relations and flatten the
 // trips out client-side; this is one query instead.

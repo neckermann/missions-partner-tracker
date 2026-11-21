@@ -38,27 +38,18 @@ function lastVisitTimestamp(row) {
 // "Never visited" deliberately matches the quick bucket's low end
 // ("Never visited" itself) but not "Within.../Over..." -- those ask about
 // a real last-visit date, and a partner with none hasn't earned a bucket
-// either way. It DOES match a "Visited Before" cutoff (below), where the
-// question is "who's overdue," and no visit at all is the most overdue
-// case there is.
+// either way.
 function matchesLastVisitQuick(row, quick) {
   if (quick === "all") return true;
   const ts = lastVisitTimestamp(row);
   if (quick === "never") return ts === null;
   if (ts === null) return false;
   const days = (Date.now() - ts) / 86400000;
-  if (quick === "within6m") return days <= 182;
   if (quick === "within1y") return days <= 365;
   if (quick === "over1y") return days > 365;
   if (quick === "over2y") return days > 730;
+  if (quick === "over3y") return days > 1095;
   return true;
-}
-
-function matchesVisitedBefore(row, cutoff) {
-  if (!cutoff) return true;
-  const ts = lastVisitTimestamp(row);
-  if (ts === null) return true;
-  return ts < new Date(cutoff).getTime();
 }
 
 const emptyFilters = {
@@ -69,7 +60,6 @@ const emptyFilters = {
   country: "all",
   includeArchived: false,
   lastVisitQuick: "all",
-  visitedBefore: "",
   search: "",
 };
 
@@ -82,10 +72,10 @@ const emptyFilters = {
 // search stays client-side against the already-filtered result set
 // (matchesSearch over name/field/focus/summary/country) -- debouncing a
 // server round-trip per keystroke isn't worth it for a dataset this size.
-// Last Visit (both the quick-bucket select and the exact-cutoff date
-// picker) is client-side too, for the same reason: it reads
-// churchVisits[0] off a row already fetched for the Last Visit column
-// and its sort, so there's no new request to make it server-side for.
+// Last Visit's quick-bucket select is client-side too, for the same
+// reason: it reads churchVisits[0] off a row already fetched for the
+// Last Visit column and its sort, so there's no new request to make it
+// server-side for.
 export default function AdminPartners() {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [partners, setPartners] = useState([]);
@@ -155,13 +145,12 @@ export default function AdminPartners() {
         options: [
           { value: "all", label: "Any time" },
           { value: "never", label: "Never visited" },
-          { value: "within6m", label: "Within 6 months" },
           { value: "within1y", label: "Within 1 year" },
           { value: "over1y", label: "Over 1 year ago" },
           { value: "over2y", label: "Over 2 years ago" },
+          { value: "over3y", label: "Over 3 years ago" },
         ],
       },
-      { name: "visitedBefore", label: "Visited Before", type: "date" },
       { name: "search", label: "Search by name, field, focus, or summary" },
     ],
     [availableContinents]
@@ -260,8 +249,7 @@ export default function AdminPartners() {
   }, [availableCountries]);
   const visible = visibleBeforeSearch
     .filter((r) => matchesSearch(filters.search, r.name, r.field, r.focusArea, r.overviewShort, r.country))
-    .filter((r) => matchesLastVisitQuick(r, filters.lastVisitQuick))
-    .filter((r) => matchesVisitedBefore(r, filters.visitedBefore));
+    .filter((r) => matchesLastVisitQuick(r, filters.lastVisitQuick));
 
   async function handleArchive(row) {
     const confirmed = await confirmDialog({
@@ -369,7 +357,7 @@ export default function AdminPartners() {
             label: "Name",
             render: (row) => (
               <>
-                {row.name}
+                <span style={{ fontWeight: 600 }}>{row.name}</span>
                 {row.archived && (
                   <span style={{ marginLeft: "0.5rem" }}>
                     <StatusPill label="Archived" color="#a6540f" />
@@ -384,19 +372,39 @@ export default function AdminPartners() {
             key: "isPublic",
             label: "Public",
             sortable: true,
-            render: (row) => (row.isPublic ? "Yes" : "No"),
+            render: (row) =>
+              row.isPublic ? (
+                <StatusPill label="Yes" color="#2a5d3c" />
+              ) : (
+                <StatusPill label="No" color="#6b6f76" />
+              ),
           },
           {
             key: "isRestricted",
             label: "Restricted",
             sortable: true,
-            render: (row) => (row.isRestricted ? "Yes" : "No"),
+            render: (row) =>
+              row.isRestricted ? (
+                <StatusPill label="Yes" color="#a6540f" />
+              ) : (
+                <StatusPill label="No" color="#6b6f76" />
+              ),
           },
           {
             key: "sentByOurChurch",
             label: sentByLabel,
             sortable: true,
-            render: (row) => (row.type === "missionary" ? (row.sentByOurChurch ? "Yes" : "No") : "—"),
+            // Same bland, muted pill for Yes and No -- unlike Public/
+            // Restricted, this isn't a safety or exposure question, just
+            // bookkeeping, so neither state earns the attention a brighter
+            // color would draw. Still a pill, not plain text, for visual
+            // consistency with the rest of the row.
+            render: (row) =>
+              row.type !== "missionary" ? (
+                "—"
+              ) : (
+                <StatusPill label={row.sentByOurChurch ? "Yes" : "No"} color="#6b6f76" />
+              ),
           },
           {
             key: "churchVisits",

@@ -58,6 +58,24 @@ body {
 a {
   color: var(--brand-color, #2a5d3c);
 }
+/* A <button> styled to read as an inline link, for a summary-card item
+   that opens a popup (PartnerSummaryCard.jsx) rather than navigating --
+   real link semantics (href, open-in-new-tab) don't apply there, so a
+   button is the correct element; this just makes it look like one. */
+.summary-item-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  text-align: left;
+  color: var(--brand-color, #2a5d3c);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.summary-item-link:hover {
+  color: var(--brand-highlight-color, #a6540f);
+}
 
 .app-header {
   padding: 1rem 1.5rem;
@@ -751,10 +769,20 @@ a {
 .admin-table th.sortable.sorted {
   color: var(--brand-highlight-color, #a6540f);
 }
+/* A sortable header's label and icon sit in this flex wrapper so the
+   icon stays put at the trailing edge, vertically centered against the
+   label -- without it, a label that wraps to two lines (e.g. "Sent By
+   Us" in a narrow column) pushed the icon down after its last line,
+   landing it at a different height than a one-line header's icon right
+   next to it. */
+.admin-table th .th-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
 .admin-table th .sort-indicator {
   display: inline-flex;
-  vertical-align: middle;
-  margin-left: 0.3rem;
+  flex-shrink: 0;
   opacity: 0.35;
 }
 .admin-table th.sortable:hover .sort-indicator,

@@ -172,11 +172,15 @@ export default function Table({
                   onClick={c.sortable ? () => toggleSort(c) : undefined}
                   aria-sort={sorted ? (sort.direction === "asc" ? "ascending" : "descending") : undefined}
                 >
-                  {c.label}
-                  {c.sortable && (
-                    <span className="sort-indicator">
-                      <SortIcon direction={sorted ? sort.direction : null} />
+                  {c.sortable ? (
+                    <span className="th-inner">
+                      <span>{c.label}</span>
+                      <span className="sort-indicator">
+                        <SortIcon direction={sorted ? sort.direction : null} />
+                      </span>
                     </span>
+                  ) : (
+                    c.label
                   )}
                 </th>
               );
