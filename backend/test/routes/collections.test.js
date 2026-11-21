@@ -16,9 +16,9 @@ const {
 
 // The collections hanging off a partner (trips, support entries,
 // one-time needs, prayer requests, partner files, adults, children,
-// furloughs, church visits, links, languages). Each router is the *only*
-// writer for its table -- the partner record's own PUT refuses them -- so
-// the gates here are the whole story for that data.
+// furloughs, church visits, links, languages, trip types). Each router is
+// the *only* writer for its table -- the partner record's own PUT refuses
+// them -- so the gates here are the whole story for that data.
 
 let admin;
 let editor;
@@ -169,6 +169,14 @@ function collectionCases() {
       patch: { proficiency: "3" },
       readBack: (r) => r.proficiency,
       expectAfterPatch: "3",
+    },
+    {
+      name: "trip-types",
+      path: "/api/trip-types",
+      create: () => ({ partnerId: partner.id, type: "Construction" }),
+      patch: { type: "Medical/Dental" },
+      readBack: (r) => r.type,
+      expectAfterPatch: "Medical/Dental",
     },
   ];
 }

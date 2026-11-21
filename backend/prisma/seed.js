@@ -2996,7 +2996,7 @@ async function main() {
         languages: { create: buildLanguages() },
         tripTeamSizeMin: chance(0.7) ? randInt(2, 6) : null,
         tripTeamSizeMax: chance(0.7) ? randInt(8, 15) : null,
-        tripTypesSupported: pickN(TRIP_TYPES, randInt(1, 3)),
+        tripTypes: { create: pickN(TRIP_TYPES, randInt(1, 3)).map((type) => ({ type })) },
         tripSeasonNotes: chance(0.5) ? pick(SEASON_NOTES) : null,
         tripLogisticsNotes: chance(0.5) ? pick(LOGISTICS_NOTES) : null,
         links: { create: buildLinks(`${last.toLowerCase()}family`) },
@@ -3144,7 +3144,7 @@ async function main() {
         links: { create: buildLinks(slugify(name)) },
         tripTeamSizeMin: chance(0.7) ? randInt(4, 8) : null,
         tripTeamSizeMax: chance(0.7) ? randInt(10, 20) : null,
-        tripTypesSupported: pickN(TRIP_TYPES, randInt(1, 3)),
+        tripTypes: { create: pickN(TRIP_TYPES, randInt(1, 3)).map((type) => ({ type })) },
         tripSeasonNotes: chance(0.5) ? pick(SEASON_NOTES) : null,
         tripLogisticsNotes: chance(0.5) ? pick(LOGISTICS_NOTES) : null,
         photos: {

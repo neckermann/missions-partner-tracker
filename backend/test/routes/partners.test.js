@@ -206,24 +206,27 @@ describe("partners: read models", () => {
       "churchVisits",
       "links",
       "languages",
+      "tripTypes",
     ]) {
       assert.ok(!(absent in body), `detail record should not include ${absent}`);
     }
   });
 
-  test("adults/children/furloughs/church visits created at creation time are reachable only through their own endpoints", async () => {
+  test("adults/children/furloughs/church visits/trip types created at creation time are reachable only through their own endpoints", async () => {
     const p = await createPartner({
       adults: [{ firstName: "Test", lastName: "Adult" }],
       children: [{ firstName: "Test", lastName: "Child" }],
       furloughs: [{ startDate: "2026-01-01" }],
       churchVisits: [{ visitDate: "2026-01-01" }],
+      tripTypes: [{ type: "Construction" }],
     });
 
-    const [adults, children, furloughs, churchVisits] = await Promise.all([
+    const [adults, children, furloughs, churchVisits, tripTypes] = await Promise.all([
       admin(`/api/adults?partnerId=${p.id}`),
       admin(`/api/children?partnerId=${p.id}`),
       admin(`/api/furloughs?partnerId=${p.id}`),
       admin(`/api/church-visits?partnerId=${p.id}`),
+      admin(`/api/trip-types?partnerId=${p.id}`),
     ]);
     assert.equal(adults.body.length, 1);
     assert.equal(adults.body[0].firstName, "Test");
@@ -232,6 +235,8 @@ describe("partners: read models", () => {
     assert.equal(children.body[0].lastName, "Child");
     assert.equal(furloughs.body.length, 1);
     assert.equal(churchVisits.body.length, 1);
+    assert.equal(tripTypes.body.length, 1);
+    assert.equal(tripTypes.body[0].type, "Construction");
   });
 
   test("kind and archived filters work", async () => {
@@ -304,10 +309,10 @@ describe("partners: collections are not writable through the partner record", ()
     assert.equal(body.addresses[0].country, "Second Country");
   });
 
-  test("a partner save cannot delete adults/children/furloughs/church visits/links/languages either", async () => {
+  test("a partner save cannot delete adults/children/furloughs/church visits/links/languages/trip types either", async () => {
     const p = await createPartner({ adults: [{ firstName: "Original" }] });
 
-    const [adult, link, language] = await Promise.all([
+    const [adult, link, language, tripType] = await Promise.all([
       admin("/api/adults", { method: "POST", body: { partnerId: p.id, firstName: "Added" } }),
       admin("/api/partner-links", {
         method: "POST",
@@ -317,10 +322,15 @@ describe("partners: collections are not writable through the partner record", ()
         method: "POST",
         body: { partnerId: p.id, language: "Spanish" },
       }),
+      admin("/api/trip-types", {
+        method: "POST",
+        body: { partnerId: p.id, type: "Construction" },
+      }),
     ]);
     assert.equal(adult.status, 201);
     assert.equal(link.status, 201);
     assert.equal(language.status, 201);
+    assert.equal(tripType.status, 201);
 
     const saved = await admin(`/api/partners/${p.id}`, {
       method: "PUT",
@@ -332,6 +342,7 @@ describe("partners: collections are not writable through the partner record", ()
         churchVisits: [],
         links: [],
         languages: [],
+        tripTypes: [],
       },
     });
     assert.equal(saved.status, 200);
@@ -339,9 +350,11 @@ describe("partners: collections are not writable through the partner record", ()
     const adults = await admin(`/api/adults?partnerId=${p.id}`);
     const links = await admin(`/api/partner-links?partnerId=${p.id}`);
     const languages = await admin(`/api/partner-languages?partnerId=${p.id}`);
+    const tripTypes = await admin(`/api/trip-types?partnerId=${p.id}`);
     assert.equal(adults.body.length, 2, "both adults (creation-time and added after) must survive");
     assert.equal(links.body.length, 1, "link must survive a partner save");
     assert.equal(languages.body.length, 1, "language must survive a partner save");
+    assert.equal(tripTypes.body.length, 1, "trip type must survive a partner save");
   });
 });
 

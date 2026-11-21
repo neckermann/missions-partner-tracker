@@ -498,3 +498,26 @@ describe("Trips: trip-wide document title/fileSize, and participant visibility",
     );
   });
 });
+
+describe("GET /api/trips/planning", () => {
+  test("reads trip types from the TripType relation, not the old tripTypesSupported column", async () => {
+    const partner = await createPartner({
+      tripTeamSizeMin: 3,
+      tripTeamSizeMax: 10,
+      tripTypes: [{ type: "Construction" }, { type: "Medical/Dental" }],
+    });
+
+    const res = await admin("/api/trips/planning");
+    assert.equal(res.status, 200);
+    const row = res.body.find((r) => r.partnerId === partner.id);
+    assert.ok(row, "partner with at least one trip type should appear in the planning list");
+    assert.deepEqual(row.tripTypesSupported, ["Construction", "Medical/Dental"]);
+  });
+
+  test("a partner with no trip types at all is excluded", async () => {
+    const partner = await createPartner();
+    const res = await admin("/api/trips/planning");
+    assert.equal(res.status, 200);
+    assert.ok(!res.body.some((r) => r.partnerId === partner.id));
+  });
+});

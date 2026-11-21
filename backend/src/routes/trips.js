@@ -146,14 +146,14 @@ router.get("/", async (req, res, next) => {
 router.get("/planning", async (req, res, next) => {
   try {
     const partners = await prisma.partner.findMany({
-      where: { archived: false, tripTypesSupported: { isEmpty: false } },
+      where: { archived: false, tripTypes: { some: {} } },
       select: {
         id: true,
         displayName: true,
         isRestricted: true,
         tripTeamSizeMin: true,
         tripTeamSizeMax: true,
-        tripTypesSupported: true,
+        tripTypes: { select: { type: true } },
         tripSeasonNotes: true,
         tripLogisticsNotes: true,
         trips: {
@@ -187,7 +187,7 @@ router.get("/planning", async (req, res, next) => {
         trip: open || committed || null,
         teamSizeMin: p.tripTeamSizeMin,
         teamSizeMax: p.tripTeamSizeMax,
-        tripTypesSupported: p.tripTypesSupported,
+        tripTypesSupported: p.tripTypes.map((t) => t.type),
         tripSeasonNotes: p.tripSeasonNotes,
         tripLogisticsNotes: p.tripLogisticsNotes,
         pastTripCount: completed.length,

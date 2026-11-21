@@ -26,6 +26,7 @@ const furloughRoutes = require("./routes/furloughs");
 const churchVisitRoutes = require("./routes/churchVisits");
 const partnerLinkRoutes = require("./routes/partnerLinks");
 const partnerLanguageRoutes = require("./routes/partnerLanguages");
+const tripTypeRoutes = require("./routes/tripTypes");
 const tripRoutes = require("./routes/trips");
 const tripMeetingRoutes = require("./routes/tripMeetings");
 const tripRequirementRoutes = require("./routes/tripRequirements");
@@ -223,6 +224,7 @@ app.use("/api/furloughs", furloughRoutes); // protected (admin) — session requ
 app.use("/api/church-visits", churchVisitRoutes); // protected (admin) — session required
 app.use("/api/partner-links", partnerLinkRoutes); // protected (admin) — session required
 app.use("/api/partner-languages", partnerLanguageRoutes); // protected (admin) — session required
+app.use("/api/trip-types", tripTypeRoutes); // protected (admin) — session required
 app.use("/api/trips", tripRoutes); // protected (admin) — session required
 // #271 Finding 1: three sibling sub-resource routers, same prefix as
 // tripRoutes above (not a separate API surface) -- split out of a

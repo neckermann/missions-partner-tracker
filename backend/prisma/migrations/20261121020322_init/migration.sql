@@ -30,7 +30,6 @@ CREATE TABLE "Partner" (
     "emergencyContactEmail" TEXT,
     "tripTeamSizeMin" INTEGER,
     "tripTeamSizeMax" INTEGER,
-    "tripTypesSupported" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "tripSeasonNotes" TEXT,
     "tripLogisticsNotes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -354,6 +353,16 @@ CREATE TABLE "PartnerLanguage" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "PartnerLanguage_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TripType" (
+    "id" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TripType_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -770,6 +779,9 @@ CREATE UNIQUE INDEX "PartnerLink_partnerId_type_key" ON "PartnerLink"("partnerId
 CREATE INDEX "PartnerLanguage_partnerId_idx" ON "PartnerLanguage"("partnerId");
 
 -- CreateIndex
+CREATE INDEX "TripType_partnerId_idx" ON "TripType"("partnerId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "SendingParty_partnerId_type_key" ON "SendingParty"("partnerId", "type");
 
 -- CreateIndex
@@ -897,6 +909,9 @@ ALTER TABLE "PartnerLink" ADD CONSTRAINT "PartnerLink_partnerId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "PartnerLanguage" ADD CONSTRAINT "PartnerLanguage_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TripType" ADD CONSTRAINT "TripType_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SendingParty" ADD CONSTRAINT "SendingParty_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;

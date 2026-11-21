@@ -97,9 +97,8 @@ model Partner {
   // --- Mission trip capacity: what kind of team this partner can host ---
   tripTeamSizeMin    Int?
   tripTeamSizeMax    Int?
-  tripTypesSupported String[] @default([]) // e.g. ["Construction", "Medical/Dental"]
-  tripSeasonNotes    String?  @db.Text // best time of year, typical duration, etc.
-  tripLogisticsNotes String?  @db.Text // lodging, requirements, other logistics
+  tripSeasonNotes    String? @db.Text // best time of year, typical duration, etc.
+  tripLogisticsNotes String? @db.Text // lodging, requirements, other logistics
 
   // --- Collections ---
   // Each is its own resource with per-row create/update/delete (see the
@@ -138,6 +137,9 @@ model Partner {
   // its own row so a proficiency level can be attached and updated per
   // language without resending every other one.
   languages                PartnerLanguage[]
+  // Replaces the old tripTypesSupported String[] column -- same reasoning
+  // as links/languages above, not a trip-capacity-specific exception.
+  tripTypes                TripType[]
 
   // addresses/sendingParties are the one exception to "per-row CRUD": each
   // type has at most one row per partner (@@unique([partnerId, type])), so
@@ -224,9 +226,9 @@ model Address {
 // purely historical backfill is just a trip created already `completed`,
 // skipping the recruiting/application stages; an actively-recruited trip
 // starts `planning` and moves through `accepting_applications`/`closed`.
-// Not a capacity/preference profile -- that lives on
-// Partner.tripTypesSupported etc, which this trip's own fields are
-// pre-filled from at creation but can then diverge from per-instance.
+// Not a capacity/preference profile -- that lives on Partner.tripTypes
+// etc, which this trip's own fields are pre-filled from at creation but
+// can then diverge from per-instance.
 model Trip {
   id        String   @id @default(uuid())
   partnerId String?
@@ -248,9 +250,9 @@ model Trip {
   endDate     DateTime? @db.Date
   // Renamed from tripType -- Trip.tripType stutters against its own
   // model name; bare `type` is unambiguous within Trip, same precedent
-  // SendingParty.type already sets. Partner.tripTypesSupported keeps its
-  // "trip" qualifier since it lives on a model with many unrelated
-  // fields, where dropping the prefix would be ambiguous.
+  // SendingParty.type already sets. Partner.tripTypes.type keeps its
+  // own model's "trip" qualifier (TripType, not just Type) since "Type"
+  // alone would be ambiguous as a model name.
   type        String? // e.g. "Construction", "Medical/Dental" — preset or custom
   description String?   @db.Text // what the team did/will do -- doubles as the public trip overview when isPublic is on
   notes       String?   @db.Text // admin-only
@@ -877,6 +879,22 @@ model PartnerLanguage {
   language    String
   proficiency String?
   createdAt   DateTime @default(now())
+
+  @@index([partnerId])
+}
+
+// Replaces the old Partner.tripTypesSupported String[] column -- same
+// per-row-CRUD reasoning as PartnerLink/PartnerLanguage above, not a
+// trip-capacity-specific exception. No @@unique: a partner can support
+// several trips of what's effectively the same custom type string
+// without that being an error, the same way PartnerLanguage doesn't
+// block a duplicate language either.
+model TripType {
+  id        String   @id @default(uuid())
+  partnerId String
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  type      String // e.g. "Construction", "Medical/Dental" -- preset or custom
+  createdAt DateTime @default(now())
 
   @@index([partnerId])
 }

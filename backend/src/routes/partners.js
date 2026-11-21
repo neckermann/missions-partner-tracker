@@ -54,10 +54,10 @@ const upload = uploadFilteredBy(resolveImageExt, {
 //
 // Deliberately NOT the history collections (trips, support entries,
 // one-time needs, prayer requests, partner files, adults, children,
-// furloughs, church visits, links, languages). Those are independent
-// resources with their own endpoints, and each section of the partner
-// page loads the one it needs -- a list row shouldn't drag ten years of
-// history across the wire to render a name.
+// furloughs, church visits, links, languages, trip types). Those are
+// independent resources with their own endpoints, and each section of
+// the partner page loads the one it needs -- a list row shouldn't drag
+// ten years of history across the wire to render a name.
 const partnerRecordInclude = {
   sendingParties: true,
   addresses: true,
@@ -85,11 +85,11 @@ const partnerSummarySelect = {
   supportingSince: true,
   overviewShort: true,
   focusArea: true,
-  // Trip-hosting capacity: five small scalars, kept in the summary because
-  // the Trip Opportunities page filters on exactly these and nothing else.
+  // Trip-hosting capacity, kept in the summary because the Trip
+  // Opportunities page filters on exactly these and nothing else.
   tripTeamSizeMin: true,
   tripTeamSizeMax: true,
-  tripTypesSupported: true,
+  tripTypes: { select: { type: true } },
   tripSeasonNotes: true,
   tripLogisticsNotes: true,
   addresses: {
@@ -208,7 +208,6 @@ const partnerSchema = z.object({
   supportingSince: z.coerce.date().optional().nullable(),
   tripTeamSizeMin: z.coerce.number().int().optional().nullable(),
   tripTeamSizeMax: z.coerce.number().int().optional().nullable(),
-  tripTypesSupported: z.array(z.string()).optional(),
   tripSeasonNotes: z.string().optional().nullable(),
   tripLogisticsNotes: z.string().optional().nullable(),
 
@@ -251,6 +250,7 @@ const partnerLanguageSchema = z.object({
   language: z.string().min(1),
   proficiency: z.enum(PROFICIENCY_LEVELS).optional().nullable(),
 });
+const tripTypeSchema = z.object({ type: z.string().min(1) });
 
 // POST-only: a brand-new partner's household/furlough history/links/
 // languages are normally known upfront (see Wizard.jsx's own comment on
@@ -264,6 +264,7 @@ const partnerCreateSchema = partnerSchema.extend({
   churchVisits: z.array(churchVisitSchema).optional(),
   links: z.array(partnerLinkSchema).optional(),
   languages: z.array(partnerLanguageSchema).optional(),
+  tripTypes: z.array(tripTypeSchema).optional(),
 });
 
 // Converts the { physical, mailing } shape used by the API into the row
@@ -437,6 +438,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
       churchVisits,
       links,
       languages,
+      tripTypes,
       ...scalarData
     } = data;
     const addressRows = await buildAddressRows(addresses);
@@ -458,6 +460,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
         churchVisits: churchVisits ? { create: churchVisits } : undefined,
         links: links ? { create: links } : undefined,
         languages: languages ? { create: languages } : undefined,
+        tripTypes: tripTypes ? { create: tripTypes } : undefined,
       },
       include: partnerRecordInclude,
     });
@@ -584,14 +587,14 @@ router.delete("/:id/photos/:photoId", requireRole("admin"), async (req, res, nex
 // -- there's no "add a new one without touching the other" case the way
 // there is for a growing list.
 //
-// Trips, support entries, one-time needs, prayer requests, partner files,
-// adults, children, furloughs, church visits, links, and languages are
-// deliberately NOT accepted here, even if the client sends them (Zod
-// silently drops unrecognized keys). Each has its own per-row endpoint,
-// and accepting them here meant deleting and recreating every row on each
-// save — which churned their ids, reset their timestamps, and silently
-// destroyed any row added through the other endpoint since the client
-// last loaded the record.
+// Trips, support entries, one-time needs, prayer requests, partner
+// files, adults, children, furloughs, church visits, links, languages,
+// and trip types are deliberately NOT accepted here, even if the client
+// sends them (Zod silently drops unrecognized keys). Each has its own
+// per-row endpoint, and accepting them here meant deleting and
+// recreating every row on each save — which churned their ids, reset
+// their timestamps, and silently destroyed any row added through the
+// other endpoint since the client last loaded the record.
 router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const data = partnerSchema.partial().parse(req.body);
