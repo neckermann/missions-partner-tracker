@@ -78,8 +78,9 @@ function renderFamilyBlock(m, fields) {
   }
   if (fields.showChildren) {
     (m.children || []).forEach((c) => {
+      const name = [c.firstName, c.lastName].filter(Boolean).join(" ");
       rows.push(
-        `<p><em>Child</em> — ${escapeHtml(c.name)}${c.birthday ? ` — ${escapeHtml(formatDateLong(c.birthday, { fallback: "" }))}` : ""}</p>`
+        `<p><em>Child</em> — ${escapeHtml(name)}${c.birthday ? ` — ${escapeHtml(formatDateLong(c.birthday, { fallback: "" }))}` : ""}</p>`
       );
     });
   }

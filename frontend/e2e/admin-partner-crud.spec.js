@@ -50,14 +50,15 @@ test.describe("Admin partner CRUD", () => {
     const location = section(page, "Serving Location");
     await expect(location).toContainText("Philippines");
 
-    // Edit in place: change the name from the Mailing & Contact Address
-    // section (Display Name lives there now) and confirm it round-trips
-    // without leaving the page.
-    const mailing = section(page, "Mailing & Contact Address");
-    await mailing.getByRole("button", { name: "Edit" }).click();
+    // Edit in place: change the name from the Status & Visibility section
+    // (Display Name lives there now, prominent alongside the other
+    // across-the-site-visible fields) and confirm it round-trips without
+    // leaving the page.
+    const status = section(page, "Status & Visibility");
+    await status.getByRole("button", { name: "Edit" }).click();
     const updatedName = `${uniqueName} (edited)`;
-    await mailing.getByLabel("Display Name", { exact: true }).fill(updatedName);
-    await mailing.getByRole("button", { name: "Save" }).click();
+    await status.getByLabel("Display Name", { exact: true }).fill(updatedName);
+    await status.getByRole("button", { name: "Save" }).click();
     await expect(page.locator("h2").first()).toHaveText(updatedName);
 
     // Editing one section must not disturb another: the physical address is

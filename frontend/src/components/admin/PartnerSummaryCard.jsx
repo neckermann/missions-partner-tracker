@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import LoadMoreButton from "../LoadMoreButton.jsx";
 
 // A lightweight stand-in for a full embedded CRUD widget on Partner
 // Detail, for a collection that already has its own real, filterable
@@ -13,7 +14,21 @@ import { Link } from "react-router-dom";
 // per line) instead of the single-line `summary`. Both take pre-formatted
 // strings -- this component doesn't know how to summarize a record, just
 // how to lay out what it's handed.
-export default function PartnerSummaryCard({ icon, title, count, summary, items, viewAllTo, actions }) {
+// `hasMore`/`remaining`/`onShowMore`, when given (straight from a caller's
+// own useLoadMore.js), render a "Load More" button under `items` -- for a
+// card whose everything lives right here instead of behind "View all".
+export default function PartnerSummaryCard({
+  icon,
+  title,
+  count,
+  summary,
+  items,
+  hasMore,
+  remaining,
+  onShowMore,
+  viewAllTo,
+  actions,
+}) {
   return (
     <div className="admin-section partner-summary-card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
@@ -45,6 +60,7 @@ export default function PartnerSummaryCard({ icon, title, count, summary, items,
           ))}
         </ul>
       )}
+      {onShowMore && <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={onShowMore} size="small" />}
     </div>
   );
 }

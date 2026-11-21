@@ -65,6 +65,7 @@ import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
 import useUrgentApprovalGate from "../hooks/useUrgentApprovalGate.jsx";
 import usePartnerRecordCrud from "../hooks/usePartnerRecordCrud.jsx";
+import useLoadMore from "../hooks/useLoadMore.js";
 
 // A cleared <input type="date"> is "", which `z.coerce.date()` turns into an
 // Invalid Date and rejects -- "no date" has to travel as null.
@@ -334,6 +335,11 @@ export default function AdminPartnerDetail() {
   // Hooks.
   useRecordRecentlyViewed(p && { to: `/admin/partners/${p.id}`, label: p.displayName, kind: "Partner" });
 
+  // Shows a couple of entries right here instead of only linking out to
+  // the consolidated Monthly Support page, which may not stick around --
+  // see PartnerSummaryCard's own hasMore/remaining/onShowMore props.
+  const supportEntriesLoadMore = useLoadMore(collections.supportEntries, { initialCount: 2, step: 100 });
+
   if (!p) return <p style={{ padding: "2rem" }}>Loading...</p>;
 
   const isOrg = p.kind === "organization";
@@ -584,46 +590,60 @@ export default function AdminPartnerDetail() {
           onSaved={reload}
           onSave={save}
           value={{
+            displayName: p.displayName,
             isPublic: p.isPublic,
             isRestricted: p.isRestricted,
             ...(!isOrg ? { contactSafe: p.contactSafe } : {}),
           }}
           view={(v) => (
-            <div className="admin-checkbox-row">
-              <Field label="Shown on public site" value={v.isPublic ? "Yes" : "No"} />
-              <Field label="Restricted-access location" value={v.isRestricted ? "Yes" : "No"} />
-              {!isOrg && <Field label="Safe to Contact" value={v.contactSafe ? "Yes" : "No"} />}
-            </div>
+            <>
+              <Field label={isOrg ? "Organization Name" : "Display Name"} value={v.displayName} showEmpty />
+              <div className="admin-checkbox-row" style={{ marginTop: "0.75rem" }}>
+                <Field label="Shown on public site" value={v.isPublic ? "Yes" : "No"} />
+                <Field label="Restricted-access location" value={v.isRestricted ? "Yes" : "No"} />
+                {!isOrg && <Field label="Safe to Contact" value={v.contactSafe ? "Yes" : "No"} />}
+              </div>
+            </>
           )}
           edit={(d, set) => (
-            <div className="admin-checkbox-row">
-              <label>
+            <>
+              <label title="The public display name shown on the directory, map, and booklet -- this is what's shown for them across the whole site.">
+                {isOrg ? "Organization Name" : "Display Name"}
                 <input
-                  type="checkbox"
-                  checked={d.isPublic}
-                  onChange={(e) => set("isPublic", e.target.checked)}
+                  value={d.displayName}
+                  onChange={(e) => set("displayName", e.target.value)}
+                  required
                 />
-                Show on public site
               </label>
-              <label title="Masks the name to initials and coarsens the map pin to a country centroid on the public site.">
-                <input
-                  type="checkbox"
-                  checked={d.isRestricted}
-                  onChange={(e) => set("isRestricted", e.target.checked)}
-                />
-                Restricted-access location
-              </label>
-              {!isOrg && (
+              <div className="admin-checkbox-row" style={{ marginTop: "0.75rem" }}>
                 <label>
                   <input
                     type="checkbox"
-                    checked={d.contactSafe}
-                    onChange={(e) => set("contactSafe", e.target.checked)}
+                    checked={d.isPublic}
+                    onChange={(e) => set("isPublic", e.target.checked)}
                   />
-                  Safe to contact
+                  Show on public site
                 </label>
-              )}
-            </div>
+                <label title="Masks the name to initials and coarsens the map pin to a country centroid on the public site.">
+                  <input
+                    type="checkbox"
+                    checked={d.isRestricted}
+                    onChange={(e) => set("isRestricted", e.target.checked)}
+                  />
+                  Restricted-access location
+                </label>
+                {!isOrg && (
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={d.contactSafe}
+                      onChange={(e) => set("contactSafe", e.target.checked)}
+                    />
+                    Safe to contact
+                  </label>
+                )}
+              </div>
+            </>
           )}
         />
 
@@ -724,13 +744,21 @@ export default function AdminPartnerDetail() {
               items={collections.children}
               renderItem={(c) => (
                 <>
-                  <Field label="Name" value={c.name} />
+                  <Field label="Name" value={[c.firstName, c.lastName].filter(Boolean).join(" ")} />
                   <Field label="Birthday" value={formatDateLong(c.birthday)} />
                 </>
               )}
-              onAdd={() => childCrud.openAdd({ name: "", birthday: "" })}
-              onEdit={(c) => childCrud.openEdit(c.id, { name: c.name || "", birthday: toDateInputValue(c.birthday) })}
-              onDelete={(c) => childCrud.handleDelete(c, (item) => `Delete ${item.name}?`)}
+              onAdd={() => childCrud.openAdd({ firstName: "", lastName: "", birthday: "" })}
+              onEdit={(c) =>
+                childCrud.openEdit(c.id, {
+                  firstName: c.firstName || "",
+                  lastName: c.lastName || "",
+                  birthday: toDateInputValue(c.birthday),
+                })
+              }
+              onDelete={(c) =>
+                childCrud.handleDelete(c, (item) => `Delete ${[item.firstName, item.lastName].filter(Boolean).join(" ")}?`)
+              }
             />
           )}
 
@@ -883,7 +911,6 @@ export default function AdminPartnerDetail() {
             onSave={saveAddress("mailing")}
             value={{
               address: { ...emptyAddress, receiveMail: false, receivePackages: false, ...mailing },
-              displayName: p.displayName,
               orgType: p.orgType || "Local",
               preferredContactMethod: p.preferredContactMethod || "",
               contactFirstName: p.contactFirstName || "",
@@ -893,14 +920,7 @@ export default function AdminPartnerDetail() {
             }}
             view={(v) => (
               <>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem" }}>
-                  <Field
-                    label={isOrg ? "Organization Name" : "Display Name"}
-                    value={v.displayName}
-                    showEmpty
-                  />
-                  <Field label="Preferred Contact Method" value={v.preferredContactMethod} showEmpty />
-                </div>
+                <Field label="Preferred Contact Method" value={v.preferredContactMethod} showEmpty />
                 {isOrg && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", marginTop: "0.75rem" }}>
                     <Field
@@ -920,14 +940,6 @@ export default function AdminPartnerDetail() {
             edit={(d, set) => (
               <>
                 <div className="form-grid">
-                  <label title="The public display name shown on the directory, map, and booklet.">
-                    {isOrg ? "Organization Name" : "Display Name"}
-                    <input
-                      value={d.displayName}
-                      onChange={(e) => set("displayName", e.target.value)}
-                      required
-                    />
-                  </label>
                   {isOrg && (
                     <label>
                       Organization Type
@@ -1152,16 +1164,15 @@ export default function AdminPartnerDetail() {
 
             {enabledFeatures.monthlySupport && (
               <PartnerSummaryCard
-                icon="💰"
+                icon="🤲"
                 title="Monthly Support"
                 count={collections.supportEntries.length}
-                summary={
-                  collections.supportEntries[0]
-                    ? `${formatCurrency(collections.supportEntries[0].amount)}/mo as of ${formatDate(
-                        collections.supportEntries[0].effectiveDate
-                      )}`
-                    : null
-                }
+                items={supportEntriesLoadMore.visible.map(
+                  (e) => `${formatCurrency(e.amount)}/mo as of ${formatDate(e.effectiveDate)}`
+                )}
+                hasMore={supportEntriesLoadMore.hasMore}
+                remaining={supportEntriesLoadMore.remaining}
+                onShowMore={supportEntriesLoadMore.showMore}
                 viewAllTo={`/admin/support/monthly?partnerId=${p.id}`}
                 actions={[{ label: "+ Add", onClick: openAddSupportEntry }]}
               />
@@ -1567,18 +1578,26 @@ export default function AdminPartnerDetail() {
           onSubmit={() =>
             childCrud.submit({
               partnerId: p.id,
-              name: childCrud.form.name.trim(),
+              firstName: childCrud.form.firstName.trim(),
+              lastName: childCrud.form.lastName.trim() || null,
               birthday: childCrud.form.birthday || null,
             })
           }
         >
           <div className="form-grid">
             <label>
-              Name
+              First Name
               <input
-                value={childCrud.form.name}
-                onChange={(e) => childCrud.setForm((f) => ({ ...f, name: e.target.value }))}
+                value={childCrud.form.firstName}
+                onChange={(e) => childCrud.setForm((f) => ({ ...f, firstName: e.target.value }))}
                 required
+              />
+            </label>
+            <label>
+              Last Name
+              <input
+                value={childCrud.form.lastName}
+                onChange={(e) => childCrud.setForm((f) => ({ ...f, lastName: e.target.value }))}
               />
             </label>
             <label>
