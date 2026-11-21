@@ -36,10 +36,8 @@ export default function PartnerSummaryCard({ icon, title, count, summary, items,
           </Link>
         </div>
       </div>
-      <p style={{ margin: "0.5rem 0 0", color: "#555" }}>
-        {count === 0 ? "None on file." : `${count} on file`}
-        {count > 0 && summary ? ` · ${summary}` : ""}
-      </p>
+      {count === 0 && <p style={{ margin: "0.5rem 0 0", color: "#555" }}>None on file.</p>}
+      {count > 0 && summary && <p style={{ margin: "0.5rem 0 0", color: "#555" }}>{summary}</p>}
       {count > 0 && items?.length > 0 && (
         <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.25rem", color: "#555" }}>
           {items.map((item, i) => (
