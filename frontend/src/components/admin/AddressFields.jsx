@@ -3,6 +3,14 @@ import { COUNTRY_CONTINENTS } from "../../utils/countryContinents.js";
 
 const COUNTRY_NAMES = Object.keys(COUNTRY_CONTINENTS).sort();
 
+// Geocoding (and manual entry) routinely hands back 15+ decimal places,
+// which is noise -- 5 decimals is ~1m of precision, plenty for a map pin.
+// Exported so view-mode summaries round the same way as this edit form.
+export function roundGps(n) {
+  if (n === null || n === undefined || n === "") return "";
+  return Math.round(Number(n) * 1e5) / 1e5;
+}
+
 export default function AddressFields({
   value,
   onChange,
@@ -16,28 +24,6 @@ export default function AddressFields({
 
   return (
     <div className="form-grid">
-      {showGps && (
-        <>
-          <label title="Places this partner's pin on the public map. Leave both blank and saving will auto-fill them from the city/state/country below (via OpenStreetMap) -- that lands on the city, not an exact address. Enter coordinates here yourself for more precise placement.">
-            GPS Latitude
-            <input
-              type="number"
-              step="any"
-              value={value.gpsLat ?? ""}
-              onChange={(e) => update("gpsLat", e.target.value === "" ? null : e.target.value)}
-            />
-          </label>
-          <label title="Places this partner's pin on the public map. Leave both blank and saving will auto-fill them from the city/state/country below (via OpenStreetMap) -- that lands on the city, not an exact address. Enter coordinates here yourself for more precise placement.">
-            GPS Longitude
-            <input
-              type="number"
-              step="any"
-              value={value.gpsLng ?? ""}
-              onChange={(e) => update("gpsLng", e.target.value === "" ? null : e.target.value)}
-            />
-          </label>
-        </>
-      )}
       <label>
         Address Line 1
         <input value={value.addressLine1 || ""} onChange={(e) => update("addressLine1", e.target.value)} />
@@ -84,6 +70,28 @@ export default function AddressFields({
           ))}
         </datalist>
       </label>
+      {showGps && (
+        <>
+          <label title="Places this partner's pin on the public map. Leave both blank and saving will auto-fill them from the city/state/country above (via OpenStreetMap) -- that lands on the city, not an exact address. Enter coordinates here yourself for more precise placement.">
+            GPS Latitude
+            <input
+              type="number"
+              step="any"
+              value={roundGps(value.gpsLat)}
+              onChange={(e) => update("gpsLat", e.target.value === "" ? null : e.target.value)}
+            />
+          </label>
+          <label title="Places this partner's pin on the public map. Leave both blank and saving will auto-fill them from the city/state/country above (via OpenStreetMap) -- that lands on the city, not an exact address. Enter coordinates here yourself for more precise placement.">
+            GPS Longitude
+            <input
+              type="number"
+              step="any"
+              value={roundGps(value.gpsLng)}
+              onChange={(e) => update("gpsLng", e.target.value === "" ? null : e.target.value)}
+            />
+          </label>
+        </>
+      )}
       {showMailFlags && (
         <div className="admin-checkbox-row" style={{ gridColumn: "1 / -1" }}>
           <label>

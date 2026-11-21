@@ -45,7 +45,7 @@ import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
 import PartnerRecordList from "../components/admin/PartnerRecordList.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
-import AddressFields from "../components/admin/AddressFields.jsx";
+import AddressFields, { roundGps } from "../components/admin/AddressFields.jsx";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import PrayerRequestFormFields from "../components/admin/PrayerRequestFormFields.jsx";
@@ -161,7 +161,7 @@ function AddressSummary({ address }) {
       )}
       {a.gpsLat != null && a.gpsLng != null && (
         <div style={{ marginTop: "0.4rem", fontSize: "0.85rem", color: "#666" }}>
-          GPS: {a.gpsLat}, {a.gpsLng}
+          GPS: {roundGps(a.gpsLat)}, {roundGps(a.gpsLng)}
         </div>
       )}
     </div>
