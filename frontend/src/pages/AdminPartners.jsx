@@ -4,7 +4,7 @@ import { fetchPartners, archivePartner, unarchivePartner, deletePartner } from "
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getContinent } from "../utils/countryContinents.js";
 import { matchesSearch } from "../utils/search.js";
-import { formatCurrency, formatDate } from "../utils/format.js";
+import { formatDate } from "../utils/format.js";
 import { addressByType } from "../utils/addresses.js";
 import { PARTNER_TYPE_FILTER_FIELD, INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD } from "../utils/partnerEntity.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
@@ -24,16 +24,41 @@ function resolveCountry(record) {
   return physical?.country || null;
 }
 
-// The API orders supportEntries by effectiveDate descending, so the first
-// entry (if any) is always the current amount.
-function currentSupport(supportEntries) {
-  return formatCurrency(supportEntries?.[0]?.amount, { fallback: "—" });
-}
-
 // The API orders churchVisits by visitDate descending, so the first entry
 // (if any) is the last visit.
 function lastVisit(churchVisits) {
   return formatDate(churchVisits?.[0]?.visitDate, { fallback: "—" });
+}
+
+function lastVisitTimestamp(row) {
+  const d = row.churchVisits?.[0]?.visitDate;
+  return d ? new Date(d).getTime() : null;
+}
+
+// "Never visited" deliberately matches the quick bucket's low end
+// ("Never visited" itself) but not "Within.../Over..." -- those ask about
+// a real last-visit date, and a partner with none hasn't earned a bucket
+// either way. It DOES match a "Visited Before" cutoff (below), where the
+// question is "who's overdue," and no visit at all is the most overdue
+// case there is.
+function matchesLastVisitQuick(row, quick) {
+  if (quick === "all") return true;
+  const ts = lastVisitTimestamp(row);
+  if (quick === "never") return ts === null;
+  if (ts === null) return false;
+  const days = (Date.now() - ts) / 86400000;
+  if (quick === "within6m") return days <= 182;
+  if (quick === "within1y") return days <= 365;
+  if (quick === "over1y") return days > 365;
+  if (quick === "over2y") return days > 730;
+  return true;
+}
+
+function matchesVisitedBefore(row, cutoff) {
+  if (!cutoff) return true;
+  const ts = lastVisitTimestamp(row);
+  if (ts === null) return true;
+  return ts < new Date(cutoff).getTime();
 }
 
 const emptyFilters = {
@@ -43,6 +68,8 @@ const emptyFilters = {
   continent: "all",
   country: "all",
   includeArchived: false,
+  lastVisitQuick: "all",
+  visitedBefore: "",
   search: "",
 };
 
@@ -55,6 +82,10 @@ const emptyFilters = {
 // search stays client-side against the already-filtered result set
 // (matchesSearch over name/field/focus/summary/country) -- debouncing a
 // server round-trip per keystroke isn't worth it for a dataset this size.
+// Last Visit (both the quick-bucket select and the exact-cutoff date
+// picker) is client-side too, for the same reason: it reads
+// churchVisits[0] off a row already fetched for the Last Visit column
+// and its sort, so there's no new request to make it server-side for.
 export default function AdminPartners() {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [partners, setPartners] = useState([]);
@@ -117,6 +148,20 @@ export default function AdminPartners() {
       // FilterBar specifically, in `fieldsWithCountryOptions`.
       { name: "country", label: "Country", type: "select", options: [] },
       INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
+      {
+        name: "lastVisitQuick",
+        label: "Last Visit",
+        type: "select",
+        options: [
+          { value: "all", label: "Any time" },
+          { value: "never", label: "Never visited" },
+          { value: "within6m", label: "Within 6 months" },
+          { value: "within1y", label: "Within 1 year" },
+          { value: "over1y", label: "Over 1 year ago" },
+          { value: "over2y", label: "Over 2 years ago" },
+        ],
+      },
+      { name: "visitedBefore", label: "Visited Before", type: "date" },
       { name: "search", label: "Search by name, field, focus, or summary" },
     ],
     [availableContinents]
@@ -166,7 +211,6 @@ export default function AdminPartners() {
           isRestricted: p.isRestricted,
           archived: p.archived,
           sentByOurChurch: p.sentByOurChurch,
-          supportEntries: p.supportEntries,
           churchVisits: p.churchVisits,
           focusArea: p.focusArea,
           overviewShort: p.overviewShort,
@@ -214,9 +258,10 @@ export default function AdminPartners() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableCountries]);
-  const visible = visibleBeforeSearch.filter((r) =>
-    matchesSearch(filters.search, r.name, r.field, r.focusArea, r.overviewShort, r.country)
-  );
+  const visible = visibleBeforeSearch
+    .filter((r) => matchesSearch(filters.search, r.name, r.field, r.focusArea, r.overviewShort, r.country))
+    .filter((r) => matchesLastVisitQuick(r, filters.lastVisitQuick))
+    .filter((r) => matchesVisitedBefore(r, filters.visitedBefore));
 
   async function handleArchive(row) {
     const confirmed = await confirmDialog({
@@ -335,19 +380,34 @@ export default function AdminPartners() {
           },
           { key: "typeLabel", label: "Type" },
           { key: "field", label: "Field" },
-          { key: "isPublic", label: "Public", render: (row) => (row.isPublic ? "Yes" : "No") },
-          { key: "isRestricted", label: "Restricted", render: (row) => (row.isRestricted ? "Yes" : "No") },
+          {
+            key: "isPublic",
+            label: "Public",
+            sortable: true,
+            render: (row) => (row.isPublic ? "Yes" : "No"),
+          },
+          {
+            key: "isRestricted",
+            label: "Restricted",
+            sortable: true,
+            render: (row) => (row.isRestricted ? "Yes" : "No"),
+          },
           {
             key: "sentByOurChurch",
             label: sentByLabel,
+            sortable: true,
             render: (row) => (row.type === "missionary" ? (row.sentByOurChurch ? "Yes" : "No") : "—"),
           },
           {
-            key: "supportEntries",
-            label: "Monthly Support",
-            render: (row) => currentSupport(row.supportEntries),
+            key: "churchVisits",
+            label: "Last Visit",
+            sortable: true,
+            sortBy: (row) => {
+              const d = row.churchVisits?.[0]?.visitDate;
+              return d ? new Date(d).getTime() : null;
+            },
+            render: (row) => lastVisit(row.churchVisits),
           },
-          { key: "churchVisits", label: "Last Visit", render: (row) => lastVisit(row.churchVisits) },
         ]}
         renderActions={(row) => (
           <>
