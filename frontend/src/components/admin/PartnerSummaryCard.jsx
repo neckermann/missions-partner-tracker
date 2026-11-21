@@ -9,7 +9,11 @@ import { Link } from "react-router-dom";
 // "+ Add", "Mark Answered") open the real add/edit forms in a quick popup
 // right here instead -- see QuickActionModal.jsx -- so this still isn't a
 // second copy of those forms, just a faster way to reach the same ones.
-export default function PartnerSummaryCard({ icon, title, count, summary, viewAllTo, actions }) {
+// `items`, when given, lists up to a few of the most recent entries (one
+// per line) instead of the single-line `summary`. Both take pre-formatted
+// strings -- this component doesn't know how to summarize a record, just
+// how to lay out what it's handed.
+export default function PartnerSummaryCard({ icon, title, count, summary, items, viewAllTo, actions }) {
   return (
     <div className="admin-section partner-summary-card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
@@ -36,6 +40,13 @@ export default function PartnerSummaryCard({ icon, title, count, summary, viewAl
         {count === 0 ? "None on file." : `${count} on file`}
         {count > 0 && summary ? ` · ${summary}` : ""}
       </p>
+      {count > 0 && items?.length > 0 && (
+        <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.25rem", color: "#555" }}>
+          {items.map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

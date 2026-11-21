@@ -1172,7 +1172,7 @@ export default function AdminPartnerDetail() {
                 icon="🎁"
                 title="One-Time Needs"
                 count={collections.needRequests.length}
-                summary={truncate(collections.needRequests[0]?.description, 70)}
+                items={collections.needRequests.slice(0, 3).map((n) => truncate(n.description, 70))}
                 viewAllTo={`/admin/support/needs?partnerId=${p.id}`}
                 actions={[
                   { label: "+ Add", onClick: openAddNeed },
@@ -1319,11 +1319,7 @@ export default function AdminPartnerDetail() {
               icon="🙏"
               title="Prayer Requests"
               count={collections.prayerRequests.length}
-              summary={
-                collections.prayerRequests[0]
-                  ? truncate(collections.prayerRequests[0].requestText, 70)
-                  : null
-              }
+              items={collections.prayerRequests.slice(0, 3).map((r) => truncate(r.requestText, 70))}
               viewAllTo={`/admin/prayer-requests?partnerId=${p.id}`}
               actions={[
                 { label: "+ Add", onClick: openAddPrayerRequest },
@@ -1339,7 +1335,7 @@ export default function AdminPartnerDetail() {
               icon="📰"
               title="Newsletters & Docs"
               count={collections.files.length}
-              summary={collections.files[0] ? collections.files[0].title || collections.files[0].fileName : null}
+              items={collections.files.slice(0, 3).map((f) => f.title || f.fileName)}
               viewAllTo={`/admin/partner-files?partnerId=${p.id}`}
               actions={[{ label: "+ Upload", onClick: openUploadFile }]}
             />
