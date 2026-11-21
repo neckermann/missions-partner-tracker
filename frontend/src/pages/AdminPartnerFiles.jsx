@@ -103,8 +103,12 @@ export default function AdminPartnerFiles() {
     setValue: updateFilter,
     reset: resetFilters,
   } = useFilterState(fields, emptyFilters);
-  const { partnerId: filterPartnerId, partnerName: filterPartnerName, clearPartnerFilter } =
-    usePartnerUrlFilter();
+  const {
+    partnerId: filterPartnerId,
+    partnerName: filterPartnerName,
+    clearPartnerFilter,
+    setPartnerFilter,
+  } = usePartnerUrlFilter();
 
   function reload() {
     setLoading(true);
@@ -318,6 +322,8 @@ export default function AdminPartnerFiles() {
           <PartnerFilterChip
             partnerId={filterPartnerId}
             partnerName={filterPartnerName}
+            partners={partners}
+            onSelect={setPartnerFilter}
             onClear={clearPartnerFilter}
           />
         }

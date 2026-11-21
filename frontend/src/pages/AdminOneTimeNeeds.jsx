@@ -88,8 +88,12 @@ export default function AdminOneTimeNeeds() {
     setValue: updateFilter,
     reset: resetFilters,
   } = useFilterState(fields, emptyFilters);
-  const { partnerId: filterPartnerId, partnerName: filterPartnerName, clearPartnerFilter } =
-    usePartnerUrlFilter();
+  const {
+    partnerId: filterPartnerId,
+    partnerName: filterPartnerName,
+    clearPartnerFilter,
+    setPartnerFilter,
+  } = usePartnerUrlFilter();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newNeed, setNewNeed] = useState(emptyNewNeed);
   const [saving, setSaving] = useState(false);
@@ -312,6 +316,8 @@ export default function AdminOneTimeNeeds() {
           <PartnerFilterChip
             partnerId={filterPartnerId}
             partnerName={filterPartnerName}
+            partners={partners}
+            onSelect={setPartnerFilter}
             onClear={clearPartnerFilter}
           />
         }

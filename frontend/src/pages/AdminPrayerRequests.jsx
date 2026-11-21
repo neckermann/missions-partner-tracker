@@ -99,8 +99,12 @@ export default function AdminPrayerRequests() {
     setValue: updateFilter,
     reset: resetFilters,
   } = useFilterState(fields, emptyFilters);
-  const { partnerId: filterPartnerId, partnerName: filterPartnerName, clearPartnerFilter } =
-    usePartnerUrlFilter();
+  const {
+    partnerId: filterPartnerId,
+    partnerName: filterPartnerName,
+    clearPartnerFilter,
+    setPartnerFilter,
+  } = usePartnerUrlFilter();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
   const [saving, setSaving] = useState(false);
@@ -337,6 +341,8 @@ export default function AdminPrayerRequests() {
           <PartnerFilterChip
             partnerId={filterPartnerId}
             partnerName={filterPartnerName}
+            partners={partners}
+            onSelect={setPartnerFilter}
             onClear={clearPartnerFilter}
           />
         }

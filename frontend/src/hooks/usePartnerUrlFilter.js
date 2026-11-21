@@ -34,5 +34,17 @@ export default function usePartnerUrlFilter() {
     );
   }
 
-  return { partnerId, partnerName, clearPartnerFilter };
+  function setPartnerFilter(id) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id) next.set("partnerId", id);
+        else next.delete("partnerId");
+        return next;
+      },
+      { replace: true }
+    );
+  }
+
+  return { partnerId, partnerName, clearPartnerFilter, setPartnerFilter };
 }

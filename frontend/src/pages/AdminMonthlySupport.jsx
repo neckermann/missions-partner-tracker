@@ -50,8 +50,12 @@ export default function AdminMonthlySupport() {
     setValue: updateFilter,
     reset: resetFilters,
   } = useFilterState(fields, emptyFilters);
-  const { partnerId: filterPartnerId, partnerName: filterPartnerName, clearPartnerFilter } =
-    usePartnerUrlFilter();
+  const {
+    partnerId: filterPartnerId,
+    partnerName: filterPartnerName,
+    clearPartnerFilter,
+    setPartnerFilter,
+  } = usePartnerUrlFilter();
 
   // Clicking History on partner A, then quickly clicking it on partner B
   // before A's slower fetch resolves, would otherwise let A's history
@@ -231,6 +235,8 @@ export default function AdminMonthlySupport() {
           <PartnerFilterChip
             partnerId={filterPartnerId}
             partnerName={filterPartnerName}
+            partners={partners}
+            onSelect={setPartnerFilter}
             onClear={clearPartnerFilter}
           />
         }
