@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { formatCurrency, formatDate } from "../../utils/format.js";
 
 // Generic resource-agnostic table, resource-agnostic sibling of
@@ -34,9 +34,47 @@ import { formatCurrency, formatDate } from "../../utils/format.js";
 // <tr> -- e.g. `data-partner-id` for an e2e spec's locator. Added in
 // Phase 2 of the UX-rebuild plan after AdminMonthlySupport.jsx's own
 // migration silently dropped the attribute its e2e spec depended on.
+//
+// `sortable: true` on a column makes its header clickable, sorting rows by
+// that column (asc, then desc, then back to asc -- never "unsorted", since
+// a caller's own default row order is already a deliberate choice and isn't
+// worth a third click state to get back to). Opt-in per column: a caller
+// that never sets it keeps its own row order untouched, same as before this
+// existed. Sort state lives in this component, not the caller -- there's
+// nothing a caller needs to react to, it only ever reorders what's already
+// fetched.
 function alignClass(column) {
   if (column.align) return column.align === "right" ? "num" : undefined;
   return column.type === "currency" || column.type === "number" ? "num" : undefined;
+}
+
+// A real icon, not a Unicode glyph -- ⇅/▲/▼ render inconsistently (and
+// bluntly) across platforms/fonts. `direction` is "asc"/"desc" for the
+// active column, or null for every other sortable header, which gets the
+// muted up+down pair. `currentColor` is deliberate: the `<th>`'s own CSS
+// already sets the right color per state (muted/hover/sorted in
+// index.css), so this never needs its own color logic.
+function SortIcon({ direction }) {
+  if (direction === "asc") {
+    return (
+      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+        <path d="M5 2.5 L8.5 7 L1.5 7 Z" fill="currentColor" />
+      </svg>
+    );
+  }
+  if (direction === "desc") {
+    return (
+      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+        <path d="M5 7.5 L1.5 3 L8.5 3 Z" fill="currentColor" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+      <path d="M5 1 L7.5 4 L2.5 4 Z" fill="currentColor" />
+      <path d="M5 9 L2.5 6 L7.5 6 Z" fill="currentColor" />
+    </svg>
+  );
 }
 
 function defaultCell(column, row) {
@@ -50,6 +88,23 @@ function defaultCell(column, row) {
     default:
       return String(value);
   }
+}
+
+// A sort key, not a display value -- dates/numbers compare numerically
+// regardless of `render` overriding what's actually shown, and booleans
+// group false-before-true. Anything else falls back to a lowercased
+// string compare so case doesn't affect ordering. A column whose cell is
+// computed from something other than a plain `row[key]` (e.g. "Last
+// Visit" sorting by the first of a `churchVisits` array) supplies its own
+// `sortBy(row)` instead, which takes over entirely.
+function sortValue(column, row) {
+  if (column.sortBy) return column.sortBy(row) ?? null;
+  const value = row[column.key];
+  if (value === null || value === undefined || value === "") return null;
+  if (column.type === "date") return new Date(value).getTime();
+  if (column.type === "currency" || column.type === "number") return Number(value);
+  if (typeof value === "boolean") return value ? 1 : 0;
+  return String(value).toLowerCase();
 }
 
 export default function Table({
@@ -67,6 +122,32 @@ export default function Table({
   style,
 }) {
   const colSpan = columns.length + (renderActions ? 1 : 0);
+  const [sort, setSort] = useState(null);
+
+  const sortedRows = useMemo(() => {
+    if (!sort) return rows;
+    const column = columns.find((c) => c.key === sort.key);
+    if (!column) return rows;
+    const dir = sort.direction === "desc" ? -1 : 1;
+    return [...rows].sort((a, b) => {
+      const av = sortValue(column, a);
+      const bv = sortValue(column, b);
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      if (av < bv) return -dir;
+      if (av > bv) return dir;
+      return 0;
+    });
+  }, [rows, sort, columns]);
+
+  function toggleSort(column) {
+    if (!column.sortable) return;
+    setSort((s) => {
+      if (!s || s.key !== column.key) return { key: column.key, direction: "asc" };
+      return { key: column.key, direction: s.direction === "asc" ? "desc" : "asc" };
+    });
+  }
 
   // Always wrapped in .table-scroll (index.css) -- a table with enough
   // columns to not fit a narrow viewport scrolls horizontally within its
@@ -80,16 +161,31 @@ export default function Table({
       <table className={className}>
         <thead>
           <tr>
-            {columns.map((c) => (
-              <th key={c.key} className={alignClass(c)}>
-                {c.label}
-              </th>
-            ))}
+            {columns.map((c) => {
+              const sorted = c.sortable && sort?.key === c.key;
+              return (
+                <th
+                  key={c.key}
+                  className={[alignClass(c), c.sortable && "sortable", sorted && "sorted"]
+                    .filter(Boolean)
+                    .join(" ")}
+                  onClick={c.sortable ? () => toggleSort(c) : undefined}
+                  aria-sort={sorted ? (sort.direction === "asc" ? "ascending" : "descending") : undefined}
+                >
+                  {c.label}
+                  {c.sortable && (
+                    <span className="sort-indicator">
+                      <SortIcon direction={sorted ? sort.direction : null} />
+                    </span>
+                  )}
+                </th>
+              );
+            })}
             {renderActions && <th></th>}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
+          {sortedRows.map((row) => {
             const key = rowKey(row);
             const clickable = onRowClick && (!isRowClickable || isRowClickable(row));
             const expanded = expandedRowId != null && key === expandedRowId;

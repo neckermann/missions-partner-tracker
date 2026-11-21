@@ -734,6 +734,33 @@ a {
   color: var(--muted-text);
   font-weight: 700;
 }
+/* Same active/interactive-feedback color every other control in the app
+   uses (tab underline, hover states) -- see STYLE-GUIDE.md's design
+   tokens -- rather than inventing a one-off color for this. The sort
+   icon (Table.jsx's SortIcon -- a real SVG, not a Unicode glyph, which
+   rendered inconsistently and bluntly across platforms) stays low-
+   opacity on every sortable header until hovered or active, so it reads
+   as a quiet affordance, not clutter repeated across the row. */
+.admin-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.admin-table th.sortable:hover {
+  color: var(--brand-highlight-color, #a6540f);
+}
+.admin-table th.sortable.sorted {
+  color: var(--brand-highlight-color, #a6540f);
+}
+.admin-table th .sort-indicator {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 0.3rem;
+  opacity: 0.35;
+}
+.admin-table th.sortable:hover .sort-indicator,
+.admin-table th.sortable.sorted .sort-indicator {
+  opacity: 1;
+}
 .admin-table td {
   text-align: left;
   padding: 0.65rem 0.5rem;
