@@ -167,14 +167,11 @@ model Adult {
   id        String    @id @default(uuid())
   partnerId String
   partner   Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  // #257/#271 Finding 4: split first/last -- Child.name (below) is
-  // deliberately left as a single freeform field, since it's commonly
-  // single-word and a forced split would create artificial/empty
-  // lastName values for no benefit; an adult's name doesn't share that
-  // problem. firstName is nullable at the DB level (unlike the single
-  // `name` column it replaces) purely to let this migration add it to a
-  // non-empty table with no default -- app-level validation
-  // (routes/partners.js's zod schema) still requires it on every write.
+  // #257/#271 Finding 4: split first/last, same as Child below. firstName
+  // is nullable at the DB level (unlike the single `name` column it
+  // replaces) purely to let this migration add it to a non-empty table
+  // with no default -- app-level validation (routes/partners.js's zod
+  // schema) still requires it on every write.
   firstName String?
   lastName  String?
   phone1    String?
@@ -190,7 +187,8 @@ model Child {
   id        String    @id @default(uuid())
   partnerId String
   partner   Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  name      String
+  firstName String?
+  lastName  String?
   birthday  DateTime? @db.Date
   createdAt DateTime  @default(now())
 

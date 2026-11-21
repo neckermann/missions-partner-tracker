@@ -74,7 +74,9 @@ describe("birthdaysInMonth", () => {
         { id: "a1", firstName: "Frank", lastName: "Wexford", birthday: new Date("1980-11-20T00:00:00.000Z") },
         { id: "a2", firstName: "Lori", lastName: "Wexford", birthday: new Date("1982-03-02T00:00:00.000Z") },
       ],
-      children: [{ id: "c1", name: "Eli Wexford", birthday: new Date("2017-11-05T00:00:00.000Z") }],
+      children: [
+        { id: "c1", firstName: "Eli", lastName: "Wexford", birthday: new Date("2017-11-05T00:00:00.000Z") },
+      ],
     },
     {
       id: "p2",

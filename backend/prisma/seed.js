@@ -2944,7 +2944,8 @@ async function main() {
         ];
     const childCount = isFamily && chance(0.6) ? randInt(1, 4) : 0;
     const children = Array.from({ length: childCount }, () => ({
-      name: `${pick(FIRST_M.concat(FIRST_F))} ${last}`,
+      firstName: pick(FIRST_M.concat(FIRST_F)),
+      lastName: last,
       birthday: dateBetween(17, 1),
     }));
 

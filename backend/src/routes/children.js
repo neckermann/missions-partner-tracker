@@ -11,7 +11,8 @@ router.use(requireAuth); // everything below requires a logged-in user
 // same shape, no consolidated cross-partner list.
 const childSchema = z.object({
   partnerId: z.string(),
-  name: z.string().min(1),
+  firstName: z.string().min(1),
+  lastName: z.string().optional().nullable(),
   birthday: z.coerce.date().optional().nullable(),
 });
 

@@ -133,9 +133,9 @@ function collectionCases() {
     {
       name: "children",
       path: "/api/children",
-      create: () => ({ partnerId: partner.id, name: "Kid" }),
-      patch: { name: "Edited Kid" },
-      readBack: (r) => r.name,
+      create: () => ({ partnerId: partner.id, firstName: "Kid" }),
+      patch: { firstName: "Edited Kid" },
+      readBack: (r) => r.firstName,
       expectAfterPatch: "Edited Kid",
     },
     {

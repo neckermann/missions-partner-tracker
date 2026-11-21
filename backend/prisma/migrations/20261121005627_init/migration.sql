@@ -60,7 +60,8 @@ CREATE TABLE "Adult" (
 CREATE TABLE "Child" (
     "id" TEXT NOT NULL,
     "partnerId" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
+    "firstName" TEXT,
+    "lastName" TEXT,
     "birthday" DATE,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

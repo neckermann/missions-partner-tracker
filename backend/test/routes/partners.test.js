@@ -214,7 +214,7 @@ describe("partners: read models", () => {
   test("adults/children/furloughs/church visits created at creation time are reachable only through their own endpoints", async () => {
     const p = await createPartner({
       adults: [{ firstName: "Test", lastName: "Adult" }],
-      children: [{ name: "Test Child" }],
+      children: [{ firstName: "Test", lastName: "Child" }],
       furloughs: [{ startDate: "2026-01-01" }],
       churchVisits: [{ visitDate: "2026-01-01" }],
     });
@@ -228,7 +228,8 @@ describe("partners: read models", () => {
     assert.equal(adults.body.length, 1);
     assert.equal(adults.body[0].firstName, "Test");
     assert.equal(children.body.length, 1);
-    assert.equal(children.body[0].name, "Test Child");
+    assert.equal(children.body[0].firstName, "Test");
+    assert.equal(children.body[0].lastName, "Child");
     assert.equal(furloughs.body.length, 1);
     assert.equal(churchVisits.body.length, 1);
   });

@@ -241,7 +241,11 @@ const adultSchema = z.object({
   email: z.string().optional().nullable(),
   birthday: z.coerce.date().optional().nullable(),
 });
-const childSchema = z.object({ name: z.string(), birthday: z.coerce.date().optional().nullable() });
+const childSchema = z.object({
+  firstName: z.string(),
+  lastName: z.string().optional().nullable(),
+  birthday: z.coerce.date().optional().nullable(),
+});
 const partnerLinkSchema = z.object({ type: z.enum(LINK_TYPES), url: z.string().min(1) });
 const partnerLanguageSchema = z.object({
   language: z.string().min(1),
