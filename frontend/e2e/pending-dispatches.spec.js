@@ -15,8 +15,15 @@ test.describe("Pending Dispatches", () => {
 
     // The page itself (RequireAdminFeature in main.jsx) needs at least one
     // of groupme/whatsapp/outboundEmail on, even though recording a
-    // dispatch never depends on any channel being enabled.
-    await page.request.put("/api/settings", { data: { enabledFeatures: { outboundEmail: true } } });
+    // dispatch never depends on any channel being enabled. PUT /api/settings
+    // replaces the whole enabledFeatures JSON column rather than merging it
+    // (backend/src/routes/settings.js) -- fetch-then-merge here so this
+    // doesn't silently disable every other feature flag for the rest of
+    // the run, the way a bare `{ outboundEmail: true }` PUT does.
+    const current = await (await page.request.get("/api/public/settings")).json();
+    await page.request.put("/api/settings", {
+      data: { enabledFeatures: { ...current.enabledFeatures, outboundEmail: true } },
+    });
 
     const missionariesRes = await page.request.get("/api/partners?kind=missionary");
     const missionaries = await missionariesRes.json();
@@ -25,32 +32,26 @@ test.describe("Pending Dispatches", () => {
     const uniqueText = `E2E dispatch ${Date.now()}`;
     await page.goto(`/admin/partners/${target.id}`);
     await page.waitForSelector("h2");
-    await page.click("button:has-text('+ Add Prayer Request')");
-    await page.selectOption("select", {
+    const card = page.locator(".partner-summary-card", { hasText: "Prayer Requests" });
+    await card.locator("button", { hasText: "+ Add" }).click();
+    await page.selectOption(".modal-panel select", {
       label: "Strategic (ministry vision/calling — can be shared publicly)",
     });
-    await page.fill("textarea", uniqueText);
-    await page.click('button[type="submit"]:has-text("Add Prayer Request")');
-    await expect(page.locator(".admin-section", { hasText: "Prayer Requests" }).first()).toContainText(
-      uniqueText
-    );
+    await page.fill(".modal-panel textarea", uniqueText);
+    await page.click('.modal-panel button[type="submit"]');
+    await expect(page.locator(".modal-panel")).toHaveCount(0);
+    await expect(card).toContainText(uniqueText);
 
     await page.goto("/admin/pending-dispatches");
     await page.waitForSelector("h2:has-text('Pending Dispatches')");
 
     // Confirms the real request text reached the queue (not a placeholder)
-    // and that it's grouped under the right partner -- BlurbRow renders
-    // bodyText as its own <p>, inside a group headed by the partner's
-    // <strong>{displayName}</strong> (groupByPartner).
-    const bodyParagraph = page.locator("p", { hasText: uniqueText });
-    await expect(bodyParagraph).toBeVisible();
-    const group = page.locator("div", { has: page.getByText(target.displayName, { exact: true }) }).last();
-    await expect(group).toContainText(uniqueText);
-
-    // bodyParagraph's grandparent is BlurbRow's own outer wrapper div --
-    // its parent is just the left-hand content div, a sibling of the
-    // right-hand actions div the Clear button lives in.
-    const row = bodyParagraph.locator("xpath=../..");
+    // and that its row shows the right partner -- the consolidated page is
+    // a shared <Table>, one row per blurb, grouped together by partner via
+    // row ordering (flattenRows) rather than a visual group container.
+    const row = page.locator("tr", { hasText: uniqueText });
+    await expect(row).toBeVisible();
+    await expect(row).toContainText(target.displayName);
     await row.getByRole("button", { name: "Clear" }).click();
     await expect(page.getByText(uniqueText)).toHaveCount(0);
   });

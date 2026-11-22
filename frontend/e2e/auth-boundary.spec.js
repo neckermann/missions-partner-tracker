@@ -56,6 +56,15 @@ test.describe("role gating in the UI", () => {
       // table before the fetch that fills it has landed.
       await expect(page.locator("table tbody tr").first(), "an editor sees the partner list").toBeVisible();
 
+      // An editor can still create/update/archive -- only delete (and
+      // admin-only settings) are out of reach. The app-wide CRUD
+      // unification's role-gating is what this button's visibility
+      // actually depends on now, not just the server's own 403.
+      await expect(
+        page.getByRole("link", { name: "+ Add Missionary" }),
+        "an editor can still create partners"
+      ).toBeVisible();
+
       // The admin-only settings area is neither offered nor reachable.
       await expect(page.getByRole("button", { name: /Settings/i })).toHaveCount(0);
 
@@ -76,6 +85,17 @@ test.describe("role gating in the UI", () => {
       await page.waitForURL(/\/admin/);
       await page.goto("/admin/partners");
       await expect(page.locator("h2").first()).toBeVisible();
+
+      // The UI itself now hides what the API would refuse anyway -- a
+      // viewer should see no mutate affordance anywhere on this page.
+      await expect(
+        page.getByRole("link", { name: "+ Add Missionary" }),
+        "a viewer sees no way to create a partner"
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("link", { name: "+ Add Organization" }),
+        "a viewer sees no way to create a partner"
+      ).toHaveCount(0);
 
       // Whatever the UI offers, the gate that matters is the API's.
       const write = await page.request.post("/api/partners", {

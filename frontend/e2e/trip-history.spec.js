@@ -50,17 +50,27 @@ test.describe("Trip History", () => {
     // years already exist in the loaded trips, so "1901" only appears
     // once this trip has saved and the list has reloaded with it.
     await page.getByRole("button", { name: "All statuses" }).click();
-    await page.getByLabel("Year").selectOption("1901");
+    // "Year" isn't shown by default -- FilterBar hides any field whose
+    // value is still its default behind "+ Add filter" until picked. Its
+    // active-chip <select> has no real label association (a plain
+    // adjacent <span>, not a <label>/aria-label on the control itself),
+    // so it has to be found by scoping to the chip rather than by label.
+    await page.getByRole("button", { name: "+ Add filter" }).click();
+    await page.getByRole("button", { name: "Year", exact: true }).click();
+    await page.locator(".filter-chip", { hasText: "Year:" }).locator("select").selectOption("1901");
 
     const row = page.locator("tbody tr", { hasText: target.displayName });
     await expect(row).toContainText("Construction");
     await expect(row).toContainText("1"); // team size
 
-    // Edit: change the description. The table never displays it (see
-    // above), so the round-trip is confirmed against the API, the same
-    // way the cleanup step below already looks this trip up.
+    // Edit: a completed trip's row is itself the click target now (the
+    // popup pattern, not a separate Edit button) -- click a cell that
+    // isn't the Partner column (stopRowClick, since it's its own link).
+    // The table never displays description (see above), so the round-trip
+    // is confirmed against the API, the same way the cleanup step below
+    // already looks this trip up.
     const updatedDescription = `${uniqueDescription} (edited)`;
-    await row.getByRole("button", { name: "Edit" }).click();
+    await row.locator("td").nth(4).click();
     await page.getByLabel("Description (what the team did)").fill(updatedDescription);
     await page.click('button:has-text("Save")');
 
