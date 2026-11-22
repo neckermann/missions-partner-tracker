@@ -450,7 +450,12 @@ export default function AdminOneTimeNeeds() {
             >
               Go to partner →
             </Link>
-            <SupportNeedFormFields form={needDetail.form} setForm={setNeedDetailForm} files={sourceFiles} mode="edit" />
+            <SupportNeedFormFields
+              form={needDetail.form}
+              setForm={setNeedDetailForm}
+              files={sourceFiles}
+              mode="edit"
+            />
             {needDetail.form.approvedAmount == null && (
               <button
                 type="button"

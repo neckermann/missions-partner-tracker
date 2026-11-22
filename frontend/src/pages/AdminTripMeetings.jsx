@@ -23,11 +23,20 @@ function MeetingFields({ form, setForm }) {
     <div className="form-grid">
       <label>
         Meeting title
-        <input value={form.title} placeholder="e.g. Pre-Field Training" onChange={(e) => set("title", e.target.value)} />
+        <input
+          value={form.title}
+          placeholder="e.g. Pre-Field Training"
+          onChange={(e) => set("title", e.target.value)}
+        />
       </label>
       <label>
         Date/time
-        <input type="datetime-local" value={form.startAt} onChange={(e) => set("startAt", e.target.value)} required />
+        <input
+          type="datetime-local"
+          value={form.startAt}
+          onChange={(e) => set("startAt", e.target.value)}
+          required
+        />
       </label>
       <label>
         Location
@@ -35,11 +44,20 @@ function MeetingFields({ form, setForm }) {
       </label>
       <label>
         Join link (if virtual or hybrid)
-        <input value={form.meetingLink} placeholder="https://zoom.us/..." onChange={(e) => set("meetingLink", e.target.value)} />
+        <input
+          value={form.meetingLink}
+          placeholder="https://zoom.us/..."
+          onChange={(e) => set("meetingLink", e.target.value)}
+        />
       </label>
       <label style={{ gridColumn: "1 / -1" }}>
         Agenda
-        <textarea rows={2} value={form.agenda} placeholder="What this meeting will cover" onChange={(e) => set("agenda", e.target.value)} />
+        <textarea
+          rows={2}
+          value={form.agenda}
+          placeholder="What this meeting will cover"
+          onChange={(e) => set("agenda", e.target.value)}
+        />
       </label>
     </div>
   );
@@ -181,7 +199,9 @@ export default function AdminTripMeetings() {
             ? new Date(m.startAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
             : "—";
           const whereLabel =
-            m.location && m.meetingLink ? `${m.location} + online` : m.location || (m.meetingLink ? "Online" : "—");
+            m.location && m.meetingLink
+              ? `${m.location} + online`
+              : m.location || (m.meetingLink ? "Online" : "—");
           const rsvpSummary = m.cancelledAt
             ? "Cancelled"
             : `${tally.yes} yes · ${tally.no} no · ${tally.maybe} maybe` +
@@ -220,7 +240,11 @@ export default function AdminTripMeetings() {
                   </button>
                 )}
                 {!modalMeeting.cancelledAt && (
-                  <button type="button" className="btn secondary small" onClick={() => handleCancelMeeting(modalMeeting.id)}>
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    onClick={() => handleCancelMeeting(modalMeeting.id)}
+                  >
                     Cancel meeting
                   </button>
                 )}
@@ -234,7 +258,8 @@ export default function AdminTripMeetings() {
                     const rsvp = (trip.meetings?.find((m) => m.id === modalMeeting.id)?.rsvps || []).find(
                       (r) => r.participantId === p.id
                     );
-                    const label = { yes: "Yes", no: "No", maybe: "Maybe" }[rsvp?.response] || "No response yet";
+                    const label =
+                      { yes: "Yes", no: "No", maybe: "Maybe" }[rsvp?.response] || "No response yet";
                     return (
                       <li key={p.id} style={{ padding: "0.15rem 0" }}>
                         {p.firstName} {p.lastName} — {label}

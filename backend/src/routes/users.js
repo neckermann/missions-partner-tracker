@@ -148,8 +148,7 @@ router.put("/:id", async (req, res, next) => {
     // the scope (never left dangling from a prior role), even if this
     // call didn't itself mention scopedTripId/expiresAt.
     const effectiveRole = data.role !== undefined ? data.role : existing.role;
-    const effectiveScopedTripId =
-      data.scopedTripId !== undefined ? data.scopedTripId : existing.scopedTripId;
+    const effectiveScopedTripId = data.scopedTripId !== undefined ? data.scopedTripId : existing.scopedTripId;
     if (effectiveRole === "tripLeader" && !effectiveScopedTripId) {
       return res.status(400).json({ error: TRIP_LEADER_SCOPE_ISSUE.message });
     }

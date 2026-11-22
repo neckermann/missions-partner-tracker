@@ -8,7 +8,8 @@ function buildSections(enabledFeatures) {
       to: "/admin/settings/about",
       title: "About & Branding",
       icon: "🎨",
-      description: "Church info, contact details, public-site tagline, colors, font, logo, and partner terminology.",
+      description:
+        "Church info, contact details, public-site tagline, colors, font, logo, and partner terminology.",
     },
     {
       to: "/admin/settings/users",

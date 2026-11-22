@@ -158,9 +158,7 @@ export default function AdminSystemInfo() {
               value={{ backupReminderDisabled: Boolean(settings.backupReminderDisabled) }}
               onSave={saveReminder}
               onSaved={reload}
-              view={(v) => (
-                <p>{v.backupReminderDisabled ? "Reminder off" : "Reminder on"}</p>
-              )}
+              view={(v) => <p>{v.backupReminderDisabled ? "Reminder off" : "Reminder on"}</p>}
               edit={(d, set) => (
                 <>
                   <p style={{ color: "#555" }}>

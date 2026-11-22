@@ -2,7 +2,14 @@ const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
-const { client, stopServer, ensureTestUsers, removeTestUsers, removeFixturePartners, FIXTURE_TAG } = require("./helpers");
+const {
+  client,
+  stopServer,
+  ensureTestUsers,
+  removeTestUsers,
+  removeFixturePartners,
+  FIXTURE_TAG,
+} = require("./helpers");
 
 let admin;
 let editor;
@@ -90,10 +97,7 @@ describe("GET /api/notifications/summary", () => {
     });
 
     const seenCheck = await admin("/api/notifications/summary");
-    assert.equal(
-      seenCheck.body.categories.find((c) => c.key === "dispatchesNeedingApproval").isNew,
-      true
-    );
+    assert.equal(seenCheck.body.categories.find((c) => c.key === "dispatchesNeedingApproval").isNew, true);
 
     const markRes = await admin("/api/notifications/seen", {
       method: "POST",
@@ -109,10 +113,7 @@ describe("GET /api/notifications/summary", () => {
     // A different user who hasn't looked still sees it as new -- per-user,
     // not shared (see categories.js's own header comment).
     const editorView = await editor("/api/notifications/summary");
-    assert.equal(
-      editorView.body.categories.find((c) => c.key === "dispatchesNeedingApproval").isNew,
-      true
-    );
+    assert.equal(editorView.body.categories.find((c) => c.key === "dispatchesNeedingApproval").isNew, true);
 
     await prisma.dispatchRecord.delete({ where: { id: row.id } });
   });
@@ -120,7 +121,12 @@ describe("GET /api/notifications/summary", () => {
   test("newPrayerRequests is a per-user count, not a shared one", async () => {
     await prisma.notificationSeen.deleteMany({ where: { category: "newPrayerRequests" } });
     const pr = await prisma.prayerRequest.create({
-      data: { partnerId, category: "situational", requestText: `${FIXTURE_TAG} new request`, dateReceived: new Date() },
+      data: {
+        partnerId,
+        category: "situational",
+        requestText: `${FIXTURE_TAG} new request`,
+        dateReceived: new Date(),
+      },
     });
 
     const res = await admin("/api/notifications/summary");

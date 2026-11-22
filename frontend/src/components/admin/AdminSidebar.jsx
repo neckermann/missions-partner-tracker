@@ -16,7 +16,12 @@ const NAV_BADGE_CATEGORIES = {
   inboundEmail: ["unmatchedEmails"],
   prayerRequests: ["newPrayerRequests"],
   oneTimeNeeds: ["newOneTimeNeeds"],
-  trips: ["tripsDepartingSoon", "tripsDepartingSoonIncomplete", "overdueTripRequirements", "tripApplicationsPending"],
+  trips: [
+    "tripsDepartingSoon",
+    "tripsDepartingSoonIncomplete",
+    "overdueTripRequirements",
+    "tripApplicationsPending",
+  ],
 };
 
 // Same convention as GitHub/Slack notification badges -- a 3+ digit count
@@ -234,7 +239,10 @@ function TripLeaderSidebar({ scopedTrip, title }) {
       </div>
       <nav className="admin-sidebar-nav">
         {scopedTrip && (
-          <RouterNavLink to={`/admin/trips/${scopedTrip.id}`} className={({ isActive }) => (isActive ? "active" : undefined)}>
+          <RouterNavLink
+            to={`/admin/trips/${scopedTrip.id}`}
+            className={({ isActive }) => (isActive ? "active" : undefined)}
+          >
             <span aria-hidden="true">✈️</span>
             <span className="sb-label">{scopedTrip.label}</span>
           </RouterNavLink>
@@ -357,7 +365,11 @@ export default function AdminSidebar() {
         ))}
         {isAdmin && (
           <>
-            <RouterNavLink to="/admin/settings" title="Settings" className={inSiteAdmin ? "active" : undefined}>
+            <RouterNavLink
+              to="/admin/settings"
+              title="Settings"
+              className={inSiteAdmin ? "active" : undefined}
+            >
               <span aria-hidden="true">⚙️</span>
               <span className="sb-label">Settings</span>
             </RouterNavLink>

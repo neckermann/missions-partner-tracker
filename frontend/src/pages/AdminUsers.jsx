@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { fetchUsers, deleteUser, fetchCurrentUser, resetUserMfa, fetchUser, createUser, updateUser, fetchTrips } from "../api/client.js";
+import {
+  fetchUsers,
+  deleteUser,
+  fetchCurrentUser,
+  resetUserMfa,
+  fetchUser,
+  createUser,
+  updateUser,
+  fetchTrips,
+} from "../api/client.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
@@ -336,7 +345,11 @@ export default function AdminUsers() {
             />
           </label>
 
-          {formError && <p className="form-error" role="alert">{formError}</p>}
+          {formError && (
+            <p className="form-error" role="alert">
+              {formError}
+            </p>
+          )}
         </QuickActionModal>
       )}
 

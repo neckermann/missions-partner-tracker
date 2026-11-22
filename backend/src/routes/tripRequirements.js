@@ -14,7 +14,10 @@ router.use(requireAuth); // everything below requires a logged-in user
 router.use(requireFeature("trips"));
 
 async function tripIdOfRequirement(req) {
-  const row = await prisma.tripRequirement.findUnique({ where: { id: req.params.id }, select: { tripId: true } });
+  const row = await prisma.tripRequirement.findUnique({
+    where: { id: req.params.id },
+    select: { tripId: true },
+  });
   return row?.tripId;
 }
 
@@ -52,62 +55,65 @@ router.post(
   requireRole("admin", "editor", "tripLeader"),
   requireTripScope("id"),
   async (req, res, next) => {
-  try {
-    const data = requirementSchema
-      .refine(reminderNeedsDueDate, REMINDER_NEEDS_DUE_DATE_ISSUE)
-      .parse(req.body);
-    const created = await prisma.tripRequirement.create({ data: { tripId: req.params.id, ...data } });
+    try {
+      const data = requirementSchema
+        .refine(reminderNeedsDueDate, REMINDER_NEEDS_DUE_DATE_ISSUE)
+        .parse(req.body);
+      const created = await prisma.tripRequirement.create({ data: { tripId: req.params.id, ...data } });
 
-    // document- and esignature-kind requirements are the two kinds a
-    // participant can self-serve (the public upload route and the
-    // existing "Sign now" flow) -- tell them it exists the same moment an
-    // admin adds it, rather than leaving them to discover it only by
-    // revisiting their own trip page on their own. "task" stays excluded:
-    // there's nothing for a participant to do from this email for one --
-    // an admin checks it off, so a notice would just be noise.
-    if (created.kind === "document" || created.kind === "esignature") {
-      const trip = await prisma.trip.findUnique({
-        where: { id: req.params.id },
-        include: { participants: { select: emailParticipantSelect } },
-      });
-      await sendRequirementNotificationEmail(trip, created, trip?.participants || []);
+      // document- and esignature-kind requirements are the two kinds a
+      // participant can self-serve (the public upload route and the
+      // existing "Sign now" flow) -- tell them it exists the same moment an
+      // admin adds it, rather than leaving them to discover it only by
+      // revisiting their own trip page on their own. "task" stays excluded:
+      // there's nothing for a participant to do from this email for one --
+      // an admin checks it off, so a notice would just be noise.
+      if (created.kind === "document" || created.kind === "esignature") {
+        const trip = await prisma.trip.findUnique({
+          where: { id: req.params.id },
+          include: { participants: { select: emailParticipantSelect } },
+        });
+        await sendRequirementNotificationEmail(trip, created, trip?.participants || []);
+      }
+
+      res.status(201).json(created);
+    } catch (err) {
+      next(err);
     }
-
-    res.status(201).json(created);
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 router.put(
   "/requirements/:id",
   requireRole("admin", "editor", "tripLeader"),
   requireTripScope(tripIdOfRequirement),
   async (req, res, next) => {
-  try {
-    const data = requirementSchema
-      .partial()
-      .refine(reminderNeedsDueDate, REMINDER_NEEDS_DUE_DATE_ISSUE)
-      .parse(req.body);
-    const updated = await prisma.tripRequirement.update({ where: { id: req.params.id }, data });
-    res.json(updated);
-  } catch (err) {
-    next(err);
+    try {
+      const data = requirementSchema
+        .partial()
+        .refine(reminderNeedsDueDate, REMINDER_NEEDS_DUE_DATE_ISSUE)
+        .parse(req.body);
+      const updated = await prisma.tripRequirement.update({ where: { id: req.params.id }, data });
+      res.json(updated);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 router.delete(
   "/requirements/:id",
   requireRole("admin", "editor", "tripLeader"),
   requireTripScope(tripIdOfRequirement),
   async (req, res, next) => {
-  try {
-    await prisma.tripRequirement.delete({ where: { id: req.params.id } });
-    res.status(204).send();
-  } catch (err) {
-    next(err);
+    try {
+      await prisma.tripRequirement.delete({ where: { id: req.params.id } });
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 // PUT /api/trips/requirements/:id/participants/:participantId/complete --
 // task-kind only (a document's fulfillment is always the existing

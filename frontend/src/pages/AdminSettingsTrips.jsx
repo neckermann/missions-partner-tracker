@@ -279,7 +279,8 @@ export default function AdminSettingsTrips() {
                 <strong>Online giving instructions:</strong> {v.onlineGivingInstructions || "Not set"}
               </p>
               <p>
-                <strong>Donor contact info:</strong> {v.collectDonorContactInfo ? "Collected" : "Not collected"}
+                <strong>Donor contact info:</strong>{" "}
+                {v.collectDonorContactInfo ? "Collected" : "Not collected"}
               </p>
               <p>
                 <strong>Trip budgeting:</strong> {v.enableTripBudgeting ? "On" : "Off"}
@@ -325,8 +326,8 @@ export default function AdminSettingsTrips() {
               />
               <p style={{ color: "#888", fontSize: "0.85rem" }}>
                 Adds a Financial section to each trip's own page for logging estimated costs (flights,
-                lodging, etc.) and seeing how much is still needed against what's been raised. Turned off,
-                the budget half of that section doesn't appear at all.
+                lodging, etc.) and seeing how much is still needed against what's been raised. Turned off, the
+                budget half of that section doesn't appear at all.
               </p>
             </>
           )}
@@ -380,7 +381,10 @@ export default function AdminSettingsTrips() {
               }
               onReorder={(reordered) => set("tripApplicationTemplate", reordered)}
               onAddFromLibrary={(entry) =>
-                set("tripApplicationTemplate", [...d.tripApplicationTemplate, { ...entry, id: crypto.randomUUID() }])
+                set("tripApplicationTemplate", [
+                  ...d.tripApplicationTemplate,
+                  { ...entry, id: crypto.randomUUID() },
+                ])
               }
             />
           )}
@@ -395,15 +399,18 @@ export default function AdminSettingsTrips() {
             view={(v) => (
               <p>
                 {(v.tripQuestionLibrary || []).length} reusable question
-                {(v.tripQuestionLibrary || []).length === 1 ? "" : "s"} — not itself shown to anyone, ever. Pick
-                from it when adding a question above or on any trip's own page.
+                {(v.tripQuestionLibrary || []).length === 1 ? "" : "s"} — not itself shown to anyone, ever.
+                Pick from it when adding a question above or on any trip's own page.
               </p>
             )}
             edit={(d, set) => (
               <ApplicationQuestionsEditor
                 questions={d.tripQuestionLibrary}
                 onAdd={(input) =>
-                  set("tripQuestionLibrary", [...d.tripQuestionLibrary, { id: crypto.randomUUID(), ...input }])
+                  set("tripQuestionLibrary", [
+                    ...d.tripQuestionLibrary,
+                    { id: crypto.randomUUID(), ...input },
+                  ])
                 }
                 onUpdate={(qId, patch) =>
                   set(
@@ -435,10 +442,12 @@ export default function AdminSettingsTrips() {
             view={(v) => (
               <>
                 <p>
-                  <strong>Mailing address:</strong> {v.collectApplicantAddress ? "Collected" : "Not collected"}
+                  <strong>Mailing address:</strong>{" "}
+                  {v.collectApplicantAddress ? "Collected" : "Not collected"}
                 </p>
                 <p>
-                  <strong>Emergency contact:</strong> {v.collectEmergencyContact ? "Collected" : "Not collected"}
+                  <strong>Emergency contact:</strong>{" "}
+                  {v.collectEmergencyContact ? "Collected" : "Not collected"}
                 </p>
               </>
             )}

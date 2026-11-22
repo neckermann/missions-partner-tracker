@@ -83,6 +83,8 @@ test.describe("Trip Team tab: Table + Modal", () => {
     // (same behavior as before this migration, unchanged).
     await page.waitForURL(/\/admin\/trips\/[^/]+\/participants\/[^/]+$/);
     await expect(page.locator("body")).toContainText("Review");
-    await expect(page.locator("body")).not.toContainText(/cannot read|undefined is not|something went wrong/i);
+    await expect(page.locator("body")).not.toContainText(
+      /cannot read|undefined is not|something went wrong/i
+    );
   });
 });

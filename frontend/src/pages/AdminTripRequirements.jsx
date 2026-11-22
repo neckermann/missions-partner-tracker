@@ -213,7 +213,11 @@ export default function AdminTripRequirements() {
               <>
                 <Field label="Kind" value={KIND_LABELS[r.kind] || r.kind} />
                 <Field label="Label" value={r.label} />
-                <Field label="Due" value={overdue ? `${r.dueAt.slice(0, 10)} (overdue)` : r.dueAt?.slice(0, 10)} showEmpty />
+                <Field
+                  label="Due"
+                  value={overdue ? `${r.dueAt.slice(0, 10)} (overdue)` : r.dueAt?.slice(0, 10)}
+                  showEmpty
+                />
                 <Field label="Minors only" value={r.minorsOnly ? "Yes" : "No"} />
               </>
             );

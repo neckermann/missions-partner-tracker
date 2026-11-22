@@ -199,144 +199,144 @@ export default function PublicTripApplication() {
       render: ({ values, setValue }) => {
         const isMinor = isMinorForTrip(values.dateOfBirth, trip.startDate);
         return (
-        <>
-          {trip.collectApplicantAddress && (
-            <div className="form-grid">
-              <label style={{ gridColumn: "1 / -1" }}>
-                Mailing address
-                <input
-                  placeholder="Street address"
-                  value={values.addressLine1}
-                  onChange={(e) => setValue("addressLine1", e.target.value)}
-                />
-              </label>
-              <label style={{ gridColumn: "1 / -1" }}>
-                Address line 2 (optional)
-                <input
-                  value={values.addressLine2}
-                  onChange={(e) => setValue("addressLine2", e.target.value)}
-                />
-              </label>
-              <label>
-                City
-                <input value={values.city} onChange={(e) => setValue("city", e.target.value)} />
-              </label>
-              <label>
-                State/Province
-                <input
-                  value={values.stateProvinceRegion}
-                  onChange={(e) => setValue("stateProvinceRegion", e.target.value)}
-                />
-              </label>
-              <label>
-                Postal code
-                <input value={values.postalCode} onChange={(e) => setValue("postalCode", e.target.value)} />
-              </label>
-              <label>
-                Country
-                <input value={values.country} onChange={(e) => setValue("country", e.target.value)} />
-              </label>
-            </div>
-          )}
-          {trip.collectEmergencyContact && (
-            <div className="form-grid" style={{ marginTop: trip.collectApplicantAddress ? "0.75rem" : 0 }}>
-              {/* Not a form label -- a plain section heading, no control
+          <>
+            {trip.collectApplicantAddress && (
+              <div className="form-grid">
+                <label style={{ gridColumn: "1 / -1" }}>
+                  Mailing address
+                  <input
+                    placeholder="Street address"
+                    value={values.addressLine1}
+                    onChange={(e) => setValue("addressLine1", e.target.value)}
+                  />
+                </label>
+                <label style={{ gridColumn: "1 / -1" }}>
+                  Address line 2 (optional)
+                  <input
+                    value={values.addressLine2}
+                    onChange={(e) => setValue("addressLine2", e.target.value)}
+                  />
+                </label>
+                <label>
+                  City
+                  <input value={values.city} onChange={(e) => setValue("city", e.target.value)} />
+                </label>
+                <label>
+                  State/Province
+                  <input
+                    value={values.stateProvinceRegion}
+                    onChange={(e) => setValue("stateProvinceRegion", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Postal code
+                  <input value={values.postalCode} onChange={(e) => setValue("postalCode", e.target.value)} />
+                </label>
+                <label>
+                  Country
+                  <input value={values.country} onChange={(e) => setValue("country", e.target.value)} />
+                </label>
+              </div>
+            )}
+            {trip.collectEmergencyContact && (
+              <div className="form-grid" style={{ marginTop: trip.collectApplicantAddress ? "0.75rem" : 0 }}>
+                {/* Not a form label -- a plain section heading, no control
               of its own to associate with (the three fields below each
               have their own). A <label> with nothing inside it fails
               jsx-a11y/label-has-associated-control for exactly that
               reason. */}
-              <div style={{ gridColumn: "1 / -1", fontWeight: 600 }}>Emergency contact</div>
-              <label>
-                First Name
-                <input
-                  value={values.emergencyContactFirstName}
-                  onChange={(e) => setValue("emergencyContactFirstName", e.target.value)}
-                />
-              </label>
-              <label>
-                Last Name
-                <input
-                  value={values.emergencyContactLastName}
-                  onChange={(e) => setValue("emergencyContactLastName", e.target.value)}
-                />
-              </label>
-              <label>
-                Phone
-                <input
-                  value={values.emergencyContactPhone}
-                  onChange={(e) => setValue("emergencyContactPhone", e.target.value)}
-                />
-              </label>
-              <label>
-                Email (optional)
-                <input
-                  type="email"
-                  value={values.emergencyContactEmail}
-                  onChange={(e) => setValue("emergencyContactEmail", e.target.value)}
-                />
-              </label>
-            </div>
-          )}
-          {isMinor && (
-            <div
-              className="form-grid"
-              style={{
-                marginTop: trip.collectApplicantAddress || trip.collectEmergencyContact ? "0.75rem" : 0,
-              }}
-            >
-              <div style={{ gridColumn: "1 / -1", fontWeight: 600 }}>
-                Parent/guardian (required -- the applicant is under 18)
+                <div style={{ gridColumn: "1 / -1", fontWeight: 600 }}>Emergency contact</div>
+                <label>
+                  First Name
+                  <input
+                    value={values.emergencyContactFirstName}
+                    onChange={(e) => setValue("emergencyContactFirstName", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Last Name
+                  <input
+                    value={values.emergencyContactLastName}
+                    onChange={(e) => setValue("emergencyContactLastName", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Phone
+                  <input
+                    value={values.emergencyContactPhone}
+                    onChange={(e) => setValue("emergencyContactPhone", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Email (optional)
+                  <input
+                    type="email"
+                    value={values.emergencyContactEmail}
+                    onChange={(e) => setValue("emergencyContactEmail", e.target.value)}
+                  />
+                </label>
               </div>
-              <label>
-                First Name
-                <input
-                  required
-                  value={values.parentGuardianFirstName}
-                  onChange={(e) => setValue("parentGuardianFirstName", e.target.value)}
-                />
-              </label>
-              <label>
-                Last Name
-                <input
-                  required
-                  value={values.parentGuardianLastName}
-                  onChange={(e) => setValue("parentGuardianLastName", e.target.value)}
-                />
-              </label>
-              <label>
-                Relationship
-                <input
-                  required
-                  placeholder="e.g. Mother, Father, Legal guardian"
-                  value={values.parentGuardianRelationship}
-                  onChange={(e) => setValue("parentGuardianRelationship", e.target.value)}
-                />
-              </label>
-              <label>
-                Phone
-                <input
-                  required
-                  value={values.parentGuardianPhone}
-                  onChange={(e) => setValue("parentGuardianPhone", e.target.value)}
-                />
-              </label>
-              <label>
-                Email
-                <input
-                  required
-                  type="email"
-                  value={values.parentGuardianEmail}
-                  onChange={(e) => setValue("parentGuardianEmail", e.target.value)}
-                />
-              </label>
-            </div>
-          )}
-          {!trip.collectApplicantAddress && !trip.collectEmergencyContact && !isMinor && (
-            <p style={{ color: "#888" }}>
-              Nothing else needed here for this trip -- continue to the next step.
-            </p>
-          )}
-        </>
+            )}
+            {isMinor && (
+              <div
+                className="form-grid"
+                style={{
+                  marginTop: trip.collectApplicantAddress || trip.collectEmergencyContact ? "0.75rem" : 0,
+                }}
+              >
+                <div style={{ gridColumn: "1 / -1", fontWeight: 600 }}>
+                  Parent/guardian (required -- the applicant is under 18)
+                </div>
+                <label>
+                  First Name
+                  <input
+                    required
+                    value={values.parentGuardianFirstName}
+                    onChange={(e) => setValue("parentGuardianFirstName", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Last Name
+                  <input
+                    required
+                    value={values.parentGuardianLastName}
+                    onChange={(e) => setValue("parentGuardianLastName", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Relationship
+                  <input
+                    required
+                    placeholder="e.g. Mother, Father, Legal guardian"
+                    value={values.parentGuardianRelationship}
+                    onChange={(e) => setValue("parentGuardianRelationship", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Phone
+                  <input
+                    required
+                    value={values.parentGuardianPhone}
+                    onChange={(e) => setValue("parentGuardianPhone", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Email
+                  <input
+                    required
+                    type="email"
+                    value={values.parentGuardianEmail}
+                    onChange={(e) => setValue("parentGuardianEmail", e.target.value)}
+                  />
+                </label>
+              </div>
+            )}
+            {!trip.collectApplicantAddress && !trip.collectEmergencyContact && !isMinor && (
+              <p style={{ color: "#888" }}>
+                Nothing else needed here for this trip -- continue to the next step.
+              </p>
+            )}
+          </>
         );
       },
     },

@@ -102,7 +102,11 @@ export default function AdminSettingsEmail() {
 
       <EditableSection
         title="Sending"
-        value={{ sendEnabled: settings.sendEnabled, serverToken: "", fromAddress: settings.fromAddress || "" }}
+        value={{
+          sendEnabled: settings.sendEnabled,
+          serverToken: "",
+          fromAddress: settings.fromAddress || "",
+        }}
         onSave={saveSend}
         onSaved={reload}
         actions={
@@ -131,7 +135,11 @@ export default function AdminSettingsEmail() {
           <>
             <div className="admin-checkbox-row">
               <label>
-                <input type="checkbox" checked={d.sendEnabled} onChange={(e) => set("sendEnabled", e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={d.sendEnabled}
+                  onChange={(e) => set("sendEnabled", e.target.checked)}
+                />
                 Enabled
               </label>
             </div>
@@ -150,7 +158,9 @@ export default function AdminSettingsEmail() {
                 value={d.serverToken}
                 onChange={(e) => set("serverToken", e.target.value)}
                 placeholder={
-                  settings.outboundConfigured ? "Configured — leave blank to keep it" : "Paste your server API token"
+                  settings.outboundConfigured
+                    ? "Configured — leave blank to keep it"
+                    : "Paste your server API token"
                 }
                 autoComplete="off"
               />
@@ -186,7 +196,9 @@ export default function AdminSettingsEmail() {
               </p>
               <p style={{ color: "#555" }}>Webhook username: {v.webhookUsername || "Not set"}</p>
               <p style={{ color: "#555" }}>Inbound address: {v.inboundEmailAddress || "Not set"}</p>
-              <code style={{ display: "block", padding: "0.5rem", background: "#f4f4f4", wordBreak: "break-all" }}>
+              <code
+                style={{ display: "block", padding: "0.5rem", background: "#f4f4f4", wordBreak: "break-all" }}
+              >
                 https://{"<username>"}:{"<password>"}@{webhookUrl.replace(/^https?:\/\//, "")}
               </code>
             </>
@@ -208,8 +220,8 @@ export default function AdminSettingsEmail() {
                 any of their household adults') files it as a Newsletter automatically; anything else lands in
                 the <strong>Unmatched Emails</strong> queue. On your Postmark server's Inbound stream Settings
                 tab, check <strong>Include raw email content in JSON payload</strong>, then set the{" "}
-                <strong>Inbound webhook</strong> URL to the address shown below, using the username/password you
-                choose here -- Postmark sends them as HTTP Basic Auth on every request. Pick any dedicated
+                <strong>Inbound webhook</strong> URL to the address shown below, using the username/password
+                you choose here -- Postmark sends them as HTTP Basic Auth on every request. Pick any dedicated
                 subdomain for partners to send to (never the church's own real inbox).
               </p>
               <code
@@ -232,7 +244,9 @@ export default function AdminSettingsEmail() {
                   type="password"
                   value={d.webhookPassword}
                   onChange={(e) => set("webhookPassword", e.target.value)}
-                  placeholder={settings.inboundConfigured ? "Configured — leave blank to keep it" : "Choose a password"}
+                  placeholder={
+                    settings.inboundConfigured ? "Configured — leave blank to keep it" : "Choose a password"
+                  }
                   autoComplete="off"
                 />
               </label>
