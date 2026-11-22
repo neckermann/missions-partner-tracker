@@ -11,6 +11,15 @@ import LoadMoreButton from "../LoadMoreButton.jsx";
 // `hasMore`/`remaining`/`onShowMore`, when given (straight from a caller's
 // own useLoadMore.js), render a "Load More" button below the list -- for
 // a list capped to a few rows by default instead of showing everything.
+//
+// `bare`: skips the outer `admin-section` card + its own heading/Add
+// button row, rendering just the row list (+ Load More) -- for nesting
+// this list inside another card that already supplies its own heading/
+// chrome (e.g. Trip Types Supported nested inside the Trip Capacity
+// EditableSection, so the two read as one card instead of two). The
+// add/edit/delete plumbing is unchanged either way; only the wrapper/
+// heading is suppressed, so pass `onAdd`/`addLabel` as `undefined` too if
+// the host card's own header already provides its own "+ Add" affordance.
 export default function PartnerRecordList({
   title,
   icon,
@@ -24,20 +33,27 @@ export default function PartnerRecordList({
   hasMore,
   remaining,
   onShowMore,
+  bare = false,
 }) {
-  return (
-    <div className="admin-section">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h3 style={{ margin: 0 }}>
-          {icon && <span aria-hidden="true">{icon} </span>}
-          {title}
-        </h3>
-        {addLabel && (
-          <button type="button" className="btn secondary small" onClick={onAdd}>
-            {addLabel}
-          </button>
-        )}
-      </div>
+  const rows = (
+    <>
+      {(title || addLabel) && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          {title ? (
+            <h3 style={{ margin: 0 }}>
+              {icon && <span aria-hidden="true">{icon} </span>}
+              {title}
+            </h3>
+          ) : (
+            <span />
+          )}
+          {addLabel && (
+            <button type="button" className="btn secondary small" onClick={onAdd}>
+              {addLabel}
+            </button>
+          )}
+        </div>
+      )}
       {items.length === 0 ? (
         <p style={{ color: "#888", marginTop: "0.5rem" }}>{emptyMessage}</p>
       ) : (
@@ -58,6 +74,9 @@ export default function PartnerRecordList({
         ))
       )}
       {onShowMore && <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={onShowMore} size="small" />}
-    </div>
+    </>
   );
+
+  if (bare) return rows;
+  return <div className="admin-section">{rows}</div>;
 }

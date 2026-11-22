@@ -46,6 +46,8 @@ import {
   deleteTripType,
 } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
+import StatusPill from "../components/admin/StatusPill.jsx";
+import Field from "../components/admin/Field.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
 import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
 import PartnerRecordList from "../components/admin/PartnerRecordList.jsx";
@@ -63,6 +65,8 @@ import { FILE_KINDS, fileKindLabel } from "../utils/fileKinds.js";
 import { LINK_TYPES, linkTypeLabel } from "../utils/linkTypes.js";
 import { PROFICIENCY_LEVELS, proficiencyLabel } from "../utils/proficiencyLevels.js";
 import { LANGUAGE_NAMES } from "../utils/languageNames.js";
+import { supportNeedStatus } from "../utils/supportNeedStatus.js";
+import { truncate } from "../utils/truncate.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
 import { formatDateLong, formatDate, formatCurrency, toDateInputValue, todayInputValue } from "../utils/format.js";
@@ -122,37 +126,12 @@ function cleanAddress(address) {
   return hasAnyAddressValue(cleaned) ? cleaned : undefined;
 }
 
-// Renders a labeled value, hiding itself when empty unless `showEmpty` --
-// A one-line summary (PartnerSummaryCard) shouldn't wrap a long request/
-// description across several lines -- cut it and let "View all" be where
-// the full text lives.
-function truncate(text, max) {
-  if (!text) return text;
-  return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
-}
-
-// keeps free-form sections free of "Field: —" clutter while fixed field sets
-// still show what could be filled in.
-function Field({ label, value, showEmpty = false }) {
-  const isEmpty = value === null || value === undefined || value === "";
-  if (isEmpty && !showEmpty) return null;
-  return (
-    <div>
-      <div
-        style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase", letterSpacing: "0.03em" }}
-      >
-        {label}
-      </div>
-      <div style={isEmpty ? { color: "#aaa" } : undefined}>{isEmpty ? "—" : value}</div>
-    </div>
-  );
-}
-
 function AddressSummary({ address }) {
   const a = address || {};
   const lines = [a.addressLine1, a.addressLine2].filter(Boolean);
   const cityLine = [a.city, a.stateProvinceRegion, a.postalCode].filter(Boolean).join(", ");
-  if (!lines.length && !cityLine && !a.country) return <p style={{ color: "#888" }}>Not on file.</p>;
+  if (!lines.length && !cityLine && !a.country)
+    return <p style={{ color: "#888" }}>No mailing address on file.</p>;
   return (
     <div>
       {lines.map((line, i) => (
@@ -342,6 +321,10 @@ export default function AdminPartnerDetail() {
   const supportEntriesLoadMore = useLoadMore(collections.supportEntries, { initialCount: 2, step: 100 });
   const churchVisitsLoadMore = useLoadMore(collections.churchVisits, { initialCount: 2, step: 100 });
   const furloughsLoadMore = useLoadMore(collections.furloughs, { initialCount: 2, step: 100 });
+  const needRequestsLoadMore = useLoadMore(collections.needRequests, { initialCount: 3, step: 100 });
+  const prayerRequestsLoadMore = useLoadMore(collections.prayerRequests, { initialCount: 3, step: 100 });
+  const filesLoadMore = useLoadMore(collections.files, { initialCount: 3, step: 100 });
+  const tripsLoadMore = useLoadMore(collections.trips, { initialCount: 3, step: 100 });
 
   if (!p) return <p style={{ padding: "2rem" }}>Loading...</p>;
 
@@ -653,24 +636,30 @@ export default function AdminPartnerDetail() {
 
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", margin: "1rem 0" }}>
         {!isOrg && (
-          <span className={`status-pill ${p.contactSafe ? "good" : "warn"}`}>
-            {p.contactSafe ? "Safe to contact" : "Not safe to contact"}
-          </span>
+          <StatusPill
+            label={p.contactSafe ? "Safe to contact" : "Not safe to contact"}
+            color={p.contactSafe ? "#2a5d3c" : "#a6540f"}
+          />
         )}
-        <span className="status-pill">{p.isPublic ? "Shown on public site" : "Not public"}</span>
-        {p.isRestricted && <span className="status-pill warn">Restricted-access</span>}
+        <StatusPill
+          label={p.isPublic ? "Shown on public site" : "Not public"}
+          color={p.isPublic ? "#2a5d3c" : "#6b6f76"}
+        />
+        {p.isRestricted && <StatusPill label="Restricted-access" color="#a6540f" />}
         {!isOrg && (
-          <span
-            className={`status-pill ${p.sentByOurChurch ? "good" : ""}`}
-            title="Edit in the Sending Church box below to change this."
-          >
-            {p.sentByOurChurch
-              ? `Sent by ${churchName || "our church"}`
-              : `Not sent by ${churchName || "our church"}`}
+          <span title="Edit in the Sending Church box below to change this.">
+            <StatusPill
+              label={
+                p.sentByOurChurch
+                  ? `Sent by ${churchName || "our church"}`
+                  : `Not sent by ${churchName || "our church"}`
+              }
+              color="#6b6f76"
+            />
           </span>
         )}
-        {activeFurlough && <span className="status-pill warn">On Furlough</span>}
-        {p.archived && <span className="status-pill warn">Archived {formatDateLong(p.archivedAt)}</span>}
+        {activeFurlough && <StatusPill label="On Furlough" color="#a6540f" />}
+        {p.archived && <StatusPill label={`Archived ${formatDateLong(p.archivedAt)}`} color="#a6540f" />}
       </div>
 
       <div className="partner-jump-rail">
@@ -1168,7 +1157,7 @@ export default function AdminPartnerDetail() {
                         </div>
                       </>
                     ) : (
-                      <p style={{ color: "#888" }}>Not on file.</p>
+                      <p style={{ color: "#888" }}>No {title} on file.</p>
                     )}
                   </>
                 )}
@@ -1291,9 +1280,15 @@ export default function AdminPartnerDetail() {
                 icon="🎁"
                 title="One-Time Needs"
                 count={collections.needRequests.length}
-                items={collections.needRequests
-                  .slice(0, 3)
-                  .map((n) => ({ text: truncate(n.description, 70), onClick: () => openNeedDetail(n) }))}
+                items={needRequestsLoadMore.visible.map((n) => ({
+                  text: `${truncate(n.description, 60)} · ${formatCurrency(n.requestedAmount)} · ${
+                    supportNeedStatus(n).label
+                  }`,
+                  onClick: () => openNeedDetail(n),
+                }))}
+                hasMore={needRequestsLoadMore.hasMore}
+                remaining={needRequestsLoadMore.remaining}
+                onShowMore={needRequestsLoadMore.showMore}
                 viewAllTo={`/admin/support/needs?partnerId=${p.id}`}
                 actions={[
                   { label: "+ Add", onClick: openAddNeed },
@@ -1314,13 +1309,15 @@ export default function AdminPartnerDetail() {
               icon="✈️"
               title="Mission Trips"
               count={collections.trips.length}
-              summary={
-                collections.trips[0]
-                  ? `${collections.trips[0].name || collections.trips[0].type || "Trip"}${
-                      collections.trips[0].startDate ? ` · ${formatDate(collections.trips[0].startDate)}` : ""
-                    }`
-                  : null
-              }
+              items={tripsLoadMore.visible.map((t) => ({
+                text: `${t.name || t.type || "Trip"}${t.startDate ? ` · ${formatDate(t.startDate)}` : ""}${
+                  t.status ? ` · ${t.status}` : ""
+                }`,
+                onClick: () => navigate(`/admin/trips/${t.id}`),
+              }))}
+              hasMore={tripsLoadMore.hasMore}
+              remaining={tripsLoadMore.remaining}
+              onShowMore={tripsLoadMore.showMore}
               viewAllTo={`/admin/trips?partnerId=${p.id}`}
               actions={[
                 {
@@ -1365,6 +1362,18 @@ export default function AdminPartnerDetail() {
                   <Field label="Best Time of Year / Duration Notes" value={v.tripSeasonNotes} />
                   <Field label="Lodging &amp; Logistics Notes" value={v.tripLogisticsNotes} />
                 </div>
+                <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid #eee" }}>
+                  <PartnerRecordList
+                    bare
+                    items={collections.tripTypes}
+                    renderItem={(t) => <Field label="Type" value={t.type} />}
+                    addLabel="+ Add Type"
+                    onAdd={() => tripTypeCrud.openAdd({ type: "" })}
+                    onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
+                    onDelete={(t) => tripTypeCrud.handleDelete(t, (item) => `Delete "${item.type}"?`)}
+                    emptyMessage="No trip types on file."
+                  />
+                </div>
               </>
             )}
             edit={(d, set) => (
@@ -1405,17 +1414,20 @@ export default function AdminPartnerDetail() {
                     onChange={(e) => set("tripLogisticsNotes", e.target.value)}
                   />
                 </label>
+                <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid #eee" }}>
+                  <PartnerRecordList
+                    bare
+                    items={collections.tripTypes}
+                    renderItem={(t) => <Field label="Type" value={t.type} />}
+                    addLabel="+ Add Type"
+                    onAdd={() => tripTypeCrud.openAdd({ type: "" })}
+                    onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
+                    onDelete={(t) => tripTypeCrud.handleDelete(t, (item) => `Delete "${item.type}"?`)}
+                    emptyMessage="No trip types on file."
+                  />
+                </div>
               </>
             )}
-          />
-
-          <PartnerRecordList
-            title="Trip Types Supported"
-            items={collections.tripTypes}
-            renderItem={(t) => <Field label="Type" value={t.type} />}
-            onAdd={() => tripTypeCrud.openAdd({ type: "" })}
-            onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
-            onDelete={(t) => tripTypeCrud.handleDelete(t, (item) => `Delete "${item.type}"?`)}
           />
         </div>
 
@@ -1427,9 +1439,13 @@ export default function AdminPartnerDetail() {
               icon="🙏"
               title="Prayer Requests"
               count={collections.prayerRequests.length}
-              items={collections.prayerRequests
-                .slice(0, 3)
-                .map((r) => ({ text: truncate(r.requestText, 70), onClick: () => openPrayerDetail(r) }))}
+              items={prayerRequestsLoadMore.visible.map((r) => ({
+                text: `${truncate(r.requestText, 60)} · ${r.category === "strategic" ? "Strategic" : "Situational"}`,
+                onClick: () => openPrayerDetail(r),
+              }))}
+              hasMore={prayerRequestsLoadMore.hasMore}
+              remaining={prayerRequestsLoadMore.remaining}
+              onShowMore={prayerRequestsLoadMore.showMore}
               viewAllTo={`/admin/prayer-requests?partnerId=${p.id}`}
               actions={[
                 { label: "+ Add", onClick: openAddPrayerRequest },
@@ -1445,9 +1461,13 @@ export default function AdminPartnerDetail() {
               icon="📰"
               title="Newsletters & Docs"
               count={collections.files.length}
-              items={collections.files
-                .slice(0, 3)
-                .map((f) => ({ text: f.title || f.fileName, onClick: () => openFileDetail(f) }))}
+              items={filesLoadMore.visible.map((f) => ({
+                text: `${f.title || f.fileName} · ${fileKindLabel(f.kind)} · ${formatDate(f.receivedDate)}`,
+                onClick: () => openFileDetail(f),
+              }))}
+              hasMore={filesLoadMore.hasMore}
+              remaining={filesLoadMore.remaining}
+              onShowMore={filesLoadMore.showMore}
               viewAllTo={`/admin/partner-files?partnerId=${p.id}`}
               actions={[{ label: "+ Upload", onClick: openUploadFile }]}
             />
