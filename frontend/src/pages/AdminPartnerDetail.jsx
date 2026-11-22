@@ -979,11 +979,6 @@ export default function AdminPartnerDetail() {
                 <div style={{ marginTop: "0.75rem" }}>
                   <AddressSummary address={physical} />
                 </div>
-                {enabledFeatures.joshuaProject && p.fipsCountryCode && (
-                  <div style={{ marginTop: "0.75rem" }}>
-                    <CountryStats countryCode={p.fipsCountryCode} />
-                  </div>
-                )}
               </>
             )}
             edit={(d, set) => (
@@ -1039,6 +1034,21 @@ export default function AdminPartnerDetail() {
               </>
             )}
           />
+
+          {/* Its own plain (non-clickable) card, not nested inside Serving
+              Location's EditableSection above -- it used to be, and the
+              "Show Country Statistics" button's click bubbled up into that
+              card's own onClick, silently opening the edit popup instead of
+              expanding the stats. See CountryStats.jsx's own comment for why
+              it now loads by default rather than behind that button. */}
+          {enabledFeatures.joshuaProject && p.fipsCountryCode && (
+            <div className="admin-section">
+              <h3>Joshua Project Statistics</h3>
+              <div style={{ marginTop: "1rem" }}>
+                <CountryStats countryCode={p.fipsCountryCode} />
+              </div>
+            </div>
+          )}
 
           <EditableSection
             title="Mailing &amp; Contact Address"
