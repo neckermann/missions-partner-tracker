@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useParams, Link, useNavigate, NavLink, Outlet } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation, NavLink, Outlet } from "react-router-dom";
 import { fetchTrip, fetchTripApplications, fetchTripsSettings } from "../../api/client.js";
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import TripStatusBadge from "./TripStatusBadge.jsx";
@@ -20,6 +20,7 @@ import useCurrentUser from "../../hooks/useCurrentUser.js";
 export default function TripDetailLayout() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const { canWrite: globalCanWrite, isAdmin, isTripLeader, scopedTripId } = useCurrentUser();
   // A Trip Leader's global canWrite is false (role is neither admin nor
@@ -75,19 +76,37 @@ export default function TripDetailLayout() {
     { to: "flights", label: "Flights" },
   ];
 
+  // A Trip Leader has no access to the Partners directory or a cross-trip
+  // "Trips" list (AdminLayout.jsx's own role check 403-redirects them away
+  // from both) -- those two breadcrumb segments were a real, previously-
+  // unnoticed way this role could silently bounce back to this exact page
+  // with no explanation. Their own linked Partner IS something they can
+  // open, so that segment stays.
+  const breadcrumbItems = isTripLeader
+    ? [
+        ...(trip.partner?.id
+          ? [{ label: trip.partner.displayName || "Partner", to: `/admin/partners/${trip.partner.id}` }]
+          : []),
+        { label: trip.name || trip.type || "Trip" },
+      ]
+    : [
+        { label: "Partners", to: "/admin/partners" },
+        {
+          label: trip.partner?.displayName || "Partner",
+          to: `/admin/partners/${trip.partner?.id}`,
+        },
+        { label: "Trips", to: `/admin/trips?partnerId=${trip.partner?.id}` },
+        { label: trip.name || trip.type || "Trip" },
+      ];
+
   return (
     <div className="admin-shell">
-      <Breadcrumb
-        items={[
-          { label: "Partners", to: "/admin/partners" },
-          {
-            label: trip.partner?.displayName || "Partner",
-            to: `/admin/partners/${trip.partner?.id}`,
-          },
-          { label: "Trips", to: `/admin/trips?partnerId=${trip.partner?.id}` },
-          { label: trip.name || trip.type || "Trip" },
-        ]}
-      />
+      {location.state?.accessDenied && (
+        <p className="field-warning" role="alert">
+          You don't have access to that page -- here's your trip instead.
+        </p>
+      )}
+      <Breadcrumb items={breadcrumbItems} />
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem" }}>
         <h2 style={{ margin: 0 }}>{trip.name || trip.type || "Trip"}</h2>
         <TripStatusBadge status={trip.status} />

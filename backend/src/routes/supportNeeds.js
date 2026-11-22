@@ -1,7 +1,7 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
+const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { notifySupportNeedCreated, notifySupportNeedDecided } = require("../utils/dispatchRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
@@ -77,7 +77,14 @@ const supportNeedInclude = {
 // status/from/to mirror reports/oneTimeNeeds.js's own filtering exactly
 // (status derived from approvedAmount being null/not-null, same as there --
 // SupportNeed has no separate status column).
-router.get("/", requirePartnerQueryScope, async (req, res, next) => {
+//
+// A Trip Leader has no access here at all, even for their own linked
+// Partner -- same reasoning as supportEntries.js's identical block: this
+// is financial-support detail, not the ministry content (Prayer Requests/
+// Newsletters & Docs) this role is meant to read. An outright role block,
+// not requirePartnerQueryScope (which would have let a matching partnerId
+// through).
+router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);

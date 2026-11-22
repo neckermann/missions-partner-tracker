@@ -27,7 +27,19 @@ export default function AdminLayout() {
       (scopedTripId && location.pathname.startsWith(`/admin/trips/${scopedTripId}`)) ||
       location.pathname.startsWith("/admin/partners/");
     if (!allowed) {
-      return <Navigate to={scopedTripId ? `/admin/trips/${scopedTripId}` : "/login"} replace />;
+      // Carries a reason so the landing page can surface a real, visible
+      // explanation (TripDetailLayout.jsx reads this) instead of a silent
+      // bounce -- defense in depth for whatever link still slips through
+      // despite every page deliberately not rendering one to a place this
+      // role can't go (see TripDetailLayout.jsx's and
+      // AdminTripParticipantDetail.jsx's own trimmed breadcrumbs).
+      return (
+        <Navigate
+          to={scopedTripId ? `/admin/trips/${scopedTripId}` : "/login"}
+          state={scopedTripId ? { accessDenied: true } : undefined}
+          replace
+        />
+      );
     }
   }
 

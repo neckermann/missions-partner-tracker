@@ -45,7 +45,7 @@ function readFileAsDataUrl(file) {
 // at all before this pass).
 export default function AdminTripParticipantDetail() {
   const { tripId, participantId } = useParams();
-  const { canWrite } = useCurrentUser();
+  const { canWrite, isTripLeader } = useCurrentUser();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [trip, setTrip] = useState(null);
   const [settings, setSettings] = useState(null);
@@ -231,16 +231,29 @@ export default function AdminTripParticipantDetail() {
   return (
     <div className="admin-shell">
       <Breadcrumb
-        items={[
-          { label: "Partners", to: "/admin/partners" },
-          {
-            label: trip.partner?.displayName || "Partner",
-            to: `/admin/partners/${trip.partner?.id}`,
-          },
-          { label: "Trips", to: `/admin/trips?partnerId=${trip.partner?.id}` },
-          { label: trip.name || trip.type || "Trip", to: `/admin/trips/${tripId}` },
-          { label: `${participant.firstName} ${participant.lastName}` },
-        ]}
+        // A Trip Leader has no access to the Partners directory or a
+        // cross-trip "Trips" list -- same reasoning as TripDetailLayout.jsx's
+        // identically-trimmed breadcrumb.
+        items={
+          isTripLeader
+            ? [
+                ...(trip.partner?.id
+                  ? [{ label: trip.partner.displayName || "Partner", to: `/admin/partners/${trip.partner.id}` }]
+                  : []),
+                { label: trip.name || trip.type || "Trip", to: `/admin/trips/${tripId}` },
+                { label: `${participant.firstName} ${participant.lastName}` },
+              ]
+            : [
+                { label: "Partners", to: "/admin/partners" },
+                {
+                  label: trip.partner?.displayName || "Partner",
+                  to: `/admin/partners/${trip.partner?.id}`,
+                },
+                { label: "Trips", to: `/admin/trips?partnerId=${trip.partner?.id}` },
+                { label: trip.name || trip.type || "Trip", to: `/admin/trips/${tripId}` },
+                { label: `${participant.firstName} ${participant.lastName}` },
+              ]
+        }
       />
       <h2 style={{ margin: "0.5rem 0" }}>
         {participant.firstName} {participant.lastName}

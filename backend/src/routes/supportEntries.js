@@ -1,7 +1,7 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
+const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 
@@ -35,7 +35,17 @@ const supportEntryInclude = {
 // first) -- full history, not just each partner's current amount. Backs
 // both the consolidated Monthly Support page and the support section on a
 // single partner's page.
-router.get("/", requirePartnerQueryScope, async (req, res, next) => {
+//
+// A Trip Leader has no access to financial support detail at all, even
+// for their own one linked Partner -- unlike Prayer Requests/Newsletters
+// & Docs (ministry content, fine for a trip guest to read), a partner's
+// monthly support history is financial detail this role was never meant
+// to see. requirePartnerQueryScope (used by those other resources to let
+// a Trip Leader through for their own partnerId) would have let this
+// through too, since it only checks the partnerId matches, not whether
+// the resource itself is theirs to see -- so this uses an outright role
+// block instead, same as partners.js's own directory route.
+router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);

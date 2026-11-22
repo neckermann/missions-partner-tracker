@@ -132,6 +132,13 @@ router.post("/", requireRole("admin", "editor"), upload.single("file"), async (r
 // GET /:id/download -- streams the file straight from the database (still
 // requireAuth'd, per router.use above; no separate signed URL to generate
 // since there's no external store to sign a URL for).
+//
+// Unlike GET / above, this single-record route has no requirePartnerQueryScope
+// of its own -- every other role is fine with that (any login already sees
+// every partner's files via the unscoped list route), but a Trip Leader must
+// not be able to download an arbitrary file id belonging to some other
+// partner just because they know (or guessed) it. Checked here explicitly,
+// same pattern as partners.js's own GET /:id.
 router.get("/:id/download", async (req, res, next) => {
   try {
     const record = await prisma.partnerFile.findUnique({
@@ -139,6 +146,16 @@ router.get("/:id/download", async (req, res, next) => {
       include: { bytesRow: { select: { bytes: true } } },
     });
     if (!record?.bytesRow) return res.status(404).json({ error: "Not found" });
+
+    if (req.user.role === "tripLeader") {
+      const trip = await prisma.trip.findUnique({
+        where: { id: req.user.scopedTripId },
+        select: { partnerId: true },
+      });
+      if (!trip?.partnerId || trip.partnerId !== record.partnerId) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+    }
 
     sendStoredFile(res, { ...record, bytes: record.bytesRow.bytes });
   } catch (err) {

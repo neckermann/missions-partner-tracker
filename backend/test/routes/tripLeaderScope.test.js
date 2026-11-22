@@ -49,7 +49,13 @@ before(async () => {
     select: { enabledFeatures: true },
   });
   originalEnabledFeatures = settings?.enabledFeatures ?? {};
-  await setFeatures({ trips: true, prayerRequests: true });
+  await setFeatures({
+    trips: true,
+    prayerRequests: true,
+    monthlySupport: true,
+    oneTimeNeeds: true,
+    partnerFiles: true,
+  });
 
   const pa = await admin("/api/partners", {
     method: "POST",
@@ -205,6 +211,79 @@ describe("Trip Leader: partner scope", () => {
     assert.equal(ok.status, 200);
     const unfiltered = await leader("/api/prayer-requests");
     assert.equal(unfiltered.status, 403);
+  });
+});
+
+describe("Trip Leader: Monthly Support / One-Time Needs blocked, Newsletters & Docs allowed", () => {
+  let fileA;
+  let fileB;
+
+  before(async () => {
+    await prisma.supportEntry.create({
+      data: { partnerId: partnerA.id, amount: 500, effectiveDate: new Date("2026-01-01") },
+    });
+    await prisma.supportNeed.create({
+      data: { partnerId: partnerA.id, description: "New laptop", requestedAmount: 800, requestDate: new Date("2026-01-01") },
+    });
+    fileA = await prisma.partnerFile.create({
+      data: {
+        partnerId: partnerA.id,
+        kind: "newsletter",
+        receivedDate: new Date("2026-01-01"),
+        fileName: "a.pdf",
+        contentType: "application/pdf",
+        bytesRow: { create: { bytes: Buffer.from("%PDF-fixture-a") } },
+      },
+    });
+    fileB = await prisma.partnerFile.create({
+      data: {
+        partnerId: partnerB.id,
+        kind: "newsletter",
+        receivedDate: new Date("2026-01-01"),
+        fileName: "b.pdf",
+        contentType: "application/pdf",
+        bytesRow: { create: { bytes: Buffer.from("%PDF-fixture-b") } },
+      },
+    });
+  });
+
+  after(async () => {
+    await prisma.supportEntry.deleteMany({ where: { partnerId: partnerA.id } });
+    await prisma.supportNeed.deleteMany({ where: { partnerId: partnerA.id } });
+    await prisma.partnerFile.deleteMany({ where: { partnerId: { in: [partnerA.id, partnerB.id] } } });
+  });
+
+  test("403s Monthly Support for their own linked partner, not just a mismatched one", async () => {
+    const leader = await leaderClient();
+    const own = await leader(`/api/support-entries?partnerId=${partnerA.id}`);
+    assert.equal(own.status, 403);
+    const unfiltered = await leader("/api/support-entries");
+    assert.equal(unfiltered.status, 403);
+  });
+
+  test("403s One-Time Needs for their own linked partner, not just a mismatched one", async () => {
+    const leader = await leaderClient();
+    const own = await leader(`/api/support-needs?partnerId=${partnerA.id}`);
+    assert.equal(own.status, 403);
+    const unfiltered = await leader("/api/support-needs");
+    assert.equal(unfiltered.status, 403);
+  });
+
+  test("reads Newsletters & Docs for their own linked partner, in full", async () => {
+    const leader = await leaderClient();
+    const ok = await leader(`/api/partner-files?partnerId=${partnerA.id}`);
+    assert.equal(ok.status, 200);
+    assert.ok(ok.body.some((f) => f.id === fileA.id));
+    const blocked = await leader(`/api/partner-files?partnerId=${partnerB.id}`);
+    assert.equal(blocked.status, 403);
+  });
+
+  test("downloads their own linked partner's file, 403s another partner's by id", async () => {
+    const leader = await leaderClient();
+    const ok = await leader(`/api/partner-files/${fileA.id}/download`);
+    assert.equal(ok.status, 200);
+    const blocked = await leader(`/api/partner-files/${fileB.id}/download`);
+    assert.equal(blocked.status, 403);
   });
 });
 

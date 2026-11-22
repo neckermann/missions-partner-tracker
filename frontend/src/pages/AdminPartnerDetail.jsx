@@ -45,6 +45,7 @@ import {
   deleteTripType,
 } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
+import TripLeaderPartnerView from "../components/admin/TripLeaderPartnerView.jsx";
 import StatusPill from "../components/admin/StatusPill.jsx";
 import Field from "../components/admin/Field.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
@@ -126,7 +127,7 @@ function cleanAddress(address) {
   return hasAnyAddressValue(cleaned) ? cleaned : undefined;
 }
 
-function AddressSummary({ address }) {
+export function AddressSummary({ address }) {
   const a = address || {};
   const lines = [a.addressLine1, a.addressLine2].filter(Boolean);
   const cityLine = [a.city, a.stateProvinceRegion, a.postalCode].filter(Boolean).join(", ");
@@ -309,12 +310,28 @@ export default function AdminPartnerDetail() {
     ]);
   }
 
+  const { canWrite, isAdmin, isTripLeader, loading: userLoading } = useCurrentUser();
+
   useEffect(() => {
+    // A Trip Leader never renders through this page's own big fetch path
+    // at all (see the isTripLeader render-guard below) -- they get the
+    // separate, deliberately minimal TripLeaderPartnerView instead, with
+    // its own independent fetch of just what it shows. Skipping reload()
+    // here once that's confirmed avoids a wasted (and, for
+    // supportEntries/supportNeeds specifically, now-403ing) fetch -- but
+    // this check is NOT gated on userLoading first: isTripLeader is false
+    // for every role during that brief resolving window regardless of the
+    // real role, so gating on it too would delay every admin/editor/
+    // viewer's initial load behind the role check finishing first, for a
+    // race that, for an actual Trip Leader, is harmless anyway (the
+    // rejected promise this might still kick off a moment before
+    // isTripLeader flips true is caught below exactly like any other
+    // transient fetch failure, and never reaches a render that would use
+    // it -- see the render-guard's own comment).
+    if (isTripLeader) return;
     reload().catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  const { canWrite, isAdmin } = useCurrentUser();
+  }, [id, isTripLeader]);
 
   // Called unconditionally, before the loading guard below, so the number
   // of hooks this component calls doesn't change between the "still
@@ -332,6 +349,14 @@ export default function AdminPartnerDetail() {
   const prayerRequestsLoadMore = useLoadMore(collections.prayerRequests, { initialCount: 3, step: 100 });
   const filesLoadMore = useLoadMore(collections.files, { initialCount: 3, step: 100 });
   const tripsLoadMore = useLoadMore(collections.trips, { initialCount: 3, step: 100 });
+
+  if (userLoading) return <p style={{ padding: "2rem" }}>Loading...</p>;
+  // A Trip Leader (role: "tripLeader") gets a separate, deliberately
+  // minimal view of their one linked Partner -- not this page's full
+  // admin/editor/viewer layout with sections hidden/shown by role. See
+  // TripLeaderPartnerView's own comment for what it does and doesn't show
+  // and why.
+  if (isTripLeader) return <TripLeaderPartnerView partnerId={id} />;
 
   if (!p) return <p style={{ padding: "2rem" }}>Loading...</p>;
 
