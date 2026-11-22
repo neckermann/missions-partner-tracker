@@ -15,7 +15,6 @@ import {
   createSupportEntry,
   uploadPartnerFile,
   updatePartnerFile,
-  fetchCurrentUser,
   fetchAdults,
   createAdult,
   updateAdult,
@@ -50,7 +49,7 @@ import StatusPill from "../components/admin/StatusPill.jsx";
 import Field from "../components/admin/Field.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
 import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
-import PartnerRecordList from "../components/admin/PartnerRecordList.jsx";
+import RecordList from "../components/admin/RecordList.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import AddressFields, { roundGps } from "../components/admin/AddressFields.jsx";
@@ -77,6 +76,7 @@ import useChurchSettings from "../hooks/useChurchSettings.js";
 import useUrgentApprovalGate from "../hooks/useUrgentApprovalGate.jsx";
 import usePartnerRecordCrud from "../hooks/usePartnerRecordCrud.jsx";
 import useLoadMore from "../hooks/useLoadMore.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 // A cleared <input type="date"> is "", which `z.coerce.date()` turns into an
 // Invalid Date and rejects -- "no date" has to travel as null.
@@ -304,10 +304,7 @@ export default function AdminPartnerDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const [currentUser, setCurrentUser] = useState(null);
-  useEffect(() => {
-    fetchCurrentUser().then(setCurrentUser);
-  }, []);
+  const { canWrite, isAdmin } = useCurrentUser();
 
   // Called unconditionally, before the loading guard below, so the number
   // of hooks this component calls doesn't change between the "still
@@ -343,8 +340,15 @@ export default function AdminPartnerDetail() {
   // Doc summary-card item opens an editable form or a read-only view --
   // matches the roles these resources' own PUT routes already require
   // (requireRole("admin", "editor")), so a viewer never sees a Save
-  // button for something the server would reject anyway.
-  const canEdit = currentUser?.role === "admin" || currentUser?.role === "editor";
+  // button for something the server would reject anyway. Also gates every
+  // EditableSection/RecordList/PhotoHistorySection/PartnerSummaryCard
+  // mutate action on this page -- `canDelete` (admin-only) is separate
+  // since delete permission is admin-only for every one of this page's
+  // child collections (adults/children/furloughs/church visits/languages/
+  // links/trip types) and photos, confirmed against each resource's own
+  // DELETE route.
+  const canEdit = canWrite;
+  const canDelete = isAdmin;
 
   function closeModal() {
     setActiveModal(null);
@@ -685,6 +689,7 @@ export default function AdminPartnerDetail() {
       <div className="admin-form" id="section-overview" style={{ scrollMarginTop: "1rem" }}>
         <EditableSection
           title="Status &amp; Visibility"
+          canEdit={canEdit}
           onSaved={reload}
           onSave={save}
           value={{
@@ -745,10 +750,17 @@ export default function AdminPartnerDetail() {
           )}
         />
 
-        <PhotoHistorySection partnerId={p.id} photos={p.photos} onChange={reload} />
+        <PhotoHistorySection
+          partnerId={p.id}
+          photos={p.photos}
+          onChange={reload}
+          canEdit={canEdit}
+          canDelete={canDelete}
+        />
 
         <EditableSection
           title="Ministry Overview"
+          canEdit={canEdit}
           onSaved={reload}
           onSave={save}
           value={{
@@ -791,6 +803,7 @@ export default function AdminPartnerDetail() {
           {!isOrg && (
             <EditableSection
               title="Wedding Anniversary"
+              canEdit={canEdit}
               onSaved={reload}
               onSave={(d) => save({ anniversary: dateOrNull(d.anniversary) })}
               value={{ anniversary: toDateInputValue(p.anniversary) }}
@@ -805,8 +818,10 @@ export default function AdminPartnerDetail() {
           )}
 
           {!isOrg && (
-            <PartnerRecordList
+            <RecordList
               title="Adults"
+              canEdit={canEdit}
+              canDelete={canDelete}
               items={collections.adults}
               renderItem={(a) => (
                 <>
@@ -837,8 +852,10 @@ export default function AdminPartnerDetail() {
           )}
 
           {!isOrg && (
-            <PartnerRecordList
+            <RecordList
               title="Children"
+              canEdit={canEdit}
+              canDelete={canDelete}
               items={collections.children}
               renderItem={(c) => (
                 <>
@@ -861,8 +878,10 @@ export default function AdminPartnerDetail() {
           )}
 
           {!isOrg && (
-            <PartnerRecordList
+            <RecordList
               title="Languages Spoken"
+              canEdit={canEdit}
+              canDelete={canDelete}
               items={collections.languages}
               renderItem={(l) => (
                 <>
@@ -879,6 +898,7 @@ export default function AdminPartnerDetail() {
           {!isOrg && (
             <EditableSection
               title="Emergency Contact"
+              canEdit={canEdit}
               onSaved={reload}
               onSave={(d) =>
                 save({
@@ -924,6 +944,7 @@ export default function AdminPartnerDetail() {
 
           <EditableSection
             title="Serving Location"
+            canEdit={canEdit}
             onSaved={reload}
             onSave={saveAddress("physical")}
             value={{
@@ -1005,6 +1026,7 @@ export default function AdminPartnerDetail() {
 
           <EditableSection
             title="Mailing &amp; Contact Address"
+            canEdit={canEdit}
             onSaved={reload}
             onSave={saveAddress("mailing")}
             value={{
@@ -1103,6 +1125,7 @@ export default function AdminPartnerDetail() {
               <EditableSection
                 key={key}
                 title={title}
+                canEdit={canEdit}
                 onSaved={reload}
                 onSave={(d) => {
                   const { sentByOurChurch, ...rest } = d;
@@ -1218,8 +1241,10 @@ export default function AdminPartnerDetail() {
               />
             ))}
 
-          <PartnerRecordList
+          <RecordList
             title="Links &amp; Social Media"
+            canEdit={canEdit}
+            canDelete={canDelete}
             items={collections.links}
             renderItem={(l) => (
               <Field
@@ -1244,6 +1269,7 @@ export default function AdminPartnerDetail() {
 
             <EditableSection
               title="Supporting Since"
+              canEdit={canEdit}
               onSaved={reload}
               onSave={(d) => save({ supportingSince: dateOrNull(d.supportingSince) })}
               value={{ supportingSince: toDateInputValue(p.supportingSince) }}
@@ -1271,7 +1297,7 @@ export default function AdminPartnerDetail() {
                 hasMore={supportEntriesLoadMore.hasMore}
                 remaining={supportEntriesLoadMore.remaining}
                 onShowMore={supportEntriesLoadMore.showMore}
-                actions={[{ label: "+ Add", onClick: openAddSupportEntry }]}
+                actions={canEdit ? [{ label: "+ Add", onClick: openAddSupportEntry }] : []}
               />
             )}
 
@@ -1290,12 +1316,16 @@ export default function AdminPartnerDetail() {
                 remaining={needRequestsLoadMore.remaining}
                 onShowMore={needRequestsLoadMore.showMore}
                 viewAllTo={`/admin/support/needs?partnerId=${p.id}`}
-                actions={[
-                  { label: "+ Add", onClick: openAddNeed },
-                  ...(collections.needRequests[0] && collections.needRequests[0].approvedAmount == null
-                    ? [{ label: "Record Decision", onClick: openRecordDecision }]
-                    : []),
-                ]}
+                actions={
+                  canEdit
+                    ? [
+                        { label: "+ Add", onClick: openAddNeed },
+                        ...(collections.needRequests[0] && collections.needRequests[0].approvedAmount == null
+                          ? [{ label: "Record Decision", onClick: openRecordDecision }]
+                          : []),
+                      ]
+                    : []
+                }
               />
             )}
           </div>
@@ -1319,17 +1349,22 @@ export default function AdminPartnerDetail() {
               remaining={tripsLoadMore.remaining}
               onShowMore={tripsLoadMore.showMore}
               viewAllTo={`/admin/trips?partnerId=${p.id}`}
-              actions={[
-                {
-                  label: "+ Add",
-                  onClick: () => navigate(`/admin/trips?partnerId=${p.id}&newTrip=1`),
-                },
-              ]}
+              actions={
+                canEdit
+                  ? [
+                      {
+                        label: "+ Add",
+                        onClick: () => navigate(`/admin/trips?partnerId=${p.id}&newTrip=1`),
+                      },
+                    ]
+                  : []
+              }
             />
           )}
 
           <EditableSection
             title="Trip Capacity"
+            canEdit={canEdit}
             onSaved={reload}
             onSave={(d) =>
               save({
@@ -1363,8 +1398,10 @@ export default function AdminPartnerDetail() {
                   <Field label="Lodging &amp; Logistics Notes" value={v.tripLogisticsNotes} />
                 </div>
                 <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid #eee" }}>
-                  <PartnerRecordList
+                  <RecordList
                     bare
+                    canEdit={canEdit}
+                    canDelete={canDelete}
                     items={collections.tripTypes}
                     renderItem={(t) => <Field label="Type" value={t.type} />}
                     addLabel="+ Add Type"
@@ -1415,8 +1452,10 @@ export default function AdminPartnerDetail() {
                   />
                 </label>
                 <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid #eee" }}>
-                  <PartnerRecordList
+                  <RecordList
                     bare
+                    canEdit={canEdit}
+                    canDelete={canDelete}
                     items={collections.tripTypes}
                     renderItem={(t) => <Field label="Type" value={t.type} />}
                     addLabel="+ Add Type"
@@ -1447,12 +1486,16 @@ export default function AdminPartnerDetail() {
               remaining={prayerRequestsLoadMore.remaining}
               onShowMore={prayerRequestsLoadMore.showMore}
               viewAllTo={`/admin/prayer-requests?partnerId=${p.id}`}
-              actions={[
-                { label: "+ Add", onClick: openAddPrayerRequest },
-                ...(collections.prayerRequests[0] && collections.prayerRequests[0].status !== "answered"
-                  ? [{ label: "Mark Answered", onClick: openMarkAnswered }]
-                  : []),
-              ]}
+              actions={
+                canEdit
+                  ? [
+                      { label: "+ Add", onClick: openAddPrayerRequest },
+                      ...(collections.prayerRequests[0] && collections.prayerRequests[0].status !== "answered"
+                        ? [{ label: "Mark Answered", onClick: openMarkAnswered }]
+                        : []),
+                    ]
+                  : []
+              }
             />
           )}
 
@@ -1469,12 +1512,14 @@ export default function AdminPartnerDetail() {
               remaining={filesLoadMore.remaining}
               onShowMore={filesLoadMore.showMore}
               viewAllTo={`/admin/partner-files?partnerId=${p.id}`}
-              actions={[{ label: "+ Upload", onClick: openUploadFile }]}
+              actions={canEdit ? [{ label: "+ Upload", onClick: openUploadFile }] : []}
             />
           )}
 
-          <PartnerRecordList
+          <RecordList
             title="Church Visits"
+            canEdit={canEdit}
+            canDelete={canDelete}
             items={churchVisitsLoadMore.visible}
             renderItem={(v) => (
               <>
@@ -1494,8 +1539,10 @@ export default function AdminPartnerDetail() {
           />
 
           {!isOrg && (
-            <PartnerRecordList
+            <RecordList
               title="Furlough"
+              canEdit={canEdit}
+              canDelete={canDelete}
               items={furloughsLoadMore.visible}
               renderItem={(f) => (
                 <>
@@ -1673,6 +1720,14 @@ export default function AdminPartnerDetail() {
         (canEdit ? (
           <QuickActionModal title="Newsletter / Doc" onClose={closeModal} onSubmit={submitFileDetail}>
             <PartnerFileFormFields form={fileDetail.form} setForm={setFileDetailForm} />
+            <button
+              type="button"
+              className="btn secondary small"
+              style={{ marginTop: "0.5rem" }}
+              onClick={() => window.open(`/api/partner-files/${fileDetail.id}/download`, "_blank")}
+            >
+              Download File
+            </button>
           </QuickActionModal>
         ) : (
           <Modal title="Newsletter / Doc" onClose={closeModal}>
@@ -1680,6 +1735,14 @@ export default function AdminPartnerDetail() {
             <Field label="Title" value={fileDetail.form.title} />
             <Field label="Received Date" value={formatDateLong(fileDetail.form.receivedDate)} />
             <Field label="Notes" value={fileDetail.form.notes} />
+            <button
+              type="button"
+              className="btn secondary small"
+              style={{ marginTop: "0.5rem" }}
+              onClick={() => window.open(`/api/partner-files/${fileDetail.id}/download`, "_blank")}
+            >
+              Download File
+            </button>
           </Modal>
         ))}
 

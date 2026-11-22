@@ -7,7 +7,6 @@ import {
   deletePartnerFile,
   extractFromPartnerFile,
   fetchPartners,
-  fetchCurrentUser,
 } from "../api/client.js";
 import { FILE_KINDS, fileKindLabel } from "../utils/fileKinds.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
@@ -35,6 +34,7 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 const emptyNewFile = {
   partnerId: "",
@@ -65,16 +65,12 @@ export default function AdminPartnerFiles() {
   const [files, setFiles] = useState([]);
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState(null);
-  const canEdit = currentUser?.role === "admin" || currentUser?.role === "editor";
+  const { canWrite, isAdmin } = useCurrentUser();
+  const canEdit = canWrite;
   const [activeModal, setActiveModal] = useState(null); // "add-file" | "view-file" | null
   const [newFile, setNewFile] = useState(emptyNewFile);
   const [file, setFile] = useState(null);
   const [fileDetail, setFileDetail] = useState(null); // { id, form }
-
-  useEffect(() => {
-    fetchCurrentUser().then(setCurrentUser);
-  }, []);
 
   function closeModal() {
     setActiveModal(null);
@@ -254,9 +250,11 @@ export default function AdminPartnerFiles() {
       )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Newsletters &amp; Docs</h2>
-        <button className="btn" onClick={() => setActiveModal("add-file")}>
-          + Upload File
-        </button>
+        {canEdit && (
+          <button className="btn" onClick={() => setActiveModal("add-file")}>
+            + Upload File
+          </button>
+        )}
       </div>
       <p style={{ color: "#555" }}>
         Newsletters, survey responses, signed policies, other office documents, and long-term email records
@@ -297,7 +295,7 @@ export default function AdminPartnerFiles() {
         ]}
         renderActions={(f) => (
           <>
-            {enabledFeatures.aiExtraction && isScannable(f) && (
+            {canEdit && enabledFeatures.aiExtraction && isScannable(f) && (
               <button
                 type="button"
                 className="btn secondary small"
@@ -309,16 +307,18 @@ export default function AdminPartnerFiles() {
                 Scan for requests
               </button>
             )}
-            <button
-              type="button"
-              className="btn danger small"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(f);
-              }}
-            >
-              Delete
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                className="btn danger small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(f);
+                }}
+              >
+                Delete
+              </button>
+            )}
           </>
         )}
       />

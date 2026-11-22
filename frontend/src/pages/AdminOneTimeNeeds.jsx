@@ -6,7 +6,6 @@ import {
   updateSupportNeed,
   deleteSupportNeed,
   fetchPartners,
-  fetchCurrentUser,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import SourceLink from "../components/admin/SourceLink.jsx";
@@ -33,6 +32,7 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import Table from "../components/shared/Table.jsx";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import useFilterState from "../hooks/useFilterState.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 // Thin binding so the call sites below stay unchanged; the formatting
 // itself lives in utils/format.js, which is also where the em-dash
@@ -100,8 +100,8 @@ export default function AdminOneTimeNeeds() {
     clearPartnerFilter,
     setPartnerFilter,
   } = usePartnerUrlFilter();
-  const [currentUser, setCurrentUser] = useState(null);
-  const canEdit = currentUser?.role === "admin" || currentUser?.role === "editor";
+  const { canWrite, isAdmin } = useCurrentUser();
+  const canEdit = canWrite;
   const [activeModal, setActiveModal] = useState(null); // "add" | "view" | "decide" | null
   const [newNeed, setNewNeed] = useState(emptyNewNeed);
   const [decidingNeed, setDecidingNeed] = useState(null);
@@ -126,10 +126,6 @@ export default function AdminOneTimeNeeds() {
   // this hook replaces.
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const confirmBeforeCreate = useUrgentApprovalGate({ confirmDialog, enabledFeatures });
-
-  useEffect(() => {
-    fetchCurrentUser().then(setCurrentUser);
-  }, []);
 
   function closeModal() {
     setActiveModal(null);
@@ -273,16 +269,18 @@ export default function AdminOneTimeNeeds() {
       )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>One-Time Needs</h2>
-        <button
-          className="btn"
-          onClick={() => {
-            setNewNeed(emptyNewNeed);
-            loadSourceFiles(null);
-            setActiveModal("add");
-          }}
-        >
-          + Add Need
-        </button>
+        {canEdit && (
+          <button
+            className="btn"
+            onClick={() => {
+              setNewNeed(emptyNewNeed);
+              loadSourceFiles(null);
+              setActiveModal("add");
+            }}
+          >
+            + Add Need
+          </button>
+        )}
       </div>
 
       <FilterBar
@@ -334,7 +332,7 @@ export default function AdminOneTimeNeeds() {
         ]}
         renderActions={(need) => (
           <>
-            {need.approvedAmount == null && (
+            {canEdit && need.approvedAmount == null && (
               <button
                 type="button"
                 className="btn secondary small"
@@ -346,16 +344,18 @@ export default function AdminOneTimeNeeds() {
                 Record Decision
               </button>
             )}
-            <button
-              type="button"
-              className="btn danger small"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(need);
-              }}
-            >
-              Delete
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                className="btn danger small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(need);
+                }}
+              >
+                Delete
+              </button>
+            )}
           </>
         )}
       />

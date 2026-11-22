@@ -15,6 +15,7 @@ import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 // Same field as backend/src/utils/maskData.js's public `country` -- the
 // physical address's country, nothing else. fipsCountryCode is for Joshua
@@ -90,6 +91,7 @@ export default function AdminPartners() {
   const navigate = useNavigate();
   const { partnerTermPlural, usePartnerTermInAdmin } = useSettings();
   const sectionTitle = usePartnerTermInAdmin ? partnerTermPlural : "Partners";
+  const { canWrite, isAdmin } = useCurrentUser();
 
   useEffect(() => {
     fetchPartners().then(setAllForOptions).catch(console.error);
@@ -319,14 +321,16 @@ export default function AdminPartners() {
             {visible.length === 1 ? sectionTitle.toLowerCase().replace(/s$/, "") : sectionTitle.toLowerCase()}
           </p>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-          <Link to="/admin/partners/new?kind=missionary" className="btn">
-            + Add Missionary
-          </Link>
-          <Link to="/admin/partners/new?kind=organization" className="btn">
-            + Add Organization
-          </Link>
-        </div>
+        {canWrite && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+            <Link to="/admin/partners/new?kind=missionary" className="btn">
+              + Add Missionary
+            </Link>
+            <Link to="/admin/partners/new?kind=organization" className="btn">
+              + Add Organization
+            </Link>
+          </div>
+        )}
       </div>
 
       <FilterBar fields={fieldsWithCountryOptions} values={filters} onChange={updateFilter} onReset={resetFilters} />
@@ -426,17 +430,23 @@ export default function AdminPartners() {
             </Link>
             {row.archived ? (
               <>
-                <button className="btn secondary small" onClick={() => handleUnarchive(row)}>
-                  Unarchive
-                </button>
-                <button className="btn danger small" onClick={() => handleDelete(row)}>
-                  Delete
-                </button>
+                {canWrite && (
+                  <button className="btn secondary small" onClick={() => handleUnarchive(row)}>
+                    Unarchive
+                  </button>
+                )}
+                {isAdmin && (
+                  <button className="btn danger small" onClick={() => handleDelete(row)}>
+                    Delete
+                  </button>
+                )}
               </>
             ) : (
-              <button className="btn secondary small" onClick={() => handleArchive(row)}>
-                Archive
-              </button>
+              canWrite && (
+                <button className="btn secondary small" onClick={() => handleArchive(row)}>
+                  Archive
+                </button>
+              )
             )}
           </>
         )}

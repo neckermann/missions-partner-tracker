@@ -6,7 +6,6 @@ import {
   updatePrayerRequest,
   deletePrayerRequest,
   fetchPartners,
-  fetchCurrentUser,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import SourceLink from "../components/admin/SourceLink.jsx";
@@ -32,6 +31,7 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 const emptyFilters = { category: "all", dateRange: "all", includeArchived: false };
 
@@ -111,8 +111,8 @@ export default function AdminPrayerRequests() {
     clearPartnerFilter,
     setPartnerFilter,
   } = usePartnerUrlFilter();
-  const [currentUser, setCurrentUser] = useState(null);
-  const canEdit = currentUser?.role === "admin" || currentUser?.role === "editor";
+  const { canWrite, isAdmin } = useCurrentUser();
+  const canEdit = canWrite;
   const [activeModal, setActiveModal] = useState(null); // "add" | "view" | "answer" | null
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
   const [answeringRequest, setAnsweringRequest] = useState(null);
@@ -122,10 +122,6 @@ export default function AdminPrayerRequests() {
   // request is being viewed/edited -- see the same hook used in
   // AdminOneTimeNeeds.jsx.
   const { sourceFiles, loadSourceFiles } = useSourceFiles();
-
-  useEffect(() => {
-    fetchCurrentUser().then(setCurrentUser);
-  }, []);
 
   function closeModal() {
     setActiveModal(null);
@@ -296,16 +292,18 @@ export default function AdminPrayerRequests() {
       )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Prayer Requests</h2>
-        <button
-          className="btn"
-          onClick={() => {
-            setNewRequest(emptyNewRequest);
-            loadSourceFiles(null);
-            setActiveModal("add");
-          }}
-        >
-          + Add Prayer Request
-        </button>
+        {canEdit && (
+          <button
+            className="btn"
+            onClick={() => {
+              setNewRequest(emptyNewRequest);
+              loadSourceFiles(null);
+              setActiveModal("add");
+            }}
+          >
+            + Add Prayer Request
+          </button>
+        )}
       </div>
       <p style={{ color: "#666", marginTop: "0.25rem" }}>
         {requests.length} on file · {answeredCount} answered so far
@@ -353,7 +351,7 @@ export default function AdminPrayerRequests() {
         ]}
         renderActions={(request) => (
           <>
-            {request.status !== "answered" && (
+            {canEdit && request.status !== "answered" && (
               <button
                 type="button"
                 className="btn secondary small"
@@ -365,16 +363,18 @@ export default function AdminPrayerRequests() {
                 Record Answer
               </button>
             )}
-            <button
-              type="button"
-              className="btn danger small"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(request);
-              }}
-            >
-              Delete
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                className="btn danger small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(request);
+                }}
+              >
+                Delete
+              </button>
+            )}
           </>
         )}
       />
