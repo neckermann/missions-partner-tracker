@@ -334,6 +334,15 @@ export async function fetchPendingDispatches() {
   return data;
 }
 
+export async function fetchNotificationSummary() {
+  const { data } = await api.get("/notifications/summary");
+  return data.categories;
+}
+
+export async function markNotificationSeen(category) {
+  await api.post("/notifications/seen", { category });
+}
+
 // The real (unmasked) text behind a queued row -- GET /pending's own list
 // always shows the masked/placeholder version for a restricted partner,
 // same as what would actually send; this is the separate "let an admin

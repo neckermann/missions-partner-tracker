@@ -1,8 +1,74 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
 import { logout } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import useCurrentUser from "../../hooks/useCurrentUser.js";
+import useNotifications from "../../hooks/useNotifications.js";
+
+// nav item key -> notification category key, for the two nav-badge spots
+// the plan calls out specifically (cheapest/most useful -- zero extra
+// clicks to see "there's something here"). Not every category needs a nav
+// badge; the bell below is the complete list.
+const NAV_BADGE_CATEGORY = {
+  pendingDispatches: "dispatchesNeedingApproval",
+  inboundEmail: "unmatchedEmails",
+};
+
+function NotificationBell({ categories, totalUnread, markSeen }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function onClickOutside(e) {
+      if (open && ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [open]);
+
+  const withCount = categories.filter((c) => c.count > 0);
+
+  function toggle() {
+    const opening = !open;
+    setOpen(opening);
+    if (opening) withCount.forEach((c) => markSeen(c.key));
+  }
+
+  return (
+    <div className="admin-sidebar-bell" ref={ref} style={{ position: "relative" }}>
+      <button
+        type="button"
+        className="admin-sidebar-bell-btn"
+        title="Notifications"
+        onClick={toggle}
+        aria-expanded={open}
+      >
+        🔔
+        {totalUnread > 0 && <span className="admin-sidebar-bell-badge">{totalUnread}</span>}
+      </button>
+      {open && (
+        <div className="admin-sidebar-bell-dropdown" role="menu">
+          {withCount.length === 0 ? (
+            <p style={{ margin: 0, color: "#888", fontSize: "0.85rem" }}>Nothing waiting.</p>
+          ) : (
+            withCount.map((c) => (
+              <Link
+                key={c.key}
+                to={c.linkTo}
+                className="admin-sidebar-bell-item"
+                onClick={() => setOpen(false)}
+              >
+                <span aria-hidden="true">{c.icon}</span>
+                <span className="admin-sidebar-bell-item-label">{c.label}</span>
+                <span className="admin-sidebar-bell-item-count">{c.count}</span>
+              </Link>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
   return [
@@ -94,7 +160,7 @@ function writeSidebarCollapsed(value) {
   }
 }
 
-function SidebarLink({ to, label, end, icon }) {
+function SidebarLink({ to, label, end, icon, badgeCount }) {
   return (
     <RouterNavLink
       to={to}
@@ -104,17 +170,24 @@ function SidebarLink({ to, label, end, icon }) {
     >
       {icon && <span aria-hidden="true">{icon}</span>}
       <span className="sb-label">{label}</span>
+      {badgeCount > 0 && <span className="admin-sidebar-nav-badge">{badgeCount}</span>}
     </RouterNavLink>
   );
 }
 
 export default function AdminSidebar() {
   const { isAdmin } = useCurrentUser();
+  const { categories, totalUnread, markSeen } = useNotifications();
+  const categoryByKey = new Map(categories.map((c) => [c.key, c]));
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
   const navigate = useNavigate();
   const location = useLocation();
   const { churchName, partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
-  const navItems = buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures);
+  const navItems = buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures).map((item) => {
+    const categoryKey = NAV_BADGE_CATEGORY[item.key];
+    const badgeCount = categoryKey ? categoryByKey.get(categoryKey)?.count : undefined;
+    return badgeCount ? { ...item, badgeCount } : item;
+  });
   const siteAdminLinks = buildSiteAdminLinks(enabledFeatures);
   const title = churchName ? `${churchName} Admin` : "Missions Team Admin";
   const inSiteAdmin = location.pathname.startsWith("/admin/settings");
@@ -151,9 +224,7 @@ export default function AdminSidebar() {
           {title}
         </h1>
         <span className="admin-sidebar-title-actions">
-          <button type="button" className="admin-sidebar-bell-btn" title="Notifications (coming soon)">
-            🔔
-          </button>
+          <NotificationBell categories={categories} totalUnread={totalUnread} markSeen={markSeen} />
           <button
             type="button"
             className="admin-sidebar-collapse-btn"
