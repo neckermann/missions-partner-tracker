@@ -21,11 +21,18 @@ const prayerRequests = {
     asOf: optionalDay,
     status: oneOf(["all", "open", "answered", "untracked"], "open"),
     category: oneOf(["all", "strategic", "situational"], "all"),
+    bucket: oneOf(["all", ...PRAYER_AGE_BUCKETS], "all"),
     urgentOnly: flag(false),
     includeArchived: flag(false),
   }),
   fields: [
     { name: "asOf", label: "As of", type: "date" },
+    {
+      name: "bucket",
+      label: "Time open",
+      type: "select",
+      options: [{ value: "all", label: "Any" }, ...PRAYER_AGE_BUCKETS.map((b) => ({ value: b, label: b }))],
+    },
     {
       name: "status",
       label: "Status",
@@ -86,6 +93,7 @@ const prayerRequests = {
       const s = prayerState(r, asOf);
       if (params.status !== "all" && s.state !== params.status) continue;
       if (s.bucket) buckets[s.bucket] += 1;
+      if (params.bucket !== "all" && s.bucket !== params.bucket) continue;
       if (s.daysToAnswer != null) answeredDays.push(s.daysToAnswer);
       rows.push({
         partnerName: r.partner.displayName,
@@ -107,7 +115,11 @@ const prayerRequests = {
       rows,
       summary: [
         { label: "Shown", value: rows.length },
-        ...PRAYER_AGE_BUCKETS.map((b) => ({ label: `Open ${b}`, value: buckets[b] })),
+        ...PRAYER_AGE_BUCKETS.map((b) => ({
+          label: `Open ${b}`,
+          value: buckets[b],
+          filter: { status: "open", bucket: b },
+        })),
         { label: "Avg days to answer", value: avg ?? "—" },
       ],
       notes: ["Open means status ongoing. Untracked requests are neither open nor answered."],
@@ -203,7 +215,11 @@ const needsPipeline = {
       rows,
       summary: [
         { label: "Requests", value: rows.length },
-        { label: "Pending", value: rows.filter((r) => r.decision === "pending").length },
+        {
+          label: "Pending",
+          value: rows.filter((r) => r.decision === "pending").length,
+          filter: { decision: "pending" },
+        },
         {
           label: "Requested",
           value: sumAmounts(rows.map((r) => ({ amount: r.requested }))),

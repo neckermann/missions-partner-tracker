@@ -49,6 +49,14 @@ const supportSummary = {
     ...filterFields,
     { name: "includeZero", label: "Include partners with no current support", type: "checkbox" },
   ],
+  chart: {
+    kind: "bar",
+    label: "partnerName",
+    value: "monthly",
+    type: "currency",
+    title: "Top partners by committed monthly support",
+    limit: 10,
+  },
   columns: [
     { key: "partnerName", label: "Partner" },
     { key: "kind", label: "Type" },
@@ -129,6 +137,7 @@ const supportChanges = {
       if (c.type === "unchanged") continue;
       counts[c.type] += 1;
       net += c.delta;
+      if (params.change !== "all" && c.type !== params.change) continue;
       rows.push({
         partnerName: p.displayName,
         change: c.type,
@@ -142,10 +151,10 @@ const supportChanges = {
     return {
       rows,
       summary: [
-        { label: "New", value: counts.new },
-        { label: "Increased", value: counts.increase },
-        { label: "Decreased", value: counts.decrease },
-        { label: "Ended", value: counts.ended },
+        { label: "New", value: counts.new, filter: { change: "new" } },
+        { label: "Increased", value: counts.increase, filter: { change: "increase" } },
+        { label: "Decreased", value: counts.decrease, filter: { change: "decrease" } },
+        { label: "Ended", value: counts.ended, filter: { change: "ended" } },
         { label: "Net change per month", value: net, type: "currency" },
       ],
       notes: [`Compares monthly support in force the day before ${ymd(from)} with ${ymd(to)}.`],

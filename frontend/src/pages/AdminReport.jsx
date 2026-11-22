@@ -5,6 +5,7 @@ import { useSettings } from "../context/SettingsContext.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
 import Table from "../components/shared/Table.jsx";
+import ReportBarChart from "../components/shared/ReportBarChart.jsx";
 import useFilterState from "../hooks/useFilterState.js";
 import { formatCurrency, formatDate, formatDateLong, todayInputValue } from "../utils/format.js";
 
@@ -145,14 +146,41 @@ export default function AdminReport() {
 
           {result.summary.length > 0 && (
             <dl className="report-summary">
-              {result.summary.map((s) => (
-                <div key={s.label} className="report-summary-item">
-                  <dt>{s.label}</dt>
-                  <dd>{summaryValue(s)}</dd>
-                </div>
-              ))}
+              {result.summary.map((s) => {
+                if (!s.filter) {
+                  return (
+                    <div key={s.label} className="report-summary-item">
+                      <dt>{s.label}</dt>
+                      <dd>{summaryValue(s)}</dd>
+                    </div>
+                  );
+                }
+                const active = Object.entries(s.filter).every(([k, v]) => String(values[k]) === String(v));
+                return (
+                  <div key={s.label} className="no-print">
+                    <dt className="sr-only">{s.label}</dt>
+                    <dd style={{ margin: 0 }}>
+                      <button
+                        type="button"
+                        className="report-summary-item"
+                        aria-pressed={active}
+                        title="Show only these rows"
+                        onClick={() => {
+                          // Clicking an active tile clears it back to the defaults.
+                          Object.entries(s.filter).forEach(([k, v]) => setValue(k, active ? defaults[k] : v));
+                        }}
+                      >
+                        <span className="report-summary-label">{s.label}</span>
+                        <span className="report-summary-value">{summaryValue(s)}</span>
+                      </button>
+                    </dd>
+                  </div>
+                );
+              })}
             </dl>
           )}
+
+          <ReportBarChart chart={result.chart} rows={result.rows} />
 
           <Table columns={columns} rows={result.rows} emptyMessage="Nothing matched those filters." />
 

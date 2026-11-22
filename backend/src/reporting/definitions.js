@@ -233,7 +233,42 @@ function completeness(partner) {
   return { missing, filled, total, percent: Math.round((filled / total) * 100) };
 }
 
+// ---------------------------------------------------------------------
+// Annual dates (birthdays, anniversaries).
+// ---------------------------------------------------------------------
+
+// The next time a month/day recurs on or after `from`. Feb 29 falls on
+// Feb 28 in a non-leap year. `years` is how many years the date will mark
+// (null when the original year is unknown/placeholder).
+function nextAnnual(date, from) {
+  const d = toUtcDay(date);
+  const f = toUtcDay(from);
+  const build = (year) => {
+    const month = d.getUTCMonth();
+    const day = d.getUTCDate();
+    const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    return new Date(Date.UTC(year, month, Math.min(day, lastDay)));
+  };
+  let next = build(f.getUTCFullYear());
+  if (next < f) next = build(f.getUTCFullYear() + 1);
+  return { next, daysUntil: daysBetween(next, f), years: next.getUTCFullYear() - d.getUTCFullYear() };
+}
+
+// Hours between two timestamps, one decimal, or null if either is missing.
+function hoursBetween(later, earlier) {
+  if (!later || !earlier) return null;
+  return Math.round(((new Date(later) - new Date(earlier)) / 3600000) * 10) / 10;
+}
+
+function average(values) {
+  const nums = values.filter((v) => typeof v === "number");
+  return nums.length ? Math.round((nums.reduce((s, v) => s + v, 0) / nums.length) * 10) / 10 : null;
+}
+
 module.exports = {
+  nextAnnual,
+  hoursBetween,
+  average,
   DAY_MS,
   toUtcDay,
   daysBetween,

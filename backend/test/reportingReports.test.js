@@ -101,3 +101,101 @@ test("shared audience masks restricted names and sensitive columns", () => {
   assert.strictEqual(shared.line1, null);
   assert.strictEqual(applyMasking(rows, r.columns, "admin")[0].line1, "1 Main");
 });
+
+test("key dates lists upcoming birthdays and anniversaries soonest first", () => {
+  const p = {
+    displayName: "A",
+    isRestricted: false,
+    anniversary: day("2010-12-01"),
+    adults: [{ firstName: "Ann", lastName: "Lee", birthday: day("1985-11-25") }],
+    children: [{ firstName: "Bo", lastName: "Lee", birthday: day("2015-06-01") }],
+  };
+  const out = run("key-dates", { days: "30" }, [p]);
+  assert.deepStrictEqual(
+    out.rows.map((r) => [r.occasion, r.daysUntil, r.turning]),
+    [
+      ["Birthday", 3, 41],
+      ["Anniversary", 9, 16],
+    ]
+  );
+});
+
+test("language coverage counts restricted partners without naming them", () => {
+  const p = (name, restricted, langs) => ({
+    displayName: name,
+    isRestricted: restricted,
+    languages: langs.map((l) => ({ language: l })),
+  });
+  const out = run("language-coverage", {}, [
+    p("A", false, ["Swahili"]),
+    p("B", true, ["Swahili"]),
+    p("C", false, []),
+  ]);
+  assert.strictEqual(out.rows[0].partners, 2);
+  assert.ok(!out.rows[0].names.includes("B"));
+  assert.ok(out.rows[0].names.includes("1 restricted"));
+  assert.strictEqual(out.rows.at(-1).language, "(none recorded)");
+});
+
+test("last heard from flags partners with no newsletter or an old one", () => {
+  const p = (name, newsletters) => ({
+    displayName: name,
+    isRestricted: false,
+    files: newsletters.map((d) => ({ receivedDate: day(d) })),
+    photos: [],
+    prayerRequests: [],
+    churchVisits: [],
+  });
+  const out = run("last-heard-from", {}, [
+    p("Fresh", ["2026-11-01"]),
+    p("Old", ["2026-01-01"]),
+    p("Never", []),
+  ]);
+  assert.deepStrictEqual(
+    out.rows.map((r) => r.partnerName),
+    ["Never", "Old"]
+  );
+});
+
+test("dispatch health and application funnel summarize correctly", () => {
+  const d = (type, hrs, err) => ({
+    type,
+    createdAt: new Date("2026-11-01T00:00:00Z"),
+    dispatchReviewedAt:
+      hrs == null ? null : new Date(new Date("2026-11-01T00:00:00Z").getTime() + hrs * 3600000),
+    groupmeError: err ? "x" : null,
+    whatsappError: null,
+    emailError: null,
+  });
+  const h = run("dispatch-health", {}, [d("a", 2, false), d("a", 4, true), d("a", null, false)]);
+  assert.deepStrictEqual(
+    [h.rows[0].total, h.rows[0].reviewed, h.rows[0].avgReviewHours, h.rows[0].groupmeErrors],
+    [3, 2, 3, 1]
+  );
+  const a = (status) => ({
+    status,
+    submittedAt: day("2026-10-01"),
+    reviewedAt: status === "pending" ? null : day("2026-10-03"),
+  });
+  const f = run("application-funnel", {}, [
+    { name: "T", applications: [a("approved"), a("declined"), a("pending"), a("approved")] },
+  ]);
+  assert.deepStrictEqual([f.rows[0].approved, f.rows[0].approvalRate, f.rows[0].avgDaysToReview], [2, 67, 2]);
+});
+
+test("summary tiles can carry a click-through filter that the report honours", () => {
+  const req = (received) => ({
+    category: "strategic",
+    status: "ongoing",
+    dateReceived: day(received),
+    dateAnswered: null,
+    isUrgent: false,
+    requestText: "x",
+    partner: { displayName: "A", isRestricted: false },
+  });
+  const all = run("prayer-requests", {}, [req("2026-11-10"), req("2026-01-01")]);
+  const tile = all.summary.find((s) => s.filter && s.filter.bucket === "91+ days");
+  assert.strictEqual(tile.value, 1);
+  const filtered = run("prayer-requests", tile.filter, [req("2026-11-10"), req("2026-01-01")]);
+  assert.strictEqual(filtered.rows.length, 1);
+});
