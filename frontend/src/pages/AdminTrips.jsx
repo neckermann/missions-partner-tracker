@@ -16,6 +16,9 @@ import TripFormFields, {
   emptyTripForm,
   cleanTripParticipants,
 } from "../components/admin/TripFormFields.jsx";
+import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import Modal from "../components/Modal.jsx";
+import Field from "../components/admin/Field.jsx";
 import { formatDate, toDateInputValue } from "../utils/format.js";
 import { partnerKindLabel, PARTNER_TYPE_FILTER_FIELD } from "../utils/partnerEntity.js";
 import useLoadMore from "../hooks/useLoadMore.js";
@@ -30,6 +33,7 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 // Merged (design review, post-#252) from two previously separate pages/
 // nav items -- AdminTrips.jsx ("Trips": every real Trip row, a
@@ -72,6 +76,7 @@ const emptyFilters = {
 
 function ExistingTripsTab() {
   const navigate = useNavigate();
+  const { canWrite, isAdmin } = useCurrentUser();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [records, setRecords] = useState([]);
   const [partners, setPartners] = useState([]);
@@ -83,12 +88,12 @@ function ExistingTripsTab() {
   const [addKind, setAddKind] = useState("planning");
   const [newTripPartnerId, setNewTripPartnerId] = useState("");
   const [newTripType, setNewTripType] = useState("");
-  const [startingTrip, setStartingTrip] = useState(false);
   const [newTrip, setNewTrip] = useState(emptyTripForm);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState(emptyTripForm);
+  // The click-row-opens-popup target for a completed trip (the only kind
+  // editable from this list -- an active trip's real multi-page detail
+  // view is a richer destination than a popup, so its row still
+  // navigates there instead). { id, form, entityName }.
+  const [tripDetail, setTripDetail] = useState(null);
 
   function reload() {
     fetchTrips().then(setRecords).catch(console.error);
@@ -217,35 +222,22 @@ function ExistingTripsTab() {
     showMore,
   } = useLoadMore(filteredTrips, { initialCount: 25, step: 25 });
 
-  async function handleAddSubmit(e) {
-    e.preventDefault();
-    setError("");
-    if (!newTrip.partnerId) {
-      setError("Choose a partner");
-      return;
-    }
-    setSaving(true);
-    try {
-      await createTrip({
-        partnerId: newTrip.partnerId,
-        status: "completed",
-        startDate: newTrip.startDate || null,
-        endDate: newTrip.endDate || null,
-        type: newTrip.type || null,
-        description: newTrip.description || null,
-        notes: newTrip.notes || null,
-        albumProvider: newTrip.albumProvider || null,
-        albumUrl: newTrip.albumUrl || null,
-        participants: cleanTripParticipants(newTrip.participants),
-      });
-      setNewTrip(emptyTripForm);
-      setShowAddForm(false);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to save trip");
-    } finally {
-      setSaving(false);
-    }
+  async function submitAddCompletedTrip() {
+    if (!newTrip.partnerId) throw new Error("Choose a partner");
+    await createTrip({
+      partnerId: newTrip.partnerId,
+      status: "completed",
+      startDate: newTrip.startDate || null,
+      endDate: newTrip.endDate || null,
+      type: newTrip.type || null,
+      description: newTrip.description || null,
+      notes: newTrip.notes || null,
+      albumProvider: newTrip.albumProvider || null,
+      albumUrl: newTrip.albumUrl || null,
+      participants: cleanTripParticipants(newTrip.participants),
+    });
+    setNewTrip(emptyTripForm);
+    reload();
   }
 
   // Reuses the exact createTrip({status: "planning", ...}) shape the
@@ -254,64 +246,57 @@ function ExistingTripsTab() {
   // lands on the trip's own detail page immediately, same as that tab
   // does, since there's nothing useful left to do on this list once the
   // trip exists.
-  async function handleStartNewTrip(e) {
-    e.preventDefault();
-    setError("");
-    if (!newTripPartnerId) {
-      setError("Choose a partner");
-      return;
-    }
-    setStartingTrip(true);
-    try {
-      const partner = partners.find((p) => p.id === newTripPartnerId);
-      const created = await createTrip({
-        partnerId: newTripPartnerId,
-        status: "planning",
-        teamSizeMin: partner?.tripTeamSizeMin ?? null,
-        teamSizeMax: partner?.tripTeamSizeMax ?? null,
-        type: newTripType || null,
-      });
-      navigate(`/admin/trips/${created.id}`);
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to start trip");
-      setStartingTrip(false);
-    }
+  async function submitStartNewTrip() {
+    if (!newTripPartnerId) throw new Error("Choose a partner");
+    const partner = partners.find((p) => p.id === newTripPartnerId);
+    const created = await createTrip({
+      partnerId: newTripPartnerId,
+      status: "planning",
+      teamSizeMin: partner?.tripTeamSizeMin ?? null,
+      teamSizeMax: partner?.tripTeamSizeMax ?? null,
+      type: newTripType || null,
+    });
+    navigate(`/admin/trips/${created.id}`);
   }
 
-  function startEdit(trip) {
-    setError("");
-    setEditingId(trip.id);
-    setEditForm({
-      partnerId: "",
-      startDate: toDateInputValue(trip.startDate),
-      endDate: toDateInputValue(trip.endDate),
-      type: trip.type || "",
-      description: trip.description || "",
-      notes: trip.notes || "",
-      albumProvider: trip.albumProvider || null,
-      albumUrl: trip.albumUrl || null,
-      participants: (trip.participants || []).map((p) => ({ ...p })),
+  // Only reachable for a completed trip -- see the Table's onRowClick
+  // below. An active trip's own multi-page detail view (team/meetings/
+  // requirements/budget/flights) is a richer destination than a popup
+  // could hold, so it keeps navigating there instead.
+  function openTripDetail(trip) {
+    setTripDetail({
+      id: trip.id,
+      entityName: trip.entityName,
+      form: {
+        partnerId: "",
+        startDate: toDateInputValue(trip.startDate),
+        endDate: toDateInputValue(trip.endDate),
+        type: trip.type || "",
+        description: trip.description || "",
+        notes: trip.notes || "",
+        albumProvider: trip.albumProvider || null,
+        albumUrl: trip.albumUrl || null,
+        participants: (trip.participants || []).map((p) => ({ ...p })),
+      },
     });
   }
 
-  async function submitEdit(id) {
-    setError("");
-    try {
-      await updateTrip(id, {
-        startDate: editForm.startDate || null,
-        endDate: editForm.endDate || null,
-        type: editForm.type || null,
-        description: editForm.description || null,
-        notes: editForm.notes || null,
-        albumProvider: editForm.albumProvider || null,
-        albumUrl: editForm.albumUrl || null,
-        participants: cleanTripParticipants(editForm.participants),
-      });
-      setEditingId(null);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to save trip");
-    }
+  function setTripDetailForm(updater) {
+    setTripDetail((d) => ({ ...d, form: typeof updater === "function" ? updater(d.form) : updater }));
+  }
+
+  async function submitTripDetail() {
+    await updateTrip(tripDetail.id, {
+      startDate: tripDetail.form.startDate || null,
+      endDate: tripDetail.form.endDate || null,
+      type: tripDetail.form.type || null,
+      description: tripDetail.form.description || null,
+      notes: tripDetail.form.notes || null,
+      albumProvider: tripDetail.form.albumProvider || null,
+      albumUrl: tripDetail.form.albumUrl || null,
+      participants: cleanTripParticipants(tripDetail.form.participants),
+    });
+    reload();
   }
 
   async function handleDelete(trip) {
@@ -327,7 +312,7 @@ function ExistingTripsTab() {
   }
 
   return (
-    <div className={showAddForm || editingId ? "form-has-floating-actions" : ""}>
+    <div>
       {filterPartnerId && (
         <Breadcrumb
           items={[
@@ -337,21 +322,27 @@ function ExistingTripsTab() {
           ]}
         />
       )}
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button
-          className="btn"
-          onClick={() => {
-            setShowAddForm((v) => !v);
-            setAddKind("planning");
-            setError("");
-          }}
-        >
-          {showAddForm ? "Cancel" : "+ New Trip"}
-        </button>
-      </div>
+      {canWrite && (
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button
+            className="btn"
+            onClick={() => {
+              setShowAddForm(true);
+              setAddKind("planning");
+            }}
+          >
+            + New Trip
+          </button>
+        </div>
+      )}
 
-      {showAddForm && (
-        <div className="admin-section" style={{ marginTop: "1rem" }}>
+      {canWrite && showAddForm && (
+        <QuickActionModal
+          title="New Trip"
+          onClose={() => setShowAddForm(false)}
+          onSubmit={addKind === "planning" ? submitStartNewTrip : submitAddCompletedTrip}
+          submitLabel={addKind === "planning" ? "Start Trip" : "Save Trip"}
+        >
           <div className="admin-checkbox-row" style={{ marginBottom: "1rem" }}>
             <label>
               <input
@@ -374,7 +365,7 @@ function ExistingTripsTab() {
           </div>
 
           {addKind === "planning" ? (
-            <form onSubmit={handleStartNewTrip}>
+            <>
               <div className="form-grid">
                 <label style={{ gridColumn: "1 / -1" }}>
                   Partner
@@ -398,47 +389,25 @@ function ExistingTripsTab() {
               <p style={{ color: "#888", fontSize: "0.85rem", marginTop: "0.5rem" }}>
                 Creates the trip and takes you to its own page to set dates, team size, and start recruiting.
               </p>
-              <div className="form-save-bar">
-                <button type="submit" className="btn" disabled={startingTrip}>
-                  {startingTrip ? "Starting…" : "Start Trip"}
-                </button>
-                {error && (
-                  <span style={{ color: "#b91c1c" }} role="alert">
-                    {error}
-                  </span>
-                )}
-              </div>
-            </form>
+            </>
           ) : (
-            <form onSubmit={handleAddSubmit}>
-              <TripFormFields
-                form={newTrip}
-                setForm={setNewTrip}
-                partnerPicker={
-                  <label style={{ gridColumn: "1 / -1" }}>
-                    Partner
-                    <PartnerSelect
-                      partners={partners}
-                      value={newTrip.partnerId}
-                      onChange={(partnerId) => setNewTrip((f) => ({ ...f, partnerId }))}
-                      required
-                    />
-                  </label>
-                }
-              />
-              <div className="form-save-bar">
-                <button type="submit" className="btn" disabled={saving}>
-                  {saving ? "Saving..." : "Save Trip"}
-                </button>
-                {error && (
-                  <span style={{ color: "#b91c1c" }} role="alert">
-                    {error}
-                  </span>
-                )}
-              </div>
-            </form>
+            <TripFormFields
+              form={newTrip}
+              setForm={setNewTrip}
+              partnerPicker={
+                <label style={{ gridColumn: "1 / -1" }}>
+                  Partner
+                  <PartnerSelect
+                    partners={partners}
+                    value={newTrip.partnerId}
+                    onChange={(partnerId) => setNewTrip((f) => ({ ...f, partnerId }))}
+                    required
+                  />
+                </label>
+              }
+            />
           )}
-        </div>
+        </QuickActionModal>
       )}
 
       <FilterBar
@@ -494,9 +463,7 @@ function ExistingTripsTab() {
         style={{ marginTop: "1rem" }}
         rows={visibleTrips}
         rowKey={(trip) => trip.id}
-        onRowClick={(trip) => navigate(`/admin/trips/${trip.id}`)}
-        isRowClickable={(trip) => trip.status !== "completed"}
-        expandedRowId={editingId}
+        onRowClick={(trip) => (trip.status === "completed" ? openTripDetail(trip) : navigate(`/admin/trips/${trip.id}`))}
         emptyMessage="No trips match these filters."
         columns={[
           {
@@ -565,37 +532,57 @@ function ExistingTripsTab() {
         ]}
         renderActions={(trip) => (
           <>
-            {trip.status === "completed" && (
+            {isAdmin && (
               <button
                 type="button"
-                className="btn secondary small"
-                onClick={() => (editingId === trip.id ? setEditingId(null) : startEdit(trip))}
+                className="btn danger small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(trip);
+                }}
               >
-                {editingId === trip.id ? "Cancel" : "Edit"}
+                Delete
               </button>
             )}
-            <button type="button" className="btn danger small" onClick={() => handleDelete(trip)}>
-              Delete
-            </button>
-          </>
-        )}
-        renderExpanded={(trip) => (
-          <>
-            <TripFormFields form={editForm} setForm={setEditForm} />
-            <div className="form-save-bar">
-              <button type="button" className="btn small" onClick={() => submitEdit(trip.id)}>
-                Save
-              </button>
-              {error && (
-                <span style={{ color: "#b91c1c" }} role="alert">
-                  {error}
-                </span>
-              )}
-            </div>
           </>
         )}
       />
       <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+
+      {tripDetail &&
+        (canWrite ? (
+          <QuickActionModal
+            title={`Trip — ${tripDetail.entityName}`}
+            onClose={() => setTripDetail(null)}
+            onSubmit={submitTripDetail}
+          >
+            <TripFormFields form={tripDetail.form} setForm={setTripDetailForm} />
+          </QuickActionModal>
+        ) : (
+          <Modal title={`Trip — ${tripDetail.entityName}`} onClose={() => setTripDetail(null)}>
+            <Field
+              label="Dates"
+              value={
+                tripDetail.form.startDate || tripDetail.form.endDate
+                  ? `${formatDate(tripDetail.form.startDate) || "?"} – ${formatDate(tripDetail.form.endDate) || "?"}`
+                  : null
+              }
+              showEmpty
+            />
+            <Field label="Trip Type" value={tripDetail.form.type} showEmpty />
+            <Field label="Description" value={tripDetail.form.description} showEmpty />
+            <Field label="Notes" value={tripDetail.form.notes} showEmpty />
+            <Field
+              label="Participants"
+              value={
+                tripDetail.form.participants.length > 0
+                  ? tripDetail.form.participants.map((p) => [p.firstName, p.lastName].filter(Boolean).join(" ")).join(", ")
+                  : null
+              }
+              showEmpty
+            />
+          </Modal>
+        ))}
       {confirmElement}
     </div>
   );
@@ -646,6 +633,7 @@ function PlanATripTab() {
   const [cloningId, setCloningId] = useState(null);
   const [startingId, setStartingId] = useState(null);
   const navigate = useNavigate();
+  const { canWrite } = useCurrentUser();
 
   useEffect(() => {
     fetchTripPlanning()
@@ -831,7 +819,7 @@ function PlanATripTab() {
           ]}
           renderActions={(row) => (
             <>
-              {row.kind === "fallback" && (
+              {canWrite && row.kind === "fallback" && (
                 <button
                   type="button"
                   className="btn secondary small"
@@ -841,7 +829,7 @@ function PlanATripTab() {
                   {startingId === row.partnerId ? "Starting…" : "Start a new trip"}
                 </button>
               )}
-              {row.cloneFromTripId && (
+              {canWrite && row.cloneFromTripId && (
                 <div style={{ marginTop: row.kind === "fallback" ? "0.3rem" : 0 }}>
                   <button
                     type="button"

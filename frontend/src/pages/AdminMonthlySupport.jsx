@@ -13,6 +13,8 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
+import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 
 // Thin binding so the call sites below stay unchanged; the formatting
 // itself lives in utils/format.js, which is also where the em-dash
@@ -30,12 +32,11 @@ const emptyFilters = { includeArchived: false };
 // filter dimension (archived) and a small row count -- see the plan's own
 // "Backend filter-support judgment calls" table.
 export default function AdminMonthlySupport() {
+  const { canWrite, isAdmin } = useCurrentUser();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [partners, setPartners] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newEntry, setNewEntry] = useState(emptyNewEntry);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
   // The partner whose full history is expanded, plus that history. It's
   // fetched on demand rather than arriving with every row: the summary
   // list carries only each partner's *current* amount, which is all the
@@ -128,29 +129,16 @@ export default function AdminMonthlySupport() {
 
   const total = rows.reduce((sum, r) => sum + r.current.amount, 0);
 
-  async function handleAddSubmit(e) {
-    e.preventDefault();
-    setError("");
-    if (!newEntry.partnerId) {
-      setError("Choose a partner");
-      return;
-    }
-    setSaving(true);
-    try {
-      await createSupportEntry({
-        partnerId: newEntry.partnerId,
-        amount: newEntry.amount,
-        effectiveDate: newEntry.effectiveDate,
-        notes: newEntry.notes || null,
-      });
-      setNewEntry(emptyNewEntry);
-      setShowAddForm(false);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to save support entry");
-    } finally {
-      setSaving(false);
-    }
+  async function submitAddEntry() {
+    if (!newEntry.partnerId) throw new Error("Choose a partner");
+    await createSupportEntry({
+      partnerId: newEntry.partnerId,
+      amount: newEntry.amount,
+      effectiveDate: newEntry.effectiveDate,
+      notes: newEntry.notes || null,
+    });
+    setNewEntry(emptyNewEntry);
+    reload();
   }
 
   async function handleDeleteEntry(entry) {
@@ -186,19 +174,20 @@ export default function AdminMonthlySupport() {
         }}
       >
         <h2>Monthly Support</h2>
-        <button
-          className="btn"
-          onClick={() => {
-            setShowAddForm((v) => !v);
-            setError("");
-          }}
-        >
-          {showAddForm ? "Cancel" : "+ Add Support Entry"}
-        </button>
+        {canWrite && (
+          <button className="btn" onClick={() => setShowAddForm(true)}>
+            + Add Support Entry
+          </button>
+        )}
       </div>
 
-      {showAddForm && (
-        <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
+      {canWrite && showAddForm && (
+        <QuickActionModal
+          title="Add Support Entry"
+          onClose={() => setShowAddForm(false)}
+          onSubmit={submitAddEntry}
+          submitLabel="Save Entry"
+        >
           <SupportEntryFormFields
             form={newEntry}
             setForm={setNewEntry}
@@ -217,13 +206,7 @@ export default function AdminMonthlySupport() {
               </label>
             }
           />
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-          <div style={{ marginTop: "1rem" }}>
-            <button type="submit" className="btn" disabled={saving}>
-              {saving ? "Saving..." : "Save Entry"}
-            </button>
-          </div>
-        </form>
+        </QuickActionModal>
       )}
 
       <FilterBar
@@ -274,13 +257,15 @@ export default function AdminMonthlySupport() {
                   <td>{formatDate(entry.effectiveDate)}</td>
                   <td>{entry.notes || "—"}</td>
                   <td className="table-actions">
-                    <button
-                      type="button"
-                      className="btn danger small"
-                      onClick={() => handleDeleteEntry(entry)}
-                    >
-                      Delete
-                    </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        className="btn danger small"
+                        onClick={() => handleDeleteEntry(entry)}
+                      >
+                        Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
