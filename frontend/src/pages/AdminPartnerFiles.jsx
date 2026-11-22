@@ -7,13 +7,17 @@ import {
   deletePartnerFile,
   extractFromPartnerFile,
   fetchPartners,
+  fetchCurrentUser,
 } from "../api/client.js";
 import { FILE_KINDS, fileKindLabel } from "../utils/fileKinds.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import PartnerFileFormFields from "../components/admin/PartnerFileFormFields.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
-import { todayInputValue, formatFileSize } from "../utils/format.js";
+import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import Modal from "../components/Modal.jsx";
+import Field from "../components/admin/Field.jsx";
+import { todayInputValue, formatDateLong } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, resolveQuickRangeDates } from "../utils/dateRange.js";
 import {
   entityFor,
@@ -61,20 +65,58 @@ export default function AdminPartnerFiles() {
   const [files, setFiles] = useState([]);
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const canEdit = currentUser?.role === "admin" || currentUser?.role === "editor";
+  const [activeModal, setActiveModal] = useState(null); // "add-file" | "view-file" | null
   const [newFile, setNewFile] = useState(emptyNewFile);
   const [file, setFile] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({
-    partnerId: "",
-    kind: "",
-    customKind: "",
-    title: "",
-    receivedDate: "",
-    notes: "",
-  });
+  const [fileDetail, setFileDetail] = useState(null); // { id, form }
+
+  useEffect(() => {
+    fetchCurrentUser().then(setCurrentUser);
+  }, []);
+
+  function closeModal() {
+    setActiveModal(null);
+    setFileDetail(null);
+  }
+
+  function openFileDetail(f) {
+    setFileDetail({
+      id: f.id,
+      form: {
+        partnerId: f.partner?.id || "",
+        kind: f.kind,
+        customKind: f.customKind || "",
+        title: f.title || "",
+        receivedDate: String(f.receivedDate).slice(0, 10),
+        notes: f.notes || "",
+      },
+    });
+    setActiveModal("view-file");
+  }
+
+  function setFileDetailForm(updater) {
+    setFileDetail((d) => ({ ...d, form: typeof updater === "function" ? updater(d.form) : updater }));
+  }
+
+  async function submitFileDetail() {
+    if (fileDetail.form.kind === "other" && !fileDetail.form.customKind.trim()) {
+      throw new Error("Enter a label for this file's kind");
+    }
+    if (!fileDetail.form.partnerId) {
+      throw new Error("Choose a partner");
+    }
+    await updatePartnerFile(fileDetail.id, {
+      partnerId: fileDetail.form.partnerId,
+      kind: fileDetail.form.kind,
+      customKind: fileDetail.form.kind === "other" ? fileDetail.form.customKind.trim() : null,
+      title: fileDetail.form.title,
+      receivedDate: fileDetail.form.receivedDate,
+      notes: fileDetail.form.notes,
+    });
+    await reload();
+  }
 
   const fields = useMemo(
     () => [
@@ -131,45 +173,32 @@ export default function AdminPartnerFiles() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.entityType, filters.kind, filters.dateRange, filterPartnerId]);
 
-  async function handleAddSubmit(e) {
-    e.preventDefault();
-    setError("");
+  async function submitAddFile() {
     if (!newFile.partnerId) {
-      setError("Choose a partner");
-      return;
+      throw new Error("Choose a partner");
     }
     if (!file) {
-      setError("Choose a file to upload");
-      return;
+      throw new Error("Choose a file to upload");
     }
     if (newFile.kind === "other" && !newFile.customKind.trim()) {
-      setError("Enter a label for this file's kind");
-      return;
+      throw new Error("Enter a label for this file's kind");
     }
-    setSaving(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("partnerId", newFile.partnerId);
-      formData.append("kind", newFile.kind);
-      if (newFile.kind === "other") formData.append("customKind", newFile.customKind);
-      formData.append("title", newFile.title);
-      formData.append("receivedDate", newFile.receivedDate);
-      formData.append("notes", newFile.notes);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("partnerId", newFile.partnerId);
+    formData.append("kind", newFile.kind);
+    if (newFile.kind === "other") formData.append("customKind", newFile.customKind);
+    formData.append("title", newFile.title);
+    formData.append("receivedDate", newFile.receivedDate);
+    formData.append("notes", newFile.notes);
 
-      await uploadPartnerFile(formData);
-      setNewFile(emptyNewFile);
-      setFile(null);
-      setShowAddForm(false);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to upload file");
-    } finally {
-      setSaving(false);
-    }
+    await uploadPartnerFile(formData);
+    setNewFile(emptyNewFile);
+    setFile(null);
+    await reload();
   }
 
-  function handleView(f) {
+  function handleDownload(f) {
     // A direct, same-origin, cookie-authenticated download — no async
     // lookup needed, the file is served straight from the database (see
     // backend/src/routes/partnerFiles.js).
@@ -187,48 +216,6 @@ export default function AdminPartnerFiles() {
     if (!confirmed) return;
     await deletePartnerFile(f.id);
     reload();
-  }
-
-  // Everything but the file itself is editable (see the PUT route comment
-  // in backend/src/routes/partnerFiles.js), including `kind` and moving it
-  // to a different partner.
-  function startEdit(f) {
-    setError("");
-    setEditingId(f.id);
-    setEditForm({
-      partnerId: f.partner?.id || "",
-      kind: f.kind,
-      customKind: f.customKind || "",
-      title: f.title || "",
-      receivedDate: String(f.receivedDate).slice(0, 10),
-      notes: f.notes || "",
-    });
-  }
-
-  async function submitEdit(id) {
-    setError("");
-    if (!editForm.partnerId) {
-      setError("Choose a partner");
-      return;
-    }
-    if (editForm.kind === "other" && !editForm.customKind.trim()) {
-      setError("Enter a label for this file's kind");
-      return;
-    }
-    try {
-      await updatePartnerFile(id, {
-        partnerId: editForm.partnerId,
-        kind: editForm.kind,
-        customKind: editForm.kind === "other" ? editForm.customKind : null,
-        title: editForm.title,
-        receivedDate: editForm.receivedDate,
-        notes: editForm.notes,
-      });
-      setEditingId(null);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to save changes");
-    }
   }
 
   const filtered = useMemo(
@@ -267,8 +254,8 @@ export default function AdminPartnerFiles() {
       )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Newsletters &amp; Docs</h2>
-        <button className="btn" onClick={() => setShowAddForm((v) => !v)}>
-          {showAddForm ? "Cancel" : "+ Upload File"}
+        <button className="btn" onClick={() => setActiveModal("add-file")}>
+          + Upload File
         </button>
       </div>
       <p style={{ color: "#555" }}>
@@ -276,8 +263,69 @@ export default function AdminPartnerFiles() {
         from missionary and organization partners. Admin-only — never shown on the public site.
       </p>
 
-      {showAddForm && (
-        <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
+      <FilterBar
+        fields={fields}
+        values={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
+        extraChips={
+          <PartnerFilterChip
+            partnerId={filterPartnerId}
+            partnerName={filterPartnerName}
+            partners={partners}
+            onSelect={setPartnerFilter}
+            onClear={clearPartnerFilter}
+          />
+        }
+      />
+
+      <Table
+        style={{ marginTop: "1rem" }}
+        rows={rows}
+        rowKey={(row) => row.id}
+        emptyMessage={loading ? "Loading…" : "No files on record."}
+        onRowClick={(f) => openFileDetail(f)}
+        columns={[
+          {
+            key: "entityName",
+            label: "Partner",
+            render: (f) => <span style={{ fontWeight: 600 }}>{f.entityName}</span>,
+          },
+          { key: "title", label: "Title" },
+          { key: "kind", label: "Kind", render: (f) => fileKindLabel(f) },
+          { key: "receivedDate", label: "Received", type: "date" },
+        ]}
+        renderActions={(f) => (
+          <>
+            {enabledFeatures.aiExtraction && isScannable(f) && (
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setScanning(f);
+                }}
+              >
+                Scan for requests
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn danger small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(f);
+              }}
+            >
+              Delete
+            </button>
+          </>
+        )}
+      />
+      <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+
+      {activeModal === "add-file" && (
+        <QuickActionModal title="Upload File" onClose={closeModal} onSubmit={submitAddFile} submitLabel="Upload">
           <PartnerFileFormFields
             form={newFile}
             setForm={setNewFile}
@@ -304,117 +352,60 @@ export default function AdminPartnerFiles() {
               </label>
             }
           />
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-          <div style={{ marginTop: "1rem" }}>
-            <button type="submit" className="btn" disabled={saving}>
-              {saving ? "Uploading..." : "Upload"}
-            </button>
-          </div>
-        </form>
+        </QuickActionModal>
       )}
 
-      <FilterBar
-        fields={fields}
-        values={filters}
-        onChange={updateFilter}
-        onReset={resetFilters}
-        extraChips={
-          <PartnerFilterChip
-            partnerId={filterPartnerId}
-            partnerName={filterPartnerName}
-            partners={partners}
-            onSelect={setPartnerFilter}
-            onClear={clearPartnerFilter}
-          />
-        }
-      />
-
-      <Table
-        style={{ marginTop: "1rem" }}
-        rows={rows}
-        rowKey={(row) => row.id}
-        emptyMessage={loading ? "Loading…" : "No files on record."}
-        expandedRowId={editingId}
-        renderExpanded={(f) => (
-          <>
+      {activeModal === "view-file" &&
+        fileDetail &&
+        (canEdit ? (
+          <QuickActionModal title="Newsletter / Doc" onClose={closeModal} onSubmit={submitFileDetail}>
+            <Link to={`/admin/partners/${fileDetail.form.partnerId}`} style={{ display: "inline-block", marginBottom: "0.75rem" }}>
+              Go to partner →
+            </Link>
             <PartnerFileFormFields
-              form={editForm}
-              setForm={setEditForm}
+              form={fileDetail.form}
+              setForm={setFileDetailForm}
               partnerPicker={
                 <label style={{ gridColumn: "1 / -1" }} title="Everything but the file itself can be edited.">
                   Partner
                   <PartnerSelect
                     partners={partners}
-                    value={editForm.partnerId}
-                    onChange={(partnerId) => setEditForm((ef) => ({ ...ef, partnerId }))}
+                    value={fileDetail.form.partnerId}
+                    onChange={(partnerId) => setFileDetailForm((f) => ({ ...f, partnerId }))}
                     required
                   />
                 </label>
               }
             />
-            {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-            <div style={{ marginTop: "0.75rem" }}>
-              <button type="button" className="btn small" onClick={() => submitEdit(f.id)}>
-                Save
-              </button>
-            </div>
-          </>
-        )}
-        columns={[
-          {
-            key: "entityName",
-            label: "Partner",
-            render: (f) =>
-              f.entityLink ? (
-                <Link to={f.entityLink} style={{ fontWeight: 600 }}>
-                  {f.entityName}
-                </Link>
-              ) : (
-                <span style={{ fontWeight: 600 }}>{f.entityName}</span>
-              ),
-          },
-          { key: "entityType", label: "Type" },
-          { key: "kind", label: "Kind", render: (f) => fileKindLabel(f) },
-          { key: "title", label: "Title" },
-          { key: "receivedDate", label: "Received", type: "date" },
-          {
-            key: "fileName",
-            label: "File",
-            render: (f) => (
-              <>
-                {f.fileName}
-                {f.fileSize != null && (
-                  <span style={{ color: "#888", fontSize: "0.85rem" }}> ({formatFileSize(f.fileSize)})</span>
-                )}
-              </>
-            ),
-          },
-          { key: "notes", label: "Notes" },
-        ]}
-        renderActions={(f) => (
-          <>
-            <button type="button" className="btn secondary small" onClick={() => handleView(f)}>
-              View
-            </button>
-            {enabledFeatures.aiExtraction && isScannable(f) && (
-              <button type="button" className="btn secondary small" onClick={() => setScanning(f)}>
-                Scan for requests
-              </button>
-            )}
             <button
               type="button"
               className="btn secondary small"
-              onClick={() => (editingId === f.id ? (setEditingId(null), setError("")) : startEdit(f))}
+              style={{ marginTop: "0.5rem" }}
+              onClick={() => handleDownload(fileDetail)}
             >
-              {editingId === f.id ? "Cancel" : "Edit"}
+              Download File
             </button>
-            <button type="button" className="btn danger small" onClick={() => handleDelete(f)}>
-              Delete
+          </QuickActionModal>
+        ) : (
+          <Modal title="Newsletter / Doc" onClose={closeModal}>
+            <Link to={`/admin/partners/${fileDetail.form.partnerId}`} style={{ display: "inline-block", marginBottom: "0.75rem" }}>
+              Go to partner →
+            </Link>
+            <Field label="Partner" value={partners.find((p) => p.id === fileDetail.form.partnerId)?.displayName} />
+            <Field label="Kind" value={fileKindLabel(fileDetail.form)} />
+            <Field label="Title" value={fileDetail.form.title} />
+            <Field label="Received Date" value={formatDateLong(fileDetail.form.receivedDate)} />
+            <Field label="Notes" value={fileDetail.form.notes} />
+            <button
+              type="button"
+              className="btn secondary small"
+              style={{ marginTop: "0.5rem" }}
+              onClick={() => handleDownload(fileDetail)}
+            >
+              Download File
             </button>
-          </>
-        )}
-      />
-      <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+          </Modal>
+        ))}
 
       {scanning && (
         <ExtractionReviewModal

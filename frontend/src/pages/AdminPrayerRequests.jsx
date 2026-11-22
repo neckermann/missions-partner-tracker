@@ -6,13 +6,18 @@ import {
   updatePrayerRequest,
   deletePrayerRequest,
   fetchPartners,
+  fetchCurrentUser,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import SourceLink from "../components/admin/SourceLink.jsx";
 import PrayerRequestFormFields from "../components/admin/PrayerRequestFormFields.jsx";
-import { formatDate, todayInputValue } from "../utils/format.js";
+import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import Modal from "../components/Modal.jsx";
+import Field from "../components/admin/Field.jsx";
+import { formatDateLong, todayInputValue } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, resolveQuickRangeDates } from "../utils/dateRange.js";
 import { entityFor, INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD } from "../utils/partnerEntity.js";
+import { truncate } from "../utils/truncate.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import useSourceFiles from "../hooks/useSourceFiles.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
@@ -24,6 +29,7 @@ import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
 import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 
@@ -105,17 +111,27 @@ export default function AdminPrayerRequests() {
     clearPartnerFilter,
     setPartnerFilter,
   } = usePartnerUrlFilter();
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const canEdit = currentUser?.role === "admin" || currentUser?.role === "editor";
+  const [activeModal, setActiveModal] = useState(null); // "add" | "view" | "answer" | null
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [answeringId, setAnsweringId] = useState(null);
+  const [answeringRequest, setAnsweringRequest] = useState(null);
   const [answer, setAnswer] = useState({ dateAnswered: todayInputValue(), answeredNote: "" });
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState(null);
+  const [requestDetail, setRequestDetail] = useState(null); // { id, form }
   // Scoped to whichever partner is selected in the add form, or whichever
-  // request is being edited -- see the same hook used in AdminOneTimeNeeds.jsx.
+  // request is being viewed/edited -- see the same hook used in
+  // AdminOneTimeNeeds.jsx.
   const { sourceFiles, loadSourceFiles } = useSourceFiles();
+
+  useEffect(() => {
+    fetchCurrentUser().then(setCurrentUser);
+  }, []);
+
+  function closeModal() {
+    setActiveModal(null);
+    setRequestDetail(null);
+    setAnsweringRequest(null);
+  }
   const selectedPartner = partners.find((p) => p.id === newRequest.partnerId);
   // Also requires allowRestrictedPartnerDispatch, defaulting to true
   // while loading -- a UI convenience gate only, the real check is still
@@ -163,12 +179,9 @@ export default function AdminPrayerRequests() {
     step: 25,
   });
 
-  async function handleAddSubmit(e) {
-    e.preventDefault();
-    setError("");
+  async function submitAddRequest() {
     if (!newRequest.partnerId) {
-      setError("Choose a partner");
-      return;
+      throw new Error("Choose a partner");
     }
     const proceed = await confirmBeforeCreate({
       approveNow: newRequest.approveNow,
@@ -176,51 +189,39 @@ export default function AdminPrayerRequests() {
       partnerId: newRequest.partnerId,
       text: newRequest.requestText.trim(),
     });
-    if (!proceed) return;
-    setSaving(true);
-    try {
-      const isStrategic = newRequest.category === "strategic";
-      await createPrayerRequest({
-        partnerId: newRequest.partnerId,
-        category: newRequest.category,
-        requestText: newRequest.requestText.trim(),
-        dateReceived: newRequest.dateReceived,
-        isPublic: isStrategic ? newRequest.isPublic : false,
-        includeInBooklet: isStrategic && newRequest.isPublic ? newRequest.includeInBooklet : false,
-        status: newRequest.untracked ? "untracked" : "ongoing",
-        isUrgent: newRequest.isUrgent,
-        approveNow: newRequest.approveNow,
-        notes: newRequest.notes || null,
-        sourceFileId: newRequest.sourceFileId,
-      });
-      setNewRequest(emptyNewRequest);
-      loadSourceFiles(null);
-      setShowAddForm(false);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to add prayer request");
-    } finally {
-      setSaving(false);
-    }
+    if (!proceed) return false;
+    const isStrategic = newRequest.category === "strategic";
+    await createPrayerRequest({
+      partnerId: newRequest.partnerId,
+      category: newRequest.category,
+      requestText: newRequest.requestText.trim(),
+      dateReceived: newRequest.dateReceived,
+      isPublic: isStrategic ? newRequest.isPublic : false,
+      includeInBooklet: isStrategic && newRequest.isPublic ? newRequest.includeInBooklet : false,
+      status: newRequest.untracked ? "untracked" : "ongoing",
+      isUrgent: newRequest.isUrgent,
+      approveNow: newRequest.approveNow,
+      notes: newRequest.notes || null,
+      sourceFileId: newRequest.sourceFileId,
+    });
+    setNewRequest(emptyNewRequest);
+    loadSourceFiles(null);
+    await reload();
   }
 
-  function startAnswer(request) {
-    setAnsweringId(request.id);
+  function openAnswer(request) {
+    setAnsweringRequest(request);
     setAnswer({ dateAnswered: todayInputValue(), answeredNote: "" });
+    setActiveModal("answer");
   }
 
-  async function submitAnswer(id) {
-    try {
-      await updatePrayerRequest(id, {
-        status: "answered",
-        dateAnswered: answer.dateAnswered,
-        answeredNote: answer.answeredNote || null,
-      });
-      setAnsweringId(null);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to record the answer");
-    }
+  async function submitAnswer() {
+    await updatePrayerRequest(answeringRequest.id, {
+      status: "answered",
+      dateAnswered: answer.dateAnswered,
+      answeredNote: answer.answeredNote || null,
+    });
+    await reload();
   }
 
   // Deliberately doesn't touch status/dateAnswered/answeredNote -- that
@@ -229,38 +230,44 @@ export default function AdminPrayerRequests() {
   // form also toggle status risks silently reopening an answered request.
   // This is for fixing the text/category/publicity/notes after the fact,
   // not for redoing the answer workflow.
-  function startEdit(request) {
-    setEditingId(request.id);
-    setEditForm({
-      category: request.category,
-      requestText: request.requestText,
-      dateReceived: String(request.dateReceived).slice(0, 10),
-      isPublic: request.isPublic,
-      includeInBooklet: request.includeInBooklet,
-      notes: request.notes || "",
-      sourceFileId: request.sourceFile?.id || null,
+  function openRequestDetail(request) {
+    setRequestDetail({
+      id: request.id,
+      form: {
+        partnerId: request.partner?.id || "",
+        category: request.category,
+        requestText: request.requestText,
+        dateReceived: String(request.dateReceived).slice(0, 10),
+        isPublic: request.isPublic,
+        includeInBooklet: request.includeInBooklet,
+        notes: request.notes || "",
+        sourceFileId: request.sourceFile?.id || null,
+        sourceFile: request.sourceFile || null,
+        status: request.status,
+        dateAnswered: request.dateAnswered,
+        answeredNote: request.answeredNote,
+      },
     });
     loadSourceFiles(request.partner?.id);
+    setActiveModal("view");
   }
 
-  async function submitEdit(id) {
-    const isStrategic = editForm.category === "strategic";
-    try {
-      await updatePrayerRequest(id, {
-        category: editForm.category,
-        requestText: editForm.requestText.trim(),
-        dateReceived: editForm.dateReceived,
-        isPublic: isStrategic ? editForm.isPublic : false,
-        includeInBooklet: isStrategic && editForm.isPublic ? editForm.includeInBooklet : false,
-        notes: editForm.notes || null,
-        sourceFileId: editForm.sourceFileId,
-      });
-      setEditingId(null);
-      setEditForm(null);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to save changes");
-    }
+  function setRequestDetailForm(updater) {
+    setRequestDetail((d) => ({ ...d, form: typeof updater === "function" ? updater(d.form) : updater }));
+  }
+
+  async function submitRequestDetail() {
+    const isStrategic = requestDetail.form.category === "strategic";
+    await updatePrayerRequest(requestDetail.id, {
+      category: requestDetail.form.category,
+      requestText: requestDetail.form.requestText.trim(),
+      dateReceived: requestDetail.form.dateReceived,
+      isPublic: isStrategic ? requestDetail.form.isPublic : false,
+      includeInBooklet: isStrategic && requestDetail.form.isPublic ? requestDetail.form.includeInBooklet : false,
+      notes: requestDetail.form.notes || null,
+      sourceFileId: requestDetail.form.sourceFileId,
+    });
+    await reload();
   }
 
   async function handleDelete(request) {
@@ -289,18 +296,92 @@ export default function AdminPrayerRequests() {
       )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Prayer Requests</h2>
-        <button className="btn" onClick={() => setShowAddForm((v) => !v)}>
-          {showAddForm ? "Cancel" : "+ Add Prayer Request"}
+        <button
+          className="btn"
+          onClick={() => {
+            setNewRequest(emptyNewRequest);
+            loadSourceFiles(null);
+            setActiveModal("add");
+          }}
+        >
+          + Add Prayer Request
         </button>
       </div>
       <p style={{ color: "#666", marginTop: "0.25rem" }}>
         {requests.length} on file · {answeredCount} answered so far
       </p>
 
-      {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+      <FilterBar
+        fields={fields}
+        values={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
+        extraChips={
+          <PartnerFilterChip
+            partnerId={filterPartnerId}
+            partnerName={filterPartnerName}
+            partners={partners}
+            onSelect={setPartnerFilter}
+            onClear={clearPartnerFilter}
+          />
+        }
+      />
 
-      {showAddForm && (
-        <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
+      <Table
+        style={{ marginTop: "1rem" }}
+        rows={visibleRequests}
+        rowKey={(row) => row.id}
+        emptyMessage={loading ? "Loading…" : "No prayer requests on file."}
+        onRowClick={(request) => openRequestDetail(request)}
+        columns={[
+          {
+            key: "entityName",
+            label: "Partner",
+            render: (request) => <span style={{ fontWeight: 600 }}>{entityFor(request).name}</span>,
+          },
+          {
+            key: "category",
+            label: "Category",
+            render: (request) => (request.category === "strategic" ? "Strategic" : "Situational"),
+          },
+          { key: "requestText", label: "Request", render: (request) => truncate(request.requestText, 80) },
+          {
+            key: "status",
+            label: "Status",
+            render: (request) => (request.status === "answered" ? "Answered" : "Ongoing"),
+          },
+        ]}
+        renderActions={(request) => (
+          <>
+            {request.status !== "answered" && (
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openAnswer(request);
+                }}
+              >
+                Record Answer
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn danger small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(request);
+              }}
+            >
+              Delete
+            </button>
+          </>
+        )}
+      />
+      <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+
+      {activeModal === "add" && (
+        <QuickActionModal title="Add Prayer Request" onClose={closeModal} onSubmit={submitAddRequest}>
           <PrayerRequestFormFields
             form={newRequest}
             setForm={setNewRequest}
@@ -324,172 +405,79 @@ export default function AdminPrayerRequests() {
               </label>
             }
           />
-          <div style={{ marginTop: "1rem" }}>
-            <button type="submit" className="btn" disabled={saving}>
-              {saving ? "Saving..." : "Add Prayer Request"}
-            </button>
-          </div>
-        </form>
+        </QuickActionModal>
       )}
 
-      <FilterBar
-        fields={fields}
-        values={filters}
-        onChange={updateFilter}
-        onReset={resetFilters}
-        extraChips={
-          <PartnerFilterChip
-            partnerId={filterPartnerId}
-            partnerName={filterPartnerName}
-            partners={partners}
-            onSelect={setPartnerFilter}
-            onClear={clearPartnerFilter}
-          />
-        }
-      />
+      {activeModal === "answer" && answeringRequest && (
+        <QuickActionModal title="Record Answer" onClose={closeModal} onSubmit={submitAnswer}>
+          <label>
+            Date Answered
+            <input
+              type="date"
+              value={answer.dateAnswered}
+              onChange={(e) => setAnswer((a) => ({ ...a, dateAnswered: e.target.value }))}
+            />
+          </label>
+          <label style={{ display: "block", marginTop: "0.75rem" }}>
+            How was it answered? (optional)
+            <input
+              value={answer.answeredNote}
+              onChange={(e) => setAnswer((a) => ({ ...a, answeredNote: e.target.value }))}
+              placeholder="e.g. The clinic opened safely in March"
+            />
+          </label>
+        </QuickActionModal>
+      )}
 
-      {loading && <p style={{ color: "#888", marginTop: "1rem" }}>Loading…</p>}
-      {visibleRequests.map((request) => {
-        const entity = entityFor(request);
-        return (
-          <div key={request.id} className="repeatable-row" style={{ marginTop: "1rem" }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                flexWrap: "wrap",
-                gap: "0.5rem",
-              }}
+      {activeModal === "view" &&
+        requestDetail &&
+        (canEdit ? (
+          <QuickActionModal title="Prayer Request" onClose={closeModal} onSubmit={submitRequestDetail}>
+            <Link
+              to={`/admin/partners/${requestDetail.form.partnerId}`}
+              style={{ display: "inline-block", marginBottom: "0.75rem" }}
             >
-              <div>
-                {entity.link ? (
-                  <Link to={entity.link}>
-                    {entity.name} ({entity.type})
-                  </Link>
-                ) : (
-                  <span>{entity.name}</span>
-                )}
-              </div>
-              <div className="table-actions">
-                <button type="button" className="btn secondary small" onClick={() => startEdit(request)}>
-                  Edit
-                </button>
-                {request.status !== "answered" && (
-                  <button type="button" className="btn secondary small" onClick={() => startAnswer(request)}>
-                    Record Answer
-                  </button>
-                )}
-                <button type="button" className="btn danger small" onClick={() => handleDelete(request)}>
-                  Delete
-                </button>
-              </div>
-            </div>
-
-            {editingId === request.id ? (
-              <div style={{ marginTop: "0.5rem" }}>
-                <PrayerRequestFormFields
-                  form={editForm}
-                  setForm={setEditForm}
-                  files={sourceFiles}
-                  mode="edit"
-                />
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button type="button" className="btn small" onClick={() => submitEdit(request.id)}>
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    className="btn secondary small"
-                    onClick={() => {
-                      setEditingId(null);
-                      setEditForm(null);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p style={{ margin: "0.5rem 0" }}>{request.requestText}</p>
-            )}
-
-            <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", fontSize: "0.9rem" }}>
-              <div>
-                <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Received</div>
-                <div>
-                  {formatDate(request.dateReceived)} ·{" "}
-                  {request.category === "strategic" ? "Strategic" : "Situational"}
-                  {request.category === "strategic" && request.isPublic && " · Public"}
-                  {request.category === "strategic" &&
-                    request.isPublic &&
-                    request.includeInBooklet &&
-                    " · In booklet"}
-                </div>
-              </div>
-              {/* Same principle as PrayerRequestSection.jsx: only "answered"
-                  gets a callout here. "ongoing"/"untracked" show nothing. */}
-              {request.status === "answered" && (
-                <div>
-                  <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
-                    Answered
-                  </div>
-                  <div style={{ color: "#2a5d3c" }}>
-                    {formatDate(request.dateAnswered)}
-                    {request.answeredNote && ` — ${request.answeredNote}`}
-                  </div>
-                </div>
-              )}
-              {request.notes && (
-                <div>
-                  <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Notes</div>
-                  <div>{request.notes}</div>
-                </div>
-              )}
-            </div>
-            <SourceLink sourceFile={request.sourceFile} />
-
-            {answeringId === request.id && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: "0.75rem",
-                  alignItems: "flex-end",
-                  flexWrap: "wrap",
-                  marginTop: "0.75rem",
+              Go to partner →
+            </Link>
+            <PrayerRequestFormFields form={requestDetail.form} setForm={setRequestDetailForm} files={sourceFiles} mode="edit" />
+            {requestDetail.form.status !== "answered" && (
+              <button
+                type="button"
+                className="btn secondary small"
+                style={{ marginTop: "0.5rem" }}
+                onClick={() => {
+                  const request = requests.find((r) => r.id === requestDetail.id);
+                  closeModal();
+                  openAnswer(request);
                 }}
               >
-                <label>
-                  Date Answered
-                  <input
-                    type="date"
-                    value={answer.dateAnswered}
-                    onChange={(e) => setAnswer((a) => ({ ...a, dateAnswered: e.target.value }))}
-                  />
-                </label>
-                <label style={{ flex: 1, minWidth: "200px" }}>
-                  How was it answered? (optional)
-                  <input
-                    value={answer.answeredNote}
-                    onChange={(e) => setAnswer((a) => ({ ...a, answeredNote: e.target.value }))}
-                    placeholder="e.g. The clinic opened safely in March"
-                  />
-                </label>
-                <button type="button" className="btn small" onClick={() => submitAnswer(request.id)}>
-                  Save
-                </button>
-                <button type="button" className="btn secondary small" onClick={() => setAnsweringId(null)}>
-                  Cancel
-                </button>
-              </div>
+                Record Answer
+              </button>
             )}
-          </div>
-        );
-      })}
-      {filteredRequests.length === 0 && (
-        <p style={{ color: "#888", marginTop: "1rem" }}>No prayer requests on file.</p>
-      )}
-      <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+          </QuickActionModal>
+        ) : (
+          <Modal title="Prayer Request" onClose={closeModal}>
+            <Link
+              to={`/admin/partners/${requestDetail.form.partnerId}`}
+              style={{ display: "inline-block", marginBottom: "0.75rem" }}
+            >
+              Go to partner →
+            </Link>
+            <Field label="Category" value={requestDetail.form.category === "strategic" ? "Strategic" : "Situational"} />
+            <Field label="Date Received" value={formatDateLong(requestDetail.form.dateReceived)} />
+            <Field label="Prayer Request" value={requestDetail.form.requestText} />
+            <Field label="Admin Notes" value={requestDetail.form.notes} />
+            <SourceLink sourceFile={requestDetail.form.sourceFile} />
+            {requestDetail.form.status === "answered" && (
+              <Field
+                label="Answered"
+                value={`${formatDateLong(requestDetail.form.dateAnswered)}${
+                  requestDetail.form.answeredNote ? ` — ${requestDetail.form.answeredNote}` : ""
+                }`}
+              />
+            )}
+          </Modal>
+        ))}
       {confirmElement}
     </div>
   );
