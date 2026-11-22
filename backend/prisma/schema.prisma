@@ -268,22 +268,6 @@ model Trip {
   // reachable via shareToken/access token regardless. Off by default.
   isPublic Boolean @default(false)
 
-  // Per-trip, not church-wide -- unlike collectApplicantAddress/
-  // collectEmergencyContact below (both genuinely church-wide
-  // preferences), whether a trip involves minors varies trip to trip at
-  // the same church. When on, the public application form adds a fixed
-  // date-of-birth + parent/guardian name/relationship/phone/email
-  // block -- always the same fields, never conditionally shown per
-  // answer, on purpose: this app has twice already refused to build
-  // conditional/branching question logic (see
-  // utils/applicationQuestions.js's own "not a form builder" framing),
-  // and age-gating which fields appear would be exactly that. The
-  // parent/guardian fields are accepted regardless of whether the
-  // applicant's own date of birth actually implies a minor -- same
-  // looseness as every other optional applicant field already is; nothing
-  // here is enforced server-side as conditionally required.
-  collectParentGuardianInfo Boolean @default(false)
-
   // Null until staff explicitly generate a private application link for
   // this trip -- a dedicated secret, same shape as
   // TripParticipant.shareToken below, deliberately not this row's own
@@ -379,14 +363,18 @@ model TripParticipant {
   emergencyContactPhone     String?
   emergencyContactEmail     String?
 
-  // Only ever collected/shown when the trip's own collectParentGuardianInfo
-  // is on (Trip's own field, not a church-wide setting -- see its schema
-  // comment). dateOfBirth is a real date column, not a template question's
-  // free-text answer -- the "minor" determination needs something a server
-  // check can actually compare against a trip's startDate, which a Json
-  // blob answer keyed by an admin-editable question id can't reliably
-  // provide. Copied from the originating TripApplication on approval,
-  // same as address/emergency contact above.
+  // dateOfBirth is always collected and required on every trip's public
+  // application now -- no per-trip or church-wide toggle gates it. A real
+  // date column, not a template question's free-text answer, since the
+  // "minor" determination needs something a server check can actually
+  // compare against a trip's startDate (see isMinorForTrip in
+  // utils/tripParticipantSchema.js), which a Json blob answer keyed by an
+  // admin-editable question id can't reliably provide. The parentGuardian*
+  // fields are collected (and required) only when isMinorForTrip is true
+  // for the submitted dateOfBirth -- the public application wizard inserts
+  // an extra step for them in that case, never shown to an adult applicant.
+  // Copied from the originating TripApplication on approval, same as
+  // address/emergency contact above.
   dateOfBirth                DateTime? @db.Date
   parentGuardianFirstName    String?
   parentGuardianLastName     String?
@@ -482,9 +470,9 @@ model TripApplication {
   emergencyContactPhone     String?
   emergencyContactEmail     String?
 
-  // See TripParticipant's matching fields for the full rationale. Only
-  // ever collected/shown when the trip's own collectParentGuardianInfo
-  // is on.
+  // See TripParticipant's matching fields for the full rationale --
+  // dateOfBirth always required; parentGuardian* required only when
+  // isMinorForTrip is true for it.
   dateOfBirth                DateTime? @db.Date
   parentGuardianFirstName    String?
   parentGuardianLastName     String?
@@ -1660,26 +1648,6 @@ model ChurchSettings {
   // and gives admins an in-app place to see/share the address partners
   // already send newsletters to.
   inboundEmailAddress String?
-
-  // Real, always-available structured fields now (not a free-text
-  // template question's "date" type the way this was previously asked)
-  // -- the minor/parent-guardian determination needs a reliable column
-  // to check against a trip's startDate, which an admin-editable
-  // template question's answer, keyed by a question id that could be
-  // reordered/removed/retyped at any time, could never dependably
-  // provide. collectDateOfBirth gates whether the public form shows the
-  // field at all (default on -- routine content most trip applications
-  // already ask for, same posture as collectApplicantAddress/
-  // collectEmergencyContact); requireDateOfBirth gates whether
-  // submitting without it is actually rejected server-side, not just a
-  // UI hint -- same required/optional pairing concept each individual
-  // application question already has via its own `required` flag, just
-  // promoted to a real column instead of a question. A trip whose own
-  // collectParentGuardianInfo is on forces both to effectively true for
-  // that trip regardless of these two church-wide defaults -- minor
-  // support cannot function without a real date of birth on file.
-  collectDateOfBirth Boolean @default(true)
-  requireDateOfBirth Boolean @default(false)
 
   // Church-wide base question set every trip's application form renders
   // first, before that trip's own applicationQuestions (Trip model, above).

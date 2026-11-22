@@ -3,6 +3,7 @@ import ReactDOM from "react-dom";
 import { fetchSystemInfo, updateChurchSettings } from "../api/client.js";
 import useChurchSettings from "../hooks/useChurchSettings.js";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
+import EditableSection from "../components/admin/EditableSection.jsx";
 
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return "Unknown";
@@ -33,12 +34,6 @@ export default function AdminSystemInfo() {
   const [info, setInfo] = useState(null);
   const [infoError, setInfoError] = useState("");
 
-  const [reminderDisabled, setReminderDisabled] = useState(false);
-  const [checked, setChecked] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState("");
-  const [backupError, setBackupError] = useState("");
-
   const { settings, error: settingsError } = useChurchSettings();
 
   useEffect(() => {
@@ -47,38 +42,18 @@ export default function AdminSystemInfo() {
       .catch((err) => setInfoError(err.response?.data?.error || "Couldn't load system info."));
   }, []);
 
-  useEffect(() => {
-    if (settings) {
-      setReminderDisabled(Boolean(settings?.backupReminderDisabled));
-      setChecked(Boolean(settings?.backupReminderDisabled));
-    }
-  }, [settings]);
-  useEffect(() => {
-    if (settingsError) setBackupError("Couldn't load backup settings.");
-  }, [settingsError]);
+  async function reload() {
+    await updateChurchSettings({});
+  }
 
-  async function handleSave(e) {
-    e.preventDefault();
-    setSaving(true);
-    setSuccess("");
-    setBackupError("");
-    try {
-      const updated = await updateChurchSettings({ backupReminderDisabled: checked });
-      setReminderDisabled(Boolean(updated.backupReminderDisabled));
-      setSuccess("Saved.");
-    } catch (err) {
-      setBackupError(err.response?.data?.error || "Couldn't save this setting.");
-    } finally {
-      setSaving(false);
-    }
+  async function saveReminder(draft) {
+    await updateChurchSettings({ backupReminderDisabled: draft.backupReminderDisabled });
   }
 
   return (
     <div className="admin-shell">
       <SettingsPageHeader title="About App" />
-      <p style={{ color: "#555" }}>
-        What's actually running on this instance, and how to back up its data.
-      </p>
+      <p style={{ color: "#555" }}>What's actually running on this instance, and how to back up its data.</p>
 
       {infoError ? (
         <p style={{ color: "#b91c1c" }} role="alert">
@@ -171,37 +146,45 @@ export default function AdminSystemInfo() {
         </button>
       </div>
 
-      <div className="admin-section" style={{ marginTop: "1.5rem" }}>
-        <h3>Already backed up another way?</h3>
-        <p style={{ color: "#555" }}>
-          If your database provider's own backups (or another process) are tested and working, you can turn
-          off the periodic reminder banner for good.
+      {settingsError ? (
+        <p style={{ color: "#b91c1c" }} role="alert">
+          Couldn't load backup settings.
         </p>
-        {backupError && (
-          <p style={{ color: "#b91c1c" }} role="alert">
-            {backupError}
-          </p>
-        )}
-        {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
-        <form onSubmit={handleSave}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem" }}>
-            <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
-            <span>We have backups covered through another method — stop reminding us</span>
+      ) : (
+        settings && (
+          <div style={{ marginTop: "1.5rem" }}>
+            <EditableSection
+              title="Already Backed Up Another Way?"
+              value={{ backupReminderDisabled: Boolean(settings.backupReminderDisabled) }}
+              onSave={saveReminder}
+              onSaved={reload}
+              view={(v) => (
+                <p>{v.backupReminderDisabled ? "Reminder off" : "Reminder on"}</p>
+              )}
+              edit={(d, set) => (
+                <>
+                  <p style={{ color: "#555" }}>
+                    If your database provider's own backups (or another process) are tested and working, you
+                    can turn off the periodic reminder banner for good.
+                  </p>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={d.backupReminderDisabled}
+                      onChange={(e) => set("backupReminderDisabled", e.target.checked)}
+                    />
+                    <span>We have backups covered through another method — stop reminding us</span>
+                  </div>
+                  <p className="field-warning" style={{ marginTop: "0.75rem" }}>
+                    Don't check this unless you're sure. If backups stop happening somewhere else and nobody
+                    notices, there's no way to get that data back.
+                  </p>
+                </>
+              )}
+            />
           </div>
-          <p className="field-warning" style={{ marginTop: "0.75rem" }}>
-            Don't check this unless you're sure. If backups stop happening somewhere else and nobody notices,
-            there's no way to get that data back.
-          </p>
-          <button
-            type="submit"
-            className="btn secondary"
-            disabled={saving || checked === reminderDisabled}
-            style={{ marginTop: "0.5rem" }}
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
-        </form>
-      </div>
+        )
+      )}
     </div>
   );
 }

@@ -39,6 +39,7 @@ export default function AdminSettingsIntegrations() {
         updateSettings={updateAiExtractionSettings}
       />
 
+      <div style={{ marginTop: "1rem" }}>
       <ApiKeySettingsPage
         title="Joshua Project"
         description={
@@ -61,6 +62,7 @@ export default function AdminSettingsIntegrations() {
         fetchSettings={fetchJoshuaProjectSettings}
         updateSettings={updateJoshuaProjectSettings}
       />
+      </div>
     </div>
   );
 }

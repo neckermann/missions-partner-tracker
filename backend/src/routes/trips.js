@@ -66,7 +66,6 @@ const tripSchema = z.object({
   teamSizeMax: z.coerce.number().int().optional().nullable(),
   supportRaisingGoal: z.coerce.number().int().optional().nullable(),
   isPublic: z.boolean().optional(),
-  collectParentGuardianInfo: z.boolean().optional(),
   applicationQuestions: APPLICATION_QUESTION_SCHEMA.optional().nullable(),
   albumProvider: z.enum(["google_photos", "icloud", "other"]).optional().nullable(),
   albumUrl: z.string().optional().nullable(),
@@ -484,7 +483,6 @@ router.post("/:id/clone", requireRole("admin", "editor"), async (req, res, next)
         description: source.description,
         supportRaisingGoal: source.supportRaisingGoal,
         applicationQuestions: source.applicationQuestions,
-        collectParentGuardianInfo: source.collectParentGuardianInfo,
         status: "planning",
         // label/kind/bodyText/reminderLeadDays copy forward (a repeat
         // trip almost always wants the same checklist, including the

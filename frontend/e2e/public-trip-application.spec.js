@@ -67,11 +67,10 @@ test.describe("Public trip application wizard", () => {
   test("walks all 3 steps, validates the required custom question, and submits", async ({ page }) => {
     await page.goto(`/apply/${tripId}`);
 
-    // Step 1: Your info. Seeded demo data sets ChurchSettings.
-    // requireDateOfBirth true specifically so a demo visitor exercises
-    // this validation (see prisma/seed.js's own comment) -- Next is
-    // correctly blocked without it, same as the required-custom-question
-    // check on step 3 below.
+    // Step 1: Your info. Date of birth is always collected and always
+    // required now (no settings gate it) -- Next is correctly blocked
+    // without it, same as the required-custom-question check on step 3
+    // below.
     await expect(page.getByText("1. Your info")).toBeVisible();
     await page.getByLabel("First name").fill("Jordan");
     await page.getByLabel("Last name").fill("Rivera");
@@ -85,7 +84,11 @@ test.describe("Public trip application wizard", () => {
     // so real fields should render, not the "nothing needed" fallback.
     // Wait for the step-2-only body text, not just the step label (every
     // step's label renders in the step bar regardless of which is active).
+    // This applicant is an adult (DOB above computes well over 18 as of
+    // the trip's 2027-07-01 start) -- the Parent/guardian section must not
+    // appear at all for them.
     await expect(page.getByText("Emergency contact")).toBeVisible();
+    await expect(page.getByText(/Parent\/guardian/)).toHaveCount(0);
     await page.getByRole("button", { name: "Next" }).click();
 
     // Step 3: Trip questions. This trip's full question list is the
@@ -98,6 +101,46 @@ test.describe("Public trip application wizard", () => {
     await page.getByRole("button", { name: "Finish" }).click();
     await expect(page.getByRole("alert")).toContainText(/is required/);
 
+    for (const select of await page.locator("select").all()) {
+      await select.selectOption({ label: "Yes" });
+    }
+    await page.getByLabel(/Why do you want to go/).fill("Excited to serve alongside the team.");
+    await page.getByRole("button", { name: "Finish" }).click();
+
+    await expect(page.getByText("Thanks! Your application has been submitted.")).toBeVisible();
+  });
+
+  test("a minor applicant gets a required Parent/guardian step, enforced on both steps 1 and 2", async ({
+    page,
+  }) => {
+    await page.goto(`/apply/${tripId}`);
+
+    await expect(page.getByText("1. Your info")).toBeVisible();
+    await page.getByLabel("First name").fill("Avery");
+    await page.getByLabel("Last name").fill("Chen");
+    await page.getByLabel("Email").fill("avery.chen@example.test");
+    // Age 15 as of this trip's 2027-07-01 startDate -- clearly a minor.
+    await page.getByLabel(/Date of birth/).fill("2012-01-01");
+    await page.getByRole("button", { name: "Next" }).click();
+
+    // Step 2: the Parent/guardian section must appear (computed from the
+    // DOB just entered, not any per-trip/church-wide setting), and Next
+    // must be blocked until it's filled in.
+    await expect(page.getByText(/Parent\/guardian \(required/)).toBeVisible();
+    await page.getByRole("button", { name: "Next" }).click();
+    await expect(page.getByRole("alert")).toContainText(/parent\/guardian/i);
+
+    await page.getByLabel("First Name", { exact: true }).nth(1).fill("Jamie");
+    await page.getByLabel("Last Name", { exact: true }).nth(1).fill("Chen");
+    await page.getByLabel("Relationship").fill("Mother");
+    await page.getByLabel("Phone", { exact: true }).nth(1).fill("555-0100");
+    // Emergency contact's own email field is labeled "Email (optional)",
+    // not an exact match for "Email" -- the parent/guardian one (plain
+    // "Email") is the only exact match, so no .nth() needed here.
+    await page.getByLabel("Email", { exact: true }).fill("jamie.chen@example.test");
+    await page.getByRole("button", { name: "Next" }).click();
+
+    await expect(page.getByText("3. Trip questions")).toBeVisible();
     for (const select of await page.locator("select").all()) {
       await select.selectOption({ label: "Yes" });
     }

@@ -19,7 +19,7 @@ const emptyBudgetLineForm = { label: "", estimatedAmount: "" };
 // same as AdminTripMeetings.jsx/AdminTripRequirements.jsx. Contributions
 // stay a plain add-only list (no edit/delete ever existed for these, same
 // shape as Trip-wide documents on the Requirements page) -- just gated.
-export default function AdminTripBudget() {
+export default function AdminTripFinancial() {
   const { trip, reload, confirmDialog, canWrite } = useOutletContext();
   const [error, setError] = useState("");
   const [newContribution, setNewContribution] = useState({
@@ -105,7 +105,7 @@ export default function AdminTripBudget() {
       )}
 
       <div className="admin-section">
-        <h3>Budget</h3>
+        <h3>Financial</h3>
         <p style={{ color: "#888", fontSize: "0.85rem" }}>
           Totals for the <strong>whole team</strong>, not per person — e.g. "Round-trip flights: $650" means
           $650 for every traveler's flights combined, not $650 each.

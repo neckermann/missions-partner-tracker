@@ -3,6 +3,7 @@ import { updateChurchSettings } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
+import EditableSection from "../components/admin/EditableSection.jsx";
 
 // A plain div, not <label> -- .admin-shell label forces flex-direction:
 // column (stacked, for the usual label-above-input fields elsewhere in
@@ -33,13 +34,58 @@ function FeatureToggleRow({ feature, checked, onToggle, disabled = false, nested
   );
 }
 
+function groupSummary(features, enabledFeatures) {
+  const on = features.filter((f) => enabledFeatures[f.key] ?? f.defaultEnabled);
+  if (on.length === 0) return "All off";
+  if (on.length === features.length) return "All on";
+  return `${on.length} of ${features.length} on`;
+}
+
+// Each card edits only its own group's keys, but `enabledFeatures` is one
+// JSON column server-side -- onSave merges the card's edited subset into
+// the full, current object before saving, so one group's save can never
+// wipe out another group's already-saved toggles.
+function FeatureGroupCard({ title, features, enabledFeatures, onSaveGroup, onSaved, nestedToggle }) {
+  return (
+    <EditableSection
+      title={title}
+      value={Object.fromEntries(
+        [...features, ...(nestedToggle ? [nestedToggle.feature] : [])].map((f) => [
+          f.key,
+          enabledFeatures[f.key] ?? f.defaultEnabled,
+        ])
+      )}
+      onSave={onSaveGroup}
+      onSaved={onSaved}
+      view={() => <p>{groupSummary(features, enabledFeatures)}</p>}
+      edit={(d, set) => (
+        <>
+          {features.map((f) => (
+            <React.Fragment key={f.key}>
+              <FeatureToggleRow feature={f} checked={!!d[f.key]} onToggle={() => set(f.key, !d[f.key])} />
+              {nestedToggle && f.key === nestedToggle.afterKey && (
+                <FeatureToggleRow
+                  feature={nestedToggle.feature}
+                  checked={!!d[nestedToggle.feature.key]}
+                  onToggle={() => set(nestedToggle.feature.key, !d[nestedToggle.feature.key])}
+                  disabled={!d[nestedToggle.afterKey]}
+                  nested
+                  disabledNote={nestedToggle.disabledNote}
+                />
+              )}
+            </React.Fragment>
+          ))}
+        </>
+      )}
+    />
+  );
+}
+
 export default function AdminSettingsFeatures() {
   const { refreshSettings } = useSettings();
   const [enabledFeatures, setEnabledFeatures] = useState({});
   const [featureRegistry, setFeatureRegistry] = useState([]);
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState("");
-  const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   const { settings, error: settingsError } = useChurchSettings();
   useEffect(() => {
@@ -49,159 +95,110 @@ export default function AdminSettingsFeatures() {
     }
   }, [settings]);
   useEffect(() => {
-    if (settingsError) setError("Couldn't load feature settings.");
+    if (settingsError) setLoadError("Couldn't load feature settings.");
   }, [settingsError]);
 
-  function toggleFeature(key) {
-    const current = enabledFeatures[key] ?? featureRegistry.find((f) => f.key === key)?.defaultEnabled;
-    setEnabledFeatures((f) => ({ ...f, [key]: !current }));
-    setSuccess("");
-    setError("");
+  async function reload() {
+    const updated = await updateChurchSettings({});
+    setEnabledFeatures(updated.enabledFeatures || {});
+    refreshSettings();
   }
 
-  const outboundEmailOn =
-    enabledFeatures.outboundEmail ?? featureRegistry.find((f) => f.key === "outboundEmail")?.defaultEnabled;
-
-  // publicPrayerDigest does nothing without outboundEmail actually sending
-  // mail -- rather than let an admin save that combination (a toggle that
-  // looks on but is inert, worse than off per this app's own convention
-  // elsewhere for a configured-looking-but-nonfunctional feature), force
-  // it back off the moment its one real prerequisite goes off, including
-  // right after a save that flips outboundEmail off.
-  useEffect(() => {
-    if (!outboundEmailOn && enabledFeatures.publicPrayerDigest) {
-      setEnabledFeatures((f) => ({ ...f, publicPrayerDigest: false }));
+  // Merge this card's edited subset into the full enabledFeatures object,
+  // then save the whole thing -- enabledFeatures is one JSON column, so a
+  // partial PUT of just this group's keys would otherwise overwrite every
+  // other group's toggles with nothing.
+  async function saveGroup(draft) {
+    let merged = { ...enabledFeatures, ...draft };
+    // publicPrayerDigest does nothing without outboundEmail actually
+    // sending mail -- force it back off the moment its one real
+    // prerequisite goes off, same as before this was split into cards.
+    if (!merged.outboundEmail && merged.publicPrayerDigest) {
+      merged = { ...merged, publicPrayerDigest: false };
     }
-  }, [outboundEmailOn, enabledFeatures.publicPrayerDigest]);
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setSaving(true);
-    setSuccess("");
-    setError("");
-    try {
-      const updated = await updateChurchSettings({ enabledFeatures });
-      setEnabledFeatures(updated.enabledFeatures || {});
-      // The sidebar/Home tiles read enabledFeatures from SettingsContext,
-      // which only fetches once on mount otherwise -- without this they'd
-      // keep showing pre-save nav until a full page reload.
-      refreshSettings();
-      setSuccess("Saved.");
-    } catch (err) {
-      setError(err.response?.data?.error || "Couldn't save feature settings.");
-    } finally {
-      setSaving(false);
-    }
+    const updated = await updateChurchSettings({ enabledFeatures: merged });
+    refreshSettings();
+    return updated;
   }
 
-  // Grouped by what a toggle actually affects (see the `group` field's
-  // comment in backend/src/utils/features.js): "public" is the couple of
-  // toggles a logged-out visitor can notice at all (the site disappearing
-  // at "/" or "/map"); "admin" is everything else, which only ever
-  // changes a logged-in admin's own nav. Within "admin", `section` splits
-  // Communications and Integrations into their own blocks below -- same
-  // three-way grouping (core / Communications / Integrations) the
-  // sidebar and Home tiles already use, so this page reads the same way.
   const publicFeatures = featureRegistry.filter((f) => f.group === "public");
   const coreAdminFeatures = featureRegistry.filter((f) => f.group === "admin" && !f.section);
   const communicationsFeatures = featureRegistry.filter((f) => f.section === "communications");
   const integrationsFeatures = featureRegistry.filter((f) => f.section === "integrations");
-  // Rendered nested under outboundEmail's own row below, not in its
-  // normal list position, since it's the one feature in this section
-  // with a real functional dependency on another toggle rather than just
-  // its own independent on/off switch.
   const publicPrayerDigestFeature = communicationsFeatures.find((f) => f.key === "publicPrayerDigest");
+  const communicationsWithoutDigest = communicationsFeatures.filter((f) => f.key !== "publicPrayerDigest");
+
+  if (loadError) {
+    return (
+      <div className="admin-shell">
+        <SettingsPageHeader title="Enabled Features" />
+        <p className="form-error" role="alert">
+          {loadError}
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="admin-shell form-has-floating-actions">
+    <div className="admin-shell">
       <SettingsPageHeader title="Enabled Features" />
       <p style={{ color: "#555" }}>
         Turn off anything this church isn't using — hides it from the admin nav (and, for public-facing
         features, from visitors) without losing any data already on file.
       </p>
 
-      <form onSubmit={handleSubmit} className="admin-form">
-        {publicFeatures.length > 0 && (
-          <div className="admin-section">
-            <h3>Public site</h3>
-            {publicFeatures.map((f) => (
-              <FeatureToggleRow
-                key={f.key}
-                feature={f}
-                checked={enabledFeatures[f.key] ?? f.defaultEnabled}
-                onToggle={() => toggleFeature(f.key)}
-              />
-            ))}
-          </div>
-        )}
+      {publicFeatures.length > 0 && (
+        <FeatureGroupCard
+          title="Public Site"
+          features={publicFeatures}
+          enabledFeatures={enabledFeatures}
+          onSaveGroup={saveGroup}
+          onSaved={reload}
+        />
+      )}
 
-        {coreAdminFeatures.length > 0 && (
-          <div className="admin-section">
-            <h3>Admin features</h3>
-            {coreAdminFeatures.map((f) => (
-              <FeatureToggleRow
-                key={f.key}
-                feature={f}
-                checked={enabledFeatures[f.key] ?? f.defaultEnabled}
-                onToggle={() => toggleFeature(f.key)}
-              />
-            ))}
-          </div>
-        )}
-
-        {communicationsFeatures.length > 0 && (
-          <div className="admin-section">
-            <h3>Communications</h3>
-            {communicationsFeatures
-              .filter((f) => f.key !== "publicPrayerDigest")
-              .map((f) => (
-                <React.Fragment key={f.key}>
-                  <FeatureToggleRow
-                    feature={f}
-                    checked={enabledFeatures[f.key] ?? f.defaultEnabled}
-                    onToggle={() => toggleFeature(f.key)}
-                  />
-                  {f.key === "outboundEmail" && publicPrayerDigestFeature && (
-                    <FeatureToggleRow
-                      feature={publicPrayerDigestFeature}
-                      checked={enabledFeatures.publicPrayerDigest ?? publicPrayerDigestFeature.defaultEnabled}
-                      onToggle={() => toggleFeature("publicPrayerDigest")}
-                      disabled={!outboundEmailOn}
-                      nested
-                      disabledNote="Requires Email (Sending) above to be turned on first."
-                    />
-                  )}
-                </React.Fragment>
-              ))}
-          </div>
-        )}
-
-        {integrationsFeatures.length > 0 && (
-          <div className="admin-section">
-            <h3>Integrations</h3>
-            {integrationsFeatures.map((f) => (
-              <FeatureToggleRow
-                key={f.key}
-                feature={f}
-                checked={enabledFeatures[f.key] ?? f.defaultEnabled}
-                onToggle={() => toggleFeature(f.key)}
-              />
-            ))}
-          </div>
-        )}
-
-        <div className="form-save-bar">
-          <button type="submit" className="btn" disabled={saving}>
-            {saving ? "Saving..." : "Save"}
-          </button>
-          {error && (
-            <span style={{ color: "#b91c1c" }} role="alert">
-              {error}
-            </span>
-          )}
-          {success && <span style={{ color: "#2a5d3c" }}>{success}</span>}
+      {coreAdminFeatures.length > 0 && (
+        <div style={{ marginTop: "1rem" }}>
+          <FeatureGroupCard
+            title="Admin Features"
+            features={coreAdminFeatures}
+            enabledFeatures={enabledFeatures}
+            onSaveGroup={saveGroup}
+            onSaved={reload}
+          />
         </div>
-      </form>
+      )}
+
+      {communicationsWithoutDigest.length > 0 && (
+        <div style={{ marginTop: "1rem" }}>
+          <FeatureGroupCard
+            title="Communications"
+            features={communicationsWithoutDigest}
+            enabledFeatures={enabledFeatures}
+            onSaveGroup={saveGroup}
+            onSaved={reload}
+            nestedToggle={
+              publicPrayerDigestFeature && {
+                afterKey: "outboundEmail",
+                feature: publicPrayerDigestFeature,
+                disabledNote: "Requires Email (Sending) above to be turned on first.",
+              }
+            }
+          />
+        </div>
+      )}
+
+      {integrationsFeatures.length > 0 && (
+        <div style={{ marginTop: "1rem" }}>
+          <FeatureGroupCard
+            title="Integrations"
+            features={integrationsFeatures}
+            enabledFeatures={enabledFeatures}
+            onSaveGroup={saveGroup}
+            onSaved={reload}
+          />
+        </div>
+      )}
     </div>
   );
 }

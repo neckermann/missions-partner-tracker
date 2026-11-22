@@ -38,11 +38,10 @@ function readFileAsDataUrl(file) {
 // "who's on the team and what's outstanding across everyone, at a
 // glance"; this page is the canonical complete record for one person.
 //
-// Phase 3 (UX rebuild): migrated off onBlur-autosave onto EditableSection
-// for the two scalar-field groups (Contact & access, Support-raising
-// goal) -- the same silent-failure bug class named in the plan existed
-// here too (handlePhotoChange and handleSaveStory had no error handling
-// at all before this pass).
+// Every editable section on this page is EditableSection -- Contact &
+// access, Support-raising goal, and Their Public Page (photo + story,
+// the last onBlur/fire-on-select fields left on this page) all share
+// the same explicit edit -> save/cancel boundary.
 export default function AdminTripParticipantDetail() {
   const { tripId, participantId } = useParams();
   const { canWrite, isTripLeader } = useCurrentUser();
@@ -53,8 +52,6 @@ export default function AdminTripParticipantDetail() {
   const [docMessage, setDocMessage] = useState("");
   const [docFile, setDocFile] = useState(null);
   const [docRequirementChoice, setDocRequirementChoice] = useState("");
-  const [storyDraft, setStoryDraft] = useState(null);
-  const [photoFile, setPhotoFile] = useState(null);
 
   const reload = useCallback(() => {
     fetchTrip(tripId).then(setTrip).catch(console.error);
@@ -96,8 +93,10 @@ export default function AdminTripParticipantDetail() {
       ? [
           settings?.collectApplicantAddress && !participant.addressLine1 && "address",
           settings?.collectEmergencyContact && !participant.emergencyContactFirstName && "emergency contact",
-          trip.collectParentGuardianInfo && !participant.dateOfBirth && "date of birth",
-          trip.collectParentGuardianInfo && !participant.parentGuardianFirstName && "parent/guardian name",
+          !participant.dateOfBirth && "date of birth",
+          isMinorForTrip(participant.dateOfBirth, trip.startDate) &&
+            !participant.parentGuardianFirstName &&
+            "parent/guardian name",
         ].filter(Boolean)
       : [];
 
@@ -133,32 +132,6 @@ export default function AdminTripParticipantDetail() {
   async function saveParticipant(fields) {
     await updateTripParticipant(participantId, fields);
     reload();
-  }
-
-  async function handleSaveStory() {
-    if (storyDraft === null) return;
-    try {
-      await saveParticipant({ story: storyDraft });
-      setError("");
-    } catch (err) {
-      reportError(err, "Couldn't save their story.");
-    } finally {
-      setStoryDraft(null);
-    }
-  }
-
-  async function handlePhotoChange(file) {
-    if (!file) return;
-    setPhotoFile(file);
-    try {
-      const dataUrl = await readFileAsDataUrl(file);
-      await saveParticipant({ photo: dataUrl, photoContentType: file.type });
-      setError("");
-    } catch (err) {
-      reportError(err, "Couldn't upload this photo.");
-    } finally {
-      setPhotoFile(null);
-    }
   }
 
   async function handleResendAccessLink() {
@@ -585,49 +558,6 @@ export default function AdminTripParticipantDetail() {
                     Preview their public page →
                   </a>
                 </p>
-                <div style={{ marginTop: "0.75rem" }}>
-                  <h4 style={{ margin: "0 0 0.4rem" }}>Their public page</h4>
-                  <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start", flexWrap: "wrap" }}>
-                    {participant.photoContentType && (
-                      <img
-                        src={tripParticipantPhotoUrl(participant.id)}
-                        alt={`${participant.firstName} ${participant.lastName}`}
-                        style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover" }}
-                      />
-                    )}
-                    <div style={{ flex: 1, minWidth: 220 }}>
-                      {canWrite && (
-                        <>
-                          <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "0.3rem" }}>
-                            Photo of {participant.firstName} (shown on their public page)
-                          </label>
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            aria-label={`Photo of ${participant.firstName} ${participant.lastName}`}
-                            onChange={(e) => handlePhotoChange(e.target.files[0] || null)}
-                          />
-                          {photoFile && <span style={{ fontSize: "0.75rem", color: "#888" }}> Uploading…</span>}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  {canWrite ? (
-                    <label style={{ display: "block", marginTop: "0.6rem" }}>
-                      Story (what shows on their public page)
-                      <textarea
-                        rows={3}
-                        defaultValue={participant.story || ""}
-                        onChange={(e) => setStoryDraft(e.target.value)}
-                        onBlur={handleSaveStory}
-                      />
-                    </label>
-                  ) : (
-                    participant.story && (
-                      <p style={{ marginTop: "0.6rem", fontSize: "0.85rem" }}>{participant.story}</p>
-                    )
-                  )}
-                </div>
               </>
             )}
             {contributions.length > 0 && (
@@ -665,6 +595,67 @@ export default function AdminTripParticipantDetail() {
           </label>
         )}
       />
+
+      {settings?.allowPublicSupportRaisingLinks && participant.shareToken && (
+        <div style={{ marginTop: "1rem" }}>
+          <EditableSection
+            title="Their Public Page"
+            canEdit={canWrite}
+            value={{ story: participant.story || "", photoDataUrl: null, photoContentType: null }}
+            onSave={(draft) =>
+              saveParticipant({
+                story: draft.story,
+                ...(draft.photoDataUrl ? { photo: draft.photoDataUrl, photoContentType: draft.photoContentType } : {}),
+              })
+            }
+            view={() => (
+              <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start", flexWrap: "wrap" }}>
+                {participant.photoContentType && (
+                  <img
+                    src={tripParticipantPhotoUrl(participant.id)}
+                    alt={`${participant.firstName} ${participant.lastName}`}
+                    style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover" }}
+                  />
+                )}
+                <p style={{ flex: 1, minWidth: 220 }}>{participant.story || "No story set"}</p>
+              </div>
+            )}
+            edit={(draft, set) => (
+              <>
+                <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start", flexWrap: "wrap" }}>
+                  {(draft.photoDataUrl || participant.photoContentType) && (
+                    <img
+                      src={draft.photoDataUrl || tripParticipantPhotoUrl(participant.id)}
+                      alt={`${participant.firstName} ${participant.lastName}`}
+                      style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover" }}
+                    />
+                  )}
+                  <div style={{ flex: 1, minWidth: 220 }}>
+                    <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "0.3rem" }}>
+                      Photo of {participant.firstName} (shown on their public page)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      aria-label={`Photo of ${participant.firstName} ${participant.lastName}`}
+                      onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        set("photoDataUrl", await readFileAsDataUrl(file));
+                        set("photoContentType", file.type);
+                      }}
+                    />
+                  </div>
+                </div>
+                <label style={{ display: "block", marginTop: "0.6rem" }}>
+                  Story (what shows on their public page)
+                  <textarea rows={3} value={draft.story} onChange={(e) => set("story", e.target.value)} />
+                </label>
+              </>
+            )}
+          />
+        </div>
+      )}
 
       <div className="admin-section">
         <h3>Requirements</h3>

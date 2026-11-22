@@ -10,6 +10,7 @@ const { setSessionCookie, clearSessionCookie } = require("../utils/jwt");
 const { encryptField, decryptField } = require("../utils/crypto");
 const { appBaseUrl } = require("../utils/dispatchBlurbs");
 const { escapeHtml } = require("../utils/emailDispatchShell");
+const { DEFAULT_TRIP_REQUIREMENT_TEMPLATE } = require("../utils/defaultTripRequirementTemplate");
 
 const router = express.Router();
 const MFA_PENDING_TTL = "5m";
@@ -96,6 +97,20 @@ router.post("/setup", async (req, res, next) => {
         role: "admin",
         authProvider: "local",
       },
+    });
+
+    // The only moment a genuinely fresh (non-demo) install can hook a
+    // real first-run default into -- ChurchSettings otherwise only ever
+    // gets created lazily, via upsert, the first time an admin saves some
+    // settings page, which would leave tripRequirementTemplate at its
+    // column default (null) rather than this real starting point. Upsert,
+    // not create, since this route only guarantees zero prior Users, not
+    // zero prior ChurchSettings -- never overwrites an existing row's
+    // template if one somehow already exists.
+    await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      update: {},
+      create: { id: "singleton", tripRequirementTemplate: DEFAULT_TRIP_REQUIREMENT_TEMPLATE },
     });
 
     res.status(201).json(await completeLogin(res, user));

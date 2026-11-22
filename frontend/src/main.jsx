@@ -40,7 +40,6 @@ const AdminPartnerForm = lazy(() => import("./pages/AdminPartnerForm.jsx"));
 const AdminPartnerDetail = lazy(() => import("./pages/AdminPartnerDetail.jsx"));
 const AdminBooklet = lazy(() => import("./pages/AdminBooklet.jsx"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers.jsx"));
-const AdminUserForm = lazy(() => import("./pages/AdminUserForm.jsx"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings.jsx"));
 const AdminSettingsHome = lazy(() => import("./pages/AdminSettingsHome.jsx"));
 const AdminSettingsAbout = lazy(() => import("./pages/AdminSettingsAbout.jsx"));
@@ -62,7 +61,7 @@ const AdminTripOverview = lazy(() => import("./pages/AdminTripOverview.jsx"));
 const AdminTripTeam = lazy(() => import("./pages/AdminTripTeam.jsx"));
 const AdminTripMeetings = lazy(() => import("./pages/AdminTripMeetings.jsx"));
 const AdminTripRequirements = lazy(() => import("./pages/AdminTripRequirements.jsx"));
-const AdminTripBudget = lazy(() => import("./pages/AdminTripBudget.jsx"));
+const AdminTripFinancial = lazy(() => import("./pages/AdminTripFinancial.jsx"));
 const AdminTripFlights = lazy(() => import("./pages/AdminTripFlights.jsx"));
 const AdminTripParticipantDetail = lazy(() => import("./pages/AdminTripParticipantDetail.jsx"));
 const AdminSettingsTrips = lazy(() => import("./pages/AdminSettingsTrips.jsx"));
@@ -226,7 +225,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   <Route path="team" element={<AdminTripTeam />} />
                   <Route path="meetings" element={<AdminTripMeetings />} />
                   <Route path="requirements" element={<AdminTripRequirements />} />
-                  <Route path="budget" element={<AdminTripBudget />} />
+                  <Route path="financial" element={<AdminTripFinancial />} />
                   <Route path="flights" element={<AdminTripFlights />} />
                 </Route>
                 <Route
@@ -309,8 +308,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   />
                   <Route path="system-info" element={<AdminSystemInfo />} />
                   <Route path="users" element={<AdminUsers />} />
-                  <Route path="users/new" element={<AdminUserForm />} />
-                  <Route path="users/:id" element={<AdminUserForm />} />
                 </Route>
               </Route>
             </Routes>

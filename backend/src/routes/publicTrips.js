@@ -46,15 +46,11 @@ function shapeTripForApplicant(trip, settings) {
     // Same, for the structured emergency-contact block -- see
     // ChurchSettings.collectEmergencyContact's own schema comment.
     collectEmergencyContact: settings?.collectEmergencyContact !== false,
-    // Forced on for this trip specifically when it collects parent/
-    // guardian info -- minor support can't function without a real date
-    // of birth on file, regardless of the church-wide default. See
-    // ChurchSettings.collectDateOfBirth's own schema comment.
-    collectDateOfBirth: settings?.collectDateOfBirth !== false || !!trip.collectParentGuardianInfo,
-    requireDateOfBirth: !!settings?.requireDateOfBirth || !!trip.collectParentGuardianInfo,
-    // Per-trip, not church-wide -- see Trip.collectParentGuardianInfo's
-    // own schema comment.
-    collectParentGuardianInfo: !!trip.collectParentGuardianInfo,
+    // Date of birth is always collected/required now -- no settings flag
+    // needed here; the wizard shows that step unconditionally and decides
+    // whether to show the parent/guardian step itself, client-side, via
+    // the shared isMinorForTrip(dateOfBirth, startDate) check (also
+    // enforced server-side on submission -- see publicTripApplications.js).
   };
 }
 
@@ -133,7 +129,6 @@ router.get("/:id", requireFeature("trips"), async (req, res, next) => {
         status: true,
         isPublic: true,
         applicationQuestions: true,
-        collectParentGuardianInfo: true,
         ...tripPartnerSelect,
       },
     });
@@ -167,7 +162,6 @@ router.get("/by-token/:token", requireFeature("trips"), async (req, res, next) =
         endDate: true,
         status: true,
         applicationQuestions: true,
-        collectParentGuardianInfo: true,
         ...tripPartnerSelect,
       },
     });

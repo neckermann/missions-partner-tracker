@@ -114,22 +114,25 @@ test.describe("user management", () => {
     await login(page);
 
     const email = `e2e-managed-${Date.now()}@example.test`;
-    await page.goto("/admin/settings/users/new");
+    await page.goto("/admin/settings/users");
+    await page.getByRole("button", { name: "+ Add User" }).click();
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("First Name").fill("Managed");
     await page.getByLabel("Last Name").fill("User");
     await page.getByLabel("Role").selectOption("viewer");
     await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
-    await page.click('button[type="submit"]');
+    await page.click('.modal-panel button[type="submit"]');
+    await expect(page.locator(".modal-panel")).toHaveCount(0);
 
     const row = page.locator("tr", { hasText: email });
     await expect(row).toBeVisible();
     await expect(row).toContainText("viewer");
 
     // Edit: promote to editor and confirm it sticks.
-    await row.getByRole("link", { name: "Edit" }).click();
+    await row.click();
     await page.getByLabel("Role").selectOption("editor");
-    await page.click('button[type="submit"]');
+    await page.click('.modal-panel button[type="submit"]');
+    await expect(page.locator(".modal-panel")).toHaveCount(0);
     await expect(page.locator("tr", { hasText: email })).toContainText("editor");
 
     // Delete: opens a styled confirm dialog (see useConfirmDialog.jsx),

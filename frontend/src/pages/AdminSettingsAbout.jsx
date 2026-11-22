@@ -3,6 +3,7 @@ import { updateChurchSettings, syncAllSendingChurch, uploadChurchLogo } from "..
 import { useSettings } from "../context/SettingsContext.jsx";
 import AddressFields from "../components/admin/AddressFields.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
+import EditableSection from "../components/admin/EditableSection.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
 
 const emptyAddress = {
@@ -55,13 +56,9 @@ export default function AdminSettingsAbout() {
   const { refreshSettings } = useSettings();
   const [form, setForm] = useState(emptyForm);
   const [sentByOurChurchCount, setSentByOurChurchCount] = useState(0);
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState("");
-  const [error, setError] = useState("");
+  const [showSyncPrompt, setShowSyncPrompt] = useState(false);
 
   const { settings, error: settingsError } = useChurchSettings();
   useEffect(() => {
@@ -70,321 +67,417 @@ export default function AdminSettingsAbout() {
       setSentByOurChurchCount(settings?.sentByOurChurchCount || 0);
     }
   }, [settings]);
-  useEffect(() => {
-    if (settingsError) setError("Couldn't load church settings.");
-  }, [settingsError]);
 
-  function update(field, value) {
-    setForm((f) => ({ ...f, [field]: value }));
-    setSuccess("");
-    setSyncSuccess("");
-    setError("");
+  async function reload() {
+    const updated = await updateChurchSettings({});
+    setForm(mergeFetchedRecord(updated));
+    setSentByOurChurchCount(updated?.sentByOurChurchCount || 0);
+    refreshSettings();
   }
 
-  function handleResetBranding() {
-    setForm((f) => ({ ...f, headerColor: "", primaryColor: "", highlightColor: "", brandFont: "" }));
-    setSuccess("");
-    setError("");
-  }
-
-  function handleImageSelect(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onload = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
-    setSuccess("");
-    setError("");
-  }
-
-  function handleRemoveImage() {
-    setImageFile(null);
-    setImagePreview(null);
-    update("logo", null);
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setSaving(true);
-    setSuccess("");
-    setSyncSuccess("");
-    setError("");
-    try {
-      let updated = await updateChurchSettings(form);
-      if (imageFile) {
-        updated = await uploadChurchLogo(imageFile);
-      }
-      setForm(mergeFetchedRecord(updated));
-      setImageFile(null);
-      setImagePreview(null);
-      setSuccess("Saved.");
-      refreshSettings();
-    } catch (err) {
-      setError(err.response?.data?.error || "Couldn't save settings.");
-    } finally {
-      setSaving(false);
-    }
+  async function saveChurchInfo(draft) {
+    const updated = await updateChurchSettings(draft);
+    setShowSyncPrompt((updated?.sentByOurChurchCount || 0) > 0);
   }
 
   async function handleSyncAll() {
     setSyncing(true);
     setSyncSuccess("");
-    setError("");
     try {
       const { updatedCount } = await syncAllSendingChurch();
       setSyncSuccess(`Updated ${updatedCount} partner${updatedCount === 1 ? "" : "s"}.`);
-    } catch (err) {
-      setError(err.response?.data?.error || "Couldn't update partners with this info.");
+    } catch {
+      setSyncSuccess("Couldn't update partners with this info.");
     } finally {
       setSyncing(false);
     }
   }
 
+  if (settingsError) {
+    return (
+      <div className="admin-shell">
+        <SettingsPageHeader title="About & Branding" />
+        <p className="form-error" role="alert">
+          Couldn't load church settings.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="admin-shell form-has-floating-actions">
+    <div className="admin-shell">
       <SettingsPageHeader title="About & Branding" />
       <p style={{ color: "#555" }}>
         Church info, contact details, and how this church presents itself — public-site tagline, about text,
         brand colors, font, logo, and what to call its partners.
       </p>
 
-      <form onSubmit={handleSubmit} className="admin-form">
-        <div className="admin-section">
-          <h3>Church Info</h3>
-          <div className="form-grid">
-            <label>
-              Church Name
-              <input value={form.churchName || ""} onChange={(e) => update("churchName", e.target.value)} />
-            </label>
-            <label>
-              Phone
-              <input
-                value={form.phone || ""}
-                onChange={(e) => update("phone", e.target.value)}
-                autoComplete="off"
-              />
-            </label>
-            <label>
-              Contact First Name
-              <input
-                value={form.contactFirstName || ""}
-                onChange={(e) => update("contactFirstName", e.target.value)}
-              />
-            </label>
-            <label>
-              Contact Last Name
-              <input
-                value={form.contactLastName || ""}
-                onChange={(e) => update("contactLastName", e.target.value)}
-              />
-            </label>
-            <label>
-              Contact Email
-              <input
-                value={form.contactEmail || ""}
-                onChange={(e) => update("contactEmail", e.target.value)}
-              />
-            </label>
-            <label>
-              Website
-              <input value={form.websiteLink || ""} onChange={(e) => update("websiteLink", e.target.value)} />
-            </label>
-            <label>
-              Timezone
-              <select value={form.timezone || "UTC"} onChange={(e) => update("timezone", e.target.value)}>
-                {TIMEZONES.map((tz) => (
-                  <option key={tz} value={tz}>
-                    {tz}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <p style={{ color: "#666", fontSize: "0.85rem", marginTop: "-0.5rem" }}>
-            Drives every scheduled send in this app (email digests, GroupMe) so "send at 9" actually means 9am
-            here, not UTC. Changing this takes effect the next time the app restarts, not instantly.
-          </p>
-          <h4>Address</h4>
-          <AddressFields
-            value={{
-              addressLine1: form.addressLine1,
-              addressLine2: form.addressLine2,
-              city: form.city,
-              stateProvinceRegion: form.stateProvinceRegion,
-              postalCode: form.postalCode,
-              country: form.country,
-            }}
-            onChange={(addr) => {
-              setForm((f) => ({ ...f, ...addr }));
-              setSuccess("");
-              setSyncSuccess("");
-              setError("");
-            }}
-          />
-        </div>
-
-        <div className="admin-section">
-          <h3>Public Site</h3>
-          <label>
-            Tagline
-            <input
-              value={form.publicTagline || ""}
-              onChange={(e) => update("publicTagline", e.target.value)}
-              placeholder="e.g. Prayer & Support Directory"
-            />
-          </label>
-          <label style={{ marginTop: "1rem" }}>
-            About
-            <textarea
-              rows={4}
-              value={form.aboutText || ""}
-              onChange={(e) => update("aboutText", e.target.value)}
-              placeholder="An optional blurb shown on the public partner directory."
-            />
-          </label>
-          <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
-            Header Color
-            <input
-              type="color"
-              value={form.headerColor || "#2c2a28"}
-              onChange={(e) => update("headerColor", e.target.value)}
-            />
-          </label>
-          <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-            The header bar and admin sidebar background.
-          </p>
-          <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
-            Accent Color
-            <input
-              type="color"
-              value={form.primaryColor || "#2a5d3c"}
-              onChange={(e) => update("primaryColor", e.target.value)}
-            />
-          </label>
-          <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-            Buttons, links, headings, and report letterheads -- the color people associate with this church.
-          </p>
-          <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
-            Highlight Color
-            <input
-              type="color"
-              value={form.highlightColor || "#a6540f"}
-              onChange={(e) => update("highlightColor", e.target.value)}
-            />
-          </label>
-          <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-            Hover, focus, and active/selected states -- e.g. a button on hover, the current nav item.
-          </p>
-          <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
-            Font
-            <select
-              value={form.brandFont || ""}
-              onChange={(e) => update("brandFont", e.target.value || null)}
-            >
-              {FONT_OPTIONS.map((opt) => (
-                <option key={opt.label} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div style={{ marginTop: "1rem" }}>
-            <button type="button" className="btn secondary small" onClick={handleResetBranding}>
-              Reset to Default
-            </button>
-          </div>
-        </div>
-
-        <div className="admin-section">
-          <h3>Logo</h3>
-          <div className="headshot-row">
-            {(imagePreview || form.logo?.url) && (
-              <img
-                src={imagePreview || form.logo.url}
-                alt="Logo preview"
-                className="logo-preview"
-                style={{ background: form.headerColor || "#2c2a28" }}
-              />
-            )}
-            <label style={{ flex: 1 }}>
-              Logo Image
-              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageSelect} />
-            </label>
-            {(imagePreview || form.logo?.url) && (
-              <button type="button" className="btn secondary small" onClick={handleRemoveImage}>
-                Remove logo
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="admin-section">
-          <h3>Partner Terminology</h3>
-          <p style={{ marginTop: 0, color: "#666", fontSize: "0.85rem" }}>
-            What this church calls its missionary and organization partners — e.g. "Go Team Partner" / "Go
-            Team Partners". Used on the public site regardless of whether a partner is an individual/family or
-            an organization. Leave blank to keep the default "Missionary" / "Missionaries" wording.
-          </p>
-          <div className="form-grid">
-            <label>
-              Singular
-              <input
-                value={form.partnerTermSingular || ""}
-                onChange={(e) => update("partnerTermSingular", e.target.value)}
-                placeholder="Missionary"
-              />
-            </label>
-            <label>
-              Plural
-              <input
-                value={form.partnerTermPlural || ""}
-                onChange={(e) => update("partnerTermPlural", e.target.value)}
-                placeholder="Missionaries"
-              />
-            </label>
-          </div>
-          <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={form.usePartnerTermInAdmin}
-                onChange={(e) => update("usePartnerTermInAdmin", e.target.checked)}
-              />
-              Also use this term in the admin interface (nav/list headings)
-            </label>
-          </div>
-        </div>
-
-        <div className="form-save-bar">
-          <button type="submit" className="btn" disabled={saving}>
-            {saving ? "Saving..." : "Save"}
-          </button>
-          {error && (
-            <span style={{ color: "#b91c1c" }} role="alert">
-              {error}
-            </span>
-          )}
-          {success && <span style={{ color: "#2a5d3c" }}>{success}</span>}
-          {success && sentByOurChurchCount > 0 && (
-            <>
-              <span style={{ color: "#555" }}>
-                {sentByOurChurchCount} partner{sentByOurChurchCount === 1 ? "" : "s"} marked &ldquo;Sent by
-                our church.&rdquo;
-              </span>
-              <button
-                type="button"
-                className="btn secondary small"
-                onClick={handleSyncAll}
-                disabled={syncing}
+      <EditableSection
+        title="Church Info"
+        value={{
+          churchName: form.churchName,
+          phone: form.phone,
+          contactFirstName: form.contactFirstName,
+          contactLastName: form.contactLastName,
+          contactEmail: form.contactEmail,
+          websiteLink: form.websiteLink,
+          timezone: form.timezone,
+          addressLine1: form.addressLine1,
+          addressLine2: form.addressLine2,
+          city: form.city,
+          stateProvinceRegion: form.stateProvinceRegion,
+          postalCode: form.postalCode,
+          country: form.country,
+        }}
+        onSave={saveChurchInfo}
+        onSaved={reload}
+        view={(v) => (
+          <>
+            <p>
+              <strong>{v.churchName || "Not set"}</strong>
+            </p>
+            <p style={{ color: "#555" }}>
+              {[v.contactFirstName, v.contactLastName].filter(Boolean).join(" ") || "No contact set"}
+              {v.contactEmail ? ` · ${v.contactEmail}` : ""}
+              {v.phone ? ` · ${v.phone}` : ""}
+            </p>
+            <p style={{ color: "#555" }}>{v.websiteLink || "No website set"}</p>
+            <p style={{ color: "#555" }}>Timezone: {v.timezone}</p>
+            {showSyncPrompt && sentByOurChurchCount > 0 && (
+              <div
+                className="table-actions"
+                style={{ marginTop: "0.75rem", alignItems: "center" }}
+                onClick={(e) => e.stopPropagation()}
               >
-                {syncing ? "Updating..." : "Update them all with this info"}
-              </button>
+                <span style={{ color: "#555" }}>
+                  {sentByOurChurchCount} partner{sentByOurChurchCount === 1 ? "" : "s"} marked &ldquo;Sent by our
+                  church.&rdquo;
+                </span>
+                <button type="button" className="btn secondary small" onClick={handleSyncAll} disabled={syncing}>
+                  {syncing ? "Updating..." : "Update them all with this info"}
+                </button>
+                {syncSuccess && <span style={{ color: "#2a5d3c" }}>{syncSuccess}</span>}
+              </div>
+            )}
+          </>
+        )}
+        edit={(d, set) => (
+          <>
+            <div className="form-grid">
+              <label>
+                Church Name
+                <input value={d.churchName || ""} onChange={(e) => set("churchName", e.target.value)} />
+              </label>
+              <label>
+                Phone
+                <input value={d.phone || ""} onChange={(e) => set("phone", e.target.value)} autoComplete="off" />
+              </label>
+              <label>
+                Contact First Name
+                <input
+                  value={d.contactFirstName || ""}
+                  onChange={(e) => set("contactFirstName", e.target.value)}
+                />
+              </label>
+              <label>
+                Contact Last Name
+                <input value={d.contactLastName || ""} onChange={(e) => set("contactLastName", e.target.value)} />
+              </label>
+              <label>
+                Contact Email
+                <input value={d.contactEmail || ""} onChange={(e) => set("contactEmail", e.target.value)} />
+              </label>
+              <label>
+                Website
+                <input value={d.websiteLink || ""} onChange={(e) => set("websiteLink", e.target.value)} />
+              </label>
+              <label>
+                Timezone
+                <select value={d.timezone || "UTC"} onChange={(e) => set("timezone", e.target.value)}>
+                  {TIMEZONES.map((tz) => (
+                    <option key={tz} value={tz}>
+                      {tz}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <p style={{ color: "#666", fontSize: "0.85rem", marginTop: "0.5rem" }}>
+              Timezone drives every scheduled send in this app (email digests, GroupMe) so "send at 9" actually
+              means 9am here, not UTC. Changing this takes effect the next time the app restarts, not instantly.
+            </p>
+            <h4>Address</h4>
+            <AddressFields
+              value={{
+                addressLine1: d.addressLine1,
+                addressLine2: d.addressLine2,
+                city: d.city,
+                stateProvinceRegion: d.stateProvinceRegion,
+                postalCode: d.postalCode,
+                country: d.country,
+              }}
+              onChange={(addr) => {
+                Object.entries(addr).forEach(([key, val]) => set(key, val));
+              }}
+            />
+          </>
+        )}
+      />
+
+      <div style={{ marginTop: "1rem" }}>
+        <EditableSection
+          title="Public Site & Branding"
+          value={{
+            publicTagline: form.publicTagline,
+            aboutText: form.aboutText,
+            headerColor: form.headerColor,
+            primaryColor: form.primaryColor,
+            highlightColor: form.highlightColor,
+            brandFont: form.brandFont,
+          }}
+          onSave={updateChurchSettings}
+          onSaved={reload}
+          view={(v) => (
+            <>
+              <p>
+                <strong>Tagline:</strong> {v.publicTagline || "Not set"}
+              </p>
+              <p style={{ color: "#555" }}>{v.aboutText || "No about text set"}</p>
+              <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
+                <span
+                  title="Header color"
+                  style={{
+                    display: "inline-block",
+                    width: 20,
+                    height: 20,
+                    borderRadius: 4,
+                    background: v.headerColor || "#2c2a28",
+                    border: "1px solid #ccc",
+                  }}
+                />
+                <span
+                  title="Accent color"
+                  style={{
+                    display: "inline-block",
+                    width: 20,
+                    height: 20,
+                    borderRadius: 4,
+                    background: v.primaryColor || "#2a5d3c",
+                    border: "1px solid #ccc",
+                  }}
+                />
+                <span
+                  title="Highlight color"
+                  style={{
+                    display: "inline-block",
+                    width: 20,
+                    height: 20,
+                    borderRadius: 4,
+                    background: v.highlightColor || "#a6540f",
+                    border: "1px solid #ccc",
+                  }}
+                />
+              </div>
             </>
           )}
-          {syncSuccess && <span style={{ color: "#2a5d3c" }}>{syncSuccess}</span>}
-        </div>
-      </form>
+          edit={(d, set) => (
+            <>
+              <label>
+                Tagline
+                <input
+                  value={d.publicTagline || ""}
+                  onChange={(e) => set("publicTagline", e.target.value)}
+                  placeholder="e.g. Prayer & Support Directory"
+                />
+              </label>
+              <label style={{ marginTop: "1rem" }}>
+                About
+                <textarea
+                  rows={4}
+                  value={d.aboutText || ""}
+                  onChange={(e) => set("aboutText", e.target.value)}
+                  placeholder="An optional blurb shown on the public partner directory."
+                />
+              </label>
+              <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
+                Header Color
+                <input type="color" value={d.headerColor || "#2c2a28"} onChange={(e) => set("headerColor", e.target.value)} />
+              </label>
+              <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                The header bar and admin sidebar background.
+              </p>
+              <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
+                Accent Color
+                <input
+                  type="color"
+                  value={d.primaryColor || "#2a5d3c"}
+                  onChange={(e) => set("primaryColor", e.target.value)}
+                />
+              </label>
+              <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                Buttons, links, headings, and report letterheads -- the color people associate with this church.
+              </p>
+              <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
+                Highlight Color
+                <input
+                  type="color"
+                  value={d.highlightColor || "#a6540f"}
+                  onChange={(e) => set("highlightColor", e.target.value)}
+                />
+              </label>
+              <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                Hover, focus, and active/selected states -- e.g. a button on hover, the current nav item.
+              </p>
+              <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
+                Font
+                <select value={d.brandFont || ""} onChange={(e) => set("brandFont", e.target.value || null)}>
+                  {FONT_OPTIONS.map((opt) => (
+                    <option key={opt.label} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div style={{ marginTop: "1rem" }}>
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  onClick={() => {
+                    set("headerColor", "");
+                    set("primaryColor", "");
+                    set("highlightColor", "");
+                    set("brandFont", "");
+                  }}
+                >
+                  Reset to Default
+                </button>
+              </div>
+            </>
+          )}
+        />
+      </div>
+
+      <div style={{ marginTop: "1rem" }}>
+        <EditableSection
+          title="Logo"
+          value={{ logo: form.logo, imageFile: null, imagePreview: null }}
+          onSave={async (draft) => {
+            if (draft.imageFile) {
+              await uploadChurchLogo(draft.imageFile);
+            } else if (draft.logo === null) {
+              await updateChurchSettings({ logo: null });
+            }
+          }}
+          onSaved={reload}
+          view={(v) => (
+            <div className="headshot-row">
+              {v.logo?.url ? (
+                <img
+                  src={v.logo.url}
+                  alt="Logo preview"
+                  className="logo-preview"
+                  style={{ background: form.headerColor || "#2c2a28" }}
+                />
+              ) : (
+                <p style={{ color: "#555" }}>No logo set</p>
+              )}
+            </div>
+          )}
+          edit={(d, set) => {
+            function handleImageSelect(e) {
+              const file = e.target.files[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = () => set("imagePreview", reader.result);
+              reader.readAsDataURL(file);
+              set("imageFile", file);
+              set("logo", { ...(d.logo || {}) });
+            }
+            function handleRemoveImage() {
+              set("imageFile", null);
+              set("imagePreview", null);
+              set("logo", null);
+            }
+            return (
+              <div className="headshot-row">
+                {(d.imagePreview || d.logo?.url) && (
+                  <img
+                    src={d.imagePreview || d.logo.url}
+                    alt="Logo preview"
+                    className="logo-preview"
+                    style={{ background: form.headerColor || "#2c2a28" }}
+                  />
+                )}
+                <label style={{ flex: 1 }}>
+                  Logo Image
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageSelect} />
+                </label>
+                {(d.imagePreview || d.logo?.url) && (
+                  <button type="button" className="btn secondary small" onClick={handleRemoveImage}>
+                    Remove logo
+                  </button>
+                )}
+              </div>
+            );
+          }}
+        />
+      </div>
+
+      <div style={{ marginTop: "1rem" }}>
+        <EditableSection
+          title="Partner Terminology"
+          value={{
+            partnerTermSingular: form.partnerTermSingular,
+            partnerTermPlural: form.partnerTermPlural,
+            usePartnerTermInAdmin: form.usePartnerTermInAdmin,
+          }}
+          onSave={updateChurchSettings}
+          onSaved={reload}
+          view={(v) => (
+            <p>
+              {v.partnerTermSingular || "Missionary"} / {v.partnerTermPlural || "Missionaries"}
+              {v.usePartnerTermInAdmin ? " (also used in the admin interface)" : ""}
+            </p>
+          )}
+          edit={(d, set) => (
+            <>
+              <p style={{ marginTop: 0, color: "#666", fontSize: "0.85rem" }}>
+                What this church calls its missionary and organization partners — e.g. "Go Team Partner" / "Go
+                Team Partners". Used on the public site regardless of whether a partner is an individual/family
+                or an organization. Leave blank to keep the default "Missionary" / "Missionaries" wording.
+              </p>
+              <div className="form-grid">
+                <label>
+                  Singular
+                  <input
+                    value={d.partnerTermSingular || ""}
+                    onChange={(e) => set("partnerTermSingular", e.target.value)}
+                    placeholder="Missionary"
+                  />
+                </label>
+                <label>
+                  Plural
+                  <input
+                    value={d.partnerTermPlural || ""}
+                    onChange={(e) => set("partnerTermPlural", e.target.value)}
+                    placeholder="Missionaries"
+                  />
+                </label>
+              </div>
+              <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={d.usePartnerTermInAdmin}
+                    onChange={(e) => set("usePartnerTermInAdmin", e.target.checked)}
+                  />
+                  Also use this term in the admin interface (nav/list headings)
+                </label>
+              </div>
+            </>
+          )}
+        />
+      </div>
     </div>
   );
 }

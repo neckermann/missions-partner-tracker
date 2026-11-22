@@ -55,6 +55,7 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import AddressFields, { roundGps } from "../components/admin/AddressFields.jsx";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
+import { TRIP_TYPE_PRESETS } from "../components/admin/TripFormFields.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import Modal from "../components/Modal.jsx";
 import PrayerRequestFormFields from "../components/admin/PrayerRequestFormFields.jsx";
@@ -84,18 +85,6 @@ import useCurrentUser from "../hooks/useCurrentUser.js";
 const dateOrNull = (value) => value || null;
 
 const CONTACT_METHOD_PRESETS = ["Email", "Phone", "WhatsApp", "Signal"];
-const TRIP_TYPE_PRESETS = [
-  "Construction",
-  "Medical/Dental",
-  "VBS/Children's Ministry",
-  "Evangelism/Outreach",
-  "Teaching/Discipleship",
-  "Prayer",
-  "General Labor",
-  "Sports Ministry",
-  "Music/Worship",
-  "Administrative/Support",
-];
 
 const emptyAddress = {
   addressLine1: "",

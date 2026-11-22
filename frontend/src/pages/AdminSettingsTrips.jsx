@@ -2,28 +2,23 @@ import React, { useEffect, useState } from "react";
 import { fetchTripsSettings, updateTripsSettings } from "../api/client.js";
 import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestionsEditor.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
+import EditableSection from "../components/admin/EditableSection.jsx";
 
 // New (#252) -- church-wide settings for the whole Trips feature area.
 // Not per-trip (so it doesn't belong on any single trip's own pages --
 // AdminTripOverview.jsx etc.) and not general church info (so it doesn't
-// belong on the About Church page
-// either). A two-page split was tried (issue #262) and reverted -- the
-// split introduced a worse problem than it solved (it surfaced two
-// settings pages outside the admin-only Settings group) for
-// a smaller one (page length), which this app's own biggest page
-// (AdminPartnerDetail.jsx, ~1,200 lines) already shows isn't a problem
-// clearly-labeled sections can't handle on their own. Sections below are
-// grouped by theme (Giving & Budget / Application Form / Trip
-// Requirements / Access) and ordered within each group by how directly
-// it's used, not alphabetically or by when it was added.
+// belong on the About Church page either). Each concern below is its own
+// EditableSection card -- same click-card -> popup -> edit -> save
+// boundary every other editable page in this app uses, grouped under
+// .admin-section-group/.admin-group-heading the same way
+// AdminPartnerDetail.jsx groups its own cards, with that same page's
+// jump-rail pattern reused here for the 4 groups.
 const emptyForm = {
   onlineGivingUrl: "",
   onlineGivingInstructions: "",
   collectDonorContactInfo: false,
   collectApplicantAddress: true,
   collectEmergencyContact: true,
-  collectDateOfBirth: true,
-  requireDateOfBirth: false,
   allowPrivateApplicationLinks: false,
   allowPublicSupportRaisingLinks: false,
   enableTripBudgeting: false,
@@ -56,6 +51,21 @@ function RequirementTemplateEditor({ items, onChange }) {
   function remove(index) {
     onChange(items.filter((_, i) => i !== index));
   }
+  // Move-up/move-down, not drag-and-drop -- matches
+  // ApplicationQuestionsEditor.jsx's own reasoning (no drag-and-drop
+  // precedent anywhere in this app, not worth a new dependency for a
+  // realistically-short list). This editor never had reorder at all
+  // before; order matters here (it's the literal sequence a participant
+  // sees requirements in), so it gets the same move buttons the question
+  // editor already has, not a new pattern.
+  function move(index, delta) {
+    const target = index + delta;
+    if (target < 0 || target >= items.length) return;
+    const next = items.slice();
+    const [moved] = next.splice(index, 1);
+    next.splice(target, 0, moved);
+    onChange(next);
+  }
   function add(e) {
     e.preventDefault();
     if (!draft.label.trim()) return;
@@ -79,6 +89,26 @@ function RequirementTemplateEditor({ items, onChange }) {
         {items.map((item, index) => (
           <li key={item.id} style={{ marginBottom: "0.75rem" }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <button
+                  type="button"
+                  className="btn-remove"
+                  disabled={index === 0}
+                  onClick={() => move(index, -1)}
+                  title="Move up"
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  className="btn-remove"
+                  disabled={index === items.length - 1}
+                  onClick={() => move(index, 1)}
+                  title="Move down"
+                >
+                  ▼
+                </button>
+              </div>
               <input
                 style={{ flex: 1, minWidth: 200 }}
                 value={item.label}
@@ -166,309 +196,386 @@ function RequirementTemplateEditor({ items, onChange }) {
   );
 }
 
+function AdminCheckboxField({ checked, onChange, label }) {
+  return (
+    <div className="admin-checkbox-row">
+      <label>
+        <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+        {label}
+      </label>
+    </div>
+  );
+}
+
 export default function AdminSettingsTrips() {
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState("");
-  const [error, setError] = useState("");
+  const [settings, setSettings] = useState(emptyForm);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     fetchTripsSettings()
-      .then((s) => setForm({ ...emptyForm, ...s }))
-      .catch(() => setError("Couldn't load Trips settings."));
+      .then((s) => setSettings({ ...emptyForm, ...s }))
+      .catch(() => setLoadError("Couldn't load Trips settings."));
   }, []);
 
-  function update(field, value) {
-    setForm((f) => ({ ...f, [field]: value }));
-    setSuccess("");
+  async function reload() {
+    const s = await fetchTripsSettings();
+    setSettings({ ...emptyForm, ...s });
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
-    setSuccess("");
-    try {
-      const updated = await updateTripsSettings(form);
-      setForm({ ...emptyForm, ...updated });
-      setSuccess("Saved.");
-    } catch (err) {
-      setError(err.response?.data?.error || "Couldn't save Trips settings.");
-    } finally {
-      setSaving(false);
-    }
+  // Each card's onSave sends only the fields it owns -- PUT /settings/trips
+  // is a partial update (every field on the schema is optional), so one
+  // card's save never touches another card's own data.
+  async function savePartial(patch) {
+    await updateTripsSettings(patch);
+  }
+
+  if (loadError) {
+    return (
+      <div className="admin-shell">
+        <SettingsPageHeader title="Trips Settings" />
+        <p className="form-error" role="alert">
+          {loadError}
+        </p>
+      </div>
+    );
   }
 
   return (
-    <div className="admin-shell form-has-floating-actions">
+    <div className="admin-shell">
       <SettingsPageHeader title="Trips Settings" />
-      <form onSubmit={handleSubmit} className="admin-section">
-        {/* Grouped with real visual dividers (issue #262 -- the page read
-        as nine undifferentiated h3's in a row with no way to tell "this is
-        part of the application" from "this happens after someone's
-        approved" from "this is just money config"). Reuses the exact
-        .admin-section-group/.admin-group-heading pattern
-        AdminPartnerDetail.jsx already established for the same problem at
-        a larger scale -- not a new pattern invented for this one page. */}
-        <div className="admin-section-group">
-          <h2 className="admin-group-heading">Giving &amp; budget</h2>
 
-          <h3>Donation instructions</h3>
-          <label>
-            Online giving URL
-            <input
-              value={form.onlineGivingUrl || ""}
-              onChange={(e) => update("onlineGivingUrl", e.target.value)}
-              placeholder="https://give.yourchurch.org"
-            />
-          </label>
-          <label style={{ marginTop: "0.75rem" }}>
-            Online giving instructions
-            <textarea
-              rows={2}
-              value={form.onlineGivingInstructions || ""}
-              onChange={(e) => update("onlineGivingInstructions", e.target.value)}
-              placeholder="Fund category: Missions Trips. Include the participant's name in the memo."
-            />
-          </label>
+      <div className="partner-jump-rail">
+        {[
+          { label: "Giving & Budget", href: "#trips-settings-giving" },
+          { label: "Application Form", href: "#trips-settings-application" },
+          { label: "Trip Requirements", href: "#trips-settings-requirements" },
+          { label: "Access & Links", href: "#trips-settings-access" },
+        ].map((item) => (
+          <a key={item.href} href={item.href} className="btn secondary small">
+            {item.label}
+          </a>
+        ))}
+      </div>
 
-          <h3 style={{ marginTop: "1.5rem" }}>Donor contact info</h3>
-          <div className="admin-checkbox-row">
-            <label>
-              <input
-                type="checkbox"
-                checked={form.collectDonorContactInfo}
-                onChange={(e) => update("collectDonorContactInfo", e.target.checked)}
-              />
-              Collect donor email/phone when logging a contribution
-            </label>
-          </div>
-          <p style={{ color: "#888", fontSize: "0.85rem" }}>
-            Never shown on the public support-raising page regardless of this setting — only on the
-            participant's own self-service page and to admins.
-          </p>
+      <div className="admin-section-group" id="trips-settings-giving" style={{ scrollMarginTop: "1rem" }}>
+        <h2 className="admin-group-heading">Giving &amp; Budget</h2>
 
-          <h3 style={{ marginTop: "1.5rem" }}>Trip budgets</h3>
-          <div className="admin-checkbox-row">
-            <label>
-              <input
-                type="checkbox"
-                checked={form.enableTripBudgeting}
-                onChange={(e) => update("enableTripBudgeting", e.target.checked)}
-              />
-              Track a planned budget per trip
-            </label>
-          </div>
-          <p style={{ color: "#888", fontSize: "0.85rem" }}>
-            Adds a Budget section to each trip's own page for logging estimated costs (flights, lodging, etc.)
-            and seeing how much is still needed against what's been raised. Admin-only — never shown to
-            applicants or participants. Turned off, the section doesn't appear at all.
-          </p>
-        </div>
-
-        <div className="admin-section-group" style={{ marginTop: "2rem" }}>
-          <h2 className="admin-group-heading">Application form</h2>
-          <p style={{ color: "#888", fontSize: "0.85rem", margin: "-0.5rem 0 0" }}>
-            Everything below is part of what a person fills out when applying — before they're ever a
-            confirmed participant.
-          </p>
-
-          <h3>Application template</h3>
-          <p style={{ color: "#888", fontSize: "0.85rem" }}>
-            Asked on every trip's application form, before that trip's own questions. Edit here instead of
-            re-typing the same question on every trip.
-          </p>
-          <ApplicationQuestionsEditor
-            questions={form.tripApplicationTemplate || []}
-            library={form.tripQuestionLibrary || []}
-            onAdd={(input) =>
-              update("tripApplicationTemplate", [
-                ...(form.tripApplicationTemplate || []),
-                { id: crypto.randomUUID(), ...input },
-              ])
-            }
-            onUpdate={(qId, patch) =>
-              update(
-                "tripApplicationTemplate",
-                (form.tripApplicationTemplate || []).map((q) => (q.id === qId ? { ...q, ...patch } : q))
-              )
-            }
-            onRemove={(qId) =>
-              update(
-                "tripApplicationTemplate",
-                (form.tripApplicationTemplate || []).filter((q) => q.id !== qId)
-              )
-            }
-            onReorder={(reordered) => update("tripApplicationTemplate", reordered)}
-            onAddFromLibrary={(entry) =>
-              update("tripApplicationTemplate", [
-                ...(form.tripApplicationTemplate || []),
-                { ...entry, id: crypto.randomUUID() },
-              ])
-            }
-          />
-
-          <h3 style={{ marginTop: "1.5rem" }}>Applicant date of birth</h3>
-          <div className="admin-checkbox-row">
-            <label>
-              <input
-                type="checkbox"
-                checked={form.collectDateOfBirth}
-                onChange={(e) => update("collectDateOfBirth", e.target.checked)}
-              />
-              Collect applicant date of birth
-            </label>
-          </div>
-          {form.collectDateOfBirth && (
-            <div className="admin-checkbox-row">
+        <EditableSection
+          title="Giving & Budget"
+          value={{
+            onlineGivingUrl: settings.onlineGivingUrl || "",
+            onlineGivingInstructions: settings.onlineGivingInstructions || "",
+            collectDonorContactInfo: settings.collectDonorContactInfo,
+            enableTripBudgeting: settings.enableTripBudgeting,
+          }}
+          onSave={savePartial}
+          onSaved={reload}
+          view={(v) => (
+            <>
+              <p>
+                <strong>Online giving URL:</strong> {v.onlineGivingUrl || "Not set"}
+              </p>
+              <p>
+                <strong>Online giving instructions:</strong> {v.onlineGivingInstructions || "Not set"}
+              </p>
+              <p>
+                <strong>Donor contact info:</strong> {v.collectDonorContactInfo ? "Collected" : "Not collected"}
+              </p>
+              <p>
+                <strong>Trip budgeting:</strong> {v.enableTripBudgeting ? "On" : "Off"}
+              </p>
+            </>
+          )}
+          edit={(d, set) => (
+            <>
               <label>
+                Online giving URL
                 <input
-                  type="checkbox"
-                  checked={form.requireDateOfBirth}
-                  onChange={(e) => update("requireDateOfBirth", e.target.checked)}
+                  value={d.onlineGivingUrl}
+                  onChange={(e) => set("onlineGivingUrl", e.target.value)}
+                  placeholder="https://give.yourchurch.org"
                 />
-                Require it to submit an application
               </label>
-            </div>
+              <label style={{ marginTop: "0.75rem" }}>
+                Online giving instructions
+                <textarea
+                  rows={2}
+                  value={d.onlineGivingInstructions}
+                  onChange={(e) => set("onlineGivingInstructions", e.target.value)}
+                  placeholder="Fund category: Missions Trips. Include the participant's name in the memo."
+                />
+              </label>
+
+              <h4 style={{ marginTop: "1.25rem" }}>Donor contact info</h4>
+              <AdminCheckboxField
+                checked={d.collectDonorContactInfo}
+                onChange={(v) => set("collectDonorContactInfo", v)}
+                label="Collect donor email/phone when logging a contribution"
+              />
+              <p style={{ color: "#888", fontSize: "0.85rem" }}>
+                Never shown on the public support-raising page regardless of this setting — only on the
+                participant's own self-service page and to admins.
+              </p>
+
+              <h4 style={{ marginTop: "1.25rem" }}>Trip budgets</h4>
+              <AdminCheckboxField
+                checked={d.enableTripBudgeting}
+                onChange={(v) => set("enableTripBudgeting", v)}
+                label="Track a planned budget per trip"
+              />
+              <p style={{ color: "#888", fontSize: "0.85rem" }}>
+                Adds a Financial section to each trip's own page for logging estimated costs (flights,
+                lodging, etc.) and seeing how much is still needed against what's been raised. Turned off,
+                the budget half of that section doesn't appear at all.
+              </p>
+            </>
           )}
-          <p style={{ color: "#888", fontSize: "0.85rem" }}>
-            A real field on the application form, not a custom question -- supports minor/parent-guardian
-            info, which needs a real date to check against a trip's own start date. A specific trip with
-            "Collect parent/guardian info" turned on (its own per-trip setting, on that trip's own detail page
-            -- not here, since not every trip at the same church has minors) always collects and requires
-            this, regardless of these two church-wide defaults.
-          </p>
+        />
+      </div>
 
-          <h3 style={{ marginTop: "1.5rem" }}>Applicant mailing address</h3>
-          <div className="admin-checkbox-row">
-            <label>
-              <input
-                type="checkbox"
-                checked={form.collectApplicantAddress}
-                onChange={(e) => update("collectApplicantAddress", e.target.checked)}
-              />
-              Collect applicant mailing address
-            </label>
-          </div>
-          <p style={{ color: "#888", fontSize: "0.85rem" }}>
-            Shown as a real structured address block on the public application form — street, city, state,
-            postal code, country. Turned off, the block doesn't appear on the form at all.
-          </p>
+      <div
+        className="admin-section-group"
+        id="trips-settings-application"
+        style={{ marginTop: "2rem", scrollMarginTop: "1rem" }}
+      >
+        <h2 className="admin-group-heading">Application Form</h2>
+        <p style={{ color: "#888", fontSize: "0.85rem", margin: "-0.5rem 0 1rem" }}>
+          Everything below is part of what a person fills out when applying — before they're ever a confirmed
+          participant.
+        </p>
 
-          <h3 style={{ marginTop: "1.5rem" }}>Applicant emergency contact</h3>
-          <div className="admin-checkbox-row">
-            <label>
-              <input
-                type="checkbox"
-                checked={form.collectEmergencyContact}
-                onChange={(e) => update("collectEmergencyContact", e.target.checked)}
-              />
-              Collect applicant emergency contact info
-            </label>
-          </div>
-          <p style={{ color: "#888", fontSize: "0.85rem" }}>
-            Shown as a real structured name/phone/email block on the public application form. Turned off, the
-            block doesn't appear on the form at all.
-          </p>
-
-          <h3 style={{ marginTop: "1.5rem" }}>Saved questions</h3>
-          <p style={{ color: "#888", fontSize: "0.85rem" }}>
-            A reusable library, <strong>not itself shown to anyone, ever</strong> — pick from it when adding a
-            question above or on any trip's own page, instead of retyping a commonly-used one. Unlike
-            "Application template" above, nothing here is live on any form until you explicitly add it
-            somewhere.
-          </p>
-          <ApplicationQuestionsEditor
-            questions={form.tripQuestionLibrary || []}
-            onAdd={(input) =>
-              update("tripQuestionLibrary", [
-                ...(form.tripQuestionLibrary || []),
-                { id: crypto.randomUUID(), ...input },
-              ])
-            }
-            onUpdate={(qId, patch) =>
-              update(
-                "tripQuestionLibrary",
-                (form.tripQuestionLibrary || []).map((q) => (q.id === qId ? { ...q, ...patch } : q))
-              )
-            }
-            onRemove={(qId) =>
-              update(
-                "tripQuestionLibrary",
-                (form.tripQuestionLibrary || []).filter((q) => q.id !== qId)
-              )
-            }
-            onReorder={(reordered) => update("tripQuestionLibrary", reordered)}
-          />
-        </div>
-
-        <div className="admin-section-group" style={{ marginTop: "2rem" }}>
-          <h2 className="admin-group-heading">Trip requirements</h2>
-          <p style={{ color: "#888", fontSize: "0.85rem", margin: "-0.5rem 0 0" }}>
-            What's needed <strong>after</strong> someone is accepted onto the team — a different phase from
-            the application form above.
-          </p>
-          <p style={{ color: "#888", fontSize: "0.85rem" }}>
-            Automatically added to every newly-created, actively-recruiting trip — no manual re-adding needed
-            per trip. Editing this later only affects trips created afterward; it never changes an
-            already-created trip's own copy.
-          </p>
-          <RequirementTemplateEditor
-            items={form.tripRequirementTemplate || []}
-            onChange={(items) => update("tripRequirementTemplate", items)}
-          />
-
-          <h3 style={{ marginTop: "1.5rem" }}>Saved requirements</h3>
-          <p style={{ color: "#888", fontSize: "0.85rem" }}>
-            A reusable library, <strong>not added to any trip automatically</strong> -- pick from it on a
-            specific trip's own Requirements section when that trip actually needs it (e.g. a minor travel
-            release form, only for a trip that actually has minors on it). Unlike "Trip requirements" above,
-            nothing here is ever added anywhere until an admin explicitly picks it on a specific trip.
-          </p>
-          <RequirementTemplateEditor
-            items={form.tripRequirementLibrary || []}
-            onChange={(items) => update("tripRequirementLibrary", items)}
-          />
-        </div>
-
-        <div className="admin-section-group" style={{ marginTop: "2rem" }}>
-          <h2 className="admin-group-heading">Access &amp; links</h2>
-
-          <h3>Private links</h3>
-          <div className="admin-checkbox-row">
-            <label>
-              <input
-                type="checkbox"
-                checked={form.allowPrivateApplicationLinks}
-                onChange={(e) => update("allowPrivateApplicationLinks", e.target.checked)}
-              />
-              Allow staff to generate private application links
-            </label>
-          </div>
-          <div className="admin-checkbox-row" style={{ marginTop: "0.6rem" }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={form.allowPublicSupportRaisingLinks}
-                onChange={(e) => update("allowPublicSupportRaisingLinks", e.target.checked)}
-              />
-              Allow participants to have public support-raising pages
-            </label>
-          </div>
-        </div>
-
-        <div className="form-save-bar">
-          <button type="submit" className="btn" disabled={saving}>
-            {saving ? "Saving..." : "Save"}
-          </button>
-          {success && <span style={{ color: "#1f6b4f" }}>{success}</span>}
-          {error && (
-            <span style={{ color: "#b91c1c" }} role="alert">
-              {error}
-            </span>
+        <EditableSection
+          title="Application Questions"
+          value={{ tripApplicationTemplate: settings.tripApplicationTemplate || [] }}
+          onSave={savePartial}
+          onSaved={reload}
+          view={(v) => (
+            <p>
+              {(v.tripApplicationTemplate || []).length} question
+              {(v.tripApplicationTemplate || []).length === 1 ? "" : "s"} asked on every trip's application,
+              before that trip's own questions.
+            </p>
           )}
+          edit={(d, set) => (
+            <ApplicationQuestionsEditor
+              questions={d.tripApplicationTemplate}
+              library={settings.tripQuestionLibrary || []}
+              onAdd={(input) =>
+                set("tripApplicationTemplate", [
+                  ...d.tripApplicationTemplate,
+                  { id: crypto.randomUUID(), ...input },
+                ])
+              }
+              onUpdate={(qId, patch) =>
+                set(
+                  "tripApplicationTemplate",
+                  d.tripApplicationTemplate.map((q) => (q.id === qId ? { ...q, ...patch } : q))
+                )
+              }
+              onRemove={(qId) =>
+                set(
+                  "tripApplicationTemplate",
+                  d.tripApplicationTemplate.filter((q) => q.id !== qId)
+                )
+              }
+              onReorder={(reordered) => set("tripApplicationTemplate", reordered)}
+              onAddFromLibrary={(entry) =>
+                set("tripApplicationTemplate", [...d.tripApplicationTemplate, { ...entry, id: crypto.randomUUID() }])
+              }
+            />
+          )}
+        />
+
+        <div style={{ marginTop: "1rem" }}>
+          <EditableSection
+            title="Saved Question Library"
+            value={{ tripQuestionLibrary: settings.tripQuestionLibrary || [] }}
+            onSave={savePartial}
+            onSaved={reload}
+            view={(v) => (
+              <p>
+                {(v.tripQuestionLibrary || []).length} reusable question
+                {(v.tripQuestionLibrary || []).length === 1 ? "" : "s"} — not itself shown to anyone, ever. Pick
+                from it when adding a question above or on any trip's own page.
+              </p>
+            )}
+            edit={(d, set) => (
+              <ApplicationQuestionsEditor
+                questions={d.tripQuestionLibrary}
+                onAdd={(input) =>
+                  set("tripQuestionLibrary", [...d.tripQuestionLibrary, { id: crypto.randomUUID(), ...input }])
+                }
+                onUpdate={(qId, patch) =>
+                  set(
+                    "tripQuestionLibrary",
+                    d.tripQuestionLibrary.map((q) => (q.id === qId ? { ...q, ...patch } : q))
+                  )
+                }
+                onRemove={(qId) =>
+                  set(
+                    "tripQuestionLibrary",
+                    d.tripQuestionLibrary.filter((q) => q.id !== qId)
+                  )
+                }
+                onReorder={(reordered) => set("tripQuestionLibrary", reordered)}
+              />
+            )}
+          />
         </div>
-      </form>
+
+        <div style={{ marginTop: "1rem" }}>
+          <EditableSection
+            title="Applicant Information Collected"
+            value={{
+              collectApplicantAddress: settings.collectApplicantAddress,
+              collectEmergencyContact: settings.collectEmergencyContact,
+            }}
+            onSave={savePartial}
+            onSaved={reload}
+            view={(v) => (
+              <>
+                <p>
+                  <strong>Mailing address:</strong> {v.collectApplicantAddress ? "Collected" : "Not collected"}
+                </p>
+                <p>
+                  <strong>Emergency contact:</strong> {v.collectEmergencyContact ? "Collected" : "Not collected"}
+                </p>
+              </>
+            )}
+            edit={(d, set) => (
+              <>
+                <h4>Applicant mailing address</h4>
+                <AdminCheckboxField
+                  checked={d.collectApplicantAddress}
+                  onChange={(v) => set("collectApplicantAddress", v)}
+                  label="Collect applicant mailing address"
+                />
+                <p style={{ color: "#888", fontSize: "0.85rem" }}>
+                  Shown as a real structured address block on the public application form — street, city,
+                  state, postal code, country. Turned off, the block doesn't appear on the form at all.
+                </p>
+
+                <h4 style={{ marginTop: "1.25rem" }}>Applicant emergency contact</h4>
+                <AdminCheckboxField
+                  checked={d.collectEmergencyContact}
+                  onChange={(v) => set("collectEmergencyContact", v)}
+                  label="Collect applicant emergency contact info"
+                />
+                <p style={{ color: "#888", fontSize: "0.85rem" }}>
+                  Shown as a real structured name/phone/email block on the public application form. Turned
+                  off, the block doesn't appear on the form at all.
+                </p>
+              </>
+            )}
+          />
+        </div>
+      </div>
+
+      <div
+        className="admin-section-group"
+        id="trips-settings-requirements"
+        style={{ marginTop: "2rem", scrollMarginTop: "1rem" }}
+      >
+        <h2 className="admin-group-heading">Trip Requirements</h2>
+        <p style={{ color: "#888", fontSize: "0.85rem", margin: "-0.5rem 0 1rem" }}>
+          What's needed <strong>after</strong> someone is accepted onto the team — a different phase from the
+          application form above.
+        </p>
+
+        <EditableSection
+          title="Trip Requirements"
+          value={{ tripRequirementTemplate: settings.tripRequirementTemplate || [] }}
+          onSave={savePartial}
+          onSaved={reload}
+          view={(v) => (
+            <p>
+              {(v.tripRequirementTemplate || []).length} requirement
+              {(v.tripRequirementTemplate || []).length === 1 ? "" : "s"} automatically added to every
+              newly-created, actively-recruiting trip.
+            </p>
+          )}
+          edit={(d, set) => (
+            <>
+              <p style={{ color: "#888", fontSize: "0.85rem" }}>
+                Editing this later only affects trips created afterward; it never changes an already-created
+                trip's own copy.
+              </p>
+              <RequirementTemplateEditor
+                items={d.tripRequirementTemplate}
+                onChange={(items) => set("tripRequirementTemplate", items)}
+              />
+            </>
+          )}
+        />
+
+        <div style={{ marginTop: "1rem" }}>
+          <EditableSection
+            title="Saved Requirement Library"
+            value={{ tripRequirementLibrary: settings.tripRequirementLibrary || [] }}
+            onSave={savePartial}
+            onSaved={reload}
+            view={(v) => (
+              <p>
+                {(v.tripRequirementLibrary || []).length} reusable requirement
+                {(v.tripRequirementLibrary || []).length === 1 ? "" : "s"} — not added to any trip
+                automatically. Pick from it on a specific trip's own Requirements section when that trip
+                actually needs it.
+              </p>
+            )}
+            edit={(d, set) => (
+              <RequirementTemplateEditor
+                items={d.tripRequirementLibrary}
+                onChange={(items) => set("tripRequirementLibrary", items)}
+              />
+            )}
+          />
+        </div>
+      </div>
+
+      <div
+        className="admin-section-group"
+        id="trips-settings-access"
+        style={{ marginTop: "2rem", scrollMarginTop: "1rem" }}
+      >
+        <h2 className="admin-group-heading">Access &amp; Links</h2>
+
+        <EditableSection
+          title="Access & Links"
+          value={{
+            allowPrivateApplicationLinks: settings.allowPrivateApplicationLinks,
+            allowPublicSupportRaisingLinks: settings.allowPublicSupportRaisingLinks,
+          }}
+          onSave={savePartial}
+          onSaved={reload}
+          view={(v) => (
+            <>
+              <p>
+                <strong>Private application links:</strong> {v.allowPrivateApplicationLinks ? "On" : "Off"}
+              </p>
+              <p>
+                <strong>Public support-raising pages:</strong>{" "}
+                {v.allowPublicSupportRaisingLinks ? "On" : "Off"}
+              </p>
+            </>
+          )}
+          edit={(d, set) => (
+            <>
+              <AdminCheckboxField
+                checked={d.allowPrivateApplicationLinks}
+                onChange={(v) => set("allowPrivateApplicationLinks", v)}
+                label="Allow staff to generate private application links"
+              />
+              <div style={{ marginTop: "0.6rem" }}>
+                <AdminCheckboxField
+                  checked={d.allowPublicSupportRaisingLinks}
+                  onChange={(v) => set("allowPublicSupportRaisingLinks", v)}
+                  label="Allow participants to have public support-raising pages"
+                />
+              </div>
+            </>
+          )}
+        />
+      </div>
     </div>
   );
 }

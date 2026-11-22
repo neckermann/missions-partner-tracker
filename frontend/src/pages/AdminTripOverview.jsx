@@ -31,7 +31,6 @@ export default function AdminTripOverview() {
         supportRaisingGoal: trip.supportRaisingGoal ?? "",
         description: trip.description || "",
         isPublic: !!trip.isPublic,
-        collectParentGuardianInfo: !!trip.collectParentGuardianInfo,
       }}
       onSave={(draft) =>
         saveSetup({
@@ -44,7 +43,6 @@ export default function AdminTripOverview() {
           supportRaisingGoal: draft.supportRaisingGoal === "" ? null : Number(draft.supportRaisingGoal),
           description: draft.description,
           isPublic: draft.isPublic,
-          collectParentGuardianInfo: draft.collectParentGuardianInfo,
         })
       }
       view={(v) => (
@@ -68,10 +66,6 @@ export default function AdminTripOverview() {
           <Field label="Description" value={v.description || "—"} />
           <p style={{ marginTop: "0.5rem", fontSize: "0.85rem" }}>
             {v.isPublic ? "Visible on public discovery page" : "Not on public discovery page"}
-            {" · "}
-            {v.collectParentGuardianInfo
-              ? "Collects parent/guardian info"
-              : "No parent/guardian info collected"}
           </p>
           {trip.partner?.isRestricted && (
             <div
@@ -164,22 +158,6 @@ export default function AdminTripOverview() {
               Visible on public discovery page
             </label>
           </div>
-          <div className="admin-checkbox-row">
-            <label>
-              <input
-                type="checkbox"
-                checked={draft.collectParentGuardianInfo}
-                onChange={(e) => set("collectParentGuardianInfo", e.target.checked)}
-              />
-              Collect parent/guardian info (this trip may have minors on it)
-            </label>
-          </div>
-          <p style={{ fontSize: "0.75rem", color: "#888" }}>
-            Adds date-of-birth and parent/guardian name/relationship/phone/email to this trip's own
-            application form, and requires date of birth to apply -- regardless of the church-wide defaults on
-            the Trips Settings page. Per-trip, not church-wide: turn this on only for a trip that actually has
-            minors.
-          </p>
         </div>
       )}
     />

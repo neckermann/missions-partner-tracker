@@ -72,7 +72,7 @@ export default function TripDetailLayout() {
     { to: "team", label: pendingCount > 0 ? `Team (${pendingCount})` : "Team" },
     { to: "meetings", label: "Meetings" },
     { to: "requirements", label: "Requirements" },
-    ...(enableTripBudgeting ? [{ to: "budget", label: "Budget" }] : []),
+    ...(enableTripBudgeting ? [{ to: "financial", label: "Financial" }] : []),
     { to: "flights", label: "Flights" },
   ];
 

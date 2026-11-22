@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateTable
 CREATE TABLE "Partner" (
     "id" TEXT NOT NULL,
@@ -98,7 +101,6 @@ CREATE TABLE "Trip" (
     "teamSizeMax" INTEGER,
     "supportRaisingGoal" INTEGER,
     "isPublic" BOOLEAN NOT NULL DEFAULT false,
-    "collectParentGuardianInfo" BOOLEAN NOT NULL DEFAULT false,
     "applicationShareToken" TEXT,
     "applicationQuestions" JSONB,
     "albumProvider" TEXT,
@@ -612,8 +614,6 @@ CREATE TABLE "ChurchSettings" (
     "allowPublicSupportRaisingLinks" BOOLEAN NOT NULL DEFAULT false,
     "enableTripBudgeting" BOOLEAN NOT NULL DEFAULT false,
     "inboundEmailAddress" TEXT,
-    "collectDateOfBirth" BOOLEAN NOT NULL DEFAULT true,
-    "requireDateOfBirth" BOOLEAN NOT NULL DEFAULT false,
     "tripApplicationTemplate" JSONB,
     "tripQuestionLibrary" JSONB,
     "tripRequirementTemplate" JSONB,
@@ -998,3 +998,4 @@ ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSeg
 
 -- AddForeignKey
 ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSegmentToTripParticipant_B_fkey" FOREIGN KEY ("B") REFERENCES "TripParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+

@@ -18,11 +18,20 @@ function Harness({ onSave, onSaved }) {
   );
 }
 
+// The whole card is the click-to-edit target (see EditableSection.jsx's own
+// comment) -- there's no separate "Edit" button to find by name, the card
+// itself is role="button". These tests predate that whole-card convention
+// and were asserting a labeled Edit button that hasn't existed since the
+// click-to-edit popup migration.
+function openEditor() {
+  fireEvent.click(screen.getByRole("button", { name: "Overview Hello" }));
+}
+
 describe("EditableSection", () => {
   it("shows a success confirmation after a save resolves", async () => {
     const onSave = vi.fn().mockResolvedValue();
     render(<Harness onSave={onSave} onSaved={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    openEditor();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.getByText("Saved ✓")).toBeInTheDocument());
   });
@@ -32,7 +41,7 @@ describe("EditableSection", () => {
       response: { data: { error: "overview: Too small: expected string to have >=3 characters" } },
     });
     render(<Harness onSave={onSave} onSaved={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    openEditor();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent("overview must be at least 3 characters")
@@ -42,7 +51,7 @@ describe("EditableSection", () => {
   it("restores the saved value on Cancel without calling onSave", () => {
     const onSave = vi.fn();
     render(<Harness onSave={onSave} onSaved={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    openEditor();
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Changed" } });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.getByText("Hello")).toBeInTheDocument();

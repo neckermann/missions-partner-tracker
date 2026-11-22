@@ -9,7 +9,7 @@ import {
   submitTripApplication,
   submitTripApplicationByToken,
 } from "../api/client.js";
-import { formatDate } from "../utils/format.js";
+import { formatDate, isMinorForTrip } from "../utils/format.js";
 
 // "Jul 5, 2027" or "Jul 5, 2027 - Jul 14, 2027" (or just the one date if
 // they're the same / only one is set) -- same rendering a trip's dates
@@ -119,7 +119,7 @@ export default function PublicTripApplication() {
       validate: (values) => {
         if (!values.firstName.trim() || !values.lastName.trim()) return "First and last name are required.";
         if (!values.email.trim()) return "Email is required.";
-        if (trip.collectDateOfBirth && trip.requireDateOfBirth && !values.dateOfBirth) {
+        if (!values.dateOfBirth) {
           return "Date of birth is required.";
         }
         return null;
@@ -158,34 +158,47 @@ export default function PublicTripApplication() {
             </label>
           </div>
           {/* A real field, not a custom question -- see
-          ChurchSettings.collectDateOfBirth's own schema comment. Always
-          on, and always required, when this trip collects parent/
-          guardian info, regardless of the church-wide defaults. */}
-          {trip.collectDateOfBirth && (
-            <div className="form-grid" style={{ marginTop: "0.75rem" }}>
-              <label>
-                Date of birth{trip.requireDateOfBirth ? "" : " (optional)"}
-                <input
-                  type="date"
-                  required={trip.requireDateOfBirth}
-                  value={values.dateOfBirth}
-                  onChange={(e) => setValue("dateOfBirth", e.target.value)}
-                />
-              </label>
-            </div>
-          )}
+          TripParticipant.dateOfBirth's own schema comment. Always
+          collected and always required: the minor determination that
+          decides whether the Parent/guardian section on the next step
+          appears depends on it. */}
+          <div className="form-grid" style={{ marginTop: "0.75rem" }}>
+            <label>
+              Date of birth
+              <input
+                type="date"
+                required
+                value={values.dateOfBirth}
+                onChange={(e) => setValue("dateOfBirth", e.target.value)}
+              />
+            </label>
+          </div>
         </>
       ),
     },
     {
       key: "address-contacts",
       label: "Address & contacts",
-      // Nothing here is ever required at the field level beyond what the
-      // original single form already enforced (nothing was required in
-      // this section) -- a trip collecting none of these three sections
-      // just renders an empty step, not a missing one, so step numbering
-      // ("2 of 3") stays predictable regardless of per-trip config.
-      render: ({ values, setValue }) => (
+      // Address/emergency contact are never required at the field level.
+      // Parent/guardian is the one exception: it appears, and is
+      // required, exactly when isMinorForTrip computes true for the date
+      // of birth entered on the previous step -- not gated by any
+      // per-trip or church-wide setting. A trip/applicant triggering none
+      // of these three sections just renders an empty step, not a
+      // missing one, so step numbering ("2 of 3") stays predictable.
+      validate: (values) => {
+        if (!isMinorForTrip(values.dateOfBirth, trip.startDate)) return null;
+        const missing =
+          !values.parentGuardianFirstName.trim() ||
+          !values.parentGuardianLastName.trim() ||
+          !values.parentGuardianRelationship.trim() ||
+          !values.parentGuardianPhone.trim() ||
+          !values.parentGuardianEmail.trim();
+        return missing ? "Parent/guardian information is required for an applicant under 18." : null;
+      },
+      render: ({ values, setValue }) => {
+        const isMinor = isMinorForTrip(values.dateOfBirth, trip.startDate);
+        return (
         <>
           {trip.collectApplicantAddress && (
             <div className="form-grid">
@@ -264,7 +277,7 @@ export default function PublicTripApplication() {
               </label>
             </div>
           )}
-          {trip.collectParentGuardianInfo && (
+          {isMinor && (
             <div
               className="form-grid"
               style={{
@@ -272,11 +285,12 @@ export default function PublicTripApplication() {
               }}
             >
               <div style={{ gridColumn: "1 / -1", fontWeight: 600 }}>
-                Parent/guardian (required if the applicant is a minor)
+                Parent/guardian (required -- the applicant is under 18)
               </div>
               <label>
                 First Name
                 <input
+                  required
                   value={values.parentGuardianFirstName}
                   onChange={(e) => setValue("parentGuardianFirstName", e.target.value)}
                 />
@@ -284,6 +298,7 @@ export default function PublicTripApplication() {
               <label>
                 Last Name
                 <input
+                  required
                   value={values.parentGuardianLastName}
                   onChange={(e) => setValue("parentGuardianLastName", e.target.value)}
                 />
@@ -291,6 +306,7 @@ export default function PublicTripApplication() {
               <label>
                 Relationship
                 <input
+                  required
                   placeholder="e.g. Mother, Father, Legal guardian"
                   value={values.parentGuardianRelationship}
                   onChange={(e) => setValue("parentGuardianRelationship", e.target.value)}
@@ -299,6 +315,7 @@ export default function PublicTripApplication() {
               <label>
                 Phone
                 <input
+                  required
                   value={values.parentGuardianPhone}
                   onChange={(e) => setValue("parentGuardianPhone", e.target.value)}
                 />
@@ -306,6 +323,7 @@ export default function PublicTripApplication() {
               <label>
                 Email
                 <input
+                  required
                   type="email"
                   value={values.parentGuardianEmail}
                   onChange={(e) => setValue("parentGuardianEmail", e.target.value)}
@@ -313,15 +331,14 @@ export default function PublicTripApplication() {
               </label>
             </div>
           )}
-          {!trip.collectApplicantAddress &&
-            !trip.collectEmergencyContact &&
-            !trip.collectParentGuardianInfo && (
-              <p style={{ color: "#888" }}>
-                Nothing else needed here for this trip -- continue to the next step.
-              </p>
-            )}
+          {!trip.collectApplicantAddress && !trip.collectEmergencyContact && !isMinor && (
+            <p style={{ color: "#888" }}>
+              Nothing else needed here for this trip -- continue to the next step.
+            </p>
+          )}
         </>
-      ),
+        );
+      },
     },
     {
       key: "questions",

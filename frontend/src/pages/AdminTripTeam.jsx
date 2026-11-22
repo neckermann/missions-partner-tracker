@@ -5,24 +5,32 @@ import {
   generateApplicationLink,
   reviewTripApplication,
   addTripParticipant,
-  setTripRequirementComplete,
 } from "../api/client.js";
 import { isMinorForTrip } from "../utils/format.js";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestionsEditor.jsx";
-import { formatDate } from "../utils/format.js";
+import Table from "../components/shared/Table.jsx";
+import Modal from "../components/Modal.jsx";
+import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 // Confirmed Team + the recruiting pipeline that feeds it (Applications,
 // the private link, and this trip's own application questions) --
 // grouped together since an application becomes a team member and the
-// link/questions only exist to produce more applications.
+// link/questions only exist to produce more applications. Every table
+// here is the shared Table component; row click opens either the
+// participant's own detail page (Confirmed Team -- same destination its
+// "View details" action already goes to) or a Modal with the applicant's
+// answers and Approve/Decline/Reconsider (Applications/Declined).
 export default function AdminTripTeam() {
   const { trip, setTrip, applications, reload, questionLibrary, confirmDialog, navigate, id, canWrite } =
     useOutletContext();
+  const { isTripLeader } = useCurrentUser();
   const [error, setError] = useState("");
-  const [expandedApplicationId, setExpandedApplicationId] = useState(null);
+  const [openApplication, setOpenApplication] = useState(null);
   const [showDeclined, setShowDeclined] = useState(false);
+  const [showAddParticipant, setShowAddParticipant] = useState(false);
   const [newParticipant, setNewParticipant] = useState({ firstName: "", lastName: "", email: "" });
 
   function reportError(err, fallback) {
@@ -55,6 +63,7 @@ export default function AdminTripTeam() {
   async function handleReview(appId, status, declinedReason) {
     try {
       const result = await reviewTripApplication(appId, status, declinedReason);
+      setOpenApplication(null);
       if (result?.participant) {
         navigate(`/admin/trips/${id}/participants/${result.participant.id}`);
         return;
@@ -86,27 +95,11 @@ export default function AdminTripTeam() {
     await handleReview(a.id, "declined", result.text);
   }
 
-  async function handleAddParticipant(e) {
-    e.preventDefault();
-    if (!newParticipant.firstName) return;
-    try {
-      await addTripParticipant(id, newParticipant);
-      setNewParticipant({ firstName: "", lastName: "", email: "" });
-      reload();
-      setError("");
-    } catch (err) {
-      reportError(err, "Couldn't add this participant.");
-    }
-  }
-
-  async function handleToggleTaskComplete(requirementId, participantId, completed) {
-    try {
-      await setTripRequirementComplete(requirementId, participantId, completed);
-      reload();
-      setError("");
-    } catch (err) {
-      reportError(err, "Couldn't update that task.");
-    }
+  async function handleAddParticipant() {
+    if (!newParticipant.firstName) return false;
+    await addTripParticipant(id, newParticipant);
+    setNewParticipant({ firstName: "", lastName: "", email: "" });
+    reload();
   }
 
   const combinedQuestions = trip.applicationQuestions || [];
@@ -119,19 +112,67 @@ export default function AdminTripTeam() {
   }
 
   const fulfillmentFor = (participantId) =>
-    (trip.requirements || []).map((req) => ({
-      id: req.id,
-      kind: req.kind,
-      fulfilled:
-        req.kind === "task"
-          ? !!(req.requirementStatuses || []).find((s) => s.participantId === participantId)?.completedAt
-          : (trip.documents || []).some(
-              (d) => d.requirementId === req.id && d.participantId === participantId
-            ),
-    }));
+    (trip.requirements || [])
+      .filter((req) => !req.minorsOnly || isMinorForTrip(
+        (trip.participants || []).find((p) => p.id === participantId)?.dateOfBirth,
+        trip.startDate
+      ))
+      .map((req) => ({
+        id: req.id,
+        kind: req.kind,
+        overdue: req.dueAt && new Date(req.dueAt) < new Date(),
+        fulfilled:
+          req.kind === "task"
+            ? !!(req.requirementStatuses || []).find((s) => s.participantId === participantId)?.completedAt
+            : (trip.documents || []).some(
+                (d) => d.requirementId === req.id && d.participantId === participantId
+              ),
+      }));
 
   const pending = applications.filter((a) => a.status === "pending");
   const declined = applications.filter((a) => a.status === "declined");
+
+  const teamColumns = [
+    {
+      key: "name",
+      label: "Name",
+      render: (p) => (
+        <Link to={`/admin/trips/${id}/participants/${p.id}`} onClick={(e) => e.stopPropagation()}>
+          {p.firstName} {p.lastName}
+        </Link>
+      ),
+      sortable: true,
+      sortBy: (p) => `${p.lastName || ""} ${p.firstName || ""}`.toLowerCase(),
+    },
+    {
+      key: "support",
+      label: "Support Raising",
+      render: (p) => {
+        const raised = (trip.contributions || [])
+          .filter((c) => c.participantId === p.id)
+          .reduce((s, c) => s + c.amount, 0);
+        return `$${raised}${p.supportRaisingGoal ? ` / $${p.supportRaisingGoal}` : ""}`;
+      },
+    },
+    {
+      key: "requirements",
+      label: "Requirements",
+      render: (p) => {
+        const fulfillment = fulfillmentFor(p.id);
+        if (fulfillment.length === 0) return "—";
+        const done = fulfillment.filter((f) => f.fulfilled).length;
+        const overdue = fulfillment.some((f) => !f.fulfilled && f.overdue);
+        return (
+          <span
+            className={`status-pill ${done === fulfillment.length ? "ok" : overdue ? "danger" : "warn"}`}
+            title={fulfillment.map((f, i) => `${trip.requirements[i]?.label}: ${f.fulfilled ? "done" : "missing"}`).join(", ")}
+          >
+            {done}/{fulfillment.length} complete{overdue ? " (overdue)" : ""}
+          </span>
+        );
+      },
+    },
+  ];
 
   return (
     <div>
@@ -143,188 +184,40 @@ export default function AdminTripTeam() {
 
       <div className="admin-section">
         <h3>Confirmed Team</h3>
-        <div style={{ overflowX: "auto" }}>
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Support raising</th>
-                {(trip.requirements || []).map((r) => {
-                  const overdue = r.dueAt && new Date(r.dueAt) < new Date();
-                  return (
-                    <th key={r.id} style={{ whiteSpace: "nowrap" }}>
-                      {r.label}
-                      {r.minorsOnly && (
-                        <div style={{ fontWeight: 400, fontSize: "0.7rem", color: "#888" }}>minors only</div>
-                      )}
-                      {r.dueAt && (
-                        <div
-                          style={{ fontWeight: 400, fontSize: "0.7rem", color: overdue ? "#b91c1c" : "#888" }}
-                        >
-                          due {formatDate(r.dueAt)}
-                          {overdue ? " (overdue)" : ""}
-                        </div>
-                      )}
-                    </th>
-                  );
-                })}
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {(trip.participants || []).map((p) => {
-                const fulfillment = fulfillmentFor(p.id);
-                return (
-                  <tr key={p.id}>
-                    <td>
-                      <Link to={`/admin/trips/${id}/participants/${p.id}`}>
-                        {p.firstName} {p.lastName}
-                      </Link>
-                    </td>
-                    <td>
-                      $
-                      {(trip.contributions || [])
-                        .filter((c) => c.participantId === p.id)
-                        .reduce((s, c) => s + c.amount, 0)}
-                      {p.supportRaisingGoal ? ` / $${p.supportRaisingGoal}` : ""}
-                    </td>
-                    {(trip.requirements || []).map((r) => {
-                      if (r.minorsOnly && !isMinorForTrip(p.dateOfBirth, trip.startDate)) {
-                        return (
-                          <td key={r.id} style={{ textAlign: "center", color: "#ccc" }} title="Minors only">
-                            —
-                          </td>
-                        );
-                      }
-                      const fulfilled = !!fulfillment.find((f) => f.id === r.id)?.fulfilled;
-                      return (
-                        <td key={r.id} style={{ textAlign: "center" }}>
-                          {r.kind === "task" ? (
-                            <input
-                              type="checkbox"
-                              checked={fulfilled}
-                              disabled={!canWrite}
-                              onChange={(e) => handleToggleTaskComplete(r.id, p.id, e.target.checked)}
-                            />
-                          ) : fulfilled ? (
-                            <span style={{ color: "#1f6b4f", fontWeight: 700 }} title="On file">
-                              ✓
-                            </span>
-                          ) : (
-                            <span style={{ color: "#b91c1c", fontWeight: 700 }} title="Missing">
-                              ✕
-                            </span>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="table-actions">
-                      <Link className="btn secondary small" to={`/admin/trips/${id}/participants/${p.id}`}>
-                        View details
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-              {(trip.participants || []).length === 0 && (
-                <tr>
-                  <td colSpan={3 + (trip.requirements || []).length} style={{ color: "#888" }}>
-                    No one confirmed yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          columns={teamColumns}
+          rows={trip.participants || []}
+          onRowClick={(p) => navigate(`/admin/trips/${id}/participants/${p.id}`)}
+          emptyMessage="No one confirmed yet."
+          renderActions={(p) => (
+            <Link className="btn secondary small" to={`/admin/trips/${id}/participants/${p.id}`}>
+              View details
+            </Link>
+          )}
+        />
         {canWrite && (
-          <form onSubmit={handleAddParticipant} className="form-grid" style={{ marginTop: "0.75rem" }}>
-            <label>
-              First name
-              <input
-                value={newParticipant.firstName}
-                onChange={(e) => setNewParticipant((f) => ({ ...f, firstName: e.target.value }))}
-              />
-            </label>
-            <label>
-              Last name
-              <input
-                value={newParticipant.lastName}
-                onChange={(e) => setNewParticipant((f) => ({ ...f, lastName: e.target.value }))}
-              />
-            </label>
-            <label>
-              Email
-              <input
-                value={newParticipant.email}
-                onChange={(e) => setNewParticipant((f) => ({ ...f, email: e.target.value }))}
-              />
-            </label>
-            <button type="submit" className="btn secondary small" style={{ alignSelf: "end" }}>
-              + Add participant directly
-            </button>
-          </form>
+          <button
+            type="button"
+            className="btn secondary small"
+            style={{ marginTop: "0.75rem" }}
+            onClick={() => setShowAddParticipant(true)}
+          >
+            + Add participant directly
+          </button>
         )}
       </div>
 
       <div className="admin-section">
         <h3>Applications awaiting review</h3>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Submitted</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {pending.map((a) => {
-              const expanded = expandedApplicationId === a.id;
-              return (
-                <React.Fragment key={a.id}>
-                  <tr>
-                    <td>
-                      {a.firstName} {a.lastName}
-                    </td>
-                    <td>{formatDate(a.submittedAt)}</td>
-                    <td className="table-actions">
-                      <button
-                        type="button"
-                        className="btn secondary small"
-                        onClick={() => setExpandedApplicationId(expanded ? null : a.id)}
-                      >
-                        {expanded ? "Hide answers" : "View answers"}
-                      </button>
-                      {canWrite && (
-                        <>
-                          <button className="btn small" onClick={() => handleReview(a.id, "approved", null)}>
-                            Approve
-                          </button>
-                          <button className="btn danger small" onClick={() => handleDecline(a)}>
-                            Decline
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                  {expanded && (
-                    <tr>
-                      <td colSpan={3} style={{ background: "#faf9f7" }}>
-                        <ApplicantAnswers application={a} answers={answersFor(a)} />
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-            {pending.length === 0 && (
-              <tr>
-                <td colSpan={3} style={{ color: "#888" }}>
-                  Nothing awaiting review.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <Table
+          columns={[
+            { key: "name", label: "Name", render: (a) => `${a.firstName} ${a.lastName}` },
+            { key: "submittedAt", label: "Submitted", type: "date" },
+          ]}
+          rows={pending}
+          onRowClick={(a) => setOpenApplication({ ...a, mode: "pending" })}
+          emptyMessage="Nothing awaiting review."
+        />
 
         {declined.length > 0 && (
           <div style={{ marginTop: "0.75rem" }}>
@@ -332,59 +225,21 @@ export default function AdminTripTeam() {
               {showDeclined ? "Hide" : "Show"} declined ({declined.length})
             </button>
             {showDeclined && (
-              <table className="admin-table" style={{ marginTop: "0.5rem" }}>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Declined</th>
-                    <th>Reason</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {declined.map((a) => {
-                    const expanded = expandedApplicationId === a.id;
-                    return (
-                      <React.Fragment key={a.id}>
-                        <tr>
-                          <td>
-                            {a.firstName} {a.lastName}
-                          </td>
-                          <td>{formatDate(a.reviewedAt)}</td>
-                          <td style={{ color: a.declinedReason ? "#333" : "#888" }}>
-                            {a.declinedReason || "(no reason given)"}
-                          </td>
-                          <td className="table-actions">
-                            <button
-                              type="button"
-                              className="btn secondary small"
-                              onClick={() => setExpandedApplicationId(expanded ? null : a.id)}
-                            >
-                              {expanded ? "Hide answers" : "View answers"}
-                            </button>
-                            {canWrite && (
-                              <button
-                                type="button"
-                                className="btn secondary small"
-                                onClick={() => handleReview(a.id, "pending", null)}
-                              >
-                                Reconsider
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                        {expanded && (
-                          <tr>
-                            <td colSpan={4} style={{ background: "#faf9f7" }}>
-                              <ApplicantAnswers application={a} answers={answersFor(a)} />
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div style={{ marginTop: "0.5rem" }}>
+                <Table
+                  columns={[
+                    { key: "name", label: "Name", render: (a) => `${a.firstName} ${a.lastName}` },
+                    { key: "reviewedAt", label: "Declined", type: "date" },
+                    {
+                      key: "declinedReason",
+                      label: "Reason",
+                      render: (a) => a.declinedReason || <span style={{ color: "#888" }}>(no reason given)</span>,
+                    },
+                  ]}
+                  rows={declined}
+                  onRowClick={(a) => setOpenApplication({ ...a, mode: "declined" })}
+                />
+              </div>
             )}
           </div>
         )}
@@ -403,7 +258,11 @@ export default function AdminTripTeam() {
         ) : (
           <p style={{ color: "#888" }}>No link generated yet.</p>
         )}
-        {canWrite && (
+        {/* Backend blocks this action for a Trip Leader (requireRole on the
+        generate-application-link route excludes tripLeader) -- hiding it
+        here instead of letting them hit the button and get a misleading
+        "check Trip settings" error when the real reason is their role. */}
+        {canWrite && !isTripLeader && (
           <button type="button" className="btn secondary small" onClick={handleGenerateLink}>
             {trip.applicationShareToken ? "Regenerate link" : "Generate private application link"}
           </button>
@@ -453,6 +312,69 @@ export default function AdminTripTeam() {
           </ul>
         )}
       </div>
+
+      {showAddParticipant && (
+        <QuickActionModal
+          title="Add Participant Directly"
+          onClose={() => setShowAddParticipant(false)}
+          onSubmit={handleAddParticipant}
+        >
+          <div className="form-grid">
+            <label>
+              First name
+              <input
+                value={newParticipant.firstName}
+                onChange={(e) => setNewParticipant((f) => ({ ...f, firstName: e.target.value }))}
+              />
+            </label>
+            <label>
+              Last name
+              <input
+                value={newParticipant.lastName}
+                onChange={(e) => setNewParticipant((f) => ({ ...f, lastName: e.target.value }))}
+              />
+            </label>
+            <label>
+              Email
+              <input
+                value={newParticipant.email}
+                onChange={(e) => setNewParticipant((f) => ({ ...f, email: e.target.value }))}
+              />
+            </label>
+          </div>
+        </QuickActionModal>
+      )}
+
+      {openApplication && (
+        <Modal
+          title={`${openApplication.firstName} ${openApplication.lastName}`}
+          onClose={() => setOpenApplication(null)}
+        >
+          <ApplicantAnswers application={openApplication} answers={answersFor(openApplication)} />
+          {canWrite && (
+            <div className="table-actions" style={{ marginTop: "1rem" }}>
+              {openApplication.mode === "pending" ? (
+                <>
+                  <button className="btn small" onClick={() => handleReview(openApplication.id, "approved", null)}>
+                    Approve
+                  </button>
+                  <button className="btn danger small" onClick={() => handleDecline(openApplication)}>
+                    Decline
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  onClick={() => handleReview(openApplication.id, "pending", null)}
+                >
+                  Reconsider
+                </button>
+              )}
+            </div>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }
@@ -491,6 +413,11 @@ function ApplicantAnswers({ application: a, answers }) {
           </>
         )}
       </p>
+      {a.declinedReason !== undefined && (
+        <p style={{ margin: "0 0 0.4rem", fontSize: "0.85rem" }}>
+          <strong>Declined reason:</strong> {a.declinedReason || "(no reason given)"}
+        </p>
+      )}
       {answers.length === 0 ? (
         <p style={{ color: "#888", fontSize: "0.85rem" }}>This trip has no application questions set.</p>
       ) : (

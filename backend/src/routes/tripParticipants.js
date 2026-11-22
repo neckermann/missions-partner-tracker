@@ -321,8 +321,9 @@ const adminParticipantUpdateSchema = z.object({
   emergencyContactLastName: z.string().optional().nullable(),
   emergencyContactPhone: z.string().optional().nullable(),
   emergencyContactEmail: z.string().optional().nullable(),
-  // Same treatment, only meaningful when the trip's own
-  // collectParentGuardianInfo is on.
+  // Optional here -- this is the admin-side edit of an existing
+  // participant record, not the public application (where dateOfBirth is
+  // always required -- see publicTripApplications.js).
   dateOfBirth: z.coerce.date().optional().nullable(),
   parentGuardianFirstName: z.string().optional().nullable(),
   parentGuardianLastName: z.string().optional().nullable(),

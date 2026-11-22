@@ -887,22 +887,49 @@ const TABS = [
 
 export default function AdminTrips() {
   const location = useLocation();
+  const navigate = useNavigate();
   // Both /admin/trips and /admin/trips/planning render this same
-  // component, so it needs to land on the right tab rather than always
-  // defaulting to the first one.
-  const [tab, setTab] = useState(() => (location.pathname.endsWith("/planning") ? "plan" : "existing"));
+  // component -- real tabs now (URL-backed, not just local state), same
+  // tab-bar treatment TripDetailLayout.jsx already uses for its own real
+  // sub-nav, so refreshing/bookmarking/sharing a link to either tab lands
+  // back on that same tab instead of always defaulting to Existing Trips.
+  const tab = location.pathname.endsWith("/planning") ? "plan" : "existing";
   const activeTab = TABS.find((t) => t.value === tab) || TABS[0];
+
+  function selectTab(value) {
+    navigate(value === "plan" ? "/admin/trips/planning" : "/admin/trips");
+  }
 
   return (
     <div className="admin-shell">
       <h2>Trips</h2>
-      <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.5rem" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "0.3rem",
+          marginTop: "0.5rem",
+          borderBottom: "1px solid #e1dfdb",
+          flexWrap: "wrap",
+        }}
+        role="tablist"
+      >
         {TABS.map((t) => (
           <button
             key={t.value}
             type="button"
-            className={tab === t.value ? "btn" : "btn secondary"}
-            onClick={() => setTab(t.value)}
+            role="tab"
+            aria-selected={tab === t.value}
+            onClick={() => selectTab(t.value)}
+            style={{
+              padding: "0.5rem 0.8rem",
+              fontSize: "0.85rem",
+              fontWeight: tab === t.value ? 700 : 400,
+              color: tab === t.value ? "#1f2a37" : "#555",
+              background: "none",
+              border: "none",
+              borderBottom: tab === t.value ? "2px solid #1f2a37" : "2px solid transparent",
+              cursor: "pointer",
+            }}
           >
             {t.label}
           </button>
