@@ -5,6 +5,7 @@ import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import TripStatusBadge from "./TripStatusBadge.jsx";
 import Breadcrumb from "../shared/Breadcrumb.jsx";
 import { useRecordRecentlyViewed } from "../../hooks/useRecentlyViewed.js";
+import useCurrentUser from "../../hooks/useCurrentUser.js";
 
 // Phase 3 (UX rebuild) split of the former single 2,100-line
 // AdminTripDetail.jsx into real sub-pages -- team / meetings /
@@ -20,6 +21,7 @@ export default function TripDetailLayout() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
+  const { canWrite, isAdmin } = useCurrentUser();
   const [trip, setTrip] = useState(null);
   const [applications, setApplications] = useState([]);
   const [questionLibrary, setQuestionLibrary] = useState([]);
@@ -151,6 +153,8 @@ export default function TripDetailLayout() {
             confirmDialog,
             navigate,
             id,
+            canWrite,
+            isAdmin,
           }}
         />
       </div>

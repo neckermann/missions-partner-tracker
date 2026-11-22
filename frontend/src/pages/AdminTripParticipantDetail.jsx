@@ -18,6 +18,7 @@ import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -44,6 +45,7 @@ function readFileAsDataUrl(file) {
 // at all before this pass).
 export default function AdminTripParticipantDetail() {
   const { tripId, participantId } = useParams();
+  const { canWrite } = useCurrentUser();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [trip, setTrip] = useState(null);
   const [settings, setSettings] = useState(null);
@@ -254,6 +256,7 @@ export default function AdminTripParticipantDetail() {
 
       <EditableSection
         title="Contact & access"
+        canEdit={canWrite}
         value={{
           firstName: participant.firstName || "",
           lastName: participant.lastName || "",
@@ -305,20 +308,22 @@ export default function AdminTripParticipantDetail() {
           })
         }
         actions={
-          <>
-            <button type="button" className="btn secondary small" onClick={handleResendAccessLink}>
-              Resend access link
-            </button>
-            {settings?.allowPublicSupportRaisingLinks && (
-              <button
-                type="button"
-                className="btn secondary small"
-                onClick={handleGenerateSupportRaisingLink}
-              >
-                {participant.shareToken ? "Regenerate support-raising link" : "Generate support-raising link"}
+          canWrite && (
+            <>
+              <button type="button" className="btn secondary small" onClick={handleResendAccessLink}>
+                Resend access link
               </button>
-            )}
-          </>
+              {settings?.allowPublicSupportRaisingLinks && (
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  onClick={handleGenerateSupportRaisingLink}
+                >
+                  {participant.shareToken ? "Regenerate support-raising link" : "Generate support-raising link"}
+                </button>
+              )}
+            </>
+          )
         }
         view={(v) => (
           <div>
@@ -535,6 +540,7 @@ export default function AdminTripParticipantDetail() {
 
       <EditableSection
         title="Support raising"
+        canEdit={canWrite}
         value={{ supportRaisingGoal: participant.supportRaisingGoal ?? "" }}
         onSave={(draft) =>
           saveParticipant({
@@ -577,27 +583,37 @@ export default function AdminTripParticipantDetail() {
                       />
                     )}
                     <div style={{ flex: 1, minWidth: 220 }}>
-                      <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "0.3rem" }}>
-                        Photo of {participant.firstName} (shown on their public page)
-                      </label>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        aria-label={`Photo of ${participant.firstName} ${participant.lastName}`}
-                        onChange={(e) => handlePhotoChange(e.target.files[0] || null)}
-                      />
-                      {photoFile && <span style={{ fontSize: "0.75rem", color: "#888" }}> Uploading…</span>}
+                      {canWrite && (
+                        <>
+                          <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "0.3rem" }}>
+                            Photo of {participant.firstName} (shown on their public page)
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            aria-label={`Photo of ${participant.firstName} ${participant.lastName}`}
+                            onChange={(e) => handlePhotoChange(e.target.files[0] || null)}
+                          />
+                          {photoFile && <span style={{ fontSize: "0.75rem", color: "#888" }}> Uploading…</span>}
+                        </>
+                      )}
                     </div>
                   </div>
-                  <label style={{ display: "block", marginTop: "0.6rem" }}>
-                    Story (what shows on their public page)
-                    <textarea
-                      rows={3}
-                      defaultValue={participant.story || ""}
-                      onChange={(e) => setStoryDraft(e.target.value)}
-                      onBlur={handleSaveStory}
-                    />
-                  </label>
+                  {canWrite ? (
+                    <label style={{ display: "block", marginTop: "0.6rem" }}>
+                      Story (what shows on their public page)
+                      <textarea
+                        rows={3}
+                        defaultValue={participant.story || ""}
+                        onChange={(e) => setStoryDraft(e.target.value)}
+                        onBlur={handleSaveStory}
+                      />
+                    </label>
+                  ) : (
+                    participant.story && (
+                      <p style={{ marginTop: "0.6rem", fontSize: "0.85rem" }}>{participant.story}</p>
+                    )
+                  )}
                 </div>
               </>
             )}
@@ -654,6 +670,7 @@ export default function AdminTripParticipantDetail() {
                       <input
                         type="checkbox"
                         checked={r.fulfilled}
+                        disabled={!canWrite}
                         onChange={(e) => handleToggleTaskComplete(r.id, e.target.checked)}
                       />
                       {r.label}
@@ -682,61 +699,67 @@ export default function AdminTripParticipantDetail() {
               <button type="button" className="btn secondary small" onClick={() => handleViewDocument(d)}>
                 View
               </button>{" "}
-              <button type="button" className="btn-remove" onClick={() => handleDeleteDocument(d.id)}>
-                ✕
-              </button>
+              {canWrite && (
+                <button type="button" className="btn-remove" onClick={() => handleDeleteDocument(d.id)}>
+                  ✕
+                </button>
+              )}
             </li>
           ))}
           {documents.length === 0 && <p style={{ color: "#888" }}>No documents on file yet.</p>}
         </ul>
 
-        <div style={{ marginTop: "0.75rem" }}>
-          <input
-            style={{ width: 260 }}
-            placeholder="Document request message"
-            value={docMessage}
-            onChange={(e) => setDocMessage(e.target.value)}
-          />
-          <button
-            type="button"
-            className="btn secondary small"
-            onClick={handleRequestDocuments}
-            style={{ marginLeft: "0.5rem" }}
-          >
-            Request documents
-          </button>
-        </div>
+        {canWrite && (
+          <>
+            <div style={{ marginTop: "0.75rem" }}>
+              <input
+                style={{ width: 260 }}
+                placeholder="Document request message"
+                value={docMessage}
+                onChange={(e) => setDocMessage(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={handleRequestDocuments}
+                style={{ marginLeft: "0.5rem" }}
+              >
+                Request documents
+              </button>
+            </div>
 
-        <div style={{ marginTop: "0.5rem" }}>
-          <input
-            type="file"
-            aria-label="Document file"
-            onChange={(e) => setDocFile(e.target.files[0] || null)}
-          />
-          {documentRequirements.length > 0 && (
-            <select
-              aria-label="Fulfills requirement"
-              value={docRequirementChoice}
-              onChange={(e) => setDocRequirementChoice(e.target.value)}
-              style={{ margin: "0 0.5rem" }}
-            >
-              <option value="">(no specific requirement)</option>
-              {documentRequirements.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          )}
-          <button
-            type="button"
-            className="btn secondary small"
-            disabled={!docFile}
-            onClick={handleLogDocument}
-          >
-            Log document
-          </button>
-        </div>
+            <div style={{ marginTop: "0.5rem" }}>
+              <input
+                type="file"
+                aria-label="Document file"
+                onChange={(e) => setDocFile(e.target.files[0] || null)}
+              />
+              {documentRequirements.length > 0 && (
+                <select
+                  aria-label="Fulfills requirement"
+                  value={docRequirementChoice}
+                  onChange={(e) => setDocRequirementChoice(e.target.value)}
+                  style={{ margin: "0 0.5rem" }}
+                >
+                  <option value="">(no specific requirement)</option>
+                  {documentRequirements.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                type="button"
+                className="btn secondary small"
+                disabled={!docFile}
+                onClick={handleLogDocument}
+              >
+                Log document
+              </button>
+            </div>
+          </>
+        )}
       </div>
       {confirmElement}
     </div>

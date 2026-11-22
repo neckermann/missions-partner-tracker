@@ -18,7 +18,7 @@ import { mapServerErrorMessage } from "../utils/friendlyError.js";
 // grouped together since an application becomes a team member and the
 // link/questions only exist to produce more applications.
 export default function AdminTripTeam() {
-  const { trip, setTrip, applications, reload, questionLibrary, confirmDialog, navigate, id } =
+  const { trip, setTrip, applications, reload, questionLibrary, confirmDialog, navigate, id, canWrite } =
     useOutletContext();
   const [error, setError] = useState("");
   const [expandedApplicationId, setExpandedApplicationId] = useState(null);
@@ -203,6 +203,7 @@ export default function AdminTripTeam() {
                             <input
                               type="checkbox"
                               checked={fulfilled}
+                              disabled={!canWrite}
                               onChange={(e) => handleToggleTaskComplete(r.id, p.id, e.target.checked)}
                             />
                           ) : fulfilled ? (
@@ -235,32 +236,34 @@ export default function AdminTripTeam() {
             </tbody>
           </table>
         </div>
-        <form onSubmit={handleAddParticipant} className="form-grid" style={{ marginTop: "0.75rem" }}>
-          <label>
-            First name
-            <input
-              value={newParticipant.firstName}
-              onChange={(e) => setNewParticipant((f) => ({ ...f, firstName: e.target.value }))}
-            />
-          </label>
-          <label>
-            Last name
-            <input
-              value={newParticipant.lastName}
-              onChange={(e) => setNewParticipant((f) => ({ ...f, lastName: e.target.value }))}
-            />
-          </label>
-          <label>
-            Email
-            <input
-              value={newParticipant.email}
-              onChange={(e) => setNewParticipant((f) => ({ ...f, email: e.target.value }))}
-            />
-          </label>
-          <button type="submit" className="btn secondary small" style={{ alignSelf: "end" }}>
-            + Add participant directly
-          </button>
-        </form>
+        {canWrite && (
+          <form onSubmit={handleAddParticipant} className="form-grid" style={{ marginTop: "0.75rem" }}>
+            <label>
+              First name
+              <input
+                value={newParticipant.firstName}
+                onChange={(e) => setNewParticipant((f) => ({ ...f, firstName: e.target.value }))}
+              />
+            </label>
+            <label>
+              Last name
+              <input
+                value={newParticipant.lastName}
+                onChange={(e) => setNewParticipant((f) => ({ ...f, lastName: e.target.value }))}
+              />
+            </label>
+            <label>
+              Email
+              <input
+                value={newParticipant.email}
+                onChange={(e) => setNewParticipant((f) => ({ ...f, email: e.target.value }))}
+              />
+            </label>
+            <button type="submit" className="btn secondary small" style={{ alignSelf: "end" }}>
+              + Add participant directly
+            </button>
+          </form>
+        )}
       </div>
 
       <div className="admin-section">
@@ -291,12 +294,16 @@ export default function AdminTripTeam() {
                       >
                         {expanded ? "Hide answers" : "View answers"}
                       </button>
-                      <button className="btn small" onClick={() => handleReview(a.id, "approved", null)}>
-                        Approve
-                      </button>
-                      <button className="btn danger small" onClick={() => handleDecline(a)}>
-                        Decline
-                      </button>
+                      {canWrite && (
+                        <>
+                          <button className="btn small" onClick={() => handleReview(a.id, "approved", null)}>
+                            Approve
+                          </button>
+                          <button className="btn danger small" onClick={() => handleDecline(a)}>
+                            Decline
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                   {expanded && (
@@ -355,13 +362,15 @@ export default function AdminTripTeam() {
                             >
                               {expanded ? "Hide answers" : "View answers"}
                             </button>
-                            <button
-                              type="button"
-                              className="btn secondary small"
-                              onClick={() => handleReview(a.id, "pending", null)}
-                            >
-                              Reconsider
-                            </button>
+                            {canWrite && (
+                              <button
+                                type="button"
+                                className="btn secondary small"
+                                onClick={() => handleReview(a.id, "pending", null)}
+                              >
+                                Reconsider
+                              </button>
+                            )}
                           </td>
                         </tr>
                         {expanded && (
@@ -394,9 +403,11 @@ export default function AdminTripTeam() {
         ) : (
           <p style={{ color: "#888" }}>No link generated yet.</p>
         )}
-        <button type="button" className="btn secondary small" onClick={handleGenerateLink}>
-          {trip.applicationShareToken ? "Regenerate link" : "Generate private application link"}
-        </button>
+        {canWrite && (
+          <button type="button" className="btn secondary small" onClick={handleGenerateLink}>
+            {trip.applicationShareToken ? "Regenerate link" : "Generate private application link"}
+          </button>
+        )}
       </div>
 
       <div className="admin-section">
@@ -405,32 +416,42 @@ export default function AdminTripTeam() {
           Added after the church-wide questions (Settings → Trips Settings) on both the public and private
           application forms for this trip specifically.
         </p>
-        <ApplicationQuestionsEditor
-          questions={trip.applicationQuestions || []}
-          onAdd={(input) =>
-            saveQuestions([...(trip.applicationQuestions || []), { id: crypto.randomUUID(), ...input }])
-          }
-          onUpdate={(qId, patch) =>
-            saveQuestions(
-              (trip.applicationQuestions || []).map((q) => (q.id === qId ? { ...q, ...patch } : q))
-            )
-          }
-          onRemove={async (qId) => {
-            const confirmed = await confirmDialog({
-              title: "Remove this application question?",
-              body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
-              confirmLabel: "Remove",
-              danger: true,
-            });
-            if (!confirmed) return;
-            await saveQuestions((trip.applicationQuestions || []).filter((q) => q.id !== qId));
-          }}
-          onReorder={(reordered) => saveQuestions(reordered)}
-          library={questionLibrary}
-          onAddFromLibrary={(entry) =>
-            saveQuestions([...(trip.applicationQuestions || []), { ...entry, id: crypto.randomUUID() }])
-          }
-        />
+        {canWrite ? (
+          <ApplicationQuestionsEditor
+            questions={trip.applicationQuestions || []}
+            onAdd={(input) =>
+              saveQuestions([...(trip.applicationQuestions || []), { id: crypto.randomUUID(), ...input }])
+            }
+            onUpdate={(qId, patch) =>
+              saveQuestions(
+                (trip.applicationQuestions || []).map((q) => (q.id === qId ? { ...q, ...patch } : q))
+              )
+            }
+            onRemove={async (qId) => {
+              const confirmed = await confirmDialog({
+                title: "Remove this application question?",
+                body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
+                confirmLabel: "Remove",
+                danger: true,
+              });
+              if (!confirmed) return;
+              await saveQuestions((trip.applicationQuestions || []).filter((q) => q.id !== qId));
+            }}
+            onReorder={(reordered) => saveQuestions(reordered)}
+            library={questionLibrary}
+            onAddFromLibrary={(entry) =>
+              saveQuestions([...(trip.applicationQuestions || []), { ...entry, id: crypto.randomUUID() }])
+            }
+          />
+        ) : (trip.applicationQuestions || []).length === 0 ? (
+          <p style={{ color: "#888" }}>No extra questions on this trip.</p>
+        ) : (
+          <ul>
+            {(trip.applicationQuestions || []).map((q) => (
+              <li key={q.id}>{q.label}</li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

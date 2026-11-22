@@ -8,7 +8,7 @@ import EditableSection from "../components/admin/EditableSection.jsx";
 // EditableSection use in this file -- retires its own slice of the
 // 22 onBlur-autosave sites the plan named.
 export default function AdminTripOverview() {
-  const { trip, setTrip, enableTripBudgeting } = useOutletContext();
+  const { trip, setTrip, enableTripBudgeting, canWrite } = useOutletContext();
 
   const budgetTotal = (trip.budgetLines || []).reduce((sum, b) => sum + b.estimatedAmount, 0);
 
@@ -20,6 +20,7 @@ export default function AdminTripOverview() {
   return (
     <EditableSection
       title="Trip setup"
+      canEdit={canWrite}
       value={{
         name: trip.name || "",
         status: trip.status,

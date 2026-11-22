@@ -9,59 +9,93 @@ import {
 } from "../api/client.js";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
+import RecordList from "../components/admin/RecordList.jsx";
+import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import Field from "../components/admin/Field.jsx";
 
+const emptyMeetingForm = { startAt: "", title: "", location: "", meetingLink: "", agenda: "" };
+
+function MeetingFields({ form, setForm }) {
+  function set(field, value) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+  return (
+    <div className="form-grid">
+      <label>
+        Meeting title
+        <input value={form.title} placeholder="e.g. Pre-Field Training" onChange={(e) => set("title", e.target.value)} />
+      </label>
+      <label>
+        Date/time
+        <input type="datetime-local" value={form.startAt} onChange={(e) => set("startAt", e.target.value)} required />
+      </label>
+      <label>
+        Location
+        <input value={form.location} onChange={(e) => set("location", e.target.value)} />
+      </label>
+      <label>
+        Join link (if virtual or hybrid)
+        <input value={form.meetingLink} placeholder="https://zoom.us/..." onChange={(e) => set("meetingLink", e.target.value)} />
+      </label>
+      <label style={{ gridColumn: "1 / -1" }}>
+        Agenda
+        <textarea rows={2} value={form.agenda} placeholder="What this meeting will cover" onChange={(e) => set("agenda", e.target.value)} />
+      </label>
+    </div>
+  );
+}
+
+// Converted from onBlur-autosave (no explicit boundary, no visible
+// confirmation) onto the same click-row-opens-popup RecordList pattern
+// used everywhere else -- Schedule/Edit both go through one explicit
+// Save, and Resend/Cancel live inside the edit popup since they're
+// meeting-specific actions, not generic Add/Edit/Delete.
 export default function AdminTripMeetings() {
-  const { trip, reload, confirmDialog, id } = useOutletContext();
+  const { trip, reload, confirmDialog, id, canWrite } = useOutletContext();
   const [error, setError] = useState("");
-  const [expandedMeetingIds, setExpandedMeetingIds] = useState(new Set());
-  const [meetingForm, setMeetingForm] = useState({
-    startAt: "",
-    title: "",
-    location: "",
-    meetingLink: "",
-    agenda: "",
-  });
+  const [modalMeeting, setModalMeeting] = useState(null); // null | { id: null|meetingId, form, cancelledAt }
 
   function reportError(err, fallback) {
     setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
   }
 
-  function toggleMeetingExpanded(meetingId) {
-    setExpandedMeetingIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(meetingId)) next.delete(meetingId);
-      else next.add(meetingId);
-      return next;
+  function openAdd() {
+    setModalMeeting({ id: null, form: emptyMeetingForm, cancelledAt: false });
+  }
+
+  function openEdit(m) {
+    setModalMeeting({
+      id: m.id,
+      form: {
+        startAt: m.startAt ? m.startAt.slice(0, 16) : "",
+        title: m.title || "",
+        location: m.location || "",
+        meetingLink: m.meetingLink || "",
+        agenda: m.agenda || "",
+      },
+      cancelledAt: !!m.cancelledAt,
     });
   }
 
-  async function handleScheduleMeeting(e) {
-    e.preventDefault();
-    if (!meetingForm.startAt) return;
-    try {
-      await scheduleTripMeeting(id, {
-        startAt: meetingForm.startAt,
-        title: meetingForm.title.trim() || null,
-        location: meetingForm.location.trim() || null,
-        meetingLink: meetingForm.meetingLink.trim() || null,
-        agenda: meetingForm.agenda.trim() || null,
-      });
-      setMeetingForm({ startAt: "", title: "", location: "", meetingLink: "", agenda: "" });
-      reload();
-      setError("");
-    } catch (err) {
-      reportError(err, "Couldn't schedule this meeting.");
-    }
+  function setModalForm(updater) {
+    setModalMeeting((d) => ({ ...d, form: typeof updater === "function" ? updater(d.form) : updater }));
   }
 
-  async function handleUpdateMeeting(meetingId, patch) {
-    try {
-      await updateTripMeeting(meetingId, patch);
-      reload();
-      setError("");
-    } catch (err) {
-      reportError(err, "Couldn't save that change.");
+  async function submitModal() {
+    const patch = {
+      startAt: modalMeeting.form.startAt || null,
+      title: modalMeeting.form.title.trim() || null,
+      location: modalMeeting.form.location.trim() || null,
+      meetingLink: modalMeeting.form.meetingLink.trim() || null,
+      agenda: modalMeeting.form.agenda.trim() || null,
+    };
+    if (modalMeeting.id == null) {
+      if (!patch.startAt) throw new Error("Choose a date/time");
+      await scheduleTripMeeting(id, patch);
+    } else {
+      await updateTripMeeting(modalMeeting.id, patch);
     }
+    reload();
   }
 
   async function handleResendMeetingInvite(meetingId) {
@@ -87,6 +121,7 @@ export default function AdminTripMeetings() {
     if (!confirmed) return;
     try {
       await cancelTripMeeting(meetingId);
+      setModalMeeting(null);
       reload();
       setError("");
     } catch (err) {
@@ -94,7 +129,7 @@ export default function AdminTripMeetings() {
     }
   }
 
-  async function handleDeleteMeeting(meetingId) {
+  async function handleDeleteMeeting(m) {
     const confirmed = await confirmDialog({
       title: "Delete this meeting?",
       body: (
@@ -108,7 +143,7 @@ export default function AdminTripMeetings() {
     });
     if (!confirmed) return;
     try {
-      await deleteTripMeeting(meetingId);
+      await deleteTripMeeting(m.id);
       reload();
       setError("");
     } catch (err) {
@@ -116,254 +151,101 @@ export default function AdminTripMeetings() {
     }
   }
 
+  const participants = trip.participants || [];
+
   return (
-    <div className="admin-section">
-      <h3>Meetings</h3>
+    <div>
       {error && (
         <p className="form-error" role="alert">
           {error}
         </p>
       )}
-      <table className="admin-table">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>When</th>
-            <th>Where</th>
-            <th>RSVPs</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {(trip.meetings || []).map((m) => {
-            const expanded = expandedMeetingIds.has(m.id);
-            const rsvps = m.rsvps || [];
-            const tally = { yes: 0, no: 0, maybe: 0 };
-            rsvps.forEach((r) => {
-              if (tally[r.response] !== undefined) tally[r.response] += 1;
-            });
-            const participants = trip.participants || [];
-            const noResponseCount = participants.length - rsvps.length;
-            const whenLabel = m.startAt
-              ? new Date(m.startAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
-              : "";
-            const whereLabel =
-              m.location && m.meetingLink
-                ? `${m.location} + online`
-                : m.location || (m.meetingLink ? "Online" : "—");
-            const rsvpSummary = m.cancelledAt
-              ? "Cancelled"
-              : `${tally.yes} yes · ${tally.no} no · ${tally.maybe} maybe` +
-                (noResponseCount > 0 ? ` · ${noResponseCount} no response` : "");
-            return (
-              <React.Fragment key={m.id}>
-                <tr
-                  onClick={() => toggleMeetingExpanded(m.id)}
-                  style={{
-                    cursor: "pointer",
-                    ...(m.cancelledAt ? { opacity: 0.6, textDecoration: "line-through" } : undefined),
-                  }}
-                >
-                  <td>{m.title || <span style={{ color: "#888" }}>—</span>}</td>
-                  <td>{whenLabel}</td>
-                  <td>{whereLabel}</td>
-                  <td>{rsvpSummary}</td>
-                  <td style={{ textAlign: "right", color: "#888" }}>{expanded ? "▲" : "▼"}</td>
-                </tr>
-                {expanded && (
-                  <tr>
-                    <td colSpan={5} style={{ background: "#faf9f7" }}>
-                      <div className="form-grid" style={{ marginBottom: "0.75rem" }}>
-                        <label>
-                          Meeting title
-                          <input
-                            disabled={!!m.cancelledAt}
-                            defaultValue={m.title || ""}
-                            placeholder="e.g. Pre-Field Training"
-                            onBlur={(e) =>
-                              e.target.value !== (m.title || "") &&
-                              handleUpdateMeeting(m.id, { title: e.target.value.trim() || null })
-                            }
-                          />
-                        </label>
-                        <label>
-                          Date/time
-                          <input
-                            type="datetime-local"
-                            disabled={!!m.cancelledAt}
-                            defaultValue={m.startAt ? m.startAt.slice(0, 16) : ""}
-                            onBlur={(e) =>
-                              e.target.value && handleUpdateMeeting(m.id, { startAt: e.target.value })
-                            }
-                          />
-                        </label>
-                        <label>
-                          Location
-                          <input
-                            disabled={!!m.cancelledAt}
-                            defaultValue={m.location || ""}
-                            placeholder="In-person location"
-                            onBlur={(e) =>
-                              e.target.value !== (m.location || "") &&
-                              handleUpdateMeeting(m.id, { location: e.target.value.trim() || null })
-                            }
-                          />
-                        </label>
-                        <label>
-                          Join link
-                          <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-                            <input
-                              disabled={!!m.cancelledAt}
-                              defaultValue={m.meetingLink || ""}
-                              placeholder="https://zoom.us/..."
-                              onBlur={(e) =>
-                                e.target.value !== (m.meetingLink || "") &&
-                                handleUpdateMeeting(m.id, { meetingLink: e.target.value.trim() || null })
-                              }
-                            />
-                            {m.meetingLink && (
-                              <a
-                                href={m.meetingLink}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                style={{ whiteSpace: "nowrap", fontSize: "0.85rem" }}
-                              >
-                                Open ↗
-                              </a>
-                            )}
-                          </div>
-                        </label>
-                        <label>
-                          Agenda
-                          <textarea
-                            rows={2}
-                            disabled={!!m.cancelledAt}
-                            defaultValue={m.agenda || ""}
-                            placeholder="What this meeting will cover"
-                            onBlur={(e) =>
-                              e.target.value !== (m.agenda || "") &&
-                              handleUpdateMeeting(m.id, { agenda: e.target.value.trim() || null })
-                            }
-                          />
-                        </label>
-                      </div>
+      <RecordList
+        title="Meetings"
+        items={trip.meetings || []}
+        canEdit={canWrite}
+        canDelete={canWrite}
+        emptyMessage="No meetings scheduled yet."
+        addLabel="Schedule meeting"
+        onAdd={openAdd}
+        onEdit={openEdit}
+        onDelete={handleDeleteMeeting}
+        renderItem={(m) => {
+          const rsvps = m.rsvps || [];
+          const tally = { yes: 0, no: 0, maybe: 0 };
+          rsvps.forEach((r) => {
+            if (tally[r.response] !== undefined) tally[r.response] += 1;
+          });
+          const noResponseCount = participants.length - rsvps.length;
+          const whenLabel = m.startAt
+            ? new Date(m.startAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+            : "—";
+          const whereLabel =
+            m.location && m.meetingLink ? `${m.location} + online` : m.location || (m.meetingLink ? "Online" : "—");
+          const rsvpSummary = m.cancelledAt
+            ? "Cancelled"
+            : `${tally.yes} yes · ${tally.no} no · ${tally.maybe} maybe` +
+              (noResponseCount > 0 ? ` · ${noResponseCount} no response` : "");
+          return (
+            <>
+              <Field label="Title" value={m.title} showEmpty />
+              <Field label="When" value={whenLabel} showEmpty />
+              <Field label="Where" value={whereLabel} showEmpty />
+              <Field label="RSVPs" value={rsvpSummary} showEmpty />
+            </>
+          );
+        }}
+      />
 
-                      <div style={{ marginBottom: "0.75rem" }}>
-                        <strong style={{ fontSize: "0.85rem" }}>Who's responded</strong>
-                        <ul
-                          style={{
-                            margin: "0.25rem 0 0",
-                            padding: 0,
-                            listStyle: "none",
-                            fontSize: "0.85rem",
-                          }}
-                        >
-                          {participants.map((p) => {
-                            const rsvp = rsvps.find((r) => r.participantId === p.id);
-                            const label =
-                              { yes: "Yes", no: "No", maybe: "Maybe" }[rsvp?.response] || "No response yet";
-                            return (
-                              <li key={p.id} style={{ padding: "0.15rem 0" }}>
-                                {p.firstName} {p.lastName} — {label}
-                              </li>
-                            );
-                          })}
-                          {participants.length === 0 && (
-                            <li style={{ color: "#888" }}>No participants yet.</li>
-                          )}
-                        </ul>
-                      </div>
-
-                      <div className="table-actions" role="presentation" onClick={(e) => e.stopPropagation()}>
-                        {m.cancelledAt ? (
-                          <span style={{ fontSize: "0.8rem", color: "#888" }}>Cancelled</span>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              className="btn secondary small"
-                              onClick={() => handleResendMeetingInvite(m.id)}
-                            >
-                              Resend invite
-                            </button>{" "}
-                            <button
-                              type="button"
-                              className="btn secondary small"
-                              onClick={() => handleCancelMeeting(m.id)}
-                            >
-                              Cancel
-                            </button>{" "}
-                            <button
-                              type="button"
-                              className="btn-remove"
-                              onClick={() => handleDeleteMeeting(m.id)}
-                            >
-                              ✕
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+      {modalMeeting &&
+        (canWrite ? (
+          <QuickActionModal
+            title={modalMeeting.id == null ? "Schedule meeting" : "Edit meeting"}
+            onClose={() => setModalMeeting(null)}
+            onSubmit={submitModal}
+            submitLabel={modalMeeting.id == null ? "Schedule meeting" : "Save"}
+          >
+            <MeetingFields form={modalMeeting.form} setForm={setModalForm} />
+            {modalMeeting.id != null && (
+              <div className="table-actions" style={{ marginTop: "0.75rem" }}>
+                {modalMeeting.cancelledAt ? (
+                  <span style={{ fontSize: "0.8rem", color: "#888" }}>Cancelled</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    onClick={() => handleResendMeetingInvite(modalMeeting.id)}
+                  >
+                    Resend invite
+                  </button>
                 )}
-              </React.Fragment>
-            );
-          })}
-          {(trip.meetings || []).length === 0 && (
-            <tr>
-              <td colSpan={5} style={{ color: "#888" }}>
-                No meetings scheduled yet.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-      <form onSubmit={handleScheduleMeeting} className="form-grid">
-        <label>
-          Meeting title
-          <input
-            value={meetingForm.title}
-            placeholder="e.g. Pre-Field Training"
-            onChange={(e) => setMeetingForm((f) => ({ ...f, title: e.target.value }))}
-          />
-        </label>
-        <label>
-          Date/time
-          <input
-            type="datetime-local"
-            value={meetingForm.startAt}
-            onChange={(e) => setMeetingForm((f) => ({ ...f, startAt: e.target.value }))}
-          />
-        </label>
-        <label>
-          Location
-          <input
-            value={meetingForm.location}
-            onChange={(e) => setMeetingForm((f) => ({ ...f, location: e.target.value }))}
-          />
-        </label>
-        <label>
-          Join link (if virtual or hybrid)
-          <input
-            value={meetingForm.meetingLink}
-            placeholder="https://zoom.us/..."
-            onChange={(e) => setMeetingForm((f) => ({ ...f, meetingLink: e.target.value }))}
-          />
-        </label>
-        <label>
-          Agenda
-          <textarea
-            rows={2}
-            value={meetingForm.agenda}
-            placeholder="What this meeting will cover"
-            onChange={(e) => setMeetingForm((f) => ({ ...f, agenda: e.target.value }))}
-          />
-        </label>
-        <button type="submit" className="btn secondary small" style={{ alignSelf: "end" }}>
-          Schedule meeting
-        </button>
-      </form>
+                {!modalMeeting.cancelledAt && (
+                  <button type="button" className="btn secondary small" onClick={() => handleCancelMeeting(modalMeeting.id)}>
+                    Cancel meeting
+                  </button>
+                )}
+              </div>
+            )}
+            {participants.length > 0 && (
+              <div style={{ marginTop: "0.75rem" }}>
+                <strong style={{ fontSize: "0.85rem" }}>Who's responded</strong>
+                <ul style={{ margin: "0.25rem 0 0", padding: 0, listStyle: "none", fontSize: "0.85rem" }}>
+                  {participants.map((p) => {
+                    const rsvp = (trip.meetings?.find((m) => m.id === modalMeeting.id)?.rsvps || []).find(
+                      (r) => r.participantId === p.id
+                    );
+                    const label = { yes: "Yes", no: "No", maybe: "Maybe" }[rsvp?.response] || "No response yet";
+                    return (
+                      <li key={p.id} style={{ padding: "0.15rem 0" }}>
+                        {p.firstName} {p.lastName} — {label}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </QuickActionModal>
+        ) : null)}
     </div>
   );
 }

@@ -10,51 +10,80 @@ import {
 import { formatFileSize } from "../utils/format.js";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
+import RecordList from "../components/admin/RecordList.jsx";
+import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import Field from "../components/admin/Field.jsx";
 
+const KIND_LABELS = { task: "Task", esignature: "E-signature", document: "Document" };
+
+const emptyRequirementForm = {
+  label: "",
+  kind: "document",
+  bodyText: "",
+  dueAt: "",
+  reminderLeadDays: "",
+  minorsOnly: false,
+};
+
+// Converted from onBlur-autosave onto click-row-opens-popup, same as
+// AdminTripMeetings.jsx -- label/kind are fixed at creation (never were
+// editable after the fact in the old inline form either), so the edit
+// popup shows them as plain read-only context and only the fields that
+// were genuinely editable (due date, reminder lead time, minors-only,
+// the e-signature agreement text) become form inputs.
 export default function AdminTripRequirements() {
-  const { trip, reload, requirementLibrary, confirmDialog } = useOutletContext();
+  const { trip, reload, requirementLibrary, confirmDialog, canWrite } = useOutletContext();
   const [error, setError] = useState("");
-  const [newRequirement, setNewRequirement] = useState({
-    label: "",
-    kind: "document",
-    bodyText: "",
-    dueAt: "",
-    reminderLeadDays: "",
-    minorsOnly: false,
-  });
   const [requirementLibraryPick, setRequirementLibraryPick] = useState("");
   const [tripWideFile, setTripWideFile] = useState(null);
   const [tripWideTitle, setTripWideTitle] = useState("");
+  const [reqModal, setReqModal] = useState(null); // null | { id: null|reqId, form }
 
   function reportError(err, fallback) {
     setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
   }
 
-  async function handleAddRequirement(e) {
-    e.preventDefault();
-    if (!newRequirement.label.trim()) return;
-    try {
+  function openAddRequirement() {
+    setReqModal({ id: null, form: emptyRequirementForm });
+  }
+
+  function openEditRequirement(r) {
+    setReqModal({
+      id: r.id,
+      label: r.label,
+      kind: r.kind,
+      form: {
+        bodyText: r.bodyText || "",
+        dueAt: r.dueAt ? r.dueAt.slice(0, 10) : "",
+        reminderLeadDays: r.reminderLeadDays || "",
+        minorsOnly: !!r.minorsOnly,
+      },
+    });
+  }
+
+  function setReqModalForm(updater) {
+    setReqModal((d) => ({ ...d, form: typeof updater === "function" ? updater(d.form) : updater }));
+  }
+
+  async function submitReqModal() {
+    if (reqModal.id == null) {
+      if (!reqModal.form.label.trim()) throw new Error("Enter a label");
       await addTripRequirement(trip.id, {
-        label: newRequirement.label.trim(),
-        kind: newRequirement.kind,
-        bodyText: newRequirement.kind === "esignature" ? newRequirement.bodyText.trim() || null : null,
-        dueAt: newRequirement.dueAt || null,
-        reminderLeadDays: newRequirement.reminderLeadDays ? Number(newRequirement.reminderLeadDays) : null,
-        minorsOnly: newRequirement.minorsOnly,
+        label: reqModal.form.label.trim(),
+        kind: reqModal.form.kind,
+        bodyText: reqModal.form.kind === "esignature" ? reqModal.form.bodyText.trim() || null : null,
+        dueAt: reqModal.form.dueAt || null,
+        minorsOnly: reqModal.form.minorsOnly,
       });
-      setNewRequirement({
-        label: "",
-        kind: "document",
-        bodyText: "",
-        dueAt: "",
-        reminderLeadDays: "",
-        minorsOnly: false,
+    } else {
+      await updateTripRequirement(reqModal.id, {
+        dueAt: reqModal.form.dueAt || null,
+        reminderLeadDays: reqModal.form.reminderLeadDays ? Number(reqModal.form.reminderLeadDays) : null,
+        minorsOnly: reqModal.form.minorsOnly,
+        ...(reqModal.kind === "esignature" ? { bodyText: reqModal.form.bodyText } : {}),
       });
-      reload();
-      setError("");
-    } catch (err) {
-      reportError(err, "Couldn't add this requirement.");
     }
+    reload();
   }
 
   async function handleAddRequirementFromLibrary() {
@@ -77,17 +106,7 @@ export default function AdminTripRequirements() {
     }
   }
 
-  async function updateReq(reqId, patch) {
-    try {
-      await updateTripRequirement(reqId, patch);
-      reload();
-      setError("");
-    } catch (err) {
-      reportError(err, "Couldn't save that change.");
-    }
-  }
-
-  async function handleDeleteRequirement(reqId) {
+  async function handleDeleteRequirement(r) {
     const confirmed = await confirmDialog({
       title: "Remove this requirement?",
       body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
@@ -96,7 +115,7 @@ export default function AdminTripRequirements() {
     });
     if (!confirmed) return;
     try {
-      await deleteTripRequirement(reqId);
+      await deleteTripRequirement(r.id);
       reload();
       setError("");
     } catch (err) {
@@ -138,6 +157,8 @@ export default function AdminTripRequirements() {
     }
   }
 
+  const tripWideDocs = (trip.documents || []).filter((d) => !d.participantId);
+
   return (
     <div>
       {error && (
@@ -153,119 +174,7 @@ export default function AdminTripRequirements() {
           off (e.g. "Attended orientation call"). Give one a due date to see it flagged once overdue; add a
           reminder lead time to have anyone who hasn't fulfilled it emailed automatically before it's due.
         </p>
-        <ul style={{ listStyle: "none", padding: 0 }}>
-          {(trip.requirements || []).map((r) => {
-            const overdue = r.dueAt && new Date(r.dueAt) < new Date();
-            return (
-              <li
-                key={r.id}
-                style={{
-                  border: "1px solid #e1dfdb",
-                  borderRadius: 6,
-                  padding: "0.5rem 0.6rem",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                  <span
-                    style={{
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      padding: "2px 8px",
-                      borderRadius: 999,
-                      color: r.kind === "task" ? "#2a5d8f" : r.kind === "esignature" ? "#a6540f" : "#1f6b4f",
-                      background:
-                        r.kind === "task" ? "#e8eff7" : r.kind === "esignature" ? "#fbeee0" : "#e7f3ee",
-                    }}
-                  >
-                    {r.kind === "task" ? "Task" : r.kind === "esignature" ? "E-signature" : "Document"}
-                  </span>
-                  <strong style={{ flex: 1 }}>{r.label}</strong>
-                  <label
-                    style={{
-                      fontWeight: 400,
-                      fontSize: "0.8rem",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.3rem",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={!!r.minorsOnly}
-                      onChange={(e) => updateReq(r.id, { minorsOnly: e.target.checked })}
-                    />
-                    Minors only
-                  </label>
-                  <label
-                    style={{
-                      fontWeight: 400,
-                      fontSize: "0.8rem",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.3rem",
-                    }}
-                  >
-                    Due
-                    <input
-                      type="date"
-                      defaultValue={r.dueAt ? r.dueAt.slice(0, 10) : ""}
-                      onBlur={(e) => updateReq(r.id, { dueAt: e.target.value || null })}
-                      style={{ width: "9.5rem" }}
-                    />
-                  </label>
-                  {r.dueAt && (
-                    <label
-                      style={{
-                        fontWeight: 400,
-                        fontSize: "0.8rem",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.3rem",
-                      }}
-                    >
-                      Remind
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="days before"
-                        defaultValue={r.reminderLeadDays || ""}
-                        onBlur={(e) =>
-                          updateReq(r.id, {
-                            reminderLeadDays: e.target.value ? Number(e.target.value) : null,
-                          })
-                        }
-                        style={{ width: "6rem" }}
-                      />
-                    </label>
-                  )}
-                  {overdue && (
-                    <span style={{ color: "#b91c1c", fontSize: "0.75rem", fontWeight: 600 }}>Overdue</span>
-                  )}
-                  <button type="button" className="btn-remove" onClick={() => handleDeleteRequirement(r.id)}>
-                    ✕
-                  </button>
-                </div>
-                {r.kind === "esignature" && (
-                  <label
-                    style={{ display: "block", marginTop: "0.5rem", fontWeight: 400, fontSize: "0.8rem" }}
-                  >
-                    Agreement text (shown to the participant before they sign)
-                    <textarea
-                      rows={4}
-                      defaultValue={r.bodyText || ""}
-                      onBlur={(e) =>
-                        e.target.value !== (r.bodyText || "") && updateReq(r.id, { bodyText: e.target.value })
-                      }
-                    />
-                  </label>
-                )}
-              </li>
-            );
-          })}
-          {(trip.requirements || []).length === 0 && <p style={{ color: "#888" }}>No requirements yet.</p>}
-        </ul>
-        {requirementLibrary.length > 0 && (
+        {canWrite && requirementLibrary.length > 0 && (
           <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.75rem" }}>
             <select
               style={{ flex: 1, minWidth: 220 }}
@@ -289,69 +198,27 @@ export default function AdminTripRequirements() {
             </button>
           </div>
         )}
-        <form
-          onSubmit={handleAddRequirement}
-          style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}
-        >
-          <input
-            style={{ flex: 1, minWidth: 220 }}
-            value={newRequirement.label}
-            onChange={(e) => setNewRequirement((f) => ({ ...f, label: e.target.value }))}
-            placeholder="e.g. Signed Waiver, or Attended orientation call"
-          />
-          <select
-            value={newRequirement.kind}
-            onChange={(e) => setNewRequirement((f) => ({ ...f, kind: e.target.value }))}
-          >
-            <option value="document">Document</option>
-            <option value="task">Task</option>
-            <option value="esignature">E-signature</option>
-          </select>
-          {newRequirement.kind === "esignature" && (
-            <textarea
-              style={{ flex: "1 1 100%", minWidth: 220 }}
-              rows={3}
-              placeholder="Agreement text the participant will sign"
-              value={newRequirement.bodyText}
-              onChange={(e) => setNewRequirement((f) => ({ ...f, bodyText: e.target.value }))}
-            />
-          )}
-          <label
-            style={{
-              fontWeight: 400,
-              fontSize: "0.85rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.3rem",
-            }}
-          >
-            Due (optional)
-            <input
-              type="date"
-              value={newRequirement.dueAt}
-              onChange={(e) => setNewRequirement((f) => ({ ...f, dueAt: e.target.value }))}
-            />
-          </label>
-          <label
-            style={{
-              fontWeight: 400,
-              fontSize: "0.85rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.3rem",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={newRequirement.minorsOnly}
-              onChange={(e) => setNewRequirement((f) => ({ ...f, minorsOnly: e.target.checked }))}
-            />
-            Minors only
-          </label>
-          <button type="submit" className="btn secondary small">
-            + Add
-          </button>
-        </form>
+        <RecordList
+          bare
+          items={trip.requirements || []}
+          canEdit={canWrite}
+          canDelete={canWrite}
+          onAdd={openAddRequirement}
+          onEdit={openEditRequirement}
+          onDelete={handleDeleteRequirement}
+          emptyMessage="No requirements yet."
+          renderItem={(r) => {
+            const overdue = r.dueAt && new Date(r.dueAt) < new Date();
+            return (
+              <>
+                <Field label="Kind" value={KIND_LABELS[r.kind] || r.kind} />
+                <Field label="Label" value={r.label} />
+                <Field label="Due" value={overdue ? `${r.dueAt.slice(0, 10)} (overdue)` : r.dueAt?.slice(0, 10)} showEmpty />
+                <Field label="Minors only" value={r.minorsOnly ? "Yes" : "No"} />
+              </>
+            );
+          }}
+        />
       </div>
 
       <div className="admin-section">
@@ -361,51 +228,154 @@ export default function AdminTripRequirements() {
           one person.
         </p>
         <ul style={{ listStyle: "none", padding: 0 }}>
-          {(trip.documents || [])
-            .filter((d) => !d.participantId)
-            .map((d) => (
-              <li key={d.id} style={{ marginBottom: "0.3rem" }}>
-                {d.title || d.fileName}
-                {d.fileSize != null && (
-                  <span style={{ color: "#888", fontSize: "0.8rem" }}> ({formatFileSize(d.fileSize)})</span>
-                )}{" "}
-                <button type="button" className="btn secondary small" onClick={() => handleViewDocument(d)}>
-                  View
-                </button>{" "}
+          {tripWideDocs.map((d) => (
+            <li key={d.id} style={{ marginBottom: "0.3rem" }}>
+              {d.title || d.fileName}
+              {d.fileSize != null && (
+                <span style={{ color: "#888", fontSize: "0.8rem" }}> ({formatFileSize(d.fileSize)})</span>
+              )}{" "}
+              <button type="button" className="btn secondary small" onClick={() => handleViewDocument(d)}>
+                View
+              </button>{" "}
+              {canWrite && (
                 <button type="button" className="btn-remove" onClick={() => handleDeleteDocument(d.id)}>
                   ✕
                 </button>
-              </li>
-            ))}
-          {(trip.documents || []).filter((d) => !d.participantId).length === 0 && (
-            <p style={{ color: "#888" }}>No trip-wide documents yet.</p>
-          )}
+              )}
+            </li>
+          ))}
+          {tripWideDocs.length === 0 && <p style={{ color: "#888" }}>No trip-wide documents yet.</p>}
         </ul>
-        <label style={{ display: "block", maxWidth: 300, fontWeight: 400, fontSize: "0.85rem" }}>
-          Title (optional)
-          <input
-            type="text"
-            placeholder="e.g. Packing list"
-            value={tripWideTitle}
-            onChange={(e) => setTripWideTitle(e.target.value)}
-            style={{ display: "block", width: "100%", marginTop: "0.2rem" }}
-          />
-        </label>
-        <input
-          type="file"
-          aria-label="Trip-wide document file"
-          style={{ marginTop: "0.5rem" }}
-          onChange={(e) => setTripWideFile(e.target.files[0] || null)}
-        />
-        <button
-          type="button"
-          className="btn secondary small"
-          disabled={!tripWideFile}
-          onClick={handleUploadTripWideDocument}
-        >
-          Upload
-        </button>
+        {canWrite && (
+          <>
+            <label style={{ display: "block", maxWidth: 300, fontWeight: 400, fontSize: "0.85rem" }}>
+              Title (optional)
+              <input
+                type="text"
+                placeholder="e.g. Packing list"
+                value={tripWideTitle}
+                onChange={(e) => setTripWideTitle(e.target.value)}
+                style={{ display: "block", width: "100%", marginTop: "0.2rem" }}
+              />
+            </label>
+            <input
+              type="file"
+              aria-label="Trip-wide document file"
+              style={{ marginTop: "0.5rem" }}
+              onChange={(e) => setTripWideFile(e.target.files[0] || null)}
+            />
+            <button
+              type="button"
+              className="btn secondary small"
+              disabled={!tripWideFile}
+              onClick={handleUploadTripWideDocument}
+            >
+              Upload
+            </button>
+          </>
+        )}
       </div>
+
+      {reqModal && canWrite && (
+        <QuickActionModal
+          title={reqModal.id == null ? "Add Requirement" : "Edit Requirement"}
+          onClose={() => setReqModal(null)}
+          onSubmit={submitReqModal}
+        >
+          {reqModal.id == null ? (
+            <div className="form-grid">
+              <label style={{ gridColumn: "1 / -1" }}>
+                Label
+                <input
+                  value={reqModal.form.label}
+                  onChange={(e) => setReqModalForm((f) => ({ ...f, label: e.target.value }))}
+                  placeholder="e.g. Signed Waiver, or Attended orientation call"
+                  required
+                />
+              </label>
+              <label>
+                Kind
+                <select
+                  value={reqModal.form.kind}
+                  onChange={(e) => setReqModalForm((f) => ({ ...f, kind: e.target.value }))}
+                >
+                  <option value="document">Document</option>
+                  <option value="task">Task</option>
+                  <option value="esignature">E-signature</option>
+                </select>
+              </label>
+              <label>
+                Due (optional)
+                <input
+                  type="date"
+                  value={reqModal.form.dueAt}
+                  onChange={(e) => setReqModalForm((f) => ({ ...f, dueAt: e.target.value }))}
+                />
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                <input
+                  type="checkbox"
+                  checked={reqModal.form.minorsOnly}
+                  onChange={(e) => setReqModalForm((f) => ({ ...f, minorsOnly: e.target.checked }))}
+                />
+                Minors only
+              </label>
+              {reqModal.form.kind === "esignature" && (
+                <label style={{ gridColumn: "1 / -1" }}>
+                  Agreement text (shown to the participant before they sign)
+                  <textarea
+                    rows={3}
+                    value={reqModal.form.bodyText}
+                    onChange={(e) => setReqModalForm((f) => ({ ...f, bodyText: e.target.value }))}
+                  />
+                </label>
+              )}
+            </div>
+          ) : (
+            <div className="form-grid">
+              <Field label="Kind" value={KIND_LABELS[reqModal.kind] || reqModal.kind} />
+              <Field label="Label" value={reqModal.label} />
+              <label>
+                Due
+                <input
+                  type="date"
+                  value={reqModal.form.dueAt}
+                  onChange={(e) => setReqModalForm((f) => ({ ...f, dueAt: e.target.value }))}
+                />
+              </label>
+              {reqModal.form.dueAt && (
+                <label>
+                  Remind (days before)
+                  <input
+                    type="number"
+                    min="1"
+                    value={reqModal.form.reminderLeadDays}
+                    onChange={(e) => setReqModalForm((f) => ({ ...f, reminderLeadDays: e.target.value }))}
+                  />
+                </label>
+              )}
+              <label style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                <input
+                  type="checkbox"
+                  checked={reqModal.form.minorsOnly}
+                  onChange={(e) => setReqModalForm((f) => ({ ...f, minorsOnly: e.target.checked }))}
+                />
+                Minors only
+              </label>
+              {reqModal.kind === "esignature" && (
+                <label style={{ gridColumn: "1 / -1" }}>
+                  Agreement text (shown to the participant before they sign)
+                  <textarea
+                    rows={3}
+                    value={reqModal.form.bodyText}
+                    onChange={(e) => setReqModalForm((f) => ({ ...f, bodyText: e.target.value }))}
+                  />
+                </label>
+              )}
+            </div>
+          )}
+        </QuickActionModal>
+      )}
     </div>
   );
 }

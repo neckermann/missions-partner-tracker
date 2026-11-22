@@ -9,11 +9,19 @@ import {
 import { formatDate } from "../utils/format.js";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
+import RecordList from "../components/admin/RecordList.jsx";
+import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import Field from "../components/admin/Field.jsx";
 
+const emptyBudgetLineForm = { label: "", estimatedAmount: "" };
+
+// Budget lines converted from onBlur-autosave onto click-row-opens-popup,
+// same as AdminTripMeetings.jsx/AdminTripRequirements.jsx. Contributions
+// stay a plain add-only list (no edit/delete ever existed for these, same
+// shape as Trip-wide documents on the Requirements page) -- just gated.
 export default function AdminTripBudget() {
-  const { trip, reload, confirmDialog } = useOutletContext();
+  const { trip, reload, confirmDialog, canWrite } = useOutletContext();
   const [error, setError] = useState("");
-  const [newBudgetLine, setNewBudgetLine] = useState({ label: "", estimatedAmount: "" });
   const [newContribution, setNewContribution] = useState({
     participantId: "",
     donorName: "",
@@ -21,6 +29,7 @@ export default function AdminTripBudget() {
     method: "check",
     receivedDate: "",
   });
+  const [lineModal, setLineModal] = useState(null); // null | { id: null|lineId, form }
 
   function reportError(err, fallback) {
     setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
@@ -43,33 +52,31 @@ export default function AdminTripBudget() {
     }
   }
 
-  async function handleAddBudgetLine(e) {
-    e.preventDefault();
-    if (!newBudgetLine.label.trim() || newBudgetLine.estimatedAmount === "") return;
-    try {
-      await addTripBudgetLine(trip.id, {
-        label: newBudgetLine.label.trim(),
-        estimatedAmount: Number(newBudgetLine.estimatedAmount),
-      });
-      setNewBudgetLine({ label: "", estimatedAmount: "" });
-      reload();
-      setError("");
-    } catch (err) {
-      reportError(err, "Couldn't add this budget line.");
-    }
+  function openAddLine() {
+    setLineModal({ id: null, form: emptyBudgetLineForm });
   }
 
-  async function handleUpdateBudgetLine(lineId, patch) {
-    try {
-      await updateTripBudgetLine(lineId, patch);
-      reload();
-      setError("");
-    } catch (err) {
-      reportError(err, "Couldn't save that change.");
-    }
+  function openEditLine(b) {
+    setLineModal({ id: b.id, form: { label: b.label, estimatedAmount: String(b.estimatedAmount) } });
   }
 
-  async function handleDeleteBudgetLine(lineId) {
+  function setLineModalForm(updater) {
+    setLineModal((d) => ({ ...d, form: typeof updater === "function" ? updater(d.form) : updater }));
+  }
+
+  async function submitLineModal() {
+    if (!lineModal.form.label.trim()) throw new Error("Enter a line item label");
+    if (lineModal.form.estimatedAmount === "") throw new Error("Enter an estimated amount");
+    const patch = {
+      label: lineModal.form.label.trim(),
+      estimatedAmount: Number(lineModal.form.estimatedAmount),
+    };
+    if (lineModal.id == null) await addTripBudgetLine(trip.id, patch);
+    else await updateTripBudgetLine(lineModal.id, patch);
+    reload();
+  }
+
+  async function handleDeleteBudgetLine(b) {
     const confirmed = await confirmDialog({
       title: "Remove this budget line?",
       body: <ConfirmMessageBody>This cannot be undone.</ConfirmMessageBody>,
@@ -78,7 +85,7 @@ export default function AdminTripBudget() {
     });
     if (!confirmed) return;
     try {
-      await deleteTripBudgetLine(lineId);
+      await deleteTripBudgetLine(b.id);
       reload();
       setError("");
     } catch (err) {
@@ -103,89 +110,24 @@ export default function AdminTripBudget() {
           Totals for the <strong>whole team</strong>, not per person — e.g. "Round-trip flights: $650" means
           $650 for every traveler's flights combined, not $650 each.
         </p>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Line item</th>
-              <th>Estimated</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {(trip.budgetLines || []).map((b) => (
-              <tr key={b.id}>
-                <td>
-                  <input
-                    defaultValue={b.label}
-                    onBlur={(e) =>
-                      e.target.value.trim() &&
-                      e.target.value !== b.label &&
-                      handleUpdateBudgetLine(b.id, { label: e.target.value.trim() })
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    defaultValue={b.estimatedAmount}
-                    style={{ width: "7rem" }}
-                    onBlur={(e) =>
-                      e.target.value !== "" &&
-                      Number(e.target.value) !== b.estimatedAmount &&
-                      handleUpdateBudgetLine(b.id, { estimatedAmount: Number(e.target.value) })
-                    }
-                  />
-                </td>
-                <td className="table-actions">
-                  <button type="button" className="btn-remove" onClick={() => handleDeleteBudgetLine(b.id)}>
-                    ✕
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {(trip.budgetLines || []).length === 0 && (
-              <tr>
-                <td colSpan={3} style={{ color: "#888" }}>
-                  No budget lines yet.
-                </td>
-              </tr>
-            )}
-            {(trip.budgetLines || []).length > 0 && (
-              <tr style={{ fontWeight: 700 }}>
-                <td>Total</td>
-                <td>${budgetTotal}</td>
-                <td></td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-        <form
-          onSubmit={handleAddBudgetLine}
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "0.5rem",
-            alignItems: "center",
-            marginTop: "0.5rem",
-          }}
-        >
-          <input
-            style={{ flex: 1, minWidth: 220 }}
-            value={newBudgetLine.label}
-            onChange={(e) => setNewBudgetLine((f) => ({ ...f, label: e.target.value }))}
-            placeholder="e.g. Round-trip flights, Lodging, In-country transport"
-          />
-          <input
-            type="number"
-            style={{ width: "7rem" }}
-            value={newBudgetLine.estimatedAmount}
-            onChange={(e) => setNewBudgetLine((f) => ({ ...f, estimatedAmount: e.target.value }))}
-            placeholder="$"
-          />
-          <button type="submit" className="btn secondary small">
-            + Add budget line
-          </button>
-        </form>
+        <RecordList
+          bare
+          items={trip.budgetLines || []}
+          canEdit={canWrite}
+          canDelete={canWrite}
+          addLabel="+ Add budget line"
+          onAdd={openAddLine}
+          onEdit={openEditLine}
+          onDelete={handleDeleteBudgetLine}
+          emptyMessage="No budget lines yet."
+          renderItem={(b) => (
+            <>
+              <Field label="Line item" value={b.label} />
+              <Field label="Estimated" value={`$${b.estimatedAmount}`} />
+            </>
+          )}
+        />
+        {(trip.budgetLines || []).length > 0 && <p style={{ fontWeight: 700, marginTop: "0.5rem" }}>Total: ${budgetTotal}</p>}
         <p style={{ marginTop: "0.6rem", fontWeight: 600 }}>
           Est. total cost: ${budgetTotal} · Raised: ${raised} · Still needed: $
           {Math.max(budgetTotal - raised, 0)}
@@ -218,61 +160,90 @@ export default function AdminTripBudget() {
             ))}
           </tbody>
         </table>
-        <form onSubmit={handleAddContribution} className="form-grid" style={{ marginTop: "0.75rem" }}>
-          <label>
-            Participant (optional)
-            <select
-              value={newContribution.participantId}
-              onChange={(e) => setNewContribution((f) => ({ ...f, participantId: e.target.value }))}
-            >
-              <option value="">Trip-wide</option>
-              {(trip.participants || []).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.firstName} {p.lastName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Donor name
-            <input
-              value={newContribution.donorName}
-              onChange={(e) => setNewContribution((f) => ({ ...f, donorName: e.target.value }))}
-            />
-          </label>
-          <label>
-            Amount ($)
-            <input
-              type="number"
-              value={newContribution.amount}
-              onChange={(e) => setNewContribution((f) => ({ ...f, amount: e.target.value }))}
-            />
-          </label>
-          <label>
-            Method
-            <select
-              value={newContribution.method}
-              onChange={(e) => setNewContribution((f) => ({ ...f, method: e.target.value }))}
-            >
-              <option value="check">Check</option>
-              <option value="cash">Cash</option>
-              <option value="online">Online</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-          <label>
-            Received
-            <input
-              type="date"
-              value={newContribution.receivedDate}
-              onChange={(e) => setNewContribution((f) => ({ ...f, receivedDate: e.target.value }))}
-            />
-          </label>
-          <button type="submit" className="btn secondary small" style={{ alignSelf: "end" }}>
-            + Log contribution
-          </button>
-        </form>
+        {canWrite && (
+          <form onSubmit={handleAddContribution} className="form-grid" style={{ marginTop: "0.75rem" }}>
+            <label>
+              Participant (optional)
+              <select
+                value={newContribution.participantId}
+                onChange={(e) => setNewContribution((f) => ({ ...f, participantId: e.target.value }))}
+              >
+                <option value="">Trip-wide</option>
+                {(trip.participants || []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.firstName} {p.lastName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Donor name
+              <input
+                value={newContribution.donorName}
+                onChange={(e) => setNewContribution((f) => ({ ...f, donorName: e.target.value }))}
+              />
+            </label>
+            <label>
+              Amount ($)
+              <input
+                type="number"
+                value={newContribution.amount}
+                onChange={(e) => setNewContribution((f) => ({ ...f, amount: e.target.value }))}
+              />
+            </label>
+            <label>
+              Method
+              <select
+                value={newContribution.method}
+                onChange={(e) => setNewContribution((f) => ({ ...f, method: e.target.value }))}
+              >
+                <option value="check">Check</option>
+                <option value="cash">Cash</option>
+                <option value="online">Online</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label>
+              Received
+              <input
+                type="date"
+                value={newContribution.receivedDate}
+                onChange={(e) => setNewContribution((f) => ({ ...f, receivedDate: e.target.value }))}
+              />
+            </label>
+            <button type="submit" className="btn secondary small" style={{ alignSelf: "end" }}>
+              + Log contribution
+            </button>
+          </form>
+        )}
       </div>
+
+      {lineModal && canWrite && (
+        <QuickActionModal
+          title={lineModal.id == null ? "Add Budget Line" : "Edit Budget Line"}
+          onClose={() => setLineModal(null)}
+          onSubmit={submitLineModal}
+        >
+          <div className="form-grid">
+            <label>
+              Line item
+              <input
+                value={lineModal.form.label}
+                onChange={(e) => setLineModalForm((f) => ({ ...f, label: e.target.value }))}
+                placeholder="e.g. Round-trip flights, Lodging, In-country transport"
+              />
+            </label>
+            <label>
+              Estimated amount ($)
+              <input
+                type="number"
+                value={lineModal.form.estimatedAmount}
+                onChange={(e) => setLineModalForm((f) => ({ ...f, estimatedAmount: e.target.value }))}
+              />
+            </label>
+          </div>
+        </QuickActionModal>
+      )}
     </div>
   );
 }
