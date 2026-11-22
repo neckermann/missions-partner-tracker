@@ -338,7 +338,11 @@ async function syncSendingChurch(client, partnerId) {
 // out each partner's family, addresses, sending party and prayer requests
 // in one document -- and N+1 detail requests would be worse. It's an
 // explicit, single-caller escape hatch, deliberately not the default.
-router.get("/", async (req, res, next) => {
+// A Trip Leader has no access to the directory at all -- only ever their
+// own one trip's own linked Partner, read-only, via GET /:id below. No
+// requireTripScope here (there's no single :id to check against a
+// collection route), just an outright role block.
+router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const where = {};
     if (req.query.kind) where.kind = String(req.query.kind);
@@ -413,6 +417,20 @@ router.get("/", async (req, res, next) => {
 // see partnerRecordInclude for why the history collections aren't here)
 router.get("/:id", async (req, res, next) => {
   try {
+    // Trip Leader guest tier: read-only, and only the exact Partner tied
+    // to their own scoped trip -- "they can view the partner details page
+    // as part of that," not the directory at large. Looked up fresh each
+    // request (not cached on the token), same revocation-takes-effect-
+    // immediately reasoning as requireAuth's own role re-read.
+    if (req.user.role === "tripLeader") {
+      const trip = await prisma.trip.findUnique({
+        where: { id: req.user.scopedTripId },
+        select: { partnerId: true },
+      });
+      if (!trip?.partnerId || trip.partnerId !== req.params.id) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+    }
     const record = await prisma.partner.findUnique({
       where: { id: req.params.id },
       include: partnerRecordInclude,

@@ -6,13 +6,21 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireAuth, requireRole, requireTripScope } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { sendMeetingEmail, emailParticipantSelect } = require("../utils/tripEmails");
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
 router.use(requireFeature("trips"));
+
+// requireTripScope needs the owning trip id before it can check it
+// against a Trip Leader's own scopedTripId -- every route here but the
+// create route is addressed by the meeting's own id, not the trip's.
+async function tripIdOfMeeting(req) {
+  const row = await prisma.tripMeeting.findUnique({ where: { id: req.params.id }, select: { tripId: true } });
+  return row?.tripId;
+}
 
 // ---- Meetings ----
 
@@ -31,7 +39,11 @@ const meetingInputSchema = z.object({
   agenda: z.string().optional().nullable(),
 });
 
-router.post("/:id/meetings", requireRole("admin", "editor"), async (req, res, next) => {
+router.post(
+  "/:id/meetings",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope("id"),
+  async (req, res, next) => {
   try {
     const data = meetingInputSchema.required({ startAt: true }).parse(req.body);
     const trip = await prisma.trip.findUnique({
@@ -54,7 +66,11 @@ router.post("/:id/meetings", requireRole("admin", "editor"), async (req, res, ne
 // needs to know the new time, the new place, or that the join link
 // changed) and triggers a resend; an agenda-only edit updates silently,
 // same precedent this already followed for the field it replaced.
-router.put("/meetings/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.put(
+  "/meetings/:id",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfMeeting),
+  async (req, res, next) => {
   try {
     const data = meetingInputSchema.parse(req.body);
     const existing = await prisma.tripMeeting.findUnique({
@@ -85,7 +101,11 @@ router.put("/meetings/:id", requireRole("admin", "editor"), async (req, res, nex
 // nothing about the meeting changed but an admin still wants to nudge
 // participants (a late addition to the team, someone who says they
 // never got it) without waiting on, or faking, a reschedule.
-router.post("/meetings/:id/resend", requireRole("admin", "editor"), async (req, res, next) => {
+router.post(
+  "/meetings/:id/resend",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfMeeting),
+  async (req, res, next) => {
   try {
     const meeting = await prisma.tripMeeting.findUnique({
       where: { id: req.params.id },
@@ -106,7 +126,11 @@ router.post("/meetings/:id/resend", requireRole("admin", "editor"), async (req, 
 // re-sends the cancellation notice rather than erroring, since an admin
 // who clicks it twice (or needs to re-notify a participant who missed
 // the first one) shouldn't be blocked.
-router.post("/meetings/:id/cancel", requireRole("admin", "editor"), async (req, res, next) => {
+router.post(
+  "/meetings/:id/cancel",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfMeeting),
+  async (req, res, next) => {
   try {
     const existing = await prisma.tripMeeting.findUnique({
       where: { id: req.params.id },
@@ -137,7 +161,11 @@ router.post("/meetings/:id/cancel", requireRole("admin", "editor"), async (req, 
 // "cancel" (which announces a cancellation nobody should see) just to
 // remove it; cancel is for calling off a real meeting, not for undoing
 // a data-entry error.
-router.delete("/meetings/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.delete(
+  "/meetings/:id",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfMeeting),
+  async (req, res, next) => {
   try {
     const existing = await prisma.tripMeeting.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: "Not found" });

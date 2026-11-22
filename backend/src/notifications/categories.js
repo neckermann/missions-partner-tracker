@@ -94,7 +94,13 @@ async function tripsDepartingSoon(_opts, scopeTripId) {
     },
     select: { id: true, startDate: true },
   });
-  return { count: rows.length, latest: latestOf(rows, (r) => r.startDate) };
+  // A generic "/admin/trips" is a dead end for finding which trip --
+  // link straight to it whenever exactly one trip is responsible; only
+  // fall back to the list when several are (AdminTrips.jsx's own list
+  // then needs a per-row indicator, which it has -- see annotateTripFlags
+  // in trips.js).
+  const linkTo = rows.length === 1 ? `/admin/trips/${rows[0].id}` : undefined;
+  return { count: rows.length, latest: latestOf(rows, (r) => r.startDate), linkTo };
 }
 
 // A requirement is fulfilled the same way tripReminderScheduler.js already
@@ -130,7 +136,8 @@ async function tripsDepartingSoonIncomplete(_opts, scopeTripId) {
       )
     )
   );
-  return { count: incomplete.length, latest: latestOf(incomplete, (t) => t.startDate) };
+  const linkTo = incomplete.length === 1 ? `/admin/trips/${incomplete[0].id}/requirements` : undefined;
+  return { count: incomplete.length, latest: latestOf(incomplete, (t) => t.startDate), linkTo };
 }
 
 async function overdueTripRequirements(_opts, scopeTripId) {
@@ -152,15 +159,20 @@ async function overdueTripRequirements(_opts, scopeTripId) {
       }
     }
   }
-  return { count: overdueItems.length, latest: latestOf(overdueItems, (r) => r.dueAt) };
+  const distinctTripIds = new Set(overdueItems.map((r) => r.tripId));
+  const linkTo =
+    distinctTripIds.size === 1 ? `/admin/trips/${overdueItems[0].tripId}/requirements` : undefined;
+  return { count: overdueItems.length, latest: latestOf(overdueItems, (r) => r.dueAt), linkTo };
 }
 
 async function tripApplicationsPending(_opts, scopeTripId) {
   const rows = await prisma.tripApplication.findMany({
     where: { status: "pending", ...(scopeTripId ? { tripId: scopeTripId } : {}) },
-    select: { submittedAt: true },
+    select: { tripId: true, submittedAt: true },
   });
-  return { count: rows.length, latest: latestOf(rows, (r) => r.submittedAt) };
+  const distinctTripIds = new Set(rows.map((r) => r.tripId));
+  const linkTo = distinctTripIds.size === 1 ? `/admin/trips/${rows[0].tripId}/team` : undefined;
+  return { count: rows.length, latest: latestOf(rows, (r) => r.submittedAt), linkTo };
 }
 
 // Per-user count: "how many of these has this teammate not looked at yet,"
@@ -225,29 +237,39 @@ async function whatsappConnectionDrop() {
   return { count: dropped ? 1 : 0, latest: dropped ? settings.whatsappDisconnectedAt : null };
 }
 
+// `tripScoped: true` marks the only 4 categories that make sense for a
+// Trip Leader (role: "tripLeader") -- a scoped guest with no visibility
+// into anything outside their own one trip. Every other category either
+// isn't trip-shaped at all (dispatches, emails, prayer requests, admin/
+// system health) or spans every trip at once with no per-trip filter --
+// none of that belongs in a Trip Leader's own notification list.
 const CATEGORIES = [
-  { key: "dispatchesNeedingApproval", label: "Dispatches needing approval", icon: "📨", linkTo: "/admin/dispatches", adminOnly: false, perUser: false, resolve: dispatchesNeedingApproval },
-  { key: "unmatchedEmails", label: "Unmatched emails", icon: "✉️", linkTo: "/admin/inbound-email", adminOnly: false, perUser: false, resolve: unmatchedEmails },
-  { key: "inboundEmailFailures", label: "Inbound email errors", icon: "⚠️", linkTo: "/admin/inbound-email", adminOnly: false, perUser: false, resolve: inboundEmailFailures },
-  { key: "tripsDepartingSoon", label: "Trips departing soon", icon: "✈️", linkTo: "/admin/trips", adminOnly: false, perUser: false, resolve: tripsDepartingSoon },
-  { key: "tripsDepartingSoonIncomplete", label: "Trips departing soon, incomplete", icon: "⏳", linkTo: "/admin/trips", adminOnly: false, perUser: false, resolve: tripsDepartingSoonIncomplete },
-  { key: "overdueTripRequirements", label: "Overdue trip requirements", icon: "⏰", linkTo: "/admin/trips", adminOnly: false, perUser: false, resolve: overdueTripRequirements },
-  { key: "tripApplicationsPending", label: "Trip applications pending review", icon: "📝", linkTo: "/admin/trips", adminOnly: false, perUser: false, resolve: tripApplicationsPending },
-  { key: "newPrayerRequests", label: "New prayer requests", icon: "🙏", linkTo: "/admin/prayer-requests", adminOnly: false, perUser: true, resolve: newPrayerRequests },
-  { key: "newOneTimeNeeds", label: "New one-time needs", icon: "💝", linkTo: "/admin/one-time-needs", adminOnly: false, perUser: true, resolve: newOneTimeNeeds },
-  { key: "adminMfaDisabled", label: "Admin account missing MFA", icon: "🔐", linkTo: "/admin/settings/users", adminOnly: true, perUser: false, resolve: adminMfaDisabled },
-  { key: "timeToCheckBackups", label: "Time to check your backups", icon: "💾", linkTo: "/admin/settings/system-info", adminOnly: true, perUser: true, resolve: timeToCheckBackups },
-  { key: "dispatchSendFailures", label: "Dispatch send failures", icon: "🚫", linkTo: "/admin/dispatches", adminOnly: true, perUser: false, resolve: dispatchSendFailures },
-  { key: "whatsappConnectionDrop", label: "WhatsApp connection dropped", icon: "📵", linkTo: "/admin/settings/whatsapp", adminOnly: true, perUser: false, resolve: whatsappConnectionDrop },
+  { key: "dispatchesNeedingApproval", label: "Dispatches needing approval", icon: "📨", linkTo: "/admin/pending-dispatches", adminOnly: false, perUser: false, tripScoped: false, resolve: dispatchesNeedingApproval },
+  { key: "unmatchedEmails", label: "Unmatched emails", icon: "✉️", linkTo: "/admin/inbound-email", adminOnly: false, perUser: false, tripScoped: false, resolve: unmatchedEmails },
+  { key: "inboundEmailFailures", label: "Inbound email errors", icon: "⚠️", linkTo: "/admin/inbound-email", adminOnly: false, perUser: false, tripScoped: false, resolve: inboundEmailFailures },
+  { key: "tripsDepartingSoon", label: "Trips departing soon", icon: "✈️", linkTo: "/admin/trips", adminOnly: false, perUser: false, tripScoped: true, resolve: tripsDepartingSoon },
+  { key: "tripsDepartingSoonIncomplete", label: "Trips departing soon, incomplete", icon: "⏳", linkTo: "/admin/trips", adminOnly: false, perUser: false, tripScoped: true, resolve: tripsDepartingSoonIncomplete },
+  { key: "overdueTripRequirements", label: "Overdue trip requirements", icon: "⏰", linkTo: "/admin/trips", adminOnly: false, perUser: false, tripScoped: true, resolve: overdueTripRequirements },
+  { key: "tripApplicationsPending", label: "Trip applications pending review", icon: "📝", linkTo: "/admin/trips", adminOnly: false, perUser: false, tripScoped: true, resolve: tripApplicationsPending },
+  { key: "newPrayerRequests", label: "New prayer requests", icon: "🙏", linkTo: "/admin/prayer-requests", adminOnly: false, perUser: true, tripScoped: false, resolve: newPrayerRequests },
+  { key: "newOneTimeNeeds", label: "New one-time needs", icon: "💝", linkTo: "/admin/support/needs", adminOnly: false, perUser: true, tripScoped: false, resolve: newOneTimeNeeds },
+  { key: "adminMfaDisabled", label: "Admin account missing MFA", icon: "🔐", linkTo: "/admin/settings/users", adminOnly: true, perUser: false, tripScoped: false, resolve: adminMfaDisabled },
+  { key: "timeToCheckBackups", label: "Time to check your backups", icon: "💾", linkTo: "/admin/settings/system-info", adminOnly: true, perUser: true, tripScoped: false, resolve: timeToCheckBackups },
+  { key: "dispatchSendFailures", label: "Dispatch send failures", icon: "🚫", linkTo: "/admin/pending-dispatches", adminOnly: true, perUser: false, tripScoped: false, resolve: dispatchSendFailures },
+  { key: "whatsappConnectionDrop", label: "WhatsApp connection dropped", icon: "📵", linkTo: "/admin/settings/whatsapp", adminOnly: true, perUser: false, tripScoped: false, resolve: whatsappConnectionDrop },
 ];
 
 // Resolves every category this role may see, with per-user seen-state
 // already applied -- the one function the route calls.
 async function resolveNotificationSummary({ userId, role, scopeTripId = null }) {
-  const visible = CATEGORIES.filter((c) => (c.adminOnly ? role === "admin" : true));
+  const visible = CATEGORIES.filter((c) => {
+    if (c.adminOnly) return role === "admin";
+    if (role === "tripLeader") return c.tripScoped;
+    return true;
+  });
   const results = await Promise.all(
     visible.map(async (c) => {
-      const { count, latest } = await c.resolve({ userId }, scopeTripId);
+      const { count, latest, linkTo } = await c.resolve({ userId }, scopeTripId);
       let isNew;
       if (c.perUser) {
         // The count itself is already "new since this user looked" --
@@ -257,7 +279,7 @@ async function resolveNotificationSummary({ userId, role, scopeTripId = null }) 
         const seenAt = await getSeenAt(userId, c.key);
         isNew = !!latest && (!seenAt || latest > seenAt);
       }
-      return { key: c.key, label: c.label, icon: c.icon, linkTo: c.linkTo, count, latest, isNew };
+      return { key: c.key, label: c.label, icon: c.icon, linkTo: linkTo || c.linkTo, count, latest, isNew };
     })
   );
   return results;
@@ -272,9 +294,32 @@ async function markCategorySeen(userId, category) {
   });
 }
 
+// For keys outside the bell's own CATEGORIES registry -- the Prayer
+// Requests/One-Time Needs list pages' own "new since your last visit to
+// this list" row highlighting (":listView" keys, prayerRequests.js/
+// supportNeeds.js) reuses this same table under a distinct key so it
+// doesn't collide with the bell's own "newPrayerRequests"/
+// "newOneTimeNeeds" row -- opening the bell already advances that one
+// before the list page ever renders, so the list needs its own,
+// independent timestamp. Never fed a client-supplied category string
+// (markCategorySeen above is what the client-facing /seen route uses,
+// and its CATEGORIES check is what keeps that one safe) -- only ever
+// called with a key the route file itself hardcodes.
+async function touchSeen(userId, category) {
+  if (!userId) return;
+  await prisma.notificationSeen.upsert({
+    where: { userId_category: { userId, category } },
+    create: { userId, category },
+    update: { seenAt: new Date() },
+  });
+}
+
 module.exports = {
   CATEGORIES,
+  SOON_DAYS,
   resolveNotificationSummary,
   markCategorySeen,
+  getSeenAt,
+  touchSeen,
   isRequirementFulfilledForParticipant,
 };

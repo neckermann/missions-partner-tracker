@@ -4,7 +4,7 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireAuth, requireRole, requireTripScope } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { sendRequirementNotificationEmail, emailParticipantSelect } = require("../utils/tripEmails");
 const { isMinorForTrip } = require("../utils/tripParticipantSchema");
@@ -12,6 +12,11 @@ const { isMinorForTrip } = require("../utils/tripParticipantSchema");
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
 router.use(requireFeature("trips"));
+
+async function tripIdOfRequirement(req) {
+  const row = await prisma.tripRequirement.findUnique({ where: { id: req.params.id }, select: { tripId: true } });
+  return row?.tripId;
+}
 
 // ---- Requirements (document or task, #252 generalization) ----
 
@@ -42,7 +47,11 @@ const REMINDER_NEEDS_DUE_DATE_ISSUE = {
   path: ["reminderLeadDays"],
 };
 
-router.post("/:id/requirements", requireRole("admin", "editor"), async (req, res, next) => {
+router.post(
+  "/:id/requirements",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope("id"),
+  async (req, res, next) => {
   try {
     const data = requirementSchema
       .refine(reminderNeedsDueDate, REMINDER_NEEDS_DUE_DATE_ISSUE)
@@ -70,7 +79,11 @@ router.post("/:id/requirements", requireRole("admin", "editor"), async (req, res
   }
 });
 
-router.put("/requirements/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.put(
+  "/requirements/:id",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfRequirement),
+  async (req, res, next) => {
   try {
     const data = requirementSchema
       .partial()
@@ -83,7 +96,11 @@ router.put("/requirements/:id", requireRole("admin", "editor"), async (req, res,
   }
 });
 
-router.delete("/requirements/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.delete(
+  "/requirements/:id",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfRequirement),
+  async (req, res, next) => {
   try {
     await prisma.tripRequirement.delete({ where: { id: req.params.id } });
     res.status(204).send();
@@ -100,7 +117,8 @@ router.delete("/requirements/:id", requireRole("admin", "editor"), async (req, r
 // reminder scheduler needs one.
 router.put(
   "/requirements/:id/participants/:participantId/complete",
-  requireRole("admin", "editor"),
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfRequirement),
   async (req, res, next) => {
     try {
       const { completed } = z.object({ completed: z.boolean() }).parse(req.body);

@@ -1,15 +1,35 @@
 import React, { Suspense } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar.jsx";
 import UpdateBanner from "./UpdateBanner.jsx";
 import BackupReminder from "./BackupReminder.jsx";
 import ErrorBoundary from "../ErrorBoundary.jsx";
+import useCurrentUser from "../../hooks/useCurrentUser.js";
 
 // Shared shell for every /admin/* route (list pages, detail pages, and
 // forms alike) — mounted once at the route level so the sidebar persists
 // across navigation instead of being re-declared per page.
 export default function AdminLayout() {
   const location = useLocation();
+  const { isTripLeader, scopedTripId, loading } = useCurrentUser();
+
+  // Trip Leader (role: "tripLeader") is a scoped guest -- their own
+  // trip's own subtree, plus a read-only look at that trip's one linked
+  // Partner (Partner Detail itself still enforces which one, server-
+  // side), nothing else. One check here instead of wrapping every other
+  // route individually -- every /admin/* route renders through this
+  // layout, so this is the single place that's guaranteed to see every
+  // navigation. The backend's own requireTripScope/requirePartnerQueryScope
+  // are still the real boundary (every route 403s on its own); this only
+  // keeps a Trip Leader from seeing a flash of the wrong page first.
+  if (!loading && isTripLeader) {
+    const allowed =
+      (scopedTripId && location.pathname.startsWith(`/admin/trips/${scopedTripId}`)) ||
+      location.pathname.startsWith("/admin/partners/");
+    if (!allowed) {
+      return <Navigate to={scopedTripId ? `/admin/trips/${scopedTripId}` : "/login"} replace />;
+    }
+  }
 
   return (
     <div className="admin-layout-wrapper">

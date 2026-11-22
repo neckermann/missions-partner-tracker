@@ -1,7 +1,7 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { matchesFileSignature } = require("../utils/fileSignature");
 const { sendStoredFile } = require("../utils/fileResponse");
@@ -66,7 +66,7 @@ const metaSchema = metaObjectSchema.refine(
 // own kind -- AdminPartnerFiles.jsx's "Show: Missionaries/Organizations"
 // filter was client-side-only before this; from/to filter receivedDate,
 // same range shape as prayerRequests.js/supportNeeds.js just added above.
-router.get("/", async (req, res, next) => {
+router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
@@ -198,10 +198,18 @@ router.post(
   requireFeature("aiExtraction"),
   async (req, res, next) => {
     try {
-      const record = await prisma.partnerFile.findUnique({ where: { id: req.params.id } });
-      if (!record) return res.status(404).json({ error: "Not found" });
+      // The file's bytes live in the split-off PartnerFileBytes table (see
+      // that model's own comment), not on PartnerFile itself -- same
+      // include GET /:id/download above already uses. Without it,
+      // record.bytes is always undefined and buildFileBlock's
+      // Buffer.from(undefined) throws on every single scan attempt.
+      const record = await prisma.partnerFile.findUnique({
+        where: { id: req.params.id },
+        include: { bytesRow: { select: { bytes: true } } },
+      });
+      if (!record?.bytesRow) return res.status(404).json({ error: "Not found" });
 
-      const suggestions = await extractRequestsFromFile(record);
+      const suggestions = await extractRequestsFromFile({ ...record, bytes: record.bytesRow.bytes });
       res.json(suggestions);
     } catch (err) {
       next(err);

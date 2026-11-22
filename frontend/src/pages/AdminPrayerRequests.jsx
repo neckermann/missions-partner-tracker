@@ -335,7 +335,23 @@ export default function AdminPrayerRequests() {
           {
             key: "entityName",
             label: "Partner",
-            render: (request) => <span style={{ fontWeight: 600 }}>{entityFor(request).name}</span>,
+            render: (request) => (
+              <>
+                <span style={{ fontWeight: 600 }}>{entityFor(request).name}</span>
+                {/* "New since your last visit to this list" -- a separate,
+                    per-user timestamp from the bell's own "newPrayerRequests"
+                    seen-state (see prayerRequests.js's own comment on why).
+                    Clears on this list's next load, not per-item. */}
+                {request.isNew && (
+                  <span
+                    className="status-pill good"
+                    style={{ marginLeft: "0.5rem", fontSize: "0.65rem" }}
+                  >
+                    New
+                  </span>
+                )}
+              </>
+            ),
           },
           {
             key: "category",

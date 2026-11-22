@@ -25,7 +25,13 @@ test.describe("Pending Dispatches", () => {
       data: { enabledFeatures: { ...current.enabledFeatures, outboundEmail: true } },
     });
 
-    const missionariesRes = await page.request.get("/api/partners?kind=missionary");
+    // restricted=false, same reasoning as helpers.js's own
+    // firstSelectablePartner -- a restricted partner's real name never
+    // reaches this (or any) dispatch-facing view (maskData.js), so
+    // asserting target.displayName against a row built from a restricted
+    // missionaries[0] fails on exactly the data this test never meant to
+    // exercise.
+    const missionariesRes = await page.request.get("/api/partners?kind=missionary&restricted=false");
     const missionaries = await missionariesRes.json();
     const target = missionaries[0];
 

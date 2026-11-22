@@ -1,10 +1,16 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { notifySupportNeedCreated, notifySupportNeedDecided } = require("../utils/dispatchRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
+const { getSeenAt, touchSeen } = require("../notifications/categories");
+
+// Same reasoning as prayerRequests.js's own LIST_VIEW_SEEN_KEY -- distinct
+// from the bell's "newOneTimeNeeds" row, since opening the bell already
+// advances that one before this list ever renders.
+const LIST_VIEW_SEEN_KEY = "newOneTimeNeeds:listView";
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -71,7 +77,7 @@ const supportNeedInclude = {
 // status/from/to mirror reports/oneTimeNeeds.js's own filtering exactly
 // (status derived from approvedAmount being null/not-null, same as there --
 // SupportNeed has no separate status column).
-router.get("/", async (req, res, next) => {
+router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
@@ -89,7 +95,17 @@ router.get("/", async (req, res, next) => {
       // createdAt as a tiebreaker -- see the same comment in prayerRequests.js.
       orderBy: [{ requestDate: "desc" }, { createdAt: "desc" }],
     });
-    res.json(records);
+
+    // Only the consolidated list view counts as "visiting the list" --
+    // see prayerRequests.js's identical comment on its own GET /.
+    if (req.query.partnerId) return res.json(records);
+    const seenAt = await getSeenAt(req.user.id, LIST_VIEW_SEEN_KEY);
+    const annotated = records.map((r) => ({
+      ...r,
+      isNew: !seenAt || new Date(r.createdAt) > seenAt,
+    }));
+    await touchSeen(req.user.id, LIST_VIEW_SEEN_KEY);
+    res.json(annotated);
   } catch (err) {
     next(err);
   }

@@ -1,7 +1,7 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
@@ -25,7 +25,7 @@ const adultSchema = z.object({
 const adultInclude = { partner: partnerRefSelect };
 
 // GET /api/adults?partnerId=
-router.get("/", async (req, res, next) => {
+router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);

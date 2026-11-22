@@ -5,14 +5,26 @@ import { useSettings } from "../../context/SettingsContext.jsx";
 import useCurrentUser from "../../hooks/useCurrentUser.js";
 import useNotifications from "../../hooks/useNotifications.js";
 
-// nav item key -> notification category key, for the two nav-badge spots
-// the plan calls out specifically (cheapest/most useful -- zero extra
-// clicks to see "there's something here"). Not every category needs a nav
-// badge; the bell below is the complete list.
-const NAV_BADGE_CATEGORY = {
-  pendingDispatches: "dispatchesNeedingApproval",
-  inboundEmail: "unmatchedEmails",
+// nav item key -> notification category key(s) worth a badge directly on
+// the nav link (zero extra clicks to see "there's something here"). Not
+// every category needs a nav badge; the bell below is the complete list.
+// "trips" sums all 4 trip-related categories into one badge for that
+// single nav link, rather than picking just the most urgent -- same
+// shape a Trip Leader's own minimal nav uses for their one trip's signal.
+const NAV_BADGE_CATEGORIES = {
+  pendingDispatches: ["dispatchesNeedingApproval"],
+  inboundEmail: ["unmatchedEmails"],
+  prayerRequests: ["newPrayerRequests"],
+  oneTimeNeeds: ["newOneTimeNeeds"],
+  trips: ["tripsDepartingSoon", "tripsDepartingSoonIncomplete", "overdueTripRequirements", "tripApplicationsPending"],
 };
+
+// Same convention as GitHub/Slack notification badges -- a 3+ digit count
+// just stretches a pill meant to be a small circle; the real number is
+// still available via the badge's own title/aria-label.
+function badgeText(count) {
+  return count > 99 ? "99+" : String(count);
+}
 
 function NotificationBell({ categories, totalUnread, markSeen }) {
   const [open, setOpen] = useState(false);
@@ -59,7 +71,11 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
         aria-expanded={open}
       >
         🔔
-        {totalUnread > 0 && <span className="admin-sidebar-bell-badge">{totalUnread}</span>}
+        {totalUnread > 0 && (
+          <span className="admin-sidebar-bell-badge" title={`${totalUnread} unread`}>
+            {badgeText(totalUnread)}
+          </span>
+        )}
       </button>
       {open && coords && (
         <div
@@ -189,26 +205,78 @@ function SidebarLink({ to, label, end, icon, badgeCount }) {
     >
       {icon && <span aria-hidden="true">{icon}</span>}
       <span className="sb-label">{label}</span>
-      {badgeCount > 0 && <span className="admin-sidebar-nav-badge">{badgeCount}</span>}
+      {badgeCount > 0 && (
+        <span className="admin-sidebar-nav-badge" title={`${badgeCount}`}>
+          {badgeText(badgeCount)}
+        </span>
+      )}
     </RouterNavLink>
   );
 }
 
+// A Trip Leader (role: "tripLeader") is a scoped guest -- their own
+// trip, logged out, nothing else. No settings gear, no "My Account"
+// (that guest tier has no self-service password change, see
+// AccountSettings.jsx), no partner/prayer/needs/trips nav items, no
+// collapse toggle (nothing here to need the extra room for).
+function TripLeaderSidebar({ scopedTrip, title }) {
+  const navigate = useNavigate();
+  return (
+    <aside className="admin-sidebar no-print">
+      <div className="admin-sidebar-title">
+        <h1
+          className="admin-sidebar-title-text"
+          title={title}
+          style={{ fontSize: "inherit", fontWeight: "inherit", margin: 0 }}
+        >
+          {title}
+        </h1>
+      </div>
+      <nav className="admin-sidebar-nav">
+        {scopedTrip && (
+          <RouterNavLink to={`/admin/trips/${scopedTrip.id}`} className={({ isActive }) => (isActive ? "active" : undefined)}>
+            <span aria-hidden="true">✈️</span>
+            <span className="sb-label">{scopedTrip.label}</span>
+          </RouterNavLink>
+        )}
+      </nav>
+      <div className="admin-sidebar-footer">
+        <button
+          type="button"
+          title="Log out"
+          onClick={async () => {
+            await logout();
+            navigate("/login");
+          }}
+        >
+          <span aria-hidden="true">🚪</span>
+          <span className="sb-label">Log out</span>
+        </button>
+      </div>
+    </aside>
+  );
+}
+
 export default function AdminSidebar() {
-  const { isAdmin } = useCurrentUser();
+  const { isAdmin, isTripLeader, scopedTrip } = useCurrentUser();
   const { categories, totalUnread, markSeen } = useNotifications();
   const categoryByKey = new Map(categories.map((c) => [c.key, c]));
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
   const navigate = useNavigate();
   const location = useLocation();
   const { churchName, partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
+  const title = churchName ? `${churchName} Admin` : "Missions Team Admin";
+
+  if (isTripLeader) return <TripLeaderSidebar scopedTrip={scopedTrip} title={title} />;
+
   const navItems = buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures).map((item) => {
-    const categoryKey = NAV_BADGE_CATEGORY[item.key];
-    const badgeCount = categoryKey ? categoryByKey.get(categoryKey)?.count : undefined;
+    const categoryKeys = NAV_BADGE_CATEGORIES[item.key];
+    const badgeCount = categoryKeys
+      ? categoryKeys.reduce((sum, key) => sum + (categoryByKey.get(key)?.count || 0), 0)
+      : undefined;
     return badgeCount ? { ...item, badgeCount } : item;
   });
   const siteAdminLinks = buildSiteAdminLinks(enabledFeatures);
-  const title = churchName ? `${churchName} Admin` : "Missions Team Admin";
   const inSiteAdmin = location.pathname.startsWith("/admin/settings");
 
   function toggleCollapsed() {

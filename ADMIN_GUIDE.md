@@ -213,8 +213,10 @@ A few things worth knowing operationally:
   [USER_GUIDE.md § Your account settings](USER_GUIDE.md#your-account-settings)
   for the user-facing flow.
 
-For the app's role model itself (`viewer`/`editor`/`admin`), see
-[USER_GUIDE.md § Understanding your role](USER_GUIDE.md#understanding-your-role).
+For the app's role model itself (`viewer`/`editor`/`admin`, plus the
+narrow Trip Leader guest tier scoped to a single trip), see
+[USER_GUIDE.md § Understanding your role](USER_GUIDE.md#understanding-your-role)
+and [SPEC.md § 5](SPEC.md#5-auth--permissions-model).
 
 ## File storage
 

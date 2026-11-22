@@ -332,12 +332,12 @@ the shared Email settings page (reachable if either direction is on).
 
 ## 5. Auth & permissions model
 
-**"Auth is the boundary."** Any logged-in account — any role — reads
-every partner's full, unmasked record, including restricted ones (see
-`reports.js`'s own comment: gating a read to admin-only would be the
-*first* read in the app gated by role, "contradicting a decision made
-deliberately rather than by omission"). Roles exist to gate **writes**,
-not visibility:
+**"Auth is the boundary."** Any logged-in account holding one of the 3
+full roles (`admin`/`editor`/`viewer`) reads every partner's full,
+unmasked record, including restricted ones (see `reports.js`'s own
+comment: gating a read to admin-only would be the *first* read in the
+app gated by role, "contradicting a decision made deliberately rather
+than by omission"). Roles exist to gate **writes**, not visibility:
 
 | Role | Can read | Can write |
 |---|---|---|
@@ -356,8 +356,42 @@ not visibility:
   provider, which in a "any account reads everything" app was judged too
   wide; `authProvider` stays on the schema so `local`-only password auth
   can keep refusing anything else.
-- **No per-resource ownership model** — there is no "editor can only edit
-  their own partners" concept anywhere in the schema or routes.
+- **No per-resource ownership model among the 3 full roles** — there is
+  no "editor can only edit their own partners" concept anywhere the 3
+  full roles are concerned.
+
+### 5.1 Trip Leader — a scoped guest, not a 4th full role
+
+`tripLeader` is a deliberately narrow 4th account tier, not a
+reconsideration of "auth is the boundary" above and not a reduction of
+any existing role's visibility — `admin`/`editor`/`viewer` are unchanged.
+It's a real login (`User.role: "tripLeader"`, same session/password
+mechanism as every other account — no bespoke portal), scoped to exactly
+one `Trip` via `User.scopedTripId` (`onDelete: Cascade` — the guest
+account only exists because that trip does), with an optional
+`User.expiresAt` enforced in `requireAuth.js` the same way `!active` is
+(blocks the session once past; never auto-deletes the row).
+
+| Can read | Can write |
+|---|---|
+| Their own scoped trip's own content; that trip's one linked `Partner` (read-only) | Editor-equivalent create/update/delete on their own trip's meetings/requirements/budget lines/flight segments/documents/contributions/participants/applications, matching the editor-delete exceptions above. Never the Trip entity's own delete/clone/generate-application-link (those stay admin-only or admin+editor-only even on their own trip), never anything on the Partner |
+
+Everything else in the app — the Partner directory, every other trip,
+Prayer Requests, One-Time Needs, Monthly Support, Reports, Booklet,
+Inbound Email, Pending Dispatches, Settings, Users, Account Settings — is
+a flat 403. Enforced server-side by two middleware added to
+`requireAuth.js`: `requireTripScope(tripIdResolver)` (a no-op for every
+other role; 403s a `tripLeader` whose request resolves to a different
+trip than their own — applied to every trip-scoped route, reads
+included) and `requirePartnerQueryScope` (same no-op/403 shape, for a
+Partner sub-resource's own `?partnerId=` read — prayer requests,
+one-time needs, support entries, family members, furloughs, church
+visits, links, languages, files, trips-by-partner — refusing a query
+with no `partnerId` filter at all, which would otherwise return every
+partner's rows). `AdminLayout.jsx` mirrors this client-side (redirects a
+`tripLeader` away from any path outside their own trip or `/partners/*`)
+purely so they never see a flash of the wrong page before the backend's
+own 403 lands — the frontend check is not the real boundary.
 
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 

@@ -1,10 +1,18 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { notifyPrayerRequestCreated, notifyPrayerRequestAnswered } = require("../utils/dispatchRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
+const { getSeenAt, touchSeen } = require("../notifications/categories");
+
+// Distinct from the bell's own "newPrayerRequests" NotificationSeen row --
+// see categories.js's own comment on touchSeen for why this needs its own
+// key. "Since your last visit to this list," not per-item persistent
+// state -- next visit clears every highlight from this one, same as
+// opening the bell clears its own.
+const LIST_VIEW_SEEN_KEY = "newPrayerRequests:listView";
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -82,7 +90,7 @@ const prayerRequestInclude = {
 // from/to mirror reports/prayerRequests.js's own date-range filtering --
 // same Prisma where-clause shape, now also usable from the live list page's
 // FilterBar, not just the read-only Report.
-router.get("/", async (req, res, next) => {
+router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
@@ -101,7 +109,19 @@ router.get("/", async (req, res, next) => {
       // otherwise which one lands in the visible slice isn't guaranteed.
       orderBy: [{ dateReceived: "desc" }, { createdAt: "desc" }],
     });
-    res.json(records);
+
+    // Only the real consolidated list view (no partnerId filter) counts
+    // as "visiting the list" -- a single partner's own embedded prayer
+    // section hitting this same route shouldn't advance (or read) this
+    // timestamp, since that's a different view entirely.
+    if (req.query.partnerId) return res.json(records);
+    const seenAt = await getSeenAt(req.user.id, LIST_VIEW_SEEN_KEY);
+    const annotated = records.map((r) => ({
+      ...r,
+      isNew: !seenAt || new Date(r.createdAt) > seenAt,
+    }));
+    await touchSeen(req.user.id, LIST_VIEW_SEEN_KEY);
+    res.json(annotated);
   } catch (err) {
     next(err);
   }

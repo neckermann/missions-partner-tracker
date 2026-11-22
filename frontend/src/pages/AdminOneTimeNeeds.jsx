@@ -309,7 +309,19 @@ export default function AdminOneTimeNeeds() {
           {
             key: "entityName",
             label: "Partner",
-            render: (need) => <span style={{ fontWeight: 600 }}>{entityFor(need).name}</span>,
+            render: (need) => (
+              <>
+                <span style={{ fontWeight: 600 }}>{entityFor(need).name}</span>
+                {/* "New since your last visit to this list" -- see
+                    supportNeeds.js's own comment; a separate, per-user
+                    timestamp from the bell's "newOneTimeNeeds" seen-state. */}
+                {need.isNew && (
+                  <span className="status-pill good" style={{ marginLeft: "0.5rem", fontSize: "0.65rem" }}>
+                    New
+                  </span>
+                )}
+              </>
+            ),
           },
           {
             key: "description",

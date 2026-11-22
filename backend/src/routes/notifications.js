@@ -11,7 +11,11 @@ router.use(requireAuth);
 
 router.get("/summary", async (req, res, next) => {
   try {
-    const categories = await resolveNotificationSummary({ userId: req.user.id, role: req.user.role });
+    const categories = await resolveNotificationSummary({
+      userId: req.user.id,
+      role: req.user.role,
+      scopeTripId: req.user.role === "tripLeader" ? req.user.scopedTripId : null,
+    });
     res.json({ categories });
   } catch (err) {
     next(err);

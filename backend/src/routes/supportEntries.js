@@ -1,7 +1,7 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 
@@ -35,7 +35,7 @@ const supportEntryInclude = {
 // first) -- full history, not just each partner's current amount. Backs
 // both the consolidated Monthly Support page and the support section on a
 // single partner's page.
-router.get("/", async (req, res, next) => {
+router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);

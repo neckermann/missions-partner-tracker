@@ -469,6 +469,33 @@ async function sanitizeUser(user) {
     });
     partnerIds = rows.map((r) => r.partnerId);
   }
+  // Trip Leader guest tier only -- a short label for the sidebar's own
+  // minimal nav (AdminSidebar.jsx), not the full Trip record. Looked up
+  // here rather than left for the frontend to fetch separately, since a
+  // tripLeader has no route that would otherwise ever hand them this.
+  let scopedTrip = null;
+  if (user.scopedTripId) {
+    const trip = await prisma.trip.findUnique({
+      where: { id: user.scopedTripId },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        partner: { select: { displayName: true, fieldDisplayName: true } },
+      },
+    });
+    if (trip) {
+      scopedTrip = {
+        id: trip.id,
+        label:
+          trip.name ||
+          trip.type ||
+          trip.partner?.fieldDisplayName ||
+          trip.partner?.displayName ||
+          "Your trip",
+      };
+    }
+  }
   return {
     id: user.id,
     email: user.email,
@@ -480,6 +507,8 @@ async function sanitizeUser(user) {
     cadence: user.cadence,
     allPartners: user.allPartners,
     followedPartnerIds: partnerIds,
+    scopedTripId: user.scopedTripId,
+    scopedTrip,
   };
 }
 

@@ -194,13 +194,16 @@ a {
   position: absolute;
   top: -5px;
   right: -5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.56rem;
   padding: 0 4px;
-  line-height: 1.4;
   background: var(--brand-highlight-color, #a6540f);
   color: white;
   border-radius: 999px;
   min-width: 14px;
+  height: 14px;
   text-align: center;
 }
 .admin-sidebar-bell-dropdown {
@@ -242,6 +245,9 @@ a {
 }
 .admin-sidebar-nav-badge {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.68rem;
   font-weight: 600;
   background: var(--brand-highlight-color, #a6540f);
@@ -249,6 +255,7 @@ a {
   border-radius: 999px;
   padding: 0 5px;
   min-width: 14px;
+  height: 14px;
   text-align: center;
 }
 .admin-sidebar-nav {

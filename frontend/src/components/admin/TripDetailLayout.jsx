@@ -21,7 +21,13 @@ export default function TripDetailLayout() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
-  const { canWrite, isAdmin } = useCurrentUser();
+  const { canWrite: globalCanWrite, isAdmin, isTripLeader, scopedTripId } = useCurrentUser();
+  // A Trip Leader's global canWrite is false (role is neither admin nor
+  // editor) -- but on their own scoped trip they have editor-equivalent
+  // write access (the backend's own requireTripScope already enforces
+  // this per route; this just makes the UI match it instead of showing
+  // every popup here as read-only for them).
+  const canWrite = globalCanWrite || (isTripLeader && id === scopedTripId);
   const [trip, setTrip] = useState(null);
   const [applications, setApplications] = useState([]);
   const [questionLibrary, setQuestionLibrary] = useState([]);

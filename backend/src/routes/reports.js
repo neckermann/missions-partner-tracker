@@ -1,6 +1,6 @@
 const express = require("express");
 const prisma = require("../prismaClient");
-const { requireAuth } = require("../middleware/requireAuth");
+const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
 const { getReport, listReports } = require("../reports");
@@ -9,12 +9,18 @@ const { resolveToday } = require("../utils/today");
 
 const router = express.Router();
 
-// Reads, so no role gate. Any account that can sign in already reads every
-// partner's full record -- see ADMIN_GUIDE.md § Who can see what. Roles
-// govern writes, and a report writes nothing. Gating this to admins would
-// be the first read in the app gated by role, and would contradict a
-// decision made deliberately rather than by omission.
+// Reads, so no role gate among the 3 real roles. Any account that can
+// sign in already reads every partner's full record -- see
+// ADMIN_GUIDE.md § Who can see what. Roles govern writes, and a report
+// writes nothing. Gating this to admins would be the first read in the
+// app gated by role, and would contradict a decision made deliberately
+// rather than by omission.
+//
+// Trip Leader (role: "tripLeader") is a different kind of exception, not
+// a re-litigation of that decision -- a scoped guest, not a full account,
+// with no business pulling a cross-partner aggregate export of anything.
 router.use(requireAuth);
+router.use(requireRole("admin", "editor", "viewer"));
 router.use(requireFeature("reports"));
 
 // GET /api/reports -- the picker: what reports exist, their filter fields

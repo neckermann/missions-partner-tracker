@@ -96,7 +96,16 @@ export default function AdminUsers() {
             <tr key={u.id}>
               <td>{u.email}</td>
               <td>{[u.firstName, u.lastName].filter(Boolean).join(" ")}</td>
-              <td>{u.role}</td>
+              <td>
+                {u.role === "tripLeader" ? "Trip Leader" : u.role}
+                {u.scopedTrip && (
+                  <div style={{ fontSize: "0.75rem", color: "#888" }}>
+                    {[u.scopedTrip.partner?.displayName, u.scopedTrip.name || u.scopedTrip.type]
+                      .filter(Boolean)
+                      .join(" — ")}
+                  </div>
+                )}
+              </td>
               <td>{u.authProvider}</td>
               <td>{u.active ? "Yes" : "No"}</td>
               <td>

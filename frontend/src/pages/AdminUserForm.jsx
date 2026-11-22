@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { fetchUser, createUser, updateUser } from "../api/client.js";
+import { fetchUser, createUser, updateUser, fetchTrips } from "../api/client.js";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import { toDateInputValue } from "../utils/format.js";
 
 const emptyForm = {
   email: "",
@@ -12,6 +13,8 @@ const emptyForm = {
   active: true,
   password: "",
   mfaSetupRequired: false,
+  scopedTripId: "",
+  expiresAt: "",
 };
 
 export default function AdminUserForm() {
@@ -29,13 +32,29 @@ export default function AdminUserForm() {
   // submittable with) those same blank defaults.
   const [loading, setLoading] = useState(isEdit);
   const [loadError, setLoadError] = useState("");
+  // Only meaningful when role is "tripLeader" -- loaded unconditionally
+  // (not just once that role is picked) so switching the dropdown to it
+  // doesn't need a second round-trip first.
+  const [trips, setTrips] = useState([]);
+
+  useEffect(() => {
+    fetchTrips().then(setTrips).catch(console.error);
+  }, []);
 
   useEffect(() => {
     if (isEdit) {
       setLoading(true);
       setLoadError("");
       fetchUser(id)
-        .then((u) => setForm({ ...emptyForm, ...u, password: "" }))
+        .then((u) =>
+          setForm({
+            ...emptyForm,
+            ...u,
+            password: "",
+            scopedTripId: u.scopedTripId || "",
+            expiresAt: toDateInputValue(u.expiresAt) || "",
+          })
+        )
         .catch(() => setLoadError("Couldn't load this user."))
         .finally(() => setLoading(false));
     }
@@ -50,7 +69,11 @@ export default function AdminUserForm() {
     setSaving(true);
     setError("");
 
-    const payload = { ...form };
+    const payload = {
+      ...form,
+      scopedTripId: form.role === "tripLeader" ? form.scopedTripId || null : null,
+      expiresAt: form.role === "tripLeader" && form.expiresAt ? form.expiresAt : null,
+    };
     // Only meaningful when editing: a blank field means "keep the current
     // password". Creating requires one (enforced by the input and the API).
     if (!payload.password) delete payload.password;
@@ -133,9 +156,46 @@ export default function AdminUserForm() {
                 <option value="admin">Admin</option>
                 <option value="editor">Editor</option>
                 <option value="viewer">Viewer</option>
+                <option value="tripLeader">Trip Leader (scoped guest)</option>
               </select>
             </label>
           </div>
+
+          {form.role === "tripLeader" && (
+            <div className="form-grid" style={{ marginTop: "1rem" }}>
+              <label>
+                Trip
+                <select
+                  value={form.scopedTripId}
+                  onChange={(e) => update("scopedTripId", e.target.value)}
+                  required
+                >
+                  <option value="">Choose a trip…</option>
+                  {trips.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {[t.partner?.displayName, t.name || t.type, t.startDate?.slice(0, 10)]
+                        .filter(Boolean)
+                        .join(" — ")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Access expires (optional)
+                <input
+                  type="date"
+                  value={form.expiresAt}
+                  onChange={(e) => update("expiresAt", e.target.value)}
+                />
+              </label>
+            </div>
+          )}
+          {form.role === "tripLeader" && (
+            <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
+              A scoped guest login: read/write access to this one trip's own content and a read-only
+              look at its linked partner, nothing else in the app.
+            </p>
+          )}
 
           {isEdit && (
             <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>

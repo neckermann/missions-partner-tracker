@@ -232,6 +232,16 @@ export default function AdminPartnerDetail() {
   const [prayerDetail, setPrayerDetail] = useState(null);
   const [needDetail, setNeedDetail] = useState(null);
   const [fileDetail, setFileDetail] = useState(null);
+  // Which specific record "Mark Answered"/"Record Decision" targets --
+  // previously these actions were hardcoded to prayerRequests[0]/
+  // needRequests[0] (the single most recent item), which silently acted on
+  // the wrong record whenever more than one item was still undecided. Set
+  // from the item that was actually clicked (either the summary card's own
+  // list, or the view popup's own "Record Decision"/"Mark Answered"
+  // button), same as AdminOneTimeNeeds.jsx/AdminPrayerRequests.jsx already
+  // do it correctly.
+  const [answeringPrayer, setAnsweringPrayer] = useState(null);
+  const [decidingNeed, setDecidingNeed] = useState(null);
 
   // React Router keeps this same component instance mounted across a
   // /partners/:id param change -- it doesn't remount. reload() is passed
@@ -395,14 +405,14 @@ export default function AdminPartnerDetail() {
     await reload();
   }
 
-  function openMarkAnswered() {
+  function openMarkAnswered(request) {
+    setAnsweringPrayer(request);
     setPrayerAnswerForm({ dateAnswered: todayInputValue(), answeredNote: "" });
     setActiveModal("answer-prayer");
   }
 
   async function submitMarkAnswered() {
-    const request = collections.prayerRequests[0];
-    await updatePrayerRequest(request.id, {
+    await updatePrayerRequest(answeringPrayer.id, {
       status: "answered",
       dateAnswered: prayerAnswerForm.dateAnswered,
       answeredNote: prayerAnswerForm.answeredNote || null,
@@ -426,6 +436,9 @@ export default function AdminPartnerDetail() {
         includeInBooklet: item.includeInBooklet,
         notes: item.notes || "",
         sourceFileId: item.sourceFileId || null,
+        status: item.status,
+        dateAnswered: item.dateAnswered,
+        answeredNote: item.answeredNote,
       },
     });
     setActiveModal("view-prayer");
@@ -483,14 +496,14 @@ export default function AdminPartnerDetail() {
     await reload();
   }
 
-  function openRecordDecision() {
+  function openRecordDecision(need) {
+    setDecidingNeed(need);
     setNeedDecisionForm({ approvedAmount: "", approvedDate: "", decisionNote: "" });
     setActiveModal("decide-need");
   }
 
   async function submitRecordDecision() {
-    const need = collections.needRequests[0];
-    await updateSupportNeed(need.id, {
+    await updateSupportNeed(decidingNeed.id, {
       approvedAmount: Number(needDecisionForm.approvedAmount),
       approvedDate: needDecisionForm.approvedDate,
       decisionNote: needDecisionForm.decisionNote || null,
@@ -507,6 +520,9 @@ export default function AdminPartnerDetail() {
         requestDate: toDateInputValue(item.requestDate),
         notes: item.notes || "",
         sourceFileId: item.sourceFileId || null,
+        approvedAmount: item.approvedAmount,
+        approvedDate: item.approvedDate,
+        decisionNote: item.decisionNote,
       },
     });
     setActiveModal("view-need");
@@ -1316,16 +1332,7 @@ export default function AdminPartnerDetail() {
                 remaining={needRequestsLoadMore.remaining}
                 onShowMore={needRequestsLoadMore.showMore}
                 viewAllTo={`/admin/support/needs?partnerId=${p.id}`}
-                actions={
-                  canEdit
-                    ? [
-                        { label: "+ Add", onClick: openAddNeed },
-                        ...(collections.needRequests[0] && collections.needRequests[0].approvedAmount == null
-                          ? [{ label: "Record Decision", onClick: openRecordDecision }]
-                          : []),
-                      ]
-                    : []
-                }
+                actions={canEdit ? [{ label: "+ Add", onClick: openAddNeed }] : []}
               />
             )}
           </div>
@@ -1488,12 +1495,7 @@ export default function AdminPartnerDetail() {
               viewAllTo={`/admin/prayer-requests?partnerId=${p.id}`}
               actions={
                 canEdit
-                  ? [
-                      { label: "+ Add", onClick: openAddPrayerRequest },
-                      ...(collections.prayerRequests[0] && collections.prayerRequests[0].status !== "answered"
-                        ? [{ label: "Mark Answered", onClick: openMarkAnswered }]
-                        : []),
-                    ]
+                  ? [{ label: "+ Add", onClick: openAddPrayerRequest }]
                   : []
               }
             />
@@ -1617,6 +1619,20 @@ export default function AdminPartnerDetail() {
               files={collections.files}
               mode="edit"
             />
+            {prayerDetail.form.status !== "answered" && (
+              <button
+                type="button"
+                className="btn secondary small"
+                style={{ marginTop: "0.5rem" }}
+                onClick={() => {
+                  const request = collections.prayerRequests.find((r) => r.id === prayerDetail.id);
+                  closeModal();
+                  openMarkAnswered(request);
+                }}
+              >
+                Mark Answered
+              </button>
+            )}
           </QuickActionModal>
         ) : (
           <Modal title="Prayer Request" onClose={closeModal}>
@@ -1624,6 +1640,17 @@ export default function AdminPartnerDetail() {
             <Field label="Date Received" value={formatDateLong(prayerDetail.form.dateReceived)} />
             <Field label="Prayer Request" value={prayerDetail.form.requestText} />
             <Field label="Admin Notes" value={prayerDetail.form.notes} />
+            <Field
+              label="Answered"
+              value={
+                prayerDetail.form.status === "answered"
+                  ? `${formatDateLong(prayerDetail.form.dateAnswered)}${
+                      prayerDetail.form.answeredNote ? ` -- ${prayerDetail.form.answeredNote}` : ""
+                    }`
+                  : "Not yet answered"
+              }
+              showEmpty
+            />
           </Modal>
         ))}
 
@@ -1679,6 +1706,20 @@ export default function AdminPartnerDetail() {
         (canEdit ? (
           <QuickActionModal title="One-Time Need" onClose={closeModal} onSubmit={submitNeedDetail}>
             <SupportNeedFormFields form={needDetail.form} setForm={setNeedDetailForm} files={collections.files} mode="edit" />
+            {needDetail.form.approvedAmount == null && (
+              <button
+                type="button"
+                className="btn secondary small"
+                style={{ marginTop: "0.5rem" }}
+                onClick={() => {
+                  const need = collections.needRequests.find((n) => n.id === needDetail.id);
+                  closeModal();
+                  openRecordDecision(need);
+                }}
+              >
+                Record Decision
+              </button>
+            )}
           </QuickActionModal>
         ) : (
           <Modal title="One-Time Need" onClose={closeModal}>
@@ -1686,6 +1727,16 @@ export default function AdminPartnerDetail() {
             <Field label="Requested Amount" value={formatCurrency(needDetail.form.requestedAmount)} />
             <Field label="Request Date" value={formatDateLong(needDetail.form.requestDate)} />
             <Field label="Notes" value={needDetail.form.notes} />
+            <Field
+              label="Approved"
+              value={
+                needDetail.form.approvedAmount != null
+                  ? `${formatCurrency(needDetail.form.approvedAmount)} on ${formatDateLong(needDetail.form.approvedDate)}`
+                  : "Not yet decided"
+              }
+              showEmpty
+            />
+            <Field label="Decision Note" value={needDetail.form.decisionNote} />
           </Modal>
         ))}
 

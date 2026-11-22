@@ -7,7 +7,7 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireAuth, requireRole, requireTripScope, requirePartnerQueryScope } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { generateShareToken } = require("../utils/tripAccessToken");
 const { sendTripDatesUpdateEmail } = require("../utils/tripEmails");
@@ -15,6 +15,23 @@ const { APPLICATION_QUESTION_SCHEMA } = require("../utils/applicationQuestions")
 const { sendStoredFile } = require("../utils/fileResponse");
 const { tripDocumentUpload } = require("../utils/upload");
 const { participantSchema, defaultParticipantGoal } = require("../utils/tripParticipantSchema");
+const { SOON_DAYS, isRequirementFulfilledForParticipant } = require("../notifications/categories");
+
+// Lookups for routes addressed by a child record's own id, not the trip's
+// -- requireTripScope needs the owning trip id before it can check it
+// against a Trip Leader's own scopedTripId.
+async function tripIdOfBudgetLine(req) {
+  const row = await prisma.tripBudgetLine.findUnique({ where: { id: req.params.id }, select: { tripId: true } });
+  return row?.tripId;
+}
+async function tripIdOfFlightSegment(req) {
+  const row = await prisma.tripFlightSegment.findUnique({ where: { id: req.params.id }, select: { tripId: true } });
+  return row?.tripId;
+}
+async function tripIdOfDocument(req) {
+  const row = await prisma.tripDocument.findUnique({ where: { id: req.params.id }, select: { tripId: true } });
+  return row?.tripId;
+}
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -104,7 +121,18 @@ const tripInclude = {
   // completedAt/reminderSentAt (#252 generalization) -- needed wherever
   // a task's fulfillment is shown, which a document-only anti-join can't
   // answer.
-  requirements: { include: { requirementStatuses: true } },
+  // documents:true added alongside requirementStatuses so the list route
+  // (GET /) can reuse the exact same isRequirementFulfilledForParticipant
+  // check the notification registry uses, instead of a second
+  // reimplementation of "is this requirement actually done" drifting out
+  // of sync with it.
+  requirements: { include: { requirementStatuses: true, documents: true } },
+  // Pending-only, same filter the detail route (GET /:id) already
+  // applies to this same relation -- needed on the plain list route too
+  // now, for its own "has a pending application" per-row badge (see
+  // annotateTripFlags below). An approved/declined application has
+  // nothing left to flag.
+  applications: { where: { status: "pending" }, select: { id: true, tripId: true, submittedAt: true } },
   // Added when AdminTripDashboard.jsx (issue #259) folded into
   // AdminTrips.jsx -- that page's own "Raised" column needed this same
   // amount-only projection, previously fetched only by the now-removed
@@ -117,8 +145,52 @@ const tripInclude = {
   },
 };
 
-// GET /api/trips?partnerId=&type=&year=
-router.get("/", async (req, res, next) => {
+// Per-row indicators for the plain trip list (AdminTrips.jsx) -- reuses
+// the exact same rules the in-app notification registry uses (never a
+// second reimplementation of "is this requirement actually done"), so a
+// trip flagged here is always the same trip that category would surface.
+// Exists because a notification category's own linkTo can only point at
+// one specific trip when exactly one is responsible (see categories.js);
+// when several are, it falls back to this plain list, which then needs
+// its own way to show which rows those are.
+function annotateTripFlags(trip) {
+  const now = new Date();
+  const soonBy = new Date(now.getTime() + SOON_DAYS * 24 * 60 * 60 * 1000);
+  const departingSoon =
+    trip.status !== "completed" &&
+    trip.startDate &&
+    new Date(trip.startDate) > now &&
+    new Date(trip.startDate) <= soonBy;
+  const hasIncompleteRequirement = trip.requirements.some((req) =>
+    trip.participants.some(
+      (participant) => !isRequirementFulfilledForParticipant(req, participant.id, req.documents)
+    )
+  );
+  const hasOverdueRequirement = trip.requirements.some(
+    (req) =>
+      req.dueAt &&
+      new Date(req.dueAt) < now &&
+      trip.participants.some(
+        (participant) => !isRequirementFulfilledForParticipant(req, participant.id, req.documents)
+      )
+  );
+  return {
+    ...trip,
+    hasPendingApplications: (trip.applications || []).length > 0,
+    hasOverdueRequirement,
+    departingSoonIncomplete: departingSoon && hasIncompleteRequirement,
+  };
+}
+
+// GET /api/trips?partnerId=&type=&year= -- admin/editor/viewer read the
+// full cross-trip list unfiltered, same as always. A Trip Leader has no
+// business with that, but Partner Detail's own "Mission Trips" section
+// (AdminPartnerDetail.jsx) calls this same route with ?partnerId= for
+// the one Partner they ARE allowed to view -- so this needs the same
+// partner-scoped check the other Partner sub-resources use, not an
+// outright role block (that would also 403 their one legitimate use of
+// this route).
+router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   try {
     const query = tripQuerySchema.parse(req.query);
     const where = {};
@@ -135,15 +207,17 @@ router.get("/", async (req, res, next) => {
       include: tripInclude,
       orderBy: { startDate: "desc" },
     });
-    res.json(records);
+    res.json(records.map(annotateTripFlags));
   } catch (err) {
     next(err);
   }
 });
 
 // GET /api/trips/planning -- §3. Blends open/committed/fallback rows per
-// partner with trip capacity fields set.
-router.get("/planning", async (req, res, next) => {
+// partner with trip capacity fields set. Same admin/editor/viewer-only
+// reasoning as GET / above -- a Trip Leader has no use for "what else
+// could we schedule."
+router.get("/planning", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const partners = await prisma.partner.findMany({
       where: { archived: false, tripTypes: { some: {} } },
@@ -201,7 +275,7 @@ router.get("/planning", async (req, res, next) => {
   }
 });
 
-router.get("/:id", async (req, res, next) => {
+router.get("/:id", requireTripScope("id"), async (req, res, next) => {
   try {
     const trip = await prisma.trip.findUnique({
       where: { id: req.params.id },
@@ -313,7 +387,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   }
 });
 
-router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.put("/:id", requireRole("admin", "editor", "tripLeader"), requireTripScope("id"), async (req, res, next) => {
   try {
     const { participants, ...data } = tripSchema
       .partial()
@@ -467,34 +541,49 @@ const budgetLineSchema = z.object({
   estimatedAmount: z.coerce.number().int(),
 });
 
-router.post("/:id/budget-lines", requireRole("admin", "editor"), async (req, res, next) => {
-  try {
-    const data = budgetLineSchema.parse(req.body);
-    const created = await prisma.tripBudgetLine.create({ data: { tripId: req.params.id, ...data } });
-    res.status(201).json(created);
-  } catch (err) {
-    next(err);
+router.post(
+  "/:id/budget-lines",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope("id"),
+  async (req, res, next) => {
+    try {
+      const data = budgetLineSchema.parse(req.body);
+      const created = await prisma.tripBudgetLine.create({ data: { tripId: req.params.id, ...data } });
+      res.status(201).json(created);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
-router.put("/budget-lines/:id", requireRole("admin", "editor"), async (req, res, next) => {
-  try {
-    const data = budgetLineSchema.partial().parse(req.body);
-    const updated = await prisma.tripBudgetLine.update({ where: { id: req.params.id }, data });
-    res.json(updated);
-  } catch (err) {
-    next(err);
+router.put(
+  "/budget-lines/:id",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfBudgetLine),
+  async (req, res, next) => {
+    try {
+      const data = budgetLineSchema.partial().parse(req.body);
+      const updated = await prisma.tripBudgetLine.update({ where: { id: req.params.id }, data });
+      res.json(updated);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
-router.delete("/budget-lines/:id", requireRole("admin", "editor"), async (req, res, next) => {
-  try {
-    await prisma.tripBudgetLine.delete({ where: { id: req.params.id } });
-    res.status(204).send();
-  } catch (err) {
-    next(err);
+router.delete(
+  "/budget-lines/:id",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfBudgetLine),
+  async (req, res, next) => {
+    try {
+      await prisma.tripBudgetLine.delete({ where: { id: req.params.id } });
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 // Flight segments -- replaces the former Trip.flightDetails free-text
 // field. Same CRUD shape as budget lines above, except participantIds
@@ -511,58 +600,74 @@ const flightSegmentSchema = z.object({
   arrivalAt: z.coerce.date().optional().nullable(),
 });
 
-router.post("/:id/flight-segments", requireRole("admin", "editor"), async (req, res, next) => {
-  try {
-    const { participantIds, ...data } = flightSegmentSchema.parse(req.body);
-    const created = await prisma.tripFlightSegment.create({
-      data: {
-        tripId: req.params.id,
-        ...data,
-        participants: participantIds?.length ? { connect: participantIds.map((id) => ({ id })) } : undefined,
-      },
-      include: { participants: { select: { id: true, firstName: true, lastName: true } } },
-    });
-    res.status(201).json(created);
-  } catch (err) {
-    next(err);
+router.post(
+  "/:id/flight-segments",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope("id"),
+  async (req, res, next) => {
+    try {
+      const { participantIds, ...data } = flightSegmentSchema.parse(req.body);
+      const created = await prisma.tripFlightSegment.create({
+        data: {
+          tripId: req.params.id,
+          ...data,
+          participants: participantIds?.length ? { connect: participantIds.map((id) => ({ id })) } : undefined,
+        },
+        include: { participants: { select: { id: true, firstName: true, lastName: true } } },
+      });
+      res.status(201).json(created);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
-router.put("/flight-segments/:id", requireRole("admin", "editor"), async (req, res, next) => {
-  try {
-    const { participantIds, ...data } = flightSegmentSchema.partial().parse(req.body);
-    const updated = await prisma.tripFlightSegment.update({
-      where: { id: req.params.id },
-      data: {
-        ...data,
-        // `set` replaces the whole relation outright -- the admin UI
-        // always sends the complete selected list, never a delta.
-        participants:
-          participantIds !== undefined ? { set: participantIds.map((id) => ({ id })) } : undefined,
-      },
-      include: { participants: { select: { id: true, firstName: true, lastName: true } } },
-    });
-    res.json(updated);
-  } catch (err) {
-    next(err);
+router.put(
+  "/flight-segments/:id",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfFlightSegment),
+  async (req, res, next) => {
+    try {
+      const { participantIds, ...data } = flightSegmentSchema.partial().parse(req.body);
+      const updated = await prisma.tripFlightSegment.update({
+        where: { id: req.params.id },
+        data: {
+          ...data,
+          // `set` replaces the whole relation outright -- the admin UI
+          // always sends the complete selected list, never a delta.
+          participants:
+            participantIds !== undefined ? { set: participantIds.map((id) => ({ id })) } : undefined,
+        },
+        include: { participants: { select: { id: true, firstName: true, lastName: true } } },
+      });
+      res.json(updated);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
-router.delete("/flight-segments/:id", requireRole("admin", "editor"), async (req, res, next) => {
-  try {
-    await prisma.tripFlightSegment.delete({ where: { id: req.params.id } });
-    res.status(204).send();
-  } catch (err) {
-    next(err);
+router.delete(
+  "/flight-segments/:id",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfFlightSegment),
+  async (req, res, next) => {
+    try {
+      await prisma.tripFlightSegment.delete({ where: { id: req.params.id } });
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 // ---- Documents (file storage -- see tripParticipants.js for the
 // separate "request documents from a participant" email route) ----
 
 router.post(
   "/:id/documents",
-  requireRole("admin", "editor"),
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope("id"),
   upload.single("file"),
   async (req, res, next) => {
     try {
@@ -611,7 +716,7 @@ router.post(
 // TripDocument could be uploaded, filed from an inbound email, or logged
 // manually, but nothing anywhere could ever read it back -- only
 // title/fileName metadata, never the actual bytes.
-router.get("/documents/:id/download", async (req, res, next) => {
+router.get("/documents/:id/download", requireTripScope(tripIdOfDocument), async (req, res, next) => {
   try {
     const record = await prisma.tripDocument.findUnique({
       where: { id: req.params.id },
@@ -624,14 +729,19 @@ router.get("/documents/:id/download", async (req, res, next) => {
   }
 });
 
-router.delete("/documents/:id", requireRole("admin", "editor"), async (req, res, next) => {
-  try {
-    await prisma.tripDocument.delete({ where: { id: req.params.id } });
-    res.status(204).send();
-  } catch (err) {
-    next(err);
+router.delete(
+  "/documents/:id",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfDocument),
+  async (req, res, next) => {
+    try {
+      await prisma.tripDocument.delete({ where: { id: req.params.id } });
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 // ---- Contributions ----
 
@@ -646,14 +756,19 @@ const contributionSchema = z.object({
   receivedDate: z.coerce.date(),
 });
 
-router.post("/:id/contributions", requireRole("admin", "editor"), async (req, res, next) => {
-  try {
-    const data = contributionSchema.parse(req.body);
-    const created = await prisma.tripContribution.create({ data: { ...data, tripId: req.params.id } });
-    res.status(201).json(created);
-  } catch (err) {
-    next(err);
+router.post(
+  "/:id/contributions",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope("id"),
+  async (req, res, next) => {
+    try {
+      const data = contributionSchema.parse(req.body);
+      const created = await prisma.tripContribution.create({ data: { ...data, tripId: req.params.id } });
+      res.status(201).json(created);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 module.exports = router;

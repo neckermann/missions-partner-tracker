@@ -313,6 +313,11 @@ model Trip {
   contributions  TripContribution[]
   budgetLines    TripBudgetLine[]
   flightSegments TripFlightSegment[]
+  // Inverse of User.scopedTripId -- the Trip Leader guest account(s)
+  // scoped to this trip (ordinarily zero or one, never enforced as
+  // @unique since nothing stops an admin creating a second guest login
+  // for the same trip).
+  scopedUsers    User[]
 
   @@index([partnerId])
   @@index([status])
@@ -1758,10 +1763,27 @@ model User {
   lastName     String?
   passwordHash String? // nullable only for historical rows; every account created now is local
   authProvider String    @default("local")
-  role         String    @default("editor") // "admin" | "editor" | "viewer"
+  role         String    @default("editor") // "admin" | "editor" | "viewer" | "tripLeader"
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
+
+  // Trip Leader guest tier only (role: "tripLeader") -- a real login/
+  // session account, not a reduction of any existing role's visibility
+  // (see the "auth is the boundary" model below: every other role still
+  // sees everything). A deliberately narrow new tier instead: a scoped
+  // guest with editor-equivalent write access to exactly one Trip's own
+  // operational content (requireTripScope, requireAuth.js) and read-only
+  // access to that trip's own linked Partner, nothing else in the app.
+  // onDelete: Cascade -- this account only exists because that trip
+  // does; deleting the trip removes the leftover guest login with it.
+  // expiresAt is independent of `active` -- a past expiresAt is treated
+  // the same as !active in requireAuth (blocks the session), but doesn't
+  // auto-delete the row, so an admin extending access just clears/moves
+  // the date rather than recreating the account.
+  scopedTripId String?
+  scopedTrip   Trip?     @relation(fields: [scopedTripId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime?
 
   // TOTP MFA — opt-in per user, self-service enroll/disable from Account
   // Settings; mfaSecret is only ever set once mfaEnabled flow starts, and

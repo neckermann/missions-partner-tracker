@@ -7,8 +7,10 @@ import { login } from "./helpers.js";
 // There is no separate edit form: creating asks for the few things you can't
 // fill in later, and the partner page edits itself section by section.
 
-// Every section on the partner page has its own Edit/Save pair, so a button
-// has to be scoped to the section it belongs to.
+// Every section on the partner page is itself the click target (the CRUD-
+// unification pass retired the old per-section Edit/Save pair in favor of
+// one shared click-the-card-opens-a-popup interaction, see EditableSection.jsx) --
+// so a section is located by its heading, not by an Edit button inside it.
 function section(page, title) {
   return page
     .locator(".admin-section")
@@ -53,12 +55,15 @@ test.describe("Admin partner CRUD", () => {
     // Edit in place: change the name from the Status & Visibility section
     // (Display Name lives there now, prominent alongside the other
     // across-the-site-visible fields) and confirm it round-trips without
-    // leaving the page.
+    // leaving the page. The whole card is the click target now (see the
+    // comment on `section()` above) -- clicking it opens the same popup
+    // every editable section uses.
     const status = section(page, "Status & Visibility");
-    await status.getByRole("button", { name: "Edit" }).click();
+    await status.click();
     const updatedName = `${uniqueName} (edited)`;
-    await status.getByLabel("Display Name", { exact: true }).fill(updatedName);
-    await status.getByRole("button", { name: "Save" }).click();
+    await page.locator(".modal-panel").getByLabel("Display Name", { exact: true }).fill(updatedName);
+    await page.locator(".modal-panel button", { hasText: "Save" }).click();
+    await expect(page.locator(".modal-panel")).toHaveCount(0);
     await expect(page.locator("h2").first()).toHaveText(updatedName);
 
     // Editing one section must not disturb another: the physical address is

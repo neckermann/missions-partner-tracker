@@ -484,7 +484,27 @@ function ExistingTripsTab() {
             ),
           },
           { key: "entityType", label: "Type", render: (trip) => partnerKindLabel(trip.entityType) },
-          { key: "status", label: "Status", render: (trip) => <TripStatusBadge status={trip.status} /> },
+          {
+            key: "status",
+            label: "Status",
+            render: (trip) => (
+              <>
+                <TripStatusBadge status={trip.status} />
+                {/* Same conditions the in-app notification bell surfaces for
+                    this trip -- a per-row indicator here is the fallback for
+                    when a category can't link straight to one specific trip
+                    (several are responsible at once), so this list is still
+                    where someone can visually find the right one. */}
+                {(trip.hasPendingApplications || trip.hasOverdueRequirement || trip.departingSoonIncomplete) && (
+                  <div style={{ fontSize: "0.7rem", color: "#a6540f", fontWeight: 600, marginTop: "0.2rem" }}>
+                    {trip.hasPendingApplications && <div>📝 Pending application</div>}
+                    {trip.hasOverdueRequirement && <div>⏰ Overdue requirement</div>}
+                    {trip.departingSoonIncomplete && <div>⏳ Departing soon, incomplete</div>}
+                  </div>
+                )}
+              </>
+            ),
+          },
           { key: "type", label: "Trip Type", render: (trip) => trip.type || "—" },
           {
             key: "startDate",

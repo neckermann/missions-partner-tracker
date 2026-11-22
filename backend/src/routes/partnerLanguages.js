@@ -1,7 +1,7 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 const { PROFICIENCY_LEVELS } = require("./proficiencyLevels");
 
@@ -22,7 +22,7 @@ const partnerLanguageSchema = z.object({
 const partnerLanguageInclude = { partner: partnerRefSelect };
 
 // GET /api/partner-languages?partnerId=
-router.get("/", async (req, res, next) => {
+router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);

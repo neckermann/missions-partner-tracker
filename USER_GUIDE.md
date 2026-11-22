@@ -37,7 +37,7 @@ before you can do anything else.
 
 ### Understanding your role
 
-Every user has one of three roles:
+Every user has one of three full roles:
 
 | Role | Can change |
 |---|---|
@@ -59,6 +59,18 @@ account is the whole permission** — treat handing one out the same way you'd
 treat handing someone the filing cabinet key. If you only want someone to
 see what's public, send them the public site; they don't need an account at
 all.
+
+**A 4th, narrower account type: Trip Leader.** This one's the exception
+to "an account is the whole permission" above, on purpose — a Trip Leader
+account is a temporary guest login scoped to a single trip, created from
+Manage Users with a role of "Trip Leader" and a trip picked from a
+dropdown (an optional expiration date can be set too). It can see and
+edit that one trip's own team/meetings/requirements/budget/flights, and
+can view (but not edit) that trip's one linked partner page — nothing
+else in the app. Use it for an actual trip leader or chaperone who needs
+to manage their own trip's logistics without a full account on
+everything else. See [SPEC.md § 5.1](SPEC.md#51-trip-leader--a-scoped-guest-not-a-4th-full-role)
+for the full access list.
 
 If something you expect to see isn't there (a nav link, a button), it's
 almost always a role thing, not a bug — check with whoever manages users

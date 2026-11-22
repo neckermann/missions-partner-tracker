@@ -8,8 +8,17 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireAuth, requireRole, requireTripScope } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
+
+async function tripIdOfApplication(req) {
+  const row = await prisma.tripApplication.findUnique({ where: { id: req.params.id }, select: { tripId: true } });
+  return row?.tripId;
+}
+async function tripIdOfParticipant(req) {
+  const row = await prisma.tripParticipant.findUnique({ where: { id: req.params.id }, select: { tripId: true } });
+  return row?.tripId;
+}
 const { generateShareToken, buildTripParticipantAccessUrl, appBaseUrl } = require("../utils/tripAccessToken");
 const {
   sendParticipantEmail,
@@ -33,7 +42,7 @@ async function getSettings() {
 
 // ---- Applications ----
 
-router.get("/:id/applications", async (req, res, next) => {
+router.get("/:id/applications", requireTripScope("id"), async (req, res, next) => {
   try {
     const applications = await prisma.tripApplication.findMany({ where: { tripId: req.params.id } });
     res.json(applications);
@@ -47,7 +56,11 @@ router.get("/:id/applications", async (req, res, next) => {
 // constraint on that column rejects a second approval of the same
 // application), copying firstName/lastName at that moment, and fires
 // the trip-dates team invite (§9) once, only for a non-completed trip.
-router.put("/applications/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.put(
+  "/applications/:id",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfApplication),
+  async (req, res, next) => {
   try {
     const { status, declinedReason } = z
       .object({
@@ -178,7 +191,11 @@ router.put("/applications/:id", requireRole("admin", "editor"), async (req, res,
 
 // ---- Team: direct admin add ----
 
-router.post("/:id/participants", requireRole("admin", "editor"), async (req, res, next) => {
+router.post(
+  "/:id/participants",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope("id"),
+  async (req, res, next) => {
   try {
     const data = participantSchema
       .extend({ email: z.string().email().optional().nullable() })
@@ -258,7 +275,8 @@ router.post("/:id/participants", requireRole("admin", "editor"), async (req, res
 // hid the button forever once a token existed.
 router.post(
   "/participants/:id/generate-support-raising-link",
-  requireRole("admin", "editor"),
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfParticipant),
   async (req, res, next) => {
     try {
       const settings = await getSettings();
@@ -324,7 +342,11 @@ const adminParticipantUpdateSchema = z.object({
 // edit themselves via the self-service route -- same fields, different
 // trust boundary: this one is admin-authenticated, not signed-access-
 // token-authenticated).
-router.put("/participants/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.put(
+  "/participants/:id",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfParticipant),
+  async (req, res, next) => {
   try {
     const { photo, photoContentType, ...rest } = adminParticipantUpdateSchema.parse(req.body);
     const data = { ...rest };
@@ -352,7 +374,8 @@ router.put("/participants/:id", requireRole("admin", "editor"), async (req, res,
 // public, self-triggered §4a lost-link flow).
 router.post(
   "/participants/:id/request-access-link",
-  requireRole("admin", "editor"),
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope(tripIdOfParticipant),
   async (req, res, next) => {
     try {
       const participant = await prisma.tripParticipant.findUnique({ where: { id: req.params.id } });
@@ -376,7 +399,8 @@ router.post(
   "/:tripId/participants/:id/request-documents",
   requireFeature("outboundEmail"),
   requireFeature("inboundEmail"),
-  requireRole("admin", "editor"),
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope("tripId"),
   async (req, res, next) => {
     try {
       const { message } = z.object({ message: z.string().min(1) }).parse(req.body);

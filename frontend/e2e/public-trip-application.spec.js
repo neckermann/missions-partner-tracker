@@ -25,10 +25,17 @@ test.describe("Public trip application wizard", () => {
     await login(page);
     await mergeFeatures(page, { trips: true, publicTripDiscovery: true, publicDirectory: true });
 
-    const partnersRes = await page.request.get("/api/partners");
+    // restricted=false&archived=false -- a restricted partner's trip is
+    // never publicly discoverable regardless of isPublic (see
+    // AdminTrips.jsx's own "Restricted partner" note), and an archived
+    // partner's own trip fares no better publicly, so an unfiltered
+    // partners[0] landing on either makes every step of this wizard
+    // unreachable -- same class of fixture fragility helpers.js's own
+    // firstSelectablePartner already guards against.
+    const partnersRes = await page.request.get("/api/partners?restricted=false&archived=false");
     const partners = await partnersRes.json();
     const partnerId = (partners.partners || partners)[0]?.id;
-    expect(partnerId, "expected at least one seeded partner").toBeTruthy();
+    expect(partnerId, "expected at least one seeded non-restricted, non-archived partner").toBeTruthy();
 
     const tripRes = await page.request.post("/api/trips", {
       data: {
