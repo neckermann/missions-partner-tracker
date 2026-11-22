@@ -10,6 +10,7 @@ import PublicTripParticipant from "./pages/PublicTripParticipant.jsx";
 import PublicTripAccessRecovery from "./pages/PublicTripAccessRecovery.jsx";
 import Login from "./pages/Login.jsx";
 import Setup from "./pages/Setup.jsx";
+import SetPassword from "./pages/SetPassword.jsx";
 import RequireAdminAuth from "./components/RequireAdminAuth.jsx";
 import RequirePublicSite from "./components/RequirePublicSite.jsx";
 import RequireAdminFeature from "./components/RequireAdminFeature.jsx";
@@ -140,6 +141,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               <Route path="/trip-access-recovery" element={<PublicTripAccessRecovery />} />
               <Route path="/login" element={<Login />} />
               <Route path="/setup" element={<Setup />} />
+              <Route path="/set-password" element={<SetPassword />} />
 
               {/* Admin (protected) — one shared sidebar layout for every
               sub-route below, including detail/edit forms. Role-specific

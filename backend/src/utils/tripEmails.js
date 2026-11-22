@@ -16,6 +16,7 @@
 const prisma = require("../prismaClient");
 const { sendEmail } = require("./email");
 const { isFeatureEnabled } = require("./features");
+const { renderEmail, blocks } = require("./emailTemplate");
 const {
   appBaseUrl,
   buildTripParticipantAccessToken,
@@ -50,26 +51,35 @@ async function outboundEmailEnabled() {
 // accounted for.
 const emailParticipantSelect = { id: true, email: true, accessTokenVersion: true };
 
-// Same small "Lost your link?" line on every one of this feature's
-// emails, same convention a digest email's own unsubscribe footer
-// already follows elsewhere in this app. Previously promised (the plan
-// always specified it here) but never actually added -- the only path
-// to /trip-access-recovery was typing it directly.
-function recoveryFooter() {
-  return `\n\n---\nLost your link? Request a new one: ${appBaseUrl()}/trip-access-recovery`;
-}
-
+// Every email in this feature area renders through the shared branded
+// template (emailTemplate.js) -- the same church-colored shell the digests
+// use -- with a small "Lost your link?" footer link, same convention a
+// digest's unsubscribe footer follows elsewhere in this app.
+//
+// `content` is either { eyebrow, blocks } (the structured, preferred
+// form -- see buildMeetingEmailContent and friends below) or a plain
+// string (rendered as a paragraph, for any caller not yet converted).
+//
 // attachments: [{ name, content (Buffer), contentType }] -- passed
 // straight through to Postmark's Attachments field (base64-encoded).
-async function sendParticipantEmail(participant, subject, body, { attachments, replyTo } = {}) {
+async function sendParticipantEmail(participant, subject, content, { attachments, replyTo } = {}) {
   if (!participant.email) return { sent: false, reason: "no-email" };
-  const fullBody = body + recoveryFooter();
   try {
+    const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
+    const structured = typeof content === "string" ? { blocks: [blocks.paragraph(content)] } : content;
+    const message = renderEmail({
+      settings,
+      subject,
+      eyebrow: structured.eyebrow || "Trip update",
+      greetingName: participant.firstName,
+      blocks: structured.blocks,
+      footerLink: { label: "Lost your link? Request a new one", url: `${appBaseUrl()}/trip-access-recovery` },
+    });
     await sendEmail({
       to: participant.email,
-      subject,
-      text: fullBody,
-      html: fullBody.replace(/\n/g, "<br>"),
+      subject: message.subject,
+      text: message.text,
+      html: message.html,
       replyTo,
       attachments: attachments?.map((a) => ({
         Name: a.name,
@@ -167,28 +177,52 @@ const RSVP_LABELS = { yes: "Yes", no: "No", maybe: "Maybe" };
 // plain links with no "previously RSVP'd" framing: resending the exact
 // same invite content is the simpler, more predictable choice, and
 // clicking a link again is already a harmless overwrite either way.
-function buildMeetingEmailBody(
+function formatMeetingTime(startAt) {
+  return new Date(startAt).toLocaleString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+}
+
+function buildMeetingEmailContent(
   meeting,
   lead,
   participant,
   { cancelled = false, existingResponse = null } = {}
 ) {
-  const lines = [lead];
-  if (meeting.location) lines.push(`Location: ${meeting.location}`);
-  if (meeting.meetingLink) lines.push(`Join online: ${meeting.meetingLink}`);
-  if (meeting.agenda) lines.push(`\nAgenda:\n${meeting.agenda}`);
+  const list = [
+    blocks.paragraph(lead),
+    blocks.details([
+      { label: "Meeting", value: meeting.title },
+      { label: "When", value: formatMeetingTime(meeting.startAt) },
+      { label: "Where", value: meeting.location },
+      { label: "Join online", value: meeting.meetingLink, href: meeting.meetingLink },
+    ]),
+  ];
+  if (meeting.agenda) {
+    list.push(blocks.heading("Agenda"), blocks.paragraph(meeting.agenda));
+  }
   if (!cancelled && participant) {
     const urls = buildMeetingRsvpUrls(meeting, participant);
-    if (existingResponse) {
-      lines.push(
-        `\nYou previously RSVP'd: ${RSVP_LABELS[existingResponse] || existingResponse}. Changed your mind? Use a link below to update it.`
-      );
-    } else {
-      lines.push("\nWill you be there?");
-    }
-    lines.push(`Yes: ${urls.yes}\nNo: ${urls.no}\nMaybe: ${urls.maybe}`);
+    list.push(
+      blocks.paragraph(
+        existingResponse
+          ? `You previously RSVP'd: ${RSVP_LABELS[existingResponse] || existingResponse}. Changed your mind? Use a button below to update it.`
+          : "Will you be there?"
+      ),
+      blocks.buttonRow([
+        { url: urls.yes, label: "Yes, I'll be there" },
+        { url: urls.no, label: "No" },
+        { url: urls.maybe, label: "Maybe" },
+      ])
+    );
   }
-  return lines.filter(Boolean).join("\n");
+  return { eyebrow: cancelled ? "Meeting cancelled" : "Trip meeting", blocks: list };
 }
 
 function buildTripDatesIcs(trip) {
@@ -229,7 +263,14 @@ async function sendRequirementNotificationEmail(trip, requirement, participants)
     await sendParticipantEmail(
       participant,
       `New item needed: ${requirement.label}`,
-      `A new item has been added to your checklist for ${trip.name || trip.type || "your trip"}: "${requirement.label}".\n\nYour trip page: ${buildTripParticipantAccessUrl(participant)}`
+      {
+        eyebrow: "Checklist update",
+        blocks: [
+          blocks.paragraph(`A new item has been added to your checklist for ${trip.name || trip.type || "your trip"}:`),
+          blocks.details([{ label: "To do", value: requirement.label }]),
+          blocks.button(buildTripParticipantAccessUrl(participant), "Open your trip page"),
+        ],
+      }
     );
   }
 }
@@ -298,7 +339,17 @@ async function sendTripDatesUpdateEmail(trip) {
     await sendParticipantEmail(
       participant,
       `Trip dates updated: ${trip.name || trip.type || "your trip"}`,
-      `This trip's dates have changed -- attached is an updated calendar invite.\n\nYour trip page: ${buildTripParticipantAccessUrl(participant)}`,
+      {
+        eyebrow: "Trip dates updated",
+        blocks: [
+          blocks.paragraph("This trip's dates have changed -- attached is an updated calendar invite so your calendar stays accurate."),
+          blocks.details([
+            { label: "Starts", value: new Date(trip.startDate).toDateString() },
+            { label: "Ends", value: new Date(trip.endDate).toDateString() },
+          ]),
+          blocks.button(buildTripParticipantAccessUrl(participant), "Open your trip page"),
+        ],
+      },
       {
         attachments: [
           {
@@ -325,7 +376,7 @@ async function sendMeetingEmail(trip, meeting, lead, { cancelled = false } = {})
     await sendParticipantEmail(
       participant,
       `${cancelled ? "Meeting cancelled" : "Meeting"}: ${subjectLabel}`,
-      buildMeetingEmailBody(meeting, lead, participant, { cancelled }),
+      buildMeetingEmailContent(meeting, lead, participant, { cancelled }),
       {
         attachments: [
           {
@@ -342,10 +393,40 @@ async function sendMeetingEmail(trip, meeting, lead, { cancelled = false } = {})
   }
 }
 
+// The "You're on the team" email, shared by both ways someone joins a trip
+// (an admin adding them directly, or an approved application) so the two
+// can't drift apart. `approved` only changes the opening line.
+function buildTeamWelcomeContent(trip, participant, { approved = false } = {}) {
+  const base = appBaseUrl();
+  return {
+    eyebrow: "Welcome to the team",
+    blocks: [
+      blocks.paragraph(
+        approved
+          ? "You've been approved for the trip -- attached is a calendar invite for the trip dates."
+          : "You're on the team! Attached is a calendar invite for the trip dates."
+      ),
+      blocks.details([
+        { label: "Trip", value: trip.name || trip.type },
+        { label: "Starts", value: trip.startDate ? new Date(trip.startDate).toDateString() : null },
+        { label: "Ends", value: trip.endDate ? new Date(trip.endDate).toDateString() : null },
+      ]),
+      blocks.button(buildTripParticipantAccessUrl(participant), "Open your trip page"),
+      participant.shareToken
+        ? blocks.paragraph("Share your support-raising page with family and friends:")
+        : null,
+      participant.shareToken
+        ? blocks.button(`${base}/trip-support-raising/${participant.shareToken}`, "Your support-raising page")
+        : null,
+    ],
+  };
+}
+
 module.exports = {
   sendParticipantEmail,
   buildMeetingIcs,
-  buildMeetingEmailBody,
+  buildMeetingEmailContent,
+  buildTeamWelcomeContent,
   buildMeetingRsvpUrls,
   buildTripDatesIcs,
   emailParticipantSelect,

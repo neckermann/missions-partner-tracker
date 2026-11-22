@@ -11,6 +11,7 @@ import {
 import { passwordsMatch } from "../utils/password.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
+import MfaAppGuide from "../components/MfaAppGuide.jsx";
 
 const emptyPasswordDraft = { currentPassword: "", newPassword: "", confirmPassword: "" };
 
@@ -324,43 +325,48 @@ function MfaSection({ user, onChange }) {
           </form>
         </>
       ) : setupData ? (
-        <form
-          onSubmit={handleConfirmSetup}
-          style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: 320 }}
-        >
-          <p>Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):</p>
-          <img src={setupData.qrCode} alt="MFA QR code" style={{ width: 200, height: 200 }} />
-          <p style={{ fontSize: "0.85rem", color: "#555" }}>
-            Can't scan it? Enter this code manually: <code>{setupData.secret}</code>
-          </p>
-          <label>
-            Enter the 6-digit code from the app to confirm
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              required
-            />
-          </label>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button type="submit" className="btn" disabled={busy}>
-              {busy ? "Confirming..." : "Confirm & Enable"}
-            </button>
-            <button
-              type="button"
-              className="btn secondary"
-              onClick={() => {
-                setSetupData(null);
-                setCode("");
-              }}
-            >
-              Cancel
-            </button>
+        <>
+          <div style={{ maxWidth: 480 }}>
+            <MfaAppGuide />
           </div>
-        </form>
+          <form
+            onSubmit={handleConfirmSetup}
+            style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: 320 }}
+          >
+            <p>Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):</p>
+            <img src={setupData.qrCode} alt="MFA QR code" style={{ width: 200, height: 200 }} />
+            <p style={{ fontSize: "0.85rem", color: "#555" }}>
+              Can't scan it? Enter this code manually: <code>{setupData.secret}</code>
+            </p>
+            <label>
+              Enter the 6-digit code from the app to confirm
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                required
+              />
+            </label>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button type="submit" className="btn" disabled={busy}>
+                {busy ? "Confirming..." : "Confirm & Enable"}
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => {
+                  setSetupData(null);
+                  setCode("");
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </>
       ) : (
         <>
           <p>

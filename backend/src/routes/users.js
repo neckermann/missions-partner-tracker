@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireRole } = require("../middleware/requireAuth");
+const { sendWelcomeEmail } = require("../utils/welcomeEmails");
 
 const router = express.Router();
 router.use(requireRole("admin")); // user management is admin-only
@@ -45,7 +46,17 @@ const createUserSchema = z.object({
   // anything that isn't "local" -- cheap insurance against a passwordless
   // row ever being created by some future path.
   authProvider: z.literal("local").default("local"),
-  password: z.string().min(8),
+  // Optional: the preferred path is no admin-set password at all -- the
+  // welcome email's one-time link lets the person choose their own (see
+  // utils/passwordSetup.js). An admin-typed password is only used when
+  // sendWelcomeEmail is false.
+  password: z.string().min(8).optional(),
+  // Default on: email the new person a secure link to set their own
+  // password. Off = no email is sent; the account stays pending (it can't
+  // sign in) until a password is set or a link is sent from the user list.
+  sendWelcomeEmail: z.boolean().default(true),
+  // Force two-factor enrollment the first time they sign in.
+  requireMfa: z.boolean().default(false),
 });
 
 const updateUserSchema = z.object({
@@ -59,9 +70,11 @@ const updateUserSchema = z.object({
   mfaSetupRequired: z.boolean().optional(), // forces MFA enrollment at next login
 });
 
+// passwordSetupPending: the account exists but has no password yet (a
+// welcome link hasn't been redeemed, or was never sent), so it can't sign in.
 function sanitize(user) {
   const { passwordHash, mfaSecret, ...rest } = user;
-  return rest;
+  return { ...rest, passwordSetupPending: !passwordHash };
 }
 
 // Refuses to demote/deactivate/delete the last active admin, so the team
@@ -104,12 +117,16 @@ router.get("/:id", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
   try {
-    const data = clearScopeUnlessTripLeader(createUserSchema.parse(req.body));
+    const { sendWelcomeEmail: sendWelcome, requireMfa, password, ...rest } = createUserSchema.parse(req.body);
+    const data = clearScopeUnlessTripLeader(rest);
     if (!(await tripLeaderScopeValid(data))) {
       return res.status(400).json({ error: TRIP_LEADER_SCOPE_ISSUE.message });
     }
-    // Always present: the schema requires it now that every account is local.
-    const passwordHash = await bcrypt.hash(data.password, 12);
+    // With a welcome email the person chooses their own password, so the
+    // account starts with none (it can't sign in until they do). Without
+    // one, an admin-typed password is used if given; otherwise the
+    // account stays pending until a setup link is sent.
+    const passwordHash = !sendWelcome && password ? await bcrypt.hash(password, 12) : null;
 
     const created = await prisma.user.create({
       data: {
@@ -121,9 +138,44 @@ router.post("/", async (req, res, next) => {
         expiresAt: data.expiresAt,
         authProvider: data.authProvider,
         passwordHash,
+        mfaSetupRequired: requireMfa,
       },
     });
-    res.status(201).json(sanitize(created));
+
+    // A failed send (email not configured, no APP_BASE_URL, provider
+    // error) must never lose the account just created -- report it and let
+    // the admin resend from the user list.
+    let welcomeEmail = { sent: false, skipped: true };
+    if (sendWelcome) {
+      try {
+        await sendWelcomeEmail(created, { requireMfa });
+        welcomeEmail = { sent: true };
+      } catch (err) {
+        welcomeEmail = { sent: false, error: err.message || "Couldn't send the welcome email" };
+      }
+    }
+    res.status(201).json({ ...sanitize(created), welcomeEmail });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Sends (or re-sends) the welcome/password-setup email to an account that
+// has no password yet. Issuing a new link invalidates any earlier one.
+// Refuses accounts that already have a password -- those use the normal
+// sign-in or an admin password reset, not a setup link.
+router.post("/:id/setup-link", async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) return res.status(404).json({ error: "Not found" });
+    if (!user.active || user.authProvider !== "local") {
+      return res.status(400).json({ error: "This account can't receive a setup link" });
+    }
+    if (user.passwordHash) {
+      return res.status(400).json({ error: "This account already has a password" });
+    }
+    await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired });
+    res.json({ sent: true });
   } catch (err) {
     next(err);
   }
@@ -166,7 +218,11 @@ router.put("/:id", async (req, res, next) => {
       updateData.scopedTripId = null;
       updateData.expiresAt = null;
     }
-    if (password) updateData.passwordHash = await bcrypt.hash(password, 12);
+    if (password) {
+      updateData.passwordHash = await bcrypt.hash(password, 12);
+      // An admin-set password supersedes any outstanding setup link.
+      await prisma.passwordSetupToken.deleteMany({ where: { userId: req.params.id } });
+    }
 
     const updated = await prisma.user.update({ where: { id: req.params.id }, data: updateData });
     res.json(sanitize(updated));

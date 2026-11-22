@@ -19,9 +19,10 @@ async function tripIdOfParticipant(req) {
   const row = await prisma.tripParticipant.findUnique({ where: { id: req.params.id }, select: { tripId: true } });
   return row?.tripId;
 }
-const { generateShareToken, buildTripParticipantAccessUrl, appBaseUrl } = require("../utils/tripAccessToken");
+const { generateShareToken, buildTripParticipantAccessUrl } = require("../utils/tripAccessToken");
 const {
   sendParticipantEmail,
+  buildTeamWelcomeContent,
   buildTripDatesIcs,
   sendLateJoinerCatchUpEmails,
 } = require("../utils/tripEmails");
@@ -153,14 +154,10 @@ router.put(
       application.trip.endDate
     ) {
       if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
-        const accessUrl = buildTripParticipantAccessUrl(updated.participant);
-        const supportRaisingLine = updated.participant.shareToken
-          ? `\n\nYour support-raising page (share this with family and friends): ${appBaseUrl()}/trip-support-raising/${updated.participant.shareToken}`
-          : "";
         await sendParticipantEmail(
           updated.participant,
           `You're on the team: ${application.trip.name || application.trip.type || "your trip"}`,
-          `You've been approved for the trip -- attached is a calendar invite for the trip dates.\n\nYour trip page: ${accessUrl}${supportRaisingLine}`,
+          buildTeamWelcomeContent(application.trip, updated.participant, { approved: true }),
           {
             attachments: [
               {
@@ -233,14 +230,10 @@ router.post(
 
     if (trip.status !== "completed" && trip.startDate && trip.endDate) {
       if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
-        const accessUrl = buildTripParticipantAccessUrl(participant);
-        const supportRaisingLine = participant.shareToken
-          ? `\n\nYour support-raising page (share this with family and friends): ${appBaseUrl()}/trip-support-raising/${participant.shareToken}`
-          : "";
         await sendParticipantEmail(
           participant,
           `You're on the team: ${trip.name || trip.type || "your trip"}`,
-          `Attached is a calendar invite for the trip dates.\n\nYour trip page: ${accessUrl}${supportRaisingLine}`,
+          buildTeamWelcomeContent(trip, participant),
           {
             attachments: [
               {

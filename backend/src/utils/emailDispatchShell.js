@@ -255,7 +255,72 @@ function buildEmailDispatchMessage(recipient, content, settings, unsubscribeUrl)
   };
 }
 
+// The church's own button/link color, with the same fallback the shell uses.
+function accentColorFor(settings) {
+  return settings?.primaryColor || ACCENT_FALLBACK_COLOR;
+}
+
+// One-off transactional message (a welcome email, a notice) in the same
+// branded shell as the digests -- church-colored masthead, logo, card
+// footer with the church's contact block -- but without the digest-only
+// parts (subject template, signature, "unsubscribe" footer), since
+// nobody unsubscribes from "set up your account." `bodyHtml`/`bodyText`
+// are the message body below the greeting; `footerNote` is the one line
+// of small print above the contact block. Returns { subject, html, text }
+// for utils/email.js's sendEmail. Doesn't send anything itself.
+function buildTransactionalMessage({ settings, subject, subtitleLine, greetingName, bodyHtml, bodyText, footerNote, footerLink }) {
+  const churchName = settings?.churchName || "Missions Partner Tracker";
+  const headerColor = settings?.headerColor || HEADER_FALLBACK_COLOR;
+  const accentColor = settings?.primaryColor || ACCENT_FALLBACK_COLOR;
+  const highlightColor = settings?.highlightColor || HIGHLIGHT_FALLBACK_COLOR;
+  const fontFamily = settings?.brandFont || FONT_FALLBACK;
+  const base = appBaseUrl();
+  const logoHtml =
+    settings?.logoContentType && base
+      ? `<img src="${base}/api/public/settings/logo/raw" alt="${escapeHtml(churchName)}" style="max-height:40px;width:auto;max-width:240px;margin-bottom:10px;">`
+      : "";
+  const contactLines = buildContactLines(settings, churchName, accentColor);
+  const contactHtml = contactLines.html.length
+    ? `<p style="margin:0 0 8px;line-height:1.6;">${contactLines.html.join("<br>")}</p>`
+    : "";
+
+  const html = `
+    <div style="background-color:#f4f4f5;padding:32px 16px;">
+      <div style="font-family:${fontFamily};max-width:600px;margin:0 auto;color:#222;">
+        <div style="background-color:${headerColor};padding:32px 24px;border-radius:14px;text-align:center;">
+          ${logoHtml}
+          <h2 style="margin:0;color:#ffffff;font-size:22px;letter-spacing:0.2px;">${escapeHtml(churchName)}</h2>
+          <div style="width:40px;border-top:3px solid ${highlightColor};margin:14px auto 0;"></div>
+          <p style="margin:12px 0 0;color:#ffffffcc;font-size:13px;letter-spacing:0.5px;text-transform:uppercase;">${escapeHtml(subtitleLine)}</p>
+        </div>
+        <div style="padding:28px 4px 4px;font-size:15px;line-height:1.6;">
+          <p style="margin:0 0 18px;font-size:16px;line-height:1.5;">${greetingName ? `Hi ${escapeHtml(greetingName)},` : "Hi there,"}</p>
+          ${bodyHtml}
+        </div>
+        <div style="margin:24px 0 0;padding:26px 24px;background-color:#ffffff;border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,0.04),0 4px 12px rgba(0,0,0,0.06);font-size:12px;color:#888;line-height:1.5;text-align:center;">
+          ${contactHtml}
+          ${footerNote ? `<p style="margin:12px 0 0;">${escapeHtml(footerNote)}</p>` : ""}
+          ${footerLink?.url ? `<p style="margin:10px 0 0;"><a href="${escapeHtml(footerLink.url)}" style="color:${accentColor};text-decoration:none;">${escapeHtml(footerLink.label)}</a></p>` : ""}
+        </div>
+      </div>
+    </div>`;
+
+  const text = [
+    greetingName ? `Hi ${greetingName},` : "Hi there,",
+    "",
+    ...bodyText,
+    "",
+    ...contactLines.text,
+    ...(footerNote ? ["", footerNote] : []),
+    ...(footerLink?.url ? [`${footerLink.label}: ${footerLink.url}`] : []),
+  ].join("\n");
+
+  return { subject, html, text };
+}
+
 module.exports = {
+  buildTransactionalMessage,
+  accentColorFor,
   escapeHtml,
   nl2br,
   typeLabel,

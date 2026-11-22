@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { fetchUsers, deleteUser, fetchCurrentUser, resetUserMfa, fetchUser, createUser, updateUser, fetchTrips } from "../api/client.js";
+import {
+  fetchUsers,
+  deleteUser,
+  sendUserSetupLink,
+  fetchCurrentUser,
+  resetUserMfa,
+  fetchUser,
+  createUser,
+  updateUser,
+  fetchTrips,
+} from "../api/client.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
@@ -16,6 +26,11 @@ const emptyForm = {
   authProvider: "local",
   active: true,
   password: "",
+  // Create-only: email a secure link so the person sets their own password
+  // (no password is ever typed by an admin or emailed), and optionally
+  // force two-factor enrollment at first sign-in.
+  sendWelcomeEmail: true,
+  requireMfa: false,
   mfaSetupRequired: false,
   mfaEnabled: false,
   scopedTripId: "",
@@ -35,6 +50,7 @@ export default function AdminUsers() {
   const [error, setError] = useState("");
   const [editingUser, setEditingUser] = useState(null); // { id, form } or { form } for create
   const [formError, setFormError] = useState("");
+  const [notice, setNotice] = useState("");
 
   function reportError(err, fallback) {
     setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
@@ -85,6 +101,18 @@ export default function AdminUsers() {
     }
   }
 
+  // Sends (or re-sends) the password-setup email to an account that has no
+  // password yet; a fresh link replaces any earlier one.
+  async function handleSendSetupLink(id, email) {
+    setError("");
+    try {
+      await sendUserSetupLink(id);
+      setNotice(`Setup link sent to ${email}.`);
+    } catch (err) {
+      reportError(err, "Couldn't send the setup link");
+    }
+  }
+
   function openCreate() {
     setFormError("");
     setEditingUser({ id: null, form: emptyForm });
@@ -124,10 +152,16 @@ export default function AdminUsers() {
     if (!payload.password) delete payload.password;
 
     if (id) {
-      const { email, authProvider, ...updatable } = payload;
+      // sendWelcomeEmail/requireMfa only exist on create.
+      const { email, authProvider, sendWelcomeEmail, requireMfa, ...updatable } = payload;
       await updateUser(id, updatable);
     } else {
-      await createUser(payload);
+      const created = await createUser(payload);
+      if (created.welcomeEmail && !created.welcomeEmail.sent && !created.welcomeEmail.skipped) {
+        setError(
+          `${created.email} was created, but the welcome email couldn't be sent (${created.welcomeEmail.error}). Use "Send setup link" on their row to try again.`
+        );
+      }
     }
     reload();
   }
@@ -156,7 +190,18 @@ export default function AdminUsers() {
       ),
     },
     { key: "authProvider", label: "Auth" },
-    { key: "active", label: "Active", render: (u) => (u.active ? "Yes" : "No") },
+    {
+      key: "active",
+      label: "Active",
+      render: (u) =>
+        u.passwordSetupPending ? (
+          <span className="status-pill warn">Awaiting setup</span>
+        ) : u.active ? (
+          "Yes"
+        ) : (
+          "No"
+        ),
+    },
     {
       key: "mfa",
       label: "MFA",
@@ -195,6 +240,7 @@ export default function AdminUsers() {
           {error}
         </p>
       )}
+      {notice && <p role="status">{notice}</p>}
 
       <Table
         columns={columns}
@@ -203,6 +249,11 @@ export default function AdminUsers() {
         emptyMessage="No users yet."
         renderActions={(u) => (
           <>
+            {u.authProvider === "local" && u.active && u.passwordSetupPending && (
+              <button className="btn secondary small" onClick={() => handleSendSetupLink(u.id, u.email)}>
+                Send setup link
+              </button>
+            )}
             {u.authProvider === "local" && u.mfaEnabled && (
               <button className="btn secondary small" onClick={() => handleResetMfa(u.id, u.email)}>
                 Reset MFA
@@ -325,18 +376,51 @@ export default function AdminUsers() {
             </p>
           )}
 
-          <label style={{ marginTop: "1rem" }}>
-            {editingUser.id ? "Reset Password (leave blank to keep current)" : "Password"}
-            <input
-              type="password"
-              value={editingUser.form.password}
-              onChange={(e) => updateForm("password", e.target.value)}
-              required={!editingUser.id}
-              minLength={8}
-            />
-          </label>
+          {!editingUser.id && (
+            <div style={{ marginTop: "1rem" }}>
+              <div className="admin-checkbox-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={editingUser.form.sendWelcomeEmail}
+                    onChange={(e) => updateForm("sendWelcomeEmail", e.target.checked)}
+                  />
+                  Send a welcome email so they can set their own password (recommended)
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={editingUser.form.requireMfa}
+                    onChange={(e) => updateForm("requireMfa", e.target.checked)}
+                  />
+                  Require two-factor authentication at first sign-in
+                </label>
+              </div>
+              <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
+                {editingUser.form.sendWelcomeEmail
+                  ? "They'll get a one-time link to choose their own password. Nobody else ever sees it."
+                  : 'No email is sent. Set a password below, or leave it blank and use "Send setup link" on their row later. Until a password is set they can\'t sign in.'}
+              </p>
+            </div>
+          )}
 
-          {formError && <p className="form-error" role="alert">{formError}</p>}
+          {(editingUser.id || !editingUser.form.sendWelcomeEmail) && (
+            <label style={{ marginTop: "1rem" }}>
+              {editingUser.id ? "Reset Password (leave blank to keep current)" : "Password (optional)"}
+              <input
+                type="password"
+                value={editingUser.form.password}
+                onChange={(e) => updateForm("password", e.target.value)}
+                minLength={8}
+              />
+            </label>
+          )}
+
+          {formError && (
+            <p className="form-error" role="alert">
+              {formError}
+            </p>
+          )}
         </QuickActionModal>
       )}
 
