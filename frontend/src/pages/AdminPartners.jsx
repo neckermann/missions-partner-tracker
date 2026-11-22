@@ -13,6 +13,8 @@ import StatusPill from "../components/admin/StatusPill.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
+import useLoadMore from "../hooks/useLoadMore.js";
+import LoadMoreButton from "../components/LoadMoreButton.jsx";
 
 // Same field as backend/src/utils/maskData.js's public `country` -- the
 // physical address's country, nothing else. fipsCountryCode is for Joshua
@@ -86,8 +88,7 @@ export default function AdminPartners() {
   // for that without the options shrinking/disappearing as a filter narrows.
   const [allForOptions, setAllForOptions] = useState([]);
   const navigate = useNavigate();
-  const { partnerTermPlural, usePartnerTermInAdmin, churchName } = useSettings();
-  const sentByLabel = `Sent by ${churchName || "Us"}`;
+  const { partnerTermPlural, usePartnerTermInAdmin } = useSettings();
   const sectionTitle = usePartnerTermInAdmin ? partnerTermPlural : "Partners";
 
   useEffect(() => {
@@ -250,6 +251,7 @@ export default function AdminPartners() {
   const visible = visibleBeforeSearch
     .filter((r) => matchesSearch(filters.search, r.name, r.field, r.focusArea, r.overviewShort, r.country))
     .filter((r) => matchesLastVisitQuick(r, filters.lastVisitQuick));
+  const partnersLoadMore = useLoadMore(visible, { initialCount: 50, step: 50 });
 
   async function handleArchive(row) {
     const confirmed = await confirmDialog({
@@ -321,7 +323,7 @@ export default function AdminPartners() {
           <Link to="/admin/partners/new?kind=missionary" className="btn">
             + Add Missionary
           </Link>
-          <Link to="/admin/partners/new?kind=organization" className="btn secondary">
+          <Link to="/admin/partners/new?kind=organization" className="btn">
             + Add Organization
           </Link>
         </div>
@@ -332,7 +334,7 @@ export default function AdminPartners() {
       <Table
         className="admin-table"
         style={{ marginTop: "0.75rem" }}
-        rows={visible}
+        rows={partnersLoadMore.visible}
         rowKey={(row) => `${row.type}-${row.id}`}
         onRowClick={(row) => navigate(row.detailLink)}
         emptyMessage={loading ? "Loading…" : "No partners match these filters."}
@@ -354,7 +356,7 @@ export default function AdminPartners() {
           },
           {
             key: "name",
-            label: "Name",
+            label: "Display Name",
             render: (row) => (
               <>
                 <span style={{ fontWeight: 600 }}>{row.name}</span>
@@ -392,7 +394,7 @@ export default function AdminPartners() {
           },
           {
             key: "sentByOurChurch",
-            label: sentByLabel,
+            label: "Sent By Us",
             sortable: true,
             // Same bland, muted pill for Yes and No -- unlike Public/
             // Restricted, this isn't a safety or exposure question, just
@@ -419,7 +421,9 @@ export default function AdminPartners() {
         ]}
         renderActions={(row) => (
           <>
-            <Link to={row.detailLink}>Open</Link>
+            <Link to={row.detailLink} className="btn secondary small">
+              Open
+            </Link>
             {row.archived ? (
               <>
                 <button className="btn secondary small" onClick={() => handleUnarchive(row)}>
@@ -436,6 +440,11 @@ export default function AdminPartners() {
             )}
           </>
         )}
+      />
+      <LoadMoreButton
+        hasMore={partnersLoadMore.hasMore}
+        remaining={partnersLoadMore.remaining}
+        onClick={partnersLoadMore.showMore}
       />
       {confirmElement}
     </div>
