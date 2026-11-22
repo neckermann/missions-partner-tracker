@@ -1,15 +1,30 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  fetchPartners,
-  fetchPendingDispatches,
-  fetchPendingInboundEmails,
-  fetchTrips,
-} from "../api/client.js";
+import { fetchPartners } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getRecentlyViewed } from "../hooks/useRecentlyViewed.js";
 import CardGrid from "../components/admin/CardGrid.jsx";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import useNotifications from "../hooks/useNotifications.js";
+
+// key -> a short group label for the card grid, since the registry
+// (backend/src/notifications/categories.js) doesn't carry one itself --
+// purely cosmetic grouping for this page's display.
+const CATEGORY_GROUP = {
+  dispatchesNeedingApproval: "Communications",
+  unmatchedEmails: "Communications",
+  inboundEmailFailures: "Communications",
+  dispatchSendFailures: "Communications",
+  tripsDepartingSoon: "Trips",
+  tripsDepartingSoonIncomplete: "Trips",
+  overdueTripRequirements: "Trips",
+  tripApplicationsPending: "Trips",
+  newPrayerRequests: "Partner Care",
+  newOneTimeNeeds: "Partner Care",
+  adminMfaDisabled: "System",
+  timeToCheckBackups: "System",
+  whatsappConnectionDrop: "System",
+};
 
 // The admin landing page -- search, recently-viewed, and needs-attention
 // cards. Home points at destinations worth jumping to directly (a search
@@ -78,97 +93,6 @@ function RecentlyViewed() {
       </div>
     </div>
   );
-}
-
-// Three independent, already-available signals -- no new backend
-// endpoints, just a page that actually surfaces what each one already
-// returns: dispatches genuinely waiting, unmatched inbound emails, and
-// trips departing within two weeks. Hidden entirely (not shown as
-// "Nothing waiting") when a signal's count is zero -- a needs-attention
-// card with nothing to report isn't worth the space it takes, and
-// clutters the page on every visit instead of just the ones that matter.
-function useNeedsAttention(enabledFeatures) {
-  const [cards, setCards] = useState([]);
-
-  useEffect(() => {
-    const next = [];
-    const loaders = [];
-
-    if (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) {
-      loaders.push(
-        fetchPendingDispatches()
-          .then((blurbs) => {
-            const needingReview = blurbs.filter((b) => b.needsReview).length;
-            if (blurbs.length > 0) {
-              next.push({
-                to: "/admin/pending-dispatches",
-                category: "Communications",
-                title: "Pending Dispatches",
-                description:
-                  needingReview > 0
-                    ? `${blurbs.length} waiting, ${needingReview} needing review`
-                    : `${blurbs.length} waiting to send`,
-              });
-            }
-          })
-          .catch(() => {})
-      );
-    }
-
-    if (enabledFeatures.inboundEmail) {
-      loaders.push(
-        fetchPendingInboundEmails()
-          .then((emails) => {
-            if (emails.length > 0) {
-              next.push({
-                to: "/admin/inbound-email",
-                category: "Communications",
-                title: "Unmatched Emails",
-                description: `${emails.length} inbound email${emails.length === 1 ? "" : "s"} to assign or discard`,
-              });
-            }
-          })
-          .catch(() => {})
-      );
-    }
-
-    if (enabledFeatures.trips) {
-      loaders.push(
-        fetchTrips()
-          .then((trips) => {
-            const now = new Date();
-            const twoWeeksOut = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-            const departingSoon = trips.filter(
-              (t) =>
-                t.status !== "completed" &&
-                t.startDate &&
-                new Date(t.startDate) > now &&
-                new Date(t.startDate) <= twoWeeksOut
-            );
-            if (departingSoon.length > 0) {
-              next.push({
-                to: "/admin/trips",
-                category: "Trips",
-                title: "Trips Departing Soon",
-                description: `${departingSoon.length} trip${departingSoon.length === 1 ? "" : "s"} departing in the next two weeks`,
-              });
-            }
-          })
-          .catch(() => {})
-      );
-    }
-
-    Promise.all(loaders).then(() => setCards(next));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    enabledFeatures.groupme,
-    enabledFeatures.whatsapp,
-    enabledFeatures.outboundEmail,
-    enabledFeatures.inboundEmail,
-    enabledFeatures.trips,
-  ]);
-
-  return cards;
 }
 
 // ⌘ on Mac, Ctrl elsewhere -- matches the convention every desktop app's
@@ -246,7 +170,23 @@ export default function AdminHome() {
   const { user: currentUser, isAdmin } = useCurrentUser();
   const [search, setSearch] = useState("");
   const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
-  const needsAttention = useNeedsAttention(enabledFeatures);
+  const { categories } = useNotifications();
+  // Hidden entirely (not shown as "Nothing waiting") when a category's
+  // count is zero -- a needs-attention card with nothing to report isn't
+  // worth the space it takes, and clutters the page on every visit
+  // instead of just the ones that matter. Reads the same registry the
+  // bell does (/api/notifications/summary) -- this page no longer fetches
+  // dispatches/emails/trips itself (see the in-app notifications plan for
+  // why keeping both a page-level fetch and the shared registry running
+  // in parallel was the actual bug behind "this card never goes away").
+  const needsAttention = categories
+    .filter((c) => c.count > 0)
+    .map((c) => ({
+      to: c.linkTo,
+      category: CATEGORY_GROUP[c.key] || "Needs attention",
+      title: c.label,
+      description: `${c.count} item${c.count === 1 ? "" : "s"}`,
+    }));
   const searchInputRef = useRef(null);
 
   // Cmd/Ctrl+K focuses the Home search box from anywhere on the page --
