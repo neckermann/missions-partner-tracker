@@ -97,6 +97,13 @@ async function postToGroupMe(eligibleRows, partnerById, settings) {
     // rotated since this was saved) must never take down the whole pass
     // -- every row just stays queued for GroupMe (retried next pass).
     console.error("GroupMe post failed to decrypt the stored access token:", err);
+    // See the in-app notifications plan's "Dispatch send failures" --
+    // every row that would have gone to GroupMe this pass gets the
+    // failure recorded, not just logged, so it's visible after the fact.
+    await prisma.dispatchRecord.updateMany({
+      where: { id: { in: eligibleRows.map((r) => r.id) } },
+      data: { groupmeError: `Could not decrypt stored GroupMe token: ${err.message}` },
+    });
     return sentIds;
   }
 
@@ -127,8 +134,13 @@ async function postToGroupMe(eligibleRows, partnerById, settings) {
         message.completes.forEach((id) => sentIds.add(id));
       } catch (err) {
         // One message's failure must never stop the rest of the pass --
-        // those rows just stay queued for the next one.
+        // those rows just stay queued for the next one. Recorded, not
+        // just logged -- see the decrypt-failure branch above.
         console.error("GroupMe post failed:", err);
+        await prisma.dispatchRecord.updateMany({
+          where: { id: { in: message.completes } },
+          data: { groupmeError: err.message },
+        });
         if (message.partOf) failedParts.add(message.partOf);
       }
     }
@@ -177,7 +189,7 @@ async function runGroupMePass(settings, now) {
       if (sentIds.size > 0) {
         await prisma.dispatchRecord.updateMany({
           where: { id: { in: [...sentIds] } },
-          data: { groupmeDispatchedAt: now },
+          data: { groupmeDispatchedAt: now, groupmeError: null },
         });
       }
     }

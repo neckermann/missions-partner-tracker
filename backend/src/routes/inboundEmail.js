@@ -31,6 +31,22 @@ function timingSafeStringEqual(a, b) {
   return aBuf.length === bBuf.length && crypto.timingSafeEqual(aBuf, bBuf);
 }
 
+// Best-effort, never lets a logging failure mask the real error/response --
+// see the in-app notifications plan's "Inbound email processing errors"
+// category. Previously these paths just returned a 4xx with nothing left
+// to query afterward. Deliberately NOT called for "no webhook credentials
+// configured yet" or "feature off" (above) -- those aren't processing
+// failures, they're an unconfigured/disabled instance, and persisting them
+// would just be noise from every automated prober hitting a fresh install.
+async function recordInboundEmailFailure(reason, payload) {
+  try {
+    const snippet = JSON.stringify(payload ?? {}).slice(0, 2000);
+    await prisma.inboundEmailFailure.create({ data: { reason, rawPayloadSnippet: snippet } });
+  } catch (err) {
+    console.error("Could not record inbound email failure:", err.message);
+  }
+}
+
 function checkWebhookAuth(req, expectedUsername, expectedPassword) {
   const header = req.headers.authorization || "";
   const [scheme, encoded] = header.split(" ");
@@ -70,6 +86,7 @@ router.post("/postmark", async (req, res, next) => {
     }
     const expectedPassword = decryptField(settings.inboundEmailWebhookPassword);
     if (!checkWebhookAuth(req, settings.inboundEmailWebhookUsername, expectedPassword)) {
+      await recordInboundEmailFailure("Unauthorized -- bad webhook credentials", req.body);
       return res.status(401).json({ error: "Unauthorized" });
     }
     // Checked after auth, not before: a wrong-password attempt and a
@@ -83,6 +100,7 @@ router.post("/postmark", async (req, res, next) => {
     const fromAddress = payload.FromFull?.Email || payload.From;
     const rawEmail = payload.RawEmail;
     if (!fromAddress || !rawEmail) {
+      await recordInboundEmailFailure("Missing From/RawEmail in payload", payload);
       return res.status(400).json({ error: "Missing From/RawEmail in payload" });
     }
 
@@ -171,6 +189,7 @@ router.post("/postmark", async (req, res, next) => {
     });
     res.status(200).json({ matched: false });
   } catch (err) {
+    await recordInboundEmailFailure(`Unexpected error: ${err.message}`, req.body).catch(() => {});
     next(err);
   }
 });

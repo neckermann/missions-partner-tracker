@@ -111,7 +111,17 @@ async function sendToRecipients(rows, partnerById, recipients, settings) {
       recipient.kind === CHANNELS.EMAIL_ADMIN
         ? buildUnsubscribeUrl(recipient.id)
         : buildSubscriberUnsubscribeUrl(recipient.id);
-    messages.push(buildEmailDispatchMessage(recipient, content, settings, unsubscribeUrl));
+    // rowIds travels alongside its message so a failed send can record
+    // which DispatchRecord row(s) it would have delivered -- see the
+    // in-app notifications plan's "Dispatch send failures" category.
+    // Approximate, not exact, by the nature of a digest: several rows can
+    // share one recipient's message, so one recipient's bounce gets
+    // attributed to every row in their digest that pass, not isolated to
+    // "the one row that actually caused it" (there usually isn't one).
+    messages.push({
+      payload: buildEmailDispatchMessage(recipient, content, settings, unsubscribeUrl),
+      rowIds: eligibleRows.map((row) => row.id),
+    });
   }
 
   for (let i = 0; i < messages.length; i += BATCH_CHUNK_SIZE) {
@@ -122,12 +132,16 @@ async function sendToRecipients(rows, partnerById, recipients, settings) {
     // same chunk or any other chunk. Batching doesn't reduce the number
     // of emails sent or billed -- only the number of API calls; see
     // email.js's own comment.
-    const results = await sendEmailBatch(chunk);
-    results.forEach((result, idx) => {
+    const results = await sendEmailBatch(chunk.map((m) => m.payload));
+    for (const [idx, result] of results.entries()) {
       if (result.ErrorCode !== 0) {
-        console.error(`Email dispatch to ${chunk[idx].To} failed:`, result.Message);
+        console.error(`Email dispatch to ${chunk[idx].payload.To} failed:`, result.Message);
+        await prisma.dispatchRecord.updateMany({
+          where: { id: { in: chunk[idx].rowIds } },
+          data: { emailError: result.Message || "Unknown delivery failure" },
+        });
       }
-    });
+    }
   }
 
   return consideredIds;

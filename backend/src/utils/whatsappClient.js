@@ -191,10 +191,19 @@ function digitsFromJid(jid) {
 async function recordPaired(user) {
   const phone = digitsFromJid(user?.id) || null;
   const now = new Date();
+  // Runs on every successful "open" (first pairing AND every reconnect),
+  // so this is also where a prior "connection dropped" state clears --
+  // see the in-app notifications plan's "WhatsApp connection drop"
+  // category and the write site in handleConnectionUpdate below.
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
     create: { id: "singleton", whatsappPairedAt: now, whatsappPhoneNumber: phone },
-    update: { whatsappPairedAt: now, whatsappPhoneNumber: phone },
+    update: {
+      whatsappPairedAt: now,
+      whatsappPhoneNumber: phone,
+      whatsappLastError: null,
+      whatsappDisconnectedAt: null,
+    },
   });
 }
 
@@ -395,6 +404,18 @@ async function connect() {
   } catch (err) {
     runtime.lastError = err.message;
     runtime.status = "disconnected";
+    // Persisted, not just kept in-memory -- see the in-app notifications
+    // plan's "WhatsApp connection drop" category. recordPaired (above)
+    // clears both fields again on the next successful (re)connect. A
+    // reconnect attempt that fails repeatedly just overwrites this with
+    // the same/latest error each time, which is harmless for a
+    // single-row settings table.
+    await prisma.churchSettings
+      .update({
+        where: { id: "singleton" },
+        data: { whatsappLastError: err.message, whatsappDisconnectedAt: new Date() },
+      })
+      .catch(() => {}); // best-effort -- a settings-write failure must never block the reconnect logic below
     stopSocket();
     scheduleReconnect(Math.min(MAX_RECONNECT_DELAY_MS, 1000 * 2 ** ++runtime.attempts));
     throw err;

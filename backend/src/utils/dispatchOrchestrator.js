@@ -164,11 +164,15 @@ async function sendGroupMeUrgent(row, partner, partnerById, settings, now) {
     const sentIds = await postToGroupMe([row], partnerById, settings);
     const posted = sentIds.has(row.id);
     if (posted) {
-      await prisma.dispatchRecord.update({ where: { id: row.id }, data: { groupmeDispatchedAt: now } });
+      await prisma.dispatchRecord.update({
+        where: { id: row.id },
+        data: { groupmeDispatchedAt: now, groupmeError: null },
+      });
     }
     return posted;
   } catch (err) {
     console.error("Urgent GroupMe send failed:", err.message);
+    await prisma.dispatchRecord.update({ where: { id: row.id }, data: { groupmeError: err.message } });
     return false;
   }
 }
@@ -186,11 +190,15 @@ async function sendWhatsAppUrgent(row, partner, partnerById, settings, now) {
     const sentIds = await postToWhatsApp([row], partnerById, settings);
     const posted = sentIds.has(row.id);
     if (posted) {
-      await prisma.dispatchRecord.update({ where: { id: row.id }, data: { whatsappDispatchedAt: now } });
+      await prisma.dispatchRecord.update({
+        where: { id: row.id },
+        data: { whatsappDispatchedAt: now, whatsappError: null },
+      });
     }
     return posted;
   } catch (err) {
     console.error("Urgent WhatsApp send failed:", err.message);
+    await prisma.dispatchRecord.update({ where: { id: row.id }, data: { whatsappError: err.message } });
     return false;
   }
 }
@@ -277,6 +285,7 @@ async function sendUrgentDispatch(row, { id: partnerId }) {
           biweeklyEmailDispatchSentAt: now,
           monthlyEmailDispatchSentAt: now,
           quarterlyEmailDispatchSentAt: now,
+          emailError: null,
         },
       });
     }
