@@ -54,6 +54,9 @@ test.describe("Trip Team tab: Table + Modal", () => {
     await expect(page.locator(".modal-panel")).toBeVisible();
     await page.getByLabel("First name").fill(uniqueName);
     await page.getByLabel("Last name").fill("Participant");
+    // Required for a non-completed trip -- POST /:id/participants 400s
+    // without it (tripParticipants.js).
+    await page.getByLabel("Email").fill(`e2e-direct-${Date.now()}@example.test`);
     await page.click('.modal-panel button[type="submit"]');
     await expect(page.locator(".modal-panel")).toHaveCount(0);
 
@@ -63,7 +66,9 @@ test.describe("Trip Team tab: Table + Modal", () => {
   test("reviews a pending application via the row-click Modal", async ({ page }) => {
     const uniqueEmail = `e2e-review-${Date.now()}@example.test`;
     const applyRes = await page.request.post(`/api/public/trips/${tripId}/apply`, {
-      data: { firstName: "Review", lastName: "Applicant", email: uniqueEmail },
+      // dateOfBirth is required unconditionally (publicTripApplications.js) --
+      // informs the minor/parent-guardian flow, not optional here.
+      data: { firstName: "Review", lastName: "Applicant", email: uniqueEmail, dateOfBirth: "1990-01-01" },
     });
     expect(applyRes.ok()).toBeTruthy();
 
