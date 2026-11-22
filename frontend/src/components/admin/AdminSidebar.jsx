@@ -16,7 +16,9 @@ const NAV_BADGE_CATEGORY = {
 
 function NotificationBell({ categories, totalUnread, markSeen }) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState(null);
   const ref = useRef(null);
+  const btnRef = useRef(null);
 
   useEffect(() => {
     function onClickOutside(e) {
@@ -30,6 +32,18 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
 
   function toggle() {
     const opening = !open;
+    if (opening && btnRef.current) {
+      // position: fixed, computed from the button's own screen position --
+      // `.admin-sidebar` clips horizontal overflow (overflow-x: hidden, for
+      // its own text-truncation needs elsewhere), which silently clipped
+      // this dropdown down to a sliver when it was just `position:
+      // absolute` nested inside that ancestor. Fixed positioning escapes
+      // that clip (no transformed ancestor sits between here and the
+      // viewport), so the dropdown renders at its real width regardless of
+      // the sidebar's own.
+      const rect = btnRef.current.getBoundingClientRect();
+      setCoords({ top: rect.bottom + 4, left: rect.left });
+    }
     setOpen(opening);
     if (opening) withCount.forEach((c) => markSeen(c.key));
   }
@@ -37,6 +51,7 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
   return (
     <div className="admin-sidebar-bell" ref={ref} style={{ position: "relative" }}>
       <button
+        ref={btnRef}
         type="button"
         className="admin-sidebar-bell-btn"
         title="Notifications"
@@ -46,8 +61,12 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
         🔔
         {totalUnread > 0 && <span className="admin-sidebar-bell-badge">{totalUnread}</span>}
       </button>
-      {open && (
-        <div className="admin-sidebar-bell-dropdown" role="menu">
+      {open && coords && (
+        <div
+          className="admin-sidebar-bell-dropdown"
+          role="menu"
+          style={{ top: coords.top, left: coords.left }}
+        >
           {withCount.length === 0 ? (
             <p style={{ margin: 0, color: "#888", fontSize: "0.85rem" }}>Nothing waiting.</p>
           ) : (

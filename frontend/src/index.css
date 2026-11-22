@@ -204,17 +204,19 @@ a {
   text-align: center;
 }
 .admin-sidebar-bell-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 0.4rem;
+  /* position: fixed, not absolute -- .admin-sidebar has overflow-x:
+     hidden (for its own text-truncation needs elsewhere), which clips an
+     absolutely-positioned descendant down to the sidebar's own width.
+     top/left come from AdminSidebar.jsx's own getBoundingClientRect, not
+     this stylesheet. */
+  position: fixed;
   background: white;
   color: #222;
   border-radius: var(--radius-sm, 6px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   padding: 0.5rem;
-  min-width: 260px;
-  max-width: 320px;
+  min-width: 320px;
+  max-width: 400px;
   z-index: 50;
 }
 .admin-sidebar-bell-item {
