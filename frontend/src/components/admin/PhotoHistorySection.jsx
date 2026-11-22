@@ -9,7 +9,7 @@ import PhotoTile from "../shared/PhotoTile.jsx";
 // photos is expected pre-sorted newest-received-first (see
 // partnerRecordInclude in backend/src/routes/partners.js), so photos[0] is
 // "current."
-export default function PhotoHistorySection({ partnerId, photos, onChange }) {
+export default function PhotoHistorySection({ partnerId, photos, onChange, canEdit = true, canDelete = true }) {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [showAddForm, setShowAddForm] = useState(false);
   const [receivedDate, setReceivedDate] = useState(todayInputValue());
@@ -67,16 +67,18 @@ export default function PhotoHistorySection({ partnerId, photos, onChange }) {
     <div className="admin-section">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h3 style={{ flex: 1, marginBottom: 0 }}>Photo History</h3>
-        <button
-          type="button"
-          className="btn secondary small"
-          onClick={() => (setShowAddForm((v) => !v), setError(""), setFile(null))}
-        >
-          {showAddForm ? "Cancel" : "+ Add Photo"}
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            className="btn secondary small"
+            onClick={() => (setShowAddForm((v) => !v), setError(""), setFile(null))}
+          >
+            {showAddForm ? "Cancel" : "+ Add Photo"}
+          </button>
+        )}
       </div>
 
-      {showAddForm && (
+      {canEdit && showAddForm && (
         <form onSubmit={handleSubmit} style={{ marginTop: "1rem" }}>
           <div className="form-grid">
             <label>
@@ -153,9 +155,11 @@ export default function PhotoHistorySection({ partnerId, photos, onChange }) {
                   <a href={p.url} target="_blank" rel="noreferrer" className="btn secondary small">
                     View
                   </a>
-                  <button type="button" className="btn danger small" onClick={() => handleDelete(p)}>
-                    Delete
-                  </button>
+                  {canDelete && (
+                    <button type="button" className="btn danger small" onClick={() => handleDelete(p)}>
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

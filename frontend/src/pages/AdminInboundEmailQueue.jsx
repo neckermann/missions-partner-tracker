@@ -5,7 +5,6 @@ import {
   discardInboundEmail,
   fetchPartners,
   fetchTrips,
-  fetchCurrentUser,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import TripParticipantSelect from "../components/admin/TripParticipantSelect.jsx";
@@ -13,6 +12,7 @@ import { FILE_KINDS } from "../utils/fileKinds.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 // The review queue for inbound emails the webhook (see routes/inboundEmail.js)
 // couldn't automatically match to exactly one partner -- zero matches, or
@@ -29,7 +29,7 @@ export default function AdminInboundEmailQueue() {
   const [emails, setEmails] = useState([]);
   const [partners, setPartners] = useState([]);
   const [trips, setTrips] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
+  const { canWrite: canAssign, isAdmin: canDiscard } = useCurrentUser();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   // Per-row UI state, keyed by email id -- whether this row is being
@@ -58,7 +58,6 @@ export default function AdminInboundEmailQueue() {
     Promise.all([
       reload(),
       fetchPartners().then(setPartners),
-      fetchCurrentUser().then(setCurrentUser),
       // Only when trips is on -- GET /api/trips 404s entirely otherwise
       // (router.use(requireFeature("trips")) gates the whole router), and
       // there'd be nothing to assign to a participant anyway.
@@ -139,9 +138,6 @@ export default function AdminInboundEmailQueue() {
       setBusyId(null);
     }
   }
-
-  const canAssign = currentUser?.role === "admin" || currentUser?.role === "editor";
-  const canDiscard = currentUser?.role === "admin";
 
   if (loading) return <p className="admin-shell">Loading…</p>;
 

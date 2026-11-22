@@ -831,6 +831,7 @@ a {
 .table-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
   gap: 0.5rem 0.75rem;
 }
@@ -1084,6 +1085,20 @@ a {
   padding: 1.25rem 1.5rem;
 }
 
+/* EditableSection's whole-card click target -- same "click it to open its
+   popup" convention as an .admin-table row, applied to a singleton
+   field-group instead of a list row. */
+.admin-section-clickable {
+  cursor: pointer;
+}
+.admin-section-clickable:hover {
+  background: var(--surface-2);
+}
+.admin-section-clickable:focus-visible {
+  outline: 2px solid var(--brand-highlight-color, #a6540f);
+  outline-offset: 2px;
+}
+
 /* Groups several related .admin-section cards (e.g. "Financial") under one
    label, without nesting them in another bordered box -- it's a divider
    within .admin-form's flex column, not a container. */
@@ -1201,6 +1216,16 @@ a {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
+}
+.repeatable-row-clickable {
+  cursor: pointer;
+}
+.repeatable-row-clickable:hover {
+  background: var(--surface-2);
+}
+.repeatable-row-clickable:focus-visible {
+  outline: 2px solid var(--brand-highlight-color, #a6540f);
+  outline-offset: 2px;
 }
 
 .tag-input-row {

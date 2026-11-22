@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link, NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
-import { fetchCurrentUser, logout } from "../../api/client.js";
+import { logout } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
+import useCurrentUser from "../../hooks/useCurrentUser.js";
 
 function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
   return [
@@ -108,7 +109,7 @@ function SidebarLink({ to, label, end, icon }) {
 }
 
 export default function AdminSidebar() {
-  const [currentUser, setCurrentUser] = useState(null);
+  const { isAdmin } = useCurrentUser();
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
   const navigate = useNavigate();
   const location = useLocation();
@@ -124,10 +125,6 @@ export default function AdminSidebar() {
       return !v;
     });
   }
-
-  useEffect(() => {
-    fetchCurrentUser().then(setCurrentUser);
-  }, []);
 
   const publicLinkNode = enabledFeatures.publicDirectory ? (
     <Link to="/" target="_blank" rel="noopener noreferrer" title="View Public Site">
@@ -171,7 +168,7 @@ export default function AdminSidebar() {
         {navItems.map(({ key, ...item }) => (
           <SidebarLink key={key} {...item} />
         ))}
-        {currentUser?.role === "admin" && (
+        {isAdmin && (
           <>
             <RouterNavLink to="/admin/settings" title="Settings" className={inSiteAdmin ? "active" : undefined}>
               <span aria-hidden="true">⚙️</span>

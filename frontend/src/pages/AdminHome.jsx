@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  fetchCurrentUser,
   fetchPartners,
   fetchPendingDispatches,
   fetchPendingInboundEmails,
@@ -10,6 +9,7 @@ import {
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getRecentlyViewed } from "../hooks/useRecentlyViewed.js";
 import CardGrid from "../components/admin/CardGrid.jsx";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 // The admin landing page -- search, recently-viewed, and needs-attention
 // cards. Home points at destinations worth jumping to directly (a search
@@ -243,15 +243,11 @@ function buildMainSections(partnerLabel, enabledFeatures, isAdmin) {
 }
 
 export default function AdminHome() {
-  const [currentUser, setCurrentUser] = useState(null);
+  const { user: currentUser, isAdmin } = useCurrentUser();
   const [search, setSearch] = useState("");
   const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const needsAttention = useNeedsAttention(enabledFeatures);
   const searchInputRef = useRef(null);
-
-  useEffect(() => {
-    fetchCurrentUser().then(setCurrentUser);
-  }, []);
 
   // Cmd/Ctrl+K focuses the Home search box from anywhere on the page --
   // the shortcut hint shown next to it would be misleading if it didn't
@@ -307,7 +303,7 @@ export default function AdminHome() {
 
       <div className="admin-section">
         <h3 style={{ marginTop: 0 }}>Browse</h3>
-        <CardGrid sections={buildMainSections(partnerLabel, enabledFeatures, currentUser?.role === "admin")} />
+        <CardGrid sections={buildMainSections(partnerLabel, enabledFeatures, isAdmin)} />
       </div>
     </div>
   );
