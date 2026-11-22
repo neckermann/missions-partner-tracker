@@ -5,7 +5,7 @@ const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middl
 const { requireFeature } = require("../middleware/requireFeature");
 const { notifyPrayerRequestCreated, notifyPrayerRequestAnswered } = require("../utils/dispatchRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
-const { getSeenAt, touchSeen } = require("../notifications/categories");
+const { getSeenAt, touchSeen, markCategorySeen } = require("../notifications/categories");
 
 // Distinct from the bell's own "newPrayerRequests" NotificationSeen row --
 // see categories.js's own comment on touchSeen for why this needs its own
@@ -121,6 +121,11 @@ router.get("/", requirePartnerQueryScope, async (req, res, next) => {
       isNew: !seenAt || new Date(r.createdAt) > seenAt,
     }));
     await touchSeen(req.user.id, LIST_VIEW_SEEN_KEY);
+    // Visiting the real list is also "having seen" the bell/nav-badge
+    // category itself -- without this, the badge only clears by opening
+    // the bell first, not by navigating here directly (e.g. via the
+    // sidebar nav link), which is the whole point of a nav badge.
+    await markCategorySeen(req.user.id, "newPrayerRequests");
     res.json(annotated);
   } catch (err) {
     next(err);

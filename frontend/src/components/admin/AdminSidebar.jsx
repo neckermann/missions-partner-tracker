@@ -239,6 +239,15 @@ function TripLeaderSidebar({ scopedTrip, title }) {
             <span className="sb-label">{scopedTrip.label}</span>
           </RouterNavLink>
         )}
+        {scopedTrip?.partnerId && (
+          <RouterNavLink
+            to={`/admin/partners/${scopedTrip.partnerId}`}
+            className={({ isActive }) => (isActive ? "active" : undefined)}
+          >
+            <span aria-hidden="true">👤</span>
+            <span className="sb-label">{scopedTrip.partnerLabel || "Partner"}</span>
+          </RouterNavLink>
+        )}
       </nav>
       <div className="admin-sidebar-footer">
         <button
@@ -258,7 +267,7 @@ function TripLeaderSidebar({ scopedTrip, title }) {
 }
 
 export default function AdminSidebar() {
-  const { isAdmin, isTripLeader, scopedTrip } = useCurrentUser();
+  const { loading: userLoading, isAdmin, isTripLeader, scopedTrip } = useCurrentUser();
   const { categories, totalUnread, markSeen } = useNotifications();
   const categoryByKey = new Map(categories.map((c) => [c.key, c]));
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
@@ -266,6 +275,26 @@ export default function AdminSidebar() {
   const location = useLocation();
   const { churchName, partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const title = churchName ? `${churchName} Admin` : "Missions Team Admin";
+
+  // Until the role is known, render neither nav -- showing the full admin
+  // nav by default (useCurrentUser's `user` starts null, so isTripLeader
+  // is briefly false on every load) flashed every item a Trip Leader must
+  // never see, for the instant before this resolves.
+  if (userLoading) {
+    return (
+      <aside className="admin-sidebar no-print">
+        <div className="admin-sidebar-title">
+          <h1
+            className="admin-sidebar-title-text"
+            title={title}
+            style={{ fontSize: "inherit", fontWeight: "inherit", margin: 0 }}
+          >
+            {title}
+          </h1>
+        </div>
+      </aside>
+    );
+  }
 
   if (isTripLeader) return <TripLeaderSidebar scopedTrip={scopedTrip} title={title} />;
 

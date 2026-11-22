@@ -299,9 +299,14 @@ async function markCategorySeen(userId, category) {
 // this list" row highlighting (":listView" keys, prayerRequests.js/
 // supportNeeds.js) reuses this same table under a distinct key so it
 // doesn't collide with the bell's own "newPrayerRequests"/
-// "newOneTimeNeeds" row -- opening the bell already advances that one
-// before the list page ever renders, so the list needs its own,
-// independent timestamp. Never fed a client-supplied category string
+// "newOneTimeNeeds" row. Both rows actually need advancing on a list
+// visit now -- the list route calls touchSeen() for its own ":listView"
+// key *and* markCategorySeen() for the bell's plain key, since arriving
+// here via the sidebar nav badge (not the bell dropdown) is a real path
+// and the badge needs to clear either way. They stay two separate rows
+// because they answer different questions (which rows are new to show
+// vs. is there anything new at all), not because only one of them
+// updates on a visit. Never fed a client-supplied category string
 // (markCategorySeen above is what the client-facing /seen route uses,
 // and its CATEGORIES check is what keeps that one safe) -- only ever
 // called with a key the route file itself hardcodes.

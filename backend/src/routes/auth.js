@@ -473,6 +473,9 @@ async function sanitizeUser(user) {
   // minimal nav (AdminSidebar.jsx), not the full Trip record. Looked up
   // here rather than left for the frontend to fetch separately, since a
   // tripLeader has no route that would otherwise ever hand them this.
+  // partnerId/partnerLabel let that same sidebar link to the one Partner
+  // a tripLeader may read (Trip.partnerId is optional -- a trip with no
+  // linked partner yet means no such link to show).
   let scopedTrip = null;
   if (user.scopedTripId) {
     const trip = await prisma.trip.findUnique({
@@ -481,6 +484,7 @@ async function sanitizeUser(user) {
         id: true,
         name: true,
         type: true,
+        partnerId: true,
         partner: { select: { displayName: true, fieldDisplayName: true } },
       },
     });
@@ -493,6 +497,8 @@ async function sanitizeUser(user) {
           trip.partner?.fieldDisplayName ||
           trip.partner?.displayName ||
           "Your trip",
+        partnerId: trip.partnerId,
+        partnerLabel: trip.partner?.fieldDisplayName || trip.partner?.displayName || null,
       };
     }
   }
