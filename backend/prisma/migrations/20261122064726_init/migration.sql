@@ -482,6 +482,16 @@ CREATE TABLE "InboundEmailBytes" (
 );
 
 -- CreateTable
+CREATE TABLE "InboundEmailFailure" (
+    "id" TEXT NOT NULL,
+    "receivedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "reason" TEXT NOT NULL,
+    "rawPayloadSnippet" TEXT,
+
+    CONSTRAINT "InboundEmailFailure_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "DispatchRecord" (
     "id" TEXT NOT NULL,
     "type" TEXT NOT NULL,
@@ -496,6 +506,9 @@ CREATE TABLE "DispatchRecord" (
     "biweeklyEmailDispatchSentAt" TIMESTAMP(3),
     "monthlyEmailDispatchSentAt" TIMESTAMP(3),
     "quarterlyEmailDispatchSentAt" TIMESTAMP(3),
+    "groupmeError" TEXT,
+    "whatsappError" TEXT,
+    "emailError" TEXT,
 
     CONSTRAINT "DispatchRecord_pkey" PRIMARY KEY ("id")
 );
@@ -556,6 +569,8 @@ CREATE TABLE "ChurchSettings" (
     "groupmeNewsletterTopicName" TEXT,
     "whatsappPhoneNumber" TEXT,
     "whatsappPairedAt" TIMESTAMP(3),
+    "whatsappLastError" TEXT,
+    "whatsappDisconnectedAt" TIMESTAMP(3),
     "whatsappCommunityId" TEXT,
     "whatsappCommunityName" TEXT,
     "whatsappAnnouncementGroupId" TEXT,
@@ -641,6 +656,15 @@ CREATE TABLE "User" (
     "allPartners" BOOLEAN NOT NULL DEFAULT true,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "NotificationSeen" (
+    "userId" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "seenAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "NotificationSeen_pkey" PRIMARY KEY ("userId","category")
 );
 
 -- CreateTable
@@ -951,6 +975,9 @@ ALTER TABLE "PhotoBytes" ADD CONSTRAINT "PhotoBytes_id_fkey" FOREIGN KEY ("id") 
 
 -- AddForeignKey
 ALTER TABLE "ChurchSettingsLogo" ADD CONSTRAINT "ChurchSettingsLogo_id_fkey" FOREIGN KEY ("id") REFERENCES "ChurchSettings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "NotificationSeen" ADD CONSTRAINT "NotificationSeen_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "UserFollowedPartner" ADD CONSTRAINT "UserFollowedPartner_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

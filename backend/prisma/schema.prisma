@@ -1143,6 +1143,21 @@ model InboundEmailBytes {
   bytes Bytes
 }
 
+// A webhook call that never became a real InboundEmail row -- bad/missing
+// credentials, a missing From/RawEmail field, or an unexpected exception
+// while processing one. Previously these just returned a 4xx/500 with
+// nothing persisted anywhere, so there was no way to see afterward that
+// anything had even gone wrong (see the in-app notifications plan's
+// "Inbound email processing errors" category). rawPayloadSnippet is a
+// short, truncated excerpt for debugging context, not the full payload --
+// this table is a failure log, not a second copy of InboundEmail/Bytes.
+model InboundEmailFailure {
+  id                 String   @id @default(uuid())
+  receivedAt         DateTime @default(now())
+  reason             String
+  rawPayloadSnippet  String?  @db.Text
+}
+
 // A recorded event, capable of independently producing up to four
 // dispatches -- GroupMe, WhatsApp, the admin email dispatch, the public
 // email dispatch -- each tracked by its own stamp column below (see
@@ -1228,6 +1243,19 @@ model DispatchRecord {
   biweeklyEmailDispatchSentAt  DateTime?
   monthlyEmailDispatchSentAt   DateTime?
   quarterlyEmailDispatchSentAt DateTime?
+
+  // One nullable error string per channel, set in that channel's own
+  // send-attempt catch block (groupmeChannel.js/whatsappChannel.js/
+  // emailDispatchDelivery.js/dispatchOrchestrator.js's urgent-send path)
+  // instead of just console.error-ing and leaving nothing queryable
+  // after the fact -- see the in-app notifications plan's "Dispatch send
+  // failures" category. A row's own *DispatchedAt stamp being null is
+  // already ambiguous between "not attempted"/"ineligible"/"failed"; this
+  // is what actually tells those three apart for "failed." Cleared back
+  // to null the next time that channel's send for this row succeeds.
+  groupmeError  String?
+  whatsappError String?
+  emailError    String?
 
   @@index([type])
   @@index([partnerId])
@@ -1381,6 +1409,17 @@ model ChurchSettings {
   // hasWhatsAppTarget/postToWhatsApp).
   whatsappPhoneNumber           String? // digits only, the dedicated number the app is paired as
   whatsappPairedAt              DateTime?
+  // Connection-health tracking for the in-app notifications "WhatsApp
+  // connection drop" category -- whatsappClient.js's own runtime.status/
+  // lastError live only in memory and don't survive a worker restart, so
+  // there was nothing queryable here before. Written whenever the worker's
+  // connection genuinely fails (not on every transient reconnect blip --
+  // see whatsappClient.js's own comment at the write site), cleared on the
+  // next successful (re)connect. whatsappDisconnectedAt null means either
+  // "never paired" or "currently connected" -- the category query
+  // distinguishes those by also requiring whatsappPairedAt to be set.
+  whatsappLastError      String?
+  whatsappDisconnectedAt DateTime?
   whatsappCommunityId           String?
   whatsappCommunityName         String?
   whatsappAnnouncementGroupId   String?
@@ -1764,6 +1803,23 @@ model User {
   // means every partner this user's role can already see.
   allPartners      Boolean               @default(true)
   followedPartners UserFollowedPartner[]
+  notificationsSeen NotificationSeen[]
+}
+
+// Per-user, per-category "last looked at this" marker for the in-app
+// notification bell -- not one shared timestamp, because clearing one
+// person's "new" highlight must never clear it for a teammate who hasn't
+// looked yet (see notifications/categories.js's own header comment for the
+// full reasoning). The *count* a category shows is always a live query
+// against real data, shared by everyone; only the "new since you looked"
+// emphasis is personal, which is all this table tracks.
+model NotificationSeen {
+  userId   String
+  category String
+  seenAt   DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, category])
 }
 
 // Join rows for a user's specific-partner digest scope (#202) -- only
