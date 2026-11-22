@@ -1878,3 +1878,35 @@ a {
 .wizard-progress div.done {
   background: var(--brand-color, #2a5d3c);
 }
+
+/* Reports: the summary tiles above a report's table. Same surface, border,
+   radius and brand tokens as .admin-card so reports match the rest of the
+   admin UI; nothing here hardcodes a church's colors. */
+.report-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+}
+.report-summary-item {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 0.7rem 0.9rem;
+}
+.report-summary-item dt {
+  font-size: 0.8rem;
+  color: #555;
+}
+.report-summary-item dd {
+  margin: 0.15rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--brand-color, #2a5d3c);
+}
+@media print {
+  .report-summary-item {
+    border: 1px solid #bbb;
+    break-inside: avoid;
+  }
+}

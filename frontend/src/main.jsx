@@ -32,6 +32,7 @@ import "./index.css";
 // paged.js plus a 980-line print stylesheet, none of which a visitor
 // browsing the directory should pay for.
 const AdminReports = lazy(() => import("./pages/AdminReports.jsx"));
+const AdminReport = lazy(() => import("./pages/AdminReport.jsx"));
 const PublicMap = lazy(() => import("./pages/PublicMap.jsx"));
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout.jsx"));
 const AdminHome = lazy(() => import("./pages/AdminHome.jsx"));
@@ -170,6 +171,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   element={
                     <RequireAdminFeature feature="reports">
                       <AdminReports />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
+                  path="reports/:reportId"
+                  element={
+                    <RequireAdminFeature feature="reports">
+                      <AdminReport />
                     </RequireAdminFeature>
                   }
                 />

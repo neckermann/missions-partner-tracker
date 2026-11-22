@@ -39,10 +39,9 @@ per page) — those are gone, not alternatives.
   (`frontend/src/components/shared/`), bound together by
   `hooks/useFilterState.js`, which syncs filter values to the URL query
   string. `FilterBar`'s `fields` prop is `{ name, label, type, options?,
-  showWhen? }` — the exact contract `backend/src/reports/index.js`'s
-  `listReports()` already returns, including its `resolveFields(prisma)`
-  hook for dynamic option lists, so a resource's Report version and its
-  live admin list can share the same field definitions. `Table` takes
+  showWhen? }` — the exact contract `backend/src/reporting/registry.js`'s
+  report catalog already returns per report, so a resource's Report
+  version and its live admin list can share the same field definitions. `Table` takes
   `columns` (`{ key, label, type?, align?, render?(row) }`),
   `onRowClick`, `renderActions(row)` for a trailing actions column, and
   `expandedRowId`/`renderExpanded(row)` for an inline edit-row-below-
