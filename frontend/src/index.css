@@ -842,13 +842,24 @@ a {
 .table-actions-stack {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.6rem;
+  padding: 0.6rem;
+  background: var(--surface-2, #f4f4f2);
+  border-radius: 6px;
 }
 .table-actions-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem 0.5rem;
+}
+/* The button row (View raw/Assign/Discard) reads as a distinct group from
+   the picker row above it -- a thin divider plus right-alignment, instead
+   of two rows of controls that otherwise look identical. */
+.table-actions-stack > .table-actions-row:last-child {
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e0ded9;
 }
 .table-actions-as {
   color: #777;
