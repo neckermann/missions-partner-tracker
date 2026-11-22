@@ -1,6 +1,6 @@
 # Working here as an agent
 
-**Last verified**: 2026-11-11 · **Owner**: @neckermann
+**Last verified**: 2026-11-22 · **Owner**: @neckermann
 
 For an agent/subagent picking up work in this repo. Project basics
 (what this is, hard rules, key commands) are in
@@ -110,6 +110,44 @@ check immediately, then poll every 20-30s. Avoid a plain fixed-interval
 loop that reprints identical output on every tick; only emit when the
 check states actually change, or you'll spam duplicate updates for the
 whole 3-4 minutes.
+
+## Prefer a cloud/remote workspace for building, not just verifying
+
+Standing project preference (2026-11-22): default to doing this app's
+work — implementation, not just verification — in a cloud/remote agent
+workspace, and only fall back to the local working directory when the
+work genuinely needs to run on this computer (e.g. the user wants to
+see/use the running app on their own machine, or something local-only
+is involved) — not as a default or a convenience. This applies broadly:
+building a feature, running the dev stack, poking at the app to check
+behavior, not only the heavy-verification case below.
+
+Running the full backend+frontend stack (Docker Postgres, migrate/seed,
+boot the app, run Playwright) is the slow, heavy part of verifying a
+change, and is where this pays off most concretely — iterating against
+a live CI round trip (~3-4 min each, see "CI-polling cadence" above) is
+much slower than a background agent that can install deps, start its
+own throwaway Postgres, and run the suite directly. See the pattern
+used to close out PR #299's e2e failures (2026-11-22): a background
+agent ran the full suite end to end in one shot instead of 3 more
+push-and-wait CI cycles. The same reasoning applies to a build task
+itself, not only its verification — default there too.
+
+**Known gotcha, fixed once already, can recur**: isolated-agent launches
+(`isolation: "worktree"` or `"remote"`) in this repo have failed with
+"git resolves its working tree to a ... core.worktree redirect" --
+not because `core.worktree` is actually set, but because
+`.claude/worktrees/agent-*` accumulates stale worktree directories
+from past sessions (some left `locked`) that were never cleaned up.
+Confirmed fix (2026-11-22): `git worktree list`, then `git worktree
+unlock <path>` + `git worktree remove <path>` (no `--force` needed,
+and `--force` trips the destructive-action classifier anyway) for
+each stale entry. If an isolated launch fails with this error again,
+prune stale worktrees first before concluding isolation itself is
+broken for this repo -- it was simply disk debris, not a config
+problem. A local-working-directory background agent (no `isolation`
+param) remains a safe fallback either way, as long as the working tree
+is clean before you launch it.
 
 ## Schema changes and redeploy caches
 
