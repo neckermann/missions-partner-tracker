@@ -6,6 +6,8 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
 import Table from "../components/shared/Table.jsx";
 import ReportBarChart from "../components/shared/ReportBarChart.jsx";
+import SavedViewsBar from "../components/admin/SavedViewsBar.jsx";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 import useFilterState from "../hooks/useFilterState.js";
 import { formatCurrency, formatDate, formatDateLong, todayInputValue } from "../utils/format.js";
 
@@ -22,6 +24,7 @@ function summaryValue(item) {
 export default function AdminReport() {
   const { reportId } = useParams();
   const { churchName, logo } = useSettings();
+  const { isAdmin } = useCurrentUser();
   const [meta, setMeta] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
@@ -111,6 +114,18 @@ export default function AdminReport() {
         <div className="admin-section no-print">
           <FilterBar fields={fields} values={values} onChange={setValue} onReset={reset} />
         </div>
+      )}
+
+      {meta && (
+        <SavedViewsBar
+          reportId={reportId}
+          queryValues={Object.fromEntries(Object.entries(queryParams).filter(([k]) => k !== "today"))}
+          isAdmin={isAdmin}
+          onApply={(params) => {
+            // Reset every field, then lay the saved values over it.
+            fields.forEach((f) => setValue(f.name, params[f.name] ?? defaults[f.name]));
+          }}
+        />
       )}
 
       {result && (
