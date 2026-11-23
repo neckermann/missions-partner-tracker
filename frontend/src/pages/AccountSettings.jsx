@@ -119,12 +119,22 @@ const CADENCE_LABELS = {
 };
 
 function EmailDispatchSection({ user, onChange }) {
+  const { cadenceTiersEnabled } = useSettings();
   const [partners, setPartners] = useState([]);
   const value = {
     cadence: user.cadence || "",
     allPartners: user.allPartners !== false,
     partnerIds: user.followedPartnerIds || [],
   };
+
+  // "" (no automatic digest) is always offered, and so is this admin's
+  // own already-saved cadence even if it's since been disabled (#209) --
+  // don't silently hide someone's current choice from them, same
+  // reasoning PublicSubscribeForm.jsx's own comment gives for why *it*
+  // needs no such exception (new-subscriber-only, nothing saved yet).
+  const cadenceLabelEntries = Object.entries(CADENCE_LABELS).filter(
+    ([tierValue]) => tierValue === "" || tierValue === value.cadence || cadenceTiersEnabled[tierValue]
+  );
 
   useEffect(() => {
     fetchPartners({ archived: "false" }).then(setPartners);
@@ -166,8 +176,8 @@ function EmailDispatchSection({ user, onChange }) {
               onChange={(e) => set("cadence", e.target.value)}
               style={{ display: "block", marginTop: "0.25rem" }}
             >
-              {Object.entries(CADENCE_LABELS).map(([value, label]) => (
-                <option key={value || "none"} value={value}>
+              {cadenceLabelEntries.map(([tierValue, label]) => (
+                <option key={tierValue || "none"} value={tierValue}>
                   {label}
                 </option>
               ))}

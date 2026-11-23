@@ -1643,6 +1643,23 @@ model ChurchSettings {
   // exactly the same as before this field existed until one opts in.
   emailDispatchLayout          String? // "classic" | "snapshot"
 
+  // Admin-configurable availability of the three email-digest cadence
+  // tiers themselves (#209) -- which tiers an admin (Account Settings)
+  // and a public subscriber (the Subscribe page / "follow this partner"
+  // form) are even offered, independent of emailDispatchDayOfWeek/
+  // DayOfMonth above (whether a tier's schedule is actually set). Same
+  // per-boolean-column pattern as the chatDispatch* content-type mutes
+  // above, applied to tiers instead of content types. Biweekly defaults
+  // off (the initial ask behind this field: drop biweekly from new
+  // signups, default to monthly) while monthly/quarterly default on,
+  // matching every subscriber's existing behavior before this field
+  // existed. At least one tier must stay enabled -- settingsDispatches.js's
+  // PUT rejects a request that would leave all three off, since the
+  // migration logic below needs somewhere to send a descoped subscriber.
+  cadenceBiweeklyEnabled  Boolean @default(false)
+  cadenceMonthlyEnabled   Boolean @default(true)
+  cadenceQuarterlyEnabled Boolean @default(true)
+
   // Trips (#252) -- church-level, not per-trip. A church's online giving
   // platform and how it's configured doesn't change trip-to-trip.
   onlineGivingUrl          String? // link to the church's own external online giving platform, if it has one
