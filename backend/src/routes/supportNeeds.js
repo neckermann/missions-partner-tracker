@@ -5,6 +5,12 @@ const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { notifySupportNeedCreated, notifySupportNeedDecided } = require("../utils/dispatchRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
+const { getSeenAt, touchSeen, markCategorySeen } = require("../notifications/categories");
+
+// Same reasoning as prayerRequests.js's own LIST_VIEW_SEEN_KEY -- distinct
+// from the bell's "newOneTimeNeeds" row, since opening the bell already
+// advances that one before this list ever renders.
+const LIST_VIEW_SEEN_KEY = "newOneTimeNeeds:listView";
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -67,11 +73,28 @@ const supportNeedInclude = {
   sourceFile: { select: { id: true, kind: true, title: true, fileName: true, receivedDate: true } },
 };
 
-// GET /api/support-needs?partnerId=  (all partners combined, newest request first)
-router.get("/", async (req, res, next) => {
+// GET /api/support-needs?partnerId=&status=&from=&to=  (all partners combined, newest request first)
+// status/from/to mirror reports/oneTimeNeeds.js's own filtering exactly
+// (status derived from approvedAmount being null/not-null, same as there --
+// SupportNeed has no separate status column).
+//
+// A Trip Leader has no access here at all, even for their own linked
+// Partner -- same reasoning as supportEntries.js's identical block: this
+// is financial-support detail, not the ministry content (Prayer Requests/
+// Newsletters & Docs) this role is meant to read. An outright role block,
+// not requirePartnerQueryScope (which would have let a matching partnerId
+// through).
+router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
+    if (req.query.status === "pending") where.approvedAmount = null;
+    if (req.query.status === "decided") where.approvedAmount = { not: null };
+    if (req.query.from || req.query.to) {
+      where.requestDate = {};
+      if (req.query.from) where.requestDate.gte = new Date(String(req.query.from));
+      if (req.query.to) where.requestDate.lte = new Date(String(req.query.to));
+    }
 
     const records = await prisma.supportNeed.findMany({
       where,
@@ -79,7 +102,22 @@ router.get("/", async (req, res, next) => {
       // createdAt as a tiebreaker -- see the same comment in prayerRequests.js.
       orderBy: [{ requestDate: "desc" }, { createdAt: "desc" }],
     });
-    res.json(records);
+
+    // Only the consolidated list view counts as "visiting the list" --
+    // see prayerRequests.js's identical comment on its own GET /.
+    if (req.query.partnerId) return res.json(records);
+    const seenAt = await getSeenAt(req.user.id, LIST_VIEW_SEEN_KEY);
+    const annotated = records.map((r) => ({
+      ...r,
+      isNew: !seenAt || new Date(r.createdAt) > seenAt,
+    }));
+    await touchSeen(req.user.id, LIST_VIEW_SEEN_KEY);
+    // Visiting the real list is also "having seen" the bell/nav-badge
+    // category itself -- without this, the badge only clears by opening
+    // the bell first, not by navigating here directly (e.g. via the
+    // sidebar nav link), which is the whole point of a nav badge.
+    await markCategorySeen(req.user.id, "newOneTimeNeeds");
+    res.json(annotated);
   } catch (err) {
     next(err);
   }

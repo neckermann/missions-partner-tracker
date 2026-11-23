@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   fetchTrips,
   fetchPartners,
@@ -10,17 +10,30 @@ import {
   cloneTrip,
 } from "../api/client.js";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
-import AlbumLinkField from "../components/admin/AlbumLinkField.jsx";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
+import TripFormFields, {
+  TRIP_TYPE_PRESETS,
+  emptyTripForm,
+  cleanTripParticipants,
+} from "../components/admin/TripFormFields.jsx";
+import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import Modal from "../components/Modal.jsx";
+import Field from "../components/admin/Field.jsx";
 import { formatDate, toDateInputValue } from "../utils/format.js";
-import { partnerKindLabel } from "../utils/partnerEntity.js";
+import { partnerKindLabel, PARTNER_TYPE_FILTER_FIELD } from "../utils/partnerEntity.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import TripStatusBadge, { STATUS_LABELS } from "../components/admin/TripStatusBadge.jsx";
 import StatusPill from "../components/admin/StatusPill.jsx";
-import TripFilterBar from "../components/admin/TripFilterBar.jsx";
+import FilterBar from "../components/shared/FilterBar.jsx";
+import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
+import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
+import Table from "../components/shared/Table.jsx";
+import useFilterState from "../hooks/useFilterState.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 // Merged (design review, post-#252) from two previously separate pages/
 // nav items -- AdminTrips.jsx ("Trips": every real Trip row, a
@@ -38,32 +51,6 @@ import TripFilterBar from "../components/admin/TripFilterBar.jsx";
 function yearOf(value) {
   return value ? String(value).slice(0, 4) : null;
 }
-
-const TRIP_TYPE_PRESETS = [
-  "Construction",
-  "Medical/Dental",
-  "VBS/Children's Ministry",
-  "Evangelism/Outreach",
-  "Teaching/Discipleship",
-  "Prayer",
-  "General Labor",
-  "Sports Ministry",
-  "Music/Worship",
-  "Administrative/Support",
-];
-
-const emptyParticipant = { firstName: "", lastName: "", role: "", isLeader: false, phone: "", email: "" };
-const emptyTripForm = {
-  partnerId: "",
-  startDate: "",
-  endDate: "",
-  type: "",
-  description: "",
-  notes: "",
-  albumProvider: null,
-  albumUrl: null,
-  participants: [],
-};
 
 // "active" is its own filter value, not one of Trip.status's real four --
 // it means "every status except completed" (planning, accepting_applications,
@@ -89,10 +76,10 @@ const emptyFilters = {
 
 function ExistingTripsTab() {
   const navigate = useNavigate();
+  const { canWrite, isAdmin } = useCurrentUser();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [records, setRecords] = useState([]);
   const [partners, setPartners] = useState([]);
-  const [filters, setFilters] = useState(emptyFilters);
   const [showAddForm, setShowAddForm] = useState(false);
   // Which of the two add-flows the revealed form is on -- "planning"
   // (start a new recruiting trip) is the default; "completed" (today's
@@ -101,12 +88,12 @@ function ExistingTripsTab() {
   const [addKind, setAddKind] = useState("planning");
   const [newTripPartnerId, setNewTripPartnerId] = useState("");
   const [newTripType, setNewTripType] = useState("");
-  const [startingTrip, setStartingTrip] = useState(false);
   const [newTrip, setNewTrip] = useState(emptyTripForm);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState(emptyTripForm);
+  // The click-row-opens-popup target for a completed trip (the only kind
+  // editable from this list -- an active trip's real multi-page detail
+  // view is a richer destination than a popup, so its row still
+  // navigates there instead). { id, form, entityName }.
+  const [tripDetail, setTripDetail] = useState(null);
 
   function reload() {
     fetchTrips().then(setRecords).catch(console.error);
@@ -117,15 +104,11 @@ function ExistingTripsTab() {
     fetchPartners().then(setPartners).catch(console.error);
   }, []);
 
-  function updateFilter(field, value) {
-    setFilters((f) => ({ ...f, [field]: value }));
-  }
-
   const trips = useMemo(
     () =>
       records.map((t) => ({
         ...t,
-        entityType: partnerKindLabel(t.partner?.kind),
+        entityType: t.partner?.kind || "missionary",
         entityName: t.partner?.displayName || "—",
         entityLink: t.partner ? `/admin/partners/${t.partner.id}` : null,
         size: (t.participants || []).length,
@@ -151,7 +134,70 @@ function ExistingTripsTab() {
     [trips]
   );
 
+  const fields = useMemo(
+    () => [
+      // Rendered via `pills` below, not the field grid -- present here so
+      // useFilterState knows about it for URL-sync/reset purposes.
+      { name: "status" },
+      PARTNER_TYPE_FILTER_FIELD,
+      {
+        name: "type",
+        label: "Trip Type",
+        type: "select",
+        options: [{ value: "all", label: "All" }, ...typeOptions.map((t) => ({ value: t, label: t }))],
+      },
+      {
+        name: "year",
+        label: "Year",
+        type: "select",
+        options: [
+          { value: "all", label: "All" },
+          ...yearOptions.map((y) => ({ value: String(y), label: String(y) })),
+        ],
+      },
+      { name: "minSize", label: "Min Team Size", type: "number" },
+      { name: "maxSize", label: "Max Team Size", type: "number" },
+    ],
+    [typeOptions, yearOptions]
+  );
+  const {
+    values: filters,
+    setValue: updateFilter,
+    reset: resetFilters,
+  } = useFilterState(fields, emptyFilters);
+  const {
+    partnerId: filterPartnerId,
+    partnerName: filterPartnerName,
+    clearPartnerFilter,
+    setPartnerFilter,
+  } = usePartnerUrlFilter();
+
+  // Partner Detail's Mission Trips "+ Add" links here with both
+  // ?partnerId= (the existing filter) and ?newTrip=1, to open straight
+  // into "start a new trip" pre-selected to that partner instead of
+  // landing on the filtered list and making someone find the button
+  // themselves. Strips ?newTrip= right after so refreshing/revisiting
+  // this URL later doesn't keep reopening the form.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("newTrip") === "1" && filterPartnerId) {
+      setShowAddForm(true);
+      setAddKind("planning");
+      setNewTripPartnerId(filterPartnerId);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("newTrip");
+          return next;
+        },
+        { replace: true }
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const filteredTrips = trips.filter((t) => {
+    if (filterPartnerId && t.partner?.id !== filterPartnerId) return false;
     if (filters.status === "active" && t.status === "completed") return false;
     if (filters.status !== "all" && filters.status !== "active" && t.status !== filters.status) return false;
     if (filters.entityType !== "all" && t.entityType !== filters.entityType) return false;
@@ -176,56 +222,22 @@ function ExistingTripsTab() {
     showMore,
   } = useLoadMore(filteredTrips, { initialCount: 25, step: 25 });
 
-  function addParticipant(which) {
-    const setter = which === "new" ? setNewTrip : setEditForm;
-    setter((f) => ({ ...f, participants: [...f.participants, { ...emptyParticipant }] }));
-  }
-  function updateParticipant(which, index, field, value) {
-    const setter = which === "new" ? setNewTrip : setEditForm;
-    setter((f) => {
-      const next = [...f.participants];
-      next[index] = { ...next[index], [field]: value };
-      return { ...f, participants: next };
+  async function submitAddCompletedTrip() {
+    if (!newTrip.partnerId) throw new Error("Choose a partner");
+    await createTrip({
+      partnerId: newTrip.partnerId,
+      status: "completed",
+      startDate: newTrip.startDate || null,
+      endDate: newTrip.endDate || null,
+      type: newTrip.type || null,
+      description: newTrip.description || null,
+      notes: newTrip.notes || null,
+      albumProvider: newTrip.albumProvider || null,
+      albumUrl: newTrip.albumUrl || null,
+      participants: cleanTripParticipants(newTrip.participants),
     });
-  }
-  function removeParticipant(which, index) {
-    const setter = which === "new" ? setNewTrip : setEditForm;
-    setter((f) => ({ ...f, participants: f.participants.filter((_, i) => i !== index) }));
-  }
-
-  function cleanParticipants(participants) {
-    return participants.map((p) => ({ ...p, firstName: p.firstName.trim() })).filter((p) => p.firstName);
-  }
-
-  async function handleAddSubmit(e) {
-    e.preventDefault();
-    setError("");
-    if (!newTrip.partnerId) {
-      setError("Choose a partner");
-      return;
-    }
-    setSaving(true);
-    try {
-      await createTrip({
-        partnerId: newTrip.partnerId,
-        status: "completed",
-        startDate: newTrip.startDate || null,
-        endDate: newTrip.endDate || null,
-        type: newTrip.type || null,
-        description: newTrip.description || null,
-        notes: newTrip.notes || null,
-        albumProvider: newTrip.albumProvider || null,
-        albumUrl: newTrip.albumUrl || null,
-        participants: cleanParticipants(newTrip.participants),
-      });
-      setNewTrip(emptyTripForm);
-      setShowAddForm(false);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to save trip");
-    } finally {
-      setSaving(false);
-    }
+    setNewTrip(emptyTripForm);
+    reload();
   }
 
   // Reuses the exact createTrip({status: "planning", ...}) shape the
@@ -234,64 +246,57 @@ function ExistingTripsTab() {
   // lands on the trip's own detail page immediately, same as that tab
   // does, since there's nothing useful left to do on this list once the
   // trip exists.
-  async function handleStartNewTrip(e) {
-    e.preventDefault();
-    setError("");
-    if (!newTripPartnerId) {
-      setError("Choose a partner");
-      return;
-    }
-    setStartingTrip(true);
-    try {
-      const partner = partners.find((p) => p.id === newTripPartnerId);
-      const created = await createTrip({
-        partnerId: newTripPartnerId,
-        status: "planning",
-        teamSizeMin: partner?.tripTeamSizeMin ?? null,
-        teamSizeMax: partner?.tripTeamSizeMax ?? null,
-        type: newTripType || null,
-      });
-      navigate(`/admin/trips/${created.id}`, { state: { from: "trips" } });
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to start trip");
-      setStartingTrip(false);
-    }
+  async function submitStartNewTrip() {
+    if (!newTripPartnerId) throw new Error("Choose a partner");
+    const partner = partners.find((p) => p.id === newTripPartnerId);
+    const created = await createTrip({
+      partnerId: newTripPartnerId,
+      status: "planning",
+      teamSizeMin: partner?.tripTeamSizeMin ?? null,
+      teamSizeMax: partner?.tripTeamSizeMax ?? null,
+      type: newTripType || null,
+    });
+    navigate(`/admin/trips/${created.id}`);
   }
 
-  function startEdit(trip) {
-    setError("");
-    setEditingId(trip.id);
-    setEditForm({
-      partnerId: "",
-      startDate: toDateInputValue(trip.startDate),
-      endDate: toDateInputValue(trip.endDate),
-      type: trip.type || "",
-      description: trip.description || "",
-      notes: trip.notes || "",
-      albumProvider: trip.albumProvider || null,
-      albumUrl: trip.albumUrl || null,
-      participants: (trip.participants || []).map((p) => ({ ...p })),
+  // Only reachable for a completed trip -- see the Table's onRowClick
+  // below. An active trip's own multi-page detail view (team/meetings/
+  // requirements/budget/flights) is a richer destination than a popup
+  // could hold, so it keeps navigating there instead.
+  function openTripDetail(trip) {
+    setTripDetail({
+      id: trip.id,
+      entityName: trip.entityName,
+      form: {
+        partnerId: "",
+        startDate: toDateInputValue(trip.startDate),
+        endDate: toDateInputValue(trip.endDate),
+        type: trip.type || "",
+        description: trip.description || "",
+        notes: trip.notes || "",
+        albumProvider: trip.albumProvider || null,
+        albumUrl: trip.albumUrl || null,
+        participants: (trip.participants || []).map((p) => ({ ...p })),
+      },
     });
   }
 
-  async function submitEdit(id) {
-    setError("");
-    try {
-      await updateTrip(id, {
-        startDate: editForm.startDate || null,
-        endDate: editForm.endDate || null,
-        type: editForm.type || null,
-        description: editForm.description || null,
-        notes: editForm.notes || null,
-        albumProvider: editForm.albumProvider || null,
-        albumUrl: editForm.albumUrl || null,
-        participants: cleanParticipants(editForm.participants),
-      });
-      setEditingId(null);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to save trip");
-    }
+  function setTripDetailForm(updater) {
+    setTripDetail((d) => ({ ...d, form: typeof updater === "function" ? updater(d.form) : updater }));
+  }
+
+  async function submitTripDetail() {
+    await updateTrip(tripDetail.id, {
+      startDate: tripDetail.form.startDate || null,
+      endDate: tripDetail.form.endDate || null,
+      type: tripDetail.form.type || null,
+      description: tripDetail.form.description || null,
+      notes: tripDetail.form.notes || null,
+      albumProvider: tripDetail.form.albumProvider || null,
+      albumUrl: tripDetail.form.albumUrl || null,
+      participants: cleanTripParticipants(tripDetail.form.participants),
+    });
+    reload();
   }
 
   async function handleDelete(trip) {
@@ -306,94 +311,38 @@ function ExistingTripsTab() {
     reload();
   }
 
-  function renderParticipantsEditor(which, form) {
-    return (
-      <>
-        <h4 style={{ marginTop: "1rem" }}>Participants</h4>
-        {form.participants.map((p, pIndex) => (
-          <div className="repeatable-row" key={pIndex} style={{ background: "white" }}>
-            <button
-              type="button"
-              className="btn-remove"
-              onClick={() => removeParticipant(which, pIndex)}
-              title="Remove"
-            >
-              ✕
-            </button>
-            <div className="form-grid">
-              <label>
-                First Name
-                <input
-                  value={p.firstName}
-                  onChange={(e) => updateParticipant(which, pIndex, "firstName", e.target.value)}
-                />
-              </label>
-              <label>
-                Last Name
-                <input
-                  value={p.lastName || ""}
-                  onChange={(e) => updateParticipant(which, pIndex, "lastName", e.target.value)}
-                />
-              </label>
-              <label>
-                Role
-                <input
-                  value={p.role || ""}
-                  onChange={(e) => updateParticipant(which, pIndex, "role", e.target.value)}
-                  placeholder="e.g. Construction"
-                />
-              </label>
-              <label>
-                Phone
-                <input
-                  value={p.phone || ""}
-                  onChange={(e) => updateParticipant(which, pIndex, "phone", e.target.value)}
-                />
-              </label>
-              <label>
-                Email
-                <input
-                  value={p.email || ""}
-                  onChange={(e) => updateParticipant(which, pIndex, "email", e.target.value)}
-                />
-              </label>
-            </div>
-            <div className="admin-checkbox-row" style={{ marginTop: "0.5rem" }}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={!!p.isLeader}
-                  onChange={(e) => updateParticipant(which, pIndex, "isLeader", e.target.checked)}
-                />
-                Trip Leader
-              </label>
-            </div>
-          </div>
-        ))}
-        <button type="button" className="btn secondary small" onClick={() => addParticipant(which)}>
-          + Add Participant
-        </button>
-      </>
-    );
-  }
-
   return (
-    <div className={showAddForm || editingId ? "form-has-floating-actions" : ""}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button
-          className="btn"
-          onClick={() => {
-            setShowAddForm((v) => !v);
-            setAddKind("planning");
-            setError("");
-          }}
-        >
-          {showAddForm ? "Cancel" : "+ New Trip"}
-        </button>
-      </div>
+    <div>
+      {filterPartnerId && (
+        <Breadcrumb
+          items={[
+            { label: "Partners", to: "/admin/partners" },
+            { label: filterPartnerName || "…", to: `/admin/partners/${filterPartnerId}` },
+            { label: "Trips" },
+          ]}
+        />
+      )}
+      {canWrite && (
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button
+            className="btn"
+            onClick={() => {
+              setShowAddForm(true);
+              setAddKind("planning");
+            }}
+          >
+            + New Trip
+          </button>
+        </div>
+      )}
 
-      {showAddForm && (
-        <div className="admin-section" style={{ marginTop: "1rem" }}>
+      {canWrite && showAddForm && (
+        <QuickActionModal
+          title="New Trip"
+          onClose={() => setShowAddForm(false)}
+          onSubmit={addKind === "planning" ? submitStartNewTrip : submitAddCompletedTrip}
+          submitLabel={addKind === "planning" ? "Start Trip" : "Save Trip"}
+        >
           <div className="admin-checkbox-row" style={{ marginBottom: "1rem" }}>
             <label>
               <input
@@ -416,7 +365,7 @@ function ExistingTripsTab() {
           </div>
 
           {addKind === "planning" ? (
-            <form onSubmit={handleStartNewTrip}>
+            <>
               <div className="form-grid">
                 <label style={{ gridColumn: "1 / -1" }}>
                   Partner
@@ -440,20 +389,12 @@ function ExistingTripsTab() {
               <p style={{ color: "#888", fontSize: "0.85rem", marginTop: "0.5rem" }}>
                 Creates the trip and takes you to its own page to set dates, team size, and start recruiting.
               </p>
-              <div className="form-save-bar">
-                <button type="submit" className="btn" disabled={startingTrip}>
-                  {startingTrip ? "Starting…" : "Start Trip"}
-                </button>
-                {error && (
-                  <span style={{ color: "#b91c1c" }} role="alert">
-                    {error}
-                  </span>
-                )}
-              </div>
-            </form>
+            </>
           ) : (
-            <form onSubmit={handleAddSubmit}>
-              <div className="form-grid">
+            <TripFormFields
+              form={newTrip}
+              setForm={setNewTrip}
+              partnerPicker={
                 <label style={{ gridColumn: "1 / -1" }}>
                   Partner
                   <PartnerSelect
@@ -463,131 +404,28 @@ function ExistingTripsTab() {
                     required
                   />
                 </label>
-                <label>
-                  Start Date
-                  <input
-                    type="date"
-                    value={newTrip.startDate}
-                    onChange={(e) => setNewTrip((f) => ({ ...f, startDate: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  End Date
-                  <input
-                    type="date"
-                    value={newTrip.endDate}
-                    onChange={(e) => setNewTrip((f) => ({ ...f, endDate: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  Trip Type
-                  <PresetOrCustomSelect
-                    value={newTrip.type}
-                    onChange={(val) => setNewTrip((f) => ({ ...f, type: val }))}
-                    presets={TRIP_TYPE_PRESETS}
-                    placeholder="e.g. Photography"
-                  />
-                </label>
-              </div>
-              <label style={{ marginTop: "0.75rem" }}>
-                Description (what the team did)
-                <textarea
-                  rows={2}
-                  value={newTrip.description}
-                  onChange={(e) => setNewTrip((f) => ({ ...f, description: e.target.value }))}
-                />
-              </label>
-              <label style={{ marginTop: "0.75rem" }}>
-                Notes
-                <textarea
-                  rows={2}
-                  value={newTrip.notes}
-                  onChange={(e) => setNewTrip((f) => ({ ...f, notes: e.target.value }))}
-                />
-              </label>
-              <label style={{ marginTop: "0.75rem" }}>
-                Photo/Video Album
-                <AlbumLinkField
-                  provider={newTrip.albumProvider}
-                  url={newTrip.albumUrl}
-                  onChange={(provider, url) =>
-                    setNewTrip((f) => ({ ...f, albumProvider: provider, albumUrl: url }))
-                  }
-                />
-              </label>
-              {renderParticipantsEditor("new", newTrip)}
-              <div className="form-save-bar">
-                <button type="submit" className="btn" disabled={saving}>
-                  {saving ? "Saving..." : "Save Trip"}
-                </button>
-                {error && (
-                  <span style={{ color: "#b91c1c" }} role="alert">
-                    {error}
-                  </span>
-                )}
-              </div>
-            </form>
+              }
+            />
           )}
-        </div>
+        </QuickActionModal>
       )}
 
-      <TripFilterBar
-        pills={{
-          options: STATUS_QUICK_FILTERS,
-          value: filters.status,
-          onChange: (v) => updateFilter("status", v),
-        }}
-        onReset={() => setFilters(emptyFilters)}
-      >
-        <label>
-          Partner Type
-          <select value={filters.entityType} onChange={(e) => updateFilter("entityType", e.target.value)}>
-            <option value="all">All</option>
-            <option value="Missionary">Missionary</option>
-            <option value="Organization">Organization</option>
-          </select>
-        </label>
-        <label>
-          Trip Type
-          <select value={filters.type} onChange={(e) => updateFilter("type", e.target.value)}>
-            <option value="all">All</option>
-            {typeOptions.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Year
-          <select value={filters.year} onChange={(e) => updateFilter("year", e.target.value)}>
-            <option value="all">All</option>
-            {yearOptions.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Min Team Size
-          <input
-            type="number"
-            min="0"
-            value={filters.minSize}
-            onChange={(e) => updateFilter("minSize", e.target.value)}
+      <FilterBar
+        fields={fields}
+        values={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
+        pills={{ field: "status", options: STATUS_QUICK_FILTERS }}
+        extraChips={
+          <PartnerFilterChip
+            partnerId={filterPartnerId}
+            partnerName={filterPartnerName}
+            partners={partners}
+            onSelect={setPartnerFilter}
+            onClear={clearPartnerFilter}
           />
-        </label>
-        <label>
-          Max Team Size
-          <input
-            type="number"
-            min="0"
-            value={filters.maxSize}
-            onChange={(e) => updateFilter("maxSize", e.target.value)}
-          />
-        </label>
-      </TripFilterBar>
+        }
+      />
 
       <div className="admin-section">
         <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
@@ -620,163 +458,157 @@ function ExistingTripsTab() {
         </div>
       </div>
 
-      <table className="admin-table" style={{ marginTop: "1rem" }}>
-        <thead>
-          <tr>
-            <th>Partner</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th>Trip Type</th>
-            <th>Dates</th>
-            <th>Team</th>
-            <th>Raised</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {visibleTrips.map((trip) => {
-            const leaders = (trip.participants || [])
-              .filter((p) => p.isLeader)
-              .map((p) => [p.firstName, p.lastName].filter(Boolean).join(" "));
-            const isHistorical = trip.status === "completed";
-            return (
-              <React.Fragment key={trip.id}>
-                <tr
-                  onClick={!isHistorical ? () => navigate(`/admin/trips/${trip.id}`) : undefined}
-                  style={!isHistorical ? { cursor: "pointer" } : undefined}
-                  title={!isHistorical ? "Click to view details" : undefined}
-                >
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <Link to={trip.entityLink}>{trip.entityName}</Link>
-                    {trip.partner?.isRestricted && (
-                      <div style={{ fontSize: "0.7rem", color: "#a6540f", fontWeight: 700 }}>
-                        Restricted partner
-                      </div>
-                    )}
-                  </td>
-                  <td>{trip.entityType}</td>
-                  <td>
-                    <TripStatusBadge status={trip.status} />
-                  </td>
-                  <td>{trip.type || "—"}</td>
-                  <td>
-                    {trip.startDate || trip.endDate
-                      ? `${formatDate(trip.startDate) || "?"} – ${formatDate(trip.endDate) || "?"}`
-                      : "—"}
-                    {trip.daysUntilDeparture != null && (
-                      <div style={{ fontSize: "0.75rem", color: "#888" }}>
-                        {trip.daysUntilDeparture} days until departure
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    {trip.size} / {trip.teamSizeMax ?? "?"} filled
-                    {leaders.length > 0 && (
-                      <div style={{ fontSize: "0.75rem", color: "#888" }}>{leaders.join(", ")}</div>
-                    )}
-                  </td>
-                  <td>
-                    ${trip.raised}
-                    {trip.supportRaisingGoal ? ` / $${trip.supportRaisingGoal}` : ""}
-                  </td>
-                  <td className="table-actions" onClick={(e) => e.stopPropagation()}>
-                    {isHistorical && (
-                      <button
-                        type="button"
-                        className="btn secondary small"
-                        onClick={() => (editingId === trip.id ? setEditingId(null) : startEdit(trip))}
-                      >
-                        {editingId === trip.id ? "Cancel" : "Edit"}
-                      </button>
-                    )}
-                    <button type="button" className="btn danger small" onClick={() => handleDelete(trip)}>
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-                {editingId === trip.id && (
-                  <tr>
-                    <td colSpan={8}>
-                      <div className="form-grid">
-                        <label>
-                          Start Date
-                          <input
-                            type="date"
-                            value={editForm.startDate}
-                            onChange={(e) => setEditForm((f) => ({ ...f, startDate: e.target.value }))}
-                          />
-                        </label>
-                        <label>
-                          End Date
-                          <input
-                            type="date"
-                            value={editForm.endDate}
-                            onChange={(e) => setEditForm((f) => ({ ...f, endDate: e.target.value }))}
-                          />
-                        </label>
-                        <label>
-                          Trip Type
-                          <PresetOrCustomSelect
-                            value={editForm.type}
-                            onChange={(val) => setEditForm((f) => ({ ...f, type: val }))}
-                            presets={TRIP_TYPE_PRESETS}
-                            placeholder="e.g. Photography"
-                          />
-                        </label>
-                      </div>
-                      <label style={{ marginTop: "0.75rem" }}>
-                        Description (what the team did)
-                        <textarea
-                          rows={2}
-                          value={editForm.description}
-                          onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                        />
-                      </label>
-                      <label style={{ marginTop: "0.75rem" }}>
-                        Notes
-                        <textarea
-                          rows={2}
-                          value={editForm.notes}
-                          onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-                        />
-                      </label>
-                      <label style={{ marginTop: "0.75rem" }}>
-                        Photo/Video Album
-                        <AlbumLinkField
-                          provider={editForm.albumProvider}
-                          url={editForm.albumUrl}
-                          onChange={(provider, url) =>
-                            setEditForm((f) => ({ ...f, albumProvider: provider, albumUrl: url }))
-                          }
-                        />
-                      </label>
-                      {renderParticipantsEditor("edit", editForm)}
-                      <div className="form-save-bar">
-                        <button type="button" className="btn small" onClick={() => submitEdit(trip.id)}>
-                          Save
-                        </button>
-                        {error && (
-                          <span style={{ color: "#b91c1c" }} role="alert">
-                            {error}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+      <Table
+        className="admin-table"
+        style={{ marginTop: "1rem" }}
+        rows={visibleTrips}
+        rowKey={(trip) => trip.id}
+        onRowClick={(trip) =>
+          trip.status === "completed" ? openTripDetail(trip) : navigate(`/admin/trips/${trip.id}`)
+        }
+        emptyMessage="No trips match these filters."
+        columns={[
+          {
+            key: "entityName",
+            label: "Partner",
+            stopRowClick: true,
+            render: (trip) => (
+              <>
+                <Link to={trip.entityLink} style={{ fontWeight: 600 }}>
+                  {trip.entityName}
+                </Link>
+                {trip.partner?.isRestricted && (
+                  <div style={{ fontSize: "0.7rem", color: "#a6540f", fontWeight: 700 }}>
+                    Restricted partner
+                  </div>
                 )}
-              </React.Fragment>
-            );
-          })}
-          {filteredTrips.length === 0 && (
-            <tr>
-              <td colSpan={8} style={{ color: "#888" }}>
-                No trips match these filters.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+              </>
+            ),
+          },
+          { key: "entityType", label: "Type", render: (trip) => partnerKindLabel(trip.entityType) },
+          {
+            key: "status",
+            label: "Status",
+            render: (trip) => (
+              <>
+                <TripStatusBadge status={trip.status} />
+                {/* Same conditions the in-app notification bell surfaces for
+                    this trip -- a per-row indicator here is the fallback for
+                    when a category can't link straight to one specific trip
+                    (several are responsible at once), so this list is still
+                    where someone can visually find the right one. */}
+                {(trip.hasPendingApplications ||
+                  trip.hasOverdueRequirement ||
+                  trip.departingSoonIncomplete) && (
+                  <div style={{ fontSize: "0.7rem", color: "#a6540f", fontWeight: 600, marginTop: "0.2rem" }}>
+                    {trip.hasPendingApplications && <div>📝 Pending application</div>}
+                    {trip.hasOverdueRequirement && <div>⏰ Overdue requirement</div>}
+                    {trip.departingSoonIncomplete && <div>⏳ Departing soon, incomplete</div>}
+                  </div>
+                )}
+              </>
+            ),
+          },
+          { key: "type", label: "Trip Type", render: (trip) => trip.type || "—" },
+          {
+            key: "startDate",
+            label: "Dates",
+            render: (trip) => (
+              <>
+                {trip.startDate || trip.endDate
+                  ? `${formatDate(trip.startDate) || "?"} – ${formatDate(trip.endDate) || "?"}`
+                  : "—"}
+                {trip.daysUntilDeparture != null && (
+                  <div style={{ fontSize: "0.75rem", color: "#888" }}>
+                    {trip.daysUntilDeparture} days until departure
+                  </div>
+                )}
+              </>
+            ),
+          },
+          {
+            key: "size",
+            label: "Team",
+            render: (trip) => {
+              const leaders = (trip.participants || [])
+                .filter((p) => p.isLeader)
+                .map((p) => [p.firstName, p.lastName].filter(Boolean).join(" "));
+              return (
+                <>
+                  {trip.size} / {trip.teamSizeMax ?? "?"} filled
+                  {leaders.length > 0 && (
+                    <div style={{ fontSize: "0.75rem", color: "#888" }}>{leaders.join(", ")}</div>
+                  )}
+                </>
+              );
+            },
+          },
+          {
+            key: "raised",
+            label: "Raised",
+            render: (trip) => (
+              <>
+                ${trip.raised}
+                {trip.supportRaisingGoal ? ` / $${trip.supportRaisingGoal}` : ""}
+              </>
+            ),
+          },
+        ]}
+        renderActions={(trip) => (
+          <>
+            {isAdmin && (
+              <button
+                type="button"
+                className="btn danger small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(trip);
+                }}
+              >
+                Delete
+              </button>
+            )}
+          </>
+        )}
+      />
       <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+
+      {tripDetail &&
+        (canWrite ? (
+          <QuickActionModal
+            title={`Trip — ${tripDetail.entityName}`}
+            onClose={() => setTripDetail(null)}
+            onSubmit={submitTripDetail}
+          >
+            <TripFormFields form={tripDetail.form} setForm={setTripDetailForm} />
+          </QuickActionModal>
+        ) : (
+          <Modal title={`Trip — ${tripDetail.entityName}`} onClose={() => setTripDetail(null)}>
+            <Field
+              label="Dates"
+              value={
+                tripDetail.form.startDate || tripDetail.form.endDate
+                  ? `${formatDate(tripDetail.form.startDate) || "?"} – ${formatDate(tripDetail.form.endDate) || "?"}`
+                  : null
+              }
+              showEmpty
+            />
+            <Field label="Trip Type" value={tripDetail.form.type} showEmpty />
+            <Field label="Description" value={tripDetail.form.description} showEmpty />
+            <Field label="Notes" value={tripDetail.form.notes} showEmpty />
+            <Field
+              label="Participants"
+              value={
+                tripDetail.form.participants.length > 0
+                  ? tripDetail.form.participants
+                      .map((p) => [p.firstName, p.lastName].filter(Boolean).join(" "))
+                      .join(", ")
+                  : null
+              }
+              showEmpty
+            />
+          </Modal>
+        ))}
       {confirmElement}
     </div>
   );
@@ -826,17 +658,8 @@ function PlanATripTab() {
   const [loading, setLoading] = useState(true);
   const [cloningId, setCloningId] = useState(null);
   const [startingId, setStartingId] = useState(null);
-  const [quickFilter, setQuickFilter] = useState("all");
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [neverBeenOnly, setNeverBeenOnly] = useState(false);
-  // Team-size range filter -- effective size is the open/committed
-  // trip's own teamSizeMin/Max when one exists, else the partner's
-  // general capacity. "Matches" means the two ranges overlap, not that
-  // the row's range sits entirely inside the filter's.
-  const [sizeMin, setSizeMin] = useState("");
-  const [sizeMax, setSizeMax] = useState("");
   const navigate = useNavigate();
+  const { canWrite } = useCurrentUser();
 
   useEffect(() => {
     fetchTripPlanning()
@@ -847,24 +670,50 @@ function PlanATripTab() {
 
   const tripTypes = [...new Set(rows.flatMap((r) => r.tripTypesSupported || []))].sort();
 
-  function resetFilters() {
-    setQuickFilter("all");
-    setSearch("");
-    setTypeFilter("");
-    setNeverBeenOnly(false);
-    setSizeMin("");
-    setSizeMax("");
-  }
+  const fields = useMemo(
+    () => [
+      { name: "quickFilter" }, // rendered via `pills`, not the field grid
+      { name: "search", label: "Search partner name" },
+      {
+        name: "type",
+        label: "Trip Type",
+        type: "select",
+        options: [{ value: "all", label: "All" }, ...tripTypes.map((t) => ({ value: t, label: t }))],
+      },
+      { name: "minSize", label: "Min Team Size", type: "number" },
+      { name: "maxSize", label: "Max Team Size", type: "number" },
+      // Team-size range filter -- effective size is the open/committed
+      // trip's own teamSizeMin/Max when one exists, else the partner's
+      // general capacity. "Matches" means the two ranges overlap, not
+      // that the row's range sits entirely inside the filter's.
+      { name: "neverBeenOnly", label: "Never been (no past trips)", type: "checkbox" },
+    ],
+    [tripTypes]
+  );
+  const {
+    values: filters,
+    setValue: updateFilter,
+    reset: resetFilters,
+  } = useFilterState(fields, {
+    quickFilter: "all",
+    search: "",
+    type: "all",
+    minSize: "",
+    maxSize: "",
+    neverBeenOnly: false,
+  });
 
   const visibleRows = rows.filter((row) => {
-    if (quickFilter !== "all" && row.kind !== quickFilter) return false;
-    if (search && !row.displayName.toLowerCase().includes(search.toLowerCase())) return false;
-    if (typeFilter && !(row.tripTypesSupported || []).includes(typeFilter)) return false;
-    if (neverBeenOnly && row.pastTripCount > 0) return false;
+    if (filters.quickFilter !== "all" && row.kind !== filters.quickFilter) return false;
+    if (filters.search && !row.displayName.toLowerCase().includes(filters.search.toLowerCase())) return false;
+    if (filters.type !== "all" && !(row.tripTypesSupported || []).includes(filters.type)) return false;
+    if (filters.neverBeenOnly && row.pastTripCount > 0) return false;
     const effectiveMin = row.trip?.teamSizeMin ?? row.teamSizeMin;
     const effectiveMax = row.trip?.teamSizeMax ?? row.teamSizeMax;
-    if (sizeMin !== "" && effectiveMax != null && effectiveMax < Number(sizeMin)) return false;
-    if (sizeMax !== "" && effectiveMin != null && effectiveMin > Number(sizeMax)) return false;
+    if (filters.minSize !== "" && effectiveMax != null && effectiveMax < Number(filters.minSize))
+      return false;
+    if (filters.maxSize !== "" && effectiveMin != null && effectiveMin > Number(filters.maxSize))
+      return false;
     return true;
   });
 
@@ -889,7 +738,7 @@ function PlanATripTab() {
         teamSizeMax: row.teamSizeMax,
         type: row.tripTypesSupported?.[0] || null,
       });
-      navigate(`/admin/trips/${created.id}`, { state: { from: "planning" } });
+      navigate(`/admin/trips/${created.id}`);
     } catch (err) {
       console.error(err);
       setStartingId(null);
@@ -901,7 +750,7 @@ function PlanATripTab() {
     setCloningId(row.partnerId);
     try {
       const cloned = await cloneTrip(row.cloneFromTripId);
-      navigate(`/admin/trips/${cloned.id}`, { state: { from: "planning" } });
+      navigate(`/admin/trips/${cloned.id}`);
     } catch (err) {
       console.error(err);
       setCloningId(null);
@@ -910,70 +759,48 @@ function PlanATripTab() {
 
   return (
     <div>
-      <TripFilterBar
-        pills={{ options: QUICK_FILTERS, value: quickFilter, onChange: setQuickFilter }}
+      <FilterBar
+        fields={fields}
+        values={filters}
+        onChange={updateFilter}
         onReset={resetFilters}
-      >
-        <label>
-          Search partner name
-          <input value={search} onChange={(e) => setSearch(e.target.value)} />
-        </label>
-        <label>
-          Trip type
-          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-            <option value="">All</option>
-            {tripTypes.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Min Team Size
-          <input type="number" min="0" value={sizeMin} onChange={(e) => setSizeMin(e.target.value)} />
-        </label>
-        <label>
-          Max Team Size
-          <input type="number" min="0" value={sizeMax} onChange={(e) => setSizeMax(e.target.value)} />
-        </label>
-        <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.4rem" }}>
-          <input
-            type="checkbox"
-            checked={neverBeenOnly}
-            onChange={(e) => setNeverBeenOnly(e.target.checked)}
-            style={{ width: "auto" }}
-          />
-          Never been (no past trips)
-        </label>
-      </TripFilterBar>
+        pills={{ field: "quickFilter", options: QUICK_FILTERS }}
+      />
 
       {loading ? (
         <p>Loading…</p>
       ) : (
-        <table className="admin-table" style={{ marginTop: "1rem" }}>
-          <thead>
-            <tr>
-              <th>Partner</th>
-              <th>Status</th>
-              <th>Dates</th>
-              <th>Team</th>
-              <th>Past Trips</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleRowsPage.map((row) => (
-              <tr key={row.partnerId}>
-                <td>
-                  <Link to={`/admin/partners/${row.partnerId}`}>{row.displayName}</Link>
+        <Table
+          style={{ marginTop: "1rem" }}
+          rows={visibleRowsPage}
+          rowKey={(row) => row.partnerId}
+          emptyMessage={
+            rows.length === 0
+              ? "No partners with trip capacity on file yet."
+              : "No partners match these filters."
+          }
+          columns={[
+            {
+              key: "displayName",
+              label: "Partner",
+              render: (row) => (
+                <>
+                  <Link to={`/admin/partners/${row.partnerId}`} style={{ fontWeight: 600 }}>
+                    {row.displayName}
+                  </Link>
                   {row.isRestricted && (
                     <div style={{ fontSize: "0.7rem", color: "#a6540f", fontWeight: 700 }}>
                       Restricted partner — won't be publicly discoverable regardless of any trip setting
                     </div>
                   )}
-                </td>
-                <td>
+                </>
+              ),
+            },
+            {
+              key: "kind",
+              label: "Status",
+              render: (row) => (
+                <>
                   <StatusPill label={KIND_LABELS[row.kind]} color={KIND_COLORS[row.kind]} />
                   {row.kind !== "fallback" && (
                     <div style={{ marginTop: "0.2rem" }}>
@@ -982,62 +809,67 @@ function PlanATripTab() {
                       </Link>
                     </div>
                   )}
-                </td>
-                <td>
-                  {row.trip?.startDate || row.trip?.endDate
-                    ? `${formatDate(row.trip.startDate) || "?"} – ${formatDate(row.trip.endDate) || "?"}`
-                    : "—"}
-                </td>
-                <td>
-                  {row.trip
-                    ? `${(row.trip.participants || []).length} / ${row.trip.teamSizeMax ?? row.teamSizeMax ?? "?"} filled`
-                    : teamSizeLabel(row.teamSizeMin, row.teamSizeMax)}
-                </td>
-                <td>
+                </>
+              ),
+            },
+            {
+              key: "dates",
+              label: "Dates",
+              render: (row) =>
+                row.trip?.startDate || row.trip?.endDate
+                  ? `${formatDate(row.trip.startDate) || "?"} – ${formatDate(row.trip.endDate) || "?"}`
+                  : "—",
+            },
+            {
+              key: "team",
+              label: "Team",
+              render: (row) =>
+                row.trip
+                  ? `${(row.trip.participants || []).length} / ${row.trip.teamSizeMax ?? row.teamSizeMax ?? "?"} filled`
+                  : teamSizeLabel(row.teamSizeMin, row.teamSizeMax),
+            },
+            {
+              key: "pastTripCount",
+              label: "Past Trips",
+              render: (row) => (
+                <>
                   {row.pastTripCount} trip{row.pastTripCount === 1 ? "" : "s"}
                   {row.mostRecentPastTripDate && (
                     <div style={{ fontSize: "0.75rem", color: "#888" }}>
                       last {formatDate(row.mostRecentPastTripDate)}
                     </div>
                   )}
-                </td>
-                <td className="table-actions">
-                  {row.kind === "fallback" && (
-                    <button
-                      type="button"
-                      className="btn secondary small"
-                      disabled={startingId === row.partnerId}
-                      onClick={() => handleStartTrip(row)}
-                    >
-                      {startingId === row.partnerId ? "Starting…" : "Start a new trip"}
-                    </button>
-                  )}
-                  {row.cloneFromTripId && (
-                    <div style={{ marginTop: row.kind === "fallback" ? "0.3rem" : 0 }}>
-                      <button
-                        type="button"
-                        style={linkButtonStyle}
-                        disabled={cloningId === row.partnerId}
-                        onClick={() => handleClone(row)}
-                      >
-                        {cloningId === row.partnerId ? "Cloning…" : "Clone trip"}
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {visibleRows.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ color: "#888" }}>
-                  {rows.length === 0
-                    ? "No partners with trip capacity on file yet."
-                    : "No partners match these filters."}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                </>
+              ),
+            },
+          ]}
+          renderActions={(row) => (
+            <>
+              {canWrite && row.kind === "fallback" && (
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  disabled={startingId === row.partnerId}
+                  onClick={() => handleStartTrip(row)}
+                >
+                  {startingId === row.partnerId ? "Starting…" : "Start a new trip"}
+                </button>
+              )}
+              {canWrite && row.cloneFromTripId && (
+                <div style={{ marginTop: row.kind === "fallback" ? "0.3rem" : 0 }}>
+                  <button
+                    type="button"
+                    style={linkButtonStyle}
+                    disabled={cloningId === row.partnerId}
+                    onClick={() => handleClone(row)}
+                  >
+                    {cloningId === row.partnerId ? "Cloning…" : "Clone trip"}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        />
       )}
       <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
     </div>
@@ -1061,24 +893,49 @@ const TABS = [
 
 export default function AdminTrips() {
   const location = useLocation();
-  // The old /admin/trips/planning URL (bookmarks, the back-link from
-  // AdminTripDetail.jsx's `state: { from: "planning" }`) still routes
-  // here -- both routes render this same component now -- so it needs
-  // to land on the right tab rather than always defaulting to the first
-  // one.
-  const [tab, setTab] = useState(() => (location.pathname.endsWith("/planning") ? "plan" : "existing"));
+  const navigate = useNavigate();
+  // Both /admin/trips and /admin/trips/planning render this same
+  // component -- real tabs now (URL-backed, not just local state), same
+  // tab-bar treatment TripDetailLayout.jsx already uses for its own real
+  // sub-nav, so refreshing/bookmarking/sharing a link to either tab lands
+  // back on that same tab instead of always defaulting to Existing Trips.
+  const tab = location.pathname.endsWith("/planning") ? "plan" : "existing";
   const activeTab = TABS.find((t) => t.value === tab) || TABS[0];
+
+  function selectTab(value) {
+    navigate(value === "plan" ? "/admin/trips/planning" : "/admin/trips");
+  }
 
   return (
     <div className="admin-shell">
       <h2>Trips</h2>
-      <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.5rem" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "0.3rem",
+          marginTop: "0.5rem",
+          borderBottom: "1px solid #e1dfdb",
+          flexWrap: "wrap",
+        }}
+        role="tablist"
+      >
         {TABS.map((t) => (
           <button
             key={t.value}
             type="button"
-            className={tab === t.value ? "btn" : "btn secondary"}
-            onClick={() => setTab(t.value)}
+            role="tab"
+            aria-selected={tab === t.value}
+            onClick={() => selectTab(t.value)}
+            style={{
+              padding: "0.5rem 0.8rem",
+              fontSize: "0.85rem",
+              fontWeight: tab === t.value ? 700 : 400,
+              color: tab === t.value ? "#1f2a37" : "#555",
+              background: "none",
+              border: "none",
+              borderBottom: tab === t.value ? "2px solid #1f2a37" : "2px solid transparent",
+              cursor: "pointer",
+            }}
           >
             {t.label}
           </button>

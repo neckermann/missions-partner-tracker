@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 // Shared editor for an application-question list -- used for a trip's own
-// applicationQuestions (AdminTripDetail.jsx), the church-wide
+// applicationQuestions (AdminTripTeam.jsx), the church-wide
 // tripApplicationTemplate, and the tripQuestionLibrary picker source
 // (both AdminSettingsTrips.jsx). One component so all three stay in sync
 // as the question shape evolves, instead of three hand-copied UIs.

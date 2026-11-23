@@ -101,7 +101,7 @@ const FEATURES = {
   // Outbound sending capability (see #71) and its matching inbound half
   // (see #72) -- two independent flags on purpose, not one: a church may
   // want only one direction. They share a single settings page
-  // (Site Administration -> Email) since it's one Postmark account, but
+  // (Settings -> Email) since it's one Postmark account, but
   // each flag gates its own routes independently (the send-test route
   // checks "outboundEmail" only; the inbound webhook/review-queue routes
   // check "inboundEmail" only) -- enabling one never requires or unlocks

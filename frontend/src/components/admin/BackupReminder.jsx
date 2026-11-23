@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { fetchBackupCheck } from "../../api/client.js";
-
-const DISMISSED_KEY = "missions-tracker-backup-reminder-dismissed-at";
-const REMIND_AGAIN_AFTER_MS = 30 * 24 * 60 * 60 * 1000; // ~30 days
+import useNotifications from "../../hooks/useNotifications.js";
 
 const PROVIDER_MESSAGES = {
   neon: "You're on Neon — confirm your plan includes point-in-time recovery (Neon console → your project → Backup/Restore).",
@@ -20,34 +18,37 @@ const PROVIDER_MESSAGES = {
 // itself ~30 days after being dismissed, since "did we ever actually
 // check this" is worth revisiting periodically, not just once.
 //
-// That per-browser dismiss is separate from backupReminderDisabled, a
-// server-side, permanent opt-out set on the Backups settings page
-// (AdminSettingsBackups.jsx) for a church that's confirmed its backups are
-// genuinely handled another way -- when that's on, this never renders at
-// all, regardless of the dismiss timer.
+// The "due for a nudge" / dismiss-tracking logic lives in the shared
+// notification registry now (backend/src/notifications/categories.js's
+// timeToCheckBackups, via useNotifications()) -- a per-user, DB-backed
+// NotificationSeen row, not this component's own per-browser localStorage
+// timer as before, so dismissing on one device doesn't leave it nagging
+// again on another. Still fetches /api/backup-check directly for the
+// provider detection (Neon/Supabase/RDS/other) -- that's cosmetic message
+// content, not state the registry needs to track.
+//
+// Separate from backupReminderDisabled, a server-side, permanent opt-out
+// set on the About App settings page (AdminSystemInfo.jsx) for a church
+// that's confirmed its backups are genuinely handled another way -- the
+// registry's own category already checks that flag, so this component
+// doesn't need to duplicate it.
 export default function BackupReminder() {
   const [provider, setProvider] = useState(null);
-  const [reminderDisabled, setReminderDisabled] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const { categories, markSeen } = useNotifications();
+  const category = categories.find((c) => c.key === "timeToCheckBackups");
 
   useEffect(() => {
     fetchBackupCheck()
-      .then((data) => {
-        setProvider(data?.provider || "other");
-        setReminderDisabled(Boolean(data?.backupReminderDisabled));
-        const dismissedAt = Number(localStorage.getItem(DISMISSED_KEY) || 0);
-        setDismissed(Date.now() - dismissedAt < REMIND_AGAIN_AFTER_MS);
-      })
+      .then((data) => setProvider(data?.provider || "other"))
       .catch(() => {
         // Not an admin, or the check failed -- no reminder, never an error.
       });
   }, []);
 
-  if (!provider || reminderDisabled || dismissed) return null;
+  if (!provider || !category || category.count === 0) return null;
 
   function dismiss() {
-    localStorage.setItem(DISMISSED_KEY, String(Date.now()));
-    setDismissed(true);
+    markSeen("timeToCheckBackups");
   }
 
   return (
@@ -66,7 +67,7 @@ export default function BackupReminder() {
     >
       <span>
         {PROVIDER_MESSAGES[provider]} Want a backup right now, or already covered another way?{" "}
-        <a href="/admin/settings/backups">Download a backup, or turn this off for good</a>, or{" "}
+        <a href="/admin/settings/system-info">Download a backup, or turn this off for good</a>, or{" "}
         <a
           href="https://github.com/neckermann/missions-partner-tracker/blob/main/ADMIN_GUIDE.md#database-backups"
           target="_blank"

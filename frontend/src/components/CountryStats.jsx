@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { fetchCountryInfo } from "../api/client.js";
 
 // Joshua Project's own progress-scale tiers (#157). JPScaleCtry is the
@@ -35,167 +35,169 @@ function isAffirmative(value) {
   return typeof value === "string" && /^(y|yes|true)$/i.test(value.trim());
 }
 
-// Lazy-loaded Joshua Project country statistics, shown behind a toggle so
-// we're not calling out to a third-party API for every missionary on page
-// load — only when someone actually wants to see it.
+// Renders in its own non-clickable card on Partner Detail (not nested
+// inside the clickable Serving Location EditableSection -- it used to be,
+// behind a toggle button, but that button's click bubbled up into the
+// card's own onClick and silently opened the edit popup instead of
+// expanding the stats). Shown by default now rather than lazy-behind-a-
+// toggle: the backend (utils/joshuaProject.js) already caches each
+// country's response for 24h, so auto-loading here doesn't "hammer the
+// API" the way a per-missionary live call would -- most loads are a cache
+// hit, not a real upstream request.
 export default function CountryStats({ countryCode }) {
-  const [expanded, setExpanded] = useState(false);
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  if (!countryCode) return null;
-
-  async function toggle() {
-    if (expanded) {
-      setExpanded(false);
-      return;
-    }
-    setExpanded(true);
-    if (info || failed) return; // already fetched (or already failed) once
+  useEffect(() => {
+    if (!countryCode) return;
+    let cancelled = false;
+    setInfo(null);
+    setFailed(false);
     setLoading(true);
-    try {
-      setInfo(await fetchCountryInfo(countryCode));
-    } catch {
-      setFailed(true);
-    } finally {
-      setLoading(false);
-    }
-  }
+    fetchCountryInfo(countryCode)
+      .then((data) => {
+        if (!cancelled) setInfo(data);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [countryCode]);
+
+  if (!countryCode) return null;
 
   return (
     <div className="country-stats">
-      <button type="button" className="btn secondary small" onClick={toggle}>
-        {expanded ? "Hide" : "Show"} Country Statistics
-      </button>
-      {expanded && (
-        <div className="country-stats-panel">
-          {loading && <p>Loading...</p>}
-          {failed && <p>Country statistics unavailable.</p>}
-          {info && (
-            <>
-              <p className="country-stats-title">Joshua Project Statistics</p>
-              <dl className="country-stats-grid">
-                {isAffirmative(info.Window1040) && (
-                  <>
-                    <dt>10/40 Window</dt>
-                    <dd>
-                      <span
-                        className="status-pill warn"
-                        title="The 10/40 Window: the band of latitude (10°N-40°N) home to most of the world's least-reached peoples."
-                      >
-                        Yes
-                      </span>
-                    </dd>
-                  </>
-                )}
-                {info.JPScaleText &&
-                  (() => {
-                    const tier = jpScaleTier(info);
-                    const title =
-                      "Joshua Project's Progress Scale: how reached this country's peoples are, from Unreached (1) to Significantly reached (5).";
-                    return (
-                      <>
-                        <dt>JP Scale</dt>
-                        <dd>
-                          {tier ? (
-                            <>
-                              <span className={`jp-scale-pill jp-scale-${tier}`} title={title}>
-                                {info.JPScaleText}
-                              </span>
-                              <div className="jp-scale-gauge" title={title}>
-                                <div className="jp-scale-gauge-labels">
-                                  <span>Unreached</span>
-                                  <span>Reached</span>
-                                </div>
-                                <span className="jp-scale-gauge-track">
-                                  <span className="jp-scale-1" />
-                                  <span className="jp-scale-2" />
-                                  <span className="jp-scale-3" />
-                                  <span className="jp-scale-4" />
-                                  <span className="jp-scale-5" />
-                                  <span
-                                    className="jp-scale-gauge-marker"
-                                    style={{ left: `${((tier - 0.5) / 5) * 100}%` }}
-                                  />
-                                </span>
+      <div className="country-stats-panel">
+        {loading && <p>Loading...</p>}
+        {failed && <p>Country statistics unavailable.</p>}
+        {info && (
+          <>
+            <dl className="country-stats-grid">
+              {isAffirmative(info.Window1040) && (
+                <>
+                  <dt>10/40 Window</dt>
+                  <dd>
+                    <span
+                      className="status-pill warn"
+                      title="The 10/40 Window: the band of latitude (10°N-40°N) home to most of the world's least-reached peoples."
+                    >
+                      Yes
+                    </span>
+                  </dd>
+                </>
+              )}
+              {info.JPScaleText &&
+                (() => {
+                  const tier = jpScaleTier(info);
+                  const title =
+                    "Joshua Project's Progress Scale: how reached this country's peoples are, from Unreached (1) to Significantly reached (5).";
+                  return (
+                    <>
+                      <dt>JP Scale</dt>
+                      <dd>
+                        {tier ? (
+                          <>
+                            <span className={`jp-scale-pill jp-scale-${tier}`} title={title}>
+                              {info.JPScaleText}
+                            </span>
+                            <div className="jp-scale-gauge" title={title}>
+                              <div className="jp-scale-gauge-labels">
+                                <span>Unreached</span>
+                                <span>Reached</span>
                               </div>
-                            </>
-                          ) : (
-                            info.JPScaleText
-                          )}
-                        </dd>
-                      </>
-                    );
-                  })()}
-                {info.Ctry && (
-                  <>
-                    <dt>Country</dt>
-                    <dd>{info.Ctry}</dd>
-                  </>
-                )}
-                {info.ReligionPrimary && (
-                  <>
-                    <dt>Primary Religion</dt>
-                    <dd>{info.ReligionPrimary}</dd>
-                  </>
-                )}
-                {info.Population != null && (
-                  <>
-                    <dt>Population</dt>
-                    <dd>{info.Population.toLocaleString()}</dd>
-                  </>
-                )}
-                {info.PercentChristianity != null && (
-                  <>
-                    <dt>Christianity</dt>
-                    <dd>{info.PercentChristianity.toFixed(2)}%</dd>
-                  </>
-                )}
-                {info.PercentEvangelical != null && (
-                  <>
-                    <dt>Evangelical</dt>
-                    <dd>{info.PercentEvangelical.toFixed(2)}%</dd>
-                  </>
-                )}
-                {info.CntPeoplesLR > 0 && (
-                  <>
-                    <dt>Unreached People Groups</dt>
-                    <dd>
-                      {info.CntPeoplesLR.toLocaleString()}
-                      {info.PoplPeoplesLR != null && ` (${info.PoplPeoplesLR.toLocaleString()} people)`}
-                    </dd>
-                  </>
-                )}
-                {info.CntPeoplesFPG > 0 && (
-                  <>
-                    <dt>Frontier People Groups</dt>
-                    <dd>
-                      {info.CntPeoplesFPG.toLocaleString()}
-                      {info.PoplPeoplesFPG != null && ` (${info.PoplPeoplesFPG.toLocaleString()} people)`}
-                    </dd>
-                  </>
-                )}
-                {info.BibleComplete != null && info.CntPrimaryLanguages > 0 && (
-                  <>
-                    <dt>Bible Access</dt>
-                    <dd>
-                      {info.BibleComplete} of {info.CntPrimaryLanguages} primary languages have a complete
-                      Bible
-                    </dd>
-                  </>
-                )}
-              </dl>
-              <p className="country-stats-source">
-                Source:{" "}
-                <a href="https://www.joshuaproject.net/" target="_blank" rel="noreferrer">
-                  joshuaproject.net
-                </a>
-              </p>
-            </>
-          )}
-        </div>
-      )}
+                              <span className="jp-scale-gauge-track">
+                                <span className="jp-scale-1" />
+                                <span className="jp-scale-2" />
+                                <span className="jp-scale-3" />
+                                <span className="jp-scale-4" />
+                                <span className="jp-scale-5" />
+                                <span
+                                  className="jp-scale-gauge-marker"
+                                  style={{ left: `${((tier - 0.5) / 5) * 100}%` }}
+                                />
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          info.JPScaleText
+                        )}
+                      </dd>
+                    </>
+                  );
+                })()}
+              {info.Ctry && (
+                <>
+                  <dt>Country</dt>
+                  <dd>{info.Ctry}</dd>
+                </>
+              )}
+              {info.ReligionPrimary && (
+                <>
+                  <dt>Primary Religion</dt>
+                  <dd>{info.ReligionPrimary}</dd>
+                </>
+              )}
+              {info.Population != null && (
+                <>
+                  <dt>Population</dt>
+                  <dd>{info.Population.toLocaleString()}</dd>
+                </>
+              )}
+              {info.PercentChristianity != null && (
+                <>
+                  <dt>Christianity</dt>
+                  <dd>{info.PercentChristianity.toFixed(2)}%</dd>
+                </>
+              )}
+              {info.PercentEvangelical != null && (
+                <>
+                  <dt>Evangelical</dt>
+                  <dd>{info.PercentEvangelical.toFixed(2)}%</dd>
+                </>
+              )}
+              {info.CntPeoplesLR > 0 && (
+                <>
+                  <dt>Unreached People Groups</dt>
+                  <dd>
+                    {info.CntPeoplesLR.toLocaleString()}
+                    {info.PoplPeoplesLR != null && ` (${info.PoplPeoplesLR.toLocaleString()} people)`}
+                  </dd>
+                </>
+              )}
+              {info.CntPeoplesFPG > 0 && (
+                <>
+                  <dt>Frontier People Groups</dt>
+                  <dd>
+                    {info.CntPeoplesFPG.toLocaleString()}
+                    {info.PoplPeoplesFPG != null && ` (${info.PoplPeoplesFPG.toLocaleString()} people)`}
+                  </dd>
+                </>
+              )}
+              {info.BibleComplete != null && info.CntPrimaryLanguages > 0 && (
+                <>
+                  <dt>Bible Access</dt>
+                  <dd>
+                    {info.BibleComplete} of {info.CntPrimaryLanguages} primary languages have a complete Bible
+                  </dd>
+                </>
+              )}
+            </dl>
+            <p className="country-stats-source">
+              Source:{" "}
+              <a href="https://www.joshuaproject.net/" target="_blank" rel="noreferrer">
+                joshuaproject.net
+              </a>
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 }

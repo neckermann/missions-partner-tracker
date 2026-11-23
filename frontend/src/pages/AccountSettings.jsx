@@ -10,16 +10,21 @@ import {
 } from "../api/client.js";
 import { passwordsMatch } from "../utils/password.js";
 import { useSettings } from "../context/SettingsContext.jsx";
+import EditableSection from "../components/admin/EditableSection.jsx";
+
+const emptyPasswordDraft = { currentPassword: "", newPassword: "", confirmPassword: "" };
+
+// A client-side validation failure (mismatch/too-short) is thrown in the
+// same { response: { data: { error } } } shape EditableSection's catch
+// block already expects from a real API error, so it renders through the
+// same friendly-error path instead of a second, parallel error UI.
+function validationError(message) {
+  return { response: { data: { error: message } } };
+}
 
 export default function AccountSettings() {
   const { enabledFeatures } = useSettings();
   const [user, setUser] = useState(null);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [saving, setSaving] = useState(false);
 
   function reloadUser() {
     return fetchCurrentUser().then(setUser);
@@ -29,32 +34,14 @@ export default function AccountSettings() {
     reloadUser();
   }, []);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-
-    if (!passwordsMatch(newPassword, confirmPassword)) {
-      setError("New password and confirmation do not match");
-      return;
+  async function savePassword(draft) {
+    if (!passwordsMatch(draft.newPassword, draft.confirmPassword)) {
+      throw validationError("New password and confirmation do not match");
     }
-    if (newPassword.length < 8) {
-      setError("New password must be at least 8 characters");
-      return;
+    if (draft.newPassword.length < 8) {
+      throw validationError("New password must be at least 8 characters");
     }
-
-    setSaving(true);
-    try {
-      await changePassword(currentPassword, newPassword);
-      setSuccess("Password updated.");
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to change password");
-    } finally {
-      setSaving(false);
-    }
+    await changePassword(draft.currentPassword, draft.newPassword);
   }
 
   return (
@@ -67,49 +54,46 @@ export default function AccountSettings() {
       )}
 
       {!user ? null : (
-        <div className="admin-section">
-          <h3>Change Password</h3>
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            <label>
-              Current Password
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                required
-              />
-            </label>
-            <label>
-              New Password
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                minLength={8}
-                required
-              />
-            </label>
-            <label>
-              Confirm New Password
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                minLength={8}
-                required
-              />
-            </label>
-
-            {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-            {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
-
-            <div>
-              <button type="submit" className="btn" disabled={saving}>
-                {saving ? "Saving..." : "Update Password"}
-              </button>
+        <EditableSection
+          title="Change Password"
+          value={emptyPasswordDraft}
+          onSave={savePassword}
+          onSaved={() => {}}
+          view={() => <p style={{ color: "#555" }}>•••••••• — click Edit to change your password.</p>}
+          edit={(draft, set) => (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <label>
+                Current Password
+                <input
+                  type="password"
+                  value={draft.currentPassword}
+                  onChange={(e) => set("currentPassword", e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                New Password
+                <input
+                  type="password"
+                  value={draft.newPassword}
+                  onChange={(e) => set("newPassword", e.target.value)}
+                  minLength={8}
+                  required
+                />
+              </label>
+              <label>
+                Confirm New Password
+                <input
+                  type="password"
+                  value={draft.confirmPassword}
+                  onChange={(e) => set("confirmPassword", e.target.value)}
+                  minLength={8}
+                  required
+                />
+              </label>
             </div>
-          </form>
-        </div>
+          )}
+        />
       )}
 
       {user?.authProvider === "local" && <MfaSection user={user} onChange={reloadUser} />}
@@ -126,132 +110,132 @@ export default function AccountSettings() {
 // cadence is picked below, this account may also receive an urgent
 // dispatch immediately, bypassing this schedule entirely -- see the
 // "Marking something urgent" note in USER_GUIDE.md.
+const CADENCE_LABELS = {
+  "": "No automatic digest",
+  biweekly: "Biweekly",
+  monthly: "Monthly",
+  quarterly: "Quarterly",
+};
+
 function EmailDispatchSection({ user, onChange }) {
   const [partners, setPartners] = useState([]);
-  const [cadence, setCadence] = useState(user.cadence || "");
-  const [allPartners, setAllPartners] = useState(user.allPartners !== false);
-  const [partnerIds, setPartnerIds] = useState(user.followedPartnerIds || []);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  useEffect(() => {
-    setCadence(user.cadence || "");
-    setAllPartners(user.allPartners !== false);
-    setPartnerIds(user.followedPartnerIds || []);
-  }, [user]);
+  const value = {
+    cadence: user.cadence || "",
+    allPartners: user.allPartners !== false,
+    partnerIds: user.followedPartnerIds || [],
+  };
 
   useEffect(() => {
     fetchPartners({ archived: "false" }).then(setPartners);
   }, []);
 
-  function togglePartner(id) {
-    setPartnerIds((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
-  }
-
-  async function handleSave() {
-    setError("");
-    setSuccess("");
-    setBusy(true);
-    try {
-      await updateNotifyByEmail({
-        cadence: cadence || null,
-        allPartners,
-        partnerIds,
-      });
-      setSuccess("Dispatch preference saved.");
-      await onChange();
-    } catch (err) {
-      setError(err.response?.data?.error || "Couldn't update your dispatch preference");
-    } finally {
-      setBusy(false);
-    }
+  async function save(draft) {
+    await updateNotifyByEmail({
+      cadence: draft.cadence || null,
+      allPartners: draft.allPartners,
+      partnerIds: draft.partnerIds,
+    });
+    await onChange();
   }
 
   return (
-    <div className="admin-section">
-      <h3>Email Dispatch</h3>
-      {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-      {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
-
-      <label style={{ display: "block", marginBottom: "0.75rem" }}>
-        Digest cadence
-        <select
-          value={cadence}
-          onChange={(e) => setCadence(e.target.value)}
-          disabled={busy}
-          style={{ display: "block", marginTop: "0.25rem" }}
-        >
-          <option value="">No automatic digest</option>
-          <option value="biweekly">Biweekly</option>
-          <option value="monthly">Monthly</option>
-          <option value="quarterly">Quarterly</option>
-        </select>
-      </label>
-
-      {cadence && (
-        <div style={{ marginBottom: "0.75rem" }}>
-          <div className="admin-checkbox-row">
-            <label>
-              <input
-                type="checkbox"
-                checked={allPartners}
-                onChange={(e) => setAllPartners(e.target.checked)}
-                disabled={busy}
-              />
-              Include all partners
-            </label>
-          </div>
-
-          {!allPartners && (
-            <div
-              style={{
-                marginTop: "0.5rem",
-                maxHeight: 200,
-                overflowY: "auto",
-                border: "1px solid #ddd",
-                borderRadius: 4,
-                padding: "0.5rem",
-              }}
+    <EditableSection
+      title="Email Dispatch"
+      value={value}
+      onSave={save}
+      view={(v) => (
+        <p style={{ color: "#555" }}>
+          {CADENCE_LABELS[v.cadence]}
+          {v.cadence
+            ? v.allPartners
+              ? ", all partners"
+              : `, ${v.partnerIds.length} selected partner${v.partnerIds.length === 1 ? "" : "s"}`
+            : ""}
+          . A summary of new prayer requests, one-time needs, and newsletters -- plus, occasionally, an urgent
+          item an admin or editor marks for immediate sending, which arrives right away regardless of this
+          schedule. You can unsubscribe from the regular digest directly from the link in any digest email.
+        </p>
+      )}
+      edit={(draft, set) => (
+        <>
+          <label style={{ display: "block", marginBottom: "0.75rem" }}>
+            Digest cadence
+            <select
+              value={draft.cadence}
+              onChange={(e) => set("cadence", e.target.value)}
+              style={{ display: "block", marginTop: "0.25rem" }}
             >
-              {partners.length === 0 ? (
-                <p style={{ color: "#555", fontSize: "0.9rem", margin: 0 }}>No partners available.</p>
-              ) : (
-                partners.map((p) => (
-                  <div className="admin-checkbox-row" key={p.id}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={partnerIds.includes(p.id)}
-                        onChange={() => togglePartner(p.id)}
-                        disabled={busy}
-                      />
-                      {p.displayName}
-                    </label>
-                  </div>
-                ))
+              {Object.entries(CADENCE_LABELS).map(([value, label]) => (
+                <option key={value || "none"} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {draft.cadence && (
+            <div style={{ marginBottom: "0.75rem" }}>
+              <div className="admin-checkbox-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={draft.allPartners}
+                    onChange={(e) => set("allPartners", e.target.checked)}
+                  />
+                  Include all partners
+                </label>
+              </div>
+
+              {!draft.allPartners && (
+                <div
+                  style={{
+                    marginTop: "0.5rem",
+                    maxHeight: 200,
+                    overflowY: "auto",
+                    border: "1px solid #ddd",
+                    borderRadius: 4,
+                    padding: "0.5rem",
+                  }}
+                >
+                  {partners.length === 0 ? (
+                    <p style={{ color: "#555", fontSize: "0.9rem", margin: 0 }}>No partners available.</p>
+                  ) : (
+                    partners.map((p) => (
+                      <div className="admin-checkbox-row" key={p.id}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={draft.partnerIds.includes(p.id)}
+                            onChange={() =>
+                              set(
+                                "partnerIds",
+                                draft.partnerIds.includes(p.id)
+                                  ? draft.partnerIds.filter((id) => id !== p.id)
+                                  : [...draft.partnerIds, p.id]
+                              )
+                            }
+                          />
+                          {p.displayName}
+                        </label>
+                      </div>
+                    ))
+                  )}
+                </div>
               )}
             </div>
           )}
-        </div>
+        </>
       )}
-
-      <div>
-        <button type="button" className="btn" onClick={handleSave} disabled={busy}>
-          {busy ? "Saving..." : "Save"}
-        </button>
-      </div>
-
-      <p style={{ color: "#555", fontSize: "0.9rem" }}>
-        A summary of new prayer requests, one-time needs, and newsletters, sent on whatever cadence you choose
-        above -- plus, occasionally, an urgent item an admin or editor marks for immediate sending, which
-        arrives right away regardless of this schedule. You can unsubscribe from the regular digest directly
-        from the link in any digest email.
-      </p>
-    </div>
+    />
   );
 }
 
+// Deliberately not an EditableSection: this isn't "edit a field, save" --
+// it's a multi-step security flow with three distinct shapes (enabled with
+// a disable-confirmation form, mid-setup with a QR code and a confirm
+// step, or disabled with a start button) that doesn't reduce to a single
+// view/edit toggle. Keeps its own try/catch-per-action error handling,
+// which already shows a plain-language message per action.
 function MfaSection({ user, onChange }) {
   const [setupData, setSetupData] = useState(null); // { secret, qrCode }
   const [code, setCode] = useState("");

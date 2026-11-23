@@ -78,12 +78,19 @@ async function requireAuth(req, res, next) {
   try {
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, email: true, role: true, active: true },
+      select: { id: true, email: true, role: true, active: true, scopedTripId: true, expiresAt: true },
     });
     if (!user || !user.active) {
       return unauthorized(req, res, "Invalid or expired session");
     }
-    req.user = { ...decoded, role: user.role, email: user.email };
+    // Trip Leader guest accounts only (expiresAt is null for every other
+    // role) -- treated the same as !active: the session stops working the
+    // moment the date passes, not deleted outright, so an admin extending
+    // access just moves the date rather than recreating the account.
+    if (user.expiresAt && user.expiresAt < new Date()) {
+      return unauthorized(req, res, "Invalid or expired session");
+    }
+    req.user = { ...decoded, role: user.role, email: user.email, scopedTripId: user.scopedTripId };
     next();
   } catch (err) {
     next(err);
@@ -147,4 +154,71 @@ async function requireAuthOrMfaSetup(req, res, next) {
   }
 }
 
-module.exports = { requireAuth, requireRole, requireAuthOrMfaSetup };
+// Scopes a route to a Trip Leader's own trip -- a no-op for every other
+// role (admin/editor/viewer already pass through requireRole's own
+// per-route allowlist unaffected), a hard 403 for a tripLeader whose
+// request resolves to a different trip. Applied on top of requireRole,
+// never instead of it, and on reads as well as writes -- a tripLeader
+// must not even be able to GET another trip's data, not just write to it.
+//
+// `resolveTripId` is either the name of a route param that IS the trip id
+// directly ("id", "tripId" -- most of this router's own trip-level
+// routes), or an async (req) => tripId function for a route addressed by
+// a child record's own id (a meeting, requirement, budget line, flight
+// segment, document, application, participant -- looked up via that
+// record's own tripId column, since the URL alone doesn't carry it).
+function requireTripScope(resolveTripId) {
+  return async (req, res, next) => {
+    if (req.user.role !== "tripLeader") return next();
+    try {
+      const tripId =
+        typeof resolveTripId === "function" ? await resolveTripId(req) : req.params[resolveTripId];
+      if (!tripId || tripId !== req.user.scopedTripId) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
+// Scopes a Partner sub-resource's own GET /?partnerId= read (prayer
+// requests, one-time needs, support entries, family members, furloughs,
+// church visits, links, languages, files) to a Trip Leader's own one
+// linked Partner -- a no-op for every other role. Without this, a
+// tripLeader could pass any other partnerId and read that partner's own
+// prayer requests/needs/etc, even though Partner Detail's own GET /:id
+// (partners.js) already refuses to show them any partner but their own.
+// Refuses a query with no partnerId filter at all too -- that shape
+// returns every partner's rows, which is exactly what this role must
+// never see. Read-only concern only: every one of these resources' own
+// write routes already requireRole admin/editor, which already excludes
+// tripLeader, so nothing here needs its own write-side counterpart.
+function requirePartnerQueryScope(req, res, next) {
+  if (req.user.role !== "tripLeader") return next();
+  (async () => {
+    try {
+      const partnerId = req.query.partnerId ? String(req.query.partnerId) : null;
+      if (!partnerId) return res.status(403).json({ error: "Insufficient permissions" });
+      const trip = await prisma.trip.findUnique({
+        where: { id: req.user.scopedTripId },
+        select: { partnerId: true },
+      });
+      if (!trip?.partnerId || trip.partnerId !== partnerId) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+      next();
+    } catch (err) {
+      next(err);
+    }
+  })();
+}
+
+module.exports = {
+  requireAuth,
+  requireRole,
+  requireAuthOrMfaSetup,
+  requireTripScope,
+  requirePartnerQueryScope,
+};

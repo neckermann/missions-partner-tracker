@@ -30,3 +30,25 @@ export function entityFor(record) {
     link: `/admin/partners/${p.id}`,
   };
 }
+
+// Shared FilterBar (components/shared/FilterBar.jsx) field definitions for
+// the two filter concepts that repeat across AdminPartners.jsx,
+// AdminPartnerFiles.jsx, AdminTrips.jsx, AdminPrayerRequests.jsx,
+// AdminOneTimeNeeds.jsx, and AdminMonthlySupport.jsx -- spread into each
+// page's own `fields` array so their name/label/options stay identical.
+export const PARTNER_TYPE_FILTER_FIELD = {
+  name: "entityType",
+  label: "Partner Type",
+  type: "select",
+  options: [
+    { value: "all", label: "All" },
+    { value: "missionary", label: "Missionaries" },
+    { value: "organization", label: "Organizations" },
+  ],
+};
+
+export const INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD = {
+  name: "includeArchived",
+  label: "Include archived partners",
+  type: "checkbox",
+};

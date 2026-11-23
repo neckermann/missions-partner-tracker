@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   fetchSupportNeeds,
@@ -6,30 +6,40 @@ import {
   updateSupportNeed,
   deleteSupportNeed,
   fetchPartners,
-  fetchUrgentRecipientCount,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import SourceLink from "../components/admin/SourceLink.jsx";
-import SourcePicker from "../components/admin/SourcePicker.jsx";
-import { formatDate, formatCurrency as formatMoney } from "../utils/format.js";
-import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
-import { urgentSendDescription } from "../utils/urgentSend.js";
-import { entityFor } from "../utils/partnerEntity.js";
+import SupportNeedFormFields from "../components/admin/SupportNeedFormFields.jsx";
+import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import Modal from "../components/Modal.jsx";
+import Field from "../components/admin/Field.jsx";
+import { formatDateLong, formatCurrency as formatMoney } from "../utils/format.js";
+import { DATE_RANGE_OPTIONS, resolveQuickRangeDates } from "../utils/dateRange.js";
+import { entityFor, INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD } from "../utils/partnerEntity.js";
 import { supportNeedStatus as statusFor } from "../utils/supportNeedStatus.js";
+import { truncate } from "../utils/truncate.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import useSourceFiles from "../hooks/useSourceFiles.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
+import useUrgentApprovalGate from "../hooks/useUrgentApprovalGate.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
-import UrgentSendConfirmBody from "../components/admin/UrgentSendConfirmBody.jsx";
-import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
+import FilterBar from "../components/shared/FilterBar.jsx";
+import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
+import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import Table from "../components/shared/Table.jsx";
+import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
+import useFilterState from "../hooks/useFilterState.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 // Thin binding so the call sites below stay unchanged; the formatting
 // itself lives in utils/format.js, which is also where the em-dash
 // convention for "no amount recorded" is documented.
 const formatCurrency = (amount) => formatMoney(amount, { fallback: "—" });
+
+const emptyFilters = { status: "all", dateRange: "all", includeArchived: false };
 
 const emptyNewNeed = {
   partnerId: "",
@@ -42,6 +52,15 @@ const emptyNewNeed = {
   sourceFileId: null,
 };
 
+// Phase 2 of the UX-rebuild plan: filters (status/date-range/archived) are
+// now FilterBar, with status and date-range now real backend query params
+// (GET /api/support-needs) -- same reuse as reports/oneTimeNeeds.js's
+// existing where-clause logic (status derived from approvedAmount,
+// nothing new invented). Kept as a card list rather than moving onto
+// <Table>, same reasoning as AdminPrayerRequests.jsx: each row has a
+// variable-length description plus two independent inline forms (edit,
+// record decision) that don't reduce to table cells without either
+// cramming or truncating real content.
 export default function AdminOneTimeNeeds() {
   const { enabledFeatures } = useSettings();
   // Whether any channel exists at all to ever deliver a recorded event --
@@ -52,17 +71,42 @@ export default function AdminOneTimeNeeds() {
     enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
   const [needs, setNeeds] = useState([]);
   const [partners, setPartners] = useState([]);
-  const [statusFilter, setStatusFilter] = useState("all"); // all | pending | decided
-  const [dateRangeFilter, setDateRangeFilter] = useState("all");
-  const [includeArchived, setIncludeArchived] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const fields = useMemo(
+    () => [
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        options: [
+          { value: "all", label: "All" },
+          { value: "pending", label: "Pending decision" },
+          { value: "decided", label: "Decided" },
+        ],
+      },
+      { name: "dateRange", label: "Requested", type: "select", options: DATE_RANGE_OPTIONS },
+      INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
+    ],
+    []
+  );
+  const {
+    values: filters,
+    setValue: updateFilter,
+    reset: resetFilters,
+  } = useFilterState(fields, emptyFilters);
+  const {
+    partnerId: filterPartnerId,
+    partnerName: filterPartnerName,
+    clearPartnerFilter,
+    setPartnerFilter,
+  } = usePartnerUrlFilter();
+  const { canWrite, isAdmin } = useCurrentUser();
+  const canEdit = canWrite;
+  const [activeModal, setActiveModal] = useState(null); // "add" | "view" | "decide" | null
   const [newNeed, setNewNeed] = useState(emptyNewNeed);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [decidingId, setDecidingId] = useState(null);
+  const [decidingNeed, setDecidingNeed] = useState(null);
   const [decision, setDecision] = useState({ approvedAmount: "", approvedDate: "", decisionNote: "" });
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState(null);
+  const [needDetail, setNeedDetail] = useState(null); // { id, form }
   // Scoped to whichever partner is selected in the add form, or whichever
   // need is being edited -- see the same hook used in AdminPrayerRequests.jsx.
   const { sourceFiles, loadSourceFiles } = useSourceFiles();
@@ -81,22 +125,35 @@ export default function AdminOneTimeNeeds() {
   // it), and `confirm` would read as a reference to the native global
   // this hook replaces.
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
+  const confirmBeforeCreate = useUrgentApprovalGate({ confirmDialog, enabledFeatures });
+
+  function closeModal() {
+    setActiveModal(null);
+    setNeedDetail(null);
+    setDecidingNeed(null);
+  }
 
   function reload() {
-    fetchSupportNeeds().then(setNeeds).catch(console.error);
+    setLoading(true);
+    const params = {};
+    if (filters.status !== "all") params.status = filters.status;
+    const { from, to } = resolveQuickRangeDates(filters.dateRange);
+    if (from) params.from = from;
+    if (to) params.to = to;
+    if (filterPartnerId) params.partnerId = filterPartnerId;
+    fetchSupportNeeds(params)
+      .then(setNeeds)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }
 
   useEffect(() => {
     reload();
     fetchPartners().then(setPartners).catch(console.error);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.status, filters.dateRange, filterPartnerId]);
 
-  const filteredNeeds = needs.filter((need) => {
-    if (statusFilter === "pending" && need.approvedAmount != null) return false;
-    if (statusFilter === "decided" && need.approvedAmount == null) return false;
-    if (!includeArchived && need.partner?.archived) return false;
-    return inDateRange(need.requestDate, dateRangeFilter);
-  });
+  const filteredNeeds = needs.filter((need) => filters.includeArchived || !need.partner?.archived);
   const {
     visible: visibleNeeds,
     hasMore,
@@ -107,109 +164,83 @@ export default function AdminOneTimeNeeds() {
     step: 25,
   });
 
-  async function handleAddSubmit(e) {
-    e.preventDefault();
-    setError("");
+  async function submitAddNeed() {
     if (!newNeed.partnerId) {
-      setError("Choose a partner");
-      return;
+      throw new Error("Choose a partner");
     }
-    if (newNeed.approveNow) {
-      const text = newNeed.description.trim();
-      const approved = await confirmDialog({
-        title: "Approve and send now?",
-        body: <ApproveRestrictedTextConfirmBody text={text} />,
-        confirmLabel: "Approve and save",
-      });
-      if (!approved) return;
-    }
-    if (newNeed.isUrgent) {
-      const { adminCount, publicCount } = await fetchUrgentRecipientCount(newNeed.partnerId);
-      const sent = await confirmDialog({
-        title: "Send now?",
-        body: (
-          <UrgentSendConfirmBody
-            enabledFeatures={enabledFeatures}
-            adminCount={adminCount}
-            publicCount={publicCount}
-          />
-        ),
-        confirmLabel: "Send now",
-      });
-      if (!sent) return;
-    }
-    setSaving(true);
-    try {
-      await createSupportNeed({
-        partnerId: newNeed.partnerId,
-        description: newNeed.description.trim(),
-        requestedAmount: Number(newNeed.requestedAmount),
-        requestDate: newNeed.requestDate,
-        notes: newNeed.notes || null,
-        approveNow: newNeed.approveNow,
-        isUrgent: newNeed.isUrgent,
-        sourceFileId: newNeed.sourceFileId,
-      });
-      setNewNeed(emptyNewNeed);
-      loadSourceFiles(null);
-      setShowAddForm(false);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to add need");
-    } finally {
-      setSaving(false);
-    }
+    const proceed = await confirmBeforeCreate({
+      approveNow: newNeed.approveNow,
+      isUrgent: newNeed.isUrgent,
+      partnerId: newNeed.partnerId,
+      text: newNeed.description.trim(),
+    });
+    if (!proceed) return false;
+    await createSupportNeed({
+      partnerId: newNeed.partnerId,
+      description: newNeed.description.trim(),
+      requestedAmount: Number(newNeed.requestedAmount),
+      requestDate: newNeed.requestDate,
+      notes: newNeed.notes || null,
+      approveNow: newNeed.approveNow,
+      isUrgent: newNeed.isUrgent,
+      sourceFileId: newNeed.sourceFileId,
+    });
+    setNewNeed(emptyNewNeed);
+    loadSourceFiles(null);
+    await reload();
   }
 
-  function startDecision(need) {
-    setDecidingId(need.id);
+  function openDecision(need) {
+    setDecidingNeed(need);
     setDecision({ approvedAmount: "", approvedDate: "", decisionNote: "" });
+    setActiveModal("decide");
   }
 
-  async function submitDecision(needId) {
-    try {
-      await updateSupportNeed(needId, {
-        approvedAmount: Number(decision.approvedAmount),
-        approvedDate: decision.approvedDate,
-        decisionNote: decision.decisionNote || null,
-      });
-      setDecidingId(null);
-      reload();
-    } catch (err) {
-      alert(err.response?.data?.error || "Failed to record decision");
-    }
+  async function submitDecision() {
+    await updateSupportNeed(decidingNeed.id, {
+      approvedAmount: Number(decision.approvedAmount),
+      approvedDate: decision.approvedDate,
+      decisionNote: decision.decisionNote || null,
+    });
+    await reload();
   }
 
   // Deliberately doesn't touch approvedAmount/approvedDate -- that stays
   // the Record Decision flow's job, same reasoning as
-  // AdminPrayerRequests.jsx's startEdit/submitEdit.
-  function startEdit(need) {
-    setEditingId(need.id);
-    setEditForm({
-      description: need.description,
-      requestedAmount: String(need.requestedAmount),
-      requestDate: String(need.requestDate).slice(0, 10),
-      notes: need.notes || "",
-      sourceFileId: need.sourceFile?.id || null,
+  // AdminPrayerRequests.jsx's view/edit popup.
+  function openNeedDetail(need) {
+    setNeedDetail({
+      id: need.id,
+      form: {
+        partnerId: need.partner?.id || "",
+        description: need.description,
+        requestedAmount: String(need.requestedAmount),
+        requestDate: String(need.requestDate).slice(0, 10),
+        notes: need.notes || "",
+        sourceFileId: need.sourceFile?.id || null,
+        sourceFile: need.sourceFile || null,
+        approvedAmount: need.approvedAmount,
+        approvedDate: need.approvedDate,
+        decisionNote: need.decisionNote,
+      },
     });
     loadSourceFiles(need.partner?.id);
+    setActiveModal("view");
   }
 
-  async function submitEdit(id) {
-    try {
-      await updateSupportNeed(id, {
-        description: editForm.description.trim(),
-        requestedAmount: Number(editForm.requestedAmount),
-        requestDate: editForm.requestDate,
-        notes: editForm.notes || null,
-        sourceFileId: editForm.sourceFileId,
-      });
-      setEditingId(null);
-      setEditForm(null);
-      reload();
-    } catch (err) {
-      alert(err.response?.data?.error || "Failed to save changes");
-    }
+  function setNeedDetailForm(updater) {
+    setNeedDetail((d) => ({ ...d, form: typeof updater === "function" ? updater(d.form) : updater }));
+  }
+
+  async function submitNeedDetail() {
+    await updateSupportNeed(needDetail.id, {
+      description: needDetail.form.description.trim(),
+      requestedAmount: Number(needDetail.form.requestedAmount),
+      requestDate: needDetail.form.requestDate,
+      notes: needDetail.form.notes || null,
+      sourceFileId: needDetail.form.sourceFileId,
+    });
+    await reload();
   }
 
   async function handleDelete(need) {
@@ -227,361 +258,244 @@ export default function AdminOneTimeNeeds() {
 
   return (
     <div className="admin-shell">
+      {filterPartnerId && (
+        <Breadcrumb
+          items={[
+            { label: "Partners", to: "/admin/partners" },
+            { label: filterPartnerName || "…", to: `/admin/partners/${filterPartnerId}` },
+            { label: "One-Time Needs" },
+          ]}
+        />
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>One-Time Needs</h2>
-        <button className="btn" onClick={() => setShowAddForm((v) => !v)}>
-          {showAddForm ? "Cancel" : "+ Add Need"}
-        </button>
+        {canEdit && (
+          <button
+            className="btn"
+            onClick={() => {
+              setNewNeed(emptyNewNeed);
+              loadSourceFiles(null);
+              setActiveModal("add");
+            }}
+          >
+            + Add Need
+          </button>
+        )}
       </div>
 
-      {showAddForm && (
-        <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
-          <div className="form-grid">
-            <label style={{ gridColumn: "1 / -1" }}>
-              Partner
-              <PartnerSelect
-                partners={partners}
-                value={newNeed.partnerId}
-                onChange={(partnerId) => {
-                  setNewNeed((f) => ({ ...f, partnerId, sourceFileId: null }));
-                  loadSourceFiles(partnerId);
+      <FilterBar
+        fields={fields}
+        values={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
+        extraChips={
+          <PartnerFilterChip
+            partnerId={filterPartnerId}
+            partnerName={filterPartnerName}
+            partners={partners}
+            onSelect={setPartnerFilter}
+            onClear={clearPartnerFilter}
+          />
+        }
+      />
+
+      <Table
+        style={{ marginTop: "1rem" }}
+        rows={visibleNeeds}
+        rowKey={(row) => row.id}
+        emptyMessage={loading ? "Loading…" : "No needs on file."}
+        onRowClick={(need) => openNeedDetail(need)}
+        columns={[
+          {
+            key: "entityName",
+            label: "Partner",
+            render: (need) => (
+              <>
+                <span style={{ fontWeight: 600 }}>{entityFor(need).name}</span>
+                {/* "New since your last visit to this list" -- see
+                    supportNeeds.js's own comment; a separate, per-user
+                    timestamp from the bell's "newOneTimeNeeds" seen-state. */}
+                {need.isNew && (
+                  <span className="status-pill good" style={{ marginLeft: "0.5rem", fontSize: "0.65rem" }}>
+                    New
+                  </span>
+                )}
+              </>
+            ),
+          },
+          {
+            key: "description",
+            label: "Description",
+            render: (need) => truncate(need.description, 80),
+          },
+          {
+            key: "requestedAmount",
+            label: "Requested",
+            render: (need) =>
+              need.approvedAmount != null && need.approvedAmount !== need.requestedAmount
+                ? `${formatCurrency(need.requestedAmount)} → ${formatCurrency(need.approvedAmount)}`
+                : formatCurrency(need.requestedAmount),
+          },
+          {
+            key: "status",
+            label: "Status",
+            render: (need) => statusFor(need).label,
+          },
+        ]}
+        renderActions={(need) => (
+          <>
+            {canEdit && need.approvedAmount == null && (
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openDecision(need);
                 }}
-                required
-              />
-            </label>
-            <label style={{ gridColumn: "1 / -1" }}>
-              Description
-              <input
-                value={newNeed.description}
-                onChange={(e) => setNewNeed((f) => ({ ...f, description: e.target.value }))}
-                placeholder="e.g. One-time gift to help a family in their congregation"
-                required
-              />
-            </label>
+              >
+                Record Decision
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                type="button"
+                className="btn danger small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(need);
+                }}
+              >
+                Delete
+              </button>
+            )}
+          </>
+        )}
+      />
+      <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+
+      {activeModal === "add" && (
+        <QuickActionModal title="Add One-Time Need" onClose={closeModal} onSubmit={submitAddNeed}>
+          <SupportNeedFormFields
+            form={newNeed}
+            setForm={setNewNeed}
+            files={sourceFiles}
+            mode="create"
+            hasEnabledChannel={hasEnabledChannel}
+            canApproveNow={canApproveNow}
+            enabledFeatures={enabledFeatures}
+            partnerPicker={
+              <label style={{ gridColumn: "1 / -1" }}>
+                Partner
+                <PartnerSelect
+                  partners={partners}
+                  value={newNeed.partnerId}
+                  onChange={(partnerId) => {
+                    setNewNeed((f) => ({ ...f, partnerId, sourceFileId: null }));
+                    loadSourceFiles(partnerId);
+                  }}
+                  required
+                />
+              </label>
+            }
+          />
+        </QuickActionModal>
+      )}
+
+      {activeModal === "decide" && decidingNeed && (
+        <QuickActionModal
+          title="Record Decision"
+          onClose={closeModal}
+          onSubmit={submitDecision}
+          submitLabel="Save Decision"
+          submitDisabled={decision.approvedAmount === "" || !decision.approvedDate}
+        >
+          <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
             <label>
-              Requested Amount ($)
+              Approved Amount ($)
               <input
                 type="number"
                 min="0"
-                value={newNeed.requestedAmount}
-                onChange={(e) => setNewNeed((f) => ({ ...f, requestedAmount: e.target.value }))}
-                required
+                value={decision.approvedAmount}
+                onChange={(e) => setDecision((d) => ({ ...d, approvedAmount: e.target.value }))}
               />
             </label>
             <label>
-              Request Date
+              Approved Date
               <input
                 type="date"
-                value={newNeed.requestDate}
-                onChange={(e) => setNewNeed((f) => ({ ...f, requestDate: e.target.value }))}
-                required
+                value={decision.approvedDate}
+                onChange={(e) => setDecision((d) => ({ ...d, approvedDate: e.target.value }))}
               />
             </label>
-            <SourcePicker
-              files={sourceFiles}
-              sourceFileId={newNeed.sourceFileId}
-              onChange={(source) => setNewNeed((f) => ({ ...f, ...source }))}
+          </div>
+          <label style={{ display: "block", marginTop: "0.75rem" }}>
+            Decision Note (optional)
+            <textarea
+              rows={2}
+              value={decision.decisionNote}
+              onChange={(e) => setDecision((d) => ({ ...d, decisionNote: e.target.value }))}
+              placeholder="Why this amount -- declined, partially funded, etc. Shown in the admin notification."
             />
-            <label style={{ gridColumn: "1 / -1" }}>
-              Notes
-              <input
-                value={newNeed.notes}
-                onChange={(e) => setNewNeed((f) => ({ ...f, notes: e.target.value }))}
-              />
-            </label>
-            {hasEnabledChannel && (
-              <div style={{ gridColumn: "1 / -1" }}>
-                <div className="admin-checkbox-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={newNeed.isUrgent}
-                      onChange={(e) => setNewNeed((f) => ({ ...f, isUrgent: e.target.checked }))}
-                    />
-                    Mark as urgent -- send right away
-                  </label>
-                </div>
-                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-                  {urgentSendDescription(enabledFeatures)}
-                </p>
-              </div>
-            )}
-            {canApproveNow && (
-              <div style={{ gridColumn: "1 / -1" }}>
-                <div className="admin-checkbox-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={newNeed.approveNow}
-                      onChange={(e) => setNewNeed((f) => ({ ...f, approveNow: e.target.checked }))}
-                    />
-                    Review and approve now
-                  </label>
-                </div>
-                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-                  This partner is restricted, so nothing above sends anywhere until an admin or editor reviews
-                  it -- normally from the Pending Dispatches page afterward. Checking this confirms, right
-                  now, that the text you just typed is safe to send verbatim, skipping that extra trip. You'll
-                  be asked to confirm the exact wording before saving.
-                </p>
-              </div>
-            )}
-          </div>
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-          <div style={{ marginTop: "1rem" }}>
-            <button type="submit" className="btn" disabled={saving}>
-              {saving ? "Saving..." : "Add Need"}
-            </button>
-          </div>
-        </form>
+          </label>
+        </QuickActionModal>
       )}
 
-      <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
-        <label
-          htmlFor="needs-status-filter"
-          style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}
-        >
-          Show:
-        </label>
-        <select
-          id="needs-status-filter"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          style={{ width: "auto" }}
-        >
-          <option value="all">All</option>
-          <option value="pending">Pending decision</option>
-          <option value="decided">Decided</option>
-        </select>
-        <label
-          htmlFor="needs-date-range-filter"
-          style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}
-        >
-          Requested:
-        </label>
-        <select
-          id="needs-date-range-filter"
-          value={dateRangeFilter}
-          onChange={(e) => setDateRangeFilter(e.target.value)}
-          style={{ width: "auto" }}
-        >
-          {DATE_RANGE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-          <input
-            type="checkbox"
-            checked={includeArchived}
-            onChange={(e) => setIncludeArchived(e.target.checked)}
-          />
-          Include archived partners
-        </label>
-      </div>
-
-      {visibleNeeds.map((need) => {
-        const entity = entityFor(need);
-        const status = statusFor(need);
-        return (
-          <div key={need.id} className="repeatable-row" style={{ marginTop: "1rem" }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                flexWrap: "wrap",
-                gap: "0.5rem",
-              }}
+      {activeModal === "view" &&
+        needDetail &&
+        (canEdit ? (
+          <QuickActionModal title="One-Time Need" onClose={closeModal} onSubmit={submitNeedDetail}>
+            <Link
+              to={`/admin/partners/${needDetail.form.partnerId}`}
+              style={{ display: "inline-block", marginBottom: "0.75rem" }}
             >
-              <div>
-                <span className={`status-pill ${status.tone}`} style={{ marginRight: "0.5rem" }}>
-                  {status.label}
-                </span>
-                {entity.link ? (
-                  <Link to={entity.link}>
-                    {entity.name} ({entity.type})
-                  </Link>
-                ) : (
-                  <span>{entity.name}</span>
-                )}
-              </div>
-              <div className="table-actions">
-                <button type="button" className="btn secondary small" onClick={() => startEdit(need)}>
-                  Edit
-                </button>
-                <button className="btn danger small" onClick={() => handleDelete(need)}>
-                  Delete
-                </button>
-              </div>
-            </div>
-
-            {editingId === need.id ? (
-              <div className="form-grid" style={{ marginTop: "0.5rem" }}>
-                <label style={{ gridColumn: "1 / -1" }}>
-                  Description
-                  <input
-                    value={editForm.description}
-                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Requested Amount ($)
-                  <input
-                    type="number"
-                    min="0"
-                    value={editForm.requestedAmount}
-                    onChange={(e) => setEditForm((f) => ({ ...f, requestedAmount: e.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Request Date
-                  <input
-                    type="date"
-                    value={editForm.requestDate}
-                    onChange={(e) => setEditForm((f) => ({ ...f, requestDate: e.target.value }))}
-                    required
-                  />
-                </label>
-                <SourcePicker
-                  files={sourceFiles}
-                  sourceFileId={editForm.sourceFileId}
-                  onChange={(source) => setEditForm((f) => ({ ...f, ...source }))}
-                />
-                <label style={{ gridColumn: "1 / -1" }}>
-                  Notes
-                  <input
-                    value={editForm.notes}
-                    onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-                  />
-                </label>
-                <div style={{ gridColumn: "1 / -1", display: "flex", gap: "0.5rem" }}>
-                  <button type="button" className="btn small" onClick={() => submitEdit(need.id)}>
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    className="btn secondary small"
-                    onClick={() => {
-                      setEditingId(null);
-                      setEditForm(null);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <p style={{ margin: "0.5rem 0" }}>{need.description}</p>
-
-                <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", fontSize: "0.9rem" }}>
-                  <div>
-                    <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
-                      Requested
-                    </div>
-                    <div>
-                      {formatCurrency(need.requestedAmount)} on {formatDate(need.requestDate)}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
-                      Approved
-                    </div>
-                    <div>
-                      {need.approvedAmount != null
-                        ? `${formatCurrency(need.approvedAmount)} on ${formatDate(need.approvedDate)}`
-                        : "Not yet decided"}
-                    </div>
-                  </div>
-                  {need.notes && (
-                    <div>
-                      <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
-                        Notes
-                      </div>
-                      <div>{need.notes}</div>
-                    </div>
-                  )}
-                  {need.decisionNote && (
-                    <div>
-                      <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
-                        Decision Note
-                      </div>
-                      <div>{need.decisionNote}</div>
-                    </div>
-                  )}
-                </div>
-                <SourceLink sourceFile={need.sourceFile} />
-              </>
+              Go to partner →
+            </Link>
+            <SupportNeedFormFields
+              form={needDetail.form}
+              setForm={setNeedDetailForm}
+              files={sourceFiles}
+              mode="edit"
+            />
+            {needDetail.form.approvedAmount == null && (
+              <button
+                type="button"
+                className="btn secondary small"
+                style={{ marginTop: "0.5rem" }}
+                onClick={() => {
+                  const need = needs.find((n) => n.id === needDetail.id);
+                  closeModal();
+                  openDecision(need);
+                }}
+              >
+                Record Decision
+              </button>
             )}
-
-            {need.approvedAmount == null && (
-              <div style={{ marginTop: "0.75rem" }}>
-                {decidingId === need.id ? (
-                  <div>
-                    <div
-                      style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}
-                    >
-                      <label>
-                        Approved Amount ($)
-                        <input
-                          type="number"
-                          min="0"
-                          value={decision.approvedAmount}
-                          onChange={(e) => setDecision((d) => ({ ...d, approvedAmount: e.target.value }))}
-                        />
-                      </label>
-                      <label>
-                        Approved Date
-                        <input
-                          type="date"
-                          value={decision.approvedDate}
-                          onChange={(e) => setDecision((d) => ({ ...d, approvedDate: e.target.value }))}
-                        />
-                      </label>
-                    </div>
-                    <label style={{ display: "block", marginTop: "0.75rem", maxWidth: "28rem" }}>
-                      Decision Note (optional)
-                      <textarea
-                        rows={2}
-                        value={decision.decisionNote}
-                        onChange={(e) => setDecision((d) => ({ ...d, decisionNote: e.target.value }))}
-                        placeholder="Why this amount -- declined, partially funded, etc. Shown in the admin notification."
-                      />
-                    </label>
-                    <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.75rem" }}>
-                      <button
-                        type="button"
-                        className="btn small"
-                        onClick={() => submitDecision(need.id)}
-                        disabled={decision.approvedAmount === "" || !decision.approvedDate}
-                      >
-                        Save Decision
-                      </button>
-                      <button
-                        type="button"
-                        className="btn secondary small"
-                        onClick={() => setDecidingId(null)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button type="button" className="btn secondary small" onClick={() => startDecision(need)}>
-                    Record Decision
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-      {filteredNeeds.length === 0 && <p style={{ color: "#888", marginTop: "1rem" }}>No needs on file.</p>}
-      <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+          </QuickActionModal>
+        ) : (
+          <Modal title="One-Time Need" onClose={closeModal}>
+            <Link
+              to={`/admin/partners/${needDetail.form.partnerId}`}
+              style={{ display: "inline-block", marginBottom: "0.75rem" }}
+            >
+              Go to partner →
+            </Link>
+            <Field label="Description" value={needDetail.form.description} />
+            <Field label="Requested Amount" value={formatCurrency(needDetail.form.requestedAmount)} />
+            <Field label="Request Date" value={formatDateLong(needDetail.form.requestDate)} />
+            <Field label="Notes" value={needDetail.form.notes} />
+            <Field
+              label="Approved"
+              value={
+                needDetail.form.approvedAmount != null
+                  ? `${formatCurrency(needDetail.form.approvedAmount)} on ${formatDateLong(needDetail.form.approvedDate)}`
+                  : "Not yet decided"
+              }
+              showEmpty
+            />
+            <Field label="Decision Note" value={needDetail.form.decisionNote} />
+            <SourceLink sourceFile={needDetail.form.sourceFile} />
+          </Modal>
+        ))}
       {confirmElement}
     </div>
   );

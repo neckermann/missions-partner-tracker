@@ -78,8 +78,9 @@ function renderFamilyBlock(m, fields) {
   }
   if (fields.showChildren) {
     (m.children || []).forEach((c) => {
+      const name = [c.firstName, c.lastName].filter(Boolean).join(" ");
       rows.push(
-        `<p><em>Child</em> — ${escapeHtml(c.name)}${c.birthday ? ` — ${escapeHtml(formatDateLong(c.birthday, { fallback: "" }))}` : ""}</p>`
+        `<p><em>Child</em> — ${escapeHtml(name)}${c.birthday ? ` — ${escapeHtml(formatDateLong(c.birthday, { fallback: "" }))}` : ""}</p>`
       );
     });
   }
@@ -146,7 +147,8 @@ function renderOrgContactBlock(o) {
   if (contactName) rows.push(`<p><strong>Contact:</strong> ${escapeHtml(contactName)}</p>`);
   if (o.contactPhone) rows.push(`<p><strong>Phone:</strong> ${escapeHtml(o.contactPhone)}</p>`);
   if (o.contactEmail) rows.push(`<p><strong>Email:</strong> ${escapeHtml(o.contactEmail)}</p>`);
-  if (o.websiteLink) rows.push(`<p><strong>Website:</strong> ${escapeHtml(o.websiteLink)}</p>`);
+  const website = (o.links || []).find((l) => l.type === "website")?.url;
+  if (website) rows.push(`<p><strong>Website:</strong> ${escapeHtml(website)}</p>`);
   if (!rows.length) return "";
   return `<div class="booklet-block"><h3>Contact Info</h3>${rows.join("")}</div>`;
 }
@@ -762,7 +764,9 @@ export default function AdminBooklet() {
         </div>
       </div>
 
-      <div className="booklet-preview" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+      <div className="booklet-preview-scroll">
+        <div className="booklet-preview" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+      </div>
     </>
   );
 }

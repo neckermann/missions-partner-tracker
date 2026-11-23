@@ -10,6 +10,7 @@ const { setSessionCookie, clearSessionCookie } = require("../utils/jwt");
 const { encryptField, decryptField } = require("../utils/crypto");
 const { appBaseUrl } = require("../utils/dispatchBlurbs");
 const { escapeHtml } = require("../utils/emailDispatchShell");
+const { DEFAULT_TRIP_REQUIREMENT_TEMPLATE } = require("../utils/defaultTripRequirementTemplate");
 
 const router = express.Router();
 const MFA_PENDING_TTL = "5m";
@@ -96,6 +97,20 @@ router.post("/setup", async (req, res, next) => {
         role: "admin",
         authProvider: "local",
       },
+    });
+
+    // The only moment a genuinely fresh (non-demo) install can hook a
+    // real first-run default into -- ChurchSettings otherwise only ever
+    // gets created lazily, via upsert, the first time an admin saves some
+    // settings page, which would leave tripRequirementTemplate at its
+    // column default (null) rather than this real starting point. Upsert,
+    // not create, since this route only guarantees zero prior Users, not
+    // zero prior ChurchSettings -- never overwrites an existing row's
+    // template if one somehow already exists.
+    await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      update: {},
+      create: { id: "singleton", tripRequirementTemplate: DEFAULT_TRIP_REQUIREMENT_TEMPLATE },
     });
 
     res.status(201).json(await completeLogin(res, user));
@@ -469,6 +484,39 @@ async function sanitizeUser(user) {
     });
     partnerIds = rows.map((r) => r.partnerId);
   }
+  // Trip Leader guest tier only -- a short label for the sidebar's own
+  // minimal nav (AdminSidebar.jsx), not the full Trip record. Looked up
+  // here rather than left for the frontend to fetch separately, since a
+  // tripLeader has no route that would otherwise ever hand them this.
+  // partnerId/partnerLabel let that same sidebar link to the one Partner
+  // a tripLeader may read (Trip.partnerId is optional -- a trip with no
+  // linked partner yet means no such link to show).
+  let scopedTrip = null;
+  if (user.scopedTripId) {
+    const trip = await prisma.trip.findUnique({
+      where: { id: user.scopedTripId },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        partnerId: true,
+        partner: { select: { displayName: true, fieldDisplayName: true } },
+      },
+    });
+    if (trip) {
+      scopedTrip = {
+        id: trip.id,
+        label:
+          trip.name ||
+          trip.type ||
+          trip.partner?.fieldDisplayName ||
+          trip.partner?.displayName ||
+          "Your trip",
+        partnerId: trip.partnerId,
+        partnerLabel: trip.partner?.fieldDisplayName || trip.partner?.displayName || null,
+      };
+    }
+  }
   return {
     id: user.id,
     email: user.email,
@@ -480,6 +528,8 @@ async function sanitizeUser(user) {
     cadence: user.cadence,
     allPartners: user.allPartners,
     followedPartnerIds: partnerIds,
+    scopedTripId: user.scopedTripId,
+    scopedTrip,
   };
 }
 

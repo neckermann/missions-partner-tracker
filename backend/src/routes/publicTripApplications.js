@@ -9,6 +9,7 @@ const prisma = require("../prismaClient");
 const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
 const { getSettings } = require("../utils/publicTripShared");
+const { isMinorForTrip } = require("../utils/tripParticipantSchema");
 
 const router = express.Router();
 
@@ -36,12 +37,17 @@ const applicationSchema = z.object({
   emergencyContactLastName: z.string().optional().nullable(),
   emergencyContactPhone: z.string().optional().nullable(),
   emergencyContactEmail: z.string().optional().nullable(),
-  // Real structured field, not a template question -- see
-  // ChurchSettings.collectDateOfBirth's own schema comment for why.
-  dateOfBirth: z.coerce.date().optional().nullable(),
-  // Only meaningful when this trip's own collectParentGuardianInfo is
-  // on, but accepted regardless (same looseness as every other optional
-  // field on this schema).
+  // Always collected and always required now -- no per-trip or
+  // church-wide setting gates it (see TripParticipant.dateOfBirth's own
+  // schema comment). A real structured field, not a template question,
+  // since the minor determination needs something a server check can
+  // compare against the trip's own startDate.
+  dateOfBirth: z.coerce.date(),
+  // Required only when dateOfBirth computes as a minor for this trip
+  // (checked below, after parsing, since that check needs the trip's own
+  // startDate -- not available to the schema itself). Accepted here
+  // regardless of age so an adult applicant's request isn't rejected for
+  // omitting fields that don't apply to them.
   parentGuardianFirstName: z.string().optional().nullable(),
   parentGuardianLastName: z.string().optional().nullable(),
   parentGuardianRelationship: z.string().optional().nullable(),
@@ -55,14 +61,24 @@ const applicationSchema = z.object({
 
 async function createApplication(trip, settings, body, res) {
   const data = applicationSchema.parse(body);
-  // The one field on this whole form that's ever actually enforced
-  // server-side, not just shown-or-not -- see
-  // ChurchSettings.requireDateOfBirth's own schema comment for why date
-  // of birth specifically earns real enforcement where address/
-  // emergency contact deliberately don't.
-  const dobRequired = !!settings?.requireDateOfBirth || !!trip.collectParentGuardianInfo;
-  if (dobRequired && !data.dateOfBirth) {
-    return res.status(400).json({ error: "Date of birth is required to apply for this trip." });
+  // Parent/guardian info is required exactly when the submitted date of
+  // birth computes as a minor for this trip (isMinorForTrip compares
+  // against the trip's own startDate) -- not gated by any admin setting,
+  // since the point is this is never missed regardless of whether anyone
+  // predicted a minor would apply.
+  if (isMinorForTrip(data.dateOfBirth, trip.startDate)) {
+    const missingParentGuardianField = !(
+      data.parentGuardianFirstName &&
+      data.parentGuardianLastName &&
+      data.parentGuardianRelationship &&
+      data.parentGuardianPhone &&
+      data.parentGuardianEmail
+    );
+    if (missingParentGuardianField) {
+      return res
+        .status(400)
+        .json({ error: "Parent/guardian information is required for an applicant under 18." });
+    }
   }
   await prisma.tripApplication.create({
     data: {
@@ -105,7 +121,7 @@ router.post("/:id/apply", requireFeature("trips"), async (req, res, next) => {
         id: true,
         status: true,
         isPublic: true,
-        collectParentGuardianInfo: true,
+        startDate: true,
         partner: { select: { isRestricted: true } },
       },
     });
@@ -130,7 +146,7 @@ router.post("/by-token/:token/apply", requireFeature("trips"), async (req, res, 
 
     const trip = await prisma.trip.findUnique({
       where: { applicationShareToken: req.params.token },
-      select: { id: true, status: true, collectParentGuardianInfo: true },
+      select: { id: true, status: true, startDate: true },
     });
     if (!trip || trip.status !== "accepting_applications") {
       return res.status(404).json({ error: "Not found" });

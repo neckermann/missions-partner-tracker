@@ -1,11 +1,20 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchPartners, fetchSupportEntries, createSupportEntry, deleteSupportEntry } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
+import SupportEntryFormFields from "../components/admin/SupportEntryFormFields.jsx";
 import { formatDate, todayInputValue, formatCurrency as formatMoney } from "../utils/format.js";
-import { partnerKindLabel } from "../utils/partnerEntity.js";
+import { partnerKindLabel, INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD } from "../utils/partnerEntity.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
+import FilterBar from "../components/shared/FilterBar.jsx";
+import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
+import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import Table from "../components/shared/Table.jsx";
+import useFilterState from "../hooks/useFilterState.js";
+import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
+import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 
 // Thin binding so the call sites below stay unchanged; the formatting
 // itself lives in utils/format.js, which is also where the em-dash
@@ -13,15 +22,21 @@ import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 const formatCurrency = (amount) => formatMoney(amount, { fallback: "—" });
 
 const emptyNewEntry = { partnerId: "", amount: "", effectiveDate: todayInputValue(), notes: "" };
+const emptyFilters = { includeArchived: false };
 
+// Phase 2 of the UX-rebuild plan: this page already used the expanded-row-
+// below-the-row pattern by hand (History toggle) -- Table's own
+// expandedRowId/renderExpanded was built for exactly this, so this
+// migration is close to a 1:1 lift rather than a redesign. Left client-side
+// (no FilterBar date-range/entity-type added): this dataset has one real
+// filter dimension (archived) and a small row count -- see the plan's own
+// "Backend filter-support judgment calls" table.
 export default function AdminMonthlySupport() {
+  const { canWrite, isAdmin } = useCurrentUser();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [partners, setPartners] = useState([]);
-  const [includeArchived, setIncludeArchived] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newEntry, setNewEntry] = useState(emptyNewEntry);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
   // The partner whose full history is expanded, plus that history. It's
   // fetched on demand rather than arriving with every row: the summary
   // list carries only each partner's *current* amount, which is all the
@@ -29,6 +44,19 @@ export default function AdminMonthlySupport() {
   const [historyFor, setHistoryFor] = useState(null);
   const [history, setHistory] = useState([]);
   const navigate = useNavigate();
+
+  const fields = useMemo(() => [INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD], []);
+  const {
+    values: filters,
+    setValue: updateFilter,
+    reset: resetFilters,
+  } = useFilterState(fields, emptyFilters);
+  const {
+    partnerId: filterPartnerId,
+    partnerName: filterPartnerName,
+    clearPartnerFilter,
+    setPartnerFilter,
+  } = usePartnerUrlFilter();
 
   // Clicking History on partner A, then quickly clicking it on partner B
   // before A's slower fetch resolves, would otherwise let A's history
@@ -45,6 +73,7 @@ export default function AdminMonthlySupport() {
 
   useEffect(() => {
     reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function loadHistory(partnerId) {
@@ -55,6 +84,16 @@ export default function AdminMonthlySupport() {
       })
       .catch(console.error);
   }
+
+  // Arriving here via a partner's own "View all" link is specifically
+  // about that partner's support history, not just their current amount --
+  // open it automatically instead of making that a second click.
+  useEffect(() => {
+    if (filterPartnerId) {
+      setHistoryFor(filterPartnerId);
+      loadHistory(filterPartnerId);
+    }
+  }, [filterPartnerId]);
 
   function toggleHistory(partnerId) {
     if (historyFor === partnerId) {
@@ -78,38 +117,28 @@ export default function AdminMonthlySupport() {
       name: p.displayName,
       field: p.fieldDisplayName,
       archived: p.archived,
+      amount: p.supportEntries?.[0]?.amount,
+      effectiveDate: p.supportEntries?.[0]?.effectiveDate,
       current: p.supportEntries?.[0],
       link: `/admin/partners/${p.id}`,
     }))
     .filter((r) => r.current) // only partners with a support amount on file
-    .filter((r) => includeArchived || !r.archived)
+    .filter((r) => filters.includeArchived || !r.archived)
+    .filter((r) => !filterPartnerId || r.id === filterPartnerId)
     .sort((a, b) => b.current.amount - a.current.amount);
 
   const total = rows.reduce((sum, r) => sum + r.current.amount, 0);
 
-  async function handleAddSubmit(e) {
-    e.preventDefault();
-    setError("");
-    if (!newEntry.partnerId) {
-      setError("Choose a partner");
-      return;
-    }
-    setSaving(true);
-    try {
-      await createSupportEntry({
-        partnerId: newEntry.partnerId,
-        amount: newEntry.amount,
-        effectiveDate: newEntry.effectiveDate,
-        notes: newEntry.notes || null,
-      });
-      setNewEntry(emptyNewEntry);
-      setShowAddForm(false);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to save support entry");
-    } finally {
-      setSaving(false);
-    }
+  async function submitAddEntry() {
+    if (!newEntry.partnerId) throw new Error("Choose a partner");
+    await createSupportEntry({
+      partnerId: newEntry.partnerId,
+      amount: newEntry.amount,
+      effectiveDate: newEntry.effectiveDate,
+      notes: newEntry.notes || null,
+    });
+    setNewEntry(emptyNewEntry);
+    reload();
   }
 
   async function handleDeleteEntry(entry) {
@@ -126,82 +155,75 @@ export default function AdminMonthlySupport() {
 
   return (
     <div className="admin-shell">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      {filterPartnerId && (
+        <Breadcrumb
+          items={[
+            { label: "Partners", to: "/admin/partners" },
+            { label: filterPartnerName || "…", to: `/admin/partners/${filterPartnerId}` },
+            { label: "Monthly Support" },
+          ]}
+        />
+      )}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "0.5rem",
+        }}
+      >
         <h2>Monthly Support</h2>
-        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-          <div className="admin-checkbox-row">
-            <label>
-              <input
-                type="checkbox"
-                checked={includeArchived}
-                onChange={(e) => setIncludeArchived(e.target.checked)}
-              />
-              Include archived
-            </label>
-          </div>
-          <button
-            className="btn"
-            onClick={() => {
-              setShowAddForm((v) => !v);
-              setError("");
-            }}
-          >
-            {showAddForm ? "Cancel" : "+ Add Support Entry"}
+        {canWrite && (
+          <button className="btn" onClick={() => setShowAddForm(true)}>
+            + Add Support Entry
           </button>
-        </div>
+        )}
       </div>
 
-      {showAddForm && (
-        <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
-          <div className="form-grid">
-            <label
-              style={{ gridColumn: "1 / -1" }}
-              title="A new support amount takes effect as of the date below -- it doesn't overwrite prior entries, which stay on file as history."
-            >
-              Partner
-              <PartnerSelect
-                partners={partners}
-                value={newEntry.partnerId}
-                onChange={(partnerId) => setNewEntry((f) => ({ ...f, partnerId }))}
-                required
-              />
-            </label>
-            <label>
-              Monthly Amount (USD)
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={newEntry.amount}
-                onChange={(e) => setNewEntry((f) => ({ ...f, amount: e.target.value }))}
-                required
-              />
-            </label>
-            <label>
-              Effective Date
-              <input
-                type="date"
-                value={newEntry.effectiveDate}
-                onChange={(e) => setNewEntry((f) => ({ ...f, effectiveDate: e.target.value }))}
-                required
-              />
-            </label>
-            <label style={{ gridColumn: "1 / -1" }}>
-              Notes
-              <input
-                value={newEntry.notes}
-                onChange={(e) => setNewEntry((f) => ({ ...f, notes: e.target.value }))}
-              />
-            </label>
-          </div>
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-          <div style={{ marginTop: "1rem" }}>
-            <button type="submit" className="btn" disabled={saving}>
-              {saving ? "Saving..." : "Save Entry"}
-            </button>
-          </div>
-        </form>
+      {canWrite && showAddForm && (
+        <QuickActionModal
+          title="Add Support Entry"
+          onClose={() => setShowAddForm(false)}
+          onSubmit={submitAddEntry}
+          submitLabel="Save Entry"
+        >
+          <SupportEntryFormFields
+            form={newEntry}
+            setForm={setNewEntry}
+            partnerPicker={
+              <label
+                style={{ gridColumn: "1 / -1" }}
+                title="A new support amount takes effect as of the date below -- it doesn't overwrite prior entries, which stay on file as history."
+              >
+                Partner
+                <PartnerSelect
+                  partners={partners}
+                  value={newEntry.partnerId}
+                  onChange={(partnerId) => setNewEntry((f) => ({ ...f, partnerId }))}
+                  required
+                />
+              </label>
+            }
+          />
+        </QuickActionModal>
       )}
+
+      <FilterBar
+        fields={fields}
+        values={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
+        extraChips={
+          <PartnerFilterChip
+            partnerId={filterPartnerId}
+            partnerName={filterPartnerName}
+            partners={partners}
+            onSelect={setPartnerFilter}
+            onClear={clearPartnerFilter}
+          />
+        }
+      />
 
       <div className="admin-section" style={{ marginTop: "1rem" }}>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "baseline" }}>
@@ -210,87 +232,68 @@ export default function AdminMonthlySupport() {
         </div>
       </div>
 
-      <table className="admin-table" style={{ marginTop: "1rem" }}>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Field / Region</th>
-            <th>Monthly Amount</th>
-            <th>Effective Date</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <React.Fragment key={r.id}>
-              <tr
-                data-partner-id={r.id}
-                onClick={() => navigate(r.link)}
-                style={{ cursor: "pointer" }}
-                title="Click to view details"
-              >
-                <td>{r.name}</td>
-                <td>{r.type}</td>
-                <td>{r.field}</td>
-                <td>{formatCurrency(r.current.amount)}</td>
-                <td>{formatDate(r.current.effectiveDate)}</td>
-                <td className="table-actions" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    className="btn secondary small"
-                    onClick={() => toggleHistory(r.id)}
-                    title="View and correct past support entries for this partner"
-                  >
-                    {historyFor === r.id ? "Hide History" : "History"}
-                  </button>
-                </td>
+      <Table
+        style={{ marginTop: "1rem" }}
+        rows={rows}
+        rowKey={(row) => row.id}
+        rowAttrs={(row) => ({ "data-partner-id": row.id })}
+        onRowClick={(row) => navigate(row.link)}
+        emptyMessage="No support entries on file yet."
+        expandedRowId={historyFor}
+        renderExpanded={() => (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Amount</th>
+                <th>Effective Date</th>
+                <th>Notes</th>
+                <th></th>
               </tr>
-              {historyFor === r.id && (
-                <tr onClick={(e) => e.stopPropagation()}>
-                  <td colSpan={6}>
-                    <table className="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Amount</th>
-                          <th>Effective Date</th>
-                          <th>Notes</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {history.map((entry) => (
-                          <tr key={entry.id}>
-                            <td>{formatCurrency(entry.amount)}</td>
-                            <td>{formatDate(entry.effectiveDate)}</td>
-                            <td>{entry.notes || "—"}</td>
-                            <td className="table-actions">
-                              <button
-                                type="button"
-                                className="btn danger small"
-                                onClick={() => handleDeleteEntry(entry)}
-                              >
-                                Delete
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+            </thead>
+            <tbody>
+              {history.map((entry) => (
+                <tr key={entry.id}>
+                  <td>{formatCurrency(entry.amount)}</td>
+                  <td>{formatDate(entry.effectiveDate)}</td>
+                  <td>{entry.notes || "—"}</td>
+                  <td className="table-actions">
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        className="btn danger small"
+                        onClick={() => handleDeleteEntry(entry)}
+                      >
+                        Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
-              )}
-            </React.Fragment>
-          ))}
-          {rows.length === 0 && (
-            <tr>
-              <td colSpan={6} style={{ color: "#888" }}>
-                No support entries on file yet.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+              ))}
+            </tbody>
+          </table>
+        )}
+        columns={[
+          {
+            key: "name",
+            label: "Name",
+            render: (row) => <span style={{ fontWeight: 600 }}>{row.name}</span>,
+          },
+          { key: "type", label: "Type" },
+          { key: "field", label: "Field / Region" },
+          { key: "amount", label: "Monthly Amount", type: "currency" },
+          { key: "effectiveDate", label: "Effective Date", type: "date" },
+        ]}
+        renderActions={(row) => (
+          <button
+            type="button"
+            className="btn secondary small"
+            onClick={() => toggleHistory(row.id)}
+            title="View and correct past support entries for this partner"
+          >
+            {historyFor === row.id ? "Hide History" : "History"}
+          </button>
+        )}
+      />
       {confirmElement}
     </div>
   );

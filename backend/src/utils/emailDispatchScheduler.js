@@ -108,7 +108,7 @@ async function runEmailDispatchTier(tier, column, cursorField, settings, now) {
   if (consideredIds.length > 0) {
     await prisma.dispatchRecord.updateMany({
       where: { id: { in: consideredIds } },
-      data: { [column]: now },
+      data: { [column]: now, emailError: null },
     });
   }
   await prisma.churchSettings.update({ where: { id: "singleton" }, data: { [cursorField]: now } });

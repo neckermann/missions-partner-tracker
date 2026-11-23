@@ -86,7 +86,6 @@ model Partner {
   // --- Kind-specific profile fields ---
   orgType               String? // organization-only: "Local" | "National"
   anniversary           DateTime? @db.Date // missionary-only
-  languagesSpoken       String[]  @default([]) // missionary-only
   // #271 Finding 3: flat columns, not a Json blob -- missionary-only,
   // same fixed name/phone/email shape as SendingParty/TripParticipant's
   // own emergency-contact columns, which is the convention this schema
@@ -98,18 +97,8 @@ model Partner {
   // --- Mission trip capacity: what kind of team this partner can host ---
   tripTeamSizeMin    Int?
   tripTeamSizeMax    Int?
-  tripTypesSupported String[] @default([]) // e.g. ["Construction", "Medical/Dental"]
-  tripSeasonNotes    String?  @db.Text // best time of year, typical duration, etc.
-  tripLogisticsNotes String?  @db.Text // lodging, requirements, other logistics
-
-  // --- Links — every field a real, individually validated column (no JSON blob) ---
-  websiteLink      String?
-  supportLink      String?
-  newsletterSignup String?
-  facebook         String?
-  twitter          String?
-  instagram        String?
-  linkedin         String?
+  tripSeasonNotes    String? @db.Text // best time of year, typical duration, etc.
+  tripLogisticsNotes String? @db.Text // lodging, requirements, other logistics
 
   // --- Collections ---
   // Each is its own resource with per-row create/update/delete (see the
@@ -117,7 +106,8 @@ model Partner {
   // Partner update: doing that meant deleting and recreating every child
   // row on each save, which churned their ids and silently destroyed rows
   // added through the collection's own endpoint in the meantime.
-  addresses                Address[]
+  // adults/children/furloughs are missionary-only (always empty for an
+  // organization) but follow the exact same rule.
   trips                    Trip[]
   churchVisits             ChurchVisit[]
   supportEntries           SupportEntry[]
@@ -135,11 +125,28 @@ model Partner {
   // this partner, rather than every partner. Two sources, same shape.
   followedByUsers          UserFollowedPartner[]
   publicSubscriberPartners PublicSubscriberPartner[]
+  adults                   Adult[]
+  children                 Child[]
+  furloughs                Furlough[]
+  // Replaces the old fixed websiteLink/supportLink/newsletterSignup/
+  // facebook/twitter/instagram/linkedin columns -- `type` is a plain string
+  // (not a hardcoded enum) so a fork can request a new platform without a
+  // migration, same convention as PartnerFile.kind.
+  links                    PartnerLink[]
+  // Replaces the old languagesSpoken String[] column -- gives each language
+  // its own row so a proficiency level can be attached and updated per
+  // language without resending every other one.
+  languages                PartnerLanguage[]
+  // Replaces the old tripTypesSupported String[] column -- same reasoning
+  // as links/languages above, not a trip-capacity-specific exception.
+  tripTypes                TripType[]
 
-  // --- Missionary-only collections (always empty for an organization) ---
-  adults         Adult[]
-  children       Child[]
-  furloughs      Furlough[]
+  // addresses/sendingParties are the one exception to "per-row CRUD": each
+  // type has at most one row per partner (@@unique([partnerId, type])), so
+  // there's no "add a new one without touching the other" case the way
+  // there is for a growing list -- editing one is inherently replacing the
+  // whole row for that type. Still wholesale-replaced on Partner's own PUT.
+  addresses      Address[]
   sendingParties SendingParty[]
 
   // Audit is kept on Partner only, deliberately. The collections below
@@ -162,20 +169,18 @@ model Adult {
   id        String    @id @default(uuid())
   partnerId String
   partner   Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  // #257/#271 Finding 4: split first/last -- Child.name (below) is
-  // deliberately left as a single freeform field, since it's commonly
-  // single-word and a forced split would create artificial/empty
-  // lastName values for no benefit; an adult's name doesn't share that
-  // problem. firstName is nullable at the DB level (unlike the single
-  // `name` column it replaces) purely to let this migration add it to a
-  // non-empty table with no default -- app-level validation
-  // (routes/partners.js's zod schema) still requires it on every write.
+  // #257/#271 Finding 4: split first/last, same as Child below. firstName
+  // is nullable at the DB level (unlike the single `name` column it
+  // replaces) purely to let this migration add it to a non-empty table
+  // with no default -- app-level validation (routes/partners.js's zod
+  // schema) still requires it on every write.
   firstName String?
   lastName  String?
   phone1    String?
   phone2    String?
   email     String?
   birthday  DateTime? @db.Date
+  createdAt DateTime  @default(now())
 
   @@index([partnerId])
 }
@@ -184,8 +189,10 @@ model Child {
   id        String    @id @default(uuid())
   partnerId String
   partner   Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  name      String
+  firstName String?
+  lastName  String?
   birthday  DateTime? @db.Date
+  createdAt DateTime  @default(now())
 
   @@index([partnerId])
 }
@@ -219,9 +226,9 @@ model Address {
 // purely historical backfill is just a trip created already `completed`,
 // skipping the recruiting/application stages; an actively-recruited trip
 // starts `planning` and moves through `accepting_applications`/`closed`.
-// Not a capacity/preference profile -- that lives on
-// Partner.tripTypesSupported etc, which this trip's own fields are
-// pre-filled from at creation but can then diverge from per-instance.
+// Not a capacity/preference profile -- that lives on Partner.tripTypes
+// etc, which this trip's own fields are pre-filled from at creation but
+// can then diverge from per-instance.
 model Trip {
   id        String   @id @default(uuid())
   partnerId String?
@@ -243,9 +250,9 @@ model Trip {
   endDate     DateTime? @db.Date
   // Renamed from tripType -- Trip.tripType stutters against its own
   // model name; bare `type` is unambiguous within Trip, same precedent
-  // SendingParty.type already sets. Partner.tripTypesSupported keeps its
-  // "trip" qualifier since it lives on a model with many unrelated
-  // fields, where dropping the prefix would be ambiguous.
+  // SendingParty.type already sets. Partner.tripTypes.type keeps its
+  // own model's "trip" qualifier (TripType, not just Type) since "Type"
+  // alone would be ambiguous as a model name.
   type        String? // e.g. "Construction", "Medical/Dental" — preset or custom
   description String?   @db.Text // what the team did/will do -- doubles as the public trip overview when isPublic is on
   notes       String?   @db.Text // admin-only
@@ -260,22 +267,6 @@ model Trip {
   // participant's own support-raising/self-service page -- those stay
   // reachable via shareToken/access token regardless. Off by default.
   isPublic Boolean @default(false)
-
-  // Per-trip, not church-wide -- unlike collectApplicantAddress/
-  // collectEmergencyContact below (both genuinely church-wide
-  // preferences), whether a trip involves minors varies trip to trip at
-  // the same church. When on, the public application form adds a fixed
-  // date-of-birth + parent/guardian name/relationship/phone/email
-  // block -- always the same fields, never conditionally shown per
-  // answer, on purpose: this app has twice already refused to build
-  // conditional/branching question logic (see
-  // utils/applicationQuestions.js's own "not a form builder" framing),
-  // and age-gating which fields appear would be exactly that. The
-  // parent/guardian fields are accepted regardless of whether the
-  // applicant's own date of birth actually implies a minor -- same
-  // looseness as every other optional applicant field already is; nothing
-  // here is enforced server-side as conditionally required.
-  collectParentGuardianInfo Boolean @default(false)
 
   // Null until staff explicitly generate a private application link for
   // this trip -- a dedicated secret, same shape as
@@ -306,6 +297,11 @@ model Trip {
   contributions  TripContribution[]
   budgetLines    TripBudgetLine[]
   flightSegments TripFlightSegment[]
+  // Inverse of User.scopedTripId -- the Trip Leader guest account(s)
+  // scoped to this trip (ordinarily zero or one, never enforced as
+  // @unique since nothing stops an admin creating a second guest login
+  // for the same trip).
+  scopedUsers    User[]
 
   @@index([partnerId])
   @@index([status])
@@ -367,14 +363,18 @@ model TripParticipant {
   emergencyContactPhone     String?
   emergencyContactEmail     String?
 
-  // Only ever collected/shown when the trip's own collectParentGuardianInfo
-  // is on (Trip's own field, not a church-wide setting -- see its schema
-  // comment). dateOfBirth is a real date column, not a template question's
-  // free-text answer -- the "minor" determination needs something a server
-  // check can actually compare against a trip's startDate, which a Json
-  // blob answer keyed by an admin-editable question id can't reliably
-  // provide. Copied from the originating TripApplication on approval,
-  // same as address/emergency contact above.
+  // dateOfBirth is always collected and required on every trip's public
+  // application now -- no per-trip or church-wide toggle gates it. A real
+  // date column, not a template question's free-text answer, since the
+  // "minor" determination needs something a server check can actually
+  // compare against a trip's startDate (see isMinorForTrip in
+  // utils/tripParticipantSchema.js), which a Json blob answer keyed by an
+  // admin-editable question id can't reliably provide. The parentGuardian*
+  // fields are collected (and required) only when isMinorForTrip is true
+  // for the submitted dateOfBirth -- the public application wizard inserts
+  // an extra step for them in that case, never shown to an adult applicant.
+  // Copied from the originating TripApplication on approval, same as
+  // address/emergency contact above.
   dateOfBirth                DateTime? @db.Date
   parentGuardianFirstName    String?
   parentGuardianLastName     String?
@@ -403,7 +403,7 @@ model TripParticipant {
   // unrelated JSON response -- this makes that structurally impossible
   // here instead of relying on every future query remembering to omit).
   photoContentType String?
-  photoBytesRow     TripParticipantPhoto?
+  photoBytesRow    TripParticipantPhoto?
 
   // Bumped to invalidate every previously-issued self-service link at
   // once -- same revocation reasoning as User.mfaLastTimeStep's replay
@@ -470,9 +470,9 @@ model TripApplication {
   emergencyContactPhone     String?
   emergencyContactEmail     String?
 
-  // See TripParticipant's matching fields for the full rationale. Only
-  // ever collected/shown when the trip's own collectParentGuardianInfo
-  // is on.
+  // See TripParticipant's matching fields for the full rationale --
+  // dateOfBirth always required; parentGuardian* required only when
+  // isMinorForTrip is true for it.
   dateOfBirth                DateTime? @db.Date
   parentGuardianFirstName    String?
   parentGuardianLastName     String?
@@ -712,7 +712,7 @@ model TripDocument {
   // church rewording its waiver) silently being attributed to an old
   // signature; the hash makes any mismatch between this snapshot and a
   // later-edited requirement detectable, not just theoretically possible.
-  documentTextSnapshot String?   @db.Text
+  documentTextSnapshot String?            @db.Text
   documentTextHash     String?
   bytesRow             TripDocumentBytes?
 
@@ -817,6 +817,7 @@ model Furlough {
   startDate DateTime  @db.Date
   endDate   DateTime? @db.Date
   notes     String?   @db.Text
+  createdAt DateTime  @default(now())
 
   @@index([partnerId])
 }
@@ -831,6 +832,61 @@ model ChurchVisit {
   partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   visitDate DateTime @db.Date
   notes     String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([partnerId])
+}
+
+// A link to somewhere else about this partner -- website, support/donate
+// page, newsletter signup, or a social profile. Replaces the old fixed
+// websiteLink/supportLink/newsletterSignup/facebook/twitter/instagram/
+// linkedin columns on Partner: `type` is a plain validated string (see
+// routes/partnerLinks.js), not a native Prisma enum, same convention as
+// PartnerFile.kind -- the admin UI only offers today's known set via a
+// dropdown, but adding a new one later (e.g. a fork wanting TikTok) is a
+// one-line code change, not a migration. @@unique keeps today's "at most
+// one Facebook link" rule.
+model PartnerLink {
+  id        String   @id @default(uuid())
+  partnerId String
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  type      String
+  url       String
+  createdAt DateTime @default(now())
+
+  @@unique([partnerId, type])
+}
+
+// A language this partner speaks, with an optional proficiency level.
+// Replaces the old languagesSpoken String[] column -- giving each language
+// its own row lets a proficiency be attached and updated on just that one
+// language later (e.g. as someone's field language improves) without
+// resending the whole list. proficiency is a plain string (ILR scale --
+// "0".."5" with "+" half-steps -- chosen in the admin UI's own dropdown),
+// not a Prisma enum, for the same fork-extensibility reason as
+// PartnerLink.type above.
+model PartnerLanguage {
+  id          String   @id @default(uuid())
+  partnerId   String
+  partner     Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  language    String
+  proficiency String?
+  createdAt   DateTime @default(now())
+
+  @@index([partnerId])
+}
+
+// Replaces the old Partner.tripTypesSupported String[] column -- same
+// per-row-CRUD reasoning as PartnerLink/PartnerLanguage above, not a
+// trip-capacity-specific exception. No @@unique: a partner can support
+// several trips of what's effectively the same custom type string
+// without that being an error, the same way PartnerLanguage doesn't
+// block a duplicate language either.
+model TripType {
+  id        String   @id @default(uuid())
+  partnerId String
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  type      String // e.g. "Construction", "Medical/Dental" -- preset or custom
   createdAt DateTime @default(now())
 
   @@index([partnerId])
@@ -1031,10 +1087,10 @@ model PartnerFile {
   // split-off table -- see TripParticipantPhoto's own comment for why
   // (structurally prevents the #274 production-hang bug class rather than
   // relying on every future query remembering to select/omit).
-  fileName    String // original uploaded filename, for display/download
-  contentType String
-  fileSize    Int? // bytes
-  notes       String? @db.Text
+  fileName     String // original uploaded filename, for display/download
+  contentType  String
+  fileSize     Int? // bytes
+  notes        String?  @db.Text
 
   createdAt DateTime @default(now())
 
@@ -1063,21 +1119,36 @@ model PartnerFileBytes {
 // worth keeping around. No partnerId/relation -- that's the whole point,
 // this is what's left *unmatched*.
 model InboundEmail {
-  id          String   @id @default(uuid())
-  receivedAt  DateTime @default(now())
+  id          String             @id @default(uuid())
+  receivedAt  DateTime           @default(now())
   fromAddress String
   subject     String?
   // The raw .eml source lives in InboundEmailBytes (below), a one-to-one
   // split-off table -- see TripParticipantPhoto's own comment for why.
-  fileName  String
-  createdAt DateTime @default(now())
-  bytesRow  InboundEmailBytes?
+  fileName    String
+  createdAt   DateTime           @default(now())
+  bytesRow    InboundEmailBytes?
 }
 
 model InboundEmailBytes {
   id    String       @id
   email InboundEmail @relation(fields: [id], references: [id], onDelete: Cascade)
   bytes Bytes
+}
+
+// A webhook call that never became a real InboundEmail row -- bad/missing
+// credentials, a missing From/RawEmail field, or an unexpected exception
+// while processing one. Previously these just returned a 4xx/500 with
+// nothing persisted anywhere, so there was no way to see afterward that
+// anything had even gone wrong (see the in-app notifications plan's
+// "Inbound email processing errors" category). rawPayloadSnippet is a
+// short, truncated excerpt for debugging context, not the full payload --
+// this table is a failure log, not a second copy of InboundEmail/Bytes.
+model InboundEmailFailure {
+  id                 String   @id @default(uuid())
+  receivedAt         DateTime @default(now())
+  reason             String
+  rawPayloadSnippet  String?  @db.Text
 }
 
 // A recorded event, capable of independently producing up to four
@@ -1166,6 +1237,19 @@ model DispatchRecord {
   monthlyEmailDispatchSentAt   DateTime?
   quarterlyEmailDispatchSentAt DateTime?
 
+  // One nullable error string per channel, set in that channel's own
+  // send-attempt catch block (groupmeChannel.js/whatsappChannel.js/
+  // emailDispatchDelivery.js/dispatchOrchestrator.js's urgent-send path)
+  // instead of just console.error-ing and leaving nothing queryable
+  // after the fact -- see the in-app notifications plan's "Dispatch send
+  // failures" category. A row's own *DispatchedAt stamp being null is
+  // already ambiguous between "not attempted"/"ineligible"/"failed"; this
+  // is what actually tells those three apart for "failed." Cleared back
+  // to null the next time that channel's send for this row succeeds.
+  groupmeError  String?
+  whatsappError String?
+  emailError    String?
+
   @@index([type])
   @@index([partnerId])
 }
@@ -1193,7 +1277,7 @@ model Photo {
   contentType  String?
   fileSize     Int? // bytes
 
-  createdAt DateTime @default(now())
+  createdAt DateTime    @default(now())
   bytesRow  PhotoBytes?
 
   @@index([partnerId])
@@ -1241,7 +1325,7 @@ model ChurchSettings {
   usePartnerTermInAdmin Boolean @default(false)
 
   publicTagline   String? // short subtitle under the public map/directory header
-  aboutText       String? @db.Text // optional blurb shown on the public directory
+  aboutText       String?             @db.Text // optional blurb shown on the public directory
   // Three independently-pickable brand colors (see #182's history for why
   // not a single color, and why not a full template builder): primaryColor
   // is the ACCENT role (buttons, links, headings, letterhead -- the color
@@ -1318,6 +1402,17 @@ model ChurchSettings {
   // hasWhatsAppTarget/postToWhatsApp).
   whatsappPhoneNumber           String? // digits only, the dedicated number the app is paired as
   whatsappPairedAt              DateTime?
+  // Connection-health tracking for the in-app notifications "WhatsApp
+  // connection drop" category -- whatsappClient.js's own runtime.status/
+  // lastError live only in memory and don't survive a worker restart, so
+  // there was nothing queryable here before. Written whenever the worker's
+  // connection genuinely fails (not on every transient reconnect blip --
+  // see whatsappClient.js's own comment at the write site), cleared on the
+  // next successful (re)connect. whatsappDisconnectedAt null means either
+  // "never paired" or "currently connected" -- the category query
+  // distinguishes those by also requiring whatsappPairedAt to be set.
+  whatsappLastError      String?
+  whatsappDisconnectedAt DateTime?
   whatsappCommunityId           String?
   whatsappCommunityName         String?
   whatsappAnnouncementGroupId   String?
@@ -1537,7 +1632,7 @@ model ChurchSettings {
   allowPublicSupportRaisingLinks Boolean @default(false)
 
   // Church-wide gate on whether the Budget section (TripBudgetLine)
-  // shows on AdminTripDetail.jsx at all -- defaults to `false`, matched
+  // shows on AdminTripBudget.jsx at all -- defaults to `false`, matched
   // against allowPrivateApplicationLinks/allowPublicSupportRaisingLinks'
   // precedent (an opt-in admin planning capability a church either wants
   // or doesn't), not collectApplicantAddress/collectEmergencyContact's
@@ -1554,31 +1649,11 @@ model ChurchSettings {
   // already send newsletters to.
   inboundEmailAddress String?
 
-  // Real, always-available structured fields now (not a free-text
-  // template question's "date" type the way this was previously asked)
-  // -- the minor/parent-guardian determination needs a reliable column
-  // to check against a trip's startDate, which an admin-editable
-  // template question's answer, keyed by a question id that could be
-  // reordered/removed/retyped at any time, could never dependably
-  // provide. collectDateOfBirth gates whether the public form shows the
-  // field at all (default on -- routine content most trip applications
-  // already ask for, same posture as collectApplicantAddress/
-  // collectEmergencyContact); requireDateOfBirth gates whether
-  // submitting without it is actually rejected server-side, not just a
-  // UI hint -- same required/optional pairing concept each individual
-  // application question already has via its own `required` flag, just
-  // promoted to a real column instead of a question. A trip whose own
-  // collectParentGuardianInfo is on forces both to effectively true for
-  // that trip regardless of these two church-wide defaults -- minor
-  // support cannot function without a real date of birth on file.
-  collectDateOfBirth Boolean @default(true)
-  requireDateOfBirth Boolean @default(false)
-
   // Church-wide base question set every trip's application form renders
   // first, before that trip's own applicationQuestions (Trip model, above).
   // Same shape as applicationQuestions -- see utils/applicationQuestions.js
   // for the one shared zod definition both this field and Trip's own use.
-  // Configured once under Site Administration -> Mission Trips instead of
+  // Configured once under Settings -> Mission Trips instead of
   // re-typed on every trip -- closes the "keep forks upgradable" gap a
   // hardcoded starter question set would otherwise create. See
   // publicTrips.js's shapeTripForApplicant for where the two layers get
@@ -1656,10 +1731,27 @@ model User {
   lastName     String?
   passwordHash String? // nullable only for historical rows; every account created now is local
   authProvider String    @default("local")
-  role         String    @default("editor") // "admin" | "editor" | "viewer"
+  role         String    @default("editor") // "admin" | "editor" | "viewer" | "tripLeader"
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
+
+  // Trip Leader guest tier only (role: "tripLeader") -- a real login/
+  // session account, not a reduction of any existing role's visibility
+  // (see the "auth is the boundary" model below: every other role still
+  // sees everything). A deliberately narrow new tier instead: a scoped
+  // guest with editor-equivalent write access to exactly one Trip's own
+  // operational content (requireTripScope, requireAuth.js) and read-only
+  // access to that trip's own linked Partner, nothing else in the app.
+  // onDelete: Cascade -- this account only exists because that trip
+  // does; deleting the trip removes the leftover guest login with it.
+  // expiresAt is independent of `active` -- a past expiresAt is treated
+  // the same as !active in requireAuth (blocks the session), but doesn't
+  // auto-delete the row, so an admin extending access just clears/moves
+  // the date rather than recreating the account.
+  scopedTripId String?
+  scopedTrip   Trip?     @relation(fields: [scopedTripId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime?
 
   // TOTP MFA — opt-in per user, self-service enroll/disable from Account
   // Settings; mfaSecret is only ever set once mfaEnabled flow starts, and
@@ -1701,6 +1793,23 @@ model User {
   // means every partner this user's role can already see.
   allPartners      Boolean               @default(true)
   followedPartners UserFollowedPartner[]
+  notificationsSeen NotificationSeen[]
+}
+
+// Per-user, per-category "last looked at this" marker for the in-app
+// notification bell -- not one shared timestamp, because clearing one
+// person's "new" highlight must never clear it for a teammate who hasn't
+// looked yet (see notifications/categories.js's own header comment for the
+// full reasoning). The *count* a category shows is always a live query
+// against real data, shared by everyone; only the "new since you looked"
+// emphasis is personal, which is all this table tracks.
+model NotificationSeen {
+  userId   String
+  category String
+  seenAt   DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, category])
 }
 
 // Join rows for a user's specific-partner digest scope (#202) -- only

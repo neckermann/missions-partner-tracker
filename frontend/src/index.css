@@ -1,5 +1,39 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap");
+
 * {
   box-sizing: border-box;
+}
+/* Shared visual tokens (UX-rebuild Phase 9: visual design) -- lifted
+   directly from the "Admin Navigation Options" design-reference
+   artifact's own :root. Sora for headings/sidebar-title/card titles,
+   Inter for body text, matching the artifact's font pairing exactly.
+   Shadow/radius scale too, so every shared component (admin-card,
+   admin-section, modal-panel, admin-table) reads as one system instead
+   of each having its own one-off border/radius. These are plain
+   visual tokens, not brand-customizable -- the 4 real --brand-* vars
+   (set by SettingsContext.jsx from ChurchSettings) stay the only
+   per-church-configurable colors. */
+:root {
+  --heading-font: Sora, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --body-font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --surface: #ffffff;
+  --surface-2: #f4f5f7;
+  --border-soft: #dde1e7;
+  --muted-text: #677080;
+  --shadow-card: 0 1px 2px rgba(20, 25, 30, 0.06), 0 8px 24px rgba(20, 25, 30, 0.05);
+  --radius-lg: 16px;
+  --radius-md: 10px;
+  --radius-sm: 7px;
+  --radius-pill: 999px;
+}
+h1,
+h2,
+h3,
+h4,
+.admin-sidebar-title,
+.admin-card h3,
+.wizard-steps {
+  font-family: var(--heading-font);
 }
 /* Brand customization, all set at runtime by SettingsContext.jsx from
    ChurchSettings (see routes/publicSettings.js / schema.prisma for the
@@ -17,12 +51,30 @@
    accessibility e2e suite. */
 body {
   margin: 0;
-  font-family: var(--brand-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-family: var(--brand-font, var(--body-font));
   background: #f7f5f0;
   color: #222;
 }
 a {
   color: var(--brand-color, #2a5d3c);
+}
+/* A <button> styled to read as an inline link, for a summary-card item
+   that opens a popup (PartnerSummaryCard.jsx) rather than navigating --
+   real link semantics (href, open-in-new-tab) don't apply there, so a
+   button is the correct element; this just makes it look like one. */
+.summary-item-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  text-align: left;
+  color: var(--brand-color, #2a5d3c);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.summary-item-link:hover {
+  color: var(--brand-highlight-color, #a6540f);
 }
 
 .app-header {
@@ -57,27 +109,21 @@ a {
   color: rgba(255, 255, 255, 0.85);
 }
 
-/* Admin section layout — a persistent left sidebar (replacing the old
-   single-row top nav, which ran out of room as sections were added) plus a
-   content area on the right. Used for every /admin/* route via AdminLayout,
-   including detail/edit forms, which previously had no persistent nav at
-   all — this fixes that inconsistency as a side effect. */
 .admin-layout {
   display: flex;
   align-items: flex-start;
   min-height: 100vh;
+  --sidebar-width: 230px;
+}
+.admin-layout:has(.admin-sidebar.collapsed) {
+  --sidebar-width: 64px;
 }
 .admin-sidebar {
-  width: 230px;
+  width: var(--sidebar-width);
   flex-shrink: 0;
-  /* height (not min-height): with Site Administration expanded, the nav
-     list can run taller than the viewport. Capping the box here and
-     scrolling it internally is what lets you actually reach Log out --
-     previously the box just grew past the viewport with no way to bring
-     its lower items into view short of scrolling almost to the very
-     bottom of a long page. */
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--brand-header-color, #2c2a28);
   color: white;
   padding: 1.5rem 1rem;
@@ -85,11 +131,132 @@ a {
   flex-direction: column;
   position: sticky;
   top: 0;
+  transition: width 0.18s ease;
+}
+.admin-sidebar.collapsed {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.admin-sidebar.collapsed .sb-label,
+.admin-sidebar.collapsed .admin-sidebar-subnav,
+.admin-sidebar.collapsed .admin-sidebar-title-text {
+  display: none;
+}
+.admin-sidebar.collapsed .admin-sidebar-title {
+  justify-content: center;
 }
 .admin-sidebar-title {
   font-size: 1.05rem;
+  font-weight: 600;
   margin: 0 0 1.5rem;
   line-height: 1.3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.admin-sidebar-title-text {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-sidebar-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+.admin-sidebar-collapse-btn,
+.admin-sidebar-bell-btn {
+  position: relative;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  border-radius: var(--radius-sm);
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.admin-sidebar-collapse-btn:hover,
+.admin-sidebar-bell-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.admin-sidebar-bell-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.56rem;
+  padding: 0 4px;
+  background: var(--brand-highlight-color, #a6540f);
+  color: white;
+  border-radius: 999px;
+  min-width: 14px;
+  height: 14px;
+  text-align: center;
+}
+.admin-sidebar-bell-dropdown {
+  /* position: fixed, not absolute -- .admin-sidebar has overflow-x:
+     hidden (for its own text-truncation needs elsewhere), which clips an
+     absolutely-positioned descendant down to the sidebar's own width.
+     top/left come from AdminSidebar.jsx's own getBoundingClientRect, not
+     this stylesheet. */
+  position: fixed;
+  background: white;
+  color: #222;
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  padding: 0.5rem;
+  min-width: 320px;
+  max-width: 400px;
+  z-index: 50;
+}
+.admin-sidebar-bell-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-sm, 6px);
+  color: #222 !important;
+  text-decoration: none;
+}
+.admin-sidebar-bell-item:hover {
+  background: var(--surface-2, #f4f4f2);
+}
+.admin-sidebar-bell-item-label {
+  flex: 1;
+  font-size: 0.85rem;
+}
+.admin-sidebar-bell-item-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--brand-highlight-color, #a6540f);
+}
+.admin-sidebar-nav-badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: var(--brand-highlight-color, #a6540f);
+  color: white;
+  border-radius: 999px;
+  padding: 0 5px;
+  min-width: 14px;
+  height: 14px;
+  text-align: center;
 }
 .admin-sidebar-nav {
   display: flex;
@@ -108,10 +275,13 @@ a {
 .admin-sidebar-nav button,
 .admin-sidebar-footer a,
 .admin-sidebar-footer button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   color: white;
   text-decoration: none;
   padding: 0.55rem 0.6rem;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
   text-align: left;
   background: none;
@@ -119,44 +289,21 @@ a {
   cursor: pointer;
   font-family: inherit;
 }
+.admin-sidebar.collapsed .admin-sidebar-nav a,
+.admin-sidebar.collapsed .admin-sidebar-nav button,
+.admin-sidebar.collapsed .admin-sidebar-footer a,
+.admin-sidebar.collapsed .admin-sidebar-footer button {
+  justify-content: center;
+}
 .admin-sidebar-nav a:hover,
 .admin-sidebar-nav button:hover,
 .admin-sidebar-footer a:hover,
 .admin-sidebar-footer button:hover {
   background: rgba(255, 255, 255, 0.12);
 }
-/* A black tint (not the old white one) so the white nav text keeps
-   sufficient contrast (WCAG AA, 4.5:1) regardless of --brand-color --
-   a church can set this to anything from Church Settings, and darkening
-   a color reliably increases contrast against white text where
-   lightening it can go either way depending on the base color. */
 .admin-sidebar-nav a.active {
   background: rgba(0, 0, 0, 0.28);
   font-weight: 600;
-}
-.admin-sidebar-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.2);
-  margin: 0.75rem 0.6rem;
-}
-
-/* "Site Administration" -- a disclosure toggle (button, not a link; it
-   doesn't navigate anywhere itself) that expands a nested list of admin
-   sub-pages, rather than a separate page with its own tab bar -- keeps
-   "where am I" answered by the sidebar itself, the same way every other
-   section here already works. */
-.admin-sidebar-group-toggle {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-.admin-sidebar-group-arrow {
-  font-size: 0.7rem;
-  opacity: 0.75;
-  transition: transform 0.15s ease;
 }
 .admin-sidebar-subnav {
   display: flex;
@@ -168,20 +315,10 @@ a {
 }
 .admin-sidebar-subnav a {
   padding-left: 0.6rem;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: normal;
 }
-/* A plain caption splitting the Site Administration subnav into groups
-   (e.g. "Communications" ahead of GroupMe/Email) -- text, not a link, so
-   no :hover/active states to style. */
-.admin-sidebar-subnav-label {
-  padding: 0.5rem 0.6rem 0.1rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.5);
-}
+
 .admin-main {
   flex: 1;
   min-width: 0;
@@ -190,12 +327,16 @@ a {
 @media (max-width: 800px) {
   .admin-layout {
     flex-direction: column;
+    align-items: stretch;
   }
   .admin-sidebar {
     width: 100%;
     height: auto;
     overflow-y: visible;
     position: static;
+  }
+  .form-save-bar {
+    left: 0;
   }
 }
 
@@ -302,12 +443,12 @@ a {
   border-radius: 50%;
   flex-shrink: 0;
 }
-/* Church logo preview on the Branding settings page -- rendered against
-   the admin's own configured Header Color (set inline, see
-   AdminSettingsBranding.jsx) so this is a real preview of how the logo
-   will actually look in the header, not an arbitrary crop. Fixed height,
-   auto width (capped) same as .header-logo -- adapts to a square icon or
-   a wide wordmark alike. */
+/* Church logo preview on the About & Branding settings page -- rendered
+   against the admin's own configured Header Color (set inline, see
+   AdminSettingsAbout.jsx) so this is a real preview of how the logo will
+   actually look in the header, not an arbitrary crop. Fixed height, auto
+   width (capped) same as .header-logo -- adapts to a square icon or a
+   wide wordmark alike. */
 .logo-preview {
   height: 48px;
   width: auto;
@@ -388,15 +529,16 @@ a {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(20, 25, 30, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 1rem;
 }
 .modal-panel {
-  background: #fff;
   width: 90%;
+  max-width: 32rem;
   max-height: 85vh;
   overflow-y: auto;
 }
@@ -415,13 +557,9 @@ a {
   gap: 0.3rem;
   margin-bottom: 0.5rem;
 }
+/* .popup-avatar's dimensions now come from PhotoTile.jsx's inline style --
+   class kept as a styling hook (nothing else sets it). */
 .popup-avatar {
-  width: 176px;
-  height: 176px;
-  object-fit: cover;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: #eee;
   cursor: pointer;
 }
 .popup-name {
@@ -511,13 +649,8 @@ a {
   border-color: var(--brand-highlight-color, #a6540f);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
-.partner-card-photo {
-  width: 100%;
-  height: 160px;
-  object-fit: cover;
-  background: #eee;
-  display: block;
-}
+/* .partner-card-photo's styling now comes entirely from PhotoTile.jsx's
+   inline style. */
 .partner-card-body {
   padding: 1rem;
 }
@@ -542,14 +675,8 @@ a {
   align-items: flex-start;
   flex-wrap: wrap;
 }
-.partner-detail-photo {
-  width: 160px;
-  height: 160px;
-  object-fit: cover;
-  border-radius: 50%;
-  background: #eee;
-  flex-shrink: 0;
-}
+/* .partner-detail-photo's styling now comes entirely from PhotoTile.jsx's
+   inline style. */
 .partner-links {
   display: flex;
   flex-wrap: wrap;
@@ -623,6 +750,33 @@ a {
   margin: 2rem auto;
   padding: 0 1rem;
 }
+.breadcrumb {
+  display: block;
+  font-size: 0.8rem;
+  color: #6b6f76;
+  margin-bottom: 0.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 11;
+  background: #f7f5f0;
+  padding: 0.5rem 0;
+}
+.breadcrumb a {
+  color: #6b6f76;
+  text-decoration: none;
+}
+.breadcrumb a:hover {
+  color: #1f2a37;
+  text-decoration: underline;
+}
+.breadcrumb-sep {
+  margin: 0 0.35rem;
+  color: #b7b3ab;
+}
+.breadcrumb-current {
+  color: #1f2a37;
+  font-weight: 600;
+}
 .admin-table {
   width: 100%;
   border-collapse: collapse;
@@ -649,23 +803,69 @@ a {
 .table-scroll .table-actions {
   flex-wrap: nowrap;
 }
-.admin-table th,
+.admin-table th {
+  text-align: left;
+  padding: 0 0.5rem 0.6rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-text);
+  font-weight: 700;
+}
+/* Same active/interactive-feedback color every other control in the app
+   uses (tab underline, hover states) -- see STYLE-GUIDE.md's design
+   tokens -- rather than inventing a one-off color for this. The sort
+   icon (Table.jsx's SortIcon -- a real SVG, not a Unicode glyph, which
+   rendered inconsistently and bluntly across platforms) stays low-
+   opacity on every sortable header until hovered or active, so it reads
+   as a quiet affordance, not clutter repeated across the row. */
+.admin-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.admin-table th.sortable:hover {
+  color: var(--brand-highlight-color, #a6540f);
+}
+.admin-table th.sortable.sorted {
+  color: var(--brand-highlight-color, #a6540f);
+}
+/* A sortable header's label and icon sit in this flex wrapper so the
+   icon stays put at the trailing edge, vertically centered against the
+   label -- without it, a label that wraps to two lines (e.g. "Sent By
+   Us" in a narrow column) pushed the icon down after its last line,
+   landing it at a different height than a one-line header's icon right
+   next to it. */
+.admin-table th .th-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.admin-table th .sort-indicator {
+  display: inline-flex;
+  flex-shrink: 0;
+  opacity: 0.35;
+}
+.admin-table th.sortable:hover .sort-indicator,
+.admin-table th.sortable.sorted .sort-indicator {
+  opacity: 1;
+}
 .admin-table td {
   text-align: left;
-  padding: 0.5rem;
-  border-bottom: 1px solid #eee;
+  padding: 0.65rem 0.5rem;
+  border-top: 1px solid var(--border-soft);
 }
 .admin-table tbody tr:hover {
-  background: #f0f6f1;
+  background: var(--surface-2);
 }
 .btn {
   background: var(--brand-color, #2a5d3c);
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 0.9rem;
+  font-weight: 600;
 }
 /* Accent at rest, highlight on hover -- :not(.secondary):not(.danger) so
    those variants' own distinct semantic colors (gray/red) aren't overridden
@@ -691,6 +891,7 @@ a {
 .table-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
   gap: 0.5rem 0.75rem;
 }
@@ -702,13 +903,24 @@ a {
 .table-actions-stack {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.6rem;
+  padding: 0.6rem;
+  background: var(--surface-2, #f4f4f2);
+  border-radius: 6px;
 }
 .table-actions-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem 0.5rem;
+}
+/* The button row (View raw/Assign/Discard) reads as a distinct group from
+   the picker row above it -- a thin divider plus right-alignment, instead
+   of two rows of controls that otherwise look identical. */
+.table-actions-stack > .table-actions-row:last-child {
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e0ded9;
 }
 .table-actions-as {
   color: #777;
@@ -754,6 +966,143 @@ a {
   gap: 1rem 1.25rem;
 }
 
+.filter-bar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.filter-pill-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.filter-search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  color: var(--muted-text);
+}
+.filter-search-box input {
+  border: none;
+  background: transparent;
+  font-size: inherit;
+  color: #222;
+  outline: none;
+  min-width: 160px;
+  padding: 0;
+}
+.filter-search-clear {
+  border: none;
+  background: none;
+  color: var(--muted-text);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0;
+  line-height: 1;
+}
+.filter-search-clear:hover {
+  color: #222;
+}
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  border: 1px solid var(--brand-highlight-color, #a6540f);
+  background: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 12%, white);
+  color: var(--brand-highlight-color, #a6540f);
+  border-radius: var(--radius-pill);
+  padding: 0.35rem 0.7rem;
+  font-weight: 600;
+}
+.filter-chip-label {
+  white-space: nowrap;
+}
+.filter-chip select,
+.filter-chip input {
+  border: none;
+  background: transparent;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  padding: 0;
+  max-width: 140px;
+}
+.filter-chip .fc-x {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: inherit;
+  opacity: 0.6;
+  padding: 0;
+  margin-left: 0.1rem;
+}
+.filter-chip .fc-x:hover {
+  opacity: 1;
+}
+.add-filter-wrap {
+  position: relative;
+}
+.add-filter-chip {
+  font-size: 0.78rem;
+  border: 1px dashed var(--border-soft);
+  background: transparent;
+  color: var(--muted-text);
+  border-radius: var(--radius-pill);
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+.add-filter-chip:hover {
+  border-color: var(--brand-highlight-color, #a6540f);
+  color: var(--brand-highlight-color, #a6540f);
+}
+.filter-popover-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 0.4rem;
+  width: 230px;
+  z-index: 30;
+}
+.filter-popover-panel .fp-item {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.82rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.filter-popover-panel .fp-item:hover {
+  background: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 12%, white);
+}
+.clear-all-link {
+  font-size: 0.78rem;
+  color: var(--brand-color, #2a5d3c);
+  font-weight: 600;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.clear-all-link:hover {
+  text-decoration: underline;
+}
+
 .admin-form {
   display: flex;
   flex-direction: column;
@@ -771,7 +1120,13 @@ a {
 .form-save-bar {
   position: fixed;
   bottom: 0;
-  left: 0;
+  /* Not 0 -- the bar used to span the full viewport width at full
+     viewport-fixed position, which put it on top of the sidebar's own
+     footer (My Account/Log out) at the bottom of the screen. Offsetting
+     past --sidebar-width (defined on .admin-layout) confines it to
+     .admin-main instead, and tracks the sidebar's collapsed/expanded
+     width automatically. */
+  left: var(--sidebar-width, 230px);
   right: 0;
   display: flex;
   align-items: center;
@@ -783,10 +1138,25 @@ a {
   z-index: 50;
 }
 .admin-section {
-  background: white;
-  border: 1px solid #e2e2e2;
-  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   padding: 1.25rem 1.5rem;
+}
+
+/* EditableSection's whole-card click target -- same "click it to open its
+   popup" convention as an .admin-table row, applied to a singleton
+   field-group instead of a list row. */
+.admin-section-clickable {
+  cursor: pointer;
+}
+.admin-section-clickable:hover {
+  background: var(--surface-2);
+}
+.admin-section-clickable:focus-visible {
+  outline: 2px solid var(--brand-highlight-color, #a6540f);
+  outline-offset: 2px;
 }
 
 /* Groups several related .admin-section cards (e.g. "Financial") under one
@@ -796,6 +1166,18 @@ a {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  scroll-margin-top: 1rem;
+}
+.partner-jump-rail {
+  position: sticky;
+  top: 2rem;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  background: #f7f5f0;
+  padding: 0.6rem 0;
+  margin-bottom: 0.5rem;
 }
 .admin-group-heading {
   margin: 0;
@@ -894,6 +1276,16 @@ a {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
+}
+.repeatable-row-clickable {
+  cursor: pointer;
+}
+.repeatable-row-clickable:hover {
+  background: var(--surface-2);
+}
+.repeatable-row-clickable:focus-visible {
+  outline: 2px solid var(--brand-highlight-color, #a6540f);
+  outline-offset: 2px;
 }
 
 .tag-input-row {
@@ -1019,10 +1411,11 @@ a {
 
 .status-pill {
   display: inline-block;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
   padding: 0.15rem 0.6rem;
-  border-radius: 12px;
-  background: #eee;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
   color: #444;
 }
 .status-pill.warn {
@@ -1092,10 +1485,11 @@ a {
 }
 .admin-card {
   display: block;
-  background: white;
-  border: 1px solid #e2e2e2;
-  border-radius: 8px;
-  padding: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 1.1rem 1.25rem;
   text-decoration: none;
   color: inherit;
   transition:
@@ -1106,9 +1500,24 @@ a {
   border-color: var(--brand-highlight-color, #a6540f);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
+/* Eyebrow category label (e.g. "Communications", "Trips") shown above a
+   card's title -- CardGrid.jsx's optional `category` field. Omitted
+   entirely (no empty space reserved) when a call site doesn't pass one. */
+.admin-card-eyebrow {
+  display: block;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--brand-color, #2a5d3c);
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
 .admin-card h3 {
   margin: 0 0 0.5rem;
   color: var(--brand-color, #2a5d3c);
+}
+.admin-card-icon {
+  margin-right: 0.4rem;
 }
 .admin-card p {
   margin: 0;
@@ -1116,9 +1525,16 @@ a {
   font-size: 0.9rem;
 }
 
+/* max-width is a real US Letter page width (8.5in) -- deliberately not
+   shrunk to fit a narrow viewport, since this previews actual print
+   proportions. overflow-x: auto on the outer scroller lets a phone-width
+   admin scroll it horizontally instead of the whole page doing so. */
+.booklet-preview-scroll {
+  overflow-x: auto;
+  margin: 1.5rem auto;
+}
 .booklet-preview {
   max-width: 8.5in;
-  margin: 1.5rem auto;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.15);
 }
 
@@ -1378,4 +1794,87 @@ a {
   a[href]::after {
     content: "";
   }
+}
+
+/* AdminHome.jsx's search box + Cmd/Ctrl+K hint, and its "Recently
+   viewed" chips -- Phase 9 visual design, matching the design-reference
+   artifact's .home-search/.recent-chip exactly. */
+.home-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 0.7rem 1rem;
+}
+.home-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 0.95rem;
+}
+.home-search input:focus {
+  outline: none;
+}
+.home-search-kbd-hint {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  color: var(--muted-text);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+.recent-row {
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+.recent-chip {
+  flex-shrink: 0;
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.8rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  text-decoration: none;
+  color: inherit;
+}
+.recent-chip:hover {
+  border-color: var(--brand-highlight-color, #a6540f);
+}
+.recent-chip b {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted-text);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 2px;
+}
+
+/* Wizard.jsx's step-dot progress bar, above the existing numbered step
+   labels -- purely decorative (same role as the design-reference
+   artifact's .wizard-progress), so it's hidden rather than squashed at
+   a single step, matching that artifact's own 1-step "New User" note
+   that a progress bar isn't worth showing there. */
+.wizard-progress {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+.wizard-progress div {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border-soft);
+}
+.wizard-progress div.done {
+  background: var(--brand-color, #2a5d3c);
 }

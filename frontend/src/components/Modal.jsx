@@ -20,18 +20,28 @@ export default function Modal({ title, onClose, children, maxWidth = "40rem" }) 
   const panelRef = useRef(null);
   const headingId = useRef(`modal-title-${Math.random().toString(36).slice(2)}`);
   const previouslyFocused = useRef(null);
+  // Read by the keydown listener below instead of putting onClose in that
+  // effect's own deps -- callers almost never memoize onClose, so a deps
+  // array of [onClose] re-ran this whole effect (including the initial
+  // panelRef.current?.focus() a few lines down) on every parent re-render,
+  // which stole focus back to the panel away from whatever input someone
+  // was actively typing in after just one keystroke. The ref always reads
+  // the latest onClose without that.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     previouslyFocused.current = document.activeElement;
 
     // Focus the panel itself rather than the first control: a screen reader
-    // then announces the dialog and its title before its contents.
+    // then announces the dialog and its title before its contents. Mount
+    // only -- see onCloseRef above for why this effect has no deps.
     panelRef.current?.focus();
 
     function onKeyDown(e) {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab") return;
@@ -64,7 +74,7 @@ export default function Modal({ title, onClose, children, maxWidth = "40rem" }) 
       // dumped back at the top of the document.
       if (previouslyFocused.current instanceof HTMLElement) previouslyFocused.current.focus();
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div

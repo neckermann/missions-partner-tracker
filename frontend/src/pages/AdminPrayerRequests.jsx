@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   fetchPrayerRequests,
@@ -6,24 +6,34 @@ import {
   updatePrayerRequest,
   deletePrayerRequest,
   fetchPartners,
-  fetchUrgentRecipientCount,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import SourceLink from "../components/admin/SourceLink.jsx";
-import SourcePicker from "../components/admin/SourcePicker.jsx";
-import { formatDate, todayInputValue } from "../utils/format.js";
-import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
-import { urgentSendDescription } from "../utils/urgentSend.js";
-import { entityFor } from "../utils/partnerEntity.js";
+import PrayerRequestFormFields from "../components/admin/PrayerRequestFormFields.jsx";
+import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import Modal from "../components/Modal.jsx";
+import Field from "../components/admin/Field.jsx";
+import { formatDateLong, todayInputValue } from "../utils/format.js";
+import { DATE_RANGE_OPTIONS, resolveQuickRangeDates } from "../utils/dateRange.js";
+import { entityFor, INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD } from "../utils/partnerEntity.js";
+import { truncate } from "../utils/truncate.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import useSourceFiles from "../hooks/useSourceFiles.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
+import useUrgentApprovalGate from "../hooks/useUrgentApprovalGate.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
-import UrgentSendConfirmBody from "../components/admin/UrgentSendConfirmBody.jsx";
-import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
+import FilterBar from "../components/shared/FilterBar.jsx";
+import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
+import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import Table from "../components/shared/Table.jsx";
+import useFilterState from "../hooks/useFilterState.js";
+import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
+
+const emptyFilters = { category: "all", dateRange: "all", includeArchived: false };
 
 const emptyNewRequest = {
   partnerId: "",
@@ -44,6 +54,20 @@ const emptyNewRequest = {
 // request isn't a problem to flag, see the PrayerRequest model comment
 // in schema.prisma. The only status called out here at all is
 // "Answered", as a quiet note, not a checklist item.
+//
+// Phase 2 of the UX-rebuild plan: filters (category/date-range/archived)
+// are now FilterBar, with category and date-range now real backend query
+// params (GET /api/prayer-requests) -- the exact where-clause logic
+// already existed for this dataset's Report version, just not the live
+// route. The list body deliberately stays its own card layout rather than
+// moving onto the generic <Table>: each row carries a variable-height
+// request, an inline edit form, and an independent inline "Record Answer"
+// form, none of which reduce to a table cell without either truncating
+// real content or cramming an entire form into one <td>. <Table>'s column
+// model fits genuinely tabular data (Partners, Trips, Partner Files,
+// Monthly Support -- all migrated this phase); this one isn't that
+// shape, so forcing it in would be a UX regression dressed up as
+// consistency, not the simplification the plan actually asks for.
 export default function AdminPrayerRequests() {
   const { enabledFeatures } = useSettings();
   // Whether any channel exists at all to ever deliver a recorded event --
@@ -54,24 +78,56 @@ export default function AdminPrayerRequests() {
     enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
   const [requests, setRequests] = useState([]);
   const [partners, setPartners] = useState([]);
+  const [loading, setLoading] = useState(true);
   // isRestricted isn't a prop here (there's no single partner this page
   // is scoped to) -- looked up from whichever partner is currently
   // selected in the add form instead, same list this page's own
   // PartnerSelect already renders from.
-  const [categoryFilter, setCategoryFilter] = useState("all"); // all | strategic | situational
-  const [dateRangeFilter, setDateRangeFilter] = useState("all");
-  const [includeArchived, setIncludeArchived] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const fields = useMemo(
+    () => [
+      {
+        name: "category",
+        label: "Category",
+        type: "select",
+        options: [
+          { value: "all", label: "All" },
+          { value: "strategic", label: "Strategic" },
+          { value: "situational", label: "Situational" },
+        ],
+      },
+      { name: "dateRange", label: "Received", type: "select", options: DATE_RANGE_OPTIONS },
+      INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
+    ],
+    []
+  );
+  const {
+    values: filters,
+    setValue: updateFilter,
+    reset: resetFilters,
+  } = useFilterState(fields, emptyFilters);
+  const {
+    partnerId: filterPartnerId,
+    partnerName: filterPartnerName,
+    clearPartnerFilter,
+    setPartnerFilter,
+  } = usePartnerUrlFilter();
+  const { canWrite, isAdmin } = useCurrentUser();
+  const canEdit = canWrite;
+  const [activeModal, setActiveModal] = useState(null); // "add" | "view" | "answer" | null
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [answeringId, setAnsweringId] = useState(null);
+  const [answeringRequest, setAnsweringRequest] = useState(null);
   const [answer, setAnswer] = useState({ dateAnswered: todayInputValue(), answeredNote: "" });
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState(null);
+  const [requestDetail, setRequestDetail] = useState(null); // { id, form }
   // Scoped to whichever partner is selected in the add form, or whichever
-  // request is being edited -- see the same hook used in AdminOneTimeNeeds.jsx.
+  // request is being viewed/edited -- see the same hook used in
+  // AdminOneTimeNeeds.jsx.
   const { sourceFiles, loadSourceFiles } = useSourceFiles();
+
+  function closeModal() {
+    setActiveModal(null);
+    setRequestDetail(null);
+    setAnsweringRequest(null);
+  }
   const selectedPartner = partners.find((p) => p.id === newRequest.partnerId);
   // Also requires allowRestrictedPartnerDispatch, defaulting to true
   // while loading -- a UI convenience gate only, the real check is still
@@ -85,22 +141,29 @@ export default function AdminPrayerRequests() {
   // it), and `confirm` would read as a reference to the native global
   // this hook replaces.
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
+  const confirmBeforeCreate = useUrgentApprovalGate({ confirmDialog, enabledFeatures });
 
   function reload() {
-    fetchPrayerRequests().then(setRequests).catch(console.error);
+    setLoading(true);
+    const params = {};
+    if (filters.category !== "all") params.category = filters.category;
+    const { from, to } = resolveQuickRangeDates(filters.dateRange);
+    if (from) params.from = from;
+    if (to) params.to = to;
+    if (filterPartnerId) params.partnerId = filterPartnerId;
+    fetchPrayerRequests(params)
+      .then(setRequests)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }
 
   useEffect(() => {
     reload();
     fetchPartners().then(setPartners).catch(console.error);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.category, filters.dateRange, filterPartnerId]);
 
-  const filteredRequests = requests.filter(
-    (r) =>
-      (categoryFilter === "all" || r.category === categoryFilter) &&
-      inDateRange(r.dateReceived, dateRangeFilter) &&
-      (includeArchived || !r.partner?.archived)
-  );
+  const filteredRequests = requests.filter((r) => filters.includeArchived || !r.partner?.archived);
   const answeredCount = requests.filter((r) => r.status === "answered").length;
   const {
     visible: visibleRequests,
@@ -112,81 +175,49 @@ export default function AdminPrayerRequests() {
     step: 25,
   });
 
-  async function handleAddSubmit(e) {
-    e.preventDefault();
-    setError("");
+  async function submitAddRequest() {
     if (!newRequest.partnerId) {
-      setError("Choose a partner");
-      return;
+      throw new Error("Choose a partner");
     }
-    if (newRequest.approveNow) {
-      const text = newRequest.requestText.trim();
-      const approved = await confirmDialog({
-        title: "Approve and send now?",
-        body: <ApproveRestrictedTextConfirmBody text={text} />,
-        confirmLabel: "Approve and save",
-      });
-      if (!approved) return;
-    }
-    if (newRequest.isUrgent) {
-      const { adminCount, publicCount } = await fetchUrgentRecipientCount(newRequest.partnerId);
-      const sent = await confirmDialog({
-        title: "Send now?",
-        body: (
-          <UrgentSendConfirmBody
-            enabledFeatures={enabledFeatures}
-            adminCount={adminCount}
-            publicCount={publicCount}
-          />
-        ),
-        confirmLabel: "Send now",
-      });
-      if (!sent) return;
-    }
-    setSaving(true);
-    try {
-      const isStrategic = newRequest.category === "strategic";
-      await createPrayerRequest({
-        partnerId: newRequest.partnerId,
-        category: newRequest.category,
-        requestText: newRequest.requestText.trim(),
-        dateReceived: newRequest.dateReceived,
-        isPublic: isStrategic ? newRequest.isPublic : false,
-        includeInBooklet: isStrategic && newRequest.isPublic ? newRequest.includeInBooklet : false,
-        status: newRequest.untracked ? "untracked" : "ongoing",
-        isUrgent: newRequest.isUrgent,
-        approveNow: newRequest.approveNow,
-        notes: newRequest.notes || null,
-        sourceFileId: newRequest.sourceFileId,
-      });
-      setNewRequest(emptyNewRequest);
-      loadSourceFiles(null);
-      setShowAddForm(false);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to add prayer request");
-    } finally {
-      setSaving(false);
-    }
+    const proceed = await confirmBeforeCreate({
+      approveNow: newRequest.approveNow,
+      isUrgent: newRequest.isUrgent,
+      partnerId: newRequest.partnerId,
+      text: newRequest.requestText.trim(),
+    });
+    if (!proceed) return false;
+    const isStrategic = newRequest.category === "strategic";
+    await createPrayerRequest({
+      partnerId: newRequest.partnerId,
+      category: newRequest.category,
+      requestText: newRequest.requestText.trim(),
+      dateReceived: newRequest.dateReceived,
+      isPublic: isStrategic ? newRequest.isPublic : false,
+      includeInBooklet: isStrategic && newRequest.isPublic ? newRequest.includeInBooklet : false,
+      status: newRequest.untracked ? "untracked" : "ongoing",
+      isUrgent: newRequest.isUrgent,
+      approveNow: newRequest.approveNow,
+      notes: newRequest.notes || null,
+      sourceFileId: newRequest.sourceFileId,
+    });
+    setNewRequest(emptyNewRequest);
+    loadSourceFiles(null);
+    await reload();
   }
 
-  function startAnswer(request) {
-    setAnsweringId(request.id);
+  function openAnswer(request) {
+    setAnsweringRequest(request);
     setAnswer({ dateAnswered: todayInputValue(), answeredNote: "" });
+    setActiveModal("answer");
   }
 
-  async function submitAnswer(id) {
-    try {
-      await updatePrayerRequest(id, {
-        status: "answered",
-        dateAnswered: answer.dateAnswered,
-        answeredNote: answer.answeredNote || null,
-      });
-      setAnsweringId(null);
-      reload();
-    } catch (err) {
-      alert(err.response?.data?.error || "Failed to record the answer");
-    }
+  async function submitAnswer() {
+    await updatePrayerRequest(answeringRequest.id, {
+      status: "answered",
+      dateAnswered: answer.dateAnswered,
+      answeredNote: answer.answeredNote || null,
+    });
+    await reload();
   }
 
   // Deliberately doesn't touch status/dateAnswered/answeredNote -- that
@@ -195,38 +226,45 @@ export default function AdminPrayerRequests() {
   // form also toggle status risks silently reopening an answered request.
   // This is for fixing the text/category/publicity/notes after the fact,
   // not for redoing the answer workflow.
-  function startEdit(request) {
-    setEditingId(request.id);
-    setEditForm({
-      category: request.category,
-      requestText: request.requestText,
-      dateReceived: String(request.dateReceived).slice(0, 10),
-      isPublic: request.isPublic,
-      includeInBooklet: request.includeInBooklet,
-      notes: request.notes || "",
-      sourceFileId: request.sourceFile?.id || null,
+  function openRequestDetail(request) {
+    setRequestDetail({
+      id: request.id,
+      form: {
+        partnerId: request.partner?.id || "",
+        category: request.category,
+        requestText: request.requestText,
+        dateReceived: String(request.dateReceived).slice(0, 10),
+        isPublic: request.isPublic,
+        includeInBooklet: request.includeInBooklet,
+        notes: request.notes || "",
+        sourceFileId: request.sourceFile?.id || null,
+        sourceFile: request.sourceFile || null,
+        status: request.status,
+        dateAnswered: request.dateAnswered,
+        answeredNote: request.answeredNote,
+      },
     });
     loadSourceFiles(request.partner?.id);
+    setActiveModal("view");
   }
 
-  async function submitEdit(id) {
-    const isStrategic = editForm.category === "strategic";
-    try {
-      await updatePrayerRequest(id, {
-        category: editForm.category,
-        requestText: editForm.requestText.trim(),
-        dateReceived: editForm.dateReceived,
-        isPublic: isStrategic ? editForm.isPublic : false,
-        includeInBooklet: isStrategic && editForm.isPublic ? editForm.includeInBooklet : false,
-        notes: editForm.notes || null,
-        sourceFileId: editForm.sourceFileId,
-      });
-      setEditingId(null);
-      setEditForm(null);
-      reload();
-    } catch (err) {
-      alert(err.response?.data?.error || "Failed to save changes");
-    }
+  function setRequestDetailForm(updater) {
+    setRequestDetail((d) => ({ ...d, form: typeof updater === "function" ? updater(d.form) : updater }));
+  }
+
+  async function submitRequestDetail() {
+    const isStrategic = requestDetail.form.category === "strategic";
+    await updatePrayerRequest(requestDetail.id, {
+      category: requestDetail.form.category,
+      requestText: requestDetail.form.requestText.trim(),
+      dateReceived: requestDetail.form.dateReceived,
+      isPublic: isStrategic ? requestDetail.form.isPublic : false,
+      includeInBooklet:
+        isStrategic && requestDetail.form.isPublic ? requestDetail.form.includeInBooklet : false,
+      notes: requestDetail.form.notes || null,
+      sourceFileId: requestDetail.form.sourceFileId,
+    });
+    await reload();
   }
 
   async function handleDelete(request) {
@@ -244,412 +282,224 @@ export default function AdminPrayerRequests() {
 
   return (
     <div className="admin-shell">
+      {filterPartnerId && (
+        <Breadcrumb
+          items={[
+            { label: "Partners", to: "/admin/partners" },
+            { label: filterPartnerName || "…", to: `/admin/partners/${filterPartnerId}` },
+            { label: "Prayer Requests" },
+          ]}
+        />
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Prayer Requests</h2>
-        <button className="btn" onClick={() => setShowAddForm((v) => !v)}>
-          {showAddForm ? "Cancel" : "+ Add Prayer Request"}
-        </button>
+        {canEdit && (
+          <button
+            className="btn"
+            onClick={() => {
+              setNewRequest(emptyNewRequest);
+              loadSourceFiles(null);
+              setActiveModal("add");
+            }}
+          >
+            + Add Prayer Request
+          </button>
+        )}
       </div>
       <p style={{ color: "#666", marginTop: "0.25rem" }}>
         {requests.length} on file · {answeredCount} answered so far
       </p>
 
-      {showAddForm && (
-        <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
-          <div className="form-grid">
-            <label style={{ gridColumn: "1 / -1" }}>
-              Partner
-              <PartnerSelect
-                partners={partners}
-                value={newRequest.partnerId}
-                onChange={(partnerId) => {
-                  setNewRequest((f) => ({ ...f, partnerId, sourceFileId: null }));
-                  loadSourceFiles(partnerId);
-                }}
-                required
-              />
-            </label>
-            <label>
-              Category
-              <select
-                value={newRequest.category}
-                onChange={(e) => setNewRequest((f) => ({ ...f, category: e.target.value }))}
-              >
-                <option value="strategic">
-                  Strategic (ministry vision/calling — can be shared publicly)
-                </option>
-                <option value="situational">
-                  Situational (health, travel, family, logistics — admin-only)
-                </option>
-              </select>
-            </label>
-            <label>
-              Date Received
-              <input
-                type="date"
-                value={newRequest.dateReceived}
-                onChange={(e) => setNewRequest((f) => ({ ...f, dateReceived: e.target.value }))}
-                required
-              />
-            </label>
-            <label style={{ gridColumn: "1 / -1" }}>
-              Prayer Request
-              <textarea
-                rows={2}
-                value={newRequest.requestText}
-                onChange={(e) => setNewRequest((f) => ({ ...f, requestText: e.target.value }))}
-                required
-              />
-            </label>
-            {newRequest.category === "strategic" && (
-              <div className="admin-checkbox-row">
-                <label title="Shows on this partner's public profile page, if the public site is enabled.">
-                  <input
-                    type="checkbox"
-                    checked={newRequest.isPublic}
-                    onChange={(e) =>
-                      setNewRequest((f) => ({
-                        ...f,
-                        isPublic: e.target.checked,
-                        includeInBooklet: e.target.checked && f.includeInBooklet,
-                      }))
-                    }
-                  />
-                  Show on public profile
-                </label>
-                {newRequest.isPublic && (
-                  <label title="Eligible to print in the booklet -- the actual number shown per partner is capped there (see the Booklet page) so this section doesn't take over the page.">
-                    <input
-                      type="checkbox"
-                      checked={newRequest.includeInBooklet}
-                      onChange={(e) => setNewRequest((f) => ({ ...f, includeInBooklet: e.target.checked }))}
-                    />
-                    Include in printed booklet
-                  </label>
-                )}
-              </div>
-            )}
-            <div className="admin-checkbox-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={newRequest.untracked}
-                  onChange={(e) => setNewRequest((f) => ({ ...f, untracked: e.target.checked }))}
-                />
-                Not tracking this one for a specific answer
-              </label>
-            </div>
-            {hasEnabledChannel && (
-              <div style={{ gridColumn: "1 / -1" }}>
-                <div className="admin-checkbox-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={newRequest.isUrgent}
-                      onChange={(e) => setNewRequest((f) => ({ ...f, isUrgent: e.target.checked }))}
-                    />
-                    Mark as urgent -- send right away
-                  </label>
-                </div>
-                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-                  {urgentSendDescription(enabledFeatures)}
-                </p>
-              </div>
-            )}
-            {canApproveNow && (
-              <div style={{ gridColumn: "1 / -1" }}>
-                <div className="admin-checkbox-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={newRequest.approveNow}
-                      onChange={(e) => setNewRequest((f) => ({ ...f, approveNow: e.target.checked }))}
-                    />
-                    Review and approve now
-                  </label>
-                </div>
-                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-                  This partner is restricted, so nothing above sends anywhere until an admin or editor reviews
-                  it -- normally from the Pending Dispatches page afterward. Checking this confirms, right
-                  now, that the text you just typed is safe to send verbatim, skipping that extra trip. You'll
-                  be asked to confirm the exact wording before saving.
-                </p>
-              </div>
-            )}
-            <SourcePicker
-              files={sourceFiles}
-              sourceFileId={newRequest.sourceFileId}
-              onChange={(source) => setNewRequest((f) => ({ ...f, ...source }))}
-            />
-            <label style={{ gridColumn: "1 / -1" }}>
-              Admin Notes (optional, never shown publicly)
-              <input
-                value={newRequest.notes}
-                onChange={(e) => setNewRequest((f) => ({ ...f, notes: e.target.value }))}
-              />
-            </label>
-          </div>
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-          <div style={{ marginTop: "1rem" }}>
-            <button type="submit" className="btn" disabled={saving}>
-              {saving ? "Saving..." : "Add Prayer Request"}
-            </button>
-          </div>
-        </form>
-      )}
-
-      <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
-        <label
-          htmlFor="prayer-category-filter"
-          style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}
-        >
-          Show:
-        </label>
-        <select
-          id="prayer-category-filter"
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          style={{ width: "auto" }}
-        >
-          <option value="all">All</option>
-          <option value="strategic">Strategic</option>
-          <option value="situational">Situational</option>
-        </select>
-        <label
-          htmlFor="prayer-date-range-filter"
-          style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}
-        >
-          Received:
-        </label>
-        <select
-          id="prayer-date-range-filter"
-          value={dateRangeFilter}
-          onChange={(e) => setDateRangeFilter(e.target.value)}
-          style={{ width: "auto" }}
-        >
-          {DATE_RANGE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-          <input
-            type="checkbox"
-            checked={includeArchived}
-            onChange={(e) => setIncludeArchived(e.target.checked)}
+      <FilterBar
+        fields={fields}
+        values={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
+        extraChips={
+          <PartnerFilterChip
+            partnerId={filterPartnerId}
+            partnerName={filterPartnerName}
+            partners={partners}
+            onSelect={setPartnerFilter}
+            onClear={clearPartnerFilter}
           />
-          Include archived partners
-        </label>
-      </div>
+        }
+      />
 
-      {visibleRequests.map((request) => {
-        const entity = entityFor(request);
-        return (
-          <div key={request.id} className="repeatable-row" style={{ marginTop: "1rem" }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                flexWrap: "wrap",
-                gap: "0.5rem",
-              }}
-            >
-              <div>
-                {entity.link ? (
-                  <Link to={entity.link}>
-                    {entity.name} ({entity.type})
-                  </Link>
-                ) : (
-                  <span>{entity.name}</span>
+      <Table
+        style={{ marginTop: "1rem" }}
+        rows={visibleRequests}
+        rowKey={(row) => row.id}
+        emptyMessage={loading ? "Loading…" : "No prayer requests on file."}
+        onRowClick={(request) => openRequestDetail(request)}
+        columns={[
+          {
+            key: "entityName",
+            label: "Partner",
+            render: (request) => (
+              <>
+                <span style={{ fontWeight: 600 }}>{entityFor(request).name}</span>
+                {/* "New since your last visit to this list" -- a separate,
+                    per-user timestamp from the bell's own "newPrayerRequests"
+                    seen-state (see prayerRequests.js's own comment on why).
+                    Clears on this list's next load, not per-item. */}
+                {request.isNew && (
+                  <span className="status-pill good" style={{ marginLeft: "0.5rem", fontSize: "0.65rem" }}>
+                    New
+                  </span>
                 )}
-              </div>
-              <div className="table-actions">
-                <button type="button" className="btn secondary small" onClick={() => startEdit(request)}>
-                  Edit
-                </button>
-                {request.status !== "answered" && (
-                  <button type="button" className="btn secondary small" onClick={() => startAnswer(request)}>
-                    Record Answer
-                  </button>
-                )}
-                <button type="button" className="btn danger small" onClick={() => handleDelete(request)}>
-                  Delete
-                </button>
-              </div>
-            </div>
-
-            {editingId === request.id ? (
-              <div className="form-grid" style={{ marginTop: "0.5rem" }}>
-                <label>
-                  Category
-                  <select
-                    value={editForm.category}
-                    onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
-                  >
-                    <option value="strategic">
-                      Strategic (ministry vision/calling — can be shared publicly)
-                    </option>
-                    <option value="situational">
-                      Situational (health, travel, family, logistics — admin-only)
-                    </option>
-                  </select>
-                </label>
-                <label>
-                  Date Received
-                  <input
-                    type="date"
-                    value={editForm.dateReceived}
-                    onChange={(e) => setEditForm((f) => ({ ...f, dateReceived: e.target.value }))}
-                    required
-                  />
-                </label>
-                <label style={{ gridColumn: "1 / -1" }}>
-                  Prayer Request
-                  <textarea
-                    rows={2}
-                    value={editForm.requestText}
-                    onChange={(e) => setEditForm((f) => ({ ...f, requestText: e.target.value }))}
-                    required
-                  />
-                </label>
-                {editForm.category === "strategic" && (
-                  <div className="admin-checkbox-row" style={{ gridColumn: "1 / -1" }}>
-                    <label title="Shows on this partner's public profile page, if the public site is enabled.">
-                      <input
-                        type="checkbox"
-                        checked={editForm.isPublic}
-                        onChange={(e) =>
-                          setEditForm((f) => ({
-                            ...f,
-                            isPublic: e.target.checked,
-                            includeInBooklet: e.target.checked && f.includeInBooklet,
-                          }))
-                        }
-                      />
-                      Show on public profile
-                    </label>
-                    {editForm.isPublic && (
-                      <label title="Eligible to print in the booklet -- the actual number shown per partner is capped there (see the Booklet page) so this section doesn't take over the page.">
-                        <input
-                          type="checkbox"
-                          checked={editForm.includeInBooklet}
-                          onChange={(e) => setEditForm((f) => ({ ...f, includeInBooklet: e.target.checked }))}
-                        />
-                        Include in printed booklet
-                      </label>
-                    )}
-                  </div>
-                )}
-                <SourcePicker
-                  files={sourceFiles}
-                  sourceFileId={editForm.sourceFileId}
-                  onChange={(source) => setEditForm((f) => ({ ...f, ...source }))}
-                />
-                <label style={{ gridColumn: "1 / -1" }}>
-                  Admin Notes (optional, never shown publicly)
-                  <input
-                    value={editForm.notes}
-                    onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-                  />
-                </label>
-                <div style={{ gridColumn: "1 / -1", display: "flex", gap: "0.5rem" }}>
-                  <button type="button" className="btn small" onClick={() => submitEdit(request.id)}>
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    className="btn secondary small"
-                    onClick={() => {
-                      setEditingId(null);
-                      setEditForm(null);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p style={{ margin: "0.5rem 0" }}>{request.requestText}</p>
-            )}
-
-            <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", fontSize: "0.9rem" }}>
-              <div>
-                <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Received</div>
-                <div>
-                  {formatDate(request.dateReceived)} ·{" "}
-                  {request.category === "strategic" ? "Strategic" : "Situational"}
-                  {request.category === "strategic" && request.isPublic && " · Public"}
-                  {request.category === "strategic" &&
-                    request.isPublic &&
-                    request.includeInBooklet &&
-                    " · In booklet"}
-                </div>
-              </div>
-              {/* Same principle as PrayerRequestSection.jsx: only "answered"
-                  gets a callout here. "ongoing"/"untracked" show nothing. */}
-              {request.status === "answered" && (
-                <div>
-                  <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
-                    Answered
-                  </div>
-                  <div style={{ color: "#2a5d3c" }}>
-                    {formatDate(request.dateAnswered)}
-                    {request.answeredNote && ` — ${request.answeredNote}`}
-                  </div>
-                </div>
-              )}
-              {request.notes && (
-                <div>
-                  <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Notes</div>
-                  <div>{request.notes}</div>
-                </div>
-              )}
-            </div>
-            <SourceLink sourceFile={request.sourceFile} />
-
-            {answeringId === request.id && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: "0.75rem",
-                  alignItems: "flex-end",
-                  flexWrap: "wrap",
-                  marginTop: "0.75rem",
+              </>
+            ),
+          },
+          {
+            key: "category",
+            label: "Category",
+            render: (request) => (request.category === "strategic" ? "Strategic" : "Situational"),
+          },
+          { key: "requestText", label: "Request", render: (request) => truncate(request.requestText, 80) },
+          {
+            key: "status",
+            label: "Status",
+            render: (request) => (request.status === "answered" ? "Answered" : "Ongoing"),
+          },
+        ]}
+        renderActions={(request) => (
+          <>
+            {canEdit && request.status !== "answered" && (
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openAnswer(request);
                 }}
               >
-                <label>
-                  Date Answered
-                  <input
-                    type="date"
-                    value={answer.dateAnswered}
-                    onChange={(e) => setAnswer((a) => ({ ...a, dateAnswered: e.target.value }))}
-                  />
-                </label>
-                <label style={{ flex: 1, minWidth: "200px" }}>
-                  How was it answered? (optional)
-                  <input
-                    value={answer.answeredNote}
-                    onChange={(e) => setAnswer((a) => ({ ...a, answeredNote: e.target.value }))}
-                    placeholder="e.g. The clinic opened safely in March"
-                  />
-                </label>
-                <button type="button" className="btn small" onClick={() => submitAnswer(request.id)}>
-                  Save
-                </button>
-                <button type="button" className="btn secondary small" onClick={() => setAnsweringId(null)}>
-                  Cancel
-                </button>
-              </div>
+                Record Answer
+              </button>
             )}
-          </div>
-        );
-      })}
-      {filteredRequests.length === 0 && (
-        <p style={{ color: "#888", marginTop: "1rem" }}>No prayer requests on file.</p>
-      )}
+            {isAdmin && (
+              <button
+                type="button"
+                className="btn danger small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(request);
+                }}
+              >
+                Delete
+              </button>
+            )}
+          </>
+        )}
+      />
       <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+
+      {activeModal === "add" && (
+        <QuickActionModal title="Add Prayer Request" onClose={closeModal} onSubmit={submitAddRequest}>
+          <PrayerRequestFormFields
+            form={newRequest}
+            setForm={setNewRequest}
+            files={sourceFiles}
+            mode="create"
+            hasEnabledChannel={hasEnabledChannel}
+            canApproveNow={canApproveNow}
+            enabledFeatures={enabledFeatures}
+            partnerPicker={
+              <label style={{ gridColumn: "1 / -1" }}>
+                Partner
+                <PartnerSelect
+                  partners={partners}
+                  value={newRequest.partnerId}
+                  onChange={(partnerId) => {
+                    setNewRequest((f) => ({ ...f, partnerId, sourceFileId: null }));
+                    loadSourceFiles(partnerId);
+                  }}
+                  required
+                />
+              </label>
+            }
+          />
+        </QuickActionModal>
+      )}
+
+      {activeModal === "answer" && answeringRequest && (
+        <QuickActionModal title="Record Answer" onClose={closeModal} onSubmit={submitAnswer}>
+          <label>
+            Date Answered
+            <input
+              type="date"
+              value={answer.dateAnswered}
+              onChange={(e) => setAnswer((a) => ({ ...a, dateAnswered: e.target.value }))}
+            />
+          </label>
+          <label style={{ display: "block", marginTop: "0.75rem" }}>
+            How was it answered? (optional)
+            <input
+              value={answer.answeredNote}
+              onChange={(e) => setAnswer((a) => ({ ...a, answeredNote: e.target.value }))}
+              placeholder="e.g. The clinic opened safely in March"
+            />
+          </label>
+        </QuickActionModal>
+      )}
+
+      {activeModal === "view" &&
+        requestDetail &&
+        (canEdit ? (
+          <QuickActionModal title="Prayer Request" onClose={closeModal} onSubmit={submitRequestDetail}>
+            <Link
+              to={`/admin/partners/${requestDetail.form.partnerId}`}
+              style={{ display: "inline-block", marginBottom: "0.75rem" }}
+            >
+              Go to partner →
+            </Link>
+            <PrayerRequestFormFields
+              form={requestDetail.form}
+              setForm={setRequestDetailForm}
+              files={sourceFiles}
+              mode="edit"
+            />
+            {requestDetail.form.status !== "answered" && (
+              <button
+                type="button"
+                className="btn secondary small"
+                style={{ marginTop: "0.5rem" }}
+                onClick={() => {
+                  const request = requests.find((r) => r.id === requestDetail.id);
+                  closeModal();
+                  openAnswer(request);
+                }}
+              >
+                Record Answer
+              </button>
+            )}
+          </QuickActionModal>
+        ) : (
+          <Modal title="Prayer Request" onClose={closeModal}>
+            <Link
+              to={`/admin/partners/${requestDetail.form.partnerId}`}
+              style={{ display: "inline-block", marginBottom: "0.75rem" }}
+            >
+              Go to partner →
+            </Link>
+            <Field
+              label="Category"
+              value={requestDetail.form.category === "strategic" ? "Strategic" : "Situational"}
+            />
+            <Field label="Date Received" value={formatDateLong(requestDetail.form.dateReceived)} />
+            <Field label="Prayer Request" value={requestDetail.form.requestText} />
+            <Field label="Admin Notes" value={requestDetail.form.notes} />
+            <SourceLink sourceFile={requestDetail.form.sourceFile} />
+            {requestDetail.form.status === "answered" && (
+              <Field
+                label="Answered"
+                value={`${formatDateLong(requestDetail.form.dateAnswered)}${
+                  requestDetail.form.answeredNote ? ` — ${requestDetail.form.answeredNote}` : ""
+                }`}
+              />
+            )}
+          </Modal>
+        ))}
       {confirmElement}
     </div>
   );

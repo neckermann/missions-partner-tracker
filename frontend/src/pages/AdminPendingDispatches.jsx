@@ -3,6 +3,10 @@ import { fetchPendingDispatches, deletePendingDispatch, updatePendingDispatch } 
 import DispatchReviewModal from "../components/admin/DispatchReviewModal.jsx";
 import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import StatusPill from "../components/admin/StatusPill.jsx";
+import Table from "../components/shared/Table.jsx";
+import { truncate } from "../utils/truncate.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 // Groups blurbs by partner, nesting a request/need under the newsletter
 // blurb it was sourced from -- same structure adminEmailDispatchContent.js
@@ -38,6 +42,42 @@ function groupByPartner(blurbs) {
   return [...byPartner.values()];
 }
 
+// Flattens the partner/newsletter/child nesting above into one row per
+// blurb for the shared Table -- a `sourceLabel` on a child row replaces
+// the visual indentation the old hand-rolled layout used, and rows stay
+// grouped together (partner, then its newsletters+children, then its
+// standalone items) by construction order, same reading order as before.
+function flattenRows(groups) {
+  const rows = [];
+  for (const group of groups) {
+    for (const { blurb, children } of group.newsletters) {
+      rows.push({
+        blurb,
+        partnerName: group.partnerName,
+        isRestrictedGroup: group.isRestricted,
+        sourceLabel: null,
+      });
+      for (const child of children) {
+        rows.push({
+          blurb: child,
+          partnerName: group.partnerName,
+          isRestrictedGroup: group.isRestricted,
+          sourceLabel: blurb.summary,
+        });
+      }
+    }
+    for (const blurb of group.standalone) {
+      rows.push({
+        blurb,
+        partnerName: group.partnerName,
+        isRestrictedGroup: group.isRestricted,
+        sourceLabel: null,
+      });
+    }
+  }
+  return rows;
+}
+
 function SentStatus({ blurb }) {
   const parts = [];
   if (blurb.groupmeDispatchedAt) parts.push("GroupMe ✓");
@@ -60,23 +100,11 @@ function SentStatus({ blurb }) {
 // and should stay that way (no copy-pasting the real details into
 // GroupMe/email by hand, no assuming the summary is the full story).
 const RESTRICTED_BORDER = "#b45309";
-const RESTRICTED_BG = "#fffbeb";
 
 function RestrictedBadge() {
   return (
-    <span
-      style={{
-        marginLeft: "0.5rem",
-        padding: "0.1rem 0.5rem",
-        borderRadius: "999px",
-        background: RESTRICTED_BORDER,
-        color: "#fff",
-        fontSize: "0.75rem",
-        fontWeight: 600,
-        verticalAlign: "middle",
-      }}
-    >
-      🔒 Restricted
+    <span style={{ marginLeft: "0.5rem" }}>
+      <StatusPill label="🔒 Restricted" color={RESTRICTED_BORDER} />
     </span>
   );
 }
@@ -86,81 +114,9 @@ function RestrictedBadge() {
 // reviewed," not just "this row's content is masked" (#187).
 function AwaitingReviewBadge() {
   return (
-    <span
-      style={{
-        marginLeft: "0.5rem",
-        padding: "0.1rem 0.5rem",
-        borderRadius: "999px",
-        background: RESTRICTED_BORDER,
-        color: "#fff",
-        fontSize: "0.75rem",
-        fontWeight: 600,
-        verticalAlign: "middle",
-      }}
-    >
-      Awaiting review
+    <span style={{ marginLeft: "0.5rem" }}>
+      <StatusPill label="Awaiting review" color={RESTRICTED_BORDER} />
     </span>
-  );
-}
-
-function BlurbRow({ blurb, onClear, clearing, onEdit, onQuickApprove, approving }) {
-  return (
-    <div
-      style={{
-        margin: "0.5rem 0 0.5rem 1rem",
-        paddingLeft: "0.75rem",
-        borderLeft: `3px solid ${blurb.isRestricted ? RESTRICTED_BORDER : "#e5e5e5"}`,
-        background: blurb.isRestricted ? RESTRICTED_BG : "transparent",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        gap: "0.75rem",
-      }}
-    >
-      <div>
-        <strong>
-          {blurb.emoji} {blurb.summary}
-        </strong>
-        <SentStatus blurb={blurb} />
-        {blurb.needsReview && <AwaitingReviewBadge />}
-        {blurb.isRestricted && blurb.dispatchReviewedAt && !blurb.needsReview && (
-          <span style={{ color: "#2a5d3c", fontSize: "0.8rem", marginLeft: "0.5rem" }}>Reviewed ✓</span>
-        )}
-        <p style={{ margin: "0.25rem 0 0", color: "#555" }}>{blurb.bodyText}</p>
-        {blurb.amount && (
-          <p style={{ margin: "0.25rem 0 0", fontWeight: 600 }}>
-            {blurb.amountLabel || "Approved"}: {blurb.amount}
-          </p>
-        )}
-      </div>
-      <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
-        {blurb.needsReview && onQuickApprove && (
-          <button
-            type="button"
-            className="btn secondary small"
-            onClick={() => onQuickApprove(blurb)}
-            disabled={approving}
-          >
-            {approving ? "Approving..." : "Approve"}
-          </button>
-        )}
-        {onEdit && (
-          <button type="button" className="btn secondary small" onClick={() => onEdit(blurb)}>
-            Edit
-          </button>
-        )}
-        {onClear && (
-          <button
-            type="button"
-            className="btn secondary small"
-            onClick={() => onClear(blurb.id)}
-            disabled={clearing}
-          >
-            {clearing ? "Clearing..." : "Clear"}
-          </button>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -170,7 +126,17 @@ function BlurbRow({ blurb, onClear, clearing, onEdit, onQuickApprove, approving 
 // Administration -> Dispatch Settings, see AdminDispatchSettings.jsx)
 // -- same "content, not settings" split Unmatched Emails already has
 // from Email's own settings page.
+//
+// Click-row-opens-popup, same convention as every other consolidated
+// list: a row opens DispatchReviewModal (edit + approve-while-saving,
+// already self-contained) when canWrite. A viewer never gets this --
+// DispatchReviewModal's own text-reveal fetch is itself admin/editor-only
+// server-side, and the content a viewer is entitled to see is already
+// fully visible in the row, so there's no separate read-only popup to
+// build here (same reasoning as an inactive EditableSection's view stays
+// on the page instead of needing its own redundant popup).
 export default function AdminPendingDispatches() {
+  const { canWrite } = useCurrentUser();
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [clearingId, setClearingId] = useState(null);
@@ -249,6 +215,7 @@ export default function AdminPendingDispatches() {
   if (loading) return <p className="admin-shell">Loading…</p>;
 
   const groups = groupByPartner(pending);
+  const rows = flattenRows(groups);
   const heldCount = pending.filter((p) => p.needsReview).length;
 
   return (
@@ -258,71 +225,100 @@ export default function AdminPendingDispatches() {
         New prayer requests, one-time needs, and newsletters queue here instead of posting immediately -- each
         one clears once every channel it's relevant to (GroupMe, WhatsApp, the admin email, the public email)
         has handled it, on its own schedule. For schedules, the chat channels' content-type mutes, and email
-        dispatch appearance, see Site Administration → Dispatch Settings.
+        dispatch appearance, see Settings → Dispatch Settings.
       </p>
 
-      <div className="admin-section" style={{ marginTop: "1rem" }}>
-        <h3 style={{ margin: 0 }}>Pending ({pending.length})</h3>
-        {heldCount > 0 && (
-          <p style={{ color: "#b45309", fontSize: "0.9rem" }}>
-            {heldCount} awaiting review -- excluded from every channel's send, including an urgent one, until
-            reviewed.
-          </p>
-        )}
-        {error && (
-          <p style={{ color: "#b91c1c" }} role="alert">
-            {error}
-          </p>
-        )}
-        {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
+      {heldCount > 0 && (
+        <p style={{ color: "#b45309", fontSize: "0.9rem" }}>
+          {heldCount} awaiting review -- excluded from every channel's send, including an urgent one, until
+          reviewed.
+        </p>
+      )}
+      {error && (
+        <p style={{ color: "#b91c1c" }} role="alert">
+          {error}
+        </p>
+      )}
+      {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
 
-        {groups.length === 0 && <p style={{ color: "#888" }}>Nothing waiting to go out.</p>}
-
-        {groups.map((group) => (
-          <div
-            key={group.partnerName}
-            style={{ marginTop: "1rem", paddingBottom: "1rem", borderBottom: "1px solid #e5e5e5" }}
-          >
-            <strong>{group.partnerName}</strong>
-            {group.isRestricted && <RestrictedBadge />}
-            {group.newsletters.map(({ blurb, children }) => (
-              <div key={blurb.id}>
-                <BlurbRow
-                  blurb={blurb}
-                  onClear={handleClear}
-                  clearing={clearingId === blurb.id}
-                  onEdit={setEditingBlurb}
-                  onQuickApprove={handleQuickApprove}
-                  approving={approvingId === blurb.id}
-                />
-                {children.map((child) => (
-                  <div key={child.id} style={{ marginLeft: "1.5rem" }}>
-                    <BlurbRow
-                      blurb={child}
-                      onClear={handleClear}
-                      clearing={clearingId === child.id}
-                      onEdit={setEditingBlurb}
-                      onQuickApprove={handleQuickApprove}
-                      approving={approvingId === child.id}
-                    />
+      <Table
+        style={{ marginTop: "1rem" }}
+        rows={rows}
+        rowKey={(row) => row.blurb.id}
+        emptyMessage="Nothing waiting to go out."
+        onRowClick={canWrite ? (row) => setEditingBlurb(row.blurb) : undefined}
+        columns={[
+          {
+            key: "partnerName",
+            label: "Partner",
+            render: (row) => (
+              <>
+                <span style={{ fontWeight: 600 }}>{row.partnerName}</span>
+                {row.isRestrictedGroup && <RestrictedBadge />}
+              </>
+            ),
+          },
+          {
+            key: "content",
+            label: "Content",
+            render: (row) => (
+              <>
+                <div>
+                  {row.blurb.emoji} <strong>{row.blurb.summary}</strong>
+                  <SentStatus blurb={row.blurb} />
+                  {row.blurb.needsReview && <AwaitingReviewBadge />}
+                  {row.blurb.isRestricted && row.blurb.dispatchReviewedAt && !row.blurb.needsReview && (
+                    <span style={{ color: "#2a5d3c", fontSize: "0.8rem", marginLeft: "0.5rem" }}>
+                      Reviewed ✓
+                    </span>
+                  )}
+                </div>
+                <div style={{ color: "#555", marginTop: "0.25rem" }}>{truncate(row.blurb.bodyText, 100)}</div>
+                {row.blurb.amount && (
+                  <div style={{ marginTop: "0.25rem", fontWeight: 600 }}>
+                    {row.blurb.amountLabel || "Approved"}: {row.blurb.amount}
                   </div>
-                ))}
-              </div>
-            ))}
-            {group.standalone.map((blurb) => (
-              <BlurbRow
-                key={blurb.id}
-                blurb={blurb}
-                onClear={handleClear}
-                clearing={clearingId === blurb.id}
-                onEdit={setEditingBlurb}
-                onQuickApprove={handleQuickApprove}
-                approving={approvingId === blurb.id}
-              />
-            ))}
-          </div>
-        ))}
-      </div>
+                )}
+              </>
+            ),
+          },
+          {
+            key: "sourceLabel",
+            label: "Source",
+            render: (row) => (row.sourceLabel ? `↳ from: ${truncate(row.sourceLabel, 40)}` : "—"),
+          },
+        ]}
+        renderActions={(row) => (
+          <>
+            {canWrite && row.blurb.needsReview && (
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleQuickApprove(row.blurb);
+                }}
+                disabled={approvingId === row.blurb.id}
+              >
+                {approvingId === row.blurb.id ? "Approving..." : "Approve"}
+              </button>
+            )}
+            {canWrite && (
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClear(row.blurb.id);
+                }}
+                disabled={clearingId === row.blurb.id}
+              >
+                {clearingId === row.blurb.id ? "Clearing..." : "Clear"}
+              </button>
+            )}
+          </>
+        )}
+      />
 
       {editingBlurb && (
         <DispatchReviewModal

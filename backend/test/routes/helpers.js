@@ -70,18 +70,26 @@ async function removeTestUsers() {
 }
 
 // Logs in and returns a `request` function that carries the session cookie.
-// Pass no role for an unauthenticated client.
-async function client(role) {
+// Pass no role for an unauthenticated client. `role` is normally one of
+// TEST_USERS' own fixed keys (admin/editor/viewer); pass `{ email,
+// password }` instead for a one-off fixture account a test created itself
+// -- Trip Leader accounts need a real scopedTripId, which doesn't exist
+// at module-load time the way the 3 fixed TEST_USERS do, so they're
+// always created per-test and logged in this way.
+async function client(roleOrCreds) {
   const base = await startServer();
 
   let cookie = "";
-  if (role) {
+  if (roleOrCreds) {
+    const isRole = typeof roleOrCreds === "string";
+    const email = isRole ? TEST_USERS[roleOrCreds].email : roleOrCreds.email;
+    const password = isRole ? TEST_PASSWORD : roleOrCreds.password;
     const res = await fetch(`${base}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: TEST_USERS[role].email, password: TEST_PASSWORD }),
+      body: JSON.stringify({ email, password }),
     });
-    if (res.status !== 200) throw new Error(`login as ${role} failed: ${res.status}`);
+    if (res.status !== 200) throw new Error(`login as ${isRole ? roleOrCreds : email} failed: ${res.status}`);
     cookie = res.headers
       .getSetCookie()
       .map((c) => c.split(";")[0])

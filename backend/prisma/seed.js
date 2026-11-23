@@ -441,49 +441,15 @@ const SHORT_TEMPLATES = [
 // Default e-signature requirement text, generalized from what the user's
 // own church currently asks applicants to agree to -- a real, usable
 // starting point every fork can edit or delete, not hardcoded app logic
-// (CONTRIBUTING.md's "keep forks upgradable" rule). Used by both the
-// church-wide tripRequirementTemplate (below) and directly on the demo
-// open trip (seedTripsDemo), so there's something real to sign without
-// waiting on a brand-new trip to pick up the template automatically.
-const LIABILITY_RELEASE_TEXT = `Liability Release and Code of Conduct — Short-Term Mission Trip
-
-I understand that participation in this short-term mission trip involves inherent risks, including but not limited to travel-related injury, illness, and property loss, and that these risks cannot be entirely eliminated no matter what care is taken. I voluntarily assume all such risks and release the church, its staff, and its partner organizations from liability for any injury, loss, or damage arising from my participation, except where caused by gross negligence.
-
-I agree to conduct myself in a manner consistent with the team's values throughout the trip. Specifically, I agree not to use alcohol or tobacco, not to engage in public displays of affection with another team member (whether married or single), not to use profane or vulgar language, to dress modestly and appropriately in a way that respects the customs and expectations of the culture we are serving in, and to avoid a critical or complaining attitude toward team leadership, fellow team members, or the conditions of the trip. I will follow the reasonable direction of the team leader at all times, and will represent the team and the church respectfully in my interactions with our hosts and host community.
-
-I confirm that I have disclosed any medical conditions, allergies, or medications the team leader should be aware of, and that I am responsible for bringing an adequate supply of any personal medication for the duration of the trip.
-
-I understand that the team leader may send me home at my own expense if my conduct endangers myself, another team member, or the trip's relationship with our hosts.
-
-This agreement is governed by the laws of the state in which the church is located.`;
-
-// Seeded into ChurchSettings.tripRequirementLibrary by default (not
-// auto-added to every trip -- picked onto a specific trip's own
-// Requirements section only when that trip actually has minors on it).
-// Written in the parent/guardian's own voice, parallel in structure to
-// LIABILITY_RELEASE_TEXT above (risk acknowledgment, code-of-conduct
-// consent on the minor's behalf, medical-treatment authorization --
-// specifically needed here since a minor generally can't consent to
-// their own medical treatment, media release, governing law), not
-// copied from any real source. A starting point, not vetted legal
-// advice -- the trailing note says so explicitly, same as a church
-// would want to have any release form reviewed by its own counsel
-// before relying on it.
-const MINOR_RELEASE_TEXT = `Minor Travel Release, Consent, and Medical Authorization — Short-Term Mission Trip
-
-I am the parent or legal guardian of the minor named on this form, and I give my permission for them to participate in this short-term mission trip.
-
-I understand that participation involves inherent risks, including but not limited to travel-related injury, illness, and property loss, and that these risks cannot be entirely eliminated no matter what care is taken. I voluntarily assume these risks on my child's behalf and release the church, its staff, and its partner organizations from liability for any injury, loss, or damage arising from their participation, except where caused by gross negligence.
-
-I authorize the team leader and any accompanying adult leaders to consent to emergency medical treatment for my child if I cannot be reached in a timely manner, and I confirm that I have disclosed any medical conditions, allergies, or medications the team leader should be aware of. I am responsible for ensuring my child brings an adequate supply of any personal medication for the duration of the trip.
-
-I agree, on my child's behalf, that they will follow the same code of conduct every team member agrees to: no alcohol or tobacco, modest and culturally appropriate dress, respectful behavior toward team leadership, fellow team members, and our hosts, and the reasonable direction of the team leader at all times. I understand the team leader may send my child home at my own expense if their conduct endangers themselves, another team member, or the trip's relationship with our hosts.
-
-I consent to photos and video of my child taken during the trip being used in the church's own newsletters, website, and social media.
-
-This agreement is governed by the laws of the state in which the church is located.
-
-This is a starting template, not legal advice -- have it reviewed by your own church's legal counsel before relying on it.`;
+// (CONTRIBUTING.md's "keep forks upgradable" rule). Shared with the real
+// first-run setup path (routes/auth.js) so dev-demo isn't special-cased
+// relative to what a brand-new fork actually gets -- see that module's
+// own comment for the full reasoning.
+const {
+  LIABILITY_RELEASE_TEXT,
+  MINOR_RELEASE_TEXT,
+  DEFAULT_TRIP_REQUIREMENT_TEMPLATE,
+} = require("../src/utils/defaultTripRequirementTemplate");
 
 // Shared across every seeded passport question (two trip-level
 // applicationQuestions + the church-wide tripQuestionLibrary entry below) --
@@ -534,6 +500,37 @@ const LANGUAGES_POOL = [
   "Romanian",
   "Mongolian",
 ];
+// ILR scale -- see backend/src/routes/proficiencyLevels.js for the full
+// reasoning. Not every seeded language gets one, same as real data: a
+// freshly-added language often has no assessed level yet.
+const PROFICIENCY_LEVELS = ["0", "0+", "1", "1+", "2", "2+", "3", "3+", "4", "4+", "5"];
+function buildLanguages() {
+  return pickN(LANGUAGES_POOL, randInt(0, 2)).map((language) => ({
+    language,
+    proficiency: chance(0.7) ? pick(PROFICIENCY_LEVELS) : null,
+  }));
+}
+
+// Replaces the old fixed websiteLink/supportLink/newsletterSignup/
+// facebook/twitter/instagram/linkedin columns -- see
+// backend/src/routes/linkTypes.js for the full reasoning. `slug` is
+// whatever each caller already uses for its own example.com URLs (the
+// missionary's last name lowercased, or the org's slugified name) --
+// these fake URLs never render anywhere real, so one shared shape for
+// both kinds is fine even though the original inline values varied
+// slightly between them.
+function buildLinks(slug) {
+  const candidates = [
+    chance(0.4) ? { type: "website", url: `https://${slug}.example.com` } : null,
+    chance(0.5) ? { type: "support", url: `https://give.example.com/${slug}` } : null,
+    chance(0.35) ? { type: "newsletterSignup", url: `https://newsletter.example.com/${slug}` } : null,
+    chance(0.5) ? { type: "facebook", url: `https://facebook.com/${slug}` } : null,
+    chance(0.2) ? { type: "twitter", url: `https://twitter.com/${slug}` } : null,
+    chance(0.4) ? { type: "instagram", url: `https://instagram.com/${slug}` } : null,
+    chance(0.15) ? { type: "linkedin", url: `https://linkedin.com/in/${slug}` } : null,
+  ];
+  return candidates.filter(Boolean);
+}
 const SENDING_ORGS = [
   "ABWE",
   "SEND International",
@@ -1441,8 +1438,8 @@ async function seedTripsDemo() {
             stateProvinceRegion: "IL",
             postalCode: "61201",
             country: "USA",
-            // Real column now, not a template question's answer -- see
-            // ChurchSettings.collectDateOfBirth's own schema comment.
+            // Real column, not a template question's answer -- always
+            // collected and required now on the public application.
             dateOfBirth: new Date(Date.UTC(1991, 2, 22)),
             // Every question this trip actually asks answered (template
             // layer + this trip's own q1/q3) -- a half-answered pending
@@ -2198,15 +2195,15 @@ async function seedTripsDemo() {
     });
   }
 
-  // A trip with minors on it -- demonstrates collectParentGuardianInfo
-  // end to end: a minor's application with real parent/guardian info
-  // and a date of birth, the Minor Travel Release picked from the new
-  // tripRequirementLibrary onto this specific trip only (never every
-  // trip), and that requirement signed by the parent, not the minor,
-  // via the signerRelationship field. Reuses closedPartner rather than
-  // a brand-new partner lookup -- a long-term field partner hosting
-  // more than one short-term team over time is realistic, not a
-  // shortcut.
+  // A trip with minors on it -- demonstrates the automatic minors flow
+  // end to end: a minor's application with real parent/guardian info and
+  // a date of birth (always collected/required now, no per-trip setting),
+  // the Minor Travel Release requirement (minorsOnly: true, same as the
+  // default auto-applied template every trip now gets), and that
+  // requirement signed by the parent, not the minor, via the
+  // signerRelationship field. Reuses closedPartner rather than a
+  // brand-new partner lookup -- a long-term field partner hosting more
+  // than one short-term team over time is realistic, not a shortcut.
   const minorsTripStart = dateBetween(-1, -2);
   const minorsTripEnd = new Date(minorsTripStart);
   minorsTripEnd.setDate(minorsTripEnd.getDate() + randInt(5, 7));
@@ -2229,7 +2226,6 @@ async function seedTripsDemo() {
       teamSizeMin: 4,
       teamSizeMax: 10,
       supportRaisingGoal: 900,
-      collectParentGuardianInfo: true,
     },
   });
 
@@ -2313,11 +2309,13 @@ async function seedTripsDemo() {
   });
 
   // The general code-of-conduct/liability release every trip needs --
-  // this trip's own point is demonstrating collectParentGuardianInfo, but
-  // that's additive to the standard agreement every participant (minor or
-  // not) still signs, never a replacement for it. Previously missing here
-  // (flagged from a real screenshot of this trip's own Requirements
-  // section showing only the minor-specific form).
+  // this trip's own point is demonstrating the minors flow, but that's
+  // additive to the standard agreement every participant (minor or not)
+  // still signs, never a replacement for it. This trip was created
+  // directly via prisma.trip.create (not the real POST /api/trips route),
+  // so it doesn't auto-receive ChurchSettings.tripRequirementTemplate the
+  // way a real new trip would -- both requirements are created by hand
+  // here to match what that auto-copy would have produced.
   await prisma.tripRequirement.create({
     data: {
       tripId: minorsTrip.id,
@@ -2327,15 +2325,16 @@ async function seedTripsDemo() {
     },
   });
 
-  // Picked from tripRequirementLibrary onto this one trip -- same
-  // label/kind/bodyText copy shape the real "add from library" admin
-  // action uses, not a hand-shaped duplicate of it.
+  // minorsOnly: true -- same as the default auto-applied template's own
+  // entry, so this stays inert for the trip's adult participants and
+  // only ever actionable for an actual minor.
   const minorReleaseRequirement = await prisma.tripRequirement.create({
     data: {
       tripId: minorsTrip.id,
       label: "Minor Travel Release & Consent Form",
       kind: "esignature",
       bodyText: MINOR_RELEASE_TEXT,
+      minorsOnly: true,
     },
   });
 
@@ -2381,10 +2380,10 @@ async function seedTripsDemo() {
   }
 
   // A second minors trip, already completed -- the one above is still
-  // accepting_applications, so nothing showed what collectParentGuardianInfo
-  // looks like after the fact (a finished trip whose team already
-  // includes a minor, with her signed release sitting in its normal
-  // historical state). Reuses openPartner rather than a fresh lookup --
+  // accepting_applications, so nothing showed what the minors flow looks
+  // like after the fact (a finished trip whose team already includes a
+  // minor, with her signed release sitting in its normal historical
+  // state). Reuses openPartner rather than a fresh lookup --
   // same "a field partner hosts more than one short-term team over time"
   // reasoning minorsTrip's own reuse of closedPartner already established.
   const pastMinorsTripStart = dateBetween(2, 1);
@@ -2406,7 +2405,6 @@ async function seedTripsDemo() {
       teamSizeMin: 4,
       teamSizeMax: 8,
       supportRaisingGoal: 850,
-      collectParentGuardianInfo: true,
     },
   });
 
@@ -2481,6 +2479,7 @@ async function seedTripsDemo() {
       label: "Minor Travel Release & Consent Form",
       kind: "esignature",
       bodyText: MINOR_RELEASE_TEXT,
+      minorsOnly: true,
     },
   });
 
@@ -2596,11 +2595,6 @@ async function seedTripsDemo() {
         aiExtraction: Boolean(integrationSettings?.anthropicApiKey),
         joshuaProject: Boolean(integrationSettings?.joshuaProjectApiKey),
       },
-      // The one other binary toggle this app ships off by default
-      // (ChurchSettings' own schema default) -- left off, the minors
-      // trip's own DOB enforcement would never actually get exercised
-      // by a demo visitor just clicking around.
-      requireDateOfBirth: true,
       // Both default off (schema default) -- left off, a demo visitor
       // would never see a private application link or a participant's
       // public support-raising page generated anywhere, even though
@@ -2609,7 +2603,7 @@ async function seedTripsDemo() {
       allowPrivateApplicationLinks: true,
       allowPublicSupportRaisingLinks: true,
       // On for the demo specifically (schema default is off) -- a
-      // visitor exploring the demo should see the Budget section
+      // visitor exploring the demo should see the Financial section
       // working, not have to find and flip the toggle first.
       enableTripBudgeting: true,
       // Same "on for the demo" reasoning -- without this, Priya's own
@@ -2624,9 +2618,9 @@ async function seedTripsDemo() {
       onlineGivingInstructions:
         'Choose "Missions Trips" as the fund, and include the team member\'s name in the memo/notes field so their support is credited correctly.',
       // tmpl5 ("Date of birth," a free-text "date" question) existed
-      // briefly and was dropped once ChurchSettings.collectDateOfBirth
-      // shipped a real structured field on the application form itself --
-      // same reasoning tmpl4/tmpl1 below were dropped for address/
+      // briefly and was dropped once a real, always-collected structured
+      // dateOfBirth field shipped on the application form itself -- same
+      // reasoning tmpl4/tmpl1 below were dropped for address/
       // emergency contact. The "date" question type itself stays in
       // utils/applicationQuestions.js -- other date-shaped questions
       // (e.g. "when does your passport expire") still have a real use
@@ -2707,34 +2701,11 @@ async function seedTripsDemo() {
           options: ["Single", "Married"],
         },
       ],
-      // Church-wide requirement checklist, auto-copied onto every
-      // newly-created, actively-recruiting trip (#252 e-signature round)
-      // -- see ChurchSettings.tripRequirementTemplate's own schema
-      // comment. One entry: the real default a church starts with,
-      // generalized from what the user's own church currently asks on
-      // its applications, not copied verbatim from any one source.
-      tripRequirementTemplate: [
-        {
-          id: "reqtmpl1",
-          label: "Signed Liability Release and Code of Conduct",
-          kind: "esignature",
-          bodyText: LIABILITY_RELEASE_TEXT,
-        },
-      ],
-      // Picked onto a specific trip's own Requirements section when
-      // that trip actually needs it -- never auto-added anywhere, see
-      // ChurchSettings.tripRequirementLibrary's own schema comment. The
-      // one entry every church running trips that might include minors
-      // actually needs out of the box, not something they should have
-      // to write from scratch the first time it comes up.
-      tripRequirementLibrary: [
-        {
-          id: "reqlib1",
-          label: "Minor Travel Release & Consent Form",
-          kind: "esignature",
-          bodyText: MINOR_RELEASE_TEXT,
-        },
-      ],
+      // Same default template/library every brand-new fork gets (see
+      // DEFAULT_TRIP_REQUIREMENT_TEMPLATE's own comment) -- dev-demo isn't
+      // special-cased relative to a real new install here.
+      tripRequirementTemplate: DEFAULT_TRIP_REQUIREMENT_TEMPLATE,
+      tripRequirementLibrary: [],
     },
   });
 }
@@ -2913,7 +2884,8 @@ async function main() {
         ];
     const childCount = isFamily && chance(0.6) ? randInt(1, 4) : 0;
     const children = Array.from({ length: childCount }, () => ({
-      name: `${pick(FIRST_M.concat(FIRST_F))} ${last}`,
+      firstName: pick(FIRST_M.concat(FIRST_F)),
+      lastName: last,
       birthday: dateBetween(17, 1),
     }));
 
@@ -2961,19 +2933,13 @@ async function main() {
         focusArea: `Primary focus: ${focusList.join(", ")}.`,
         supportingSince: new Date(year, 0, 1),
         anniversary: isFamily ? dateBetween(35, 5) : null,
-        languagesSpoken: pickN(LANGUAGES_POOL, randInt(0, 2)),
+        languages: { create: buildLanguages() },
         tripTeamSizeMin: chance(0.7) ? randInt(2, 6) : null,
         tripTeamSizeMax: chance(0.7) ? randInt(8, 15) : null,
-        tripTypesSupported: pickN(TRIP_TYPES, randInt(1, 3)),
+        tripTypes: { create: pickN(TRIP_TYPES, randInt(1, 3)).map((type) => ({ type })) },
         tripSeasonNotes: chance(0.5) ? pick(SEASON_NOTES) : null,
         tripLogisticsNotes: chance(0.5) ? pick(LOGISTICS_NOTES) : null,
-        websiteLink: chance(0.4) ? `https://${last.toLowerCase()}family.example.com` : null,
-        supportLink: chance(0.5) ? `https://give.example.com/${last.toLowerCase()}` : null,
-        newsletterSignup: chance(0.35) ? `https://newsletter.example.com/${last.toLowerCase()}` : null,
-        facebook: chance(0.5) ? `https://facebook.com/${last.toLowerCase()}family` : null,
-        twitter: chance(0.2) ? `https://twitter.com/${last.toLowerCase()}family` : null,
-        instagram: chance(0.4) ? `https://instagram.com/${last.toLowerCase()}family` : null,
-        linkedin: chance(0.15) ? `https://linkedin.com/in/${last.toLowerCase()}` : null,
+        links: { create: buildLinks(`${last.toLowerCase()}family`) },
         photos: {
           create: {
             bytesRow: { create: { bytes: photo.bytes } },
@@ -3115,16 +3081,10 @@ async function main() {
         contactPhone: fakePhone(),
         contactEmail: `info@${slugify(name)}.example.org`,
         preferredContactMethod: pick(CONTACT_METHODS),
-        websiteLink: chance(0.5) ? `https://${slugify(name)}.example.org` : null,
-        supportLink: chance(0.5) ? `https://give.example.com/${slugify(name)}` : null,
-        newsletterSignup: chance(0.3) ? `https://newsletter.example.com/${slugify(name)}` : null,
-        facebook: chance(0.4) ? `https://facebook.com/${slugify(name)}` : null,
-        twitter: chance(0.15) ? `https://twitter.com/${slugify(name)}` : null,
-        instagram: chance(0.3) ? `https://instagram.com/${slugify(name)}` : null,
-        linkedin: chance(0.2) ? `https://linkedin.com/company/${slugify(name)}` : null,
+        links: { create: buildLinks(slugify(name)) },
         tripTeamSizeMin: chance(0.7) ? randInt(4, 8) : null,
         tripTeamSizeMax: chance(0.7) ? randInt(10, 20) : null,
-        tripTypesSupported: pickN(TRIP_TYPES, randInt(1, 3)),
+        tripTypes: { create: pickN(TRIP_TYPES, randInt(1, 3)).map((type) => ({ type })) },
         tripSeasonNotes: chance(0.5) ? pick(SEASON_NOTES) : null,
         tripLogisticsNotes: chance(0.5) ? pick(LOGISTICS_NOTES) : null,
         photos: {

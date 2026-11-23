@@ -17,8 +17,6 @@ async function getSettings() {
       collectDonorContactInfo: true,
       collectApplicantAddress: true,
       collectEmergencyContact: true,
-      collectDateOfBirth: true,
-      requireDateOfBirth: true,
       allowPublicSupportRaisingLinks: true,
       allowPrivateApplicationLinks: true,
       tripApplicationTemplate: true,

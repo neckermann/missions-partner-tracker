@@ -7,8 +7,10 @@ import { login } from "./helpers.js";
 // There is no separate edit form: creating asks for the few things you can't
 // fill in later, and the partner page edits itself section by section.
 
-// Every section on the partner page has its own Edit/Save pair, so a button
-// has to be scoped to the section it belongs to.
+// Every section on the partner page is itself the click target (the CRUD-
+// unification pass retired the old per-section Edit/Save pair in favor of
+// one shared click-the-card-opens-a-popup interaction, see EditableSection.jsx) --
+// so a section is located by its heading, not by an Edit button inside it.
 function section(page, title) {
   return page
     .locator(".admin-section")
@@ -30,7 +32,12 @@ test.describe("Admin partner CRUD", () => {
     // than asking for it.
     await page.locator('input[list="new-partner-country-list"]').fill("Philippines");
 
-    await page.click('button[type="submit"]:has-text("Create Partner")');
+    // New Partner is a 3-step Wizard (Phase 6 of the UX-rebuild plan) --
+    // Basics / Details / Visibility & status. Neither later step has
+    // anything required to fill in for this test.
+    await page.click('button:has-text("Next")');
+    await page.click('button:has-text("Next")');
+    await page.click('button:has-text("Finish")');
     await page.waitForURL(/\/admin\/partners\/[a-zA-Z0-9-]+$/);
     await expect(page.locator("h2").first()).toHaveText(uniqueName);
 
@@ -45,14 +52,18 @@ test.describe("Admin partner CRUD", () => {
     const location = section(page, "Serving Location");
     await expect(location).toContainText("Philippines");
 
-    // Edit in place: change the name from the Mailing & Contact Address
-    // section (Display Name lives there now) and confirm it round-trips
-    // without leaving the page.
-    const mailing = section(page, "Mailing & Contact Address");
-    await mailing.getByRole("button", { name: "Edit" }).click();
+    // Edit in place: change the name from the Status & Visibility section
+    // (Display Name lives there now, prominent alongside the other
+    // across-the-site-visible fields) and confirm it round-trips without
+    // leaving the page. The whole card is the click target now (see the
+    // comment on `section()` above) -- clicking it opens the same popup
+    // every editable section uses.
+    const status = section(page, "Status & Visibility");
+    await status.click();
     const updatedName = `${uniqueName} (edited)`;
-    await mailing.getByLabel("Display Name", { exact: true }).fill(updatedName);
-    await mailing.getByRole("button", { name: "Save" }).click();
+    await page.locator(".modal-panel").getByLabel("Display Name", { exact: true }).fill(updatedName);
+    await page.locator(".modal-panel button", { hasText: "Save" }).click();
+    await expect(page.locator(".modal-panel")).toHaveCount(0);
     await expect(page.locator("h2").first()).toHaveText(updatedName);
 
     // Editing one section must not disturb another: the physical address is
@@ -80,7 +91,9 @@ test.describe("Admin partner CRUD", () => {
     await page.getByLabel("Organization Name").fill(uniqueName);
     await page.locator('input[list="new-partner-country-list"]').fill("Bolivia");
 
-    await page.click('button[type="submit"]:has-text("Create Partner")');
+    await page.click('button:has-text("Next")');
+    await page.click('button:has-text("Next")');
+    await page.click('button:has-text("Finish")');
     await page.waitForURL(/\/admin\/partners\/[a-zA-Z0-9-]+$/);
     await expect(page.locator("h2").first()).toHaveText(uniqueName);
     await expect(section(page, "Serving Location")).toContainText("Bolivia");
@@ -92,10 +105,12 @@ test.describe("Admin partner CRUD", () => {
     const created = await (await page.request.get(`/api/partners/${partnerId}`)).json();
     expect(created.fipsCountryCode).toBe("BL");
 
-    // The org has no Family or Languages sections -- those are
-    // missionary-only, and the merged page hides them by kind rather than
-    // rendering empty boxes.
-    await expect(page.getByRole("heading", { name: "Family", exact: true })).toHaveCount(0);
+    // The org has no Wedding Anniversary/Adults/Children/Languages sections
+    // -- those are missionary-only, and the merged page hides them by kind
+    // rather than rendering empty boxes.
+    for (const heading of ["Wedding Anniversary", "Adults", "Children", "Languages Spoken"]) {
+      await expect(page.getByRole("heading", { name: heading, exact: true })).toHaveCount(0);
+    }
 
     const archived = await page.request.post(`/api/partners/${partnerId}/archive`);
     expect(archived.ok()).toBeTruthy();

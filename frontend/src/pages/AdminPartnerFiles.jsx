@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   fetchPartnerFiles,
@@ -10,16 +10,31 @@ import {
 } from "../api/client.js";
 import { FILE_KINDS, fileKindLabel } from "../utils/fileKinds.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
+import PartnerFileFormFields from "../components/admin/PartnerFileFormFields.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 import ExtractionReviewModal from "../components/admin/ExtractionReviewModal.jsx";
-import { formatDate, todayInputValue, formatFileSize } from "../utils/format.js";
-import { DATE_RANGE_OPTIONS, inDateRange } from "../utils/dateRange.js";
-import { entityFor } from "../utils/partnerEntity.js";
+import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import Modal from "../components/Modal.jsx";
+import Field from "../components/admin/Field.jsx";
+import { todayInputValue, formatDateLong } from "../utils/format.js";
+import { DATE_RANGE_OPTIONS, resolveQuickRangeDates } from "../utils/dateRange.js";
+import {
+  entityFor,
+  PARTNER_TYPE_FILTER_FIELD,
+  INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
+} from "../utils/partnerEntity.js";
 import { isScannable } from "../utils/scannable.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
+import FilterBar from "../components/shared/FilterBar.jsx";
+import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
+import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import Table from "../components/shared/Table.jsx";
+import useFilterState from "../hooks/useFilterState.js";
+import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 const emptyNewFile = {
   partnerId: "",
@@ -30,79 +45,156 @@ const emptyNewFile = {
   notes: "",
 };
 
+const emptyFilters = {
+  entityType: "all",
+  kind: "all",
+  dateRange: "all",
+  includeArchived: false,
+};
+
+// Phase 2 of the UX-rebuild plan: entityType/kind/date-range are now real
+// backend query params (GET /api/partner-files -- kind already existed,
+// entityType and from/to are new), same reuse argument the plan made for
+// Prayer Requests/One-Time Needs: the exact filter logic already existed
+// for this dataset's Report version. includeArchived stays client-side --
+// this route has no archived passthrough and adding one wasn't asked for.
 export default function AdminPartnerFiles() {
   const { enabledFeatures } = useSettings();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [scanning, setScanning] = useState(null); // the file being reviewed, or null
   const [files, setFiles] = useState([]);
   const [partners, setPartners] = useState([]);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const { canWrite, isAdmin } = useCurrentUser();
+  const canEdit = canWrite;
+  const [activeModal, setActiveModal] = useState(null); // "add-file" | "view-file" | null
   const [newFile, setNewFile] = useState(emptyNewFile);
   const [file, setFile] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [entityFilter, setEntityFilter] = useState("all");
-  const [kindFilter, setKindFilter] = useState("all");
-  const [dateRangeFilter, setDateRangeFilter] = useState("all");
-  const [includeArchived, setIncludeArchived] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({
-    partnerId: "",
-    kind: "",
-    customKind: "",
-    title: "",
-    receivedDate: "",
-    notes: "",
-  });
+  const [fileDetail, setFileDetail] = useState(null); // { id, form }
+
+  function closeModal() {
+    setActiveModal(null);
+    setFileDetail(null);
+  }
+
+  function openFileDetail(f) {
+    setFileDetail({
+      id: f.id,
+      form: {
+        partnerId: f.partner?.id || "",
+        kind: f.kind,
+        customKind: f.customKind || "",
+        title: f.title || "",
+        receivedDate: String(f.receivedDate).slice(0, 10),
+        notes: f.notes || "",
+      },
+    });
+    setActiveModal("view-file");
+  }
+
+  function setFileDetailForm(updater) {
+    setFileDetail((d) => ({ ...d, form: typeof updater === "function" ? updater(d.form) : updater }));
+  }
+
+  async function submitFileDetail() {
+    if (fileDetail.form.kind === "other" && !fileDetail.form.customKind.trim()) {
+      throw new Error("Enter a label for this file's kind");
+    }
+    if (!fileDetail.form.partnerId) {
+      throw new Error("Choose a partner");
+    }
+    await updatePartnerFile(fileDetail.id, {
+      partnerId: fileDetail.form.partnerId,
+      kind: fileDetail.form.kind,
+      customKind: fileDetail.form.kind === "other" ? fileDetail.form.customKind.trim() : null,
+      title: fileDetail.form.title,
+      receivedDate: fileDetail.form.receivedDate,
+      notes: fileDetail.form.notes,
+    });
+    await reload();
+  }
+
+  const fields = useMemo(
+    () => [
+      PARTNER_TYPE_FILTER_FIELD,
+      {
+        name: "kind",
+        label: "Kind",
+        type: "select",
+        options: [
+          { value: "all", label: "All" },
+          ...FILE_KINDS.map((k) => ({ value: k.value, label: k.label })),
+        ],
+      },
+      {
+        name: "dateRange",
+        label: "Received",
+        type: "select",
+        options: DATE_RANGE_OPTIONS,
+      },
+      INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
+    ],
+    []
+  );
+  const {
+    values: filters,
+    setValue: updateFilter,
+    reset: resetFilters,
+  } = useFilterState(fields, emptyFilters);
+  const {
+    partnerId: filterPartnerId,
+    partnerName: filterPartnerName,
+    clearPartnerFilter,
+    setPartnerFilter,
+  } = usePartnerUrlFilter();
 
   function reload() {
-    fetchPartnerFiles().then(setFiles).catch(console.error);
+    setLoading(true);
+    const params = {};
+    if (filters.entityType !== "all") params.entityType = filters.entityType;
+    if (filters.kind !== "all") params.kind = filters.kind;
+    const { from, to } = resolveQuickRangeDates(filters.dateRange);
+    if (from) params.from = from;
+    if (to) params.to = to;
+    if (filterPartnerId) params.partnerId = filterPartnerId;
+    fetchPartnerFiles(params)
+      .then(setFiles)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }
 
   useEffect(() => {
     reload();
     fetchPartners().then(setPartners).catch(console.error);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.entityType, filters.kind, filters.dateRange, filterPartnerId]);
 
-  async function handleAddSubmit(e) {
-    e.preventDefault();
-    setError("");
+  async function submitAddFile() {
     if (!newFile.partnerId) {
-      setError("Choose a partner");
-      return;
+      throw new Error("Choose a partner");
     }
     if (!file) {
-      setError("Choose a file to upload");
-      return;
+      throw new Error("Choose a file to upload");
     }
     if (newFile.kind === "other" && !newFile.customKind.trim()) {
-      setError("Enter a label for this file's kind");
-      return;
+      throw new Error("Enter a label for this file's kind");
     }
-    setSaving(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("partnerId", newFile.partnerId);
-      formData.append("kind", newFile.kind);
-      if (newFile.kind === "other") formData.append("customKind", newFile.customKind);
-      formData.append("title", newFile.title);
-      formData.append("receivedDate", newFile.receivedDate);
-      formData.append("notes", newFile.notes);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("partnerId", newFile.partnerId);
+    formData.append("kind", newFile.kind);
+    if (newFile.kind === "other") formData.append("customKind", newFile.customKind);
+    formData.append("title", newFile.title);
+    formData.append("receivedDate", newFile.receivedDate);
+    formData.append("notes", newFile.notes);
 
-      await uploadPartnerFile(formData);
-      setNewFile(emptyNewFile);
-      setFile(null);
-      setShowAddForm(false);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to upload file");
-    } finally {
-      setSaving(false);
-    }
+    await uploadPartnerFile(formData);
+    setNewFile(emptyNewFile);
+    setFile(null);
+    await reload();
   }
 
-  function handleView(f) {
+  function handleDownload(f) {
     // A direct, same-origin, cookie-authenticated download — no async
     // lookup needed, the file is served straight from the database (see
     // backend/src/routes/partnerFiles.js).
@@ -122,54 +214,9 @@ export default function AdminPartnerFiles() {
     reload();
   }
 
-  // Everything but the file itself is editable (see the PUT route comment
-  // in backend/src/routes/partnerFiles.js), including `kind` and moving it
-  // to a different partner.
-  function startEdit(f) {
-    setError("");
-    setEditingId(f.id);
-    setEditForm({
-      partnerId: f.partner?.id || "",
-      kind: f.kind,
-      customKind: f.customKind || "",
-      title: f.title || "",
-      receivedDate: String(f.receivedDate).slice(0, 10),
-      notes: f.notes || "",
-    });
-  }
-
-  async function submitEdit(id) {
-    setError("");
-    if (!editForm.partnerId) {
-      setError("Choose a partner");
-      return;
-    }
-    if (editForm.kind === "other" && !editForm.customKind.trim()) {
-      setError("Enter a label for this file's kind");
-      return;
-    }
-    try {
-      await updatePartnerFile(id, {
-        partnerId: editForm.partnerId,
-        kind: editForm.kind,
-        customKind: editForm.kind === "other" ? editForm.customKind : null,
-        title: editForm.title,
-        receivedDate: editForm.receivedDate,
-        notes: editForm.notes,
-      });
-      setEditingId(null);
-      reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to save changes");
-    }
-  }
-
-  const filtered = files.filter(
-    (f) =>
-      (entityFilter === "all" || entityFor(f).type === entityFilter) &&
-      (kindFilter === "all" || f.kind === kindFilter) &&
-      (includeArchived || !f.partner?.archived) &&
-      inDateRange(f.receivedDate, dateRangeFilter)
+  const filtered = useMemo(
+    () => files.filter((f) => filters.includeArchived || !f.partner?.archived),
+    [files, filters.includeArchived]
   );
   const {
     visible: visibleFiles,
@@ -181,315 +228,198 @@ export default function AdminPartnerFiles() {
     step: 25,
   });
 
+  const rows = useMemo(
+    () =>
+      visibleFiles.map((f) => {
+        const entity = entityFor(f);
+        return { ...f, entityType: entity.type, entityLink: entity.link, entityName: entity.name };
+      }),
+    [visibleFiles]
+  );
+
   return (
     <div className="admin-shell">
+      {filterPartnerId && (
+        <Breadcrumb
+          items={[
+            { label: "Partners", to: "/admin/partners" },
+            { label: filterPartnerName || "…", to: `/admin/partners/${filterPartnerId}` },
+            { label: "Newsletters & Docs" },
+          ]}
+        />
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Newsletters &amp; Docs</h2>
-        <button className="btn" onClick={() => setShowAddForm((v) => !v)}>
-          {showAddForm ? "Cancel" : "+ Upload File"}
-        </button>
+        {canEdit && (
+          <button className="btn" onClick={() => setActiveModal("add-file")}>
+            + Upload File
+          </button>
+        )}
       </div>
       <p style={{ color: "#555" }}>
         Newsletters, survey responses, signed policies, other office documents, and long-term email records
         from missionary and organization partners. Admin-only — never shown on the public site.
       </p>
 
-      {showAddForm && (
-        <form onSubmit={handleAddSubmit} className="admin-section" style={{ marginTop: "1rem" }}>
-          <div className="form-grid">
-            <label style={{ gridColumn: "1 / -1" }}>
-              Partner
-              <PartnerSelect
-                partners={partners}
-                value={newFile.partnerId}
-                onChange={(partnerId) => setNewFile((f) => ({ ...f, partnerId }))}
-                required
-              />
-            </label>
-            <label style={{ gridColumn: "1 / -1" }}>
-              File (PDF, Word, Excel, .eml, JPG, or PNG)
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.eml,image/jpeg,image/png"
-                onChange={(e) => setFile(e.target.files[0] || null)}
-                required
-              />
-            </label>
-            <label>
-              Kind
-              <select
-                value={newFile.kind}
-                onChange={(e) => setNewFile((f) => ({ ...f, kind: e.target.value }))}
+      <FilterBar
+        fields={fields}
+        values={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
+        extraChips={
+          <PartnerFilterChip
+            partnerId={filterPartnerId}
+            partnerName={filterPartnerName}
+            partners={partners}
+            onSelect={setPartnerFilter}
+            onClear={clearPartnerFilter}
+          />
+        }
+      />
+
+      <Table
+        style={{ marginTop: "1rem" }}
+        rows={rows}
+        rowKey={(row) => row.id}
+        emptyMessage={loading ? "Loading…" : "No files on record."}
+        onRowClick={(f) => openFileDetail(f)}
+        columns={[
+          {
+            key: "entityName",
+            label: "Partner",
+            render: (f) => <span style={{ fontWeight: 600 }}>{f.entityName}</span>,
+          },
+          { key: "title", label: "Title" },
+          { key: "kind", label: "Kind", render: (f) => fileKindLabel(f) },
+          { key: "receivedDate", label: "Received", type: "date" },
+        ]}
+        renderActions={(f) => (
+          <>
+            {canEdit && enabledFeatures.aiExtraction && isScannable(f) && (
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setScanning(f);
+                }}
               >
-                {FILE_KINDS.map((k) => (
-                  <option key={k.value} value={k.value}>
-                    {k.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {newFile.kind === "other" && (
-              <label>
-                Kind label
-                <input
-                  value={newFile.customKind}
-                  onChange={(e) => setNewFile((f) => ({ ...f, customKind: e.target.value }))}
-                  placeholder="e.g. Background Check"
+                Scan for requests
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                type="button"
+                className="btn danger small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(f);
+                }}
+              >
+                Delete
+              </button>
+            )}
+          </>
+        )}
+      />
+      <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+
+      {activeModal === "add-file" && (
+        <QuickActionModal
+          title="Upload File"
+          onClose={closeModal}
+          onSubmit={submitAddFile}
+          submitLabel="Upload"
+        >
+          <PartnerFileFormFields
+            form={newFile}
+            setForm={setNewFile}
+            partnerPicker={
+              <label style={{ gridColumn: "1 / -1" }}>
+                Partner
+                <PartnerSelect
+                  partners={partners}
+                  value={newFile.partnerId}
+                  onChange={(partnerId) => setNewFile((f) => ({ ...f, partnerId }))}
                   required
                 />
               </label>
-            )}
-            <label>
-              Title (optional)
-              <input
-                value={newFile.title}
-                onChange={(e) => setNewFile((f) => ({ ...f, title: e.target.value }))}
-                placeholder="e.g. Summer 2026 Update"
-              />
-            </label>
-            <label>
-              Received Date
-              <input
-                type="date"
-                value={newFile.receivedDate}
-                onChange={(e) => setNewFile((f) => ({ ...f, receivedDate: e.target.value }))}
-                required
-              />
-            </label>
-            <label style={{ gridColumn: "1 / -1" }}>
-              Notes
-              <input
-                value={newFile.notes}
-                onChange={(e) => setNewFile((f) => ({ ...f, notes: e.target.value }))}
-              />
-            </label>
-          </div>
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-          <div style={{ marginTop: "1rem" }}>
-            <button type="submit" className="btn" disabled={saving}>
-              {saving ? "Uploading..." : "Upload"}
-            </button>
-          </div>
-        </form>
+            }
+            fileInput={
+              <label style={{ gridColumn: "1 / -1" }}>
+                File (PDF, Word, Excel, .eml, JPG, or PNG)
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.eml,image/jpeg,image/png"
+                  onChange={(e) => setFile(e.target.files[0] || null)}
+                  required
+                />
+              </label>
+            }
+          />
+        </QuickActionModal>
       )}
 
-      <div
-        className="admin-checkbox-row"
-        style={{ marginTop: "1rem", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label htmlFor="partner-files-entity-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>
-            Show:
-          </label>
-          <select
-            id="partner-files-entity-filter"
-            value={entityFilter}
-            onChange={(e) => setEntityFilter(e.target.value)}
-            style={{ width: "auto" }}
-          >
-            <option value="all">All</option>
-            <option value="Missionary">Missionaries</option>
-            <option value="Organization">Organizations</option>
-          </select>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label htmlFor="partner-files-kind-filter" style={{ flexDirection: "row", fontWeight: "normal" }}>
-            Kind:
-          </label>
-          <select
-            id="partner-files-kind-filter"
-            value={kindFilter}
-            onChange={(e) => setKindFilter(e.target.value)}
-            style={{ width: "auto" }}
-          >
-            <option value="all">All</option>
-            {FILE_KINDS.map((k) => (
-              <option key={k.value} value={k.value}>
-                {k.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label
-            htmlFor="partner-files-date-range-filter"
-            style={{ flexDirection: "row", fontWeight: "normal" }}
-          >
-            Received:
-          </label>
-          <select
-            id="partner-files-date-range-filter"
-            value={dateRangeFilter}
-            onChange={(e) => setDateRangeFilter(e.target.value)}
-            style={{ width: "auto" }}
-          >
-            {DATE_RANGE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-          <input
-            type="checkbox"
-            checked={includeArchived}
-            onChange={(e) => setIncludeArchived(e.target.checked)}
-          />
-          Include archived partners
-        </label>
-      </div>
-
-      <div className="table-scroll">
-        <table className="admin-table" style={{ marginTop: "1rem" }}>
-          <thead>
-            <tr>
-              <th>Partner</th>
-              <th>Type</th>
-              <th>Kind</th>
-              <th>Title</th>
-              <th>Received</th>
-              <th>File</th>
-              <th>Notes</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleFiles.map((f) => {
-              const entity = entityFor(f);
-              return (
-                <React.Fragment key={f.id}>
-                  <tr>
-                    <td>{entity.link ? <Link to={entity.link}>{entity.name}</Link> : entity.name}</td>
-                    <td>{entity.type}</td>
-                    <td>{fileKindLabel(f)}</td>
-                    <td>{f.title || "—"}</td>
-                    <td>
-                      {editingId === f.id ? formatDate(editForm.receivedDate) : formatDate(f.receivedDate)}
-                    </td>
-                    <td>
-                      {f.fileName}
-                      {f.fileSize != null && (
-                        <span style={{ color: "#888", fontSize: "0.85rem" }}>
-                          {" "}
-                          ({formatFileSize(f.fileSize)})
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ maxWidth: "16rem" }}>
-                      {editingId === f.id ? editForm.notes || "—" : f.notes || "—"}
-                    </td>
-                    <td className="table-actions">
-                      <button type="button" className="btn secondary small" onClick={() => handleView(f)}>
-                        View
-                      </button>
-                      {enabledFeatures.aiExtraction && isScannable(f) && (
-                        <button type="button" className="btn secondary small" onClick={() => setScanning(f)}>
-                          Scan for requests
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="btn secondary small"
-                        onClick={() =>
-                          editingId === f.id ? (setEditingId(null), setError("")) : startEdit(f)
-                        }
-                      >
-                        {editingId === f.id ? "Cancel" : "Edit"}
-                      </button>
-                      <button type="button" className="btn danger small" onClick={() => handleDelete(f)}>
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                  {editingId === f.id && (
-                    <tr>
-                      <td colSpan={8}>
-                        <div className="form-grid">
-                          <label
-                            style={{ gridColumn: "1 / -1" }}
-                            title="Everything but the file itself can be edited."
-                          >
-                            Partner
-                            <PartnerSelect
-                              partners={partners}
-                              value={editForm.partnerId}
-                              onChange={(partnerId) => setEditForm((f) => ({ ...f, partnerId }))}
-                              required
-                            />
-                          </label>
-                          <label>
-                            Kind
-                            <select
-                              value={editForm.kind}
-                              onChange={(e) => setEditForm((f) => ({ ...f, kind: e.target.value }))}
-                            >
-                              {FILE_KINDS.map((k) => (
-                                <option key={k.value} value={k.value}>
-                                  {k.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          {editForm.kind === "other" && (
-                            <label>
-                              Kind label
-                              <input
-                                value={editForm.customKind}
-                                onChange={(e) => setEditForm((f) => ({ ...f, customKind: e.target.value }))}
-                                placeholder="e.g. Background Check"
-                                required
-                              />
-                            </label>
-                          )}
-                          <label>
-                            Title
-                            <input
-                              value={editForm.title}
-                              onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                              placeholder="e.g. Summer 2026 Update"
-                            />
-                          </label>
-                          <label>
-                            Received Date
-                            <input
-                              type="date"
-                              value={editForm.receivedDate}
-                              onChange={(e) => setEditForm((f) => ({ ...f, receivedDate: e.target.value }))}
-                              required
-                            />
-                          </label>
-                          <label style={{ gridColumn: "1 / -1" }}>
-                            Notes
-                            <input
-                              value={editForm.notes}
-                              onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-                            />
-                          </label>
-                        </div>
-                        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-                        <div style={{ marginTop: "0.5rem" }}>
-                          <button type="button" className="btn small" onClick={() => submitEdit(f.id)}>
-                            Save
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={8} style={{ color: "#888" }}>
-                  No files on record.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
+      {activeModal === "view-file" &&
+        fileDetail &&
+        (canEdit ? (
+          <QuickActionModal title="Newsletter / Doc" onClose={closeModal} onSubmit={submitFileDetail}>
+            <Link
+              to={`/admin/partners/${fileDetail.form.partnerId}`}
+              style={{ display: "inline-block", marginBottom: "0.75rem" }}
+            >
+              Go to partner →
+            </Link>
+            <PartnerFileFormFields
+              form={fileDetail.form}
+              setForm={setFileDetailForm}
+              partnerPicker={
+                <label style={{ gridColumn: "1 / -1" }} title="Everything but the file itself can be edited.">
+                  Partner
+                  <PartnerSelect
+                    partners={partners}
+                    value={fileDetail.form.partnerId}
+                    onChange={(partnerId) => setFileDetailForm((f) => ({ ...f, partnerId }))}
+                    required
+                  />
+                </label>
+              }
+            />
+            <button
+              type="button"
+              className="btn secondary small"
+              style={{ marginTop: "0.5rem" }}
+              onClick={() => handleDownload(fileDetail)}
+            >
+              Download File
+            </button>
+          </QuickActionModal>
+        ) : (
+          <Modal title="Newsletter / Doc" onClose={closeModal}>
+            <Link
+              to={`/admin/partners/${fileDetail.form.partnerId}`}
+              style={{ display: "inline-block", marginBottom: "0.75rem" }}
+            >
+              Go to partner →
+            </Link>
+            <Field
+              label="Partner"
+              value={partners.find((p) => p.id === fileDetail.form.partnerId)?.displayName}
+            />
+            <Field label="Kind" value={fileKindLabel(fileDetail.form)} />
+            <Field label="Title" value={fileDetail.form.title} />
+            <Field label="Received Date" value={formatDateLong(fileDetail.form.receivedDate)} />
+            <Field label="Notes" value={fileDetail.form.notes} />
+            <button
+              type="button"
+              className="btn secondary small"
+              style={{ marginTop: "0.5rem" }}
+              onClick={() => handleDownload(fileDetail)}
+            >
+              Download File
+            </button>
+          </Modal>
+        ))}
 
       {scanning && (
         <ExtractionReviewModal

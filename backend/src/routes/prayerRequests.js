@@ -1,10 +1,18 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { notifyPrayerRequestCreated, notifyPrayerRequestAnswered } = require("../utils/dispatchRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
+const { getSeenAt, touchSeen, markCategorySeen } = require("../notifications/categories");
+
+// Distinct from the bell's own "newPrayerRequests" NotificationSeen row --
+// see categories.js's own comment on touchSeen for why this needs its own
+// key. "Since your last visit to this list," not per-item persistent
+// state -- next visit clears every highlight from this one, same as
+// opening the bell clears its own.
+const LIST_VIEW_SEEN_KEY = "newPrayerRequests:listView";
 
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -78,11 +86,19 @@ const prayerRequestInclude = {
   sourceFile: { select: { id: true, kind: true, title: true, fileName: true, receivedDate: true } },
 };
 
-// GET /api/prayer-requests?partnerId=  (all partners combined, newest received first)
-router.get("/", async (req, res, next) => {
+// GET /api/prayer-requests?partnerId=&from=&to=  (all partners combined, newest received first)
+// from/to mirror reports/prayerRequests.js's own date-range filtering --
+// same Prisma where-clause shape, now also usable from the live list page's
+// FilterBar, not just the read-only Report.
+router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
+    if (req.query.from || req.query.to) {
+      where.dateReceived = {};
+      if (req.query.from) where.dateReceived.gte = new Date(String(req.query.from));
+      if (req.query.to) where.dateReceived.lte = new Date(String(req.query.to));
+    }
 
     const records = await prisma.prayerRequest.findMany({
       where,
@@ -93,7 +109,24 @@ router.get("/", async (req, res, next) => {
       // otherwise which one lands in the visible slice isn't guaranteed.
       orderBy: [{ dateReceived: "desc" }, { createdAt: "desc" }],
     });
-    res.json(records);
+
+    // Only the real consolidated list view (no partnerId filter) counts
+    // as "visiting the list" -- a single partner's own embedded prayer
+    // section hitting this same route shouldn't advance (or read) this
+    // timestamp, since that's a different view entirely.
+    if (req.query.partnerId) return res.json(records);
+    const seenAt = await getSeenAt(req.user.id, LIST_VIEW_SEEN_KEY);
+    const annotated = records.map((r) => ({
+      ...r,
+      isNew: !seenAt || new Date(r.createdAt) > seenAt,
+    }));
+    await touchSeen(req.user.id, LIST_VIEW_SEEN_KEY);
+    // Visiting the real list is also "having seen" the bell/nav-badge
+    // category itself -- without this, the badge only clears by opening
+    // the bell first, not by navigating here directly (e.g. via the
+    // sidebar nav link), which is the whole point of a nav badge.
+    await markCategorySeen(req.user.id, "newPrayerRequests");
+    res.json(annotated);
   } catch (err) {
     next(err);
   }

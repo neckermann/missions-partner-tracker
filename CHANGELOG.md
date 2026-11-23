@@ -33,7 +33,7 @@ inside one WhatsApp community. It runs on the same daily send hour and
 the same content-type mutes as GroupMe — a church can run either or both
 — and several related items go out together in one message instead of
 one post each. Off by default, behind a new **WhatsApp dispatch**
-feature toggle; set up entirely in the UI (Site Administration →
+feature toggle; set up entirely in the UI (Settings →
 WhatsApp): link a dedicated phone number with a pairing code or QR code,
 pick the community, then pick a group for each dispatch type.
 
@@ -79,8 +79,6 @@ share. Needs one new schema migration (five new tables, several
 renamed/added columns on `Trip`/`TripParticipant`/`ChurchSettings`,
 including `Trip.tripType` → `Trip.type`).
 
-## [1.3.0] - 2026-11-06
-
 Anyone can now opt in to email updates on prayer requests, with no
 account needed — either for every partner, several at once, or just
 one, from a new public **Subscribe** page, or for a single partner
@@ -101,16 +99,14 @@ digest" checkbox — pick weekly/biweekly/monthly and either every
 partner or just the ones you follow, from your own Account Settings.
 Unlike the public digest, an admin's digest still includes one-time
 needs and newsletters, same as before. A new **Prayer Digest
-Schedule** section (Site Administration → Notifications) sets when
+Schedule** section (Settings → Notifications) sets when
 these three cadence tiers actually go out — independent of the
 existing schedule, which still only governs GroupMe and the original
 church-wide email batch. A new **Prayer Digest Subscribers** page
-(Site Administration → Communications) shows how many admins and
+(Settings → Communications) shows how many admins and
 public visitors are subscribed, counts only, no email addresses.
 
-## [1.2.0] - 2026-11-05
-
-A new **System Info** page (Site Administration, alongside Backups)
+A new **System Info** page (Settings, alongside Backups)
 shows what's actually running on this instance — app version (plus
 the same "update available" check the dashboard banner already does),
 Node.js/React/React DOM versions, the Postgres version and database
@@ -120,16 +116,12 @@ bug against a fork, without needing shell access. Admin-only,
 enforced server-side like every other admin-only route; never shows a
 connection string or any credential.
 
-## [1.1.1] - 2026-11-05
-
 A restricted partner's photo tile in a Snapshot-layout digest email
 showed a blank gap instead of the generic silhouette — most email
 clients (Outlook chief among them) strip a `data:` URI out of an
 `<img src>`, which is how the silhouette was embedded. It's now served
 from a real, reachable URL instead; nothing changes on the public site
 itself, where a `data:` URI renders fine.
-
-## [1.1.0] - 2026-11-05
 
 A restricted partner's prayer request or one-time need notification now
 needs an admin's manual review before it's eligible to send at all —
@@ -153,10 +145,6 @@ nobody reviewing a queue can turn off queuing restricted partners'
 events entirely, from a new toggle next to the existing per-type queue
 switches — removing what the review requirement would otherwise apply
 to.
-
-## [1.0.0] - 2026-11-05
-
-First release.
 
 A missions partner tracker for a single church: who you support, where
 they are, what they need prayer for, and what you've given — with a

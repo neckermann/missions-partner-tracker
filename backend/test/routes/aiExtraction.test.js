@@ -172,6 +172,61 @@ describe("AI request scanning route is gated by the feature flag", () => {
   });
 });
 
+// Regression test for a real production bug: PartnerFile's query in the
+// /extract route never included the bytesRow relation (the file's bytes
+// live in the split-off PartnerFileBytes table -- see that model's own
+// comment), so record.bytes was always undefined and buildFileBlock's
+// Buffer.from(undefined) threw a 500 on every single scan attempt, for
+// every file, before extraction.js's own client() ever got a chance to
+// check whether an API key is configured. No Anthropic API key is
+// configured in this file's tests (see the top-level before()), so if the
+// file's real bytes are now loaded correctly, this reaches and fails with
+// the expected "not configured" 400 instead of crashing on undefined.
+describe("the scan endpoint actually loads the file's bytes before calling Claude", () => {
+  let partnerId;
+  let fileId;
+
+  before(async () => {
+    // anthropicApiKey: null explicitly, not just enabledFeatures -- an
+    // earlier describe in this same file ("write-only key") saves a real
+    // (fake-but-present) key and never clears it afterward, so without
+    // this, a key left over from that test makes the route actually
+    // attempt a call with it instead of reaching the "not configured"
+    // check this test means to exercise -- surfacing as a genuine 401
+    // from the AI provider rejecting that fake key, not this route's own
+    // "not configured" 400.
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { aiExtraction: true }, anthropicApiKey: null },
+    });
+    const partner = await prisma.partner.create({
+      data: { kind: "missionary", displayName: `${FIXTURE_TAG} Extract Bytes Fixture` },
+    });
+    partnerId = partner.id;
+    const file = await prisma.partnerFile.create({
+      data: {
+        partnerId,
+        kind: "newsletter",
+        receivedDate: new Date("2026-03-01"),
+        fileName: "letter.pdf",
+        contentType: "application/pdf",
+        bytesRow: { create: { bytes: Buffer.from("%PDF-fixture") } },
+      },
+    });
+    fileId = file.id;
+  });
+
+  after(async () => {
+    await removeFixturePartners();
+  });
+
+  test("reaches the 'not configured' check instead of crashing on undefined bytes", async () => {
+    const res = await admin(`/api/partner-files/${fileId}/extract`, { method: "POST" });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /AI request scanning isn't configured/);
+  });
+});
+
 // Pure function, no API call -- the real footnote/name-changed artifacts
 // seen in a live test run against the Hartwell fixture (issue #94), not
 // hypothetical inputs.

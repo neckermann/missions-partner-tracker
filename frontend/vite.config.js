@@ -25,5 +25,9 @@ export default defineConfig({
     // those are Playwright specs, which import a different `test` and fail
     // immediately under a runner that isn't Playwright.
     include: ["src/**/*.test.{js,jsx}"],
+    // jsdom, not the default "node" environment, so component tests that
+    // render with @testing-library/react have a DOM to render into.
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.js"],
   },
 });

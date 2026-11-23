@@ -7,6 +7,7 @@ import { fetchPublicPartners } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { formatYear } from "../utils/format.js";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
+import PhotoTile from "../components/shared/PhotoTile.jsx";
 
 // Marker images come from the installed leaflet package, not a CDN. Vite
 // rewrites these imports to hashed files it serves itself.
@@ -149,12 +150,7 @@ function MissionaryPopup({ m }) {
       <div className="popup-card">
         <div className="popup-header">
           {m.photo && (
-            <img
-              src={m.photo}
-              alt={m.displayName}
-              className="popup-avatar"
-              onError={(e) => (e.target.style.display = "none")}
-            />
+            <PhotoTile src={m.photo} alt={m.displayName} shape="circle" size={176} className="popup-avatar" />
           )}
           <h3 className="popup-name">{m.displayName}</h3>
           <p className="popup-meta">
@@ -189,12 +185,7 @@ function OrganizationPopup({ o }) {
       <div className="popup-card">
         <div className="popup-header">
           {o.photo && (
-            <img
-              src={o.photo}
-              alt={o.displayName}
-              className="popup-avatar"
-              onError={(e) => (e.target.style.display = "none")}
-            />
+            <PhotoTile src={o.photo} alt={o.displayName} shape="circle" size={176} className="popup-avatar" />
           )}
           <h3 className="popup-name">{o.displayName}</h3>
           <p className="popup-meta">{[o.orgType, o.fieldDisplayName].filter(Boolean).join(" · ")}</p>

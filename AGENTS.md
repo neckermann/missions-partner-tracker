@@ -1,6 +1,6 @@
 # Working here as an agent
 
-**Last verified**: 2026-11-11 · **Owner**: @neckermann
+**Last verified**: 2026-11-22 · **Owner**: @neckermann
 
 For an agent/subagent picking up work in this repo. Project basics
 (what this is, hard rules, key commands) are in
@@ -110,6 +110,14 @@ check immediately, then poll every 20-30s. Avoid a plain fixed-interval
 loop that reprints identical output on every tick; only emit when the
 check states actually change, or you'll spam duplicate updates for the
 whole 3-4 minutes.
+
+## Cloud workspace vs. local
+
+Prefer a cloud/remote workspace for building new code that has no
+dependency on anything local. Local-dependent work (CI-style
+verification against this repo's own setup, anything that needs to run
+on this computer) may well be faster done locally — don't default it
+to cloud just because.
 
 ## Schema changes and redeploy caches
 

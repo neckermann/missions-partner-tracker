@@ -138,8 +138,13 @@ async function postToWhatsApp(eligibleRows, partnerById, settings) {
       } catch (err) {
         // One message's failure must never stop the rest of the pass --
         // those rows just stay queued for the next one. Log the reason,
-        // never the text.
+        // never the text. Recorded, not just logged -- see the in-app
+        // notifications plan's "Dispatch send failures" category.
         console.error("WhatsApp post failed:", err.message);
+        await prisma.dispatchRecord.updateMany({
+          where: { id: { in: message.completes } },
+          data: { whatsappError: err.message },
+        });
         if (message.partOf) failedParts.add(message.partOf);
       }
     }
@@ -184,7 +189,7 @@ async function runWhatsAppPass(settings, now) {
       if (sentIds.size > 0) {
         await prisma.dispatchRecord.updateMany({
           where: { id: { in: [...sentIds] } },
-          data: { whatsappDispatchedAt: now },
+          data: { whatsappDispatchedAt: now, whatsappError: null },
         });
       }
     }

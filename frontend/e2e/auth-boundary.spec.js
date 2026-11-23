@@ -41,7 +41,7 @@ function mfaSection(page) {
 }
 
 test.describe("role gating in the UI", () => {
-  test("an editor can read partners but cannot reach Site Administration", async ({ page }) => {
+  test("an editor can read partners but cannot reach Settings", async ({ page }) => {
     await login(page);
     const editor = await createUser(page, { role: "editor", suffix: "editor" });
 
@@ -56,8 +56,17 @@ test.describe("role gating in the UI", () => {
       // table before the fetch that fills it has landed.
       await expect(page.locator("table tbody tr").first(), "an editor sees the partner list").toBeVisible();
 
+      // An editor can still create/update/archive -- only delete (and
+      // admin-only settings) are out of reach. The app-wide CRUD
+      // unification's role-gating is what this button's visibility
+      // actually depends on now, not just the server's own 403.
+      await expect(
+        page.getByRole("link", { name: "+ Add Missionary" }),
+        "an editor can still create partners"
+      ).toBeVisible();
+
       // The admin-only settings area is neither offered nor reachable.
-      await expect(page.getByRole("button", { name: /Site Administration/i })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: /Settings/i })).toHaveCount(0);
 
       await page.goto("/admin/settings/users");
       await expect(page, "an editor is redirected away from user management").toHaveURL(/\/admin$/);
@@ -77,6 +86,17 @@ test.describe("role gating in the UI", () => {
       await page.goto("/admin/partners");
       await expect(page.locator("h2").first()).toBeVisible();
 
+      // The UI itself now hides what the API would refuse anyway -- a
+      // viewer should see no mutate affordance anywhere on this page.
+      await expect(
+        page.getByRole("link", { name: "+ Add Missionary" }),
+        "a viewer sees no way to create a partner"
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("link", { name: "+ Add Organization" }),
+        "a viewer sees no way to create a partner"
+      ).toHaveCount(0);
+
       // Whatever the UI offers, the gate that matters is the API's.
       const write = await page.request.post("/api/partners", {
         data: { kind: "missionary", displayName: "[route-test] viewer should not create" },
@@ -94,22 +114,25 @@ test.describe("user management", () => {
     await login(page);
 
     const email = `e2e-managed-${Date.now()}@example.test`;
-    await page.goto("/admin/settings/users/new");
+    await page.goto("/admin/settings/users");
+    await page.getByRole("button", { name: "+ Add User" }).click();
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("First Name").fill("Managed");
     await page.getByLabel("Last Name").fill("User");
     await page.getByLabel("Role").selectOption("viewer");
     await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
-    await page.click('button[type="submit"]');
+    await page.click('.modal-panel button[type="submit"]');
+    await expect(page.locator(".modal-panel")).toHaveCount(0);
 
     const row = page.locator("tr", { hasText: email });
     await expect(row).toBeVisible();
     await expect(row).toContainText("viewer");
 
     // Edit: promote to editor and confirm it sticks.
-    await row.getByRole("link", { name: "Edit" }).click();
+    await row.click();
     await page.getByLabel("Role").selectOption("editor");
-    await page.click('button[type="submit"]');
+    await page.click('.modal-panel button[type="submit"]');
+    await expect(page.locator(".modal-panel")).toHaveCount(0);
     await expect(page.locator("tr", { hasText: email })).toContainText("editor");
 
     // Delete: opens a styled confirm dialog (see useConfirmDialog.jsx),

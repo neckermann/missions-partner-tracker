@@ -1,7 +1,7 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { matchesFileSignature } = require("../utils/fileSignature");
 const { sendStoredFile } = require("../utils/fileResponse");
@@ -61,12 +61,22 @@ const metaSchema = metaObjectSchema.refine(
   }
 );
 
-// GET /?partnerId=&kind= (all partners combined, newest first)
-router.get("/", async (req, res, next) => {
+// GET /?partnerId=&kind=&entityType=&from=&to= (all partners combined, newest first)
+// entityType ("missionary"|"organization") filters by the owning partner's
+// own kind -- AdminPartnerFiles.jsx's "Show: Missionaries/Organizations"
+// filter was client-side-only before this; from/to filter receivedDate,
+// same range shape as prayerRequests.js/supportNeeds.js just added above.
+router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
     if (req.query.kind) where.kind = String(req.query.kind);
+    if (req.query.entityType) where.partner = { kind: String(req.query.entityType) };
+    if (req.query.from || req.query.to) {
+      where.receivedDate = {};
+      if (req.query.from) where.receivedDate.gte = new Date(String(req.query.from));
+      if (req.query.to) where.receivedDate.lte = new Date(String(req.query.to));
+    }
 
     const records = await prisma.partnerFile.findMany({
       where,
@@ -122,6 +132,13 @@ router.post("/", requireRole("admin", "editor"), upload.single("file"), async (r
 // GET /:id/download -- streams the file straight from the database (still
 // requireAuth'd, per router.use above; no separate signed URL to generate
 // since there's no external store to sign a URL for).
+//
+// Unlike GET / above, this single-record route has no requirePartnerQueryScope
+// of its own -- every other role is fine with that (any login already sees
+// every partner's files via the unscoped list route), but a Trip Leader must
+// not be able to download an arbitrary file id belonging to some other
+// partner just because they know (or guessed) it. Checked here explicitly,
+// same pattern as partners.js's own GET /:id.
 router.get("/:id/download", async (req, res, next) => {
   try {
     const record = await prisma.partnerFile.findUnique({
@@ -129,6 +146,16 @@ router.get("/:id/download", async (req, res, next) => {
       include: { bytesRow: { select: { bytes: true } } },
     });
     if (!record?.bytesRow) return res.status(404).json({ error: "Not found" });
+
+    if (req.user.role === "tripLeader") {
+      const trip = await prisma.trip.findUnique({
+        where: { id: req.user.scopedTripId },
+        select: { partnerId: true },
+      });
+      if (!trip?.partnerId || trip.partnerId !== record.partnerId) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+    }
 
     sendStoredFile(res, { ...record, bytes: record.bytesRow.bytes });
   } catch (err) {
@@ -188,10 +215,18 @@ router.post(
   requireFeature("aiExtraction"),
   async (req, res, next) => {
     try {
-      const record = await prisma.partnerFile.findUnique({ where: { id: req.params.id } });
-      if (!record) return res.status(404).json({ error: "Not found" });
+      // The file's bytes live in the split-off PartnerFileBytes table (see
+      // that model's own comment), not on PartnerFile itself -- same
+      // include GET /:id/download above already uses. Without it,
+      // record.bytes is always undefined and buildFileBlock's
+      // Buffer.from(undefined) throws on every single scan attempt.
+      const record = await prisma.partnerFile.findUnique({
+        where: { id: req.params.id },
+        include: { bytesRow: { select: { bytes: true } } },
+      });
+      if (!record?.bytesRow) return res.status(404).json({ error: "Not found" });
 
-      const suggestions = await extractRequestsFromFile(record);
+      const suggestions = await extractRequestsFromFile({ ...record, bytes: record.bytesRow.bytes });
       res.json(suggestions);
     } catch (err) {
       next(err);

@@ -314,7 +314,7 @@ function missionaryHouseholdCategory(m) {
  * Partner. Only two differences between the kinds survive:
  *
  *  - The generic stand-in image (household silhouette vs. building icon).
- *  - languagesSpoken / sendingChurch / sendingOrg are missionary-only.
+ *  - languages / sendingChurch / sendingOrg are missionary-only.
  *
  * Name masking is deliberately the same for both. An earlier version left
  * a restricted organization's name visible, reasoning that an institution
@@ -380,13 +380,7 @@ function toPublicPartner(p) {
     overview: p.overview,
     overviewShort: p.overviewShort,
     focusArea: p.focusArea,
-    websiteLink: p.websiteLink,
-    supportLink: p.supportLink,
-    newsletterSignup: p.newsletterSignup,
-    facebook: p.facebook,
-    twitter: p.twitter,
-    instagram: p.instagram,
-    linkedin: p.linkedin,
+    links: (p.links || []).map((l) => ({ type: l.type, url: l.url })),
     // Only the current photo (see the Photo model / publicPartners.js's
     // `take: 1` include) is ever surfaced publicly — never the upload
     // history, and never at all for a restricted record (see above).
@@ -395,7 +389,7 @@ function toPublicPartner(p) {
     ...(isOrg
       ? {}
       : {
-          languagesSpoken: p.languagesSpoken,
+          languages: (p.languages || []).map((l) => ({ language: l.language, proficiency: l.proficiency })),
           sendingChurch: p.sendingChurch ? { name: p.sendingChurch.name } : null,
           sendingOrg: p.sendingOrg ? { name: p.sendingOrg.name } : null,
         }),

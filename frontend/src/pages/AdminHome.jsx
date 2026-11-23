@@ -1,208 +1,250 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchCurrentUser } from "../api/client.js";
+import { fetchPartners } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
+import { getRecentlyViewed } from "../hooks/useRecentlyViewed.js";
+import CardGrid from "../components/admin/CardGrid.jsx";
+import useCurrentUser from "../hooks/useCurrentUser.js";
+import useNotifications from "../hooks/useNotifications.js";
 
-function CardGrid({ sections }) {
+// key -> a short group label for the card grid, since the registry
+// (backend/src/notifications/categories.js) doesn't carry one itself --
+// purely cosmetic grouping for this page's display.
+const CATEGORY_GROUP = {
+  dispatchesNeedingApproval: "Communications",
+  unmatchedEmails: "Communications",
+  inboundEmailFailures: "Communications",
+  dispatchSendFailures: "Communications",
+  tripsDepartingSoon: "Trips",
+  tripsDepartingSoonIncomplete: "Trips",
+  overdueTripRequirements: "Trips",
+  tripApplicationsPending: "Trips",
+  newPrayerRequests: "Partner Care",
+  newOneTimeNeeds: "Partner Care",
+  adminMfaDisabled: "System",
+  timeToCheckBackups: "System",
+  whatsappConnectionDrop: "System",
+};
+
+// The admin landing page -- search, recently-viewed, and needs-attention
+// cards. Home points at destinations worth jumping to directly (a search
+// result, something recent, something waiting on you) rather than
+// re-listing what the sidebar already lists.
+const SEARCH_DEBOUNCE_MS = 250;
+
+function useDebouncedValue(value, delayMs) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
+
+function SearchResults({ term }) {
+  const [results, setResults] = useState(null);
+  const debouncedTerm = useDebouncedValue(term, SEARCH_DEBOUNCE_MS);
+
+  useEffect(() => {
+    if (!debouncedTerm.trim()) {
+      setResults(null);
+      return;
+    }
+    let cancelled = false;
+    fetchPartners({ q: debouncedTerm.trim(), archived: false })
+      .then((data) => {
+        if (!cancelled) setResults(data);
+      })
+      .catch(() => {
+        if (!cancelled) setResults([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedTerm]);
+
+  if (results === null) return null;
+  if (results.length === 0) return <p style={{ color: "#888" }}>No partners match "{debouncedTerm}".</p>;
+
   return (
-    <div className="admin-card-grid">
-      {sections.map((s) => (
-        <Link key={s.to} to={s.to} className="admin-card">
-          <h3>{s.title}</h3>
-          <p>{s.description}</p>
-        </Link>
+    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+      {results.slice(0, 8).map((p) => (
+        <li key={p.id} style={{ padding: "0.35rem 0", borderBottom: "1px solid #eee" }}>
+          <Link to={`/admin/partners/${p.id}`}>{p.displayName}</Link>
+        </li>
       ))}
+    </ul>
+  );
+}
+
+function RecentlyViewed() {
+  const [entries] = useState(() => getRecentlyViewed());
+  if (entries.length === 0) return null;
+  return (
+    <div className="admin-section">
+      <h3 style={{ marginTop: 0 }}>Recently viewed</h3>
+      <div className="recent-row">
+        {entries.map((entry) => (
+          <Link key={entry.to} to={entry.to} className="recent-chip">
+            <b>{entry.kind}</b>
+            {entry.label}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
 
-function buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
+// ⌘ on Mac, Ctrl elsewhere -- matches the convention every desktop app's
+// own command-palette/search shortcut already uses on each platform.
+const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPod|iPad/.test(navigator.platform || "");
+const SEARCH_SHORTCUT_HINT = isMac ? "⌘K" : "Ctrl+K";
+
+function buildMainSections(partnerLabel, enabledFeatures, isAdmin) {
   return [
     {
       to: "/admin/partners",
-      title: usePartnerTermInAdmin ? partnerTermPlural : "Partners",
+      title: partnerLabel,
+      icon: "👤",
       description: "Missionaries, families, and partner organizations — profiles, trips, and contact info.",
-    },
-    enabledFeatures.inboundEmail && {
-      to: "/admin/inbound-email",
-      title: "Unmatched Emails",
-      description: "Inbound emails that couldn't be automatically matched to a partner -- assign or discard.",
-    },
-    (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
-      to: "/admin/pending-dispatches",
-      title: "Pending Dispatches",
-      description:
-        "Review what's queued and clear or approve restricted items -- sending itself happens on schedule, or right away for anything marked urgent.",
     },
     enabledFeatures.partnerFiles && {
       to: "/admin/partner-files",
       title: "Newsletters & Docs",
+      icon: "📰",
       description:
         "Upload and browse newsletters, survey responses, signed policies, and other documents from missionary and organization partners.",
     },
     enabledFeatures.prayerRequests && {
       to: "/admin/prayer-requests",
       title: "Prayer Requests",
+      icon: "🙏",
       description: "Track prayer requests across every partner, short-term and long-term.",
     },
     enabledFeatures.oneTimeNeeds && {
       to: "/admin/support/needs",
       title: "One-Time Needs",
+      icon: "🎁",
       description: "Track one-time gift requests and record decisions.",
-    },
-    enabledFeatures.monthlySupport && {
-      to: "/admin/support/monthly",
-      title: "Monthly Support",
-      description: "Current monthly support across every partner, with a running total.",
     },
     enabledFeatures.trips && {
       to: "/admin/trips",
       title: "Trips",
-      description:
-        "All mission trips across missionaries and organizations, or find a partner to plan a new one for — two tabs of one page.",
+      icon: "✈️",
+      description: "Mission trips, team recruiting, meetings, and requirements.",
+    },
+    (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
+      to: "/admin/pending-dispatches",
+      title: "Pending Dispatches",
+      icon: "📨",
+      description: "Review and approve GroupMe, WhatsApp, and email sends before they go out.",
+    },
+    enabledFeatures.inboundEmail && {
+      to: "/admin/inbound-email",
+      title: "Unmatched Email",
+      icon: "📥",
+      description: "Inbound emails that couldn't be automatically matched to a partner.",
     },
     enabledFeatures.booklet && {
       to: "/admin/booklet",
       title: "Print Booklet",
-      description: "Generate a printable prayer & support directory.",
+      icon: "📘",
+      description: "Generate the printable prayer & support directory.",
     },
     enabledFeatures.reports && {
       to: "/admin/reports",
       title: "Reports",
-      description: "Birthdays, one-time needs and more — download as CSV or print for a meeting.",
+      icon: "📊",
+      description: "Read-only reports over existing data — birthdays, support, trips, and more.",
+    },
+    isAdmin && {
+      to: "/admin/settings",
+      title: "Settings",
+      icon: "⚙️",
+      description: "Church info, branding, users, features, and integrations.",
     },
   ].filter(Boolean);
-}
-
-// Mirrors AdminSidebar.jsx's buildSiteAdminLinks -- same pages, same
-// three-way grouping (core / Communications / Integrations) and same
-// section-label treatment, just as a labeled card grid instead of a nav
-// submenu, so an admin coming from Home can jump straight to one without
-// going through the sidebar at all. Returns the three groups separately
-// (rather than one flat array) so the render below can put a heading
-// above each, matching the sidebar's own dividers and
-// AdminSettingsFeatures.jsx's own three-block split.
-//
-// Every optional-integration tile here is gated by its own feature flag
-// -- same standing rule as every nav link in AdminSidebar.jsx (off means
-// genuinely hidden, not just a discovery affordance). This used to let
-// GroupMe/Joshua Project/AI Extraction's tiles always show regardless of
-// their flag, on the theory that an admin should be able to configure
-// them before turning them on (their settings routes aren't
-// requireFeature-gated on the backend either) -- but that meant Home and
-// the sidebar disagreed with each other for the exact same links, which
-// is more confusing than useful. An admin still reaches any of these
-// pages the first time via Enabled Features (never gated) turning the
-// flag on, exactly like every other feature in this app.
-function buildSiteAdminSections(enabledFeatures) {
-  const core = [
-    {
-      to: "/admin/settings/about",
-      title: "About Church",
-      description: "Church name, contact info, and address.",
-    },
-    {
-      to: "/admin/settings/users",
-      title: "Manage Users",
-      description: "Who has access, their role, and their two-factor status.",
-    },
-    {
-      to: "/admin/settings/branding",
-      title: "Branding",
-      description: "Public-site tagline, about text, brand color, logo, and partner terminology.",
-    },
-    {
-      to: "/admin/settings/features",
-      title: "Enabled Features",
-      description: "Turn off anything this church isn't using.",
-    },
-    {
-      to: "/admin/settings/backups",
-      title: "Backups",
-      description: "Download a full database backup on demand, or manage the periodic reminder.",
-    },
-    {
-      to: "/admin/settings/system-info",
-      title: "System Info",
-      description: "App version, runtime, database, and deployment details -- what's actually running.",
-    },
-  ];
-  const communications = [
-    (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
-      to: "/admin/settings/email",
-      title: "Email",
-      description:
-        "Send and/or receive email through a configured Postmark account -- each direction can be turned on independently.",
-    },
-    enabledFeatures.groupme && {
-      to: "/admin/settings/groupme",
-      title: "GroupMe",
-      description: "Post new prayer requests to a GroupMe group automatically.",
-    },
-    enabledFeatures.whatsapp && {
-      to: "/admin/settings/whatsapp",
-      title: "WhatsApp",
-      description: "Post new prayer requests, needs, and newsletters to your WhatsApp community groups.",
-    },
-    (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
-      to: "/admin/settings/dispatches",
-      title: "Dispatch Settings",
-      description:
-        "Schedules, chat content-type mutes, the restricted-partner gate, and email dispatch appearance.",
-    },
-  ].filter(Boolean);
-  const integrations = [
-    enabledFeatures.aiExtraction && {
-      to: "/admin/settings/ai-extraction",
-      title: "AI Features",
-      description: "API key for scanning newsletters and documents for prayer requests and needs.",
-    },
-    enabledFeatures.joshuaProject && {
-      to: "/admin/settings/joshua-project",
-      title: "Joshua Project",
-      description: "API key for country-level unreached-people-group statistics.",
-    },
-  ].filter(Boolean);
-  return { core, communications, integrations };
 }
 
 export default function AdminHome() {
-  const [currentUser, setCurrentUser] = useState(null);
+  const { user: currentUser, isAdmin } = useCurrentUser();
+  const [search, setSearch] = useState("");
   const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
-  const sections = buildSections(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures);
-  const siteAdminSections = buildSiteAdminSections(enabledFeatures);
+  const { categories } = useNotifications();
+  // Hidden entirely (not shown as "Nothing waiting") when a category's
+  // count is zero -- a needs-attention card with nothing to report isn't
+  // worth the space it takes, and clutters the page on every visit
+  // instead of just the ones that matter. Reads the same registry the
+  // bell does (/api/notifications/summary) -- this page no longer fetches
+  // dispatches/emails/trips itself (see the in-app notifications plan for
+  // why keeping both a page-level fetch and the shared registry running
+  // in parallel was the actual bug behind "this card never goes away").
+  const needsAttention = categories
+    .filter((c) => c.count > 0)
+    .map((c) => ({
+      to: c.linkTo,
+      category: CATEGORY_GROUP[c.key] || "Needs attention",
+      title: c.label,
+      description: `${c.count} item${c.count === 1 ? "" : "s"}`,
+    }));
+  const searchInputRef = useRef(null);
 
+  // Cmd/Ctrl+K focuses the Home search box from anywhere on the page --
+  // the shortcut hint shown next to it would be misleading if it didn't
+  // actually do anything.
   useEffect(() => {
-    fetchCurrentUser().then(setCurrentUser);
+    function onKeyDown(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  const partnerLabel = usePartnerTermInAdmin ? partnerTermPlural : "Partners";
 
   return (
     <div className="admin-shell">
       <h2>Welcome{currentUser?.firstName ? `, ${currentUser.firstName}` : ""}</h2>
-      <p style={{ color: "#555" }}>Pick a section to get started.</p>
-      <CardGrid sections={sections} />
 
-      {currentUser?.role === "admin" && (
-        <>
-          <h2 style={{ marginTop: "2rem" }}>Site Administration</h2>
-          <p style={{ color: "#555" }}>Church-wide settings — admin only.</p>
-          <CardGrid sections={siteAdminSections.core} />
+      <div className="admin-section">
+        <label htmlFor="home-search-input" style={{ display: "block", marginBottom: "0.4rem" }}>
+          {`Search ${partnerLabel.toLowerCase()}`}
+        </label>
+        <div className="home-search">
+          <span aria-hidden="true">🔍</span>
+          <input
+            id="home-search-input"
+            ref={searchInputRef}
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={`Find a ${partnerLabel.toLowerCase().replace(/s$/, "")} by name…`}
+          />
+          <span className="home-search-kbd-hint" aria-hidden="true">
+            {SEARCH_SHORTCUT_HINT}
+          </span>
+        </div>
+        <div style={{ marginTop: "0.75rem" }}>
+          <SearchResults term={search} />
+        </div>
+      </div>
 
-          {siteAdminSections.communications.length > 0 && (
-            <>
-              <h3 style={{ marginTop: "1.5rem" }}>Communications</h3>
-              <CardGrid sections={siteAdminSections.communications} />
-            </>
-          )}
+      <RecentlyViewed />
 
-          {siteAdminSections.integrations.length > 0 && (
-            <>
-              <h3 style={{ marginTop: "1.5rem" }}>Integrations</h3>
-              <CardGrid sections={siteAdminSections.integrations} />
-            </>
-          )}
-        </>
+      {needsAttention.length > 0 && (
+        <div className="admin-section">
+          <h3 style={{ marginTop: 0 }}>Needs attention</h3>
+          <CardGrid sections={needsAttention} />
+        </div>
       )}
+
+      <div className="admin-section">
+        <h3 style={{ marginTop: 0 }}>Browse</h3>
+        <CardGrid sections={buildMainSections(partnerLabel, enabledFeatures, isAdmin)} />
+      </div>
     </div>
   );
 }

@@ -59,7 +59,7 @@ test.describe("Reports", () => {
         kind: "missionary",
         displayName: `${marker} Report Family`,
         adults: [{ firstName: marker, lastName: "Adult", birthday: "1985-03-11" }],
-        children: [{ name: `${marker} Child`, birthday: "2015-03-02" }],
+        children: [{ firstName: marker, lastName: "Child", birthday: "2015-03-02" }],
       },
     });
     expect(created.status(), "seeding the fixture partner should succeed").toBe(201);

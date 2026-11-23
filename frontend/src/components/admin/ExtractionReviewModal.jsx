@@ -89,7 +89,9 @@ export default function ExtractionReviewModal({
 
   async function addPrayerRequest(i) {
     const r = prayerRequests[i];
-    setPrayerRequests((list) => list.map((x, idx) => (idx === i ? { ...x, state: "saving" } : x)));
+    setPrayerRequests((list) =>
+      list.map((x, idx) => (idx === i ? { ...x, state: "saving", cardError: "" } : x))
+    );
     try {
       await createPrayerRequest({
         partnerId,
@@ -101,18 +103,31 @@ export default function ExtractionReviewModal({
       setPrayerRequests((list) => list.map((x, idx) => (idx === i ? { ...x, state: "added" } : x)));
       onChange?.();
     } catch (err) {
-      setPrayerRequests((list) => list.map((x, idx) => (idx === i ? { ...x, state: "pending" } : x)));
-      alert(err.response?.data?.error || "Failed to add this prayer request");
+      setPrayerRequests((list) =>
+        list.map((x, idx) =>
+          idx === i
+            ? {
+                ...x,
+                state: "pending",
+                cardError: err.response?.data?.error || "Failed to add this prayer request",
+              }
+            : x
+        )
+      );
     }
   }
 
   async function addNeed(i) {
     const n = oneTimeNeeds[i];
     if (!n.requestedAmount) {
-      alert("Enter a dollar amount before adding");
+      setOneTimeNeeds((list) =>
+        list.map((x, idx) => (idx === i ? { ...x, cardError: "Enter a dollar amount before adding" } : x))
+      );
       return;
     }
-    setOneTimeNeeds((list) => list.map((x, idx) => (idx === i ? { ...x, state: "saving" } : x)));
+    setOneTimeNeeds((list) =>
+      list.map((x, idx) => (idx === i ? { ...x, state: "saving", cardError: "" } : x))
+    );
     try {
       await createSupportNeed({
         partnerId,
@@ -124,8 +139,17 @@ export default function ExtractionReviewModal({
       setOneTimeNeeds((list) => list.map((x, idx) => (idx === i ? { ...x, state: "added" } : x)));
       onChange?.();
     } catch (err) {
-      setOneTimeNeeds((list) => list.map((x, idx) => (idx === i ? { ...x, state: "pending" } : x)));
-      alert(err.response?.data?.error || "Failed to add this one-time need");
+      setOneTimeNeeds((list) =>
+        list.map((x, idx) =>
+          idx === i
+            ? {
+                ...x,
+                state: "pending",
+                cardError: err.response?.data?.error || "Failed to add this one-time need",
+              }
+            : x
+        )
+      );
     }
   }
 
@@ -185,6 +209,11 @@ export default function ExtractionReviewModal({
                   </button>
                 )}
               </div>
+              {r.cardError && (
+                <p style={{ color: "#b91c1c", marginTop: "0.25rem" }} role="alert">
+                  {r.cardError}
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -230,6 +259,11 @@ export default function ExtractionReviewModal({
                   </button>
                 )}
               </div>
+              {n.cardError && (
+                <p style={{ color: "#b91c1c", marginTop: "0.25rem" }} role="alert">
+                  {n.cardError}
+                </p>
+              )}
             </div>
           ))}
         </div>

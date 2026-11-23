@@ -5,6 +5,8 @@ import { useSettings } from "../context/SettingsContext.jsx";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
 import { COUNTRY_CONTINENTS } from "../utils/countryContinents.js";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
+import Wizard from "../components/shared/Wizard.jsx";
+import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 
 const COUNTRY_NAMES = Object.keys(COUNTRY_CONTINENTS).sort();
 // Same presets as the detail page's own Preferred Contact Method field
@@ -18,12 +20,22 @@ const CONTACT_METHOD_PRESETS = ["Email", "Phone", "WhatsApp", "Signal"];
 // links -- is edited in place on the partner's own page, section by
 // section, rather than through one form holding the whole record at once.
 // See components/admin/EditableSection.jsx.
+//
+// Phase 6 of the UX-rebuild plan: this is the one creation flow in the
+// app with a genuine case for the Wizard shell -- ~10 real fields across
+// three distinct conceptual groups (who/where, descriptive details,
+// visibility/status), past the plan's own "wizard only worth it past
+// ~5-6 fields" guidance. Every other "+Add X" flow surveyed for this
+// phase (Prayer Requests, One-Time Needs, Support entries, Partner
+// Files, Trips) has 3-6 fields and stays a short single-step form --
+// see this phase's commit message for the full field-count survey and
+// why those are deliberately NOT converted to wizards.
 export default function AdminPartnerForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { churchName } = useSettings();
 
-  const [form, setForm] = useState({
+  const initialValues = {
     kind: searchParams.get("kind") === "organization" ? "organization" : "missionary",
     displayName: "",
     fieldDisplayName: "",
@@ -36,56 +48,52 @@ export default function AdminPartnerForm() {
     sentByOurChurch: false,
     preferredContactMethod: "",
     supportingSince: "",
-  });
+  };
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [submitError, setSubmitError] = useState("");
 
-  const isOrg = form.kind === "organization";
-  const set = (field, value) => setForm((f) => ({ ...f, [field]: value }));
-
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleFinish(values) {
     setSaving(true);
-    setError("");
-    const country = form.country.trim();
+    setSubmitError("");
+    const isOrg = values.kind === "organization";
+    const country = values.country.trim();
     try {
       const record = await createPartner({
-        kind: form.kind,
-        displayName: form.displayName.trim(),
-        fieldDisplayName: form.fieldDisplayName.trim() || null,
-        overviewShort: form.overviewShort.trim() || null,
-        isPublic: form.isPublic,
-        isRestricted: form.isRestricted,
-        preferredContactMethod: form.preferredContactMethod.trim() || null,
-        supportingSince: form.supportingSince || null,
+        kind: values.kind,
+        displayName: values.displayName.trim(),
+        fieldDisplayName: values.fieldDisplayName.trim() || null,
+        overviewShort: values.overviewShort.trim() || null,
+        isPublic: values.isPublic,
+        isRestricted: values.isRestricted,
+        preferredContactMethod: values.preferredContactMethod.trim() || null,
+        supportingSince: values.supportingSince || null,
         fipsCountryCode: getFipsCode(country) || null,
         addresses: country ? { physical: { country } } : undefined,
         ...(isOrg
-          ? { orgType: form.orgType }
-          : { contactSafe: form.contactSafe, sentByOurChurch: form.sentByOurChurch }),
+          ? { orgType: values.orgType }
+          : { contactSafe: values.contactSafe, sentByOurChurch: values.sentByOurChurch }),
       });
       navigate(`/admin/partners/${record.id}`);
     } catch (err) {
-      setError(
+      setSubmitError(
         err.response?.data?.error?.[0]?.message || err.response?.data?.error || "Failed to create partner"
       );
       setSaving(false);
     }
   }
 
-  return (
-    <div className="admin-shell">
-      <h2>New Partner</h2>
-      <p style={{ color: "#666", marginTop: "-0.5rem" }}>
-        Just enough to create the record — you'll fill in the rest on the partner's page.
-      </p>
-
-      <form className="admin-form" onSubmit={handleSubmit}>
-        <div className="admin-section">
+  const steps = [
+    {
+      key: "basics",
+      label: "Basics",
+      validate: (values) => (values.displayName.trim() ? null : "Name is required."),
+      render: ({ values, setValue }) => {
+        const isOrg = values.kind === "organization";
+        return (
           <div className="form-grid">
             <label>
               Partner Type
-              <select value={form.kind} onChange={(e) => set("kind", e.target.value)}>
+              <select value={values.kind} onChange={(e) => setValue("kind", e.target.value)}>
                 <option value="missionary">Missionary</option>
                 <option value="organization">Organization</option>
               </select>
@@ -93,7 +101,7 @@ export default function AdminPartnerForm() {
             {isOrg && (
               <label>
                 Organization Type
-                <select value={form.orgType} onChange={(e) => set("orgType", e.target.value)}>
+                <select value={values.orgType} onChange={(e) => setValue("orgType", e.target.value)}>
                   <option value="Local">Local</option>
                   <option value="National">National</option>
                 </select>
@@ -102,8 +110,8 @@ export default function AdminPartnerForm() {
             <label>
               {isOrg ? "Organization Name" : "Display Name"}
               <input
-                value={form.displayName}
-                onChange={(e) => set("displayName", e.target.value)}
+                value={values.displayName}
+                onChange={(e) => setValue("displayName", e.target.value)}
                 placeholder={isOrg ? "e.g. Hope Community Center" : "e.g. The Miller Family"}
                 required
               />
@@ -111,8 +119,8 @@ export default function AdminPartnerForm() {
             <label>
               Country
               <input
-                value={form.country}
-                onChange={(e) => set("country", e.target.value)}
+                value={values.country}
+                onChange={(e) => setValue("country", e.target.value)}
                 list="new-partner-country-list"
                 placeholder="Start typing a country..."
               />
@@ -122,19 +130,29 @@ export default function AdminPartnerForm() {
                 ))}
               </datalist>
             </label>
+          </div>
+        );
+      },
+    },
+    {
+      key: "details",
+      label: "Details",
+      render: ({ values, setValue }) => (
+        <>
+          <div className="form-grid">
             <label title="Shown publicly even if this partner is restricted-access, since it doesn't reveal their exact location -- e.g. 'West Africa' rather than the specific country.">
               Field / Region Display Name
               <input
-                value={form.fieldDisplayName}
-                onChange={(e) => set("fieldDisplayName", e.target.value)}
+                value={values.fieldDisplayName}
+                onChange={(e) => setValue("fieldDisplayName", e.target.value)}
                 placeholder="e.g. West Africa"
               />
             </label>
             <label title="How this partner prefers to be reached. Shown on their page; doesn't affect anything else.">
               Preferred Contact Method
               <PresetOrCustomSelect
-                value={form.preferredContactMethod}
-                onChange={(v) => set("preferredContactMethod", v)}
+                value={values.preferredContactMethod}
+                onChange={(v) => setValue("preferredContactMethod", v)}
                 presets={CONTACT_METHOD_PRESETS}
                 placeholder="e.g. Telegram"
               />
@@ -143,28 +161,35 @@ export default function AdminPartnerForm() {
               Supporting Since
               <input
                 type="date"
-                value={form.supportingSince}
-                onChange={(e) => set("supportingSince", e.target.value)}
+                value={values.supportingSince}
+                onChange={(e) => setValue("supportingSince", e.target.value)}
               />
             </label>
           </div>
-
           <label style={{ marginTop: "0.75rem" }}>
             Short Overview
             <input
-              value={form.overviewShort}
-              onChange={(e) => set("overviewShort", e.target.value)}
+              value={values.overviewShort}
+              onChange={(e) => setValue("overviewShort", e.target.value)}
               placeholder="One or two lines, shown on directory cards"
             />
           </label>
-
-          <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
+        </>
+      ),
+    },
+    {
+      key: "visibility",
+      label: "Visibility & status",
+      render: ({ values, setValue }) => {
+        const isOrg = values.kind === "organization";
+        return (
+          <div className="admin-checkbox-row">
             {!isOrg && (
               <label title="A reminder for staff, not a public setting -- whether reaching out to this missionary directly is safe (e.g. in a sensitive location). Shown as a status pill on their page.">
                 <input
                   type="checkbox"
-                  checked={form.contactSafe}
-                  onChange={(e) => set("contactSafe", e.target.checked)}
+                  checked={values.contactSafe}
+                  onChange={(e) => setValue("contactSafe", e.target.checked)}
                 />
                 Safe to contact
               </label>
@@ -172,16 +197,16 @@ export default function AdminPartnerForm() {
             <label title="Whether this partner appears in the public directory and map at all. Leave off for a partner you're not ready to list yet.">
               <input
                 type="checkbox"
-                checked={form.isPublic}
-                onChange={(e) => set("isPublic", e.target.checked)}
+                checked={values.isPublic}
+                onChange={(e) => setValue("isPublic", e.target.checked)}
               />
               Show on public site
             </label>
             <label title="Masks the name to initials and coarsens the map pin to a country centroid on the public site.">
               <input
                 type="checkbox"
-                checked={form.isRestricted}
-                onChange={(e) => set("isRestricted", e.target.checked)}
+                checked={values.isRestricted}
+                onChange={(e) => setValue("isRestricted", e.target.checked)}
               />
               Restricted-access location
             </label>
@@ -189,26 +214,40 @@ export default function AdminPartnerForm() {
               <label title="Fills in the Sending Church section on this partner's page from this church's own info, overwriting anything typed there later. Set up Sending Church details afterward on their page.">
                 <input
                   type="checkbox"
-                  checked={form.sentByOurChurch}
-                  onChange={(e) => set("sentByOurChurch", e.target.checked)}
+                  checked={values.sentByOurChurch}
+                  onChange={(e) => setValue("sentByOurChurch", e.target.checked)}
                 />
                 Sent by {churchName || "our church"}
               </label>
             )}
           </div>
+        );
+      },
+    },
+  ];
 
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+  return (
+    <div className="admin-shell">
+      <Breadcrumb items={[{ label: "Partners", to: "/admin/partners" }, { label: "New Partner" }]} />
+      <h2>New Partner</h2>
+      <p style={{ color: "#666", marginTop: "-0.5rem" }}>
+        Just enough to create the record — you'll fill in the rest on the partner's page.
+      </p>
 
-          <div style={{ marginTop: "1.5rem", display: "flex", gap: "0.5rem" }}>
-            <button type="submit" className="btn" disabled={saving}>
-              {saving ? "Creating..." : "Create Partner"}
-            </button>
-            <button type="button" className="btn secondary" onClick={() => navigate("/admin/partners")}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      </form>
+      <div className="admin-section">
+        <Wizard
+          steps={steps}
+          initialValues={initialValues}
+          onFinish={handleFinish}
+          onCancel={() => navigate("/admin/partners")}
+          finishing={saving}
+        />
+        {submitError && (
+          <p style={{ color: "#b91c1c" }} role="alert">
+            {submitError}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

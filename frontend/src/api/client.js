@@ -334,6 +334,15 @@ export async function fetchPendingDispatches() {
   return data;
 }
 
+export async function fetchNotificationSummary() {
+  const { data } = await api.get("/notifications/summary");
+  return data.categories;
+}
+
+export async function markNotificationSeen(category) {
+  await api.post("/notifications/seen", { category });
+}
+
 // The real (unmasked) text behind a queued row -- GET /pending's own list
 // always shows the masked/placeholder version for a restricted partner,
 // same as what would actually send; this is the separate "let an admin
@@ -426,6 +435,122 @@ export async function createSupportEntry(payload) {
 
 export async function deleteSupportEntry(id) {
   await api.delete(`/support-entries/${id}`);
+}
+
+// Adults/children/furloughs/church visits/links/languages -- each its own
+// resource with per-row create/update/delete, same shape as the
+// collections above (see backend/src/routes/partners.js's PUT comment for
+// why none of these are accepted on a partner update anymore).
+export async function fetchAdults(params = {}) {
+  const { data } = await api.get("/adults", { params });
+  return data;
+}
+export async function createAdult(payload) {
+  const { data } = await api.post("/adults", payload);
+  return data;
+}
+export async function updateAdult(id, payload) {
+  const { data } = await api.put(`/adults/${id}`, payload);
+  return data;
+}
+export async function deleteAdult(id) {
+  await api.delete(`/adults/${id}`);
+}
+
+export async function fetchChildren(params = {}) {
+  const { data } = await api.get("/children", { params });
+  return data;
+}
+export async function createChild(payload) {
+  const { data } = await api.post("/children", payload);
+  return data;
+}
+export async function updateChild(id, payload) {
+  const { data } = await api.put(`/children/${id}`, payload);
+  return data;
+}
+export async function deleteChild(id) {
+  await api.delete(`/children/${id}`);
+}
+
+export async function fetchFurloughs(params = {}) {
+  const { data } = await api.get("/furloughs", { params });
+  return data;
+}
+export async function createFurlough(payload) {
+  const { data } = await api.post("/furloughs", payload);
+  return data;
+}
+export async function updateFurlough(id, payload) {
+  const { data } = await api.put(`/furloughs/${id}`, payload);
+  return data;
+}
+export async function deleteFurlough(id) {
+  await api.delete(`/furloughs/${id}`);
+}
+
+export async function fetchChurchVisits(params = {}) {
+  const { data } = await api.get("/church-visits", { params });
+  return data;
+}
+export async function createChurchVisit(payload) {
+  const { data } = await api.post("/church-visits", payload);
+  return data;
+}
+export async function updateChurchVisit(id, payload) {
+  const { data } = await api.put(`/church-visits/${id}`, payload);
+  return data;
+}
+export async function deleteChurchVisit(id) {
+  await api.delete(`/church-visits/${id}`);
+}
+
+export async function fetchPartnerLinks(params = {}) {
+  const { data } = await api.get("/partner-links", { params });
+  return data;
+}
+export async function createPartnerLink(payload) {
+  const { data } = await api.post("/partner-links", payload);
+  return data;
+}
+export async function updatePartnerLink(id, payload) {
+  const { data } = await api.put(`/partner-links/${id}`, payload);
+  return data;
+}
+export async function deletePartnerLink(id) {
+  await api.delete(`/partner-links/${id}`);
+}
+
+export async function fetchPartnerLanguages(params = {}) {
+  const { data } = await api.get("/partner-languages", { params });
+  return data;
+}
+export async function createPartnerLanguage(payload) {
+  const { data } = await api.post("/partner-languages", payload);
+  return data;
+}
+export async function updatePartnerLanguage(id, payload) {
+  const { data } = await api.put(`/partner-languages/${id}`, payload);
+  return data;
+}
+export async function deletePartnerLanguage(id) {
+  await api.delete(`/partner-languages/${id}`);
+}
+
+export async function fetchTripTypes(params = {}) {
+  const { data } = await api.get("/trip-types", { params });
+  return data;
+}
+export async function createTripType(payload) {
+  const { data } = await api.post("/trip-types", payload);
+  return data;
+}
+export async function updateTripType(id, payload) {
+  const { data } = await api.put(`/trip-types/${id}`, payload);
+  return data;
+}
+export async function deleteTripType(id) {
+  await api.delete(`/trip-types/${id}`);
 }
 
 // Optional { partnerId, tripType, year } filters — the Trip History page

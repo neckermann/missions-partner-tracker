@@ -34,6 +34,8 @@ const publicInclude = {
   // Only the current photo (most recently received) is ever surfaced
   // publicly — never the upload history.
   photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], take: 1 },
+  links: { select: { type: true, url: true } },
+  languages: { select: { language: true, proficiency: true } },
 };
 
 // GET /api/public/partners?kind=missionary|organization

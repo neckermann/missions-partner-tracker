@@ -5,6 +5,7 @@ import {
   fetchGroupMeGroups,
   fetchGroupMeTopics,
 } from "../api/client.js";
+import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 
 // Posts as the admin's own GroupMe identity (the Messages API, not a bot
 // -- GroupMe's Bots API has no awareness of Topics at all). Topics are
@@ -217,7 +218,7 @@ export default function AdminSettingsGroupMe() {
 
   return (
     <div className="admin-shell">
-      <h2>GroupMe</h2>
+      <SettingsPageHeader title="GroupMe" />
       <p style={{ color: "#555" }}>
         Posts new prayer requests, one-time needs, and newsletters to GroupMe Topics as they're added. Turn
         this on in <a href="/admin/settings/features">Enabled Features</a> once it's configured below.

@@ -102,7 +102,7 @@ module.exports = {
         // for them and there is no reason to carry contact details through a
         // path that ends in a downloadable file.
         adults: { select: { id: true, firstName: true, lastName: true, birthday: true } },
-        children: { select: { id: true, name: true, birthday: true } },
+        children: { select: { id: true, firstName: true, lastName: true, birthday: true } },
       },
     });
 

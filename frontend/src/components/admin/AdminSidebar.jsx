@@ -1,197 +1,401 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
-import { fetchCurrentUser, logout } from "../../api/client.js";
+import { logout } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
+import useCurrentUser from "../../hooks/useCurrentUser.js";
+import useNotifications from "../../hooks/useNotifications.js";
 
-// Left sidebar for the whole admin section (list/section pages, detail
-// pages, and forms alike), replacing the old single-row top header nav —
-// with this many sections, a horizontal row got crowded fast, while a
-// vertical list has plenty of room to grow.
-//
-// Missionaries and organizations share one combined list page
-// (AdminPartners) and one nav link — they used to be two separate links,
-// but once a church sets a shared partner term (see Church Settings) those
-// two links read identically, which looked like a bug. "Partners" is the
-// generic default label; it swaps to the church's own term when
-// usePartnerTermInAdmin is on.
-function buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
+// nav item key -> notification category key(s) worth a badge directly on
+// the nav link (zero extra clicks to see "there's something here"). Not
+// every category needs a nav badge; the bell below is the complete list.
+// "trips" sums all 4 trip-related categories into one badge for that
+// single nav link, rather than picking just the most urgent -- same
+// shape a Trip Leader's own minimal nav uses for their one trip's signal.
+const NAV_BADGE_CATEGORIES = {
+  pendingDispatches: ["dispatchesNeedingApproval"],
+  inboundEmail: ["unmatchedEmails"],
+  prayerRequests: ["newPrayerRequests"],
+  oneTimeNeeds: ["newOneTimeNeeds"],
+  trips: [
+    "tripsDepartingSoon",
+    "tripsDepartingSoonIncomplete",
+    "overdueTripRequirements",
+    "tripApplicationsPending",
+  ],
+};
+
+// Same convention as GitHub/Slack notification badges -- a 3+ digit count
+// just stretches a pill meant to be a small circle; the real number is
+// still available via the badge's own title/aria-label.
+function badgeText(count) {
+  return count > 99 ? "99+" : String(count);
+}
+
+function NotificationBell({ categories, totalUnread, markSeen }) {
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState(null);
+  const ref = useRef(null);
+  const btnRef = useRef(null);
+
+  useEffect(() => {
+    function onClickOutside(e) {
+      if (open && ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [open]);
+
+  const withCount = categories.filter((c) => c.count > 0);
+
+  function toggle() {
+    const opening = !open;
+    if (opening && btnRef.current) {
+      // position: fixed, computed from the button's own screen position --
+      // `.admin-sidebar` clips horizontal overflow (overflow-x: hidden, for
+      // its own text-truncation needs elsewhere), which silently clipped
+      // this dropdown down to a sliver when it was just `position:
+      // absolute` nested inside that ancestor. Fixed positioning escapes
+      // that clip (no transformed ancestor sits between here and the
+      // viewport), so the dropdown renders at its real width regardless of
+      // the sidebar's own.
+      const rect = btnRef.current.getBoundingClientRect();
+      setCoords({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen(opening);
+    if (opening) withCount.forEach((c) => markSeen(c.key));
+  }
+
+  return (
+    <div className="admin-sidebar-bell" ref={ref} style={{ position: "relative" }}>
+      <button
+        ref={btnRef}
+        type="button"
+        className="admin-sidebar-bell-btn"
+        title="Notifications"
+        onClick={toggle}
+        aria-expanded={open}
+      >
+        🔔
+        {totalUnread > 0 && (
+          <span className="admin-sidebar-bell-badge" title={`${totalUnread} unread`}>
+            {badgeText(totalUnread)}
+          </span>
+        )}
+      </button>
+      {open && coords && (
+        <div
+          className="admin-sidebar-bell-dropdown"
+          role="menu"
+          style={{ top: coords.top, left: coords.left }}
+        >
+          {withCount.length === 0 ? (
+            <p style={{ margin: 0, color: "#888", fontSize: "0.85rem" }}>Nothing waiting.</p>
+          ) : (
+            withCount.map((c) => (
+              <Link
+                key={c.key}
+                to={c.linkTo}
+                className="admin-sidebar-bell-item"
+                onClick={() => setOpen(false)}
+              >
+                <span aria-hidden="true">{c.icon}</span>
+                <span className="admin-sidebar-bell-item-label">{c.label}</span>
+                <span className="admin-sidebar-bell-item-count">{c.count}</span>
+              </Link>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
   return [
-    { to: "/admin", label: "Home", end: true },
-    { to: "/admin/partners", label: usePartnerTermInAdmin ? partnerTermPlural : "Partners" },
-    enabledFeatures.inboundEmail && { to: "/admin/inbound-email", label: "Unmatched Emails" },
+    { key: "home", to: "/admin", end: true, icon: "🏠", label: "Home" },
+    {
+      key: "partners",
+      to: "/admin/partners",
+      icon: "👤",
+      label: usePartnerTermInAdmin ? partnerTermPlural : "Partners",
+    },
+    enabledFeatures.partnerFiles && {
+      key: "partnerFiles",
+      to: "/admin/partner-files",
+      icon: "📰",
+      label: "Newsletters & Docs",
+    },
+    enabledFeatures.prayerRequests && {
+      key: "prayerRequests",
+      to: "/admin/prayer-requests",
+      icon: "🙏",
+      label: "Prayer Requests",
+    },
+    enabledFeatures.oneTimeNeeds && {
+      key: "oneTimeNeeds",
+      to: "/admin/support/needs",
+      icon: "🎁",
+      label: "One-Time Needs",
+    },
+    enabledFeatures.trips && { key: "trips", to: "/admin/trips", icon: "✈️", label: "Trips" },
     (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
+      key: "pendingDispatches",
       to: "/admin/pending-dispatches",
+      icon: "📨",
       label: "Pending Dispatches",
     },
-    enabledFeatures.partnerFiles && { to: "/admin/partner-files", label: "Newsletters & Docs" },
-    enabledFeatures.prayerRequests && { to: "/admin/prayer-requests", label: "Prayer Requests" },
-    enabledFeatures.oneTimeNeeds && { to: "/admin/support/needs", label: "One-Time Needs" },
-    enabledFeatures.monthlySupport && { to: "/admin/support/monthly", label: "Monthly Support" },
-    // One nav item now -- Trips and Plan a Trip merged into two tabs of
-    // the same page (design review, post-#252): two separate nav items
-    // for what's fundamentally one page made the real Trips/Plan-a-Trip
-    // distinction look like an accidental duplicate, not the two
-    // genuinely different questions they actually answer.
-    enabledFeatures.trips && { to: "/admin/trips", label: "Trips" },
-    enabledFeatures.booklet && { to: "/admin/booklet", label: "Print Booklet" },
-    enabledFeatures.reports && { to: "/admin/reports", label: "Reports" },
+    enabledFeatures.inboundEmail && {
+      key: "inboundEmail",
+      to: "/admin/inbound-email",
+      icon: "📥",
+      label: "Unmatched Email",
+    },
+    enabledFeatures.booklet && { key: "booklet", to: "/admin/booklet", icon: "📘", label: "Print Booklet" },
+    enabledFeatures.reports && { key: "reports", to: "/admin/reports", icon: "📊", label: "Reports" },
   ].filter(Boolean);
 }
 
-function SidebarLink({ to, label, end }) {
+function buildSiteAdminLinks(enabledFeatures) {
+  return [
+    { to: "/admin/settings/about", label: "About & Branding", icon: "🎨" },
+    { to: "/admin/settings/users", label: "Manage Users", icon: "👥" },
+    { to: "/admin/settings/features", label: "Enabled Features", icon: "🧩" },
+    { to: "/admin/settings/system-info", label: "About App", icon: "ℹ️" },
+    enabledFeatures.trips && { to: "/admin/settings/trips", label: "Trips", icon: "✈️" },
+    (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
+      to: "/admin/settings/email",
+      label: "Email",
+      icon: "✉️",
+    },
+    enabledFeatures.groupme && { to: "/admin/settings/groupme", label: "GroupMe", icon: "💬" },
+    enabledFeatures.whatsapp && { to: "/admin/settings/whatsapp", label: "WhatsApp", icon: "📱" },
+    (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
+      to: "/admin/settings/dispatches",
+      label: "Dispatches",
+      icon: "🗓️",
+    },
+    (enabledFeatures.aiExtraction || enabledFeatures.joshuaProject) && {
+      to: "/admin/settings/integrations",
+      label: "Integrations",
+      icon: "🔌",
+    },
+  ].filter(Boolean);
+}
+
+const SIDEBAR_COLLAPSED_KEY = "admin.sidebarCollapsed";
+
+function readSidebarCollapsed() {
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeSidebarCollapsed(value) {
+  try {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, value ? "1" : "0");
+  } catch {
+    // ignore
+  }
+}
+
+function SidebarLink({ to, label, end, icon, badgeCount }) {
   return (
-    <RouterNavLink to={to} end={end} className={({ isActive }) => (isActive ? "active" : undefined)}>
-      {label}
+    <RouterNavLink
+      to={to}
+      end={end}
+      title={label}
+      className={({ isActive }) => (isActive ? "active" : undefined)}
+    >
+      {icon && <span aria-hidden="true">{icon}</span>}
+      <span className="sb-label">{label}</span>
+      {badgeCount > 0 && (
+        <span className="admin-sidebar-nav-badge" title={`${badgeCount}`}>
+          {badgeText(badgeCount)}
+        </span>
+      )}
     </RouterNavLink>
   );
 }
 
-// About Church, Manage Users, Branding, Enabled Features, Backups,
-// System Info -- order as specified, not alphabetical or route order.
-// These six sit together (not with the links below them) since every
-// church needs them regardless of which features are on -- not gated
-// by a feature toggle for the same reason (#195: core admin tooling,
-// not an opt-in feature).
-//
-// Below that, two kinds of optional integration, visually split by what
-// they actually do -- GroupMe and Email both *send and/or receive
-// communications* (Email's own sending/receiving halves are themselves
-// independently gated -- see utils/features.js -- but share one settings
-// page, so one link covers both); Joshua Project and AI Features
-// *pull data in* or process content, never communicate with anyone.
-// isLabel marks a plain section caption (rendered as text, not a link)
-// rather than adding a second collapsible level under Site
-// Administration -- two dividers over nine total sub-items is still far
-// less machinery than a nested expandable group.
-function buildSiteAdminLinks(enabledFeatures) {
-  return [
-    { to: "/admin/settings/about", label: "About Church" },
-    { to: "/admin/settings/users", label: "Manage Users" },
-    { to: "/admin/settings/branding", label: "Branding" },
-    { to: "/admin/settings/features", label: "Enabled Features" },
-    { to: "/admin/settings/backups", label: "Backups" },
-    { to: "/admin/settings/system-info", label: "System Info" },
-    (enabledFeatures.groupme ||
-      enabledFeatures.whatsapp ||
-      enabledFeatures.outboundEmail ||
-      enabledFeatures.inboundEmail) && {
-      label: "Communications",
-      isLabel: true,
-    },
-    (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
-      to: "/admin/settings/email",
-      label: "Email",
-    },
-    enabledFeatures.trips && { to: "/admin/settings/trips", label: "Trips Settings" },
-    enabledFeatures.groupme && { to: "/admin/settings/groupme", label: "GroupMe" },
-    enabledFeatures.whatsapp && { to: "/admin/settings/whatsapp", label: "WhatsApp" },
-    // Schedule(s), GroupMe's content-type mutes, the restricted-partner
-    // safety gate, digest appearance, and (when the public digest is on)
-    // its subscriber counts -- all one page now. The actual queue (what's
-    // waiting to send) is its own top-level "Pending Dispatches" link
-    // above, same "content, not settings" split Unmatched Emails already
-    // has from Email's own settings page. Gated on groupme/whatsapp/outboundEmail
-    // specifically (not inboundEmail, which doesn't drive any
-    // dispatch sending).
-    (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
-      to: "/admin/settings/dispatches",
-      label: "Dispatch Settings",
-    },
-    (enabledFeatures.joshuaProject || enabledFeatures.aiExtraction) && {
-      label: "Integrations",
-      isLabel: true,
-    },
-    enabledFeatures.aiExtraction && { to: "/admin/settings/ai-extraction", label: "AI Features" },
-    enabledFeatures.joshuaProject && { to: "/admin/settings/joshua-project", label: "Joshua Project" },
-  ].filter(Boolean);
+// A Trip Leader (role: "tripLeader") is a scoped guest -- their own
+// trip, logged out, nothing else. No settings gear, no "My Account"
+// (that guest tier has no self-service password change, see
+// AccountSettings.jsx), no partner/prayer/needs/trips nav items, no
+// collapse toggle (nothing here to need the extra room for).
+function TripLeaderSidebar({ scopedTrip, title }) {
+  const navigate = useNavigate();
+  return (
+    <aside className="admin-sidebar no-print">
+      <div className="admin-sidebar-title">
+        <h1
+          className="admin-sidebar-title-text"
+          title={title}
+          style={{ fontSize: "inherit", fontWeight: "inherit", margin: 0 }}
+        >
+          {title}
+        </h1>
+      </div>
+      <nav className="admin-sidebar-nav">
+        {scopedTrip && (
+          <RouterNavLink
+            to={`/admin/trips/${scopedTrip.id}`}
+            className={({ isActive }) => (isActive ? "active" : undefined)}
+          >
+            <span aria-hidden="true">✈️</span>
+            <span className="sb-label">{scopedTrip.label}</span>
+          </RouterNavLink>
+        )}
+        {scopedTrip?.partnerId && (
+          <RouterNavLink
+            to={`/admin/partners/${scopedTrip.partnerId}`}
+            className={({ isActive }) => (isActive ? "active" : undefined)}
+          >
+            <span aria-hidden="true">👤</span>
+            <span className="sb-label">{scopedTrip.partnerLabel || "Partner"}</span>
+          </RouterNavLink>
+        )}
+      </nav>
+      <div className="admin-sidebar-footer">
+        <button
+          type="button"
+          title="Log out"
+          onClick={async () => {
+            await logout();
+            navigate("/login");
+          }}
+        >
+          <span aria-hidden="true">🚪</span>
+          <span className="sb-label">Log out</span>
+        </button>
+      </div>
+    </aside>
+  );
 }
 
 export default function AdminSidebar() {
-  const [currentUser, setCurrentUser] = useState(null);
-  // Manually-toggled OR auto-expanded while already on one of its own
-  // pages, so navigating straight to e.g. /admin/settings/branding (a
-  // bookmark, a page refresh) doesn't leave the group looking collapsed
-  // with no visible indication of where you are.
-  const [expanded, setExpanded] = useState(false);
+  const { loading: userLoading, isAdmin, isTripLeader, scopedTrip } = useCurrentUser();
+  const { categories, totalUnread, markSeen } = useNotifications();
+  const categoryByKey = new Map(categories.map((c) => [c.key, c]));
+  const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
   const navigate = useNavigate();
   const location = useLocation();
   const { churchName, partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
-  const links = buildLinks(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures);
-  const siteAdminLinks = buildSiteAdminLinks(enabledFeatures);
   const title = churchName ? `${churchName} Admin` : "Missions Team Admin";
-  const inSiteAdmin = location.pathname.startsWith("/admin/settings");
-  const showSiteAdmin = expanded || inSiteAdmin;
 
-  useEffect(() => {
-    fetchCurrentUser().then(setCurrentUser);
-  }, []);
+  // Until the role is known, render neither nav -- showing the full admin
+  // nav by default (useCurrentUser's `user` starts null, so isTripLeader
+  // is briefly false on every load) flashed every item a Trip Leader must
+  // never see, for the instant before this resolves.
+  if (userLoading) {
+    return (
+      <aside className="admin-sidebar no-print">
+        <div className="admin-sidebar-title">
+          <h1
+            className="admin-sidebar-title-text"
+            title={title}
+            style={{ fontSize: "inherit", fontWeight: "inherit", margin: 0 }}
+          >
+            {title}
+          </h1>
+        </div>
+      </aside>
+    );
+  }
+
+  if (isTripLeader) return <TripLeaderSidebar scopedTrip={scopedTrip} title={title} />;
+
+  const navItems = buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures).map((item) => {
+    const categoryKeys = NAV_BADGE_CATEGORIES[item.key];
+    const badgeCount = categoryKeys
+      ? categoryKeys.reduce((sum, key) => sum + (categoryByKey.get(key)?.count || 0), 0)
+      : undefined;
+    return badgeCount ? { ...item, badgeCount } : item;
+  });
+  const siteAdminLinks = buildSiteAdminLinks(enabledFeatures);
+  const inSiteAdmin = location.pathname.startsWith("/admin/settings");
+
+  function toggleCollapsed() {
+    setCollapsed((v) => {
+      writeSidebarCollapsed(!v);
+      return !v;
+    });
+  }
+
+  const publicLinkNode = enabledFeatures.publicDirectory ? (
+    <Link to="/" target="_blank" rel="noopener noreferrer" title="View Public Site">
+      <span aria-hidden="true">🌐</span>
+      <span className="sb-label">View Public Site</span>
+    </Link>
+  ) : (
+    enabledFeatures.publicMap && (
+      <Link to="/map" target="_blank" rel="noopener noreferrer" title="View Public Map">
+        <span aria-hidden="true">🌐</span>
+        <span className="sb-label">View Public Map</span>
+      </Link>
+    )
+  );
 
   return (
-    <aside className="admin-sidebar no-print">
-      <h1 className="admin-sidebar-title">{title}</h1>
+    <aside className={collapsed ? "admin-sidebar no-print collapsed" : "admin-sidebar no-print"}>
+      <div className="admin-sidebar-title">
+        <h1
+          className="admin-sidebar-title-text"
+          title={title}
+          style={{ fontSize: "inherit", fontWeight: "inherit", margin: 0 }}
+        >
+          {title}
+        </h1>
+        <span className="admin-sidebar-title-actions">
+          <NotificationBell categories={categories} totalUnread={totalUnread} markSeen={markSeen} />
+          <button
+            type="button"
+            className="admin-sidebar-collapse-btn"
+            onClick={toggleCollapsed}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? "⟩⟩" : "⟨⟨"}
+          </button>
+        </span>
+      </div>
       <nav className="admin-sidebar-nav">
-        {links.map((link) =>
-          link.isLabel ? (
-            <div key={link.label} className="admin-sidebar-subnav-label">
-              {link.label}
-            </div>
-          ) : (
-            <SidebarLink key={link.to} {...link} />
-          )
-        )}
-        {currentUser?.role === "admin" && (
+        {navItems.map(({ key, ...item }) => (
+          <SidebarLink key={key} {...item} />
+        ))}
+        {isAdmin && (
           <>
-            <div className="admin-sidebar-divider" />
-            <button
-              type="button"
-              className="admin-sidebar-group-toggle"
-              aria-expanded={showSiteAdmin}
-              onClick={() => setExpanded((v) => !v)}
+            <RouterNavLink
+              to="/admin/settings"
+              title="Settings"
+              className={inSiteAdmin ? "active" : undefined}
             >
-              Site Administration
-              <span className="admin-sidebar-group-arrow">{showSiteAdmin ? "▾" : "▸"}</span>
-            </button>
-            {showSiteAdmin && (
+              <span aria-hidden="true">⚙️</span>
+              <span className="sb-label">Settings</span>
+            </RouterNavLink>
+            {inSiteAdmin && (
               <div className="admin-sidebar-subnav">
-                {siteAdminLinks.map((link) =>
-                  link.isLabel ? (
-                    <div key={link.label} className="admin-sidebar-subnav-label">
-                      {link.label}
-                    </div>
-                  ) : (
-                    <SidebarLink key={link.to} {...link} />
-                  )
-                )}
+                {siteAdminLinks.map((link) => (
+                  <SidebarLink key={link.to} {...link} />
+                ))}
               </div>
             )}
           </>
         )}
       </nav>
       <div className="admin-sidebar-footer">
-        <SidebarLink to="/admin/account" label="My Account" />
-        {/* Prefers the directory as the primary public entry point; falls
-            back to the map if only that's on, and hides entirely if
-            neither public-facing page is enabled. New tab so following it
-            never navigates the admin itself away from where it was. */}
-        {enabledFeatures.publicDirectory ? (
-          <Link to="/" target="_blank" rel="noopener noreferrer">
-            View public site
-          </Link>
-        ) : (
-          enabledFeatures.publicMap && (
-            <Link to="/map" target="_blank" rel="noopener noreferrer">
-              View public map
-            </Link>
-          )
-        )}
+        {publicLinkNode}
+        <SidebarLink to="/admin/account" label="My Account" icon="🙋" />
         <button
-          className="btn secondary"
+          type="button"
+          title="Log out"
           onClick={async () => {
             await logout();
             navigate("/login");
           }}
         >
-          Log out
+          <span aria-hidden="true">🚪</span>
+          <span className="sb-label">Log out</span>
         </button>
       </div>
     </aside>

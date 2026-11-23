@@ -13,7 +13,7 @@ only)** below — see [Understanding your role](#understanding-your-role).
 
 - [Getting started](#getting-started)
 - [Managing partners & support](#managing-partners--support)
-- [Site Administration](#site-administration)
+- [Settings](#settings)
 - [Communications](#communications)
 - [Integrations](#integrations)
 - [Your account & the public site](#your-account--the-public-site)
@@ -37,7 +37,7 @@ before you can do anything else.
 
 ### Understanding your role
 
-Every user has one of three roles:
+Every user has one of three full roles:
 
 | Role | Can change |
 |---|---|
@@ -59,6 +59,18 @@ account is the whole permission** — treat handing one out the same way you'd
 treat handing someone the filing cabinet key. If you only want someone to
 see what's public, send them the public site; they don't need an account at
 all.
+
+**A 4th, narrower account type: Trip Leader.** This one's the exception
+to "an account is the whole permission" above, on purpose — a Trip Leader
+account is a temporary guest login scoped to a single trip, created from
+Manage Users with a role of "Trip Leader" and a trip picked from a
+dropdown (an optional expiration date can be set too). It can see and
+edit that one trip's own team/meetings/requirements/budget/flights, and
+can view (but not edit) that trip's one linked partner page — nothing
+else in the app. Use it for an actual trip leader or chaperone who needs
+to manage their own trip's logistics without a full account on
+everything else. See [SPEC.md § 5.1](SPEC.md#51-trip-leader--a-scoped-guest-not-a-4th-full-role)
+for the full access list.
 
 If something you expect to see isn't there (a nav link, a button), it's
 almost always a role thing, not a bug — check with whoever manages users
@@ -82,7 +94,7 @@ email sending only),
 — visible to everyone, each one only if its
 [feature toggle](ADMIN_GUIDE.md#feature-toggles) is on.
 
-**Site Administration**, an expandable group at the bottom of the
+**Settings**, an expandable group at the bottom of the
 sidebar, appears only for admins and holds **About Church**,
 [**Manage Users**](#user-management-admin-only), **Branding**,
 [**Enabled Features**](ADMIN_GUIDE.md#feature-toggles),
@@ -583,7 +595,7 @@ Tracked alongside #264/#266. -->
   one; a declined one can still be reconsidered later.
 - **Private application link** — a dedicated "Generate" button
   (appears only once **Allow staff to generate private application
-  links** is on, under Site Administration → Trips Settings) creates a
+  links** is on, under Settings → Trips Settings) creates a
   secret link you share directly — never listed anywhere, reachable
   even for a restricted partner's trip (masked, not blocked — see
   below). **Regenerate** immediately invalidates the old one.
@@ -603,7 +615,7 @@ sends them an email asking for something specific.
 
 ![A participant's own detail page](docs/assets/screenshots/admin-trip-participant-detail.png)
 
-**Site Administration → Trips Settings** holds everything church-wide
+**Settings → Trips Settings** holds everything church-wide
 — donation instructions, whether to track a per-trip budget, the
 application questions every trip shares plus a reusable saved-question
 library, whether to collect an applicant's mailing address/emergency
@@ -771,12 +783,12 @@ the two exceptions, since neither has a feature of its own to tie to.
 
 ![The Reports page, with the Prayer Requests report run](docs/assets/screenshots/reports-preview.png)
 
-## Site Administration
+## Settings
 
 ### Church Settings (Admin only)
 
 One record controls the whole instance's branding, split across two pages
-under Site Administration — changes on either take effect immediately,
+under Settings — changes on either take effect immediately,
 everywhere, with no code changes needed:
 
 - **About Church** — Church Info: name, phone, contact name/email,
@@ -833,7 +845,7 @@ one way back in.
 
 ### Database Backups (Admin only)
 
-**Backups**, under Site Administration, lets any admin download a full
+**Backups**, under Settings, lets any admin download a full
 backup of everything in the database — every partner, user, and uploaded
 file — as a single file, on demand, with no setup required. Nothing is
 kept server-side; the download is the only copy, so save it somewhere
@@ -884,7 +896,7 @@ Dispatches](#pending-dispatches) for the queue itself, and
 [Dispatch Settings](#dispatch-settings-admin-only) for the
 schedule.
 
-Setup, on the **GroupMe** page under Site Administration, builds up in
+Setup, on the **GroupMe** page under Settings, builds up in
 steps:
 
 1. **Access Token** — paste a personal access token from
@@ -936,7 +948,7 @@ WhatsApp — each type to its own group inside one WhatsApp community.
 It's an alternative or addition to [GroupMe](#groupme-dispatch-admin-only):
 a church can use either or both. Off by default — turn it on in [Enabled
 Features](ADMIN_GUIDE.md#feature-toggles), then set it up on the
-**WhatsApp** page under Site Administration (it only appears once the
+**WhatsApp** page under Settings (it only appears once the
 feature is on). **Read [ADMIN_GUIDE.md § Dispatch:
 WhatsApp](ADMIN_GUIDE.md#dispatch-whatsapp) first** — this is an
 unofficial connection and you'll want a dedicated phone number for it.
@@ -1101,7 +1113,7 @@ schedule picks the item up next.
 
 ### Dispatch Settings (Admin only)
 
-The **Dispatch Settings** page under Site Administration → Communications
+The **Dispatch Settings** page under Settings → Communications
 holds every schedule, the chat channels' (GroupMe and WhatsApp) shared
 content-type mutes, the one restricted-partner safety gate, and the
 email dispatch's own appearance —
@@ -1205,7 +1217,7 @@ channel's own connection setup, on its own page):
 
 ### Email (Admin only)
 
-One **Email** page under Site Administration, with two independent
+One **Email** page under Settings, with two independent
 halves — **Sending** and **Receiving** — each with its own on/off switch.
 Both go through [Postmark](https://postmarkapp.com), a dedicated email
 delivery service, not through this church's own Gmail or Microsoft
@@ -1306,7 +1318,7 @@ primary religion, percent evangelical, how reached the country is — on a
 partner's page, pulled live from the [Joshua
 Project](https://joshuaproject.net/). Off by default.
 
-Setup, on the **Joshua Project** page under Site Administration, is one
+Setup, on the **Joshua Project** page under Settings, is one
 step: paste an API key from
 [joshuaproject.net/api/request](https://joshuaproject.net/api/request)
 (free) and **Save API Key** — write-only once saved, same as a password
@@ -1345,7 +1357,7 @@ feature is turned on, via the **Source** dropdown on each request/need's
 Add or Edit form — see [Prayer Requests](#prayer-requests) and
 [Financial support & one-time needs](#financial-support--one-time-needs).
 
-Setup, on the **AI Features** page under Site Administration, is
+Setup, on the **AI Features** page under Settings, is
 one step: paste an API key from
 [console.anthropic.com](https://console.anthropic.com/settings/keys) and
 **Save API Key** — write-only once saved, same as a password field;

@@ -8,6 +8,9 @@ import {
   fetchWhatsAppGroups,
   unlinkWhatsApp,
 } from "../api/client.js";
+import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
+import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
 // Posts as a dedicated WhatsApp number linked to this app as a "linked
 // device" (the same mechanism as WhatsApp Web) -- see
@@ -112,6 +115,7 @@ function GroupSection({ type, settings, communityId, groups, saving, onSave }) {
 }
 
 export default function AdminSettingsWhatsApp() {
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [settings, setSettings] = useState({
     paired: false,
     phoneNumber: null,
@@ -203,13 +207,17 @@ export default function AdminSettingsWhatsApp() {
   }
 
   async function handleUnlink() {
-    if (
-      !window.confirm(
-        "Unlink this WhatsApp number? Dispatching stops immediately and your community and group choices are cleared."
-      )
-    ) {
-      return;
-    }
+    const confirmed = await confirmDialog({
+      title: "Unlink this WhatsApp number?",
+      body: (
+        <ConfirmMessageBody>
+          Dispatching stops immediately and your community and group choices are cleared.
+        </ConfirmMessageBody>
+      ),
+      confirmLabel: "Unlink",
+      danger: true,
+    });
+    if (!confirmed) return;
     setBusy(true);
     setSuccess("");
     setError("");
@@ -299,7 +307,8 @@ export default function AdminSettingsWhatsApp() {
 
   return (
     <div className="admin-shell">
-      <h2>WhatsApp</h2>
+      {confirmElement}
+      <SettingsPageHeader title="WhatsApp" />
       <p style={{ color: "#555" }}>
         Posts new prayer requests, one-time needs, and newsletters to your WhatsApp community groups, on the
         same daily schedule as GroupMe (set under <a href="/admin/settings/dispatches">Dispatch Settings</a>).

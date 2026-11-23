@@ -221,8 +221,8 @@ describe("toPublicPartner — missionary", () => {
     assert.equal(result.emergencyContactName, undefined);
     assert.equal(result.emergencyContactPhone, undefined);
     assert.equal(result.emergencyContactEmail, undefined);
-    assert.equal(result.websiteLink, undefined);
-    assert.equal(result.facebook, undefined);
+    assert.equal(result.links, undefined);
+    assert.equal(result.languages, undefined);
   });
 });
 

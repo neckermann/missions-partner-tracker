@@ -4,10 +4,18 @@ import { fetchPartners, archivePartner, unarchivePartner, deletePartner } from "
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getContinent } from "../utils/countryContinents.js";
 import { matchesSearch } from "../utils/search.js";
-import { formatCurrency, formatDate } from "../utils/format.js";
+import { formatDate } from "../utils/format.js";
 import { addressByType } from "../utils/addresses.js";
+import { PARTNER_TYPE_FILTER_FIELD, INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD } from "../utils/partnerEntity.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
+import StatusPill from "../components/admin/StatusPill.jsx";
+import FilterBar from "../components/shared/FilterBar.jsx";
+import Table from "../components/shared/Table.jsx";
+import useFilterState from "../hooks/useFilterState.js";
+import useLoadMore from "../hooks/useLoadMore.js";
+import LoadMoreButton from "../components/LoadMoreButton.jsx";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 // Same field as backend/src/utils/maskData.js's public `country` -- the
 // physical address's country, nothing else. fipsCountryCode is for Joshua
@@ -19,52 +27,168 @@ function resolveCountry(record) {
   return physical?.country || null;
 }
 
-// The API orders supportEntries by effectiveDate descending, so the first
-// entry (if any) is always the current amount.
-function currentSupport(supportEntries) {
-  return formatCurrency(supportEntries?.[0]?.amount, { fallback: "—" });
-}
-
 // The API orders churchVisits by visitDate descending, so the first entry
 // (if any) is the last visit.
 function lastVisit(churchVisits) {
   return formatDate(churchVisits?.[0]?.visitDate, { fallback: "—" });
 }
 
-// Missionaries and organizations used to have separate list pages, each
-// with its own nav link — once a church sets a shared partner term (see
-// Church Settings), those two links end up reading identically, which
-// looks like a bug rather than a feature. This page combined them in the
-// UI first; they're one underlying record now too, so the merging this
-// page used to do client-side is gone.
+function lastVisitTimestamp(row) {
+  const d = row.churchVisits?.[0]?.visitDate;
+  return d ? new Date(d).getTime() : null;
+}
+
+// "Never visited" deliberately matches the quick bucket's low end
+// ("Never visited" itself) but not "Within.../Over..." -- those ask about
+// a real last-visit date, and a partner with none hasn't earned a bucket
+// either way.
+function matchesLastVisitQuick(row, quick) {
+  if (quick === "all") return true;
+  const ts = lastVisitTimestamp(row);
+  if (quick === "never") return ts === null;
+  if (ts === null) return false;
+  const days = (Date.now() - ts) / 86400000;
+  if (quick === "within1y") return days <= 365;
+  if (quick === "over1y") return days > 365;
+  if (quick === "over2y") return days > 730;
+  if (quick === "over3y") return days > 1095;
+  return true;
+}
+
+const emptyFilters = {
+  entityType: "all",
+  isPublic: "all",
+  restricted: "all",
+  continent: "all",
+  country: "all",
+  includeArchived: false,
+  lastVisitQuick: "all",
+  search: "",
+};
+
+// Missionaries and organizations share one list page and nav link --
+// once a church sets a shared partner term (see Church Settings), two
+// separate links reading identically would look like a bug.
+//
+// type/public/restricted/continent/country are real backend query params
+// (GET /api/partners); `archived` is server-side filterable too. Free-text
+// search stays client-side against the already-filtered result set
+// (matchesSearch over name/field/focus/summary/country) -- debouncing a
+// server round-trip per keystroke isn't worth it for a dataset this size.
+// Last Visit's quick-bucket select is client-side too, for the same
+// reason: it reads churchVisits[0] off a row already fetched for the
+// Last Visit column and its sort, so there's no new request to make it
+// server-side for.
 export default function AdminPartners() {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [partners, setPartners] = useState([]);
-  const [showArchived, setShowArchived] = useState(false);
-  const [typeFilter, setTypeFilter] = useState("all"); // all | missionary | organization
-  const [publicFilter, setPublicFilter] = useState("all"); // all | public | notPublic
-  const [restrictedFilter, setRestrictedFilter] = useState("all"); // all | restricted | notRestricted
-  const [continentFilter, setContinentFilter] = useState("all");
-  const [countryFilter, setCountryFilter] = useState("all");
-  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  // Unfiltered, fetched once -- only used to build the continent/country
+  // <select> option lists from what's actually on file, since the main
+  // `partners` state above is a server-filtered subset and can't be used
+  // for that without the options shrinking/disappearing as a filter narrows.
+  const [allForOptions, setAllForOptions] = useState([]);
   const navigate = useNavigate();
-  const { partnerTermPlural, usePartnerTermInAdmin, churchName } = useSettings();
-  const sentByLabel = `Sent by ${churchName || "Us"}`;
+  const { partnerTermPlural, usePartnerTermInAdmin } = useSettings();
   const sectionTitle = usePartnerTermInAdmin ? partnerTermPlural : "Partners";
+  const { canWrite, isAdmin } = useCurrentUser();
+
+  useEffect(() => {
+    fetchPartners().then(setAllForOptions).catch(console.error);
+  }, []);
+
+  const availableContinents = useMemo(
+    () => [...new Set(allForOptions.map((p) => getContinent(resolveCountry(p))).filter(Boolean))].sort(),
+    [allForOptions]
+  );
+
+  const fields = useMemo(
+    () => [
+      PARTNER_TYPE_FILTER_FIELD,
+      {
+        name: "isPublic",
+        label: "Public",
+        type: "select",
+        options: [
+          { value: "all", label: "All" },
+          { value: "true", label: "Public only" },
+          { value: "false", label: "Not public" },
+        ],
+      },
+      {
+        name: "restricted",
+        label: "Restricted",
+        type: "select",
+        options: [
+          { value: "all", label: "All" },
+          { value: "true", label: "Restricted only" },
+          { value: "false", label: "Not restricted" },
+        ],
+      },
+      {
+        name: "continent",
+        label: "Continent",
+        type: "select",
+        options: [
+          { value: "all", label: "All" },
+          ...availableContinents.map((c) => ({ value: c, label: c })),
+        ],
+      },
+      // `options` here is a placeholder -- useFilterState only ever reads
+      // `name`/`type` off a field (see its own comment), so this is safe to
+      // pass to it before `availableCountries` (below, which itself depends
+      // on `filters.continent`) exists. The real options get merged in for
+      // FilterBar specifically, in `fieldsWithCountryOptions`.
+      { name: "country", label: "Country", type: "select", options: [] },
+      INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
+      {
+        name: "lastVisitQuick",
+        label: "Last Visit",
+        type: "select",
+        options: [
+          { value: "all", label: "Any time" },
+          { value: "never", label: "Never visited" },
+          { value: "within1y", label: "Within 1 year" },
+          { value: "over1y", label: "Over 1 year ago" },
+          { value: "over2y", label: "Over 2 years ago" },
+          { value: "over3y", label: "Over 3 years ago" },
+        ],
+      },
+      { name: "search", label: "Search by name, field, focus, or summary" },
+    ],
+    [availableContinents]
+  );
+  const {
+    values: filters,
+    setValue: updateFilter,
+    reset: resetFilters,
+  } = useFilterState(fields, emptyFilters);
 
   function reload() {
-    fetchPartners().then(setPartners).catch(console.error);
+    setLoading(true);
+    const params = {};
+    if (filters.entityType !== "all") params.kind = filters.entityType;
+    if (filters.isPublic !== "all") params.isPublic = filters.isPublic;
+    if (filters.restricted !== "all") params.restricted = filters.restricted;
+    if (filters.continent !== "all") params.continent = filters.continent;
+    if (filters.country !== "all" && filters.country) params.country = filters.country;
+    if (filters.includeArchived) params.archived = "true";
+    fetchPartners(params)
+      .then(setPartners)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }
 
-  useEffect(reload, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(reload, [
+    filters.entityType,
+    filters.isPublic,
+    filters.restricted,
+    filters.continent,
+    filters.country,
+    filters.includeArchived,
+  ]);
 
-  // Structural type labels (which underlying record this is) are kept
-  // literal regardless of the custom partner term — an admin still needs
-  // to tell a missionary row from an organization row, same reasoning as
-  // the type filter below.
-  // One list from one endpoint now. These rows are summary records (see
-  // partnerSummarySelect in backend/src/routes/partners.js) -- the search
-  // below matches on what's actually here, not on a partner's full history.
   const rows = useMemo(
     () =>
       partners
@@ -79,64 +203,63 @@ export default function AdminPartners() {
           isRestricted: p.isRestricted,
           archived: p.archived,
           sentByOurChurch: p.sentByOurChurch,
-          supportEntries: p.supportEntries,
           churchVisits: p.churchVisits,
           focusArea: p.focusArea,
           overviewShort: p.overviewShort,
           country: resolveCountry(p),
-          continent: getContinent(resolveCountry(p)),
           detailLink: `/admin/partners/${p.id}`,
         }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     [partners]
   );
 
-  const archivedCount = rows.filter((r) => r.archived).length;
-
-  // Built from what's actually on file, not the full world list -- same
-  // reasoning as the public directory's filters. Country options narrow to
-  // the selected continent, if any.
-  const availableContinents = useMemo(
-    () => [...new Set(rows.map((r) => r.continent).filter(Boolean))].sort(),
-    [rows]
-  );
+  // Without ?archived param, the backend already returns both archived and
+  // non-archived rows -- filters.includeArchived both drives the request (so
+  // the archived param narrows server-side when checked) and, since the
+  // unchecked default omits the param entirely (both), still needs a
+  // client-side pass to hide them from the default view.
+  const visibleBeforeSearch = filters.includeArchived ? rows : rows.filter((r) => !r.archived);
   const availableCountries = useMemo(
     () =>
       [
         ...new Set(
-          rows
-            .filter((r) => continentFilter === "all" || r.continent === continentFilter)
-            .map((r) => r.country)
-            .filter(Boolean)
+          allForOptions
+            .map((p) => resolveCountry(p))
+            .filter((c) => c && (filters.continent === "all" || getContinent(c) === filters.continent))
         ),
       ].sort(),
-    [rows, continentFilter]
+    [allForOptions, filters.continent]
   );
-
-  function handleContinentChange(value) {
-    setContinentFilter(value);
-    if (value !== "all" && countryFilter !== "all" && getContinent(countryFilter) !== value) {
-      setCountryFilter("all");
+  const fieldsWithCountryOptions = useMemo(
+    () =>
+      fields.map((f) =>
+        f.name === "country"
+          ? {
+              ...f,
+              options: [
+                { value: "all", label: "All" },
+                ...availableCountries.map((c) => ({ value: c, label: c })),
+              ],
+            }
+          : f
+      ),
+    [fields, availableCountries]
+  );
+  // Switching continent can leave a previously-chosen country no longer in
+  // range (e.g. "Kenya" selected, then continent changed to Asia) -- a
+  // native <select> just silently shows nothing selected in that case
+  // while the stale value keeps filtering the request, so reset it
+  // explicitly instead of leaving that mismatch.
+  useEffect(() => {
+    if (filters.country !== "all" && !availableCountries.includes(filters.country)) {
+      updateFilter("country", "all");
     }
-  }
-
-  const visible = rows
-    .filter((r) => showArchived || !r.archived)
-    .filter((r) => typeFilter === "all" || r.type === typeFilter)
-    .filter((r) => publicFilter === "all" || (publicFilter === "public") === r.isPublic)
-    .filter((r) => restrictedFilter === "all" || (restrictedFilter === "restricted") === r.isRestricted)
-    .filter((r) => continentFilter === "all" || r.continent === continentFilter)
-    .filter((r) => countryFilter === "all" || r.country === countryFilter)
-    .filter((r) => matchesSearch(search, r.name, r.field, r.focusArea, r.overviewShort, r.country));
-
-  function resetFilters() {
-    setTypeFilter("all");
-    setPublicFilter("all");
-    setRestrictedFilter("all");
-    setContinentFilter("all");
-    setCountryFilter("all");
-    setSearch("");
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableCountries]);
+  const visible = visibleBeforeSearch
+    .filter((r) => matchesSearch(filters.search, r.name, r.field, r.focusArea, r.overviewShort, r.country))
+    .filter((r) => matchesLastVisitQuick(r, filters.lastVisitQuick));
+  const partnersLoadMore = useLoadMore(visible, { initialCount: 50, step: 50 });
 
   async function handleArchive(row) {
     const confirmed = await confirmDialog({
@@ -183,195 +306,167 @@ export default function AdminPartners() {
     if (!confirmed) return;
     await deletePartner(row.id);
     reload();
+    fetchPartners().then(setAllForOptions).catch(console.error);
   }
 
   return (
     <div className="admin-shell">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>
-          {sectionTitle} ({visible.length})
-        </h2>
-        <div>
-          <Link to="/admin/partners/new?kind=missionary" className="btn" style={{ marginRight: "0.5rem" }}>
-            + Add Missionary
-          </Link>
-          <Link to="/admin/partners/new?kind=organization" className="btn">
-            + Add Organization
-          </Link>
-        </div>
-      </div>
-
       <div
         style={{
           display: "flex",
+          justifyContent: "space-between",
           alignItems: "center",
-          gap: "1.5rem",
-          marginTop: "0.75rem",
           flexWrap: "wrap",
+          gap: "0.5rem",
         }}
       >
-        <input
-          type="text"
-          placeholder="Search by name, field, focus, or summary..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ width: "auto", minWidth: "220px" }}
-        />
-        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-          Type
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            style={{ width: "auto" }}
-          >
-            <option value="all">All</option>
-            <option value="missionary">Missionaries</option>
-            <option value="organization">Organizations</option>
-          </select>
-        </label>
-        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-          Public
-          <select
-            value={publicFilter}
-            onChange={(e) => setPublicFilter(e.target.value)}
-            style={{ width: "auto" }}
-          >
-            <option value="all">All</option>
-            <option value="public">Public only</option>
-            <option value="notPublic">Not public</option>
-          </select>
-        </label>
-        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-          Restricted
-          <select
-            value={restrictedFilter}
-            onChange={(e) => setRestrictedFilter(e.target.value)}
-            style={{ width: "auto" }}
-          >
-            <option value="all">All</option>
-            <option value="restricted">Restricted only</option>
-            <option value="notRestricted">Not restricted</option>
-          </select>
-        </label>
-        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-          Continent
-          <select
-            value={continentFilter}
-            onChange={(e) => handleContinentChange(e.target.value)}
-            style={{ width: "auto" }}
-          >
-            <option value="all">All</option>
-            {availableContinents.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem", fontWeight: "normal" }}>
-          Country
-          <select
-            value={countryFilter}
-            onChange={(e) => setCountryFilter(e.target.value)}
-            style={{ width: "auto" }}
-          >
-            <option value="all">All</option>
-            {availableCountries.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="admin-checkbox-row">
-          <label>
-            <input
-              type="checkbox"
-              checked={showArchived}
-              onChange={(e) => setShowArchived(e.target.checked)}
-            />
-            Show archived ({archivedCount})
-          </label>
+        <div>
+          <h2 style={{ margin: 0 }}>{sectionTitle}</h2>
+          <p style={{ margin: "0.2rem 0 0", color: "#666" }}>
+            {visible.length} active{" "}
+            {visible.length === 1 ? sectionTitle.toLowerCase().replace(/s$/, "") : sectionTitle.toLowerCase()}
+          </p>
         </div>
-        <button type="button" className="btn secondary small" onClick={resetFilters}>
-          Reset filters
-        </button>
+        {canWrite && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+            <Link to="/admin/partners/new?kind=missionary" className="btn">
+              + Add Missionary
+            </Link>
+            <Link to="/admin/partners/new?kind=organization" className="btn">
+              + Add Organization
+            </Link>
+          </div>
+        )}
       </div>
 
-      <div className="table-scroll">
-        <table className="admin-table" style={{ marginTop: "0.75rem" }}>
-          <thead>
-            <tr>
-              <th>Photo</th>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Field</th>
-              <th>Public</th>
-              <th>Restricted</th>
-              <th>{sentByLabel}</th>
-              <th>Monthly Support</th>
-              <th>Last Visit</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((row) => (
-              <tr
-                key={`${row.type}-${row.id}`}
-                onClick={() => navigate(row.detailLink)}
-                style={{ cursor: "pointer", opacity: row.archived ? 0.6 : 1 }}
-                title="Click to view details"
-              >
-                <td>
-                  {row.photo && (
-                    <img
-                      src={row.photo}
-                      alt={row.name}
-                      className="missionary-thumb"
-                      onError={(e) => (e.target.style.display = "none")}
-                    />
-                  )}
-                </td>
-                <td>
-                  {row.name}
-                  {row.archived && (
-                    <span className="status-pill warn" style={{ marginLeft: "0.5rem" }}>
-                      Archived
-                    </span>
-                  )}
-                </td>
-                <td>{row.typeLabel}</td>
-                <td>{row.field}</td>
-                <td>{row.isPublic ? "Yes" : "No"}</td>
-                <td>{row.isRestricted ? "Yes" : "No"}</td>
-                <td>{row.type === "missionary" ? (row.sentByOurChurch ? "Yes" : "No") : "—"}</td>
-                <td>{currentSupport(row.supportEntries)}</td>
-                <td>{lastVisit(row.churchVisits)}</td>
-                <td className="table-actions" onClick={(e) => e.stopPropagation()}>
-                  {/* The whole row is clickable, but this stays as the
-                      keyboard-reachable way in -- and editing now happens on
-                      the partner's own page, so there's nowhere else to go. */}
-                  <Link to={row.detailLink}>Open</Link>
-                  {row.archived ? (
-                    <>
-                      <button className="btn secondary small" onClick={() => handleUnarchive(row)}>
-                        Unarchive
-                      </button>
-                      <button className="btn danger small" onClick={() => handleDelete(row)}>
-                        Delete
-                      </button>
-                    </>
-                  ) : (
-                    <button className="btn secondary small" onClick={() => handleArchive(row)}>
-                      Archive
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <FilterBar
+        fields={fieldsWithCountryOptions}
+        values={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
+      />
+
+      <Table
+        className="admin-table"
+        style={{ marginTop: "0.75rem" }}
+        rows={partnersLoadMore.visible}
+        rowKey={(row) => `${row.type}-${row.id}`}
+        onRowClick={(row) => navigate(row.detailLink)}
+        emptyMessage={loading ? "Loading…" : "No partners match these filters."}
+        columns={[
+          {
+            key: "photo",
+            label: "Photo",
+            render: (row) =>
+              row.photo ? (
+                <img
+                  src={row.photo}
+                  alt={row.name}
+                  className="missionary-thumb"
+                  onError={(e) => (e.target.style.display = "none")}
+                />
+              ) : (
+                ""
+              ),
+          },
+          {
+            key: "name",
+            label: "Display Name",
+            render: (row) => (
+              <>
+                <span style={{ fontWeight: 600 }}>{row.name}</span>
+                {row.archived && (
+                  <span style={{ marginLeft: "0.5rem" }}>
+                    <StatusPill label="Archived" color="#a6540f" />
+                  </span>
+                )}
+              </>
+            ),
+          },
+          { key: "typeLabel", label: "Type" },
+          { key: "field", label: "Field" },
+          {
+            key: "isPublic",
+            label: "Public",
+            sortable: true,
+            render: (row) =>
+              row.isPublic ? (
+                <StatusPill label="Yes" color="#2a5d3c" />
+              ) : (
+                <StatusPill label="No" color="#6b6f76" />
+              ),
+          },
+          {
+            key: "isRestricted",
+            label: "Restricted",
+            sortable: true,
+            render: (row) =>
+              row.isRestricted ? (
+                <StatusPill label="Yes" color="#a6540f" />
+              ) : (
+                <StatusPill label="No" color="#6b6f76" />
+              ),
+          },
+          {
+            key: "sentByOurChurch",
+            label: "Sent By Us",
+            sortable: true,
+            // Same bland, muted pill for Yes and No -- unlike Public/
+            // Restricted, this isn't a safety or exposure question, just
+            // bookkeeping, so neither state earns the attention a brighter
+            // color would draw. Still a pill, not plain text, for visual
+            // consistency with the rest of the row.
+            render: (row) =>
+              row.type !== "missionary" ? (
+                "—"
+              ) : (
+                <StatusPill label={row.sentByOurChurch ? "Yes" : "No"} color="#6b6f76" />
+              ),
+          },
+          {
+            key: "churchVisits",
+            label: "Last Visit",
+            sortable: true,
+            sortBy: (row) => {
+              const d = row.churchVisits?.[0]?.visitDate;
+              return d ? new Date(d).getTime() : null;
+            },
+            render: (row) => lastVisit(row.churchVisits),
+          },
+        ]}
+        renderActions={(row) => (
+          <>
+            <Link to={row.detailLink} className="btn secondary small">
+              Open
+            </Link>
+            {row.archived ? (
+              <>
+                {canWrite && (
+                  <button className="btn secondary small" onClick={() => handleUnarchive(row)}>
+                    Unarchive
+                  </button>
+                )}
+                {isAdmin && (
+                  <button className="btn danger small" onClick={() => handleDelete(row)}>
+                    Delete
+                  </button>
+                )}
+              </>
+            ) : (
+              canWrite && (
+                <button className="btn secondary small" onClick={() => handleArchive(row)}>
+                  Archive
+                </button>
+              )
+            )}
+          </>
+        )}
+      />
+      <LoadMoreButton
+        hasMore={partnersLoadMore.hasMore}
+        remaining={partnersLoadMore.remaining}
+        onClick={partnersLoadMore.showMore}
+      />
       {confirmElement}
     </div>
   );

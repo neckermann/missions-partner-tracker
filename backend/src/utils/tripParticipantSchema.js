@@ -18,8 +18,12 @@ const participantSchema = z.object({
   // participant-creation route defaults it to the trip's own
   // supportRaisingGoal at that moment (see defaultParticipantGoal).
   supportRaisingGoal: z.coerce.number().int().optional().nullable(),
-  // Only meaningful when the trip's own collectParentGuardianInfo is on
-  // -- see Trip.collectParentGuardianInfo's own schema comment.
+  // Optional/nullable here specifically -- this schema backs admin-direct
+  // participant creation (a historical backfill, or an admin adding
+  // someone outside the public application flow), not the public
+  // application itself, where dateOfBirth is always required (see
+  // publicTripApplications.js). An admin entering a historical record has
+  // no reason to be blocked on it.
   dateOfBirth: z.coerce.date().optional().nullable(),
   parentGuardianFirstName: z.string().optional().nullable(),
   parentGuardianLastName: z.string().optional().nullable(),
@@ -48,12 +52,12 @@ function defaultParticipantGoal(participant, tripGoal) {
 // minors-only requirement never reminds an adult), rather than
 // reimplemented per call site.
 //
-// Missing dateOfBirth or tripStartDate defaults to "not a minor" --
-// dateOfBirth is only ever collected when a church's own
-// collectDateOfBirth/requireDateOfBirth settings call for it, so its
-// absence is routine, not an error; treating an unknown age as adult
-// is the least disruptive default (it never wrongly hides a
-// minors-only requirement from someone who might actually need it).
+// Missing dateOfBirth or tripStartDate defaults to "not a minor" -- the
+// public application always collects and requires it now, but an
+// admin-direct/historical participant (participantSchema above) may still
+// have none on file; treating an unknown age as adult is the least
+// disruptive default (it never wrongly hides a minors-only requirement
+// from someone who might actually need it).
 function isMinorForTrip(dateOfBirth, tripStartDate) {
   if (!dateOfBirth || !tripStartDate) return false;
   const dob = new Date(dateOfBirth);

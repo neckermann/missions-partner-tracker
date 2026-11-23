@@ -61,7 +61,7 @@ before(async () => {
       kind: "missionary",
       displayName: `${FIXTURE_TAG} Birthday Family`,
       adults: [{ firstName: "Adult", lastName: "Fixture", birthday: "1980-03-14" }],
-      children: [{ name: "Child Fixture", birthday: "2015-03-02" }],
+      children: [{ firstName: "Child", lastName: "Fixture", birthday: "2015-03-02" }],
     },
   });
   fixturePartnerId = partner.body.id;

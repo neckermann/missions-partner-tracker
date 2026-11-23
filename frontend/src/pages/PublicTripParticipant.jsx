@@ -44,14 +44,15 @@ export default function PublicTripParticipant() {
   const [submittingSignature, setSubmittingSignature] = useState(false);
   const [uploadingRequirementId, setUploadingRequirementId] = useState(null);
   const [uploadError, setUploadError] = useState("");
-  const [storyDraft, setStoryDraft] = useState(null);
-  const [photoUploading, setPhotoUploading] = useState(false);
-  // Object URL for a just-picked file, shown immediately next to the file
-  // input (not the header above) -- the only existing photo indicator was
-  // that header image, scrolled out of view from the input itself, so
-  // there was no way to tell a photo was already on file (or that a new
-  // pick actually worked) without scrolling up.
-  const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null);
+  // Explicit edit -> save/cancel for the story/photo section below --
+  // nothing saves until Save is clicked, matching every other editable
+  // section in this app (no onBlur/fire-on-select autosave).
+  const [editingPage, setEditingPage] = useState(false);
+  const [pageDraftStory, setPageDraftStory] = useState("");
+  const [pageDraftPhotoDataUrl, setPageDraftPhotoDataUrl] = useState(null);
+  const [pageDraftPhotoContentType, setPageDraftPhotoContentType] = useState(null);
+  const [savingPage, setSavingPage] = useState(false);
+  const [pageSaveError, setPageSaveError] = useState("");
   const selfService = !!accessToken;
 
   const reload = React.useCallback(() => {
@@ -107,34 +108,44 @@ export default function PublicTripParticipant() {
   // Self-service only -- no review step, same trust level as the
   // address/emergency-contact/application answers a participant already
   // self-reports elsewhere with no review.
-  async function handleSaveStory() {
-    if (storyDraft === null) return;
-    await updateTripParticipantSelfService({ token: accessToken, story: storyDraft });
-    setStoryDraft(null);
-    reload();
+  function startEditingPage() {
+    setPageDraftStory(data.story || "");
+    setPageDraftPhotoDataUrl(null);
+    setPageDraftPhotoContentType(null);
+    setPageSaveError("");
+    setEditingPage(true);
   }
 
-  async function handlePhotoChange(file) {
+  function cancelEditingPage() {
+    setEditingPage(false);
+    setPageSaveError("");
+  }
+
+  async function handleDraftPhotoChange(file) {
     if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
-    setPhotoPreviewUrl(previewUrl);
-    setPhotoUploading(true);
+    const dataUrl = await readFileAsDataUrl(file);
+    setPageDraftPhotoDataUrl(dataUrl);
+    setPageDraftPhotoContentType(file.type);
+  }
+
+  async function handleSavePage(e) {
+    e.preventDefault();
+    setSavingPage(true);
+    setPageSaveError("");
     try {
-      const dataUrl = await readFileAsDataUrl(file);
       await updateTripParticipantSelfService({
         token: accessToken,
-        photo: dataUrl,
-        photoContentType: file.type,
+        story: pageDraftStory,
+        ...(pageDraftPhotoDataUrl
+          ? { photo: pageDraftPhotoDataUrl, photoContentType: pageDraftPhotoContentType }
+          : {}),
       });
+      setEditingPage(false);
       await reload();
+    } catch (err) {
+      setPageSaveError(err.response?.data?.error || "Couldn't save -- please try again.");
     } finally {
-      setPhotoUploading(false);
-      // Drop the local preview once `data.hasPhoto`/`tripParticipantPhotoUrl`
-      // has the real, server-confirmed image to show instead -- revoking
-      // before that point (e.g. on a failed upload) would just blank the
-      // image rather than leave a stale one on screen.
-      setPhotoPreviewUrl(null);
-      URL.revokeObjectURL(previewUrl);
+      setSavingPage(false);
     }
   }
 
@@ -235,38 +246,93 @@ export default function PublicTripParticipant() {
               Share this link with family and friends:{" "}
               <code>{`${window.location.origin}/trip-support-raising/${data.shareToken}`}</code>
             </p>
-            <label style={{ display: "block", marginTop: "0.6rem" }}>
-              Your story (shown on your public page)
-              <textarea
-                rows={3}
-                defaultValue={data.story || ""}
-                onChange={(e) => setStoryDraft(e.target.value)}
-                onBlur={handleSaveStory}
-              />
-            </label>
-            <label style={{ display: "block", marginTop: "0.6rem" }}>
-              Your photo
-              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "0.3rem" }}>
-                {(photoPreviewUrl || data.hasPhoto) && (
-                  <img
-                    src={photoPreviewUrl || tripParticipantPhotoUrl(data.id)}
-                    alt=""
-                    style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+            {!editingPage ? (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "0.6rem" }}>
+                  {data.hasPhoto && (
+                    <img
+                      src={tripParticipantPhotoUrl(data.id)}
+                      alt=""
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                  <p style={{ margin: 0, color: "#555" }}>{data.story || "No story set yet."}</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  style={{ marginTop: "0.6rem" }}
+                  onClick={startEditingPage}
+                >
+                  Edit your story &amp; photo
+                </button>
+              </>
+            ) : (
+              <form onSubmit={handleSavePage} style={{ marginTop: "0.6rem" }}>
+                <label style={{ display: "block" }}>
+                  Your story (shown on your public page)
+                  <textarea
+                    rows={3}
+                    value={pageDraftStory}
+                    onChange={(e) => setPageDraftStory(e.target.value)}
                   />
+                </label>
+                <label style={{ display: "block", marginTop: "0.6rem" }}>
+                  Your photo
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "0.3rem" }}>
+                    {(pageDraftPhotoDataUrl || data.hasPhoto) && (
+                      <img
+                        src={pageDraftPhotoDataUrl || tripParticipantPhotoUrl(data.id)}
+                        alt=""
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(e) => handleDraftPhotoChange(e.target.files[0] || null)}
+                    />
+                  </div>
+                  {!pageDraftPhotoDataUrl && !data.hasPhoto && (
+                    <span
+                      style={{ display: "block", fontSize: "0.8rem", color: "#888", marginTop: "0.2rem" }}
+                    >
+                      No photo on file yet.
+                    </span>
+                  )}
+                </label>
+                {pageSaveError && (
+                  <p className="form-error" role="alert" style={{ marginTop: "0.6rem" }}>
+                    {pageSaveError}
+                  </p>
                 )}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(e) => handlePhotoChange(e.target.files[0] || null)}
-                />
-              </div>
-              {!photoPreviewUrl && !data.hasPhoto && (
-                <span style={{ display: "block", fontSize: "0.8rem", color: "#888", marginTop: "0.2rem" }}>
-                  No photo on file yet.
-                </span>
-              )}
-              {photoUploading && <span style={{ fontSize: "0.8rem", color: "#888" }}> Uploading…</span>}
-            </label>
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+                  <button type="submit" className="btn small" disabled={savingPage}>
+                    {savingPage ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    onClick={cancelEditingPage}
+                    disabled={savingPage}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         )}
 
@@ -429,14 +495,16 @@ export default function PublicTripParticipant() {
         )}
 
         {/* Shared files from the admin's own "Trip-wide documents" section
-        (AdminTripDetail.jsx) -- an itinerary, packing list, etc. Previously
-        fetched by this page's own data route but never exposed in the
-        response or rendered anywhere, so no participant could ever see one
-        despite the admin page's own copy calling them "shared with the
-        whole team." */}
+        (AdminTripRequirements.jsx) -- an itinerary, packing list, etc.
+        Previously fetched by this page's own data route but never exposed in
+        the response or rendered anywhere, so no participant could ever see
+        one despite the admin page's own copy calling them "shared with the
+        whole team." Labeled for this audience ("Documents for this trip"),
+        not copied verbatim from the admin-internal "Trip-wide" label, which
+        only means something to an admin managing many trips' files at once. */}
         {selfService && data.tripWideDocuments?.length > 0 && (
           <div className="admin-section">
-            <h3>Trip-wide documents</h3>
+            <h3>Documents for this trip</h3>
             <ul style={{ listStyle: "none", padding: 0 }}>
               {data.tripWideDocuments.map((doc) => (
                 <li key={doc.id} style={{ marginBottom: "0.3rem" }}>
