@@ -12,6 +12,7 @@ import { passwordsMatch } from "../utils/password.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import MfaAppGuide from "../components/MfaAppGuide.jsx";
+import ThemeToggle from "../components/shared/ThemeToggle.jsx";
 
 const emptyPasswordDraft = { currentPassword: "", newPassword: "", confirmPassword: "" };
 
@@ -49,7 +50,7 @@ export default function AccountSettings() {
     <div className="admin-shell" style={{ maxWidth: 480 }}>
       <h2>My Account</h2>
       {user && (
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           Signed in as <strong>{user.email}</strong> ({user.role})
         </p>
       )}
@@ -60,7 +61,7 @@ export default function AccountSettings() {
           value={emptyPasswordDraft}
           onSave={savePassword}
           onSaved={() => {}}
-          view={() => <p style={{ color: "#555" }}>•••••••• — click Edit to change your password.</p>}
+          view={() => <p style={{ color: "var(--muted)" }}>•••••••• — click Edit to change your password.</p>}
           edit={(draft, set) => (
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               <label>
@@ -99,6 +100,15 @@ export default function AccountSettings() {
 
       {user?.authProvider === "local" && <MfaSection user={user} onChange={reloadUser} />}
       {user && enabledFeatures.outboundEmail && <EmailDispatchSection user={user} onChange={reloadUser} />}
+
+      <div className="admin-section">
+        <h3>Appearance</h3>
+        <p style={{ color: "var(--muted)" }}>
+          Light, dark, or match your system setting. This is saved on this browser only -- it doesn't follow
+          you to another device.
+        </p>
+        <ThemeToggle />
+      </div>
     </div>
   );
 }
@@ -155,7 +165,7 @@ function EmailDispatchSection({ user, onChange }) {
       value={value}
       onSave={save}
       view={(v) => (
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           {CADENCE_LABELS[v.cadence]}
           {v.cadence
             ? v.allPartners
@@ -209,7 +219,9 @@ function EmailDispatchSection({ user, onChange }) {
                   }}
                 >
                   {partners.length === 0 ? (
-                    <p style={{ color: "#555", fontSize: "0.9rem", margin: 0 }}>No partners available.</p>
+                    <p style={{ color: "var(--muted)", fontSize: "0.9rem", margin: 0 }}>
+                      No partners available.
+                    </p>
                   ) : (
                     partners.map((p) => (
                       <div className="admin-checkbox-row" key={p.id}>
@@ -305,15 +317,17 @@ function MfaSection({ user, onChange }) {
     <div className="admin-section">
       <h3>Two-Factor Authentication</h3>
 
-      {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-      {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
+      {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
+      {success && <p style={{ color: "var(--brand-color-safe, #2a5d3c)" }}>{success}</p>}
 
       {user.mfaEnabled ? (
         <>
           <p>
             <span className="status-pill good">Enabled</span>
           </p>
-          <p style={{ color: "#555" }}>Your account requires a code from your authenticator app at login.</p>
+          <p style={{ color: "var(--muted)" }}>
+            Your account requires a code from your authenticator app at login.
+          </p>
           <form
             onSubmit={handleDisable}
             style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: 320 }}
@@ -345,7 +359,7 @@ function MfaSection({ user, onChange }) {
           >
             <p>Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):</p>
             <img src={setupData.qrCode} alt="MFA QR code" style={{ width: 200, height: 200 }} />
-            <p style={{ fontSize: "0.85rem", color: "#555" }}>
+            <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
               Can't scan it? Enter this code manually: <code>{setupData.secret}</code>
             </p>
             <label>
@@ -382,7 +396,7 @@ function MfaSection({ user, onChange }) {
           <p>
             <span className="status-pill">Disabled</span>
           </p>
-          <p style={{ color: "#555" }}>
+          <p style={{ color: "var(--muted)" }}>
             Add an extra step at login using an authenticator app on your phone.
           </p>
           <button className="btn" onClick={handleStartSetup} disabled={busy}>

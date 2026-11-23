@@ -16,16 +16,117 @@
 :root {
   --heading-font: Sora, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --body-font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Theme tokens (#283) -- light/dark/system appearance.
+     --------------------------------------------------------------------
+     Canonical token set (same names/roles as the design-reference mockup
+     -- see STYLE-GUIDE.md's design-tokens table): --bg/--surface/
+     --surface-2/--text/--muted/--border/--accent/--accent-soft/--warn/
+     --warn-soft/--danger/--shadow. Every value below is this app's
+     EXISTING light-mode literal (body background #f7f5f0, body text
+     #222, the old --border-soft/--muted-text/--shadow-card values, the
+     .status-pill.warn/.field-warning/.btn.danger colors, ...), so turning
+     this on changes nothing yet -- dark mode only exists once the
+     overrides further down apply.
+
+     --muted-text/--border-soft/--shadow-card are kept as aliases (not
+     removed) because dozens of existing rules in this file already
+     reference them by those names -- pointing the alias at the
+     canonical var() means every one of those rules becomes theme-aware
+     for free, without touching each rule individually. New rules should
+     reach for the canonical name directly. */
+  --bg: #f7f5f0;
   --surface: #ffffff;
   --surface-2: #f4f5f7;
-  --border-soft: #dde1e7;
-  --muted-text: #677080;
-  --shadow-card: 0 1px 2px rgba(20, 25, 30, 0.06), 0 8px 24px rgba(20, 25, 30, 0.05);
+  --text: #222222;
+  --muted: #677080;
+  --border: #dde1e7;
+  --accent: #2a5d3c;
+  --accent-soft: #e4f0ec;
+  --warn: #b45309;
+  --warn-soft: #fffbeb;
+  --danger: #b91c1c;
+  --shadow: 0 1px 2px rgba(20, 25, 30, 0.06), 0 8px 24px rgba(20, 25, 30, 0.05);
+  color-scheme: light;
+
+  /* Back-compat aliases -- see the comment above. */
+  --border-soft: var(--border);
+  --muted-text: var(--muted);
+  --shadow-card: var(--shadow);
+
+  /* Dark-mode-safe derived variants of the per-church brand colors
+     (ChurchSettings.primaryColor/highlightColor -> --brand-color/
+     --brand-highlight-color, set as an INLINE style on <html> by
+     SettingsContext.jsx when a church has configured one). An inline
+     style always wins over any rule in this file, so the dark-mode
+     blocks below can never override --brand-color/--brand-highlight-color
+     themselves once a church sets one -- only a var() that reads them
+     through color-mix() can adjust how they're *used*. In light mode
+     these just pass the real value through unchanged; in dark mode they
+     lighten it (mixed toward white) so a church's own accent stays
+     legible as foreground text/icons/borders on a now-dark surface
+     instead of reading as a raw, too-dark swatch. Only use these -safe
+     variants where the brand color is a TEXT/border/outline color sitting
+     on --surface/--bg -- a brand color used as a solid fill WITH WHITE
+     TEXT ON TOP (.btn, .status-pill.good, badges) keeps the raw variable:
+     that pairing's contrast ratio doesn't depend on the page's own
+     light/dark theme. */
+  --brand-color-safe: var(--brand-color, #2a5d3c);
+  --brand-highlight-color-safe: var(--brand-highlight-color, #a6540f);
+
   --radius-lg: 16px;
   --radius-md: 10px;
   --radius-sm: 7px;
   --radius-pill: 999px;
 }
+
+/* System default: no manual override, OS/browser says dark. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14171b;
+    --surface: #1b1f24;
+    --surface-2: #20252b;
+    --text: #e8eaed;
+    --muted: #9aa3b0;
+    --border: #2b3038;
+    --accent: #5fb39f;
+    --accent-soft: #1f2e2a;
+    --warn: #d7ab5e;
+    --warn-soft: #2e2717;
+    --danger: #e08080;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+    --brand-color-safe: color-mix(in srgb, var(--brand-color, #2a5d3c) 55%, white);
+    --brand-highlight-color-safe: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 55%, white);
+  }
+}
+
+/* Manual override: data-theme="dark"|"light" on <html>, set by
+   ThemeToggle.jsx/useTheme.js and persisted to localStorage. "system"
+   means no attribute at all, which is why there's no `[data-theme="system"]`
+   block -- that state is just "let the media query above decide." */
+:root[data-theme="dark"] {
+  --bg: #14171b;
+  --surface: #1b1f24;
+  --surface-2: #20252b;
+  --text: #e8eaed;
+  --muted: #9aa3b0;
+  --border: #2b3038;
+  --accent: #5fb39f;
+  --accent-soft: #1f2e2a;
+  --warn: #d7ab5e;
+  --warn-soft: #2e2717;
+  --danger: #e08080;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+  --brand-color-safe: color-mix(in srgb, var(--brand-color, #2a5d3c) 55%, white);
+  --brand-highlight-color-safe: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 55%, white);
+}
+/* data-theme="light" needs no block of its own -- its whole job is to be
+   MORE specific than the dark media query above so it wins and nothing
+   overrides the plain :root light values declared at the top of this
+   file; :not([data-theme="light"]) in that media query is what makes
+   this work. */
 h1,
 h2,
 h3,
@@ -52,11 +153,11 @@ h4,
 body {
   margin: 0;
   font-family: var(--brand-font, var(--body-font));
-  background: #f7f5f0;
-  color: #222;
+  background: var(--bg);
+  color: var(--text);
 }
 a {
-  color: var(--brand-color, #2a5d3c);
+  color: var(--brand-color-safe, #2a5d3c);
 }
 /* A <button> styled to read as an inline link, for a summary-card item
    that opens a popup (PartnerSummaryCard.jsx) rather than navigating --
@@ -69,12 +170,12 @@ a {
   margin: 0;
   font: inherit;
   text-align: left;
-  color: var(--brand-color, #2a5d3c);
+  color: var(--brand-color-safe, #2a5d3c);
   text-decoration: underline;
   cursor: pointer;
 }
 .summary-item-link:hover {
-  color: var(--brand-highlight-color, #a6540f);
+  color: var(--brand-highlight-color-safe, #a6540f);
 }
 
 .app-header {
@@ -213,10 +314,10 @@ a {
      top/left come from AdminSidebar.jsx's own getBoundingClientRect, not
      this stylesheet. */
   position: fixed;
-  background: white;
-  color: #222;
+  background: var(--surface);
+  color: var(--text);
   border-radius: var(--radius-sm, 6px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow);
   padding: 0.5rem;
   min-width: 320px;
   max-width: 400px;
@@ -228,7 +329,7 @@ a {
   gap: 0.5rem;
   padding: 0.4rem 0.5rem;
   border-radius: var(--radius-sm, 6px);
-  color: #222 !important;
+  color: var(--text) !important;
   text-decoration: none;
 }
 .admin-sidebar-bell-item:hover {
@@ -241,7 +342,7 @@ a {
 .admin-sidebar-bell-item-count {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--brand-highlight-color, #a6540f);
+  color: var(--brand-highlight-color-safe, #a6540f);
 }
 .admin-sidebar-nav-badge {
   margin-left: auto;
@@ -270,6 +371,35 @@ a {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+}
+/* The sidebar bar itself is always a colored, dark surface with white text
+   regardless of the page's own light/dark theme (see the comment on
+   .admin-sidebar above) -- its own compact ThemeToggle instance matches
+   that bar's existing on-dark button convention (rgba(255,255,255,.12),
+   white text) instead of the page-theme-driven --surface-2/--muted/--text
+   tokens ThemeToggle uses everywhere else, which would be the wrong
+   contrast pairing sitting on an arbitrary brand header color. Hidden
+   entirely when the sidebar is collapsed -- no room for a 3-way control,
+   and Account Settings always has the full one. */
+.admin-sidebar-theme-toggle {
+  margin-bottom: 0.4rem;
+}
+.admin-sidebar.collapsed .admin-sidebar-theme-toggle {
+  display: none;
+}
+.admin-sidebar-theme-toggle .theme-toggle {
+  background: rgba(255, 255, 255, 0.12);
+  width: 100%;
+  justify-content: space-between;
+}
+.admin-sidebar-theme-toggle .theme-toggle-btn {
+  flex: 1;
+  color: rgba(255, 255, 255, 0.75);
+}
+.admin-sidebar-theme-toggle .theme-toggle-btn.active {
+  background: rgba(255, 255, 255, 0.22);
+  color: white;
+  box-shadow: none;
 }
 .admin-sidebar-nav a,
 .admin-sidebar-nav button,
@@ -515,9 +645,9 @@ a {
   display: block;
   margin-top: 0.4rem;
   padding: 0.5rem 0.6rem;
-  border-left: 3px solid #b45309;
-  background: #fffbeb;
-  color: #7c2d12;
+  border-left: 3px solid var(--warn);
+  background: var(--warn-soft);
+  color: var(--text);
   font-size: 0.8rem;
   font-weight: 400;
   line-height: 1.4;
@@ -753,28 +883,28 @@ a {
 .breadcrumb {
   display: block;
   font-size: 0.8rem;
-  color: #6b6f76;
+  color: var(--muted);
   margin-bottom: 0.5rem;
   position: sticky;
   top: 0;
   z-index: 11;
-  background: #f7f5f0;
+  background: var(--bg);
   padding: 0.5rem 0;
 }
 .breadcrumb a {
-  color: #6b6f76;
+  color: var(--muted);
   text-decoration: none;
 }
 .breadcrumb a:hover {
-  color: #1f2a37;
+  color: var(--text);
   text-decoration: underline;
 }
 .breadcrumb-sep {
   margin: 0 0.35rem;
-  color: #b7b3ab;
+  color: var(--border);
 }
 .breadcrumb-current {
-  color: #1f2a37;
+  color: var(--text);
   font-weight: 600;
 }
 .admin-table {
@@ -891,7 +1021,7 @@ a {
   background: #666;
 }
 .btn.danger {
-  background: #b91c1c;
+  background: var(--danger);
 }
 .btn.small {
   padding: 0.25rem 0.6rem;
@@ -930,10 +1060,10 @@ a {
 .table-actions-stack > .table-actions-row:last-child {
   justify-content: flex-end;
   padding-top: 0.5rem;
-  border-top: 1px solid #e0ded9;
+  border-top: 1px solid var(--border);
 }
 .table-actions-as {
-  color: #777;
+  color: var(--muted);
   font-size: 0.85rem;
 }
 
@@ -942,7 +1072,7 @@ a {
   flex-direction: column;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #444;
+  color: var(--text);
   gap: 0.3rem;
 }
 .admin-shell input,
@@ -952,9 +1082,10 @@ a {
   font-size: 0.9rem;
   font-weight: normal;
   width: 100%;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border);
   border-radius: 4px;
-  background: white;
+  background: var(--surface);
+  color: var(--text);
 }
 .admin-shell textarea {
   min-height: 90px;
@@ -1002,7 +1133,7 @@ a {
   border: none;
   background: transparent;
   font-size: inherit;
-  color: #222;
+  color: var(--text);
   outline: none;
   min-width: 160px;
   padding: 0;
@@ -1017,16 +1148,16 @@ a {
   line-height: 1;
 }
 .filter-search-clear:hover {
-  color: #222;
+  color: var(--text);
 }
 .filter-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
   font-size: 0.78rem;
-  border: 1px solid var(--brand-highlight-color, #a6540f);
-  background: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 12%, white);
-  color: var(--brand-highlight-color, #a6540f);
+  border: 1px solid var(--brand-highlight-color-safe, #a6540f);
+  background: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 12%, var(--surface));
+  color: var(--brand-highlight-color-safe, #a6540f);
   border-radius: var(--radius-pill);
   padding: 0.35rem 0.7rem;
   font-weight: 600;
@@ -1071,8 +1202,8 @@ a {
   cursor: pointer;
 }
 .add-filter-chip:hover {
-  border-color: var(--brand-highlight-color, #a6540f);
-  color: var(--brand-highlight-color, #a6540f);
+  border-color: var(--brand-highlight-color-safe, #a6540f);
+  color: var(--brand-highlight-color-safe, #a6540f);
 }
 .filter-popover-panel {
   position: absolute;
@@ -1098,11 +1229,11 @@ a {
   cursor: pointer;
 }
 .filter-popover-panel .fp-item:hover {
-  background: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 12%, white);
+  background: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 12%, var(--surface));
 }
 .clear-all-link {
   font-size: 0.78rem;
-  color: var(--brand-color, #2a5d3c);
+  color: var(--brand-color-safe, #2a5d3c);
   font-weight: 600;
   cursor: pointer;
   background: none;
@@ -1141,10 +1272,10 @@ a {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: white;
-  border-top: 1px solid #e2e2e2;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
   padding: 0.85rem 1.5rem;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
   z-index: 50;
 }
 .admin-section {
@@ -1185,7 +1316,7 @@ a {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  background: #f7f5f0;
+  background: var(--bg);
   padding: 0.6rem 0;
   margin-bottom: 0.5rem;
 }
@@ -1193,21 +1324,21 @@ a {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
-  color: #555;
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 .admin-section h3 {
   margin: 0 0 1rem;
   font-size: 1rem;
-  color: var(--brand-color, #2a5d3c);
-  border-bottom: 1px solid #eee;
+  color: var(--brand-color-safe, #2a5d3c);
+  border-bottom: 1px solid var(--border);
   padding-bottom: 0.5rem;
 }
 .admin-section h4 {
   margin: 1rem 0 0.75rem;
   font-size: 0.85rem;
-  color: #555;
+  color: var(--muted);
 }
 
 /* Settings sub-nav (Church Settings > Theme/Features/Users/...) -- an
@@ -1219,12 +1350,12 @@ a {
   display: flex;
   flex-wrap: wrap;
   gap: 1.5rem;
-  border-bottom: 1px solid #e2e2e2;
+  border-bottom: 1px solid var(--border);
   margin: 0.5rem 0 1.5rem;
 }
 .admin-settings-tabs a {
   padding: 0.6rem 0.1rem;
-  color: #666;
+  color: var(--muted);
   text-decoration: none;
   font-size: 0.9rem;
   font-weight: 600;
@@ -1232,11 +1363,11 @@ a {
   margin-bottom: -1px;
 }
 .admin-settings-tabs a:hover {
-  color: #222;
+  color: var(--text);
 }
 .admin-settings-tabs a.active {
-  color: var(--brand-highlight-color, #a6540f);
-  border-bottom-color: var(--brand-highlight-color, #a6540f);
+  color: var(--brand-highlight-color-safe, #a6540f);
+  border-bottom-color: var(--brand-highlight-color-safe, #a6540f);
 }
 
 .admin-checkbox-row {
@@ -1257,10 +1388,10 @@ a {
      real screenshot) and no better on touch, which has no hover state to
      reveal it. A faint standing background/border makes it read as a
      clickable control at rest, not just on hover. */
-  background: #fdf0ef;
-  border: 1px solid #f3d4d2;
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--surface));
   border-radius: 4px;
-  color: #b91c1c;
+  color: var(--danger);
   font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
@@ -1268,19 +1399,19 @@ a {
 }
 .btn-remove:hover,
 .btn-remove:focus-visible {
-  background: #fbe0de;
-  border-color: #e9b3af;
-  color: #7f1616;
+  background: color-mix(in srgb, var(--danger) 20%, var(--surface));
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--surface));
+  color: var(--danger);
 }
 
 .repeatable-row {
   position: relative;
-  border: 1px solid #e2e2e2;
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 1rem;
   padding-right: 2.5rem;
   margin-bottom: 0.75rem;
-  background: #fafaf8;
+  background: var(--surface-2);
 }
 .repeatable-row .btn-remove {
   position: absolute;
@@ -1294,7 +1425,7 @@ a {
   background: var(--surface-2);
 }
 .repeatable-row-clickable:focus-visible {
-  outline: 2px solid var(--brand-highlight-color, #a6540f);
+  outline: 2px solid var(--brand-highlight-color-safe, #a6540f);
   outline-offset: 2px;
 }
 
@@ -1318,9 +1449,9 @@ a {
 .country-stats-panel {
   margin-top: 0.5rem;
   padding: 0.75rem 1rem;
-  border: 1px solid #e2e2e2;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fafaf8;
+  background: var(--surface-2);
   font-size: 0.85rem;
 }
 .country-stats-title {
@@ -1334,7 +1465,7 @@ a {
   margin: 0;
 }
 .country-stats-grid dt {
-  color: #666;
+  color: var(--muted);
   font-weight: 500;
 }
 .country-stats-grid dd {
@@ -1416,7 +1547,7 @@ a {
 .country-stats-source {
   margin: 0.5rem 0 0;
   font-size: 0.75rem;
-  color: #888;
+  color: var(--muted);
 }
 
 .status-pill {
@@ -1426,10 +1557,10 @@ a {
   padding: 0.15rem 0.6rem;
   border-radius: var(--radius-pill);
   background: var(--surface-2);
-  color: #444;
+  color: var(--text);
 }
 .status-pill.warn {
-  background: #b45309;
+  background: var(--warn);
   color: white;
 }
 .status-pill.good {
@@ -1479,7 +1610,7 @@ a {
   transform: translateX(18px);
 }
 .admin-shell input[type="checkbox"]:focus-visible {
-  outline: 2px solid var(--brand-highlight-color, #a6540f);
+  outline: 2px solid var(--brand-highlight-color-safe, #a6540f);
   outline-offset: 2px;
 }
 .admin-shell input[type="checkbox"]:disabled {
@@ -1507,8 +1638,8 @@ a {
     border-color 0.15s;
 }
 .admin-card:hover {
-  border-color: var(--brand-highlight-color, #a6540f);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  border-color: var(--brand-highlight-color-safe, #a6540f);
+  box-shadow: var(--shadow);
 }
 /* Eyebrow category label (e.g. "Communications", "Trips") shown above a
    card's title -- CardGrid.jsx's optional `category` field. Omitted
@@ -1518,20 +1649,20 @@ a {
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--brand-color, #2a5d3c);
+  color: var(--brand-color-safe, #2a5d3c);
   font-weight: 700;
   margin-bottom: 0.35rem;
 }
 .admin-card h3 {
   margin: 0 0 0.5rem;
-  color: var(--brand-color, #2a5d3c);
+  color: var(--brand-color-safe, #2a5d3c);
 }
 .admin-card-icon {
   margin-right: 0.4rem;
 }
 .admin-card p {
   margin: 0;
-  color: #555;
+  color: var(--muted);
   font-size: 0.9rem;
 }
 
@@ -1857,7 +1988,7 @@ a {
   color: inherit;
 }
 .recent-chip:hover {
-  border-color: var(--brand-highlight-color, #a6540f);
+  border-color: var(--brand-highlight-color-safe, #a6540f);
 }
 .recent-chip b {
   display: block;
@@ -1886,7 +2017,7 @@ a {
   background: var(--border-soft);
 }
 .wizard-progress div.done {
-  background: var(--brand-color, #2a5d3c);
+  background: var(--brand-color-safe, #2a5d3c);
 }
 
 /* Reports: the summary tiles above a report's table. Same surface, border,
@@ -1910,13 +2041,13 @@ a {
 }
 .report-summary-item dt {
   font-size: 0.8rem;
-  color: #555;
+  color: var(--muted);
 }
 .report-summary-item dd {
   margin: 0.15rem 0 0;
   font-size: 1.35rem;
   font-weight: 700;
-  color: var(--brand-color, #2a5d3c);
+  color: var(--brand-color-safe, #2a5d3c);
 }
 @media print {
   .report-summary-item {
@@ -1961,14 +2092,52 @@ button.report-summary-item[aria-pressed="true"] {
 .report-summary-label {
   display: block;
   font-size: 0.8rem;
-  color: #555;
+  color: var(--muted);
 }
 .report-summary-value {
   display: block;
   margin-top: 0.15rem;
   font-size: 1.35rem;
   font-weight: 700;
-  color: var(--brand-color, #2a5d3c);
+  color: var(--brand-color-safe, #2a5d3c);
+}
+
+/* Appearance toggle (#283) -- ThemeToggle.jsx. Same segmented-control
+   shape as the design-reference mockup's own "Appearance" control
+   (.seg/.seg-btn there), renamed to this app's own naming convention. */
+.theme-toggle {
+  display: inline-flex;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 2px;
+}
+.theme-toggle-btn {
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.theme-toggle-btn.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+.theme-toggle-btn:hover:not(.active) {
+  color: var(--text);
+}
+.theme-toggle-btn:focus-visible {
+  outline: 2px solid var(--brand-highlight-color-safe, #a6540f);
+  outline-offset: 2px;
+}
+.theme-toggle-compact .theme-toggle-btn {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.72rem;
 }
 
 .report-summary .sr-only {

@@ -14,6 +14,9 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Added
+- Admin light/dark/system appearance toggle — a System/Light/Dark segmented control on My Account (and a compact copy in the sidebar footer) that persists per-browser via `localStorage`, with no backend/`ChurchSettings` change. System follows the OS via `prefers-color-scheme`; Light/Dark pin it with a `data-theme` attribute on `<html>`. A church's configured brand colors (`primaryColor`/`headerColor`/`highlightColor`) are respected in both modes — dark mode uses a lightened, contrast-safe derived variant for brand color used as text/foreground, not the raw configured color unchanged. Covers the admin shell/sidebar, shared primitives (buttons, modals, tables, forms, `StatusPill`, filter bar, wizard), and the Home/Partners/Partner Detail/Account Settings pages. Known incomplete: the public-facing site (directory/map/partner detail/subscribe) and the print-oriented Reports/Booklet screens weren't audited for dark mode. (#283)
+
 ## [0.3.0] - 2026-11-23
 
 ### Added

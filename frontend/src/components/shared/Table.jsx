@@ -225,7 +225,7 @@ export default function Table({
           })}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={colSpan || 1} style={{ color: "#888" }}>
+              <td colSpan={colSpan || 1} style={{ color: "var(--muted)" }}>
                 {emptyMessage}
               </td>
             </tr>
