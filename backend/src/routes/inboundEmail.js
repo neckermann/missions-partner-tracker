@@ -127,19 +127,7 @@ router.post("/postmark", async (req, res, next) => {
       select: { id: true },
     });
 
-    // Trips (#252) -- when trips is on, TripParticipant.email also
-    // counts toward the match total. Tie-break rule: combined match
-    // count across both identity types, not a separate ambiguity check
-    // per type -- auto-file only when that combined total is exactly 1.
-    const tripsOn = isFeatureEnabled(settings.enabledFeatures, "trips");
-    const participantMatches = tripsOn
-      ? await prisma.tripParticipant.findMany({
-          where: { email: { equals: fromAddress, mode: "insensitive" } },
-          select: { id: true },
-        })
-      : [];
-
-    if (matches.length === 1 && participantMatches.length === 0) {
+    if (matches.length === 1) {
       const created = await prisma.partnerFile.create({
         data: {
           partnerId: matches[0].id,
@@ -161,29 +149,7 @@ router.post("/postmark", async (req, res, next) => {
       return res.status(200).json({ matched: true });
     }
 
-    if (matches.length === 0 && participantMatches.length === 1) {
-      await prisma.tripDocument.create({
-        data: {
-          tripId: (
-            await prisma.tripParticipant.findUnique({
-              where: { id: participantMatches[0].id },
-              select: { tripId: true },
-            })
-          ).tripId,
-          participantId: participantMatches[0].id,
-          title: subject,
-          fileName,
-          contentType: "message/rfc822",
-          fileSize: bytes.length,
-          bytesRow: { create: { bytes } },
-        },
-      });
-      return res.status(200).json({ matched: true });
-    }
-
-    // Zero matches, more than one match of either type, or exactly one
-    // of each (which would each individually look unambiguous in
-    // isolation) -- don't guess. Queue it.
+    // Zero matches or more than one -- don't guess. Queue it.
     await prisma.inboundEmail.create({
       data: { fromAddress, subject, fileName, bytesRow: { create: { bytes } } },
     });

@@ -241,11 +241,10 @@ async function resetDemoData() {
     ...(fromEmailAddress ? { emailFromAddress: fromEmailAddress } : {}),
     ...(webhookUsername ? { inboundEmailWebhookUsername: webhookUsername } : {}),
     ...(webhookPassword ? { inboundEmailWebhookPassword: encryptField(webhookPassword) } : {}),
-    // The address partners/participants are told to reply to -- matches the
-    // `To:` header on the seeded inbound .eml fixtures below (seed.js's
-    // buildFakeEml/seedUnmatchedEmails), and is also used as the replyTo on
-    // trip-participant emails (see routes/tripParticipants.js). Informational
-    // only -- doesn't change where Postmark's own inbound webhook is pointed.
+    // The address partners are told to send their newsletters/updates to --
+    // matches the `To:` header on the seeded inbound .eml fixtures below
+    // (seed.js's buildFakeEml/seedUnmatchedEmails). Informational only --
+    // doesn't change where Postmark's own inbound webhook is pointed.
     inboundEmailAddress: "receive@updates.missionspartnertracker.com",
   };
 
