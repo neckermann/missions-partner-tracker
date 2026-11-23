@@ -16,13 +16,11 @@ const PASSWORD = process.env.E2E_ADMIN_PASSWORD || "TryTheDemo2026!";
 const outDir = process.argv[2] || ".";
 fs.mkdirSync(outDir, { recursive: true });
 
+// #322 cut the picker down to Classic + Modern (the other four were
+// deleted, not just unoffered -- see booklet.css's own header comment).
 const TEMPLATE_LABELS = {
   classic: "Classic",
   modern: "Modern",
-  traditional: "Traditional",
-  keepsake: "Keepsake",
-  portfolio: "Portfolio",
-  friendly: "Friendly",
 };
 
 const browser = await chromium.launch();
