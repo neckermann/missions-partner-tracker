@@ -272,7 +272,7 @@ not just what topic they fall under:
     description, notes, a Photo/Video Album link (optional — Google
     Photos, iCloud Shared Album, or another provider; admin-only,
     never shown on the public site), and a nested list of participants
-    (First/Last name, Role, Phone, Email, "Trip Leader" checkbox) — the
+    (First/Last name, Role, Phone, Email, "Team Leader" checkbox) — the
     same records as the main [Trips](#trips) page, just scoped to this
     one partner. An actively-recruited trip's fuller detail page
     (applications, team, documents, support raising) is still
@@ -452,6 +452,14 @@ or leave it as "None."
   partner's public profile and in the booklet too, right alongside the
   request itself — a real, growing record of how prayers actually get
   answered over time, not just a log of what's currently outstanding.
+
+Separately from any individual request above, a partner's detail page
+also has its own **Last Prayed w/ Congregation** field — a record of the
+last time the whole congregation prayed for that partner together (in a
+service or a dedicated prayer gathering), not any one request's own
+answer. Click **Mark Prayed Today** right after it happens, or open the
+field to enter/correct a past date if you're catching up on a few
+weeks of history.
 
 The central **Prayer Requests** page lists every request across every
 partner, filterable by category, with a running count of how many have
@@ -714,39 +722,35 @@ flag.
 ### Printable partner booklet
 
 **Print Booklet** builds a print-formatted directory: pick a **Look &
-Feel** template — Classic (warm accent-colored circles and a tinted
-callout), Modern (clean, no decorative shapes, bold rules), Traditional
-(a bordered page frame, small centered portrait, serif type throughout),
-Keepsake (a polaroid-framed, slightly tilted photo, a handwritten-note
-callout), Portfolio (a large photo-led layout, high-contrast dark
-header), or Friendly (a bold color-block header, a large circular photo,
-rounded pill-style info rows) — choose who's included (archived,
-restricted-access, organizations), and what shows on each page (photo,
-overview, location, address, family info, sending church/org, and an
-optional facing **Notes & Prayer Page** with ruled lines for the
-reader's own handwritten notes). Turning on **Prayer Requests** also
-turns on, and locks on, that facing page — a partner's public
-[prayer requests](#prayer-requests) marked **Include in printed
-booklet** print at the top of it, not on the main page itself (an
-"answered" one includes its note, an open one doesn't call out its
-status at all, same as everywhere else in the app), with the ruled
-lines below them; the Notes & Prayer Page can still be turned on by
-itself, with no prayer requests, for a facing page that's just that
-partner's name and blank ruled lines. With Prayer Requests on, a
+Feel** template — Classic (warm accent-colored circles and a soft tinted
+callout, with a circular photo) or Modern (clean and structured, no
+decorative shapes, bold accent rules, and a rectangular photo) — choose
+who's included (archived, restricted-access, organizations), and what
+shows on each page (photo, overview, location, address, family info,
+sending church/org, and an optional facing **Notes & Prayer Page** with
+ruled lines for the reader's own handwritten notes). Both templates'
+accent color defaults to your church's own brand color (**Primary
+Color** in [Church Settings](#church-settings-admin-only)); an instance
+that hasn't set one falls back to a fixed four-color rotation instead.
+Turning on **Prayer Requests** also turns on, and locks on, that facing
+page — a partner's public [prayer requests](#prayer-requests) marked
+**Include in printed booklet** print at the top of it, not on the main
+page itself (an "answered" one includes its note, an open one doesn't
+call out its status at all, same as everywhere else in the app), with
+the ruled lines below them; the Notes & Prayer Page can still be turned
+on by itself, with no prayer requests, for a facing page that's just
+that partner's name and blank ruled lines. With Prayer Requests on, a
 **Max prayer requests per partner** field caps how many print for any
 one partner (most recent first) so a partner with a long history
 doesn't crowd out the rest of their page. Set a cover title/subtitle.
-Every booklet also
-ends with a closing back cover — your church's logo and name (from
-[Church Settings](#church-settings-admin-only)) plus your About Text or
-Public Tagline as a closing message, or a generic thank-you if neither is
-set. **Update Preview** re-renders on the page — automatically when you
-switch templates, but not on every checkbox (re-pagination is expensive)
-— and **Open in New Tab to Print** builds a clean, paginated document
-ready for your browser's print dialog — useful for printing a physical
-prayer/support directory for your congregation.
+Every booklet also ends with a closing back cover — your church's logo,
+name, mailing address, phone, and website (all from
+[Church Settings](#church-settings-admin-only)). The preview on the page
+re-renders live as you change any option; **Print Booklet** opens your
+browser's own print dialog on that same paginated preview — useful for
+printing a physical prayer/support directory for your congregation.
 
-![The Print Booklet generator, with six Look & Feel templates to choose from](docs/assets/screenshots/print-booklet-admin.png)
+![The Print Booklet generator, with the Classic and Modern Look & Feel templates to choose from](docs/assets/screenshots/print-booklet-admin.png)
 
 ![One page of the resulting booklet, in the Classic template](docs/assets/screenshots/booklet.png)
 
@@ -1229,6 +1233,14 @@ all three — each tier only fires once its own day/time is set; leaving
 all three unset (the default) means nobody's individual cadence choice
 ever actually sends, regardless of what they picked for themselves.
 
+This section also has a checkbox for each of the three tiers, deciding
+whether it's even offered on the two cadence pickers above (biweekly
+starts off, monthly and quarterly start on). Unchecking one moves
+anyone currently on it to the first tier still checked, in order
+Monthly, Quarterly, Biweekly — immediately, not reversibly; re-checking
+the tier later doesn't move anyone back. At least one tier has to stay
+checked.
+
 #### Chat channels (GroupMe & WhatsApp)
 
 One shared daily-hour field and three shared mutes, used by whichever
@@ -1416,10 +1428,14 @@ scanning a QR code and confirming a code; disabling requires your current
 password.
 
 If [Email (Sending)](#email-admin-only) is turned on for the church,
-there's also an **Email Dispatch** section here: a cadence
-(biweekly, monthly, quarterly, or no automatic digest — off by
-default) and, once a cadence is picked, a choice between every
-partner or just the ones you check from a list. The digest itself
+there's also an **Email Dispatch** section here: a cadence (no
+automatic digest by default, or one of whichever of biweekly, monthly,
+and quarterly the admin has chosen to offer — see [Dispatch
+Settings](#dispatch-settings-admin-only)) and, once a cadence is
+picked, a choice between every partner or just the ones you check from
+a list. If you'd already picked a cadence before the admin turned it
+off, it stays selectable for you specifically — you're never silently
+switched to something else. The digest itself
 still includes prayer requests, one-time needs, and newsletters, same
 as before — picking a cadence and scope here doesn't narrow what you
 get, just when and for whom. It sends on whatever [Email
@@ -1469,8 +1485,10 @@ entirely by what you check in the admin dashboard:
 - **Subscribe** (`/subscribe`) — only shown once an admin turns on
   [Public prayer digest](ADMIN_GUIDE.md#feature-toggles). A dedicated page
   for getting prayer-request updates by email: no login, just an email
-  address, a biweekly/monthly/quarterly choice, and either every partner
-  or several specific ones picked from a checklist. A visitor clicks a
+  address, a cadence choice (whichever of biweekly, monthly, and
+  quarterly an admin has chosen to offer, pre-selected to monthly when
+  it's available), and either every partner or several specific ones
+  picked from a checklist. A visitor clicks a
   link in a confirmation email before anything actually sends (double
   opt-in — nothing goes out to an address nobody confirmed), and every
   digest they get after that carries its own one-click unsubscribe

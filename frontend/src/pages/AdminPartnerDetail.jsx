@@ -393,6 +393,18 @@ export default function AdminPartnerDetail() {
   const canEdit = canWrite;
   const canDelete = isAdmin;
 
+  // One-click shortcut for the common case (praying for a partner during
+  // today's service and recording it right after) -- same today's-date
+  // convenience as every "Mark ___" quick action on this page
+  // (submitMarkAnswered etc.), just without its own confirmation modal
+  // since there's nothing to fill in. Catching up on a date in the past
+  // still goes through the EditableSection's own edit popup below, same
+  // as every other date field on this page.
+  async function markPrayedWithCongregationToday() {
+    await save({ lastPrayedWithCongregationAt: todayInputValue() });
+    await reload();
+  }
+
   function closeModal() {
     setActiveModal(null);
   }
@@ -1555,6 +1567,46 @@ export default function AdminPartnerDetail() {
 
         <div className="admin-section-group" id="section-communication">
           <h2 className="admin-group-heading">Communication</h2>
+
+          {enabledFeatures.prayerRequests && (
+            <EditableSection
+              title="Last Prayed w/ Congregation"
+              canEdit={canEdit}
+              onSaved={reload}
+              onSave={(d) =>
+                save({ lastPrayedWithCongregationAt: dateOrNull(d.lastPrayedWithCongregationAt) })
+              }
+              value={{ lastPrayedWithCongregationAt: toDateInputValue(p.lastPrayedWithCongregationAt) }}
+              view={(v) => (
+                <Field
+                  label="Last Prayed w/ Congregation"
+                  value={formatDateLong(v.lastPrayedWithCongregationAt, { fallback: "Never" })}
+                  showEmpty
+                />
+              )}
+              edit={(d, set) => (
+                <label>
+                  Last Prayed w/ Congregation
+                  <input
+                    type="date"
+                    value={d.lastPrayedWithCongregationAt}
+                    onChange={(e) => set("lastPrayedWithCongregationAt", e.target.value)}
+                  />
+                </label>
+              )}
+              actions={
+                canEdit ? (
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    onClick={markPrayedWithCongregationToday}
+                  >
+                    Mark Prayed Today
+                  </button>
+                ) : null
+              }
+            />
+          )}
 
           {enabledFeatures.prayerRequests && (
             <PartnerSummaryCard

@@ -245,11 +245,24 @@ export default function AdminDispatchSettings() {
               emailDispatchDayOfWeek: settings.emailDispatchDayOfWeek,
               emailDispatchDayOfMonth: settings.emailDispatchDayOfMonth,
               emailDispatchHour: settings.emailDispatchHour,
+              cadenceBiweeklyEnabled: settings.cadenceBiweeklyEnabled,
+              cadenceMonthlyEnabled: settings.cadenceMonthlyEnabled,
+              cadenceQuarterlyEnabled: settings.cadenceQuarterlyEnabled,
             }}
             onSave={savePartial}
             onSaved={reload}
             view={(v) => (
               <>
+                <p>
+                  Offered:{" "}
+                  {[
+                    v.cadenceBiweeklyEnabled && "Biweekly",
+                    v.cadenceMonthlyEnabled && "Monthly",
+                    v.cadenceQuarterlyEnabled && "Quarterly",
+                  ]
+                    .filter(Boolean)
+                    .join(", ") || "None"}
+                </p>
                 <p>
                   Biweekly day:{" "}
                   {v.emailDispatchDayOfWeek != null ? DAY_NAMES[v.emailDispatchDayOfWeek] : "Not set"}
@@ -266,6 +279,37 @@ export default function AdminDispatchSettings() {
                   form) picks for themselves. Nothing sends on a given tier until its schedule here is
                   actually set.
                 </p>
+                <p style={{ margin: "0 0 0.5rem", color: "#555", fontSize: "0.9rem" }}>
+                  Which tiers to offer at all (#209). Turning a tier off moves anyone currently on it to the
+                  first tier still enabled, in order Monthly, Quarterly, Biweekly -- a one-time move, not
+                  reversible by re-enabling the tier later. At least one tier must stay enabled.
+                </p>
+                <div className="admin-checkbox-row" style={{ marginBottom: "1rem" }}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={d.cadenceBiweeklyEnabled}
+                      onChange={(e) => set("cadenceBiweeklyEnabled", e.target.checked)}
+                    />
+                    Biweekly
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={d.cadenceMonthlyEnabled}
+                      onChange={(e) => set("cadenceMonthlyEnabled", e.target.checked)}
+                    />
+                    Monthly
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={d.cadenceQuarterlyEnabled}
+                      onChange={(e) => set("cadenceQuarterlyEnabled", e.target.checked)}
+                    />
+                    Quarterly
+                  </label>
+                </div>
                 <label>
                   Day of week (biweekly)
                   <select

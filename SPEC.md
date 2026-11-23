@@ -273,8 +273,8 @@ imports the public-site pages and `Login`/`Setup` eagerly; every admin
 page and the public map/booklet are `lazy()`-loaded, for two reasons
 stated directly in the code: an anonymous visitor to the public directory
 should not download a readable map of the entire admin surface, and the
-map (Leaflet) and booklet (paged.js + a 980-line print stylesheet) are
-too heavy to make every visitor pay for.
+map (Leaflet) and booklet (a native-print stylesheet, `frontend/src/
+styles/booklet.css`) are too heavy to make every visitor pay for.
 
 ### 3.1 Routing
 
