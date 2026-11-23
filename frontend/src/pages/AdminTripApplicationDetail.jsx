@@ -134,7 +134,15 @@ export default function AdminTripApplicationDetail() {
         return;
       }
       const res = await reviewTripApplication(application.id, "approved", null);
-      if (res?.teamWelcomeEmail?.manualUrl) {
+      // teamWelcomeEmail is null exactly when the backend's own gate (trip
+      // not completed, both dates set) never fired at all -- not "sent",
+      // not "manual", genuinely nothing attempted. Conflating that with
+      // "sent" here would tell an admin an email went out when none did,
+      // on every trip with no dates yet (a very ordinary state for a
+      // still-recruiting trip).
+      if (!res?.teamWelcomeEmail) {
+        setResult({ kind: "approved-no-dates", participantId: res?.participant?.id });
+      } else if (res.teamWelcomeEmail.manualUrl) {
         // Stay right here with the link in view instead of navigating away
         // behind it -- same reasoning as every other manual-fallback fix
         // this pass (AdminUserForm.jsx, AdminTripMeetings.jsx, ...).
@@ -272,6 +280,12 @@ export default function AdminTripApplicationDetail() {
             )}
             {result.kind === "approved-sent" && (
               <p>They're on the team now, and their welcome email is on its way.</p>
+            )}
+            {result.kind === "approved-no-dates" && (
+              <p>
+                They're on the team now. This trip has no dates set yet, so no welcome message was sent
+                automatically -- reach out to them another way for now.
+              </p>
             )}
             {result.kind === "declined" && (
               <p>This application has been declined. They won't be notified automatically.</p>
