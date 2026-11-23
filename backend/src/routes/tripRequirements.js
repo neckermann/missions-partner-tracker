@@ -68,15 +68,16 @@ router.post(
       // revisiting their own trip page on their own. "task" stays excluded:
       // there's nothing for a participant to do from this email for one --
       // an admin checks it off, so a notice would just be noise.
+      let emailResult;
       if (created.kind === "document" || created.kind === "esignature") {
         const trip = await prisma.trip.findUnique({
           where: { id: req.params.id },
           include: { participants: { select: emailParticipantSelect } },
         });
-        await sendRequirementNotificationEmail(trip, created, trip?.participants || []);
+        emailResult = await sendRequirementNotificationEmail(trip, created, trip?.participants || []);
       }
 
-      res.status(201).json(created);
+      res.status(201).json({ ...created, manualEmail: emailResult?.manual });
     } catch (err) {
       next(err);
     }

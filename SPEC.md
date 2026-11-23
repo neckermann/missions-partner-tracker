@@ -330,6 +330,45 @@ when off) independent of the frontend hiding the corresponding nav entry.
 used for the public partner data routes (back both directory and map) and
 the shared Email settings page (reachable if either direction is on).
 
+**A rule worth not rediscovering per feature: `outboundEmail` and
+`inboundEmail` both default to off.** A brand-new fork with neither
+configured yet is the *default* state a church lands in, not a rare
+opt-out -- so any feature that sends or depends on email has to be
+designed against that from the start, not patched in after the fact.
+Confirmed as a real, shipped gap (2026-11-22, found during a PR review
+rather than at design time): a welcome-email flow that defaulted its
+"send welcome email" option to on and never checked the flag at all,
+which would have silently failed on every single Add User submission
+for any church that hadn't gone through Email setup yet.
+
+Two things every email-sending feature needs, not just one:
+
+1. **Gate it.** Check `isFeatureEnabled(settings?.enabledFeatures,
+   "outboundEmail")` (or `"inboundEmail"` for receiving) before
+   attempting anything -- server-side, same as every other feature
+   flag, not just a frontend default.
+2. **Give it a working fallback**, not just a disabled button. When
+   what the email carries is a link/token that doesn't itself need
+   Postmark to exist -- only its automatic delivery does -- hand that
+   back directly so an admin can copy it and send it through whatever
+   channel they actually have (personal email, text, in person),
+   instead of the feature becoming unusable the moment email is off.
+   Reference implementation: `backend/src/utils/tripEmails.js`'s
+   `manualFallback()` (meeting invites, checklist notifications -- one
+   shared shape: `{ sent: false, manual: [{ name, email, url }] }`,
+   the participant's own trip-access link being enough on its own since
+   the trip page already shows the meeting/requirement in question) and
+   `backend/src/routes/users.js`'s `manualSetupUrl` (same idea, one
+   recipient, one link, for the account-setup flow specifically). Not
+   every email needs this -- a request that structurally depends on a
+   full round trip (send *and* receive a reply, e.g. the document-
+   request flow in `tripParticipants.js`) has no equivalent manual
+   substitute and is correctly just gated off outright; and a few
+   secondary/FYI-only notifications (a late-joining participant's
+   catch-up emails, a trip-dates-changed recalendar notice) were
+   deliberately left as simple no-ops rather than given this treatment,
+   since nothing is actually blocked on them.
+
 ## 5. Auth & permissions model
 
 **"Auth is the boundary."** Any logged-in account holding one of the 3

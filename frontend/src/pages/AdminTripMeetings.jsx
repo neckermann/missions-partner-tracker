@@ -12,6 +12,7 @@ import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import RecordList from "../components/admin/RecordList.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import Field from "../components/admin/Field.jsx";
+import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 
 const emptyMeetingForm = { startAt: "", title: "", location: "", meetingLink: "", agenda: "" };
 
@@ -72,6 +73,7 @@ export default function AdminTripMeetings() {
   const { trip, reload, confirmDialog, id, canWrite } = useOutletContext();
   const [error, setError] = useState("");
   const [modalMeeting, setModalMeeting] = useState(null); // null | { id: null|meetingId, form, cancelledAt }
+  const [manualEmailRecipients, setManualEmailRecipients] = useState(null); // [{ name, email, url }] | null
 
   function reportError(err, fallback) {
     setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
@@ -107,19 +109,22 @@ export default function AdminTripMeetings() {
       meetingLink: modalMeeting.form.meetingLink.trim() || null,
       agenda: modalMeeting.form.agenda.trim() || null,
     };
+    let result;
     if (modalMeeting.id == null) {
       if (!patch.startAt) throw new Error("Choose a date/time");
-      await scheduleTripMeeting(id, patch);
+      result = await scheduleTripMeeting(id, patch);
     } else {
-      await updateTripMeeting(modalMeeting.id, patch);
+      result = await updateTripMeeting(modalMeeting.id, patch);
     }
+    setManualEmailRecipients(result?.manualEmail || null);
     reload();
   }
 
   async function handleResendMeetingInvite(meetingId) {
     try {
-      await resendTripMeetingInvite(meetingId);
+      const result = await resendTripMeetingInvite(meetingId);
       setError("");
+      setManualEmailRecipients(result?.manual || null);
     } catch (err) {
       reportError(err, "Couldn't resend the invite.");
     }
@@ -138,10 +143,11 @@ export default function AdminTripMeetings() {
     });
     if (!confirmed) return;
     try {
-      await cancelTripMeeting(meetingId);
+      const result = await cancelTripMeeting(meetingId);
       setModalMeeting(null);
       reload();
       setError("");
+      setManualEmailRecipients(result?.manualEmail || null);
     } catch (err) {
       reportError(err, "Couldn't cancel this meeting.");
     }
@@ -178,6 +184,7 @@ export default function AdminTripMeetings() {
           {error}
         </p>
       )}
+      {manualEmailRecipients?.length > 0 && <ManualSendNotice recipients={manualEmailRecipients} />}
       <RecordList
         title="Meetings"
         items={trip.meetings || []}
