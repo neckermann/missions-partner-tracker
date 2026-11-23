@@ -91,11 +91,11 @@ export default function AdminSettingsEmail() {
         </a>
         , a dedicated email service — not through this church's own Gmail/Microsoft account. See{" "}
         <a
-          href="https://github.com/neckermann/missions-partner-tracker/blob/main/ADMIN_GUIDE.md#email-postmark"
+          href="https://missionspartnertracker.com/admin-guide.html#email-postmark"
           target="_blank"
           rel="noreferrer"
         >
-          ADMIN_GUIDE.md § Email (Postmark)
+          Admin Guide § Email (Postmark)
         </a>{" "}
         for the full setup. Sending and receiving are independent — turn on just the one you use.
       </p>
