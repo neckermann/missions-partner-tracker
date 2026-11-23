@@ -1,16 +1,10 @@
 import React, { useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import {
-  updateTrip,
-  generateApplicationLink,
-  reviewTripApplication,
-  addTripParticipant,
-} from "../api/client.js";
+import { updateTrip, generateApplicationLink, addTripParticipant } from "../api/client.js";
 import { isMinorForTrip } from "../utils/format.js";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestionsEditor.jsx";
 import Table from "../components/shared/Table.jsx";
-import Modal from "../components/Modal.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
@@ -21,14 +15,14 @@ import useCurrentUser from "../hooks/useCurrentUser.js";
 // link/questions only exist to produce more applications. Every table
 // here is the shared Table component; row click opens either the
 // participant's own detail page (Confirmed Team -- same destination its
-// "View details" action already goes to) or a Modal with the applicant's
-// answers and Approve/Decline/Reconsider (Applications/Declined).
+// "View details" action already goes to) or the application's own detail
+// page (Applications/Declined -- AdminTripApplicationDetail.jsx, a
+// sibling route, not a Modal: see that page's own header comment for why).
 export default function AdminTripTeam() {
   const { trip, setTrip, applications, reload, questionLibrary, confirmDialog, navigate, id, canWrite } =
     useOutletContext();
   const { isTripLeader } = useCurrentUser();
   const [error, setError] = useState("");
-  const [openApplication, setOpenApplication] = useState(null);
   const [showDeclined, setShowDeclined] = useState(false);
   const [showAddParticipant, setShowAddParticipant] = useState(false);
   const [newParticipant, setNewParticipant] = useState({ firstName: "", lastName: "", email: "" });
@@ -60,55 +54,11 @@ export default function AdminTripTeam() {
     }
   }
 
-  async function handleReview(appId, status, declinedReason) {
-    try {
-      const result = await reviewTripApplication(appId, status, declinedReason);
-      setOpenApplication(null);
-      if (result?.participant) {
-        navigate(`/admin/trips/${id}/participants/${result.participant.id}`);
-        return;
-      }
-      reload();
-      setError("");
-    } catch (err) {
-      reportError(err, "Couldn't update this application.");
-    }
-  }
-
-  async function handleDecline(a) {
-    const result = await confirmDialog({
-      title: `Decline ${a.firstName} ${a.lastName}'s application?`,
-      body: (
-        <ConfirmMessageBody>
-          They won't be notified automatically -- the application moves to Declined below, and can still be
-          reconsidered later.
-        </ConfirmMessageBody>
-      ),
-      confirmLabel: "Decline",
-      danger: true,
-      textInput: {
-        label: "Reason (optional, admin-only -- never shown to the applicant)",
-        placeholder: "e.g. Team is full, schedule conflict, ...",
-      },
-    });
-    if (!result.confirmed) return;
-    await handleReview(a.id, "declined", result.text);
-  }
-
   async function handleAddParticipant() {
     if (!newParticipant.firstName) return false;
     await addTripParticipant(id, newParticipant);
     setNewParticipant({ firstName: "", lastName: "", email: "" });
     reload();
-  }
-
-  const combinedQuestions = trip.applicationQuestions || [];
-  function answersFor(application) {
-    return combinedQuestions.map((q) => {
-      const raw = application.responses?.[q.id];
-      const answer = Array.isArray(raw) ? raw.join(", ") : raw;
-      return { id: q.id, label: q.label, answer: answer || "(no answer)" };
-    });
   }
 
   const fulfillmentFor = (participantId) =>
@@ -221,7 +171,7 @@ export default function AdminTripTeam() {
             { key: "submittedAt", label: "Submitted", type: "date" },
           ]}
           rows={pending}
-          onRowClick={(a) => setOpenApplication({ ...a, mode: "pending" })}
+          onRowClick={(a) => navigate(`/admin/trips/${id}/applications/${a.id}`)}
           emptyMessage="Nothing awaiting review."
         />
 
@@ -244,7 +194,7 @@ export default function AdminTripTeam() {
                     },
                   ]}
                   rows={declined}
-                  onRowClick={(a) => setOpenApplication({ ...a, mode: "declined" })}
+                  onRowClick={(a) => navigate(`/admin/trips/${id}/applications/${a.id}`)}
                 />
               </div>
             )}
@@ -351,95 +301,6 @@ export default function AdminTripTeam() {
           </div>
         </QuickActionModal>
       )}
-
-      {openApplication && (
-        <Modal
-          title={`${openApplication.firstName} ${openApplication.lastName}`}
-          onClose={() => setOpenApplication(null)}
-        >
-          <ApplicantAnswers application={openApplication} answers={answersFor(openApplication)} />
-          {canWrite && (
-            <div className="table-actions" style={{ marginTop: "1rem" }}>
-              {openApplication.mode === "pending" ? (
-                <>
-                  <button
-                    className="btn small"
-                    onClick={() => handleReview(openApplication.id, "approved", null)}
-                  >
-                    Approve
-                  </button>
-                  <button className="btn danger small" onClick={() => handleDecline(openApplication)}>
-                    Decline
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="btn secondary small"
-                  onClick={() => handleReview(openApplication.id, "pending", null)}
-                >
-                  Reconsider
-                </button>
-              )}
-            </div>
-          )}
-        </Modal>
-      )}
     </div>
-  );
-}
-
-function ApplicantAnswers({ application: a, answers }) {
-  return (
-    <>
-      <p style={{ margin: "0 0 0.4rem", fontSize: "0.85rem" }}>
-        <strong>Email:</strong> {a.email || "—"}
-        {a.phone && (
-          <>
-            {" "}
-            · <strong>Phone:</strong> {a.phone}
-          </>
-        )}
-        {(a.addressLine1 || a.city) && (
-          <>
-            {" "}
-            · <strong>Address:</strong>{" "}
-            {[a.addressLine1, a.addressLine2, a.city, a.stateProvinceRegion, a.postalCode, a.country]
-              .filter(Boolean)
-              .join(", ")}
-          </>
-        )}
-        {(a.emergencyContactFirstName || a.emergencyContactPhone) && (
-          <>
-            {" "}
-            · <strong>Emergency contact:</strong>{" "}
-            {[
-              [a.emergencyContactFirstName, a.emergencyContactLastName].filter(Boolean).join(" "),
-              a.emergencyContactPhone,
-              a.emergencyContactEmail,
-            ]
-              .filter(Boolean)
-              .join(", ")}
-          </>
-        )}
-      </p>
-      {a.declinedReason !== undefined && (
-        <p style={{ margin: "0 0 0.4rem", fontSize: "0.85rem" }}>
-          <strong>Declined reason:</strong> {a.declinedReason || "(no reason given)"}
-        </p>
-      )}
-      {answers.length === 0 ? (
-        <p style={{ color: "#888", fontSize: "0.85rem" }}>This trip has no application questions set.</p>
-      ) : (
-        <dl style={{ margin: 0 }}>
-          {answers.map((q) => (
-            <div key={q.id} style={{ marginBottom: "0.4rem" }}>
-              <dt style={{ fontSize: "0.85rem", fontWeight: 600 }}>{q.label}</dt>
-              <dd style={{ margin: "0.1rem 0 0", fontSize: "0.85rem", color: "#333" }}>{q.answer}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-    </>
   );
 }

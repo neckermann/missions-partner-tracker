@@ -857,6 +857,14 @@ a {
 .admin-table tbody tr:hover {
   background: var(--surface-2);
 }
+/* No global `a { text-decoration: none }` reset exists in this file --
+   every other link-styled-as-something rule here sets it individually
+   (.breadcrumb a, .admin-settings-tabs a, etc.). .btn itself never did,
+   so an <a>/<Link> using it (e.g. the report pages' "Download CSV", or
+   any "+Add X"/"View details" link-as-button elsewhere) rendered with a
+   plain browser-default underline through its white text until now --
+   a <button> using .btn never showed this, which is why it went
+   unnoticed for a while. */
 .btn {
   background: var(--brand-color, #2a5d3c);
   color: white;
@@ -866,6 +874,8 @@ a {
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 600;
+  text-decoration: none;
+  display: inline-block;
 }
 /* Accent at rest, highlight on hover -- :not(.secondary):not(.danger) so
    those variants' own distinct semantic colors (gray/red) aren't overridden
@@ -1877,4 +1887,95 @@ a {
 }
 .wizard-progress div.done {
   background: var(--brand-color, #2a5d3c);
+}
+
+/* Reports: the summary tiles above a report's table. Same surface, border,
+   radius and brand tokens as .admin-card so reports match the rest of the
+   admin UI; nothing here hardcodes a church's colors. */
+.report-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  /* Was 0 on top -- this sits directly after .report-header (the row
+     count/date plus Download CSV/Print buttons) with nothing else
+     between them, so with no top margin the summary tiles crowded right
+     up against the button row. */
+  margin: 1.25rem 0;
+}
+.report-summary-item {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 0.7rem 0.9rem;
+}
+.report-summary-item dt {
+  font-size: 0.8rem;
+  color: #555;
+}
+.report-summary-item dd {
+  margin: 0.15rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--brand-color, #2a5d3c);
+}
+@media print {
+  .report-summary-item {
+    border: 1px solid #bbb;
+    break-inside: avoid;
+  }
+}
+
+.report-chart {
+  margin: 0 0 1.25rem;
+  max-width: 640px;
+}
+.report-chart figcaption {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+.report-chart-row:hover .report-chart-bar {
+  fill: var(--brand-highlight-color, #a6540f);
+}
+@media print {
+  .report-chart {
+    break-inside: avoid;
+  }
+}
+/* A summary tile that filters the table when clicked. */
+button.report-summary-item {
+  display: block;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  width: 100%;
+}
+button.report-summary-item:hover,
+button.report-summary-item:focus-visible {
+  border-color: var(--brand-highlight-color, #a6540f);
+}
+button.report-summary-item[aria-pressed="true"] {
+  border-color: var(--brand-color, #2a5d3c);
+  box-shadow: 0 0 0 1px var(--brand-color, #2a5d3c);
+}
+
+.report-summary-label {
+  display: block;
+  font-size: 0.8rem;
+  color: #555;
+}
+.report-summary-value {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--brand-color, #2a5d3c);
+}
+
+.report-summary .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }

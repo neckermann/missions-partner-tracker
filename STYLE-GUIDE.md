@@ -39,10 +39,9 @@ per page) — those are gone, not alternatives.
   (`frontend/src/components/shared/`), bound together by
   `hooks/useFilterState.js`, which syncs filter values to the URL query
   string. `FilterBar`'s `fields` prop is `{ name, label, type, options?,
-  showWhen? }` — the exact contract `backend/src/reports/index.js`'s
-  `listReports()` already returns, including its `resolveFields(prisma)`
-  hook for dynamic option lists, so a resource's Report version and its
-  live admin list can share the same field definitions. `Table` takes
+  showWhen? }` — the exact contract `backend/src/reporting/registry.js`'s
+  report catalog already returns per report, so a resource's Report
+  version and its live admin list can share the same field definitions. `Table` takes
   `columns` (`{ key, label, type?, align?, render?(row) }`),
   `onRowClick`, `renderActions(row)` for a trailing actions column, and
   `expandedRowId`/`renderExpanded(row)` for an inline edit-row-below-
@@ -83,6 +82,19 @@ per page) — those are gone, not alternatives.
   groups: Basics / Details / Visibility & status) was the one genuine
   case. Use the same bar for a new resource: short and single-topic
   stays a form, long and multi-topic becomes a `Wizard`.
+  **A `Wizard` always renders as its own dedicated page** (breadcrumb,
+  `<h2>` title, `admin-section` wrapping the `Wizard`, Cancel/Next/
+  Finish pinned to the viewport bottom) — never inside a `Modal`. Two
+  flows shipped as a popup `Modal` first and were corrected in review
+  for exactly this mismatch before this rule was written down: Add
+  User (`AdminUserForm.jsx`, "/admin/settings/users/new") and the trip
+  application approval flow (`AdminTripApplicationDetail.jsx`,
+  "/admin/trips/:tripId/applications/:applicationId") — both now match
+  `AdminPartnerForm.jsx`'s original "New Partner" shape. If a flow
+  needs more than view-only confirmation after the `Wizard` finishes
+  (e.g. a manual send-link fallback), that result replaces the
+  `Wizard` in the same `admin-section`, with its own "Done" button —
+  see any of the three pages above for the pattern.
 - **Confirmations**: `useConfirmDialog` (`frontend/src/hooks/useConfirmDialog.jsx`),
   never `window.confirm`/`prompt`/`alert`. See
   [CONTRIBUTING.md § Code style](CONTRIBUTING.md#code-style) for the

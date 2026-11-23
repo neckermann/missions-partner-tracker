@@ -114,6 +114,53 @@ instead? See [Deploying to production](#deploying-to-production) further
 down — same app, same steps in spirit, just without Render's one-click
 Blueprint doing the provisioning for you.
 
+### Skipping the worker service
+
+If your church has no plans to use **any** of GroupMe, WhatsApp, the
+email prayer/admin digest, or automated trip reminders, you don't need
+`missions-partner-tracker-worker` at all — it's the one Blueprint
+service whose only job is running those four schedules (see
+`backend/src/worker.js`'s own header comment). Everything else —
+creating/editing partners, prayer requests, one-time needs, trip
+applications, and every admin-triggered send (a welcome email, a
+meeting invite, an application-approval notice) — runs inline in the
+main web service and needs nothing from the worker.
+
+**Render's Blueprint spec has no "optional" or "conditional" service
+field** — confirmed by checking the
+[official Blueprint YAML reference](https://render.com/docs/blueprint-spec),
+which documents every service field this app's `render.yaml` uses but
+nothing that skips a service conditionally. So there's no one-click
+toggle; the realistic path is:
+
+1. Apply the Blueprint as normal (step 4 above) — both services get
+   created.
+2. Render Dashboard → the worker service (`missions-partner-tracker-
+   worker`) → Settings → delete it. Deleting it does not touch the web
+   service, the database, or any data.
+
+**Adding it back later**, if you change your mind: Render's own docs
+don't clearly say whether re-running a Blueprint sync recreates a
+service you deleted by hand while it's still listed in `render.yaml` —
+so don't rely on that. The confirmed-safe path is Dashboard → **New →
+Background Worker** → same repo/branch as your web service → same
+build command
+(`cd frontend && npm install --include=dev && npm run build && cd
+../backend && npm install --include=dev`) and start command (`cd
+backend && node src/worker.js`) `render.yaml` already defines for it →
+set `DATABASE_URL` (same database as the web service),
+`FIELD_ENCRYPTION_KEY` (copied by hand from the web service's
+Environment tab — see `render.yaml`'s own comment on why this must
+match exactly, never generated fresh), and `NODE_ENV=production`.
+
+**One real gap to know about**: nothing in the admin UI currently
+checks whether the worker is actually running. If you delete it, every
+setting that only takes effect through it (GroupMe/WhatsApp pairing
+and schedule, the email digest schedule, trip reminder lead times)
+still saves normally with no warning that it'll never actually fire —
+the admin Dispatch Settings page shows a static reminder of this, but
+nothing dynamic (no live "worker is/isn't running" check exists yet).
+
 ## Environment variables
 
 All of these live in `backend/.env` (see `backend/.env.example` for the

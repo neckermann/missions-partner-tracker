@@ -10,6 +10,8 @@ const { setSessionCookie, clearSessionCookie } = require("../utils/jwt");
 const { encryptField, decryptField } = require("../utils/crypto");
 const { appBaseUrl } = require("../utils/dispatchBlurbs");
 const { escapeHtml } = require("../utils/emailDispatchShell");
+const { findValidSetupToken, hashToken } = require("../utils/passwordSetup");
+const { sendWelcomeEmail } = require("../utils/welcomeEmails");
 const { DEFAULT_TRIP_REQUIREMENT_TEMPLATE } = require("../utils/defaultTripRequirementTemplate");
 
 const router = express.Router();
@@ -238,6 +240,79 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
     res.json({ ok: true });
   } catch (err) {
     next(err);
+  }
+});
+
+// --- First-time password setup (welcome-email link) ---
+// Public by necessity: the person has no account access yet. The only
+// credential is the single-use, expiring token from their welcome email
+// (utils/passwordSetup.js). Every failure answers with the same generic
+// message so a caller can't tell a wrong token from an expired or used one.
+const SETUP_LINK_INVALID = "This link is invalid or has expired.";
+
+router.get("/password-setup/validate", async (req, res, next) => {
+  try {
+    const row = await findValidSetupToken(String(req.query.token || ""));
+    if (!row) return res.status(400).json({ error: SETUP_LINK_INVALID });
+    res.json({
+      email: row.user.email,
+      firstName: row.user.firstName || null,
+      mfaRequired: row.user.mfaSetupRequired,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/password-setup/complete", async (req, res, next) => {
+  try {
+    const { token, password } = req.body || {};
+    if (typeof password !== "string" || password.length < 8 || password.length > 128) {
+      return res.status(400).json({ error: "Password must be between 8 and 128 characters" });
+    }
+    const row = await findValidSetupToken(String(token || ""));
+    if (!row) return res.status(400).json({ error: SETUP_LINK_INVALID });
+    if (password.toLowerCase() === row.user.email.toLowerCase()) {
+      return res.status(400).json({ error: "Password can't be the same as your email address" });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    // One transaction: set the password, burn this link, and drop any other
+    // outstanding links for the account so none can be replayed.
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: row.userId }, data: { passwordHash } }),
+      prisma.passwordSetupToken.deleteMany({
+        where: { userId: row.userId, tokenHash: { not: hashToken(String(token)) } },
+      }),
+      prisma.passwordSetupToken.update({ where: { id: row.id }, data: { usedAt: new Date() } }),
+    ]);
+    // Not signed in here on purpose: they sign in normally next, which also
+    // runs the forced two-factor enrollment when it's required.
+    res.json({ ok: true, mfaRequired: row.user.mfaSetupRequired });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// "Send me a new link." Always the same generic reply, and the email goes
+// out after responding, so neither the message nor the response time
+// reveals whether an account exists.
+router.post("/password-setup/request", async (req, res) => {
+  res.json({
+    ok: true,
+    message: "If that email has an account waiting to be set up, a new link is on its way.",
+  });
+  try {
+    const email = String(req.body?.email || "")
+      .toLowerCase()
+      .trim();
+    if (!email) return;
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user && user.active && user.authProvider === "local" && !user.passwordHash) {
+      await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired });
+    }
+  } catch {
+    // Deliberately swallowed: this endpoint must never signal a difference.
   }
 });
 

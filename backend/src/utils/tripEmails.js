@@ -16,6 +16,7 @@
 const prisma = require("../prismaClient");
 const { sendEmail } = require("./email");
 const { isFeatureEnabled } = require("./features");
+const { renderEmail, blocks } = require("./emailTemplate");
 const {
   appBaseUrl,
   buildTripParticipantAccessToken,
@@ -31,6 +32,26 @@ async function outboundEmailEnabled() {
     select: { enabledFeatures: true },
   });
   return isFeatureEnabled(settings?.enabledFeatures, "outboundEmail");
+}
+
+// What every one of this file's self-gating senders returns instead of
+// silently no-op'ing when outboundEmail is off. Each participant's own
+// trip page already shows the meeting/requirement/dates info the email
+// would have -- "go check your trip page" is complete, accurate guidance
+// on its own, so this hands back exactly enough for an admin to tell
+// people manually (a text, a call, in person) rather than trying to
+// recreate the richer HTML email body as copyable text.
+function manualFallback(participants) {
+  return {
+    sent: false,
+    manual: (participants || [])
+      .filter((p) => p.email)
+      .map((p) => ({
+        name: `${p.firstName || ""} ${p.lastName || ""}`.trim(),
+        email: p.email,
+        url: buildTripParticipantAccessUrl(p),
+      })),
+  };
 }
 
 // #274 hardening: sendRequirementNotificationEmail/sendMeetingEmail (and
@@ -50,26 +71,35 @@ async function outboundEmailEnabled() {
 // accounted for.
 const emailParticipantSelect = { id: true, email: true, accessTokenVersion: true };
 
-// Same small "Lost your link?" line on every one of this feature's
-// emails, same convention a digest email's own unsubscribe footer
-// already follows elsewhere in this app. Previously promised (the plan
-// always specified it here) but never actually added -- the only path
-// to /trip-access-recovery was typing it directly.
-function recoveryFooter() {
-  return `\n\n---\nLost your link? Request a new one: ${appBaseUrl()}/trip-access-recovery`;
-}
-
+// Every email in this feature area renders through the shared branded
+// template (emailTemplate.js) -- the same church-colored shell the digests
+// use -- with a small "Lost your link?" footer link, same convention a
+// digest's unsubscribe footer follows elsewhere in this app.
+//
+// `content` is either { eyebrow, blocks } (the structured, preferred
+// form -- see buildMeetingEmailContent and friends below) or a plain
+// string (rendered as a paragraph, for any caller not yet converted).
+//
 // attachments: [{ name, content (Buffer), contentType }] -- passed
 // straight through to Postmark's Attachments field (base64-encoded).
-async function sendParticipantEmail(participant, subject, body, { attachments, replyTo } = {}) {
+async function sendParticipantEmail(participant, subject, content, { attachments, replyTo } = {}) {
   if (!participant.email) return { sent: false, reason: "no-email" };
-  const fullBody = body + recoveryFooter();
   try {
+    const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
+    const structured = typeof content === "string" ? { blocks: [blocks.paragraph(content)] } : content;
+    const message = renderEmail({
+      settings,
+      subject,
+      eyebrow: structured.eyebrow || "Trip update",
+      greetingName: participant.firstName,
+      blocks: structured.blocks,
+      footerLink: { label: "Lost your link? Request a new one", url: `${appBaseUrl()}/trip-access-recovery` },
+    });
     await sendEmail({
       to: participant.email,
-      subject,
-      text: fullBody,
-      html: fullBody.replace(/\n/g, "<br>"),
+      subject: message.subject,
+      text: message.text,
+      html: message.html,
       replyTo,
       attachments: attachments?.map((a) => ({
         Name: a.name,
@@ -167,28 +197,52 @@ const RSVP_LABELS = { yes: "Yes", no: "No", maybe: "Maybe" };
 // plain links with no "previously RSVP'd" framing: resending the exact
 // same invite content is the simpler, more predictable choice, and
 // clicking a link again is already a harmless overwrite either way.
-function buildMeetingEmailBody(
+function formatMeetingTime(startAt) {
+  return new Date(startAt).toLocaleString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+}
+
+function buildMeetingEmailContent(
   meeting,
   lead,
   participant,
   { cancelled = false, existingResponse = null } = {}
 ) {
-  const lines = [lead];
-  if (meeting.location) lines.push(`Location: ${meeting.location}`);
-  if (meeting.meetingLink) lines.push(`Join online: ${meeting.meetingLink}`);
-  if (meeting.agenda) lines.push(`\nAgenda:\n${meeting.agenda}`);
+  const list = [
+    blocks.paragraph(lead),
+    blocks.details([
+      { label: "Meeting", value: meeting.title },
+      { label: "When", value: formatMeetingTime(meeting.startAt) },
+      { label: "Where", value: meeting.location },
+      { label: "Join online", value: meeting.meetingLink, href: meeting.meetingLink },
+    ]),
+  ];
+  if (meeting.agenda) {
+    list.push(blocks.heading("Agenda"), blocks.paragraph(meeting.agenda));
+  }
   if (!cancelled && participant) {
     const urls = buildMeetingRsvpUrls(meeting, participant);
-    if (existingResponse) {
-      lines.push(
-        `\nYou previously RSVP'd: ${RSVP_LABELS[existingResponse] || existingResponse}. Changed your mind? Use a link below to update it.`
-      );
-    } else {
-      lines.push("\nWill you be there?");
-    }
-    lines.push(`Yes: ${urls.yes}\nNo: ${urls.no}\nMaybe: ${urls.maybe}`);
+    list.push(
+      blocks.paragraph(
+        existingResponse
+          ? `You previously RSVP'd: ${RSVP_LABELS[existingResponse] || existingResponse}. Changed your mind? Use a button below to update it.`
+          : "Will you be there?"
+      ),
+      blocks.buttonRow([
+        { url: urls.yes, label: "Yes, I'll be there" },
+        { url: urls.no, label: "No" },
+        { url: urls.maybe, label: "Maybe" },
+      ])
+    );
   }
-  return lines.filter(Boolean).join("\n");
+  return { eyebrow: cancelled ? "Meeting cancelled" : "Trip meeting", blocks: list };
 }
 
 function buildTripDatesIcs(trip) {
@@ -224,14 +278,20 @@ function buildTripDatesIcs(trip) {
 // scope. Gates and loops internally, same shape as sendMeetingEmail just
 // below, so neither call site needs its own settings check.
 async function sendRequirementNotificationEmail(trip, requirement, participants) {
-  if (!(await outboundEmailEnabled())) return;
+  if (!(await outboundEmailEnabled())) return manualFallback(participants);
   for (const participant of participants) {
-    await sendParticipantEmail(
-      participant,
-      `New item needed: ${requirement.label}`,
-      `A new item has been added to your checklist for ${trip.name || trip.type || "your trip"}: "${requirement.label}".\n\nYour trip page: ${buildTripParticipantAccessUrl(participant)}`
-    );
+    await sendParticipantEmail(participant, `New item needed: ${requirement.label}`, {
+      eyebrow: "Checklist update",
+      blocks: [
+        blocks.paragraph(
+          `A new item has been added to your checklist for ${trip.name || trip.type || "your trip"}:`
+        ),
+        blocks.details([{ label: "To do", value: requirement.label }]),
+        blocks.button(buildTripParticipantAccessUrl(participant), "Open your trip page"),
+      ],
+    });
   }
+  return { sent: true };
 }
 
 // Shared by both ways a participant can land on a trip after other
@@ -262,10 +322,30 @@ function isTripHistorical(trip) {
   return trip.status === "completed" || !!alreadyHappened;
 }
 
-async function sendLateJoinerCatchUpEmails(trip, participant) {
+// Background catch-up, not a direct admin-triggered action anyone's
+// watching a response for (fired as a side effect of joining a trip) --
+// unlike the single-notification senders above, this one deliberately
+// doesn't collect/return a manual fallback. The participant's own
+// welcome email (sent right alongside this, from the same route) already
+// carries their access link and already gets the manual-link treatment
+// when email's off; re-surfacing that same link again here would just be
+// noise for the admin, not a second genuinely missed notification.
+//
+// `since`, when passed (issue #310's re-check path -- see
+// sendTripDatesUpdateEmail below), scopes this to only meetings/
+// requirements created after that moment. Without it (every existing
+// join-time call site, unchanged), every current meeting/requirement is
+// in scope, exactly as before -- `since` exists so a *re-run* against a
+// participant who already got a real join-time catch-up doesn't re-send
+// for something they were already notified about. TripMeeting/
+// TripRequirement.createdAt (added for this) make that comparison
+// possible at all; neither existed before.
+async function sendLateJoinerCatchUpEmails(trip, participant, { since } = {}) {
   if (isTripHistorical(trip)) return;
   const now = new Date();
-  const futureMeetings = (trip.meetings || []).filter((m) => !m.cancelledAt && new Date(m.startAt) > now);
+  const futureMeetings = (trip.meetings || []).filter(
+    (m) => !m.cancelledAt && new Date(m.startAt) > now && (!since || new Date(m.createdAt) > since)
+  );
   for (const meeting of futureMeetings) {
     await sendMeetingEmail(
       { ...trip, participants: [participant] },
@@ -275,7 +355,7 @@ async function sendLateJoinerCatchUpEmails(trip, participant) {
   }
 
   const notifiableRequirements = (trip.requirements || []).filter(
-    (r) => r.kind === "document" || r.kind === "esignature"
+    (r) => (r.kind === "document" || r.kind === "esignature") && (!since || new Date(r.createdAt) > since)
   );
   for (const requirement of notifiableRequirements) {
     await sendRequirementNotificationEmail(trip, requirement, [participant]);
@@ -291,14 +371,32 @@ async function sendLateJoinerCatchUpEmails(trip, participant) {
 // now-wrong dates. The reused UID means a calendar client updates its
 // existing entry rather than creating a duplicate one, exactly as a
 // meeting reschedule's resend already relies on for the same reason.
+//
+// #310: this is also the one sender in this file that used to have no
+// manual-fallback path at all -- outbound email off meant a completely
+// silent no-op, with the calling route not even inspecting a return
+// value. Now returns the same { sent, manual } shape every sibling
+// sender already does.
 async function sendTripDatesUpdateEmail(trip) {
-  if (isTripHistorical(trip) || !trip.startDate || !trip.endDate) return;
-  if (!(await outboundEmailEnabled())) return;
+  if (isTripHistorical(trip) || !trip.startDate || !trip.endDate) return null;
+  if (!(await outboundEmailEnabled())) return manualFallback(trip.participants);
   for (const participant of trip.participants || []) {
     await sendParticipantEmail(
       participant,
       `Trip dates updated: ${trip.name || trip.type || "your trip"}`,
-      `This trip's dates have changed -- attached is an updated calendar invite.\n\nYour trip page: ${buildTripParticipantAccessUrl(participant)}`,
+      {
+        eyebrow: "Trip dates updated",
+        blocks: [
+          blocks.paragraph(
+            "This trip's dates have changed -- attached is an updated calendar invite so your calendar stays accurate."
+          ),
+          blocks.details([
+            { label: "Starts", value: new Date(trip.startDate).toDateString() },
+            { label: "Ends", value: new Date(trip.endDate).toDateString() },
+          ]),
+          blocks.button(buildTripParticipantAccessUrl(participant), "Open your trip page"),
+        ],
+      },
       {
         attachments: [
           {
@@ -310,12 +408,13 @@ async function sendTripDatesUpdateEmail(trip) {
       }
     );
   }
+  return { sent: true };
 }
 
 // participant email with the same .ics attachment shape, just a
 // different lead sentence and (for cancel) the CANCEL variant.
 async function sendMeetingEmail(trip, meeting, lead, { cancelled = false } = {}) {
-  if (!(await outboundEmailEnabled())) return;
+  if (!(await outboundEmailEnabled())) return manualFallback(trip.participants);
   // Falls back to exactly today's trip-name-only subject when a meeting
   // has no title set -- a trip with more than one meeting (the normal
   // case) otherwise sends every meeting's email with the identical
@@ -325,7 +424,7 @@ async function sendMeetingEmail(trip, meeting, lead, { cancelled = false } = {})
     await sendParticipantEmail(
       participant,
       `${cancelled ? "Meeting cancelled" : "Meeting"}: ${subjectLabel}`,
-      buildMeetingEmailBody(meeting, lead, participant, { cancelled }),
+      buildMeetingEmailContent(meeting, lead, participant, { cancelled }),
       {
         attachments: [
           {
@@ -340,12 +439,43 @@ async function sendMeetingEmail(trip, meeting, lead, { cancelled = false } = {})
       }
     );
   }
+  return { sent: true };
+}
+
+// The "You're on the team" email, shared by both ways someone joins a trip
+// (an admin adding them directly, or an approved application) so the two
+// can't drift apart. `approved` only changes the opening line.
+function buildTeamWelcomeContent(trip, participant, { approved = false } = {}) {
+  const base = appBaseUrl();
+  return {
+    eyebrow: "Welcome to the team",
+    blocks: [
+      blocks.paragraph(
+        approved
+          ? "You've been approved for the trip -- attached is a calendar invite for the trip dates."
+          : "You're on the team! Attached is a calendar invite for the trip dates."
+      ),
+      blocks.details([
+        { label: "Trip", value: trip.name || trip.type },
+        { label: "Starts", value: trip.startDate ? new Date(trip.startDate).toDateString() : null },
+        { label: "Ends", value: trip.endDate ? new Date(trip.endDate).toDateString() : null },
+      ]),
+      blocks.button(buildTripParticipantAccessUrl(participant), "Open your trip page"),
+      participant.shareToken
+        ? blocks.paragraph("Share your support-raising page with family and friends:")
+        : null,
+      participant.shareToken
+        ? blocks.button(`${base}/trip-support-raising/${participant.shareToken}`, "Your support-raising page")
+        : null,
+    ],
+  };
 }
 
 module.exports = {
   sendParticipantEmail,
   buildMeetingIcs,
-  buildMeetingEmailBody,
+  buildMeetingEmailContent,
+  buildTeamWelcomeContent,
   buildMeetingRsvpUrls,
   buildTripDatesIcs,
   emailParticipantSelect,

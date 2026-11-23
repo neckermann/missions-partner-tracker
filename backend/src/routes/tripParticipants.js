@@ -25,9 +25,10 @@ async function tripIdOfParticipant(req) {
   });
   return row?.tripId;
 }
-const { generateShareToken, buildTripParticipantAccessUrl, appBaseUrl } = require("../utils/tripAccessToken");
+const { generateShareToken, buildTripParticipantAccessUrl } = require("../utils/tripAccessToken");
 const {
   sendParticipantEmail,
+  buildTeamWelcomeContent,
   buildTripDatesIcs,
   sendLateJoinerCatchUpEmails,
 } = require("../utils/tripEmails");
@@ -152,6 +153,7 @@ router.put(
       // ever receive their own access link or support-raising link
       // automatically. Now carries both, in one email, rather than a
       // second dedicated send for the support-raising link.
+      let teamWelcomeEmail = null;
       if (
         updated.participant &&
         application.trip.status !== "completed" &&
@@ -159,14 +161,10 @@ router.put(
         application.trip.endDate
       ) {
         if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
-          const accessUrl = buildTripParticipantAccessUrl(updated.participant);
-          const supportRaisingLine = updated.participant.shareToken
-            ? `\n\nYour support-raising page (share this with family and friends): ${appBaseUrl()}/trip-support-raising/${updated.participant.shareToken}`
-            : "";
           await sendParticipantEmail(
             updated.participant,
             `You're on the team: ${application.trip.name || application.trip.type || "your trip"}`,
-            `You've been approved for the trip -- attached is a calendar invite for the trip dates.\n\nYour trip page: ${accessUrl}${supportRaisingLine}`,
+            buildTeamWelcomeContent(application.trip, updated.participant, { approved: true }),
             {
               attachments: [
                 {
@@ -177,6 +175,13 @@ router.put(
               ],
             }
           );
+        } else {
+          // Outbound email off -- this is the only place a newly-approved
+          // participant would otherwise ever get their own trip-access
+          // link automatically. Same manualUrl shape as the dedicated
+          // /participants/:id/request-access-link route below, so the
+          // frontend can hand it to the same ManualSendNotice either way.
+          teamWelcomeEmail = { sent: false, manualUrl: buildTripParticipantAccessUrl(updated.participant) };
         }
       }
 
@@ -196,7 +201,7 @@ router.put(
       // returned here. Never caught: no existing test asserted on the
       // response shape, only status 200 (found via e2e/trip-team-table-
       // modal.spec.js, the first real coverage of this page).
-      res.json({ ...updated.app, participant: updated.participant });
+      res.json({ ...updated.app, participant: updated.participant, teamWelcomeEmail });
     } catch (err) {
       next(err);
     }
@@ -247,14 +252,10 @@ router.post(
 
       if (trip.status !== "completed" && trip.startDate && trip.endDate) {
         if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
-          const accessUrl = buildTripParticipantAccessUrl(participant);
-          const supportRaisingLine = participant.shareToken
-            ? `\n\nYour support-raising page (share this with family and friends): ${appBaseUrl()}/trip-support-raising/${participant.shareToken}`
-            : "";
           await sendParticipantEmail(
             participant,
             `You're on the team: ${trip.name || trip.type || "your trip"}`,
-            `Attached is a calendar invite for the trip dates.\n\nYour trip page: ${accessUrl}${supportRaisingLine}`,
+            buildTeamWelcomeContent(trip, participant),
             {
               attachments: [
                 {
@@ -397,12 +398,17 @@ router.post(
     try {
       const participant = await prisma.tripParticipant.findUnique({ where: { id: req.params.id } });
       if (!participant) return res.status(404).json({ error: "Not found" });
-      await sendParticipantEmail(
-        participant,
-        "Your trip access link",
-        `Here's your trip link: ${buildTripParticipantAccessUrl(participant)}`
-      );
-      res.json({ sent: true });
+      const settings = await getSettings();
+      if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+        await sendParticipantEmail(
+          participant,
+          "Your trip access link",
+          `Here's your trip link: ${buildTripParticipantAccessUrl(participant)}`
+        );
+        res.json({ sent: true });
+      } else {
+        res.json({ sent: false, manualUrl: buildTripParticipantAccessUrl(participant) });
+      }
     } catch (err) {
       next(err);
     }

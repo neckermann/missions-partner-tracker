@@ -53,8 +53,8 @@ router.post(
       if (!trip) return res.status(404).json({ error: "Not found" });
 
       const meeting = await prisma.tripMeeting.create({ data: { ...data, tripId: trip.id } });
-      await sendMeetingEmail(trip, meeting, "A meeting has been scheduled.");
-      res.status(201).json(meeting);
+      const emailResult = await sendMeetingEmail(trip, meeting, "A meeting has been scheduled.");
+      res.status(201).json({ ...meeting, manualEmail: emailResult?.manual });
     } catch (err) {
       next(err);
     }
@@ -89,10 +89,11 @@ router.put(
 
       const updated = await prisma.tripMeeting.update({ where: { id: req.params.id }, data });
 
+      let emailResult;
       if (rescheduled) {
-        await sendMeetingEmail(existing.trip, updated, "Your trip meeting has been updated.");
+        emailResult = await sendMeetingEmail(existing.trip, updated, "Your trip meeting has been updated.");
       }
-      res.json(updated);
+      res.json({ ...updated, manualEmail: emailResult?.manual });
     } catch (err) {
       next(err);
     }
@@ -116,8 +117,12 @@ router.post(
       if (!meeting) return res.status(404).json({ error: "Not found" });
       if (meeting.cancelledAt) return res.status(400).json({ error: "This meeting has been cancelled." });
 
-      await sendMeetingEmail(meeting.trip, meeting, "Here's a reminder about an upcoming trip meeting.");
-      res.json({ sent: true });
+      const emailResult = await sendMeetingEmail(
+        meeting.trip,
+        meeting,
+        "Here's a reminder about an upcoming trip meeting."
+      );
+      res.json({ sent: !!emailResult?.sent, manual: emailResult?.manual });
     } catch (err) {
       next(err);
     }
@@ -145,10 +150,15 @@ router.post(
         where: { id: req.params.id },
         data: { cancelledAt: existing.cancelledAt || new Date() },
       });
-      await sendMeetingEmail(existing.trip, cancelled, "A trip meeting has been cancelled.", {
-        cancelled: true,
-      });
-      res.json(cancelled);
+      const emailResult = await sendMeetingEmail(
+        existing.trip,
+        cancelled,
+        "A trip meeting has been cancelled.",
+        {
+          cancelled: true,
+        }
+      );
+      res.json({ ...cancelled, manualEmail: emailResult?.manual });
     } catch (err) {
       next(err);
     }

@@ -17,6 +17,7 @@ import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 
@@ -53,6 +54,7 @@ export default function AdminTripParticipantDetail() {
   const [trip, setTrip] = useState(null);
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState("");
+  const [manualAccessLink, setManualAccessLink] = useState(null); // { url } | null
   const [docMessage, setDocMessage] = useState("");
   const [docFile, setDocFile] = useState(null);
   const [docRequirementChoice, setDocRequirementChoice] = useState("");
@@ -140,8 +142,9 @@ export default function AdminTripParticipantDetail() {
 
   async function handleResendAccessLink() {
     try {
-      await resendParticipantAccessLink(participantId);
+      const result = await resendParticipantAccessLink(participantId);
       setError("");
+      setManualAccessLink(result?.manualUrl ? { url: result.manualUrl } : null);
     } catch (err) {
       reportError(err, "Couldn't resend the access link.");
     }
@@ -249,6 +252,10 @@ export default function AdminTripParticipantDetail() {
         <p style={{ color: "#a6540f", fontSize: "0.85rem" }}>Missing: {missingFields.join(", ")}</p>
       )}
 
+      {/* Right above "Contact & access", not up by the page title -- that's
+          where "Resend access link" (below) actually lives, so the link
+          this produces shows up next to the action that asked for it. */}
+      {manualAccessLink && <ManualSendNotice recipients={manualAccessLink} />}
       <EditableSection
         title="Contact & access"
         canEdit={canWrite}

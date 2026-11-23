@@ -113,6 +113,7 @@ CREATE TABLE "Trip" (
 CREATE TABLE "TripParticipant" (
     "id" TEXT NOT NULL,
     "tripId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "firstName" TEXT,
     "lastName" TEXT,
     "role" TEXT,
@@ -191,6 +192,7 @@ CREATE TABLE "TripApplication" (
 CREATE TABLE "TripMeeting" (
     "id" TEXT NOT NULL,
     "tripId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "startAt" TIMESTAMP(3) NOT NULL,
     "title" TEXT,
     "location" TEXT,
@@ -217,6 +219,7 @@ CREATE TABLE "TripMeetingRsvp" (
 CREATE TABLE "TripRequirement" (
     "id" TEXT NOT NULL,
     "tripId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "label" TEXT NOT NULL,
     "kind" TEXT NOT NULL DEFAULT 'document',
     "bodyText" TEXT,
@@ -999,3 +1002,69 @@ ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSeg
 -- AddForeignKey
 ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSegmentToTripParticipant_B_fkey" FOREIGN KEY ("B") REFERENCES "TripParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+
+-- CreateTable
+CREATE TABLE "PasswordSetupToken" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "usedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PasswordSetupToken_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PasswordSetupToken_tokenHash_key" ON "PasswordSetupToken"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "PasswordSetupToken_userId_idx" ON "PasswordSetupToken"("userId");
+
+-- CreateIndex
+CREATE INDEX "PasswordSetupToken_expiresAt_idx" ON "PasswordSetupToken"("expiresAt");
+
+-- AddForeignKey
+ALTER TABLE "PasswordSetupToken" ADD CONSTRAINT "PasswordSetupToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- CreateTable
+CREATE TABLE "SavedReport" (
+    "id" TEXT NOT NULL,
+    "reportId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "params" JSONB NOT NULL,
+    "shared" BOOLEAN NOT NULL DEFAULT false,
+    "ownerId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SavedReport_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ReportSchedule" (
+    "id" TEXT NOT NULL,
+    "savedReportId" TEXT NOT NULL,
+    "cadence" TEXT NOT NULL,
+    "recipientIds" TEXT[],
+    "skipIfEmpty" BOOLEAN NOT NULL DEFAULT true,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "lastSentAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ReportSchedule_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "SavedReport_ownerId_idx" ON "SavedReport"("ownerId");
+
+-- CreateIndex
+CREATE INDEX "SavedReport_reportId_idx" ON "SavedReport"("reportId");
+
+-- CreateIndex
+CREATE INDEX "ReportSchedule_savedReportId_idx" ON "ReportSchedule"("savedReportId");
+
+-- AddForeignKey
+ALTER TABLE "SavedReport" ADD CONSTRAINT "SavedReport_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ReportSchedule" ADD CONSTRAINT "ReportSchedule_savedReportId_fkey" FOREIGN KEY ("savedReportId") REFERENCES "SavedReport"("id") ON DELETE CASCADE ON UPDATE CASCADE;

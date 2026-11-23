@@ -27,6 +27,7 @@ require("./config/env").assertValidEnv();
 // ever run.
 const { startEmailDispatchScheduler, startGroupMeScheduler } = require("./utils/emailDispatchScheduler");
 const { startTripReminderScheduler } = require("./utils/tripReminderScheduler");
+const { startReportScheduler } = require("./utils/reportScheduler");
 const whatsappClient = require("./utils/whatsappClient");
 const { isFeatureEnabled } = require("./utils/features");
 const prisma = require("./prismaClient");
@@ -62,6 +63,7 @@ if (require.main === module) {
     startEmailDispatchScheduler();
     startGroupMeScheduler();
     startTripReminderScheduler();
+    startReportScheduler();
     console.log("Missionary Tracker worker is running.");
 
     // Open the WhatsApp session now (if the feature is on and a number is

@@ -12,6 +12,7 @@ import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import RecordList from "../components/admin/RecordList.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import Field from "../components/admin/Field.jsx";
+import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 
 const emptyMeetingForm = { startAt: "", title: "", location: "", meetingLink: "", agenda: "" };
 
@@ -72,16 +73,19 @@ export default function AdminTripMeetings() {
   const { trip, reload, confirmDialog, id, canWrite } = useOutletContext();
   const [error, setError] = useState("");
   const [modalMeeting, setModalMeeting] = useState(null); // null | { id: null|meetingId, form, cancelledAt }
+  const [manualEmailRecipients, setManualEmailRecipients] = useState(null); // [{ name, email, url }] | null
 
   function reportError(err, fallback) {
     setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
   }
 
   function openAdd() {
+    setManualEmailRecipients(null);
     setModalMeeting({ id: null, form: emptyMeetingForm, cancelledAt: false });
   }
 
   function openEdit(m) {
+    setManualEmailRecipients(null);
     setModalMeeting({
       id: m.id,
       form: {
@@ -107,19 +111,26 @@ export default function AdminTripMeetings() {
       meetingLink: modalMeeting.form.meetingLink.trim() || null,
       agenda: modalMeeting.form.agenda.trim() || null,
     };
+    let result;
     if (modalMeeting.id == null) {
       if (!patch.startAt) throw new Error("Choose a date/time");
-      await scheduleTripMeeting(id, patch);
+      result = await scheduleTripMeeting(id, patch);
     } else {
-      await updateTripMeeting(modalMeeting.id, patch);
+      result = await updateTripMeeting(modalMeeting.id, patch);
     }
     reload();
+    const manual = result?.manualEmail || null;
+    setManualEmailRecipients(manual);
+    // Stay open with the link in view instead of auto-closing behind it --
+    // same reasoning as AdminUserForm.jsx's wizard.
+    if (manual?.length > 0) return false;
   }
 
   async function handleResendMeetingInvite(meetingId) {
     try {
-      await resendTripMeetingInvite(meetingId);
+      const result = await resendTripMeetingInvite(meetingId);
       setError("");
+      setManualEmailRecipients(result?.manual || null);
     } catch (err) {
       reportError(err, "Couldn't resend the invite.");
     }
@@ -138,10 +149,14 @@ export default function AdminTripMeetings() {
     });
     if (!confirmed) return;
     try {
-      await cancelTripMeeting(meetingId);
-      setModalMeeting(null);
+      const result = await cancelTripMeeting(meetingId);
       reload();
       setError("");
+      // Stays open (reflecting the now-cancelled state in place, same as
+      // Resend) instead of closing behind the manual-cancellation-notice
+      // link -- see submitModal's own comment.
+      setModalMeeting((d) => (d ? { ...d, cancelledAt: true } : d));
+      setManualEmailRecipients(result?.manualEmail || null);
     } catch (err) {
       reportError(err, "Couldn't cancel this meeting.");
     }
@@ -221,11 +236,15 @@ export default function AdminTripMeetings() {
         (canWrite ? (
           <QuickActionModal
             title={modalMeeting.id == null ? "Schedule meeting" : "Edit meeting"}
-            onClose={() => setModalMeeting(null)}
+            onClose={() => {
+              setModalMeeting(null);
+              setManualEmailRecipients(null);
+            }}
             onSubmit={submitModal}
             submitLabel={modalMeeting.id == null ? "Schedule meeting" : "Save"}
           >
             <MeetingFields form={modalMeeting.form} setForm={setModalForm} />
+            {manualEmailRecipients?.length > 0 && <ManualSendNotice recipients={manualEmailRecipients} />}
             {modalMeeting.id != null && (
               <div className="table-actions" style={{ marginTop: "0.75rem" }}>
                 {modalMeeting.cancelledAt ? (

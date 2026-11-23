@@ -10,6 +10,7 @@ import PublicTripParticipant from "./pages/PublicTripParticipant.jsx";
 import PublicTripAccessRecovery from "./pages/PublicTripAccessRecovery.jsx";
 import Login from "./pages/Login.jsx";
 import Setup from "./pages/Setup.jsx";
+import SetPassword from "./pages/SetPassword.jsx";
 import RequireAdminAuth from "./components/RequireAdminAuth.jsx";
 import RequirePublicSite from "./components/RequirePublicSite.jsx";
 import RequireAdminFeature from "./components/RequireAdminFeature.jsx";
@@ -32,6 +33,7 @@ import "./index.css";
 // paged.js plus a 980-line print stylesheet, none of which a visitor
 // browsing the directory should pay for.
 const AdminReports = lazy(() => import("./pages/AdminReports.jsx"));
+const AdminReport = lazy(() => import("./pages/AdminReport.jsx"));
 const PublicMap = lazy(() => import("./pages/PublicMap.jsx"));
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout.jsx"));
 const AdminHome = lazy(() => import("./pages/AdminHome.jsx"));
@@ -40,6 +42,7 @@ const AdminPartnerForm = lazy(() => import("./pages/AdminPartnerForm.jsx"));
 const AdminPartnerDetail = lazy(() => import("./pages/AdminPartnerDetail.jsx"));
 const AdminBooklet = lazy(() => import("./pages/AdminBooklet.jsx"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers.jsx"));
+const AdminUserForm = lazy(() => import("./pages/AdminUserForm.jsx"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings.jsx"));
 const AdminSettingsHome = lazy(() => import("./pages/AdminSettingsHome.jsx"));
 const AdminSettingsAbout = lazy(() => import("./pages/AdminSettingsAbout.jsx"));
@@ -64,6 +67,7 @@ const AdminTripRequirements = lazy(() => import("./pages/AdminTripRequirements.j
 const AdminTripFinancial = lazy(() => import("./pages/AdminTripFinancial.jsx"));
 const AdminTripFlights = lazy(() => import("./pages/AdminTripFlights.jsx"));
 const AdminTripParticipantDetail = lazy(() => import("./pages/AdminTripParticipantDetail.jsx"));
+const AdminTripApplicationDetail = lazy(() => import("./pages/AdminTripApplicationDetail.jsx"));
 const AdminSettingsTrips = lazy(() => import("./pages/AdminSettingsTrips.jsx"));
 const AdminPartnerFiles = lazy(() => import("./pages/AdminPartnerFiles.jsx"));
 
@@ -140,6 +144,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               <Route path="/trip-access-recovery" element={<PublicTripAccessRecovery />} />
               <Route path="/login" element={<Login />} />
               <Route path="/setup" element={<Setup />} />
+              <Route path="/set-password" element={<SetPassword />} />
 
               {/* Admin (protected) — one shared sidebar layout for every
               sub-route below, including detail/edit forms. Role-specific
@@ -170,6 +175,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   element={
                     <RequireAdminFeature feature="reports">
                       <AdminReports />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
+                  path="reports/:reportId"
+                  element={
+                    <RequireAdminFeature feature="reports">
+                      <AdminReport />
                     </RequireAdminFeature>
                   }
                 />
@@ -233,6 +246,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   element={
                     <RequireAdminFeature feature="trips">
                       <AdminTripParticipantDetail />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
+                  path="trips/:tripId/applications/:applicationId"
+                  element={
+                    <RequireAdminFeature feature="trips">
+                      <AdminTripApplicationDetail />
                     </RequireAdminFeature>
                   }
                 />
@@ -308,6 +329,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   />
                   <Route path="system-info" element={<AdminSystemInfo />} />
                   <Route path="users" element={<AdminUsers />} />
+                  <Route path="users/new" element={<AdminUserForm />} />
                 </Route>
               </Route>
             </Routes>

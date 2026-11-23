@@ -315,6 +315,14 @@ model TripParticipant {
   tripId String
   trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
+  // #310: lets a later re-check (e.g. PUT /api/trips/:id setting dates
+  // for the first time) tell "a meeting/requirement that existed when
+  // this participant joined, so sendLateJoinerCatchUpEmails already
+  // caught them up on it" apart from "one added since -- they're still
+  // owed a catch-up for this." Without it, re-running catch-up for every
+  // current participant would re-send for things they already got.
+  createdAt DateTime @default(now())
+
   // New participant/applicant records use split name fields (issue
   // #257's broader uplift is separate, later work) -- this model's own
   // first/last columns don't wait on that.
@@ -505,6 +513,8 @@ model TripMeeting {
   id             String    @id @default(uuid())
   tripId         String
   trip           Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  // #310: see TripParticipant.createdAt's own comment -- same reason.
+  createdAt      DateTime  @default(now())
   startAt        DateTime
   // Short, identifying name -- what shows as the email subject and
   // calendar-entry title. A real, distinct need from the "two unused
@@ -583,10 +593,12 @@ model TripMeetingRsvp {
 // real child model, not JSON -- TripDocument.requirementId needs an
 // actual foreign key for the fulfillment anti-join to work.
 model TripRequirement {
-  id     String @id @default(uuid())
-  tripId String
-  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  label  String
+  id        String   @id @default(uuid())
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  // #310: see TripParticipant.createdAt's own comment -- same reason.
+  createdAt DateTime @default(now())
+  label     String
 
   // "document" (fulfilled by an upload, the original behavior) |
   // "task" (fulfilled by an admin directly checking it off for a
@@ -936,6 +948,44 @@ model SupportEntry {
   createdAt     DateTime @default(now())
 
   @@index([partnerId])
+}
+
+
+// A named, saved set of filters for one report. `shared` views are visible
+// to every admin/editor/viewer; private ones only to the owner. `params`
+// is the report's own query params exactly as the report page sends them.
+model SavedReport {
+  id        String           @id @default(uuid())
+  reportId  String // a report id from backend/src/reporting/registry.js
+  name      String
+  params    Json
+  shared    Boolean          @default(false)
+  ownerId   String
+  owner     User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
+  schedules ReportSchedule[]
+
+  @@index([ownerId])
+  @@index([reportId])
+}
+
+// Emails a saved view on a cadence. Always rendered for the "shared"
+// audience (restricted partners masked), because the recipient may not be
+// signed in. `skipIfEmpty` avoids "nothing to report" emails. Recipients
+// are existing user ids -- never free-form addresses -- so an email can't
+// be pointed outside the church's own accounts.
+model ReportSchedule {
+  id            String      @id @default(uuid())
+  savedReportId String
+  savedReport   SavedReport @relation(fields: [savedReportId], references: [id], onDelete: Cascade)
+  cadence       String // "weekly" | "monthly" | "quarterly"
+  recipientIds  String[] // User ids
+  skipIfEmpty   Boolean     @default(true)
+  active        Boolean     @default(true)
+  lastSentAt    DateTime?
+  createdAt     DateTime    @default(now())
+
+  @@index([savedReportId])
 }
 
 // A one-time financial need requested by a partner (e.g. "$1,000 to help a
@@ -1794,6 +1844,29 @@ model User {
   allPartners      Boolean               @default(true)
   followedPartners UserFollowedPartner[]
   notificationsSeen NotificationSeen[]
+  savedReports      SavedReport[]
+
+  // Welcome-email / first-time password setup links (see
+  // utils/passwordSetup.js). A pending account has passwordHash null until
+  // one of these is redeemed.
+  passwordSetupTokens PasswordSetupToken[]
+}
+
+// Single-use link that lets a new user choose their own password. Only a
+// SHA-256 hash of the random token is stored, never the token itself, so a
+// database leak can't be replayed. Issuing a new link deletes the user's
+// older unused ones (utils/passwordSetup.js), so at most one is live.
+model PasswordSetupToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // Per-user, per-category "last looked at this" marker for the in-app

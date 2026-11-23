@@ -234,6 +234,21 @@ When delegating a task to a fresh agent in this repo, include:
   "read CLAUDE.md") — e.g. "adding a new notification channel, see
   [SPEC.md § 6](SPEC.md) and
   [CONTRIBUTING.md § Code style](CONTRIBUTING.md#code-style)."
+- **Docs are part of "done," not a follow-up pass** — name which of
+  `CHANGELOG.md`, `RUNBOOK.md` (env vars), `SPEC.md` (architecture),
+  `ADMIN_GUIDE.md`/`USER_GUIDE.md` (operator/end-user-facing behavior
+  changes) a feature this size would plausibly touch, and ask the
+  agent to update them in the same pass, not leave it for review to
+  catch. Confirmed as a real, repeated gap, not hypothetical: the
+  welcome-emails/password-setup/guided-MFA PR (2026-11-22) shipped with
+  a `CHANGELOG.md` entry and `.env.example` additions but no
+  `RUNBOOK.md` env-var entries, no `SPEC.md` § 5 coverage of the new
+  `PasswordSetupToken` mechanism, and a `USER_GUIDE.md` "+ Add User"
+  section left describing the *old* (admin-typed-password) behavior --
+  all found on review, not during the build that should have caught
+  it. A fresh agent with no memory of this repo's docs won't infer
+  which docs apply on its own; naming them in the brief is what
+  closes the gap.
 
 ## TODO
 

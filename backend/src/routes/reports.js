@@ -3,105 +3,166 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
-const { getReport, listReports } = require("../reports");
+const { listReports, getReport, runReport } = require("../reporting/registry");
 const { toCsv, csvFilename } = require("../utils/csv");
 const { resolveToday } = require("../utils/today");
 
 const router = express.Router();
 
-// Reads, so no role gate among the 3 real roles. Any account that can
-// sign in already reads every partner's full record -- see
-// ADMIN_GUIDE.md § Who can see what. Roles govern writes, and a report
-// writes nothing. Gating this to admins would be the first read in the
-// app gated by role, and would contradict a decision made deliberately
-// rather than by omission.
-//
-// Trip Leader (role: "tripLeader") is a different kind of exception, not
-// a re-litigation of that decision -- a scoped guest, not a full account,
-// with no business pulling a cross-partner aggregate export of anything.
+// Reads, so open to admin/editor/viewer (see ADMIN_GUIDE.md "Who can see
+// what"); Trip Leader is a scoped guest and gets no cross-partner reports.
+// A report may narrow this further with its own `roles`.
 router.use(requireAuth);
 router.use(requireRole("admin", "editor", "viewer"));
 router.use(requireFeature("reports"));
 
-// GET /api/reports -- the picker: what reports exist, their filter fields
-// and their columns. No data.
-//
-// Some reports mirror a resource that has its own feature toggle (Prayer
-// Requests, One-Time Needs, Trip History, Monthly Support) -- a church that
-// turned that feature off shouldn't still find it listed here as an export.
-// upcomingBirthdays has no such toggle and so has no requiresFeature; it
-// always lists.
+async function accessFor(req) {
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
+  return {
+    role: req.user.role,
+    isEnabled: (key) => isFeatureEnabled(settings?.enabledFeatures, key),
+  };
+}
+
+// GET /api/reports -- the hub catalog (groups + report metadata, no data).
 router.get("/", async (req, res, next) => {
   try {
-    const settings = await prisma.churchSettings.findUnique({
-      where: { id: "singleton" },
-      select: { enabledFeatures: true },
-    });
-    const reports = (await listReports(prisma)).filter(
-      (r) => !r.requiresFeature || isFeatureEnabled(settings?.enabledFeatures, r.requiresFeature)
-    );
-    res.json(reports);
+    res.json(listReports(await accessFor(req)));
   } catch (err) {
     next(err);
   }
 });
 
-// GET /api/reports/:id?...params[&format=csv]
-//
-// One query, two serializers. The CSV is the same rows the table shows,
-// through the same report's own `columns`, so the file cannot drift from
-// what was on screen when someone hit Download.
+// ---- Saved views and schedules -------------------------------------------
+// Registered BEFORE "/:id" so "views" is never read as a report id.
+const { z } = require("zod");
+
+const viewSchema = z.object({
+  reportId: z.string(),
+  name: z.string().trim().min(1).max(80),
+  params: z.record(z.string(), z.any()).default({}),
+  shared: z.boolean().default(false),
+});
+
+const scheduleSchema = z.object({
+  cadence: z.enum(["weekly", "monthly", "quarterly"]),
+  recipientIds: z.array(z.string()).min(1).max(25),
+  skipIfEmpty: z.boolean().default(true),
+});
+
+const viewInclude = { schedules: true };
+
+// GET /api/reports/views?reportId= -- the caller's own views plus shared ones.
+router.get("/views", async (req, res, next) => {
+  try {
+    const where = { OR: [{ ownerId: req.user.id }, { shared: true }] };
+    if (req.query.reportId) where.reportId = String(req.query.reportId);
+    res.json(await prisma.savedReport.findMany({ where, include: viewInclude, orderBy: { name: "asc" } }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/reports/views -- params are validated through the report's own
+// schema, so a saved view can never hold something the report would reject.
+router.post("/views", async (req, res, next) => {
+  try {
+    const data = viewSchema.parse(req.body);
+    const report = getReport(data.reportId, await accessFor(req));
+    if (!report) return res.status(404).json({ error: "Not found" });
+    report.params.parse(data.params);
+    const created = await prisma.savedReport.create({ data: { ...data, ownerId: req.user.id } });
+    res.status(201).json(created);
+  } catch (err) {
+    next(err);
+  }
+});
+
+async function ownView(req, res) {
+  const view = await prisma.savedReport.findUnique({ where: { id: req.params.id } });
+  if (!view) {
+    res.status(404).json({ error: "Not found" });
+    return null;
+  }
+  if (view.ownerId !== req.user.id && req.user.role !== "admin") {
+    res.status(404).json({ error: "Not found" });
+    return null;
+  }
+  return view;
+}
+
+router.delete("/views/:id", async (req, res, next) => {
+  try {
+    if (!(await ownView(req, res))) return;
+    await prisma.savedReport.delete({ where: { id: req.params.id } });
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/reports/views/:id/schedule -- admin only: it sends email.
+// Recipients are existing active users, never free-form addresses.
+router.post("/views/:id/schedule", requireRole("admin"), async (req, res, next) => {
+  try {
+    const view = await ownView(req, res);
+    if (!view) return;
+    const data = scheduleSchema.parse(req.body);
+    const users = await prisma.user.findMany({
+      where: { id: { in: data.recipientIds }, active: true, role: { in: ["admin", "editor", "viewer"] } },
+      select: { id: true },
+    });
+    if (users.length !== new Set(data.recipientIds).size) {
+      return res.status(400).json({ error: "Every recipient must be an active user." });
+    }
+    const created = await prisma.reportSchedule.create({ data: { ...data, savedReportId: view.id } });
+    res.status(201).json(created);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/schedules/:id", requireRole("admin"), async (req, res, next) => {
+  try {
+    const existing = await prisma.reportSchedule.findUnique({
+      where: { id: req.params.id },
+      select: { id: true },
+    });
+    if (!existing) return res.status(404).json({ error: "Not found" });
+    await prisma.reportSchedule.delete({ where: { id: req.params.id } });
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/reports/:id?...params[&format=csv] -- one query, two serializers,
+// so the file always matches what the table showed.
 router.get("/:id", async (req, res, next) => {
   try {
-    const report = getReport(req.params.id);
-    // Matches requireFeature's reasoning: something that isn't a report --
-    // or isn't reachable right now -- should look like a URL that doesn't
-    // exist, not like a permission error.
+    const access = await accessFor(req);
+    const report = getReport(req.params.id, access);
     if (!report) return res.status(404).json({ error: "Not found" });
-
-    if (report.requiresFeature) {
-      const settings = await prisma.churchSettings.findUnique({
-        where: { id: "singleton" },
-        select: { enabledFeatures: true },
-      });
-      if (!isFeatureEnabled(settings?.enabledFeatures, report.requiresFeature)) {
-        return res.status(404).json({ error: "Not found" });
-      }
-    }
-
-    // "Today" as the browser's own calendar sees it when it tells us --
-    // the frontend sends this on every report run (AdminReports.jsx), and a
-    // real human looking at a specific day takes precedence over any
-    // server-side guess. The server-clock fallback (see resolveToday) only
-    // matters for a direct API call that omits it.
     const today = resolveToday(req.query.today);
-
-    // Throws ZodError on bad input, which the central error middleware
-    // turns into a 400 with a string `error` naming the field.
-    const params = report.params.parse(req.query);
-    const rows = await report.run(params, prisma, today);
-
+    // A ZodError here becomes a 400 via the central error middleware.
+    const result = await runReport(report, req.query, {
+      prisma,
+      today,
+    });
     if (req.query.format === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader(
         "Content-Disposition",
         `attachment; filename="${csvFilename(report.label, { now: today })}"`
       );
-      // Not cacheable: the same URL returns different rows as the data
-      // changes, and this one ends up in a downloads folder.
       res.setHeader("Cache-Control", "no-store");
-      return res.send(toCsv(rows, report.columns));
+      return res.send(toCsv(result.rows, result.columns));
     }
-
-    res.json({
-      id: report.id,
-      label: report.label,
-      columns: report.columns,
-      rows,
-      // Echoed so the page can print "as of" and show what was asked for,
-      // and so a saved PDF says what it was filtered by.
-      generatedAt: new Date().toISOString(),
-    });
+    res.set("Cache-Control", "no-store");
+    return res.json({ id: report.id, label: report.label, ...result });
   } catch (err) {
     next(err);
   }

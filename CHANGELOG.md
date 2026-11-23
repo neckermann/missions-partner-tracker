@@ -14,6 +14,37 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-23
+
+Still pre-1.0: this is the first version number this project has
+actually tagged and released (see `package.json` history — earlier
+`1.x` entries in this file were never tagged or published, and the
+version was dropped back below `1.0` to stop implying otherwise).
+Everything below is the project's full feature set to date, not just
+what changed since some prior release.
+
+### Changed
+- Reports rebuilt from scratch: a hub organized by question (Money, Partner care, Trips, Contacts, System) and nine reports — support summary, support changes, prayer requests, one-time needs, data completeness, trip fundraising, trip readiness, mailing list, users & access (admin only). Each has URL-backed filters, summary tiles, CSV download and print / save as PDF. No database migration.
+- Saved report views (private or shared) and scheduled report emails (weekly/monthly/quarterly, sent to existing users, masked for restricted partners). **Requires a database migration** (`ReportSchedule`, `SavedReport`).
+- **Removed** the previous reports (birthdays, furlough, trip history, and the earlier support, needs and prayer exports). Bookmarked `/api/reports/<old-id>` URLs now return 404.
+
+**Welcome emails with secure password setup.** Adding a user (including a
+Trip Leader) now emails them a one-time "Choose your password" link instead
+of an admin typing a password. The link is single-use, expires (72 hours;
+7 days for Trip Leaders), and only a hash of it is stored. Add User has a
+"Send a welcome email" toggle (on by default) and a "Require two-factor
+authentication at first sign-in" option; turning the email off leaves the
+account pending until a password is set or "Send setup link" is used on its
+row. The sign-in-time two-factor setup screen and Account Settings now walk
+first-timers through installing and using an authenticator app. Trip
+participant emails (meeting invites with Yes/No/Maybe buttons, reminders,
+checklist and date-change notices, team welcome) and the new welcome email
+share one branded, reusable template (`backend/src/utils/emailTemplate.js`).
+**Needs a migration** (new `PasswordSetupToken` table) -- run
+`npx prisma migrate dev`. Guide/support links in the welcome email point
+at this project's own docs and aren't configurable per fork (no new env
+vars).
+
 The notification system is now called **Dispatch** throughout the app
 and its database schema, so it can't collide with a future in-app
 notifications feature. Nothing about how it behaves changed — "Pending
