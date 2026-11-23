@@ -10,7 +10,8 @@ const {
   removeFixturePartners,
   FIXTURE_TAG,
 } = require("./helpers");
-const { stripFootnoteArtifacts } = require("../../src/utils/extraction");
+const { stripFootnoteArtifacts, DEFAULT_MODEL } = require("../../src/utils/extraction");
+const Anthropic = require("@anthropic-ai/sdk");
 
 let admin;
 let editor;
@@ -27,12 +28,12 @@ before(async () => {
 
   originalSettings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { anthropicApiKey: true, enabledFeatures: true },
+    select: { anthropicApiKey: true, enabledFeatures: true, extractionModel: true },
   });
   // Clean slate -- these tests assume nothing is configured yet.
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
-    update: { anthropicApiKey: null },
+    update: { anthropicApiKey: null, extractionModel: null },
     create: { id: "singleton" },
   });
 });
@@ -61,7 +62,9 @@ describe("GET/PUT /api/settings/ai-extraction -- admin gate", () => {
   test("admin sees unconfigured, with no key field in the response at all", async () => {
     const res = await admin("/api/settings/ai-extraction");
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { configured: false });
+    // model: null -- the plain-text companion field (#324) is always
+    // present and echoed back as-is, unlike apiKey/anthropicApiKey.
+    assert.deepEqual(res.body, { configured: false, model: null });
     assert.ok(!("apiKey" in res.body) && !("anthropicApiKey" in res.body));
   });
 });
@@ -73,7 +76,7 @@ describe("PUT /api/settings/ai-extraction -- write-only key", () => {
       body: { apiKey: "sk-ant-test-key-abc123" },
     });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { configured: true });
+    assert.deepEqual(res.body, { configured: true, model: null });
 
     const row = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
@@ -96,6 +99,61 @@ describe("PUT /api/settings/ai-extraction -- write-only key", () => {
       select: { anthropicApiKey: true },
     });
     assert.equal(after.anthropicApiKey, before.anthropicApiKey);
+  });
+});
+
+// #324: extractionModel rides alongside the write-only key, but unlike it
+// is plain text, never encrypted, and echoed back as-is on every GET --
+// it's not a secret (see that field's own comment in schema.prisma).
+describe("PUT /api/settings/ai-extraction -- plain-text model field", () => {
+  test("saving a model id round-trips on the next GET, independent of the key", async () => {
+    const put = await admin("/api/settings/ai-extraction", {
+      method: "PUT",
+      body: { model: "claude-sonnet-5" },
+    });
+    assert.equal(put.status, 200);
+    assert.equal(put.body.model, "claude-sonnet-5");
+
+    const get = await admin("/api/settings/ai-extraction");
+    assert.equal(get.status, 200);
+    assert.equal(get.body.model, "claude-sonnet-5");
+
+    const row = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { extractionModel: true },
+    });
+    assert.equal(row.extractionModel, "claude-sonnet-5");
+  });
+
+  test("sending apiKey without model leaves the stored model untouched", async () => {
+    const res = await admin("/api/settings/ai-extraction", {
+      method: "PUT",
+      body: { apiKey: "sk-ant-another-test-key" },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.model, "claude-sonnet-5", "model from the previous test must survive");
+  });
+
+  test("explicitly clearing the model (blank string) resets it to null -- app default", async () => {
+    const res = await admin("/api/settings/ai-extraction", { method: "PUT", body: { model: "" } });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.model, null);
+
+    const row = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { extractionModel: true },
+    });
+    assert.equal(row.extractionModel, null);
+  });
+
+  test("the Joshua Project settings pair is unaffected -- no model field appears there", async () => {
+    const res = await admin("/api/settings/joshua-project");
+    assert.equal(res.status, 200);
+    assert.equal(typeof res.body.configured, "boolean");
+    assert.ok(
+      !("model" in res.body),
+      "registerApiKeySetting's optional textField must not leak onto a call that didn't ask for one"
+    );
   });
 });
 
@@ -224,6 +282,242 @@ describe("the scan endpoint actually loads the file's bytes before calling Claud
     const res = await admin(`/api/partner-files/${fileId}/extract`, { method: "POST" });
     assert.equal(res.status, 400);
     assert.match(res.body.error, /AI request scanning isn't configured/);
+  });
+});
+
+// #324: the model actually used by anthropic.messages.parse(), and the
+// explicit error when that model is unavailable. No real network call --
+// Messages.prototype.parse (shared across every `new Anthropic(...)`
+// instance, including the one client() constructs) is monkey-patched for
+// the duration of each test, the same "swap shared runtime state, restore
+// it after" technique joshuaProject.test.js uses for global.fetch.
+describe("#324: extraction uses the configured model, with an explicit error when it's unavailable", () => {
+  let partnerId;
+  let fileId;
+  let messagesProto;
+  let originalParse;
+
+  before(async () => {
+    messagesProto = Object.getPrototypeOf(new Anthropic({ apiKey: "mock" }).messages);
+    originalParse = messagesProto.parse;
+
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { aiExtraction: true } },
+    });
+    // Through the real route, not a raw prisma write, so it's actually
+    // encrypted the way client()'s decryptField call expects.
+    const keySaved = await admin("/api/settings/ai-extraction", {
+      method: "PUT",
+      body: { apiKey: "sk-ant-mock-key-for-model-tests" },
+    });
+    assert.equal(keySaved.status, 200, "fixture setup: saving the mock key should succeed");
+
+    const partner = await prisma.partner.create({
+      data: { kind: "missionary", displayName: `${FIXTURE_TAG} Model Config Fixture` },
+    });
+    partnerId = partner.id;
+    const file = await prisma.partnerFile.create({
+      data: {
+        partnerId,
+        kind: "newsletter",
+        receivedDate: new Date("2026-03-01"),
+        fileName: "letter.pdf",
+        contentType: "application/pdf",
+        bytesRow: { create: { bytes: Buffer.from("%PDF-fixture") } },
+      },
+    });
+    fileId = file.id;
+  });
+
+  after(async () => {
+    messagesProto.parse = originalParse;
+    await removeFixturePartners();
+  });
+
+  const emptyResult = {
+    stop_reason: "end_turn",
+    parsed_output: { prayerRequests: [], oneTimeNeeds: [] },
+  };
+
+  test("uses the app's built-in default model when none is configured", async () => {
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { extractionModel: null } });
+    let receivedModel;
+    messagesProto.parse = async (opts) => {
+      receivedModel = opts.model;
+      return emptyResult;
+    };
+    const res = await admin(`/api/partner-files/${fileId}/extract`, { method: "POST" });
+    assert.equal(res.status, 200);
+    assert.equal(receivedModel, DEFAULT_MODEL);
+  });
+
+  test("uses the configured model when one is set", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { extractionModel: "claude-sonnet-5" },
+    });
+    let receivedModel;
+    messagesProto.parse = async (opts) => {
+      receivedModel = opts.model;
+      return emptyResult;
+    };
+    const res = await admin(`/api/partner-files/${fileId}/extract`, { method: "POST" });
+    assert.equal(res.status, 200);
+    assert.equal(receivedModel, "claude-sonnet-5");
+  });
+
+  test("surfaces an explicit, user-facing error when the configured model is unavailable (a 404 not_found_error)", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { extractionModel: "claude-typo-ed-retired-model" },
+    });
+    messagesProto.parse = async () => {
+      throw new Anthropic.NotFoundError(
+        404,
+        { error: { type: "not_found_error", message: "model: claude-typo-ed-retired-model" } },
+        "404 model: claude-typo-ed-retired-model",
+        undefined
+      );
+    };
+    const res = await admin(`/api/partner-files/${fileId}/extract`, { method: "POST" });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /configured AI model isn't available/);
+  });
+
+  test("a different kind of API error (not model-not-found) is left to propagate as-is, not masked as the model error", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { extractionModel: "claude-sonnet-5" },
+    });
+    messagesProto.parse = async () => {
+      throw new Anthropic.RateLimitError(
+        429,
+        { error: { type: "rate_limit_error", message: "slow down" } },
+        "429 slow down",
+        undefined
+      );
+    };
+    const res = await admin(`/api/partner-files/${fileId}/extract`, { method: "POST" });
+    assert.notEqual(res.status, 400);
+    assert.ok(
+      !res.body.error.includes("configured AI model isn't available"),
+      "a rate-limit error must not be mistaken for the model-unavailable case"
+    );
+  });
+});
+
+// #323: warn (non-blocking) when this file already produced saved
+// PrayerRequest/SupportNeed rows on an earlier scan.
+describe("#323: already-scanned count on the extract response", () => {
+  let partnerId;
+  let fileId;
+
+  before(async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { aiExtraction: true }, anthropicApiKey: null },
+    });
+    const partner = await prisma.partner.create({
+      data: { kind: "missionary", displayName: `${FIXTURE_TAG} Already Scanned Fixture` },
+    });
+    partnerId = partner.id;
+    const file = await prisma.partnerFile.create({
+      data: {
+        partnerId,
+        kind: "newsletter",
+        receivedDate: new Date("2026-03-01"),
+        fileName: "letter.pdf",
+        contentType: "application/pdf",
+        bytesRow: { create: { bytes: Buffer.from("%PDF-fixture") } },
+      },
+    });
+    fileId = file.id;
+  });
+
+  after(async () => {
+    await removeFixturePartners();
+  });
+
+  test("0 when the file has never produced a saved request/need, even once a scan succeeds", async () => {
+    const messagesProto = Object.getPrototypeOf(new Anthropic({ apiKey: "mock" }).messages);
+    const originalParse = messagesProto.parse;
+    const keySaved = await admin("/api/settings/ai-extraction", {
+      method: "PUT",
+      body: { apiKey: "sk-ant-mock-key-for-already-scanned-test" },
+    });
+    assert.equal(keySaved.status, 200);
+    messagesProto.parse = async () => ({
+      stop_reason: "end_turn",
+      parsed_output: { prayerRequests: [], oneTimeNeeds: [] },
+    });
+    try {
+      const res = await admin(`/api/partner-files/${fileId}/extract`, { method: "POST" });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.alreadyScannedCount, 0);
+    } finally {
+      messagesProto.parse = originalParse;
+      await prisma.churchSettings.update({ where: { id: "singleton" }, data: { anthropicApiKey: null } });
+    }
+  });
+
+  test("counts both a PrayerRequest and a SupportNeed already linked to this file (no API key needed -- fails before the AI call, but the count still ran)", async () => {
+    await prisma.prayerRequest.create({
+      data: {
+        partnerId,
+        category: "situational",
+        requestText: "Pray for safe travel.",
+        dateReceived: new Date("2026-03-01"),
+        sourceFileId: fileId,
+      },
+    });
+    await prisma.supportNeed.create({
+      data: {
+        partnerId,
+        description: "Need $500 for a vehicle repair.",
+        requestedAmount: 500,
+        requestDate: new Date("2026-03-01"),
+        sourceFileId: fileId,
+      },
+    });
+
+    // anthropicApiKey stays null here on purpose -- extractRequestsFromFile
+    // itself 400s with "not configured" before ever reaching the AI, but
+    // the already-scanned count is independent of that (see the route's
+    // own Promise.all) and this test only needs to see IT come back
+    // correctly, not a successful scan.
+    const res = await admin(`/api/partner-files/${fileId}/extract`, { method: "POST" });
+    assert.equal(res.status, 400);
+    assert.ok(res.body.error, "the extraction failure itself still surfaces its own error");
+    assert.equal(
+      res.body.alreadyScannedCount,
+      undefined,
+      "a failed extraction never reaches res.json, so no alreadyScannedCount field at all"
+    );
+  });
+
+  test("a successful scan on a file with prior records reports the correct nonzero count", async () => {
+    const messagesProto = Object.getPrototypeOf(new Anthropic({ apiKey: "mock" }).messages);
+    const originalParse = messagesProto.parse;
+    const keySaved = await admin("/api/settings/ai-extraction", {
+      method: "PUT",
+      body: { apiKey: "sk-ant-mock-key-for-already-scanned-test-2" },
+    });
+    assert.equal(keySaved.status, 200);
+    messagesProto.parse = async () => ({
+      stop_reason: "end_turn",
+      parsed_output: { prayerRequests: [], oneTimeNeeds: [] },
+    });
+    try {
+      const res = await admin(`/api/partner-files/${fileId}/extract`, { method: "POST" });
+      assert.equal(res.status, 200);
+      // One PrayerRequest + one SupportNeed created in the previous test,
+      // both pointed at this same file.
+      assert.equal(res.body.alreadyScannedCount, 2);
+    } finally {
+      messagesProto.parse = originalParse;
+      await prisma.churchSettings.update({ where: { id: "singleton" }, data: { anthropicApiKey: null } });
+    }
   });
 });
 

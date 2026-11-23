@@ -235,8 +235,9 @@ export async function updateJoshuaProjectSettings(payload) {
 
 // AI request scanning (Anthropic) -- admin-only on the backend, same
 // pattern as GroupMe/Joshua Project above. fetchAiExtractionSettings()
-// returns { configured }; the API key itself never appears in any
-// response.
+// returns { configured, model }; the API key itself never appears in any
+// response, but model (not a secret, see ChurchSettings.extractionModel's
+// comment, #324) is plain text and echoed back as-is.
 export async function fetchAiExtractionSettings() {
   const { data } = await api.get("/settings/ai-extraction");
   return data;
