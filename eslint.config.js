@@ -104,7 +104,13 @@ module.exports = [
         {
           assert: "either",
           depth: 3,
-          controlComponents: ["PresetOrCustomSelect", "PartnerSelect", "AddressFields", "AlbumLinkField"],
+          controlComponents: [
+            "PresetOrCustomSelect",
+            "PartnerSelect",
+            "AddressFields",
+            "AlbumLinkField",
+            "TripSelect",
+          ],
         },
       ],
 
