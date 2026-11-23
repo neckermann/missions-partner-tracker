@@ -950,7 +950,6 @@ model SupportEntry {
   @@index([partnerId])
 }
 
-
 // A named, saved set of filters for one report. `shared` views are visible
 // to every admin/editor/viewer; private ones only to the owner. `params`
 // is the report's own query params exactly as the report page sends them.
@@ -1195,10 +1194,10 @@ model InboundEmailBytes {
 // short, truncated excerpt for debugging context, not the full payload --
 // this table is a failure log, not a second copy of InboundEmail/Bytes.
 model InboundEmailFailure {
-  id                 String   @id @default(uuid())
-  receivedAt         DateTime @default(now())
-  reason             String
-  rawPayloadSnippet  String?  @db.Text
+  id                String   @id @default(uuid())
+  receivedAt        DateTime @default(now())
+  reason            String
+  rawPayloadSnippet String?  @db.Text
 }
 
 // A recorded event, capable of independently producing up to four
@@ -1461,8 +1460,8 @@ model ChurchSettings {
   // next successful (re)connect. whatsappDisconnectedAt null means either
   // "never paired" or "currently connected" -- the category query
   // distinguishes those by also requiring whatsappPairedAt to be set.
-  whatsappLastError      String?
-  whatsappDisconnectedAt DateTime?
+  whatsappLastError             String?
+  whatsappDisconnectedAt        DateTime?
   whatsappCommunityId           String?
   whatsappCommunityName         String?
   whatsappAnnouncementGroupId   String?
@@ -1493,6 +1492,18 @@ model ChurchSettings {
   // "never leaks into a response" here as load-bearing, not a nice-to-have
   // -- see the dedicated leak-check tests in test/routes/aiExtraction.test.js.
   anthropicApiKey String?
+
+  // Anthropic model id used for AI request scanning (see
+  // backend/src/utils/extraction.js) -- null means "use the app's built-in
+  // default," the same optional-override shape as every other per-church
+  // setting that has a sensible built-in fallback. Free text, not an enum --
+  // a self-hosting church may want a model id not on any curated list (see
+  // issue #324), and the built-in default is a separate, deliberate
+  // cost/quality decision tracked elsewhere, not something this field
+  // changes. Not a secret -- plain text, no encryptField, unlike
+  // anthropicApiKey above -- so it rides alongside that write-only key on
+  // the same /ai-extraction settings sub-route instead of needing its own.
+  extractionModel String?
 
   // Postmark server API token for outbound email (see
   // backend/src/utils/email.js) -- a transactional email provider, not
@@ -1835,14 +1846,14 @@ model User {
   // not two fields that could disagree. Flipped to null directly by the
   // signed unsubscribe link in every digest email's footer, no login
   // required (see this file's own /unsubscribe route).
-  cadence          String? // "biweekly" | "monthly" | "quarterly" | null
+  cadence           String? // "biweekly" | "monthly" | "quarterly" | null
   // Scope for this user's own digest, independent of the schedule
   // above -- mirrors PublicSubscriber's identical shape.
   // false means only the partners in followedPartners below; true (the
   // default, matching every existing subscriber's current behavior)
   // means every partner this user's role can already see.
-  allPartners      Boolean               @default(true)
-  followedPartners UserFollowedPartner[]
+  allPartners       Boolean               @default(true)
+  followedPartners  UserFollowedPartner[]
   notificationsSeen NotificationSeen[]
   savedReports      SavedReport[]
 

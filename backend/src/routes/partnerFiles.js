@@ -226,8 +226,19 @@ router.post(
       });
       if (!record?.bytesRow) return res.status(404).json({ error: "Not found" });
 
-      const suggestions = await extractRequestsFromFile({ ...record, bytes: record.bytesRow.bytes });
-      res.json(suggestions);
+      // #323: warn (non-blocking -- the admin can still add more
+      // suggestions) when this file already produced saved records on an
+      // earlier scan. Independent of the extraction call itself (a
+      // read-only count against PrayerRequest/SupportNeed.sourceFileId,
+      // both of which already point back at this file -- see their own
+      // comments in schema.prisma), so it runs alongside it rather than
+      // after, with no added latency over the extraction call alone.
+      const [suggestions, priorPrayerRequestCount, priorSupportNeedCount] = await Promise.all([
+        extractRequestsFromFile({ ...record, bytes: record.bytesRow.bytes }),
+        prisma.prayerRequest.count({ where: { sourceFileId: req.params.id } }),
+        prisma.supportNeed.count({ where: { sourceFileId: req.params.id } }),
+      ]);
+      res.json({ ...suggestions, alreadyScannedCount: priorPrayerRequestCount + priorSupportNeedCount });
     } catch (err) {
       next(err);
     }

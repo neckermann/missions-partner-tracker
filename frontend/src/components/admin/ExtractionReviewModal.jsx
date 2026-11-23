@@ -46,10 +46,15 @@ export default function ExtractionReviewModal({
   const [error, setError] = useState("");
   const [prayerRequests, setPrayerRequests] = useState([]);
   const [oneTimeNeeds, setOneTimeNeeds] = useState([]);
+  // #323: how many PrayerRequest/SupportNeed rows this file already
+  // produced on an earlier scan (0 if never scanned before). Informational
+  // only -- never blocks adding more suggestions below.
+  const [alreadyScannedCount, setAlreadyScannedCount] = useState(0);
 
   useEffect(() => {
     scan()
       .then((result) => {
+        setAlreadyScannedCount(result.alreadyScannedCount || 0);
         // Suggestions for a feature this church has turned off don't make
         // sense to offer -- the Add button would just 404 (see
         // requireFeature("prayerRequests"/"oneTimeNeeds") on the backend).
@@ -168,6 +173,19 @@ export default function ExtractionReviewModal({
       {status === "error" && (
         <p style={{ color: "#b91c1c" }} role="alert">
           {error}
+        </p>
+      )}
+      {status === "ready" && alreadyScannedCount > 0 && (
+        <p
+          role="status"
+          style={{
+            background: "#fff8e6",
+            border: "1px solid #f0d999",
+            borderRadius: "4px",
+            padding: "0.5rem 0.75rem",
+          }}
+        >
+          This file was already scanned — {alreadyScannedCount} request(s)/need(s) were already added from it.
         </p>
       )}
       {nothingFound && (

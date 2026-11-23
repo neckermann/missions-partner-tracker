@@ -68,16 +68,26 @@ requestText and description must be VERBATIM -- copy the exact sentence(s) stati
 
 background is a SEPARATE field, 1-2 sentences, a neutral third-person summary of the situation or event behind the request/need -- written in your own words, not verbatim. Use only what the letter itself says, drawn from anywhere in it, not outside knowledge. Resolve vague references ("the teenager we mentioned," "his mother," "the application") to what they actually refer to. If multiple requests share the same underlying situation, reuse the same background for each rather than writing it once and leaving the others without context.`;
 
+// The model this app ships with when a church hasn't overridden it --
+// deliberately NOT changed by #324 (see that issue): changing the built-in
+// default is a separate cost/quality decision that needs the eval harness
+// from #94 Part 5 first.
+const DEFAULT_MODEL = "claude-opus-5";
+
 // Admin-managed in ChurchSettings -- see that field's own comment in
 // schema.prisma. No implicit env-var fallback: the Anthropic SDK reads
 // ANTHROPIC_API_KEY from the environment by default when constructed with
 // no options, which this deliberately avoids by always passing an
 // explicit apiKey, so an old env var left behind on a host can't quietly
 // come back into play once the key is meant to be admin-managed.
+//
+// Also resolves the model to use (see ChurchSettings.extractionModel's own
+// comment, #324) in the same query -- both live on the one singleton row,
+// so there's no reason to round-trip twice.
 async function client() {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { anthropicApiKey: true },
+    select: { anthropicApiKey: true, extractionModel: true },
   });
   if (!settings?.anthropicApiKey) {
     const err = new Error(
@@ -86,7 +96,10 @@ async function client() {
     err.status = 400;
     throw err;
   }
-  return new Anthropic({ apiKey: decryptField(settings.anthropicApiKey) });
+  return {
+    anthropic: new Anthropic({ apiKey: decryptField(settings.anthropicApiKey) }),
+    model: settings.extractionModel || DEFAULT_MODEL,
+  };
 }
 
 // .eml's browser-reported contentType is unreliable (often
@@ -138,29 +151,46 @@ async function buildFileBlock({ bytes, contentType, fileName }) {
 
 async function extractRequestsFromFile(record) {
   const fileBlock = await buildFileBlock(record);
-  const anthropic = await client();
+  const { anthropic, model } = await client();
 
-  const response = await anthropic.messages.parse({
-    model: "claude-opus-5",
-    // Was 4096 -- too tight once background joined requestText/description
-    // as a third field per item, long enough to truncate mid-output on a
-    // letter with several requests and cause the max_tokens case below.
-    max_tokens: 8192,
-    system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: [
-          fileBlock,
-          {
-            type: "text",
-            text: "Extract any prayer requests and one-time financial needs from this document.",
-          },
-        ],
-      },
-    ],
-    output_config: { format: zodOutputFormat(ExtractionSchema) },
-  });
+  let response;
+  try {
+    response = await anthropic.messages.parse({
+      model,
+      // Was 4096 -- too tight once background joined requestText/description
+      // as a third field per item, long enough to truncate mid-output on a
+      // letter with several requests and cause the max_tokens case below.
+      max_tokens: 8192,
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: [
+            fileBlock,
+            {
+              type: "text",
+              text: "Extract any prayer requests and one-time financial needs from this document.",
+            },
+          ],
+        },
+      ],
+      output_config: { format: zodOutputFormat(ExtractionSchema) },
+    });
+  } catch (err) {
+    // A typo'd or retired model id (#324's "configured model unavailable"
+    // case) comes back from the API as a 404 not_found_error, which the SDK
+    // surfaces as NotFoundError -- mirror the explicit, user-facing error
+    // client() above already gives for the sibling "no key configured"
+    // case, rather than letting this fall through as a generic 500. Any
+    // other APIError (rate limit, overloaded, a real auth failure, etc.)
+    // isn't this specific case and is left to propagate as-is.
+    if (err instanceof Anthropic.NotFoundError) {
+      const wrapped = new Error("The configured AI model isn't available — check Settings → AI Features");
+      wrapped.status = 400;
+      throw wrapped;
+    }
+    throw err;
+  }
 
   if (response.stop_reason === "refusal") {
     const err = new Error("The AI declined to process this file");
@@ -199,4 +229,4 @@ async function extractRequestsFromFile(record) {
   };
 }
 
-module.exports = { extractRequestsFromFile, isEml, ExtractionSchema, stripFootnoteArtifacts };
+module.exports = { extractRequestsFromFile, isEml, ExtractionSchema, stripFootnoteArtifacts, DEFAULT_MODEL };

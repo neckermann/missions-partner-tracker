@@ -37,6 +37,17 @@ export default function AdminSettingsIntegrations() {
         saveErrorMessage="Couldn't save the API key."
         fetchSettings={fetchAiExtractionSettings}
         updateSettings={updateAiExtractionSettings}
+        textField={{
+          key: "model",
+          label: "Model",
+          placeholder: "App default",
+          helpText: (
+            <>
+              Anthropic model id to use for scanning, e.g. <code>claude-opus-5</code>. Leave blank to use this
+              app's built-in default.
+            </>
+          ),
+        }}
       />
 
       <div style={{ marginTop: "1rem" }}>

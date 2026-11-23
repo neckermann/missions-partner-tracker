@@ -233,15 +233,30 @@ router.post("/logo", requireRole("admin"), upload.single("image"), async (req, r
 // on this router. GroupMe (settingsGroupMe.js) stays hand-written -- it
 // has several fields (token, group, three topic ids), not one key, so
 // this shape doesn't fit it.
-function registerApiKeySetting(path, field) {
-  const select = { [field]: true };
+//
+// `textField` (optional, see #324) rides alongside the write-only key for a
+// registration that also has exactly one plain-text, non-secret companion
+// field -- AI Request Scanning's model id is the first of these. Unlike
+// `field` above, a text field is never write-only: GET echoes it back as-is
+// (it's not a secret) under `textField.key`, and PUT updates it whenever
+// that key is present in the body at all (including explicit `null`/""` to
+// clear it back to "use the app's default"), independently of whether
+// `apiKey` was also sent. Passing nothing here (Joshua Project's call below)
+// leaves this function's behavior and response shape completely unchanged --
+// this is additive, not a reshape of the write-only contract every other
+// caller relies on.
+function registerApiKeySetting(path, field, textField) {
+  const select = { [field]: true, ...(textField ? { [textField.column]: true } : {}) };
   function shape(settings) {
-    return { configured: Boolean(settings?.[field]) };
+    const result = { configured: Boolean(settings?.[field]) };
+    if (textField) result[textField.key] = settings?.[textField.column] ?? null;
+    return result;
   }
   const schema = z.object({
     // Omitted/blank leaves the stored key untouched -- same write-only-field
     // UX as settingsGroupMe.js's own accessToken.
     apiKey: z.string().trim().min(1).optional(),
+    ...(textField ? { [textField.key]: z.string().trim().optional().nullable() } : {}),
   });
 
   // GET (admin only, same reasoning as GET /groupme in settingsGroupMe.js).
@@ -257,8 +272,16 @@ function registerApiKeySetting(path, field) {
   // PUT (admin only).
   router.put(`/${path}`, requireRole("admin"), async (req, res, next) => {
     try {
-      const { apiKey } = schema.parse(req.body);
-      const fields = apiKey ? { [field]: encryptField(apiKey) } : {};
+      const body = schema.parse(req.body);
+      const fields = body.apiKey ? { [field]: encryptField(body.apiKey) } : {};
+      // Checked against the raw request body, not `body[textField.key]` --
+      // that key is present (as `undefined`) on the parsed object either
+      // way once it's declared on the schema, so this is the only way to
+      // tell "the admin didn't touch this field" (leave the stored value
+      // alone) apart from "the admin cleared it" (blank/null -> store null).
+      if (textField && textField.key in req.body) {
+        fields[textField.column] = body[textField.key]?.trim() || null;
+      }
 
       const updated = await prisma.churchSettings.upsert({
         where: { id: "singleton" },
@@ -274,6 +297,10 @@ function registerApiKeySetting(path, field) {
 }
 
 registerApiKeySetting("joshua-project", "joshuaProjectApiKey");
-registerApiKeySetting("ai-extraction", "anthropicApiKey");
+// `model` (ChurchSettings.extractionModel) rides alongside the write-only
+// anthropicApiKey -- see this field's own comment in schema.prisma for why
+// it's plain text here rather than going through encryptField like the key
+// above.
+registerApiKeySetting("ai-extraction", "anthropicApiKey", { key: "model", column: "extractionModel" });
 
 module.exports = router;

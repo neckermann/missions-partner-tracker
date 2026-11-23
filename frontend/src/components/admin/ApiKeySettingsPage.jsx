@@ -9,30 +9,48 @@ export default function ApiKeySettingsPage({
   saveErrorMessage,
   fetchSettings,
   updateSettings,
+  // Optional (#324): one extra plain-text, non-secret field that rides
+  // alongside the write-only key -- { key, label, placeholder, helpText }.
+  // Unlike apiKey, its current value IS echoed back by fetchSettings/
+  // updateSettings (it's not a secret), so it's readable/editable as plain
+  // text rather than the password-style write-only UX the key field gets.
+  textField,
 }) {
   const [configured, setConfigured] = useState(false);
+  const [textValue, setTextValue] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     fetchSettings()
-      .then((s) => setConfigured(s.configured))
+      .then((s) => {
+        setConfigured(s.configured);
+        if (textField) setTextValue(s[textField.key] ?? "");
+      })
       .catch((err) => setLoadError(err.response?.data?.error || loadErrorMessage))
       .finally(() => setLoading(false));
-    // fetchSettings/loadErrorMessage come from the caller's own module-level
-    // imports/string literals, never recreated on re-render.
+    // fetchSettings/loadErrorMessage/textField come from the caller's own
+    // module-level imports/string literals, never recreated on re-render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function save(draft) {
-    if (!draft.apiKey?.trim()) return;
+    // Built conditionally rather than always sending both keys -- a church
+    // that only wants to rotate the API key shouldn't have to also retype
+    // (or accidentally blank out) the model field, and vice versa.
+    const payload = {};
+    if (draft.apiKey?.trim()) payload.apiKey = draft.apiKey.trim();
+    if (textField) payload[textField.key] = draft[textField.key]?.trim() || null;
+    if (Object.keys(payload).length === 0) return;
+
     let updated;
     try {
-      updated = await updateSettings({ apiKey: draft.apiKey.trim() });
+      updated = await updateSettings(payload);
     } catch (err) {
       throw new Error(err.response?.data?.error || saveErrorMessage);
     }
     setConfigured(updated.configured);
+    if (textField) setTextValue(updated[textField.key] ?? "");
   }
 
   if (loading) return <p>Loading…</p>;
@@ -47,12 +65,17 @@ export default function ApiKeySettingsPage({
   return (
     <EditableSection
       title={title}
-      value={{ apiKey: "" }}
+      value={{ apiKey: "", ...(textField ? { [textField.key]: textValue } : {}) }}
       onSave={save}
       view={() => (
         <>
           <p style={{ color: "#555" }}>{description}</p>
           <p>{configured ? "Configured" : "Not configured"}</p>
+          {textField && (
+            <p>
+              {textField.label}: {textValue || "App default"}
+            </p>
+          )}
         </>
       )}
       edit={(d, set) => (
@@ -69,6 +92,22 @@ export default function ApiKeySettingsPage({
               autoComplete="off"
             />
           </label>
+          {textField && (
+            <label style={{ display: "block", marginTop: "0.75rem" }}>
+              {textField.label}
+              <input
+                type="text"
+                value={d[textField.key] ?? ""}
+                onChange={(e) => set(textField.key, e.target.value)}
+                placeholder={textField.placeholder}
+              />
+              {textField.helpText && (
+                <p style={{ color: "#555", fontSize: "0.85rem", fontWeight: "normal" }}>
+                  {textField.helpText}
+                </p>
+              )}
+            </label>
+          )}
         </>
       )}
     />
