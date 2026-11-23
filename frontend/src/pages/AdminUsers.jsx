@@ -17,6 +17,7 @@ import Table from "../components/shared/Table.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import { toDateInputValue } from "../utils/format.js";
+import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 
 const emptyForm = {
   email: "",
@@ -51,6 +52,7 @@ export default function AdminUsers() {
   const [editingUser, setEditingUser] = useState(null); // { id, form } or { form } for create
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState("");
+  const [manualSetupLink, setManualSetupLink] = useState(null); // { name, email, url } | null
 
   function reportError(err, fallback) {
     setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
@@ -105,9 +107,14 @@ export default function AdminUsers() {
   // password yet; a fresh link replaces any earlier one.
   async function handleSendSetupLink(id, email) {
     setError("");
+    setManualSetupLink(null);
     try {
-      await sendUserSetupLink(id);
-      setNotice(`Setup link sent to ${email}.`);
+      const result = await sendUserSetupLink(id);
+      if (result?.manualSetupUrl) {
+        setManualSetupLink({ email, url: result.manualSetupUrl });
+      } else {
+        setNotice(`Setup link sent to ${email}.`);
+      }
     } catch (err) {
       reportError(err, "Couldn't send the setup link");
     }
@@ -157,7 +164,9 @@ export default function AdminUsers() {
       await updateUser(id, updatable);
     } else {
       const created = await createUser(payload);
-      if (created.welcomeEmail && !created.welcomeEmail.sent && !created.welcomeEmail.skipped) {
+      if (created.welcomeEmail?.manualSetupUrl) {
+        setManualSetupLink({ email: created.email, url: created.welcomeEmail.manualSetupUrl });
+      } else if (created.welcomeEmail && !created.welcomeEmail.sent && !created.welcomeEmail.skipped) {
         setError(
           `${created.email} was created, but the welcome email couldn't be sent (${created.welcomeEmail.error}). Use "Send setup link" on their row to try again.`
         );
@@ -241,6 +250,7 @@ export default function AdminUsers() {
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
+      {manualSetupLink && <ManualSendNotice recipients={manualSetupLink} />}
 
       <Table
         columns={columns}

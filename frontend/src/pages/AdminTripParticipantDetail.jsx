@@ -17,6 +17,7 @@ import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 
@@ -49,6 +50,7 @@ export default function AdminTripParticipantDetail() {
   const [trip, setTrip] = useState(null);
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState("");
+  const [manualAccessLink, setManualAccessLink] = useState(null); // { url } | null
   const [docMessage, setDocMessage] = useState("");
   const [docFile, setDocFile] = useState(null);
   const [docRequirementChoice, setDocRequirementChoice] = useState("");
@@ -136,8 +138,9 @@ export default function AdminTripParticipantDetail() {
 
   async function handleResendAccessLink() {
     try {
-      await resendParticipantAccessLink(participantId);
+      const result = await resendParticipantAccessLink(participantId);
       setError("");
+      setManualAccessLink(result?.manualUrl ? { url: result.manualUrl } : null);
     } catch (err) {
       reportError(err, "Couldn't resend the access link.");
     }
@@ -211,7 +214,12 @@ export default function AdminTripParticipantDetail() {
           isTripLeader
             ? [
                 ...(trip.partner?.id
-                  ? [{ label: trip.partner.displayName || "Partner", to: `/admin/partners/${trip.partner.id}` }]
+                  ? [
+                      {
+                        label: trip.partner.displayName || "Partner",
+                        to: `/admin/partners/${trip.partner.id}`,
+                      },
+                    ]
                   : []),
                 { label: trip.name || trip.type || "Trip", to: `/admin/trips/${tripId}` },
                 { label: `${participant.firstName} ${participant.lastName}` },
@@ -236,6 +244,7 @@ export default function AdminTripParticipantDetail() {
           {error}
         </p>
       )}
+      {manualAccessLink && <ManualSendNotice recipients={manualAccessLink} />}
       {missingFields.length > 0 && (
         <p style={{ color: "#a6540f", fontSize: "0.85rem" }}>Missing: {missingFields.join(", ")}</p>
       )}
@@ -305,7 +314,9 @@ export default function AdminTripParticipantDetail() {
                   className="btn secondary small"
                   onClick={handleGenerateSupportRaisingLink}
                 >
-                  {participant.shareToken ? "Regenerate support-raising link" : "Generate support-raising link"}
+                  {participant.shareToken
+                    ? "Regenerate support-raising link"
+                    : "Generate support-raising link"}
                 </button>
               )}
             </>
@@ -605,7 +616,9 @@ export default function AdminTripParticipantDetail() {
             onSave={(draft) =>
               saveParticipant({
                 story: draft.story,
-                ...(draft.photoDataUrl ? { photo: draft.photoDataUrl, photoContentType: draft.photoContentType } : {}),
+                ...(draft.photoDataUrl
+                  ? { photo: draft.photoDataUrl, photoContentType: draft.photoContentType }
+                  : {}),
               })
             }
             view={() => (

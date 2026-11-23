@@ -13,6 +13,7 @@ import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import RecordList from "../components/admin/RecordList.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import Field from "../components/admin/Field.jsx";
+import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 
 const KIND_LABELS = { task: "Task", esignature: "E-signature", document: "Document" };
 
@@ -34,6 +35,7 @@ const emptyRequirementForm = {
 export default function AdminTripRequirements() {
   const { trip, reload, requirementLibrary, confirmDialog, canWrite } = useOutletContext();
   const [error, setError] = useState("");
+  const [manualEmailRecipients, setManualEmailRecipients] = useState(null); // [{ name, email, url }] | null
   const [requirementLibraryPick, setRequirementLibraryPick] = useState("");
   const [tripWideFile, setTripWideFile] = useState(null);
   const [tripWideTitle, setTripWideTitle] = useState("");
@@ -68,13 +70,14 @@ export default function AdminTripRequirements() {
   async function submitReqModal() {
     if (reqModal.id == null) {
       if (!reqModal.form.label.trim()) throw new Error("Enter a label");
-      await addTripRequirement(trip.id, {
+      const result = await addTripRequirement(trip.id, {
         label: reqModal.form.label.trim(),
         kind: reqModal.form.kind,
         bodyText: reqModal.form.kind === "esignature" ? reqModal.form.bodyText.trim() || null : null,
         dueAt: reqModal.form.dueAt || null,
         minorsOnly: reqModal.form.minorsOnly,
       });
+      setManualEmailRecipients(result?.manualEmail || null);
     } else {
       await updateTripRequirement(reqModal.id, {
         dueAt: reqModal.form.dueAt || null,
@@ -91,7 +94,7 @@ export default function AdminTripRequirements() {
     const entry = requirementLibrary.find((r) => r.id === requirementLibraryPick);
     if (!entry) return;
     try {
-      await addTripRequirement(trip.id, {
+      const result = await addTripRequirement(trip.id, {
         label: entry.label,
         kind: entry.kind,
         bodyText: entry.bodyText || null,
@@ -101,6 +104,7 @@ export default function AdminTripRequirements() {
       setRequirementLibraryPick("");
       reload();
       setError("");
+      setManualEmailRecipients(result?.manualEmail || null);
     } catch (err) {
       reportError(err, "Couldn't add that requirement.");
     }
@@ -166,6 +170,7 @@ export default function AdminTripRequirements() {
           {error}
         </p>
       )}
+      {manualEmailRecipients?.length > 0 && <ManualSendNotice recipients={manualEmailRecipients} />}
 
       <div className="admin-section">
         <h3>Trip Requirements</h3>
@@ -213,7 +218,11 @@ export default function AdminTripRequirements() {
               <>
                 <Field label="Kind" value={KIND_LABELS[r.kind] || r.kind} />
                 <Field label="Label" value={r.label} />
-                <Field label="Due" value={overdue ? `${r.dueAt.slice(0, 10)} (overdue)` : r.dueAt?.slice(0, 10)} showEmpty />
+                <Field
+                  label="Due"
+                  value={overdue ? `${r.dueAt.slice(0, 10)} (overdue)` : r.dueAt?.slice(0, 10)}
+                  showEmpty
+                />
                 <Field label="Minors only" value={r.minorsOnly ? "Yes" : "No"} />
               </>
             );

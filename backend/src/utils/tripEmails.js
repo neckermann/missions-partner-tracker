@@ -34,6 +34,26 @@ async function outboundEmailEnabled() {
   return isFeatureEnabled(settings?.enabledFeatures, "outboundEmail");
 }
 
+// What every one of this file's self-gating senders returns instead of
+// silently no-op'ing when outboundEmail is off. Each participant's own
+// trip page already shows the meeting/requirement/dates info the email
+// would have -- "go check your trip page" is complete, accurate guidance
+// on its own, so this hands back exactly enough for an admin to tell
+// people manually (a text, a call, in person) rather than trying to
+// recreate the richer HTML email body as copyable text.
+function manualFallback(participants) {
+  return {
+    sent: false,
+    manual: (participants || [])
+      .filter((p) => p.email)
+      .map((p) => ({
+        name: `${p.firstName || ""} ${p.lastName || ""}`.trim(),
+        email: p.email,
+        url: buildTripParticipantAccessUrl(p),
+      })),
+  };
+}
+
 // #274 hardening: sendRequirementNotificationEmail/sendMeetingEmail (and
 // everything they call -- sendParticipantEmail, buildTripParticipantAccessUrl/
 // Token, buildMeetingEmailBody/RsvpUrls) only ever read a participant's
@@ -258,21 +278,20 @@ function buildTripDatesIcs(trip) {
 // scope. Gates and loops internally, same shape as sendMeetingEmail just
 // below, so neither call site needs its own settings check.
 async function sendRequirementNotificationEmail(trip, requirement, participants) {
-  if (!(await outboundEmailEnabled())) return;
+  if (!(await outboundEmailEnabled())) return manualFallback(participants);
   for (const participant of participants) {
-    await sendParticipantEmail(
-      participant,
-      `New item needed: ${requirement.label}`,
-      {
-        eyebrow: "Checklist update",
-        blocks: [
-          blocks.paragraph(`A new item has been added to your checklist for ${trip.name || trip.type || "your trip"}:`),
-          blocks.details([{ label: "To do", value: requirement.label }]),
-          blocks.button(buildTripParticipantAccessUrl(participant), "Open your trip page"),
-        ],
-      }
-    );
+    await sendParticipantEmail(participant, `New item needed: ${requirement.label}`, {
+      eyebrow: "Checklist update",
+      blocks: [
+        blocks.paragraph(
+          `A new item has been added to your checklist for ${trip.name || trip.type || "your trip"}:`
+        ),
+        blocks.details([{ label: "To do", value: requirement.label }]),
+        blocks.button(buildTripParticipantAccessUrl(participant), "Open your trip page"),
+      ],
+    });
   }
+  return { sent: true };
 }
 
 // Shared by both ways a participant can land on a trip after other
@@ -303,6 +322,14 @@ function isTripHistorical(trip) {
   return trip.status === "completed" || !!alreadyHappened;
 }
 
+// Background catch-up, not a direct admin-triggered action anyone's
+// watching a response for (fired as a side effect of joining a trip) --
+// unlike the single-notification senders above, this one deliberately
+// doesn't collect/return a manual fallback. The participant's own
+// welcome email (sent right alongside this, from the same route) already
+// carries their access link and already gets the manual-link treatment
+// when email's off; re-surfacing that same link again here would just be
+// noise for the admin, not a second genuinely missed notification.
 async function sendLateJoinerCatchUpEmails(trip, participant) {
   if (isTripHistorical(trip)) return;
   const now = new Date();
@@ -342,7 +369,9 @@ async function sendTripDatesUpdateEmail(trip) {
       {
         eyebrow: "Trip dates updated",
         blocks: [
-          blocks.paragraph("This trip's dates have changed -- attached is an updated calendar invite so your calendar stays accurate."),
+          blocks.paragraph(
+            "This trip's dates have changed -- attached is an updated calendar invite so your calendar stays accurate."
+          ),
           blocks.details([
             { label: "Starts", value: new Date(trip.startDate).toDateString() },
             { label: "Ends", value: new Date(trip.endDate).toDateString() },
@@ -366,7 +395,7 @@ async function sendTripDatesUpdateEmail(trip) {
 // participant email with the same .ics attachment shape, just a
 // different lead sentence and (for cancel) the CANCEL variant.
 async function sendMeetingEmail(trip, meeting, lead, { cancelled = false } = {}) {
-  if (!(await outboundEmailEnabled())) return;
+  if (!(await outboundEmailEnabled())) return manualFallback(trip.participants);
   // Falls back to exactly today's trip-name-only subject when a meeting
   // has no title set -- a trip with more than one meeting (the normal
   // case) otherwise sends every meeting's email with the identical
@@ -391,6 +420,7 @@ async function sendMeetingEmail(trip, meeting, lead, { cancelled = false } = {})
       }
     );
   }
+  return { sent: true };
 }
 
 // The "You're on the team" email, shared by both ways someone joins a trip

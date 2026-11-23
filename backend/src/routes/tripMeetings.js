@@ -44,21 +44,22 @@ router.post(
   requireRole("admin", "editor", "tripLeader"),
   requireTripScope("id"),
   async (req, res, next) => {
-  try {
-    const data = meetingInputSchema.required({ startAt: true }).parse(req.body);
-    const trip = await prisma.trip.findUnique({
-      where: { id: req.params.id },
-      include: { participants: { select: emailParticipantSelect } },
-    });
-    if (!trip) return res.status(404).json({ error: "Not found" });
+    try {
+      const data = meetingInputSchema.required({ startAt: true }).parse(req.body);
+      const trip = await prisma.trip.findUnique({
+        where: { id: req.params.id },
+        include: { participants: { select: emailParticipantSelect } },
+      });
+      if (!trip) return res.status(404).json({ error: "Not found" });
 
-    const meeting = await prisma.tripMeeting.create({ data: { ...data, tripId: trip.id } });
-    await sendMeetingEmail(trip, meeting, "A meeting has been scheduled.");
-    res.status(201).json(meeting);
-  } catch (err) {
-    next(err);
+      const meeting = await prisma.tripMeeting.create({ data: { ...data, tripId: trip.id } });
+      const emailResult = await sendMeetingEmail(trip, meeting, "A meeting has been scheduled.");
+      res.status(201).json({ ...meeting, manualEmail: emailResult?.manual });
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 // Reschedule-resend: compares incoming startAt/location/meetingLink
 // against the row's current stored values before applying the update --
@@ -71,31 +72,33 @@ router.put(
   requireRole("admin", "editor", "tripLeader"),
   requireTripScope(tripIdOfMeeting),
   async (req, res, next) => {
-  try {
-    const data = meetingInputSchema.parse(req.body);
-    const existing = await prisma.tripMeeting.findUnique({
-      where: { id: req.params.id },
-      include: { trip: { include: { participants: { select: emailParticipantSelect } } } },
-    });
-    if (!existing) return res.status(404).json({ error: "Not found" });
-    if (existing.cancelledAt) return res.status(400).json({ error: "This meeting has been cancelled." });
+    try {
+      const data = meetingInputSchema.parse(req.body);
+      const existing = await prisma.tripMeeting.findUnique({
+        where: { id: req.params.id },
+        include: { trip: { include: { participants: { select: emailParticipantSelect } } } },
+      });
+      if (!existing) return res.status(404).json({ error: "Not found" });
+      if (existing.cancelledAt) return res.status(400).json({ error: "This meeting has been cancelled." });
 
-    const rescheduled =
-      (data.startAt !== undefined &&
-        new Date(data.startAt).getTime() !== new Date(existing.startAt).getTime()) ||
-      (data.location !== undefined && data.location !== existing.location) ||
-      (data.meetingLink !== undefined && data.meetingLink !== existing.meetingLink);
+      const rescheduled =
+        (data.startAt !== undefined &&
+          new Date(data.startAt).getTime() !== new Date(existing.startAt).getTime()) ||
+        (data.location !== undefined && data.location !== existing.location) ||
+        (data.meetingLink !== undefined && data.meetingLink !== existing.meetingLink);
 
-    const updated = await prisma.tripMeeting.update({ where: { id: req.params.id }, data });
+      const updated = await prisma.tripMeeting.update({ where: { id: req.params.id }, data });
 
-    if (rescheduled) {
-      await sendMeetingEmail(existing.trip, updated, "Your trip meeting has been updated.");
+      let emailResult;
+      if (rescheduled) {
+        emailResult = await sendMeetingEmail(existing.trip, updated, "Your trip meeting has been updated.");
+      }
+      res.json({ ...updated, manualEmail: emailResult?.manual });
+    } catch (err) {
+      next(err);
     }
-    res.json(updated);
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 // Explicit resend -- same invite content as a fresh schedule, for when
 // nothing about the meeting changed but an admin still wants to nudge
@@ -106,20 +109,25 @@ router.post(
   requireRole("admin", "editor", "tripLeader"),
   requireTripScope(tripIdOfMeeting),
   async (req, res, next) => {
-  try {
-    const meeting = await prisma.tripMeeting.findUnique({
-      where: { id: req.params.id },
-      include: { trip: { include: { participants: { select: emailParticipantSelect } } } },
-    });
-    if (!meeting) return res.status(404).json({ error: "Not found" });
-    if (meeting.cancelledAt) return res.status(400).json({ error: "This meeting has been cancelled." });
+    try {
+      const meeting = await prisma.tripMeeting.findUnique({
+        where: { id: req.params.id },
+        include: { trip: { include: { participants: { select: emailParticipantSelect } } } },
+      });
+      if (!meeting) return res.status(404).json({ error: "Not found" });
+      if (meeting.cancelledAt) return res.status(400).json({ error: "This meeting has been cancelled." });
 
-    await sendMeetingEmail(meeting.trip, meeting, "Here's a reminder about an upcoming trip meeting.");
-    res.json({ sent: true });
-  } catch (err) {
-    next(err);
+      const emailResult = await sendMeetingEmail(
+        meeting.trip,
+        meeting,
+        "Here's a reminder about an upcoming trip meeting."
+      );
+      res.json({ sent: !!emailResult?.sent, manual: emailResult?.manual });
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 // Soft-cancel -- see the TripMeeting schema comment for why this isn't a
 // delete. Idempotent-ish: cancelling an already-cancelled meeting just
@@ -131,25 +139,31 @@ router.post(
   requireRole("admin", "editor", "tripLeader"),
   requireTripScope(tripIdOfMeeting),
   async (req, res, next) => {
-  try {
-    const existing = await prisma.tripMeeting.findUnique({
-      where: { id: req.params.id },
-      include: { trip: { include: { participants: { select: emailParticipantSelect } } } },
-    });
-    if (!existing) return res.status(404).json({ error: "Not found" });
+    try {
+      const existing = await prisma.tripMeeting.findUnique({
+        where: { id: req.params.id },
+        include: { trip: { include: { participants: { select: emailParticipantSelect } } } },
+      });
+      if (!existing) return res.status(404).json({ error: "Not found" });
 
-    const cancelled = await prisma.tripMeeting.update({
-      where: { id: req.params.id },
-      data: { cancelledAt: existing.cancelledAt || new Date() },
-    });
-    await sendMeetingEmail(existing.trip, cancelled, "A trip meeting has been cancelled.", {
-      cancelled: true,
-    });
-    res.json(cancelled);
-  } catch (err) {
-    next(err);
+      const cancelled = await prisma.tripMeeting.update({
+        where: { id: req.params.id },
+        data: { cancelledAt: existing.cancelledAt || new Date() },
+      });
+      const emailResult = await sendMeetingEmail(
+        existing.trip,
+        cancelled,
+        "A trip meeting has been cancelled.",
+        {
+          cancelled: true,
+        }
+      );
+      res.json({ ...cancelled, manualEmail: emailResult?.manual });
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 // Hard delete -- for correcting a meeting that was created by mistake.
 // Refused once a meeting has already been cancelled (which already sent
@@ -166,17 +180,18 @@ router.delete(
   requireRole("admin", "editor", "tripLeader"),
   requireTripScope(tripIdOfMeeting),
   async (req, res, next) => {
-  try {
-    const existing = await prisma.tripMeeting.findUnique({ where: { id: req.params.id } });
-    if (!existing) return res.status(404).json({ error: "Not found" });
-    if (existing.cancelledAt) {
-      return res.status(400).json({ error: "This meeting was already cancelled; nothing left to delete." });
+    try {
+      const existing = await prisma.tripMeeting.findUnique({ where: { id: req.params.id } });
+      if (!existing) return res.status(404).json({ error: "Not found" });
+      if (existing.cancelledAt) {
+        return res.status(400).json({ error: "This meeting was already cancelled; nothing left to delete." });
+      }
+      await prisma.tripMeeting.delete({ where: { id: req.params.id } });
+      res.status(204).send();
+    } catch (err) {
+      next(err);
     }
-    await prisma.tripMeeting.delete({ where: { id: req.params.id } });
-    res.status(204).send();
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 module.exports = router;
