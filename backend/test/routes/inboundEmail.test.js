@@ -258,7 +258,12 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
     }
   });
 
-  test("a logged-in viewer can list the queue -- no role restriction beyond being authenticated, same as newsletters", async () => {
+  // #329 Finding 1: this queue used to have no role restriction beyond
+  // being authenticated at all (which also let a Trip Leader scoped
+  // guest read it -- see backend/test/routes/tripLeaderScope.test.js).
+  // It's now admin/editor/viewer only; this just confirms viewer, the
+  // least-privileged of the 3 full roles, is still one of them.
+  test("a logged-in viewer can list the queue", async () => {
     const created = await prisma.inboundEmail.create({
       data: {
         fromAddress: `listable@${FROM_DOMAIN}`,

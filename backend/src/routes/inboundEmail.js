@@ -169,9 +169,19 @@ router.use(requireFeature("inboundEmail"));
 // never selected here at all.
 const inboundEmailInclude = {};
 
-// GET /api/inbound-email -- the pending queue, newest first. No role
-// restriction beyond being logged in, same as GET /api/partner-files.
-router.get("/", async (req, res, next) => {
+// #329 Finding 1: this queue previously had no role restriction beyond
+// being logged in (same as GET /api/partner-files), which let a Trip
+// Leader scoped guest (role: "tripLeader") read the whole church's
+// unmatched-inbound-email queue -- every sender address and raw .eml,
+// across every partner and trip, not just their own. Unlike
+// partner-files/prayer-requests/etc, there's no sensible trip-scoped
+// version of "mail nobody could match yet" (that's the whole point of
+// this queue -- it isn't attached to a partner or trip at all), so this
+// excludes tripLeader entirely rather than scoping it, the same
+// requireRole("admin", "editor", "viewer") pattern GET /api/trips/planning
+// already uses for a route that should reach every full role but not the
+// scoped-guest tier.
+router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const records = await prisma.inboundEmail.findMany({
       ...inboundEmailInclude,
@@ -187,8 +197,10 @@ router.get("/", async (req, res, next) => {
 // deciding who it's from. Same sendStoredFile helper
 // partnerFiles.js's /:id/download uses; contentType is always
 // message/rfc822 here so it isn't a stored column (see the model
-// comment in schema.prisma).
-router.get("/:id/raw", async (req, res, next) => {
+// comment in schema.prisma). #329 Finding 1: same tripLeader exclusion as
+// GET / above -- the raw .eml is the same unmatched-queue data, just one
+// row at a time.
+router.get("/:id/raw", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const record = await prisma.inboundEmail.findUnique({
       where: { id: req.params.id },

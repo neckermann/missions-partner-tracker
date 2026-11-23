@@ -217,8 +217,23 @@ router.get("/me", requireAuth, async (req, res, next) => {
 
 // Self-service password change — requires knowing the current password,
 // unlike the admin-only reset in routes/users.js.
+//
+// #329 Finding 2: a Trip Leader scoped guest (role: "tripLeader") is
+// fully admin-managed, not self-service -- AdminSidebar.jsx's
+// TripLeaderSidebar deliberately renders no "My Account" link, and
+// AdminLayout.jsx's own route guard already redirects a tripLeader away
+// from /admin/account entirely (both predate this fix and already
+// documented the intended policy; the backend just hadn't caught up).
+// This was the one surface where that policy actually disagreed: a
+// tripLeader who hit this endpoint directly (no UI route needed one) got
+// a real password change. Blocked here instead of requiring a
+// password-setup-link resend from an admin, the same way their account
+// got set up in the first place.
 router.post("/change-password", requireAuth, async (req, res, next) => {
   try {
+    if (req.user.role === "tripLeader") {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: "Current and new password are required" });
@@ -337,6 +352,19 @@ router.post("/password-setup/request", async (req, res) => {
 // abandoned setup attempt never leaves the account half-configured.
 router.post("/mfa/setup", requireAuthOrMfaSetup, async (req, res, next) => {
   try {
+    // #329 Finding 2: voluntary self-service enrollment (a real session,
+    // req.user.role === "tripLeader") is the one disallowed path here --
+    // same "fully admin-managed, not self-service" policy as
+    // change-password above. A forced-setup token (req.user = { id,
+    // mfaSetup: true }, no role claim at all -- see signMfaSetupToken)
+    // must still work regardless of role: an admin can require MFA on a
+    // tripLeader account (AdminUserForm.jsx's "Require two-factor
+    // authentication at first sign-in" checkbox is unconditional), and
+    // that first-sign-in enrollment is mandatory, not voluntary, so it's
+    // never blocked here.
+    if (req.user.role === "tripLeader") {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
     if (!user || user.authProvider !== "local") {
       return res.status(400).json({ error: "MFA is only available for local accounts" });
@@ -367,6 +395,12 @@ router.post("/mfa/setup", requireAuthOrMfaSetup, async (req, res, next) => {
 // is what actually lets the user in once they've enrolled.
 router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) => {
   try {
+    // #329 Finding 2: same voluntary-vs-forced distinction as /mfa/setup
+    // above -- only blocks a real session whose role is tripLeader, not a
+    // forced-setup token (no role claim) completing mandatory enrollment.
+    if (req.user.role === "tripLeader") {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
     const { token } = req.body;
     if (!token) return res.status(400).json({ error: "Code is required" });
 
@@ -394,8 +428,16 @@ router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) =
 
 // Requires the current password (not just an active session) so a hijacked
 // browser tab can't silently strip MFA off the account.
+//
+// #329 Finding 2: same "fully admin-managed, not self-service" policy as
+// change-password/mfa-setup above -- an admin who needs to turn MFA off
+// a tripLeader account uses routes/users.js's own admin-side MFA reset
+// (POST /api/users/:id/mfa/reset) instead of this self-service endpoint.
 router.post("/mfa/disable", requireAuth, async (req, res, next) => {
   try {
+    if (req.user.role === "tripLeader") {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
     const { password } = req.body;
     if (!password) return res.status(400).json({ error: "Current password is required" });
 

@@ -17,6 +17,7 @@ const {
   removeTestUsers,
   removeFixturePartners,
   FIXTURE_TAG,
+  TEST_USERS,
 } = require("./helpers");
 
 const TRIP_LEADER_EMAIL = "route-test-tripleader@example.test";
@@ -62,6 +63,7 @@ before(async () => {
     monthlySupport: true,
     oneTimeNeeds: true,
     partnerFiles: true,
+    inboundEmail: true,
   });
 
   const pa = await admin("/api/partners", {
@@ -221,6 +223,97 @@ describe("Trip Leader: partner scope", () => {
     assert.equal(ok.status, 200);
     const unfiltered = await leader("/api/prayer-requests");
     assert.equal(unfiltered.status, 403);
+  });
+});
+
+// #329 Finding 1: the unmatched-inbound-email queue isn't attached to any
+// partner or trip (that's the whole point -- it's mail nobody could match
+// yet), so there's no sensible scoped version of it for a Trip Leader to
+// see. Excluded entirely rather than scoped, same as GET /api/partners
+// above.
+describe("Trip Leader: inbound email queue blocked entirely", () => {
+  let queued;
+
+  before(async () => {
+    queued = await prisma.inboundEmail.create({
+      data: {
+        fromAddress: `${FIXTURE_TAG}-unmatched@example.test`,
+        subject: "Unmatched",
+        fileName: "unmatched.eml",
+        bytesRow: { create: { bytes: Buffer.from("From: nobody@example.test\r\n\r\nHi") } },
+      },
+    });
+  });
+
+  after(async () => {
+    await prisma.inboundEmail.deleteMany({ where: { id: queued.id } }).catch(() => {});
+  });
+
+  test("403s the queue list", async () => {
+    const leader = await leaderClient();
+    const res = await leader("/api/inbound-email");
+    assert.equal(res.status, 403);
+  });
+
+  test("403s reading one queued email's raw .eml", async () => {
+    const leader = await leaderClient();
+    const res = await leader(`/api/inbound-email/${queued.id}/raw`);
+    assert.equal(res.status, 403);
+  });
+
+  test("admin still reads the queue -- only tripLeader is excluded", async () => {
+    const res = await admin("/api/inbound-email");
+    assert.equal(res.status, 200);
+  });
+});
+
+// #329 Finding 2: a Trip Leader scoped guest is fully admin-managed, not
+// self-service -- AdminSidebar.jsx renders no "My Account" link for this
+// role and AdminLayout.jsx's own route guard already redirects away from
+// /admin/account (both predate this fix). The backend disagreed: these
+// endpoints were requireAuth-only, so a tripLeader who called them
+// directly got a real password/MFA change despite having no UI path to
+// do so. Brought into line with the already-deliberate frontend policy.
+describe("Trip Leader: password/MFA self-service blocked", () => {
+  test("403s self-service password change", async () => {
+    const leader = await leaderClient();
+    const res = await leader("/api/auth/change-password", {
+      method: "POST",
+      body: { currentPassword: TRIP_LEADER_PASSWORD, newPassword: "SomeNewPassword123!" },
+    });
+    assert.equal(res.status, 403);
+  });
+
+  test("403s starting voluntary MFA enrollment", async () => {
+    const leader = await leaderClient();
+    const res = await leader("/api/auth/mfa/setup", { method: "POST" });
+    assert.equal(res.status, 403);
+  });
+
+  test("403s disabling MFA", async () => {
+    const leader = await leaderClient();
+    const res = await leader("/api/auth/mfa/disable", {
+      method: "POST",
+      body: { password: TRIP_LEADER_PASSWORD },
+    });
+    assert.equal(res.status, 403);
+  });
+
+  test("a full admin/editor/viewer session is unaffected -- only tripLeader is blocked", async () => {
+    // mfa/setup only generates a secret/QR code (mfaEnabled stays false
+    // until /mfa/verify-setup confirms a real code), so this doesn't
+    // disturb the admin fixture's own login for any other test in this
+    // file -- still, clear the leftover mfaSecret afterward so this
+    // fixture's row is exactly as ensureTestUsers() left it for whatever
+    // runs next.
+    const res = await admin("/api/auth/mfa/setup", { method: "POST" });
+    assert.equal(res.status, 200);
+    assert.ok(res.body.secret);
+    assert.ok(res.body.qrCode);
+    await prisma.user.update({
+      where: { email: TEST_USERS.admin.email },
+      data: { mfaSecret: null },
+    });
   });
 });
 

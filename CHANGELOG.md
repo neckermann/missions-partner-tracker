@@ -14,6 +14,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Security
+- A Trip Leader scoped guest account (`User.role === "tripLeader"`) could read the entire church's unmatched-inbound-email queue (`GET /api/inbound-email`, `GET /api/inbound-email/:id/raw`) — not scoped to their own trip at all, since that queue holds mail nobody could match to any partner or trip yet. Excluded entirely rather than scoped: there's no sensible "my trip's unmatched mail" view. No database migration. (#329)
+- A Trip Leader could also self-service their own password and MFA (`POST /api/auth/change-password`, `/mfa/setup`, `/mfa/verify-setup`, `/mfa/disable`) even though the admin UI already treats that account as fully admin-managed (no "My Account" nav link, no route to it). The backend now matches that existing policy — forced MFA enrollment at first sign-in (set by an admin) still works, since that's not self-service. No database migration. (#329)
+
 ### Removed
 - The trip "document request" feature (an admin emailing a participant asking for a file, with their reply routed back via Reply-To and filed as a `TripDocument`) is removed. This is a deliberate simplification, not a bug fix: it duplicated something better that already existed — adding a document-kind `TripRequirement` already emails the participant proactively, and their own self-service trip page already has a real upload control for it. Self-service upload via the participant's own trip page remains the way to collect trip documents; an admin can still log one manually on a participant's detail page for a document that arrived some other way.
 
