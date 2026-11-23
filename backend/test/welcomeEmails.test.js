@@ -28,19 +28,31 @@ test("MFA note appears only when MFA is required", () => {
 });
 
 test("guide links are role-specific and always point at this project's own docs", () => {
+  // The guide/MFA links point at the published docs site (a rendered,
+  // readable page -- see docs/user-guide.html), not a raw GitHub blob.
+  // "Support and help" is the one exception: there's no docs-site page
+  // for it, so it stays a direct link to this repo's own GitHub Issues.
+  function assertDocLink(url) {
+    assert.match(url, /^https:\/\/missionspartnertracker\.com\//);
+  }
+
   const editorLinks = guideLinks("editor");
   assert.deepEqual(
     editorLinks.map((l) => l.label),
     ["User guide", "Support and help", "Setting up two-factor authentication"]
   );
-  editorLinks.forEach((l) => assert.match(l.url, /^https:\/\/github\.com\//));
+  assertDocLink(editorLinks[0].url);
+  assert.match(editorLinks[1].url, /^https:\/\/github\.com\/.*\/issues$/);
+  assertDocLink(editorLinks[2].url);
 
   const leaderLinks = guideLinks("tripLeader");
   assert.deepEqual(
     leaderLinks.map((l) => l.label),
     ["Trip Leader guide", "Support and help", "Setting up two-factor authentication"]
   );
-  leaderLinks.forEach((l) => assert.match(l.url, /^https:\/\/github\.com\//));
+  assertDocLink(leaderLinks[0].url);
+  assert.match(leaderLinks[1].url, /^https:\/\/github\.com\/.*\/issues$/);
+  assertDocLink(leaderLinks[2].url);
 });
 
 test("trip leaders get a longer fixed expiry than everyone else", () => {
