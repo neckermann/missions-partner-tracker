@@ -15,6 +15,7 @@ import {
 } from "../api/client.js";
 import { formatDate, formatFileSize } from "../utils/format.js";
 import SignatureCapture from "../components/SignatureCapture.jsx";
+import { buildCalendarLinks, meetingDescription } from "../utils/calendarLinks.js";
 
 // Same wording as the email invite's own RSVP links (backend/src/utils/tripEmails.js).
 const RSVP_LABELS = { yes: "Yes", no: "No", maybe: "Maybe" };
@@ -33,6 +34,43 @@ function readFileAsDataUrl(file) {
 // own self-service view (by signed access token, route /my-trip?token=...)
 // -- one page, two render modes. The public view never shows
 // flightSegments or donor contact info; the self-service view shows both.
+
+// Per-meeting "add to calendar" links: direct web links for Google /
+// Outlook / Yahoo (work even on a phone with no app registered for .ics
+// files) plus the .ics download, which Apple Calendar and most other apps
+// still need.
+function AddToCalendar({ meeting, accessToken }) {
+  const links = buildCalendarLinks({
+    title: meeting.title,
+    startAt: meeting.startAt,
+    location: meeting.location,
+    description: meetingDescription(meeting),
+  });
+  const external = { target: "_blank", rel: "noreferrer" };
+  return (
+    <div style={{ fontSize: "0.85rem", display: "flex", gap: "0.8rem", flexWrap: "wrap" }}>
+      <span style={{ color: "#555" }}>Add to calendar:</span>
+      {links && (
+        <>
+          <a href={links.google} {...external}>
+            Google
+          </a>
+          <a href={links.outlook} {...external}>
+            Outlook
+          </a>
+          <a href={links.office365} {...external}>
+            Outlook (work/school)
+          </a>
+          <a href={links.yahoo} {...external}>
+            Yahoo
+          </a>
+        </>
+      )}
+      <a href={tripMeetingIcsUrl(meeting.id, accessToken)}>Apple / other (.ics)</a>
+    </div>
+  );
+}
+
 export default function PublicTripParticipant() {
   const { shareToken } = useParams();
   const [searchParams] = useSearchParams();
@@ -136,7 +174,9 @@ export default function PublicTripParticipant() {
       await updateTripParticipantSelfService({
         token: accessToken,
         story: pageDraftStory,
-        ...(pageDraftPhotoDataUrl ? { photo: pageDraftPhotoDataUrl, photoContentType: pageDraftPhotoContentType } : {}),
+        ...(pageDraftPhotoDataUrl
+          ? { photo: pageDraftPhotoDataUrl, photoContentType: pageDraftPhotoContentType }
+          : {}),
       });
       setEditingPage(false);
       await reload();
@@ -251,7 +291,13 @@ export default function PublicTripParticipant() {
                     <img
                       src={tripParticipantPhotoUrl(data.id)}
                       alt=""
-                      style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        flexShrink: 0,
+                      }}
                     />
                   )}
                   <p style={{ margin: 0, color: "#555" }}>{data.story || "No story set yet."}</p>
@@ -282,7 +328,13 @@ export default function PublicTripParticipant() {
                       <img
                         src={pageDraftPhotoDataUrl || tripParticipantPhotoUrl(data.id)}
                         alt=""
-                        style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                          flexShrink: 0,
+                        }}
                       />
                     )}
                     <input
@@ -292,7 +344,9 @@ export default function PublicTripParticipant() {
                     />
                   </div>
                   {!pageDraftPhotoDataUrl && !data.hasPhoto && (
-                    <span style={{ display: "block", fontSize: "0.8rem", color: "#888", marginTop: "0.2rem" }}>
+                    <span
+                      style={{ display: "block", fontSize: "0.8rem", color: "#888", marginTop: "0.2rem" }}
+                    >
                       No photo on file yet.
                     </span>
                   )}
@@ -381,8 +435,8 @@ export default function PublicTripParticipant() {
                         Join online
                       </a>
                     )}
-                    <a href={tripMeetingIcsUrl(m.id, accessToken)}>Add to calendar</a>
                   </div>
+                  <AddToCalendar meeting={m} accessToken={accessToken} />
                   {m.agenda && (
                     <div style={{ fontSize: "0.85rem", color: "#555", whiteSpace: "pre-wrap" }}>
                       {m.agenda}

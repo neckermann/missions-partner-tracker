@@ -40,28 +40,28 @@ export default function AdminSettingsIntegrations() {
       />
 
       <div style={{ marginTop: "1rem" }}>
-      <ApiKeySettingsPage
-        title="Joshua Project"
-        description={
-          <>
-            Shows country-level unreached-people-group statistics on a partner's page. Turn it on in{" "}
-            <a href="/admin/settings/features">Enabled Features</a> once a key is saved below.
-          </>
-        }
-        instructions={
-          <>
-            Get a free API key at{" "}
-            <a href="https://joshuaproject.net/api/request" target="_blank" rel="noreferrer">
-              joshuaproject.net/api/request
-            </a>
-            .
-          </>
-        }
-        loadErrorMessage="Couldn't load Joshua Project settings."
-        saveErrorMessage="Couldn't save the API key."
-        fetchSettings={fetchJoshuaProjectSettings}
-        updateSettings={updateJoshuaProjectSettings}
-      />
+        <ApiKeySettingsPage
+          title="Joshua Project"
+          description={
+            <>
+              Shows country-level unreached-people-group statistics on a partner's page. Turn it on in{" "}
+              <a href="/admin/settings/features">Enabled Features</a> once a key is saved below.
+            </>
+          }
+          instructions={
+            <>
+              Get a free API key at{" "}
+              <a href="https://joshuaproject.net/api/request" target="_blank" rel="noreferrer">
+                joshuaproject.net/api/request
+              </a>
+              .
+            </>
+          }
+          loadErrorMessage="Couldn't load Joshua Project settings."
+          saveErrorMessage="Couldn't save the API key."
+          fetchSettings={fetchJoshuaProjectSettings}
+          updateSettings={updateJoshuaProjectSettings}
+        />
       </div>
     </div>
   );

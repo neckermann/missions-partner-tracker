@@ -1833,6 +1833,28 @@ model User {
   followedPartners UserFollowedPartner[]
   notificationsSeen NotificationSeen[]
   savedReports      SavedReport[]
+
+  // Welcome-email / first-time password setup links (see
+  // utils/passwordSetup.js). A pending account has passwordHash null until
+  // one of these is redeemed.
+  passwordSetupTokens PasswordSetupToken[]
+}
+
+// Single-use link that lets a new user choose their own password. Only a
+// SHA-256 hash of the random token is stored, never the token itself, so a
+// database leak can't be replayed. Issuing a new link deletes the user's
+// older unused ones (utils/passwordSetup.js), so at most one is live.
+model PasswordSetupToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // Per-user, per-category "last looked at this" marker for the in-app

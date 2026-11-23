@@ -460,6 +460,35 @@ against, established by the existing screenshots (see
   other than this fixture's own (see the church-name rule above) — those
   belong to the separate public demo deployment, not to documentation.
 
+## Hardcoded links into the docs site
+
+Several places in the app link directly to a specific section of
+`ADMIN_GUIDE.md`/`USER_GUIDE.md`, rendered at
+`missionspartnertracker.com/admin-guide.html`/`user-guide.html`
+(`docs/assets/guide.js` reimplements GitHub's own heading-slug
+algorithm specifically so these `#anchor` fragments resolve the same
+way there as they do on GitHub's own rendered view of the `.md` file —
+see that script's own comment). **Renaming, removing, or demoting a
+linked heading changes its anchor and silently breaks every link
+below** — grep for the anchor text (not just the heading text) before
+touching one of these sections, since nothing else catches this at
+build time.
+
+Current links, by anchor:
+
+| Anchor | Linked from |
+|---|---|
+| `admin-guide.html#database-backups` | `frontend/src/components/admin/BackupReminder.jsx`, `frontend/src/pages/AdminSystemInfo.jsx` |
+| `admin-guide.html#email-postmark` | `frontend/src/pages/AdminSettingsEmail.jsx` |
+| `admin-guide.html#skipping-the-worker-service` | `frontend/src/pages/AdminDispatchSettings.jsx` |
+| `user-guide.html` (no anchor) | `backend/src/utils/welcomeEmails.js` (`USER_GUIDE_URL`) |
+| `user-guide.html#understanding-your-role` | `backend/src/utils/welcomeEmails.js` (`TRIP_LEADER_GUIDE_URL`) |
+| `user-guide.html#your-account-settings` | `backend/src/utils/welcomeEmails.js` (`MFA_HELP_URL`) |
+
+Keep this table current when you add, move, or remove one of these
+links — it's the one place meant to answer "what actually points at
+this heading" without a repo-wide grep.
+
 ## Standing conventions across sessions
 
 This project's actual day-to-day conventions — which corrections have

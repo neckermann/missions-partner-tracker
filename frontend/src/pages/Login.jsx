@@ -7,6 +7,7 @@ import {
   confirmForcedMfaSetup,
   fetchSetupStatus,
 } from "../api/client.js";
+import MfaAppGuide from "../components/MfaAppGuide.jsx";
 
 // #124: where to land after a successful login, instead of always /admin.
 // `next` is set by requireAuth's own redirect (a cold click on a direct
@@ -101,13 +102,13 @@ export default function Login() {
 
   if (setupToken) {
     return (
-      <div className="admin-shell" style={{ maxWidth: 400 }}>
+      <div className="admin-shell" style={{ maxWidth: 480 }}>
         <h2>Two-Factor Setup Required</h2>
         <p style={{ color: "#555" }}>
-          An administrator requires two-factor authentication on this account. Scan this QR code with an
-          authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code it shows to
+          An administrator requires two-factor authentication on this account. Follow the steps below to
           finish signing in.
         </p>
+        <MfaAppGuide />
         {setupData && (
           <form
             onSubmit={handleSetupConfirm}

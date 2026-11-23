@@ -29,7 +29,12 @@ function FlightFields({ form, setForm, participants }) {
           multiple
           style={{ width: "100%", height: "4.5rem" }}
           value={form.participantIds}
-          onChange={(e) => set("participantIds", Array.from(e.target.selectedOptions).map((o) => o.value))}
+          onChange={(e) =>
+            set(
+              "participantIds",
+              Array.from(e.target.selectedOptions).map((o) => o.value)
+            )
+          }
         >
           {participants.map((p) => (
             <option key={p.id} value={p.id}>
@@ -52,7 +57,11 @@ function FlightFields({ form, setForm, participants }) {
       </label>
       <label>
         Departs
-        <input type="datetime-local" value={form.departureAt} onChange={(e) => set("departureAt", e.target.value)} />
+        <input
+          type="datetime-local"
+          value={form.departureAt}
+          onChange={(e) => set("departureAt", e.target.value)}
+        />
       </label>
       <label>
         Arrival airport
@@ -60,7 +69,11 @@ function FlightFields({ form, setForm, participants }) {
       </label>
       <label>
         Arrives
-        <input type="datetime-local" value={form.arrivalAt} onChange={(e) => set("arrivalAt", e.target.value)} />
+        <input
+          type="datetime-local"
+          value={form.arrivalAt}
+          onChange={(e) => set("arrivalAt", e.target.value)}
+        />
       </label>
     </div>
   );
@@ -163,17 +176,32 @@ export default function AdminTripFlights() {
           <>
             <Field
               label="Who"
-              value={(seg.participants || []).length === 0 ? "Whole team" : seg.participants.map((p) => p.firstName).join(", ")}
+              value={
+                (seg.participants || []).length === 0
+                  ? "Whole team"
+                  : seg.participants.map((p) => p.firstName).join(", ")
+              }
             />
-            <Field label="Airline / Flight #" value={[seg.airline, seg.flightNumber].filter(Boolean).join(" ")} showEmpty />
+            <Field
+              label="Airline / Flight #"
+              value={[seg.airline, seg.flightNumber].filter(Boolean).join(" ")}
+              showEmpty
+            />
             <Field
               label="Departs"
-              value={[seg.departureAirport, seg.departureAt ? new Date(seg.departureAt).toLocaleString() : null].filter(Boolean).join(" · ")}
+              value={[
+                seg.departureAirport,
+                seg.departureAt ? new Date(seg.departureAt).toLocaleString() : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
               showEmpty
             />
             <Field
               label="Arrives"
-              value={[seg.arrivalAirport, seg.arrivalAt ? new Date(seg.arrivalAt).toLocaleString() : null].filter(Boolean).join(" · ")}
+              value={[seg.arrivalAirport, seg.arrivalAt ? new Date(seg.arrivalAt).toLocaleString() : null]
+                .filter(Boolean)
+                .join(" · ")}
               showEmpty
             />
           </>

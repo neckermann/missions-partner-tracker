@@ -127,11 +127,11 @@ export default function AdminSystemInfo() {
           A full export of everything in the database — every partner, user, and uploaded file — as a single
           file you download and keep somewhere safe. See{" "}
           <a
-            href="https://github.com/neckermann/missions-partner-tracker/blob/main/ADMIN_GUIDE.md#database-backups"
+            href="https://missionspartnertracker.com/admin-guide.html#database-backups"
             target="_blank"
             rel="noreferrer"
           >
-            ADMIN_GUIDE.md § Database backups
+            Admin Guide § Database backups
           </a>{" "}
           for how to restore one if you ever need to.
         </p>
@@ -158,9 +158,7 @@ export default function AdminSystemInfo() {
               value={{ backupReminderDisabled: Boolean(settings.backupReminderDisabled) }}
               onSave={saveReminder}
               onSaved={reload}
-              view={(v) => (
-                <p>{v.backupReminderDisabled ? "Reminder off" : "Reminder on"}</p>
-              )}
+              view={(v) => <p>{v.backupReminderDisabled ? "Reminder off" : "Reminder on"}</p>}
               edit={(d, set) => (
                 <>
                   <p style={{ color: "#555" }}>

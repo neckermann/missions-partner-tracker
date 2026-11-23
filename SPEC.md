@@ -330,6 +330,45 @@ when off) independent of the frontend hiding the corresponding nav entry.
 used for the public partner data routes (back both directory and map) and
 the shared Email settings page (reachable if either direction is on).
 
+**A rule worth not rediscovering per feature: `outboundEmail` and
+`inboundEmail` both default to off.** A brand-new fork with neither
+configured yet is the *default* state a church lands in, not a rare
+opt-out -- so any feature that sends or depends on email has to be
+designed against that from the start, not patched in after the fact.
+Confirmed as a real, shipped gap (2026-11-22, found during a PR review
+rather than at design time): a welcome-email flow that defaulted its
+"send welcome email" option to on and never checked the flag at all,
+which would have silently failed on every single Add User submission
+for any church that hadn't gone through Email setup yet.
+
+Two things every email-sending feature needs, not just one:
+
+1. **Gate it.** Check `isFeatureEnabled(settings?.enabledFeatures,
+   "outboundEmail")` (or `"inboundEmail"` for receiving) before
+   attempting anything -- server-side, same as every other feature
+   flag, not just a frontend default.
+2. **Give it a working fallback**, not just a disabled button. When
+   what the email carries is a link/token that doesn't itself need
+   Postmark to exist -- only its automatic delivery does -- hand that
+   back directly so an admin can copy it and send it through whatever
+   channel they actually have (personal email, text, in person),
+   instead of the feature becoming unusable the moment email is off.
+   Reference implementation: `backend/src/utils/tripEmails.js`'s
+   `manualFallback()` (meeting invites, checklist notifications -- one
+   shared shape: `{ sent: false, manual: [{ name, email, url }] }`,
+   the participant's own trip-access link being enough on its own since
+   the trip page already shows the meeting/requirement in question) and
+   `backend/src/routes/users.js`'s `manualSetupUrl` (same idea, one
+   recipient, one link, for the account-setup flow specifically). Not
+   every email needs this -- a request that structurally depends on a
+   full round trip (send *and* receive a reply, e.g. the document-
+   request flow in `tripParticipants.js`) has no equivalent manual
+   substitute and is correctly just gated off outright; and a few
+   secondary/FYI-only notifications (a late-joining participant's
+   catch-up emails, a trip-dates-changed recalendar notice) were
+   deliberately left as simple no-ops rather than given this treatment,
+   since nothing is actually blocked on them.
+
 ## 5. Auth & permissions model
 
 **"Auth is the boundary."** Any logged-in account holding one of the 3
@@ -392,6 +431,31 @@ partner's rows). `AdminLayout.jsx` mirrors this client-side (redirects a
 `tripLeader` away from any path outside their own trip or `/partners/*`)
 purely so they never see a flash of the wrong page before the backend's
 own 403 lands — the frontend check is not the real boundary.
+
+**Frontend `canWrite` for a Trip Leader is scope-aware, and that scoping
+doesn't propagate for free.** `useCurrentUser()`'s own `canWrite` is
+global (`admin`/`editor` only, always `false` for `tripLeader` — see its
+own comment). `TripDetailLayout.jsx` computes a second, trip-scoped
+`canWrite = globalCanWrite || (isTripLeader && id === scopedTripId)` and
+passes it down via `useOutletContext()` to every route nested under its
+Outlet (`AdminTripTeam.jsx`, `AdminTripOverview.jsx`,
+`AdminTripFinancial.jsx`, etc.) — none of those call `useCurrentUser()`
+for `canWrite` themselves, they just read the context. A route that
+lives *outside* that Outlet but still operates on one trip's data (e.g.
+`AdminTripParticipantDetail.jsx`, routed as a standalone sibling at
+`trips/:tripId/participants/:participantId`, not nested under
+`trips/:id`) has no context to inherit and must repeat the exact same
+computation itself. Confirmed as a real, shipped bug, not a
+theoretical one: `AdminTripParticipantDetail.jsx` called the global
+`canWrite` directly and showed a Trip Leader a read-only UI on their
+own trip's own participant, despite the backend correctly granting
+them write access there the whole time (middleware above, not this
+page's own code, was always right). Fixed by replicating
+`TripDetailLayout.jsx`'s exact formula locally rather than inventing a
+new one. If you add another sibling route under `trips/:tripId/...`
+outside `TripDetailLayout`'s Outlet, give it this same local
+computation — don't assume `useCurrentUser()`'s `canWrite` is enough
+just because it works for every other role.
 
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 

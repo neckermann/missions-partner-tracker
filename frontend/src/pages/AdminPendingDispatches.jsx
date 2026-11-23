@@ -51,7 +51,12 @@ function flattenRows(groups) {
   const rows = [];
   for (const group of groups) {
     for (const { blurb, children } of group.newsletters) {
-      rows.push({ blurb, partnerName: group.partnerName, isRestrictedGroup: group.isRestricted, sourceLabel: null });
+      rows.push({
+        blurb,
+        partnerName: group.partnerName,
+        isRestrictedGroup: group.isRestricted,
+        sourceLabel: null,
+      });
       for (const child of children) {
         rows.push({
           blurb: child,
@@ -62,7 +67,12 @@ function flattenRows(groups) {
       }
     }
     for (const blurb of group.standalone) {
-      rows.push({ blurb, partnerName: group.partnerName, isRestrictedGroup: group.isRestricted, sourceLabel: null });
+      rows.push({
+        blurb,
+        partnerName: group.partnerName,
+        isRestrictedGroup: group.isRestricted,
+        sourceLabel: null,
+      });
     }
   }
   return rows;
@@ -258,7 +268,9 @@ export default function AdminPendingDispatches() {
                   <SentStatus blurb={row.blurb} />
                   {row.blurb.needsReview && <AwaitingReviewBadge />}
                   {row.blurb.isRestricted && row.blurb.dispatchReviewedAt && !row.blurb.needsReview && (
-                    <span style={{ color: "#2a5d3c", fontSize: "0.8rem", marginLeft: "0.5rem" }}>Reviewed ✓</span>
+                    <span style={{ color: "#2a5d3c", fontSize: "0.8rem", marginLeft: "0.5rem" }}>
+                      Reviewed ✓
+                    </span>
                   )}
                 </div>
                 <div style={{ color: "#555", marginTop: "0.25rem" }}>{truncate(row.blurb.bodyText, 100)}</div>

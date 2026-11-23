@@ -234,7 +234,13 @@ export default function AdminPartners() {
     () =>
       fields.map((f) =>
         f.name === "country"
-          ? { ...f, options: [{ value: "all", label: "All" }, ...availableCountries.map((c) => ({ value: c, label: c }))] }
+          ? {
+              ...f,
+              options: [
+                { value: "all", label: "All" },
+                ...availableCountries.map((c) => ({ value: c, label: c })),
+              ],
+            }
           : f
       ),
     [fields, availableCountries]
@@ -333,7 +339,12 @@ export default function AdminPartners() {
         )}
       </div>
 
-      <FilterBar fields={fieldsWithCountryOptions} values={filters} onChange={updateFilter} onReset={resetFilters} />
+      <FilterBar
+        fields={fieldsWithCountryOptions}
+        values={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
+      />
 
       <Table
         className="admin-table"

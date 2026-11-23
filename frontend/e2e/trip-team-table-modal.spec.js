@@ -54,20 +54,42 @@ test.describe("Trip Team tab: Table + Modal", () => {
     await expect(page.locator(".modal-panel")).toBeVisible();
     await page.getByLabel("First name").fill(uniqueName);
     await page.getByLabel("Last name").fill("Participant");
+    // Required for a non-completed trip -- POST /:id/participants 400s
+    // without it (tripParticipants.js).
+    await page.getByLabel("Email").fill(`e2e-direct-${Date.now()}@example.test`);
     await page.click('.modal-panel button[type="submit"]');
     await expect(page.locator(".modal-panel")).toHaveCount(0);
 
-    await expect(page.locator(".admin-table", { hasText: "Name" })).toContainText(uniqueName);
+    // Scoped to the Confirmed Team table specifically -- Applications
+    // awaiting review (below it) has its own "Name" column too, so a bare
+    // `.admin-table` filtered on "Name" is a strict-mode ambiguity once
+    // both tables are on the page.
+    const confirmedTeamSection = page.locator(".admin-section", {
+      has: page.getByRole("heading", { name: "Confirmed Team" }),
+    });
+    await expect(confirmedTeamSection.locator(".admin-table")).toContainText(uniqueName);
   });
 
-  test("reviews a pending application via the row-click Modal", async ({ page }) => {
+  test("reviews a pending application via its own detail page", async ({ page }) => {
+    await login(page);
+    // The plain id-addressed /apply route 404s unless the trip is public
+    // AND the publicTripDiscovery feature is on -- the latter is
+    // public-subscribe.spec.js's own flag to toggle (CI's comment on this:
+    // "already relies on being the only spec file that mutates
+    // enabledFeatures to avoid a cross-file race"). The by-token route
+    // only checks trip status, so it's the one safe to use from here.
+    const linkRes = await page.request.post(`/api/trips/${tripId}/generate-application-link`);
+    expect(linkRes.ok()).toBeTruthy();
+    const { applicationShareToken } = await linkRes.json();
+
     const uniqueEmail = `e2e-review-${Date.now()}@example.test`;
-    const applyRes = await page.request.post(`/api/public/trips/${tripId}/apply`, {
-      data: { firstName: "Review", lastName: "Applicant", email: uniqueEmail },
+    const applyRes = await page.request.post(`/api/public/trips/by-token/${applicationShareToken}/apply`, {
+      // dateOfBirth is required unconditionally (publicTripApplications.js) --
+      // informs the minor/parent-guardian flow, not optional here.
+      data: { firstName: "Review", lastName: "Applicant", email: uniqueEmail, dateOfBirth: "1990-01-01" },
     });
     expect(applyRes.ok()).toBeTruthy();
 
-    await login(page);
     await page.goto(`/admin/trips/${tripId}/team`);
     await page.waitForSelector("h3:has-text('Applications awaiting review')");
 
@@ -75,14 +97,33 @@ test.describe("Trip Team tab: Table + Modal", () => {
     await expect(row).toBeVisible();
     await row.click();
 
-    await expect(page.locator(".modal-panel")).toContainText(uniqueEmail);
-    await page.locator(".modal-panel button", { hasText: "Approve" }).click();
-    await expect(page.locator(".modal-panel")).toHaveCount(0);
+    // Row click navigates to the application's own detail page
+    // (AdminTripApplicationDetail.jsx) -- not a Modal. A popup-modal
+    // version of this previously shipped and was corrected in review,
+    // same reasoning as AdminUserForm.jsx's "New Partner"-shaped page.
+    await page.waitForURL(/\/admin\/trips\/[^/]+\/applications\/[^/]+$/);
+    await expect(page.locator("body")).toContainText(uniqueEmail);
+    // "Approve or Decline" opens one Wizard that handles both outcomes --
+    // Decision, then Confirm -- same shell as every other Wizard in the
+    // app, showing what the decision is about to do before actually doing
+    // it. No separate Review step -- the answers above are already the
+    // review.
+    await page.getByRole("button", { name: "Approve or Decline" }).click();
+    await page.getByLabel("Approve").check();
+    await page.getByRole("button", { name: "Next" }).click(); // Decision -> Confirm
+    await page.getByRole("button", { name: "Finish" }).click();
+    // outboundEmail is off by default (CI never turns it on globally), so
+    // finishing lands on the manual-link end page, not an immediate
+    // navigation -- "Done" dismisses it. See
+    // AdminTripApplicationDetail.jsx's handleFinish.
+    await page.getByRole("button", { name: "Done" }).click();
 
     // Approving navigates straight to the new participant's own detail page
     // (same behavior as before this migration, unchanged).
     await page.waitForURL(/\/admin\/trips\/[^/]+\/participants\/[^/]+$/);
     await expect(page.locator("body")).toContainText("Review");
-    await expect(page.locator("body")).not.toContainText(/cannot read|undefined is not|something went wrong/i);
+    await expect(page.locator("body")).not.toContainText(
+      /cannot read|undefined is not|something went wrong/i
+    );
   });
 });

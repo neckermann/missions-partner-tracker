@@ -70,7 +70,13 @@ import { supportNeedStatus } from "../utils/supportNeedStatus.js";
 import { truncate } from "../utils/truncate.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
-import { formatDateLong, formatDate, formatCurrency, toDateInputValue, todayInputValue } from "../utils/format.js";
+import {
+  formatDateLong,
+  formatDate,
+  formatCurrency,
+  toDateInputValue,
+  todayInputValue,
+} from "../utils/format.js";
 import { addressByType } from "../utils/addresses.js";
 import { useRecordRecentlyViewed } from "../hooks/useRecentlyViewed.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
@@ -170,8 +176,20 @@ export default function AdminPartnerDetail() {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const { settings: churchSettings } = useChurchSettings();
   const confirmBeforeCreate = useUrgentApprovalGate({ confirmDialog, enabledFeatures });
-  const adultCrud = usePartnerRecordCrud({ createFn: createAdult, updateFn: updateAdult, deleteFn: deleteAdult, reload, confirmDialog });
-  const childCrud = usePartnerRecordCrud({ createFn: createChild, updateFn: updateChild, deleteFn: deleteChild, reload, confirmDialog });
+  const adultCrud = usePartnerRecordCrud({
+    createFn: createAdult,
+    updateFn: updateAdult,
+    deleteFn: deleteAdult,
+    reload,
+    confirmDialog,
+  });
+  const childCrud = usePartnerRecordCrud({
+    createFn: createChild,
+    updateFn: updateChild,
+    deleteFn: deleteChild,
+    reload,
+    confirmDialog,
+  });
   const furloughCrud = usePartnerRecordCrud({
     createFn: createFurlough,
     updateFn: updateFurlough,
@@ -356,7 +374,8 @@ export default function AdminPartnerDetail() {
   // AdminPrayerRequests.jsx/AdminOneTimeNeeds.jsx -- these quick-add modals
   // reuse the exact same create flow (useUrgentApprovalGate), just with a
   // fixed partner instead of a picker.
-  const hasEnabledChannel = enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
+  const hasEnabledChannel =
+    enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
   const usedLinkTypes = new Set(collections.links.map((l) => l.type));
   const allowRestrictedPartnerDispatch = churchSettings?.allowRestrictedPartnerDispatch !== false;
   const canApproveNow = !!p.isRestricted && hasEnabledChannel && allowRestrictedPartnerDispatch;
@@ -469,7 +488,8 @@ export default function AdminPartnerDetail() {
       requestText: prayerDetail.form.requestText.trim(),
       dateReceived: prayerDetail.form.dateReceived,
       isPublic: isStrategic ? prayerDetail.form.isPublic : false,
-      includeInBooklet: isStrategic && prayerDetail.form.isPublic ? prayerDetail.form.includeInBooklet : false,
+      includeInBooklet:
+        isStrategic && prayerDetail.form.isPublic ? prayerDetail.form.includeInBooklet : false,
       notes: prayerDetail.form.notes || null,
       sourceFileId: prayerDetail.form.sourceFileId,
     });
@@ -665,7 +685,9 @@ export default function AdminPartnerDetail() {
       <Breadcrumb items={[{ label: "Partners", to: "/admin/partners" }, { label: p.displayName }]} />
       <div>
         <h2 style={{ marginBottom: "0.25rem" }}>{p.displayName}</h2>
-        <p style={{ color: "#666", margin: 0 }}>{isOrg ? `${p.orgType || "Partner"} Organization` : "Missionary"}</p>
+        <p style={{ color: "#666", margin: 0 }}>
+          {isOrg ? `${p.orgType || "Partner"} Organization` : "Missionary"}
+        </p>
       </div>
 
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", margin: "1rem 0" }}>
@@ -742,11 +764,7 @@ export default function AdminPartnerDetail() {
             <>
               <label title="The public display name shown on the directory, map, and booklet -- this is what's shown for them across the whole site.">
                 {isOrg ? "Organization Name" : "Display Name"}
-                <input
-                  value={d.displayName}
-                  onChange={(e) => set("displayName", e.target.value)}
-                  required
-                />
+                <input value={d.displayName} onChange={(e) => set("displayName", e.target.value)} required />
               </label>
               <div className="admin-checkbox-row" style={{ marginTop: "0.75rem" }}>
                 <label>
@@ -837,11 +855,17 @@ export default function AdminPartnerDetail() {
               onSaved={reload}
               onSave={(d) => save({ anniversary: dateOrNull(d.anniversary) })}
               value={{ anniversary: toDateInputValue(p.anniversary) }}
-              view={(v) => <Field label="Wedding Anniversary" value={formatDateLong(v.anniversary)} showEmpty />}
+              view={(v) => (
+                <Field label="Wedding Anniversary" value={formatDateLong(v.anniversary)} showEmpty />
+              )}
               edit={(d, set) => (
                 <label style={{ maxWidth: "220px" }}>
                   Wedding Anniversary
-                  <input type="date" value={d.anniversary} onChange={(e) => set("anniversary", e.target.value)} />
+                  <input
+                    type="date"
+                    value={d.anniversary}
+                    onChange={(e) => set("anniversary", e.target.value)}
+                  />
                 </label>
               )}
             />
@@ -863,7 +887,14 @@ export default function AdminPartnerDetail() {
                 </>
               )}
               onAdd={() =>
-                adultCrud.openAdd({ firstName: "", lastName: "", phone1: "", phone2: "", email: "", birthday: "" })
+                adultCrud.openAdd({
+                  firstName: "",
+                  lastName: "",
+                  phone1: "",
+                  phone2: "",
+                  email: "",
+                  birthday: "",
+                })
               }
               onEdit={(a) =>
                 adultCrud.openEdit(a.id, {
@@ -876,7 +907,10 @@ export default function AdminPartnerDetail() {
                 })
               }
               onDelete={(a) =>
-                adultCrud.handleDelete(a, (item) => `Delete ${[item.firstName, item.lastName].filter(Boolean).join(" ")}?`)
+                adultCrud.handleDelete(
+                  a,
+                  (item) => `Delete ${[item.firstName, item.lastName].filter(Boolean).join(" ")}?`
+                )
               }
             />
           )}
@@ -902,7 +936,10 @@ export default function AdminPartnerDetail() {
                 })
               }
               onDelete={(c) =>
-                childCrud.handleDelete(c, (item) => `Delete ${[item.firstName, item.lastName].filter(Boolean).join(" ")}?`)
+                childCrud.handleDelete(
+                  c,
+                  (item) => `Delete ${[item.firstName, item.lastName].filter(Boolean).join(" ")}?`
+                )
               }
             />
           )}
@@ -916,11 +953,17 @@ export default function AdminPartnerDetail() {
               renderItem={(l) => (
                 <>
                   <Field label="Language" value={l.language} />
-                  <Field label="Proficiency" value={l.proficiency ? proficiencyLabel(l.proficiency) : null} showEmpty />
+                  <Field
+                    label="Proficiency"
+                    value={l.proficiency ? proficiencyLabel(l.proficiency) : null}
+                    showEmpty
+                  />
                 </>
               )}
               onAdd={() => languageCrud.openAdd({ language: "", proficiency: "" })}
-              onEdit={(l) => languageCrud.openEdit(l.id, { language: l.language, proficiency: l.proficiency || "" })}
+              onEdit={(l) =>
+                languageCrud.openEdit(l.id, { language: l.language, proficiency: l.proficiency || "" })
+              }
               onDelete={(l) => languageCrud.handleDelete(l, (item) => `Delete ${item.language}?`)}
             />
           )}
@@ -1296,10 +1339,17 @@ export default function AdminPartnerDetail() {
                 }
               />
             )}
-            onAdd={() => linkCrud.openAdd({ type: LINK_TYPES.find((t) => !usedLinkTypes.has(t.value))?.value || "", url: "" })}
+            onAdd={() =>
+              linkCrud.openAdd({
+                type: LINK_TYPES.find((t) => !usedLinkTypes.has(t.value))?.value || "",
+                url: "",
+              })
+            }
             addLabel={collections.links.length >= LINK_TYPES.length ? null : "+ Add Link"}
             onEdit={(l) => linkCrud.openEdit(l.id, { type: l.type, url: l.url })}
-            onDelete={(l) => linkCrud.handleDelete(l, (item) => `Delete the ${linkTypeLabel(item.type)} link?`)}
+            onDelete={(l) =>
+              linkCrud.handleDelete(l, (item) => `Delete the ${linkTypeLabel(item.type)} link?`)
+            }
           />
         </div>
 
@@ -1313,7 +1363,9 @@ export default function AdminPartnerDetail() {
               onSaved={reload}
               onSave={(d) => save({ supportingSince: dateOrNull(d.supportingSince) })}
               value={{ supportingSince: toDateInputValue(p.supportingSince) }}
-              view={(v) => <Field label="Supporting Since" value={formatDateLong(v.supportingSince)} showEmpty />}
+              view={(v) => (
+                <Field label="Supporting Since" value={formatDateLong(v.supportingSince)} showEmpty />
+              )}
               edit={(d, set) => (
                 <label>
                   Supporting Since
@@ -1517,11 +1569,7 @@ export default function AdminPartnerDetail() {
               remaining={prayerRequestsLoadMore.remaining}
               onShowMore={prayerRequestsLoadMore.showMore}
               viewAllTo={`/admin/prayer-requests?partnerId=${p.id}`}
-              actions={
-                canEdit
-                  ? [{ label: "+ Add", onClick: openAddPrayerRequest }]
-                  : []
-              }
+              actions={canEdit ? [{ label: "+ Add", onClick: openAddPrayerRequest }] : []}
             />
           )}
 
@@ -1555,9 +1603,17 @@ export default function AdminPartnerDetail() {
             )}
             onAdd={() => churchVisitCrud.openAdd({ visitDate: "", notes: "" })}
             onEdit={(v) =>
-              churchVisitCrud.openEdit(v.id, { visitDate: toDateInputValue(v.visitDate), notes: v.notes || "" })
+              churchVisitCrud.openEdit(v.id, {
+                visitDate: toDateInputValue(v.visitDate),
+                notes: v.notes || "",
+              })
             }
-            onDelete={(v) => churchVisitCrud.handleDelete(v, (item) => `Delete the visit on ${formatDateLong(item.visitDate)}?`)}
+            onDelete={(v) =>
+              churchVisitCrud.handleDelete(
+                v,
+                (item) => `Delete the visit on ${formatDateLong(item.visitDate)}?`
+              )
+            }
             emptyMessage="No visits on file."
             hasMore={churchVisitsLoadMore.hasMore}
             remaining={churchVisitsLoadMore.remaining}
@@ -1573,7 +1629,11 @@ export default function AdminPartnerDetail() {
               renderItem={(f) => (
                 <>
                   <Field label="Start Date" value={formatDateLong(f.startDate)} showEmpty />
-                  <Field label="End Date" value={f.endDate ? formatDateLong(f.endDate) : "Ongoing"} showEmpty />
+                  <Field
+                    label="End Date"
+                    value={f.endDate ? formatDateLong(f.endDate) : "Ongoing"}
+                    showEmpty
+                  />
                   <Field label="Notes" value={f.notes} />
                 </>
               )}
@@ -1585,14 +1645,18 @@ export default function AdminPartnerDetail() {
                   notes: f.notes || "",
                 })
               }
-              onDelete={(f) => furloughCrud.handleDelete(f, (item) => `Delete the furlough starting ${formatDateLong(item.startDate)}?`)}
+              onDelete={(f) =>
+                furloughCrud.handleDelete(
+                  f,
+                  (item) => `Delete the furlough starting ${formatDateLong(item.startDate)}?`
+                )
+              }
               emptyMessage="No furlough history on file."
               hasMore={furloughsLoadMore.hasMore}
               remaining={furloughsLoadMore.remaining}
               onShowMore={furloughsLoadMore.showMore}
             />
           )}
-
         </div>
       </div>
 
@@ -1660,7 +1724,10 @@ export default function AdminPartnerDetail() {
           </QuickActionModal>
         ) : (
           <Modal title="Prayer Request" onClose={closeModal}>
-            <Field label="Category" value={prayerDetail.form.category === "strategic" ? "Strategic" : "Situational"} />
+            <Field
+              label="Category"
+              value={prayerDetail.form.category === "strategic" ? "Strategic" : "Situational"}
+            />
             <Field label="Date Received" value={formatDateLong(prayerDetail.form.dateReceived)} />
             <Field label="Prayer Request" value={prayerDetail.form.requestText} />
             <Field label="Admin Notes" value={prayerDetail.form.notes} />
@@ -1729,7 +1796,12 @@ export default function AdminPartnerDetail() {
         needDetail &&
         (canEdit ? (
           <QuickActionModal title="One-Time Need" onClose={closeModal} onSubmit={submitNeedDetail}>
-            <SupportNeedFormFields form={needDetail.form} setForm={setNeedDetailForm} files={collections.files} mode="edit" />
+            <SupportNeedFormFields
+              form={needDetail.form}
+              setForm={setNeedDetailForm}
+              files={collections.files}
+              mode="edit"
+            />
             {needDetail.form.approvedAmount == null && (
               <button
                 type="button"

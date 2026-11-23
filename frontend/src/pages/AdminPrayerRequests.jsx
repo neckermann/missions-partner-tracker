@@ -259,7 +259,8 @@ export default function AdminPrayerRequests() {
       requestText: requestDetail.form.requestText.trim(),
       dateReceived: requestDetail.form.dateReceived,
       isPublic: isStrategic ? requestDetail.form.isPublic : false,
-      includeInBooklet: isStrategic && requestDetail.form.isPublic ? requestDetail.form.includeInBooklet : false,
+      includeInBooklet:
+        isStrategic && requestDetail.form.isPublic ? requestDetail.form.includeInBooklet : false,
       notes: requestDetail.form.notes || null,
       sourceFileId: requestDetail.form.sourceFileId,
     });
@@ -343,10 +344,7 @@ export default function AdminPrayerRequests() {
                     seen-state (see prayerRequests.js's own comment on why).
                     Clears on this list's next load, not per-item. */}
                 {request.isNew && (
-                  <span
-                    className="status-pill good"
-                    style={{ marginLeft: "0.5rem", fontSize: "0.65rem" }}
-                  >
+                  <span className="status-pill good" style={{ marginLeft: "0.5rem", fontSize: "0.65rem" }}>
                     New
                   </span>
                 )}
@@ -455,7 +453,12 @@ export default function AdminPrayerRequests() {
             >
               Go to partner →
             </Link>
-            <PrayerRequestFormFields form={requestDetail.form} setForm={setRequestDetailForm} files={sourceFiles} mode="edit" />
+            <PrayerRequestFormFields
+              form={requestDetail.form}
+              setForm={setRequestDetailForm}
+              files={sourceFiles}
+              mode="edit"
+            />
             {requestDetail.form.status !== "answered" && (
               <button
                 type="button"
@@ -479,7 +482,10 @@ export default function AdminPrayerRequests() {
             >
               Go to partner →
             </Link>
-            <Field label="Category" value={requestDetail.form.category === "strategic" ? "Strategic" : "Situational"} />
+            <Field
+              label="Category"
+              value={requestDetail.form.category === "strategic" ? "Strategic" : "Situational"}
+            />
             <Field label="Date Received" value={formatDateLong(requestDetail.form.dateReceived)} />
             <Field label="Prayer Request" value={requestDetail.form.requestText} />
             <Field label="Admin Notes" value={requestDetail.form.notes} />

@@ -69,7 +69,7 @@ export default function BackupReminder() {
         {PROVIDER_MESSAGES[provider]} Want a backup right now, or already covered another way?{" "}
         <a href="/admin/settings/system-info">Download a backup, or turn this off for good</a>, or{" "}
         <a
-          href="https://github.com/neckermann/missions-partner-tracker/blob/main/ADMIN_GUIDE.md#database-backups"
+          href="https://missionspartnertracker.com/admin-guide.html#database-backups"
           target="_blank"
           rel="noreferrer"
         >

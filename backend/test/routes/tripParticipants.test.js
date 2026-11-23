@@ -212,8 +212,22 @@ describe("Trips: adding a participant late catches up on existing meetings", () 
       assert.equal(res.status, 201);
     });
 
-    assert.equal(sent.length, 1, "only the one-time welcome email, no meeting invites, no errors");
-    assert.match(sent[0].Subject, /^You're on the team:/);
+    // Scoped to this test's own participant (#284) -- a bare sent.length
+    // assertion is fragile against anything else captureEmails() happens
+    // to see fire during this window on a long-lived, reused local
+    // Postgres (confirmed: this and the other 3 "behaves unchanged"-style
+    // tests in this file all pass cleanly, with the original bare-length
+    // assertions, against a genuinely fresh database -- so the failure
+    // this guards against was environmental, not a real duplicate-send
+    // bug, but scoping by recipient is simply the more correct assertion
+    // regardless of a shared test DB's history).
+    const toThisParticipant = sent.filter((m) => m.To === "solo-joiner@example.test");
+    assert.equal(
+      toThisParticipant.length,
+      1,
+      "only the one-time welcome email, no meeting invites, no errors"
+    );
+    assert.match(toThisParticipant[0].Subject, /^You're on the team:/);
   });
 
   test("outboundEmail off suppresses both the welcome email and any future-meeting invites", async () => {
@@ -357,8 +371,11 @@ describe("Trips: adding or approving a participant catches up on existing requir
       assert.equal(res.status, 201);
     });
 
+    // Scoped to this participant -- see #284's own note on the "behaves
+    // unchanged" test just above for why a bare check across every
+    // captured email is fragile against a shared test database's history.
     assert.ok(
-      !sent.some((m) => /^New item needed:/.test(m.Subject)),
+      !sent.some((m) => m.To === "late-task-joiner@example.test" && /^New item needed:/.test(m.Subject)),
       "a task-kind requirement is not newly actionable and must not trigger a notice"
     );
   });
@@ -384,8 +401,14 @@ describe("Trips: adding or approving a participant catches up on existing requir
       assert.equal(res.status, 201);
     });
 
-    assert.equal(sent.length, 1, "only the one-time welcome email -- no requirements to notice about");
-    assert.match(sent[0].Subject, /^You're on the team:/);
+    // Scoped per #284 -- see the first "behaves unchanged" test above.
+    const toThisParticipant = sent.filter((m) => m.To === "solo-doc-joiner@example.test");
+    assert.equal(
+      toThisParticipant.length,
+      1,
+      "only the one-time welcome email -- no requirements to notice about"
+    );
+    assert.match(toThisParticipant[0].Subject, /^You're on the team:/);
   });
 
   test("outboundEmail off suppresses the late-joiner checklist notice too", async () => {
@@ -554,8 +577,10 @@ describe("Trips: adding or approving a participant catches up on existing requir
       assert.equal(res.status, 200);
     });
 
-    assert.equal(sent.length, 1, "only the one-time welcome email -- nothing to catch up on");
-    assert.match(sent[0].Subject, /^You're on the team:/);
+    // Scoped per #284 -- see the first "behaves unchanged" test above.
+    const toThisApplicant = sent.filter((m) => m.To === "approved-solo-applicant@example.test");
+    assert.equal(toThisApplicant.length, 1, "only the one-time welcome email -- nothing to catch up on");
+    assert.match(toThisApplicant[0].Subject, /^You're on the team:/);
   });
 
   test("outboundEmail off suppresses both catch-up sends for an approved application too", async () => {
@@ -589,6 +614,48 @@ describe("Trips: adding or approving a participant catches up on existing requir
         assert.equal(res.status, 200);
       });
       assert.equal(sent.length, 0, "outboundEmail off must suppress every send, approval path included");
+    } finally {
+      await setFeatures({ outboundEmail: true });
+    }
+  });
+
+  // Regression: unlike every other participant-facing email in this app
+  // (meeting invites, requirement notices -- see utils/tripEmails.js's own
+  // manualFallback()), this was the one place that silently dropped the
+  // link entirely with outboundEmail off, rather than handing it back for
+  // an admin to send manually -- a newly-approved participant had no way
+  // to ever reach their own trip page until an admin happened to notice
+  // and use "Resend access link" separately.
+  test("outboundEmail off hands back a manual access link instead of silently dropping it", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "accepting_applications",
+        startDate: "2026-12-20",
+        endDate: "2026-12-27",
+      },
+    });
+    const application = await prisma.tripApplication.create({
+      data: {
+        tripId: trip.body.id,
+        firstName: "Quiet",
+        lastName: "Applicant",
+        email: "quiet-link-applicant@example.test",
+      },
+    });
+
+    await setFeatures({ outboundEmail: false });
+    try {
+      const res = await admin(`/api/trips/applications/${application.id}`, {
+        method: "PUT",
+        body: { status: "approved" },
+      });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.teamWelcomeEmail?.sent, false);
+      assert.match(res.body.teamWelcomeEmail?.manualUrl || "", /^https?:\/\//);
     } finally {
       await setFeatures({ outboundEmail: true });
     }
