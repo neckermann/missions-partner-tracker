@@ -25,6 +25,7 @@ what changed since some prior release.
 
 ### Changed
 - Reports rebuilt from scratch: a hub organized by question (Money, Partner care, Trips, Contacts, System) and nine reports — support summary, support changes, prayer requests, one-time needs, data completeness, trip fundraising, trip readiness, mailing list, users & access (admin only). Each has URL-backed filters, summary tiles, CSV download and print / save as PDF. No database migration.
+- Saved report views (private or shared) and scheduled report emails (weekly/monthly/quarterly, sent to existing users, masked for restricted partners). **Requires a database migration** (`ReportSchedule`, `SavedReport`).
 - **Removed** the previous reports (birthdays, furlough, trip history, and the earlier support, needs and prayer exports). Bookmarked `/api/reports/<old-id>` URLs now return 404.
 
 **Welcome emails with secure password setup.** Adding a user (including a

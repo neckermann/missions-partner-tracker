@@ -938,6 +938,44 @@ model SupportEntry {
   @@index([partnerId])
 }
 
+
+// A named, saved set of filters for one report. `shared` views are visible
+// to every admin/editor/viewer; private ones only to the owner. `params`
+// is the report's own query params exactly as the report page sends them.
+model SavedReport {
+  id        String           @id @default(uuid())
+  reportId  String // a report id from backend/src/reporting/registry.js
+  name      String
+  params    Json
+  shared    Boolean          @default(false)
+  ownerId   String
+  owner     User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
+  schedules ReportSchedule[]
+
+  @@index([ownerId])
+  @@index([reportId])
+}
+
+// Emails a saved view on a cadence. Always rendered for the "shared"
+// audience (restricted partners masked), because the recipient may not be
+// signed in. `skipIfEmpty` avoids "nothing to report" emails. Recipients
+// are existing user ids -- never free-form addresses -- so an email can't
+// be pointed outside the church's own accounts.
+model ReportSchedule {
+  id            String      @id @default(uuid())
+  savedReportId String
+  savedReport   SavedReport @relation(fields: [savedReportId], references: [id], onDelete: Cascade)
+  cadence       String // "weekly" | "monthly" | "quarterly"
+  recipientIds  String[] // User ids
+  skipIfEmpty   Boolean     @default(true)
+  active        Boolean     @default(true)
+  lastSentAt    DateTime?
+  createdAt     DateTime    @default(now())
+
+  @@index([savedReportId])
+}
+
 // A one-time financial need requested by a partner (e.g. "$1,000 to help a
 // family in their congregation") and our response to it — distinct from
 // SupportEntry, which tracks the recurring monthly amount.
@@ -1794,6 +1832,7 @@ model User {
   allPartners      Boolean               @default(true)
   followedPartners UserFollowedPartner[]
   notificationsSeen NotificationSeen[]
+  savedReports      SavedReport[]
 
   // Welcome-email / first-time password setup links (see
   // utils/passwordSetup.js). A pending account has passwordHash null until

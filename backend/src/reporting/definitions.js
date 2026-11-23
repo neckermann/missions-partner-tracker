@@ -265,7 +265,21 @@ function average(values) {
   return nums.length ? Math.round((nums.reduce((s, v) => s + v, 0) / nums.length) * 10) / 10 : null;
 }
 
+// When a scheduled report is next due. Weekly = 7 days, monthly/quarterly =
+// 1/3 calendar months, counted from the last send; never-sent is due now.
+function isScheduleDue(schedule, now) {
+  if (!schedule.active) return false;
+  if (!schedule.lastSentAt) return true;
+  const last = new Date(schedule.lastSentAt);
+  const n = new Date(now);
+  if (schedule.cadence === "weekly") return n - last >= 7 * DAY_MS - 3600000;
+  const months = schedule.cadence === "quarterly" ? 3 : 1;
+  const due = new Date(Date.UTC(last.getUTCFullYear(), last.getUTCMonth() + months, last.getUTCDate()));
+  return n >= due;
+}
+
 module.exports = {
+  isScheduleDue,
   nextAnnual,
   hoursBetween,
   average,
