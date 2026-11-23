@@ -857,6 +857,14 @@ a {
 .admin-table tbody tr:hover {
   background: var(--surface-2);
 }
+/* No global `a { text-decoration: none }` reset exists in this file --
+   every other link-styled-as-something rule here sets it individually
+   (.breadcrumb a, .admin-settings-tabs a, etc.). .btn itself never did,
+   so an <a>/<Link> using it (e.g. the report pages' "Download CSV", or
+   any "+Add X"/"View details" link-as-button elsewhere) rendered with a
+   plain browser-default underline through its white text until now --
+   a <button> using .btn never showed this, which is why it went
+   unnoticed for a while. */
 .btn {
   background: var(--brand-color, #2a5d3c);
   color: white;
@@ -866,6 +874,8 @@ a {
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 600;
+  text-decoration: none;
+  display: inline-block;
 }
 /* Accent at rest, highlight on hover -- :not(.secondary):not(.danger) so
    those variants' own distinct semantic colors (gray/red) aren't overridden
@@ -1886,7 +1896,11 @@ a {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem;
-  margin: 0 0 1.25rem;
+  /* Was 0 on top -- this sits directly after .report-header (the row
+     count/date plus Download CSV/Print buttons) with nothing else
+     between them, so with no top margin the summary tiles crowded right
+     up against the button row. */
+  margin: 1.25rem 0;
 }
 .report-summary-item {
   background: var(--surface);
