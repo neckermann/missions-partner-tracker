@@ -1535,22 +1535,332 @@ a {
   font-size: 0.9rem;
 }
 
-/* max-width is a real US Letter page width (8.5in) -- deliberately not
-   shrunk to fit a narrow viewport, since this previews actual print
-   proportions. overflow-x: auto on the outer scroller lets a phone-width
-   admin scroll it horizontally instead of the whole page doing so. */
+/* Booklet config page (AdminBooklet.jsx): a two-pane layout, controls on
+   the left and the live print preview pinned on the right, so the
+   preview is visible without scrolling past every control first.
+   Controls and preview are siblings, not parent/child -- see the comment
+   above this layout in AdminBooklet.jsx for why the preview can't be
+   nested inside the `no-print`-wrapped controls column.
+
+   Default (everything below the `min-width: 1500px` block further down)
+   is a single stacked column -- controls, then the preview beneath them
+   at its full 8.5in width -- same shape the page already had. Side-by-
+   side is a progressive enhancement for a wide-enough viewport, not the
+   baseline: .booklet-preview is a fixed 8.5in (not shrink-to-fit, see
+   its own comment below), so a side-by-side column narrower than that
+   doesn't shrink the preview, it just clips most of it behind
+   .booklet-preview-scroll's own horizontal scrollbar (scrolled to 0 by
+   default) -- confirmed by screenshot at 1280px wide (#346), where the
+   cover title rendered as "Missionary Par" because only the left ~2/3 of
+   each page was ever actually visible without scrolling right. Better to
+   fall back to the proven stacked layout below that width than default
+   to a silently truncated preview. */
+.booklet-admin-shell {
+  /* Wider than the standard 1000px .admin-shell cap -- this page can pair
+     a controls column with a full real-print-width (8.5in) preview pane
+     side by side, which the standard cap would otherwise rule out even
+     on a generously wide monitor. Print output is unaffected -- the
+     existing `.admin-shell { max-width: none; ... }` print reset below
+     overrides this too. */
+  max-width: 1600px;
+}
+.booklet-admin-intro {
+  color: #666;
+  margin: -0.5rem 0 0;
+}
+.booklet-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.booklet-print-bar {
+  display: flex;
+  gap: 0.75rem;
+}
+.booklet-preview-pane {
+  background: var(--surface-2, #f4f4f2);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem;
+}
+/* Side by side only once a controls column (its own comfortable minimum,
+   not squeezed) plus the full 816px/8.5in preview plus their gap and
+   padding can all actually fit next to the expanded admin sidebar --
+   worked out against real viewport widths (1280/1366/1440 all fail that
+   math with the sidebar expanded; 1920 clears it with room to spare) and
+   confirmed by screenshot at 1536px wide, not just computed. */
+@media (min-width: 1500px) {
+  .booklet-layout {
+    display: grid;
+    grid-template-columns: minmax(300px, 420px) minmax(816px, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .booklet-preview-pane {
+    position: sticky;
+    top: 1.5rem;
+    /* Scrolls internally once the preview (which can run to dozens of
+       printed pages) is taller than the viewport, instead of the whole
+       page scrolling past this pane -- that's the actual fix for
+       "visible without scrolling past all the controls first". Reset for
+       print below: a real print/PDF job must never be clipped to one
+       screen's worth of this. */
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
+  }
+}
+
+/* Template picker -- a lightweight CSS-only visual swatch per template
+   (not a live render of the real template) so the choice reads at a
+   glance instead of two identical text-only cards. Driven by the same
+   token object templates.js/booklet.css already read (shapeStyle/
+   photoShape/frameStyle via data-* attributes, --accent via
+   resolveAccent()) -- a future third template's swatch is correct for
+   free, nothing to hand-author here. #346 follow-up: the first redesign
+   pass kept these as plain text cards, which the project owner flagged
+   as still reading like a default/unstyled form even though the page
+   layout itself had changed. */
+.booklet-template-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.booklet-template-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 13rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft, #dde1e7);
+  border-radius: var(--radius-sm, 7px);
+  background: var(--surface, #fff);
+  cursor: pointer;
+}
+.booklet-template-card:hover {
+  border-color: var(--brand-highlight-color, #a6540f);
+}
+/* 1px heavier border on selection would otherwise grow the card by 2px
+   and visibly shift the one beside it -- padding shrinks by the same
+   amount so the card's own outer box size never changes. */
+.booklet-template-card.selected {
+  border: 2px solid var(--brand-color, #2a5d3c);
+  padding: calc(0.75rem - 1px);
+}
+.booklet-template-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+}
+.booklet-template-card-desc {
+  font-size: 0.82rem;
+  font-weight: normal;
+  color: var(--muted-text, #677080);
+}
+.booklet-template-swatch {
+  position: relative;
+  height: 96px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: var(--radius-sm, 7px);
+  background: var(--surface-2, #f4f5f7);
+  border: 1px solid var(--border-soft, #dde1e7);
+  overflow: hidden;
+}
+/* Classic's shapeStyle: "circles" token -- the same corner-accent
+   treatment booklet.css's own .booklet-shape uses on the real page,
+   scaled down. Modern's shapeStyle: "none" leaves this hidden. */
+.booklet-template-swatch-shape {
+  display: none;
+  position: absolute;
+  top: -16px;
+  right: -16px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.25;
+}
+[data-shape-style="circles"] .booklet-template-swatch-shape {
+  display: block;
+}
+/* photoShape: circle (Classic) vs rect (Modern), same token booklet.css
+   reads for the real .booklet-photo. */
+.booklet-template-swatch-photo {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  background: var(--accent);
+  opacity: 0.55;
+  border-radius: 50%;
+}
+[data-photo-shape="rect"] .booklet-template-swatch-photo {
+  border-radius: 3px;
+  width: 26px;
+  height: 18px;
+}
+/* frameStyle: "rule" (Modern) -- the bold accent rule booklet.css anchors
+   the real cover/back-cover to. "none" (Classic) leaves this hidden. */
+.booklet-template-swatch-rule {
+  display: none;
+  height: 3px;
+  width: 38%;
+  border-radius: 2px;
+  background: var(--accent);
+}
+[data-frame-style="rule"] .booklet-template-swatch-rule {
+  display: block;
+}
+.booklet-template-swatch-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: auto;
+}
+.booklet-template-swatch-lines span {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-soft, #dde1e7);
+}
+.booklet-template-swatch-lines span:nth-child(1) {
+  width: 72%;
+}
+.booklet-template-swatch-lines span:nth-child(2) {
+  width: 92%;
+}
+.booklet-template-swatch-lines span:nth-child(3) {
+  width: 55%;
+}
+
+/* "What Shows on Each Page" -- a grid of click-to-toggle pill chips
+   instead of a wrapped row of plain checkbox+label pairs (#346
+   follow-up). Each chip is a real <label>/<input type="checkbox"> pair
+   (same toggleField handler, same checked/disabled state as before) --
+   only the rendering changed, so keyboard/screen-reader behavior is
+   unchanged. The checkbox itself is visually hidden (not display: none,
+   which would drop it from the accessibility tree) rather than left
+   showing the app-wide toggle-switch skin (.admin-shell
+   input[type="checkbox"] above) -- the whole chip is this control's own
+   on/off indicator here, a switch rendered inside it too would be a
+   second, redundant indicator. */
+.booklet-field-grid {
+  display: grid;
+  /* 150px (not a rounder 190px+) specifically so this reads as a real
+     multi-column grid rather than a single stacked list inside the
+     controls column's own width (minmax(300px, 420px), see
+     .booklet-layout above) -- confirmed by screenshot at that column's
+     actual rendered width, not assumed. */
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+.booklet-field-chip {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-soft, #dde1e7);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--surface, #fff);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted-text, #677080);
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.booklet-field-chip:hover {
+  border-color: var(--brand-highlight-color, #a6540f);
+}
+.booklet-field-chip input[type="checkbox"] {
+  /* Visually hidden, not display: none -- stays a real, focusable,
+     screen-reader-announced checkbox. Beats the app-wide toggle-switch
+     skin on specificity by appearing later in this file (same selector
+     weight, source order decides), but ::before is reset explicitly too
+     rather than relying on that alone. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+}
+.booklet-field-chip input[type="checkbox"]::before {
+  content: none;
+}
+.booklet-field-chip-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--border-soft, #dde1e7);
+  transition: background-color 0.15s ease;
+}
+.booklet-field-chip.on {
+  border-color: var(--brand-highlight-color, #a6540f);
+  background: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 10%, var(--surface, #fff));
+  color: #222;
+}
+.booklet-field-chip.on .booklet-field-chip-dot {
+  background: var(--brand-highlight-color, #a6540f);
+}
+.booklet-field-chip:has(input:focus-visible) {
+  outline: 2px solid var(--brand-highlight-color, #a6540f);
+  outline-offset: 2px;
+}
+.booklet-field-chip.locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 8.5in (a real US Letter page width) both ways -- min-width, not just
+   max-width -- deliberately not shrunk to fit a narrow container, since
+   this previews actual print proportions. overflow-x: auto on the outer
+   scroller lets a narrower container (a phone-width admin, or now also
+   .booklet-preview-pane's own right-hand column at an ordinary desktop
+   width -- see .booklet-layout above) scroll it horizontally instead of
+   squeezing the preview smaller than a real printed page actually is.
+   Before the two-pane layout (#346), the single-column page was wide
+   enough on most desktop widths that min-width was never in practice
+   doing anything different than max-width alone -- the preview pane's
+   own narrower column makes that no longer true. The outer
+   .booklet-preview-pane above now owns the surrounding margin/
+   background, so this wrapper itself no longer centers with its own
+   margin. */
 .booklet-preview-scroll {
   overflow-x: auto;
-  margin: 1.5rem auto;
 }
 .booklet-preview {
-  max-width: 8.5in;
+  width: 8.5in;
+  margin: 0 auto;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.15);
 }
 
 @media print {
   .no-print {
     display: none !important;
+  }
+  /* The sticky/scroll-clipping behavior above is a screen-only
+     convenience -- without this reset, a real print/PDF job would be
+     clipped to whatever fit in one on-screen viewport instead of the
+     full multi-page booklet, since Chromium's print engine still honors
+     overflow/max-height unless it's explicitly cleared here. */
+  .booklet-preview-pane {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    background: none;
+    padding: 0;
   }
   /* Hide everything, then reveal only the booklet.
      
