@@ -12,6 +12,7 @@ import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestions
 import Table from "../components/shared/Table.jsx";
 import Modal from "../components/Modal.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import Wizard from "../components/shared/Wizard.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import { useSettings } from "../context/SettingsContext.jsx";
@@ -32,11 +33,12 @@ export default function AdminTripTeam() {
   const settings = useSettings();
   const [error, setError] = useState("");
   const [openApplication, setOpenApplication] = useState(null);
-  // The approve flow's own "confirm & notify" step, and what it produces --
-  // scoped separately from `error` (a page-level banner) since these render
-  // inside the application modal itself and reset whenever that modal
-  // changes to a different application.
-  const [confirmingApproval, setConfirmingApproval] = useState(false);
+  // The approve flow's own Wizard (Review -> Confirm & Notify, same shell
+  // as AdminUserForm.jsx's) and what it produces -- scoped separately from
+  // `error` (a page-level banner) since these render inside the
+  // application modal itself and reset whenever that modal changes to a
+  // different application.
+  const [approvingApplication, setApprovingApplication] = useState(false);
   const [approving, setApproving] = useState(false);
   const [approveError, setApproveError] = useState("");
   const [approvalResult, setApprovalResult] = useState(null); // { name, email, url, participantId } | null
@@ -52,7 +54,7 @@ export default function AdminTripTeam() {
   // through this, so the approve flow's own state can never leak from one
   // application (or one modal session) into the next.
   function openApplicationModal(app) {
-    setConfirmingApproval(false);
+    setApprovingApplication(false);
     setApproving(false);
     setApproveError("");
     setApprovalResult(null);
@@ -274,6 +276,29 @@ export default function AdminTripTeam() {
     },
   ];
 
+  // Approve's own 2-step Wizard -- Review, then Confirm & Notify -- same
+  // shell as every other Wizard in the app (AdminUserForm.jsx's Basics/
+  // Account Setup). Neither step collects input (values/setValue are
+  // unused -- a plain `{}` initialValues is enough), so the steps are
+  // read-only content gated purely on reaching Finish; all the real work
+  // happens in handleApprove, called from onFinish below.
+  const approvalSteps = openApplication
+    ? [
+        {
+          key: "review",
+          label: "Review",
+          render: () => (
+            <ApplicantAnswers application={openApplication} answers={answersFor(openApplication)} />
+          ),
+        },
+        {
+          key: "notify",
+          label: "Confirm & Notify",
+          render: () => <p>{approvalNotice()}</p>,
+        },
+      ]
+    : [];
+
   return (
     <div>
       {error && (
@@ -463,32 +488,20 @@ export default function AdminTripTeam() {
                 </button>
               </div>
             </>
-          ) : confirmingApproval ? (
+          ) : approvingApplication ? (
             <>
-              <p>{approvalNotice()}</p>
+              <Wizard
+                steps={approvalSteps}
+                initialValues={{}}
+                onFinish={() => handleApprove(openApplication)}
+                onCancel={() => setApprovingApplication(false)}
+                finishing={approving}
+              />
               {approveError && (
                 <p className="form-error" role="alert">
                   {approveError}
                 </p>
               )}
-              <div className="table-actions" style={{ marginTop: "1rem" }}>
-                <button
-                  type="button"
-                  className="btn secondary small"
-                  onClick={() => setConfirmingApproval(false)}
-                  disabled={approving}
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  className="btn small"
-                  onClick={() => handleApprove(openApplication)}
-                  disabled={approving}
-                >
-                  {approving ? "Approving…" : "Confirm approval"}
-                </button>
-              </div>
             </>
           ) : (
             <>
@@ -497,7 +510,7 @@ export default function AdminTripTeam() {
                 <div className="table-actions" style={{ marginTop: "1rem" }}>
                   {openApplication.mode === "pending" ? (
                     <>
-                      <button className="btn small" onClick={() => setConfirmingApproval(true)}>
+                      <button className="btn small" onClick={() => setApprovingApplication(true)}>
                         Approve
                       </button>
                       <button className="btn danger small" onClick={() => handleDecline(openApplication)}>
