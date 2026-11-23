@@ -272,7 +272,7 @@ not just what topic they fall under:
     description, notes, a Photo/Video Album link (optional — Google
     Photos, iCloud Shared Album, or another provider; admin-only,
     never shown on the public site), and a nested list of participants
-    (First/Last name, Role, Phone, Email, "Trip Leader" checkbox) — the
+    (First/Last name, Role, Phone, Email, "Team Leader" checkbox) — the
     same records as the main [Trips](#trips) page, just scoped to this
     one partner. An actively-recruited trip's fuller detail page
     (applications, team, documents, support raising) is still
@@ -452,6 +452,14 @@ or leave it as "None."
   partner's public profile and in the booklet too, right alongside the
   request itself — a real, growing record of how prayers actually get
   answered over time, not just a log of what's currently outstanding.
+
+Separately from any individual request above, a partner's detail page
+also has its own **Last Prayed w/ Congregation** field — a record of the
+last time the whole congregation prayed for that partner together (in a
+service or a dedicated prayer gathering), not any one request's own
+answer. Click **Mark Prayed Today** right after it happens, or open the
+field to enter/correct a past date if you're catching up on a few
+weeks of history.
 
 The central **Prayer Requests** page lists every request across every
 partner, filterable by category, with a running count of how many have
@@ -1225,6 +1233,14 @@ all three — each tier only fires once its own day/time is set; leaving
 all three unset (the default) means nobody's individual cadence choice
 ever actually sends, regardless of what they picked for themselves.
 
+This section also has a checkbox for each of the three tiers, deciding
+whether it's even offered on the two cadence pickers above (biweekly
+starts off, monthly and quarterly start on). Unchecking one moves
+anyone currently on it to the first tier still checked, in order
+Monthly, Quarterly, Biweekly — immediately, not reversibly; re-checking
+the tier later doesn't move anyone back. At least one tier has to stay
+checked.
+
 #### Chat channels (GroupMe & WhatsApp)
 
 One shared daily-hour field and three shared mutes, used by whichever
@@ -1412,10 +1428,14 @@ scanning a QR code and confirming a code; disabling requires your current
 password.
 
 If [Email (Sending)](#email-admin-only) is turned on for the church,
-there's also an **Email Dispatch** section here: a cadence
-(biweekly, monthly, quarterly, or no automatic digest — off by
-default) and, once a cadence is picked, a choice between every
-partner or just the ones you check from a list. The digest itself
+there's also an **Email Dispatch** section here: a cadence (no
+automatic digest by default, or one of whichever of biweekly, monthly,
+and quarterly the admin has chosen to offer — see [Dispatch
+Settings](#dispatch-settings-admin-only)) and, once a cadence is
+picked, a choice between every partner or just the ones you check from
+a list. If you'd already picked a cadence before the admin turned it
+off, it stays selectable for you specifically — you're never silently
+switched to something else. The digest itself
 still includes prayer requests, one-time needs, and newsletters, same
 as before — picking a cadence and scope here doesn't narrow what you
 get, just when and for whom. It sends on whatever [Email
@@ -1465,8 +1485,10 @@ entirely by what you check in the admin dashboard:
 - **Subscribe** (`/subscribe`) — only shown once an admin turns on
   [Public prayer digest](ADMIN_GUIDE.md#feature-toggles). A dedicated page
   for getting prayer-request updates by email: no login, just an email
-  address, a biweekly/monthly/quarterly choice, and either every partner
-  or several specific ones picked from a checklist. A visitor clicks a
+  address, a cadence choice (whichever of biweekly, monthly, and
+  quarterly an admin has chosen to offer, pre-selected to monthly when
+  it's available), and either every partner or several specific ones
+  picked from a checklist. A visitor clicks a
   link in a confirmation email before anything actually sends (double
   opt-in — nothing goes out to an address nobody confirmed), and every
   digest they get after that carries its own one-click unsubscribe

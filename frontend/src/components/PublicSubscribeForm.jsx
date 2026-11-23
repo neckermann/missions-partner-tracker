@@ -1,5 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { fetchPublicPartners, subscribeToDigest } from "../api/client.js";
+import { useSettings } from "../context/SettingsContext.jsx";
+
+// Labels in display order -- also doubles as the fallback preference
+// order a new subscriber's cadence defaults to (#209), monthly first:
+// same order routes/settingsDispatches.js's PUT uses to pick a fallback
+// for an already-subscribed person moved off a descoped tier, applied
+// here to picking a sensible *default* for someone who hasn't chosen
+// anything yet.
+const CADENCE_OPTIONS = [
+  { value: "biweekly", label: "Biweekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+];
+const CADENCE_PREFERENCE = ["monthly", "quarterly", "biweekly"];
 
 // Shared by PublicSubscribe.jsx's "subscribe to everyone or pick several"
 // page and PublicPartnerDetail.jsx's "follow this partner" form (#202).
@@ -9,11 +23,31 @@ import { fetchPublicPartners, subscribeToDigest } from "../api/client.js";
 // dedicated Subscribe page's case), the form manages its own scope state
 // and lets the visitor choose all partners or several specific ones.
 export default function PublicSubscribeForm({ allPartners, partnerIds, title, description, picker = false }) {
+  const { cadenceTiersEnabled } = useSettings();
+  // Both forms this component backs are new-subscriber-only (#209) --
+  // unlike AccountSettings.jsx's own cadence picker, there's no existing
+  // saved choice to keep visible, so this filters down to only the
+  // enabled tiers with no exception.
+  const enabledTiers = CADENCE_PREFERENCE.filter((tier) => cadenceTiersEnabled[tier]);
+  const cadenceOptions = CADENCE_OPTIONS.filter((opt) => enabledTiers.includes(opt.value));
+  const defaultCadence = enabledTiers[0] || "monthly";
+
   const [email, setEmail] = useState("");
-  const [cadence, setCadence] = useState("biweekly");
+  const [cadence, setCadence] = useState(defaultCadence);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  // Corrects the pre-selected cadence once the real settings land, if
+  // the current pick (set from this context's own pre-fetch defaults, or
+  // an admin disabling a tier after this page already rendered) is no
+  // longer an enabled tier. Never overrides a visitor's own in-range
+  // pick -- this only fires when the current value has fallen outside
+  // enabledTiers.
+  useEffect(() => {
+    if (!enabledTiers.includes(cadence)) setCadence(defaultCadence);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cadenceTiersEnabled]);
 
   // Picker-only state -- unused (and nothing fetched) when picker is
   // false, so the fixed-scope caller pays nothing extra.
@@ -130,9 +164,11 @@ export default function PublicSubscribeForm({ allPartners, partnerIds, title, de
               onChange={(e) => setCadence(e.target.value)}
               disabled={busy}
             >
-              <option value="biweekly">Biweekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="quarterly">Quarterly</option>
+              {cadenceOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
             <button type="submit" className="btn" disabled={busy}>
               {busy ? "Subscribing..." : "Subscribe"}

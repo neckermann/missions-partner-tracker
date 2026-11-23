@@ -64,6 +64,19 @@ model Partner {
   focusArea       String?   @db.Text
   supportingSince DateTime? @db.Date // year-only values are stored as Jan 1 of that year
 
+  // The last time the *whole congregation* prayed for this partner
+  // together -- e.g. during a service or a dedicated prayer gathering.
+  // Deliberately separate from PrayerRequest.status (ongoing/answered),
+  // which tracks individual requests, and from any notification/digest
+  // timestamp, which tracks whether people were told, not whether the
+  // church actually prayed as a body (see issue #228). A manual record
+  // kept at the Partner level since it's about the partner as a whole,
+  // not any one request. @db.Date, same as dateAnswered/supportingSince
+  // above -- this is a calendar date an admin picks or confirms "today,"
+  // not an instant, so it gets the same local-date handling (see
+  // frontend/src/utils/format.js's header comment on why that matters).
+  lastPrayedWithCongregationAt DateTime? @db.Date
+
   // --- Contact ---
   preferredContactMethod String? // e.g. "Email", "Phone Call", "Text/SMS", "WhatsApp", "Mail"
   // Missionary-only: whether it's ok to contact them directly.
@@ -1642,6 +1655,23 @@ model ChurchSettings {
   // Null/unset means "classic", so every church's email dispatch looks
   // exactly the same as before this field existed until one opts in.
   emailDispatchLayout          String? // "classic" | "snapshot"
+
+  // Admin-configurable availability of the three email-digest cadence
+  // tiers themselves (#209) -- which tiers an admin (Account Settings)
+  // and a public subscriber (the Subscribe page / "follow this partner"
+  // form) are even offered, independent of emailDispatchDayOfWeek/
+  // DayOfMonth above (whether a tier's schedule is actually set). Same
+  // per-boolean-column pattern as the chatDispatch* content-type mutes
+  // above, applied to tiers instead of content types. Biweekly defaults
+  // off (the initial ask behind this field: drop biweekly from new
+  // signups, default to monthly) while monthly/quarterly default on,
+  // matching every subscriber's existing behavior before this field
+  // existed. At least one tier must stay enabled -- settingsDispatches.js's
+  // PUT rejects a request that would leave all three off, since the
+  // migration logic below needs somewhere to send a descoped subscriber.
+  cadenceBiweeklyEnabled  Boolean @default(false)
+  cadenceMonthlyEnabled   Boolean @default(true)
+  cadenceQuarterlyEnabled Boolean @default(true)
 
   // Trips (#252) -- church-level, not per-trip. A church's online giving
   // platform and how it's configured doesn't change trip-to-trip.

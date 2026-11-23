@@ -47,6 +47,17 @@ const DEFAULTS = {
     whatsapp: false,
     joshuaProject: false,
   },
+  // Which of the three email-digest cadence tiers an admin offers (#209)
+  // -- defaults match ChurchSettings' own column defaults (see
+  // routes/publicSettings.js), same reasoning as enabledFeatures above:
+  // this is what an unconfigured instance already behaves as, so a page
+  // never flashes a tier that's about to disappear once the real fetch
+  // resolves.
+  cadenceTiersEnabled: {
+    biweekly: false,
+    monthly: true,
+    quarterly: true,
+  },
 };
 
 const SettingsContext = createContext({ ...DEFAULTS, loading: true, refreshSettings: () => {} });
