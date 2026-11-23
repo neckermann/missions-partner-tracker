@@ -16,6 +16,7 @@ import { formatDate, isMinorForTrip } from "../utils/format.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
+import StatusPill from "../components/admin/StatusPill.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
@@ -337,7 +338,12 @@ export default function AdminTripParticipantDetail() {
               <ViewField label="Email" value={v.email} />
               <ViewField label="Phone" value={v.phone} />
               <ViewField label="Role" value={v.role} />
-              <ViewField label="Trip Leader" value={v.isLeader ? "Yes" : "No"} />
+              <ViewField
+                label="Team Leader"
+                value={
+                  <StatusPill label={v.isLeader ? "Yes" : "No"} color={v.isLeader ? "#2a5d3c" : "#6b6f76"} />
+                }
+              />
             </div>
             <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Address</h4>
             <div className="form-grid">
@@ -403,7 +409,7 @@ export default function AdminTripParticipantDetail() {
                   checked={draft.isLeader}
                   onChange={(e) => set("isLeader", e.target.checked)}
                 />
-                Trip Leader
+                Team Leader
               </label>
             </div>
             <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Address</h4>

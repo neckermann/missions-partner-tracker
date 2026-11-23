@@ -272,7 +272,7 @@ not just what topic they fall under:
     description, notes, a Photo/Video Album link (optional — Google
     Photos, iCloud Shared Album, or another provider; admin-only,
     never shown on the public site), and a nested list of participants
-    (First/Last name, Role, Phone, Email, "Trip Leader" checkbox) — the
+    (First/Last name, Role, Phone, Email, "Team Leader" checkbox) — the
     same records as the main [Trips](#trips) page, just scoped to this
     one partner. An actively-recruited trip's fuller detail page
     (applications, team, documents, support raising) is still
