@@ -64,12 +64,13 @@ function SearchResults({ term }) {
   }, [debouncedTerm]);
 
   if (results === null) return null;
-  if (results.length === 0) return <p style={{ color: "#888" }}>No partners match "{debouncedTerm}".</p>;
+  if (results.length === 0)
+    return <p style={{ color: "var(--muted)" }}>No partners match "{debouncedTerm}".</p>;
 
   return (
     <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
       {results.slice(0, 8).map((p) => (
-        <li key={p.id} style={{ padding: "0.35rem 0", borderBottom: "1px solid #eee" }}>
+        <li key={p.id} style={{ padding: "0.35rem 0", borderBottom: "1px solid var(--border)" }}>
           <Link to={`/admin/partners/${p.id}`}>{p.displayName}</Link>
         </li>
       ))}

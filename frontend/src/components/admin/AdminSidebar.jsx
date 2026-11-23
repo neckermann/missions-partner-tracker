@@ -4,6 +4,7 @@ import { logout } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import useCurrentUser from "../../hooks/useCurrentUser.js";
 import useNotifications from "../../hooks/useNotifications.js";
+import ThemeToggle from "../shared/ThemeToggle.jsx";
 
 // nav item key -> notification category key(s) worth a badge directly on
 // the nav link (zero extra clicks to see "there's something here"). Not
@@ -396,6 +397,9 @@ export default function AdminSidebar() {
         )}
       </nav>
       <div className="admin-sidebar-footer">
+        <div className="admin-sidebar-theme-toggle">
+          <ThemeToggle compact />
+        </div>
         {publicLinkNode}
         <SidebarLink to="/admin/account" label="My Account" icon="🙋" />
         <button

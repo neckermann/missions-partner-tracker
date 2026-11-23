@@ -127,7 +127,7 @@ export function AddressSummary({ address }) {
   const lines = [a.addressLine1, a.addressLine2].filter(Boolean);
   const cityLine = [a.city, a.stateProvinceRegion, a.postalCode].filter(Boolean).join(", ");
   if (!lines.length && !cityLine && !a.country)
-    return <p style={{ color: "#888" }}>No mailing address on file.</p>;
+    return <p style={{ color: "var(--muted)" }}>No mailing address on file.</p>;
   return (
     <div>
       {lines.map((line, i) => (
@@ -136,14 +136,14 @@ export function AddressSummary({ address }) {
       {cityLine && <div>{cityLine}</div>}
       {a.country && <div>{a.country}</div>}
       {(a.receiveMail || a.receivePackages) && (
-        <div style={{ marginTop: "0.4rem", fontSize: "0.85rem", color: "#666" }}>
+        <div style={{ marginTop: "0.4rem", fontSize: "0.85rem", color: "var(--muted)" }}>
           {[a.receiveMail && "Receives mail here", a.receivePackages && "Receives packages here"]
             .filter(Boolean)
             .join(" · ")}
         </div>
       )}
       {a.gpsLat != null && a.gpsLng != null && (
-        <div style={{ marginTop: "0.4rem", fontSize: "0.85rem", color: "#666" }}>
+        <div style={{ marginTop: "0.4rem", fontSize: "0.85rem", color: "var(--muted)" }}>
           GPS: {roundGps(a.gpsLat)}, {roundGps(a.gpsLng)}
         </div>
       )}
@@ -697,7 +697,7 @@ export default function AdminPartnerDetail() {
       <Breadcrumb items={[{ label: "Partners", to: "/admin/partners" }, { label: p.displayName }]} />
       <div>
         <h2 style={{ marginBottom: "0.25rem" }}>{p.displayName}</h2>
-        <p style={{ color: "#666", margin: 0 }}>
+        <p style={{ color: "var(--muted)", margin: 0 }}>
           {isOrg ? `${p.orgType || "Partner"} Organization` : "Missionary"}
         </p>
       </div>
@@ -1275,7 +1275,7 @@ export default function AdminPartnerDetail() {
                         </div>
                       </>
                     ) : (
-                      <p style={{ color: "#888" }}>No {title} on file.</p>
+                      <p style={{ color: "var(--muted)" }}>No {title} on file.</p>
                     )}
                   </>
                 )}
@@ -1492,7 +1492,9 @@ export default function AdminPartnerDetail() {
                   <Field label="Best Time of Year / Duration Notes" value={v.tripSeasonNotes} />
                   <Field label="Lodging &amp; Logistics Notes" value={v.tripLogisticsNotes} />
                 </div>
-                <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid #eee" }}>
+                <div
+                  style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)" }}
+                >
                   <RecordList
                     bare
                     canEdit={canEdit}
@@ -1546,7 +1548,9 @@ export default function AdminPartnerDetail() {
                     onChange={(e) => set("tripLogisticsNotes", e.target.value)}
                   />
                 </label>
-                <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid #eee" }}>
+                <div
+                  style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)" }}
+                >
                   <RecordList
                     bare
                     canEdit={canEdit}
@@ -1618,7 +1622,7 @@ export default function AdminPartnerDetail() {
                     value={formatDateLong(v.lastPrayedWithCongregationAt, { fallback: "Never" })}
                     showEmpty
                   />
-                  <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                  <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
                     Corporate prayer during a worship service or special church event — not an individual
                     prayer request (see Prayer Requests above).
                   </p>
@@ -1634,7 +1638,7 @@ export default function AdminPartnerDetail() {
                       onChange={(e) => set("lastPrayedWithCongregationAt", e.target.value)}
                     />
                   </label>
-                  <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                  <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
                     Corporate prayer during a worship service or special church event — not an individual
                     prayer request.
                   </p>

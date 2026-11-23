@@ -60,8 +60,9 @@ export default function BackupReminder() {
         justifyContent: "space-between",
         gap: "1rem",
         padding: "0.6rem 1rem",
-        background: "#fff8e6",
-        borderBottom: "1px solid #f0d999",
+        background: "var(--warn-soft)",
+        borderBottom: "1px solid var(--warn)",
+        color: "var(--text)",
         fontSize: "0.9rem",
       }}
     >
@@ -87,7 +88,7 @@ export default function BackupReminder() {
           cursor: "pointer",
           fontSize: "1rem",
           lineHeight: 1,
-          color: "#555",
+          color: "var(--text)",
           flexShrink: 0,
         }}
       >
