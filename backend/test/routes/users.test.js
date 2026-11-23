@@ -46,6 +46,19 @@ describe("POST /api/users", () => {
       await prisma.user.deleteMany({ where: { email } });
     }
   });
+
+  // The generic P2002 handler's "That email is already in use" reads as a
+  // form-validation complaint -- this route's own catch replaces it with
+  // something that tells the admin what to do instead (edit the existing
+  // account, don't create a second one).
+  test("adding a user with an email that's already in use names the actual problem", async () => {
+    const res = await admin("/api/users", {
+      method: "POST",
+      body: { email: TEST_USERS.admin.email, role: "viewer" },
+    });
+    assert.equal(res.status, 409);
+    assert.match(res.body.error, /already exists.*edit their existing account/i);
+  });
 });
 
 describe("POST /api/users/:id/mfa/reset", () => {

@@ -179,7 +179,9 @@ describe("error contract: other failure modes", () => {
       const second = await admin("/api/users", { method: "POST", body });
       assert.equal(second.status, 409);
       assert.equal(typeof second.body.error, "string");
-      assert.match(second.body.error, /already in use/i);
+      // POST /api/users has its own specific message for this (see
+      // users.test.js) rather than the generic P2002 handler's wording.
+      assert.match(second.body.error, /already exists/i);
     } finally {
       await admin(`/api/users/${first.body.id}`, { method: "DELETE" });
     }

@@ -230,7 +230,7 @@ export default function AdminPartnerForm() {
     <div className="admin-shell">
       <Breadcrumb items={[{ label: "Partners", to: "/admin/partners" }, { label: "New Partner" }]} />
       <h2>New Partner</h2>
-      <p style={{ color: "#666", marginTop: "-0.5rem" }}>
+      <p style={{ color: "var(--muted)", marginTop: "-0.5rem" }}>
         Just enough to create the record — you'll fill in the rest on the partner's page.
       </p>
 
@@ -243,7 +243,7 @@ export default function AdminPartnerForm() {
           finishing={saving}
         />
         {submitError && (
-          <p style={{ color: "#b91c1c" }} role="alert">
+          <p style={{ color: "var(--danger)" }} role="alert">
             {submitError}
           </p>
         )}

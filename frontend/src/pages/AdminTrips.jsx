@@ -34,6 +34,7 @@ import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import AdminTripContributions from "./AdminTripContributions.jsx";
 
 // Merged (design review, post-#252) from two previously separate pages/
 // nav items -- AdminTrips.jsx ("Trips": every real Trip row, a
@@ -48,6 +49,11 @@ import useCurrentUser from "../hooks/useCurrentUser.js";
 // accidental one. One page, one nav item, two tabs: same filter-bar
 // shell, same status-pill rendering, same table shell -- only the
 // query/columns/row-actions differ per tab.
+//
+// A third tab, "Log Contributions" (#272), joined later -- it was
+// originally its own top-level sidebar item, moved here on the same
+// reasoning: it's still "the Trips area," not a separate concern, and a
+// standalone nav entry per trip-related task doesn't scale.
 function yearOf(value) {
   return value ? String(value).slice(0, 4) : null;
 }
@@ -881,21 +887,38 @@ const TABS = [
     description:
       "Partners who could host a trip, including ones with nothing scheduled yet — blends what's already scheduled with each partner's general trip capacity, so a partner is never dropped from the list just because nothing concrete is on the calendar.",
   },
+  {
+    value: "contributions",
+    label: "Log Contributions",
+    description:
+      "Pick a trip and a team member (or leave it trip-wide), then log a gift the same way the trip's own Financial tab does — built for working through a stack of checks for several trips/team members without navigating back and forth.",
+  },
 ];
 
 export default function AdminTrips() {
   const location = useLocation();
   const navigate = useNavigate();
-  // Both /admin/trips and /admin/trips/planning render this same
-  // component -- real tabs now (URL-backed, not just local state), same
-  // tab-bar treatment TripDetailLayout.jsx already uses for its own real
-  // sub-nav, so refreshing/bookmarking/sharing a link to either tab lands
-  // back on that same tab instead of always defaulting to Existing Trips.
-  const tab = location.pathname.endsWith("/planning") ? "plan" : "existing";
+  // /admin/trips, /admin/trips/planning, and /admin/trips/contributions
+  // all render this same component -- real tabs (URL-backed, not just
+  // local state), same tab-bar treatment TripDetailLayout.jsx already
+  // uses for its own real sub-nav, so refreshing/bookmarking/sharing a
+  // link to any tab lands back on that same tab instead of always
+  // defaulting to Existing Trips.
+  const tab = location.pathname.endsWith("/planning")
+    ? "plan"
+    : location.pathname.endsWith("/contributions")
+      ? "contributions"
+      : "existing";
   const activeTab = TABS.find((t) => t.value === tab) || TABS[0];
 
+  const TAB_PATHS = {
+    plan: "/admin/trips/planning",
+    contributions: "/admin/trips/contributions",
+    existing: "/admin/trips",
+  };
+
   function selectTab(value) {
-    navigate(value === "plan" ? "/admin/trips/planning" : "/admin/trips");
+    navigate(TAB_PATHS[value] || TAB_PATHS.existing);
   }
 
   return (
@@ -935,7 +958,9 @@ export default function AdminTrips() {
       </div>
       <p style={{ color: "#555", marginTop: "0.5rem" }}>{activeTab.description}</p>
 
-      {tab === "existing" ? <ExistingTripsTab /> : <PlanATripTab />}
+      {tab === "existing" && <ExistingTripsTab />}
+      {tab === "plan" && <PlanATripTab />}
+      {tab === "contributions" && <AdminTripContributions />}
     </div>
   );
 }

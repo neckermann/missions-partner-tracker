@@ -226,6 +226,18 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     </RequireAdminFeature>
                   }
                 />
+                {/* Static segment, so React Router ranks it ahead of the
+                    dynamic trips/:id below regardless of declaration order --
+                    still placed here, next to it, for a human reading this
+                    route list. */}
+                <Route
+                  path="trips/contributions"
+                  element={
+                    <RequireAdminFeature feature="trips">
+                      <AdminTrips />
+                    </RequireAdminFeature>
+                  }
+                />
                 <Route
                   path="trips/:id"
                   element={

@@ -12,6 +12,7 @@ const { appBaseUrl } = require("../utils/dispatchBlurbs");
 const { escapeHtml } = require("../utils/emailDispatchShell");
 const { findValidSetupToken, hashToken } = require("../utils/passwordSetup");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
+const { isFeatureEnabled } = require("../utils/features");
 const { DEFAULT_TRIP_REQUIREMENT_TEMPLATE } = require("../utils/defaultTripRequirementTemplate");
 
 const router = express.Router();
@@ -216,8 +217,23 @@ router.get("/me", requireAuth, async (req, res, next) => {
 
 // Self-service password change — requires knowing the current password,
 // unlike the admin-only reset in routes/users.js.
+//
+// #329 Finding 2: a Trip Leader scoped guest (role: "tripLeader") is
+// fully admin-managed, not self-service -- AdminSidebar.jsx's
+// TripLeaderSidebar deliberately renders no "My Account" link, and
+// AdminLayout.jsx's own route guard already redirects a tripLeader away
+// from /admin/account entirely (both predate this fix and already
+// documented the intended policy; the backend just hadn't caught up).
+// This was the one surface where that policy actually disagreed: a
+// tripLeader who hit this endpoint directly (no UI route needed one) got
+// a real password change. Blocked here instead of requiring a
+// password-setup-link resend from an admin, the same way their account
+// got set up in the first place.
 router.post("/change-password", requireAuth, async (req, res, next) => {
   try {
+    if (req.user.role === "tripLeader") {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: "Current and new password are required" });
@@ -309,7 +325,20 @@ router.post("/password-setup/request", async (req, res) => {
     if (!email) return;
     const user = await prisma.user.findUnique({ where: { email } });
     if (user && user.active && user.authProvider === "local" && !user.passwordHash) {
-      await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired });
+      // Explicit check, same as users.js's own sendWelcomeEmail call sites --
+      // without it, this would still "work" by accident: sendWelcomeEmail
+      // throws when outboundEmail is off, and the catch below swallows it.
+      // That's incidental, not intentional, and fragile the next time this
+      // route changes. No manual-link fallback to offer here (unlike
+      // users.js, this is self-service with no admin present to hand a
+      // link to), so skip the send outright rather than invent one.
+      const settings = await prisma.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: { enabledFeatures: true },
+      });
+      if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+        await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired });
+      }
     }
   } catch {
     // Deliberately swallowed: this endpoint must never signal a difference.
@@ -323,6 +352,19 @@ router.post("/password-setup/request", async (req, res) => {
 // abandoned setup attempt never leaves the account half-configured.
 router.post("/mfa/setup", requireAuthOrMfaSetup, async (req, res, next) => {
   try {
+    // #329 Finding 2: voluntary self-service enrollment (a real session,
+    // req.user.role === "tripLeader") is the one disallowed path here --
+    // same "fully admin-managed, not self-service" policy as
+    // change-password above. A forced-setup token (req.user = { id,
+    // mfaSetup: true }, no role claim at all -- see signMfaSetupToken)
+    // must still work regardless of role: an admin can require MFA on a
+    // tripLeader account (AdminUserForm.jsx's "Require two-factor
+    // authentication at first sign-in" checkbox is unconditional), and
+    // that first-sign-in enrollment is mandatory, not voluntary, so it's
+    // never blocked here.
+    if (req.user.role === "tripLeader") {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
     if (!user || user.authProvider !== "local") {
       return res.status(400).json({ error: "MFA is only available for local accounts" });
@@ -353,6 +395,12 @@ router.post("/mfa/setup", requireAuthOrMfaSetup, async (req, res, next) => {
 // is what actually lets the user in once they've enrolled.
 router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) => {
   try {
+    // #329 Finding 2: same voluntary-vs-forced distinction as /mfa/setup
+    // above -- only blocks a real session whose role is tripLeader, not a
+    // forced-setup token (no role claim) completing mandatory enrollment.
+    if (req.user.role === "tripLeader") {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
     const { token } = req.body;
     if (!token) return res.status(400).json({ error: "Code is required" });
 
@@ -380,8 +428,16 @@ router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) =
 
 // Requires the current password (not just an active session) so a hijacked
 // browser tab can't silently strip MFA off the account.
+//
+// #329 Finding 2: same "fully admin-managed, not self-service" policy as
+// change-password/mfa-setup above -- an admin who needs to turn MFA off
+// a tripLeader account uses routes/users.js's own admin-side MFA reset
+// (POST /api/users/:id/mfa/reset) instead of this self-service endpoint.
 router.post("/mfa/disable", requireAuth, async (req, res, next) => {
   try {
+    if (req.user.role === "tripLeader") {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
     const { password } = req.body;
     if (!password) return res.status(400).json({ error: "Current password is required" });
 

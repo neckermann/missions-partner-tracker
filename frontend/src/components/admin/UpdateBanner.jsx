@@ -47,8 +47,9 @@ export default function UpdateBanner() {
         justifyContent: "space-between",
         gap: "1rem",
         padding: "0.6rem 1rem",
-        background: "#eef6ff",
-        borderBottom: "1px solid #bcdcff",
+        background: "color-mix(in srgb, #cfe6ff 40%, var(--surface))",
+        borderBottom: "1px solid color-mix(in srgb, #7fb8f5 55%, var(--surface))",
+        color: "var(--text)",
         fontSize: "0.9rem",
       }}
     >
@@ -71,7 +72,7 @@ export default function UpdateBanner() {
           cursor: "pointer",
           fontSize: "1rem",
           lineHeight: 1,
-          color: "#555",
+          color: "var(--text)",
           flexShrink: 0,
         }}
       >

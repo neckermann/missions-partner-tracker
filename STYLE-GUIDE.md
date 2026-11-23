@@ -27,6 +27,26 @@ Headings/body text have their own fixed-contrast rule independent of
 rule in `index.css` before changing how a brand color is applied to
 text.
 
+**Light/dark/system appearance** (#283): a second token set —
+`--bg`/`--surface`/`--surface-2`/`--text`/`--muted`/`--border`/
+`--accent`/`--accent-soft`/`--warn`/`--warn-soft`/`--danger`/`--shadow`
+— each has a light value (`:root`) and a dark counterpart
+(`@media (prefers-color-scheme: dark)` for "System", or
+`:root[data-theme="dark"]` for a pinned override — see
+`hooks/useTheme.js`/`components/shared/ThemeToggle.jsx`). Several
+existing names (`--surface`, `--surface-2`, `--border-soft`,
+`--muted-text`, `--shadow-card`) are kept as aliases onto the canonical
+set above, so most existing rules are already dark-aware; reach for the
+canonical name in new CSS. `--brand-color-safe`/`--brand-highlight-color-safe`
+are dark-mode-adjusted derivatives of the two brand tokens above — use
+one of these instead of the raw `--brand-color`/`--brand-highlight-color`
+wherever a brand color is a foreground (text/border/outline) sitting on
+`--surface`/`--bg`; keep the raw variable where it's a solid fill with
+white text on top (`.btn`, `.status-pill.good`), since that pairing's
+contrast doesn't depend on the page's own theme. Known incomplete: the
+public-facing site and the print-oriented Reports/Booklet screens
+haven't been audited for dark mode.
+
 ## Component patterns — reuse before you build
 
 The admin UX rebuild (9 phases, tracked in GitHub issues #270/#271)

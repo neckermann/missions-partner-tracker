@@ -259,10 +259,9 @@ export default function AdminSettingsEmail() {
                 />
               </label>
               <p style={{ color: "#555", fontSize: "0.85rem" }}>
-                The address partners/participants were told (outside this app) to send mail to, on whatever
-                inbound domain you configured in Postmark above -- purely informational, doesn't change the
-                webhook itself. Also used as the Reply-To on a trip's "Request documents" email, so a
-                participant's reply actually routes back into this queue instead of to no one.
+                The address partners were told (outside this app) to send their newsletters/updates to, on
+                whatever inbound domain you configured in Postmark above -- purely informational, doesn't
+                change the webhook itself.
               </p>
             </>
           )}

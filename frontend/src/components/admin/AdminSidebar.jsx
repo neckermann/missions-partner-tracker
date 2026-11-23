@@ -4,6 +4,7 @@ import { logout } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import useCurrentUser from "../../hooks/useCurrentUser.js";
 import useNotifications from "../../hooks/useNotifications.js";
+import ThemeToggle from "../shared/ThemeToggle.jsx";
 
 // nav item key -> notification category key(s) worth a badge directly on
 // the nav link (zero extra clicks to see "there's something here"). Not
@@ -397,6 +398,9 @@ export default function AdminSidebar() {
           <span aria-hidden="true">🚪</span>
           <span className="sb-label">Log out</span>
         </button>
+        <div className="admin-sidebar-theme-toggle">
+          <ThemeToggle compact />
+        </div>
       </div>
     </aside>
   );

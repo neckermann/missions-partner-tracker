@@ -16,16 +16,117 @@
 :root {
   --heading-font: Sora, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --body-font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Theme tokens (#283) -- light/dark/system appearance.
+     --------------------------------------------------------------------
+     Canonical token set (same names/roles as the design-reference mockup
+     -- see STYLE-GUIDE.md's design-tokens table): --bg/--surface/
+     --surface-2/--text/--muted/--border/--accent/--accent-soft/--warn/
+     --warn-soft/--danger/--shadow. Every value below is this app's
+     EXISTING light-mode literal (body background #f7f5f0, body text
+     #222, the old --border-soft/--muted-text/--shadow-card values, the
+     .status-pill.warn/.field-warning/.btn.danger colors, ...), so turning
+     this on changes nothing yet -- dark mode only exists once the
+     overrides further down apply.
+
+     --muted-text/--border-soft/--shadow-card are kept as aliases (not
+     removed) because dozens of existing rules in this file already
+     reference them by those names -- pointing the alias at the
+     canonical var() means every one of those rules becomes theme-aware
+     for free, without touching each rule individually. New rules should
+     reach for the canonical name directly. */
+  --bg: #f7f5f0;
   --surface: #ffffff;
   --surface-2: #f4f5f7;
-  --border-soft: #dde1e7;
-  --muted-text: #677080;
-  --shadow-card: 0 1px 2px rgba(20, 25, 30, 0.06), 0 8px 24px rgba(20, 25, 30, 0.05);
+  --text: #222222;
+  --muted: #677080;
+  --border: #dde1e7;
+  --accent: #2a5d3c;
+  --accent-soft: #e4f0ec;
+  --warn: #b45309;
+  --warn-soft: #fffbeb;
+  --danger: #b91c1c;
+  --shadow: 0 1px 2px rgba(20, 25, 30, 0.06), 0 8px 24px rgba(20, 25, 30, 0.05);
+  color-scheme: light;
+
+  /* Back-compat aliases -- see the comment above. */
+  --border-soft: var(--border);
+  --muted-text: var(--muted);
+  --shadow-card: var(--shadow);
+
+  /* Dark-mode-safe derived variants of the per-church brand colors
+     (ChurchSettings.primaryColor/highlightColor -> --brand-color/
+     --brand-highlight-color, set as an INLINE style on <html> by
+     SettingsContext.jsx when a church has configured one). An inline
+     style always wins over any rule in this file, so the dark-mode
+     blocks below can never override --brand-color/--brand-highlight-color
+     themselves once a church sets one -- only a var() that reads them
+     through color-mix() can adjust how they're *used*. In light mode
+     these just pass the real value through unchanged; in dark mode they
+     lighten it (mixed toward white) so a church's own accent stays
+     legible as foreground text/icons/borders on a now-dark surface
+     instead of reading as a raw, too-dark swatch. Only use these -safe
+     variants where the brand color is a TEXT/border/outline color sitting
+     on --surface/--bg -- a brand color used as a solid fill WITH WHITE
+     TEXT ON TOP (.btn, .status-pill.good, badges) keeps the raw variable:
+     that pairing's contrast ratio doesn't depend on the page's own
+     light/dark theme. */
+  --brand-color-safe: var(--brand-color, #2a5d3c);
+  --brand-highlight-color-safe: var(--brand-highlight-color, #a6540f);
+
   --radius-lg: 16px;
   --radius-md: 10px;
   --radius-sm: 7px;
   --radius-pill: 999px;
 }
+
+/* System default: no manual override, OS/browser says dark. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14171b;
+    --surface: #1b1f24;
+    --surface-2: #20252b;
+    --text: #e8eaed;
+    --muted: #9aa3b0;
+    --border: #2b3038;
+    --accent: #5fb39f;
+    --accent-soft: #1f2e2a;
+    --warn: #d7ab5e;
+    --warn-soft: #2e2717;
+    --danger: #e08080;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+    --brand-color-safe: color-mix(in srgb, var(--brand-color, #2a5d3c) 55%, white);
+    --brand-highlight-color-safe: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 55%, white);
+  }
+}
+
+/* Manual override: data-theme="dark"|"light" on <html>, set by
+   ThemeToggle.jsx/useTheme.js and persisted to localStorage. "system"
+   means no attribute at all, which is why there's no `[data-theme="system"]`
+   block -- that state is just "let the media query above decide." */
+:root[data-theme="dark"] {
+  --bg: #14171b;
+  --surface: #1b1f24;
+  --surface-2: #20252b;
+  --text: #e8eaed;
+  --muted: #9aa3b0;
+  --border: #2b3038;
+  --accent: #5fb39f;
+  --accent-soft: #1f2e2a;
+  --warn: #d7ab5e;
+  --warn-soft: #2e2717;
+  --danger: #e08080;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+  --brand-color-safe: color-mix(in srgb, var(--brand-color, #2a5d3c) 55%, white);
+  --brand-highlight-color-safe: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 55%, white);
+}
+/* data-theme="light" needs no block of its own -- its whole job is to be
+   MORE specific than the dark media query above so it wins and nothing
+   overrides the plain :root light values declared at the top of this
+   file; :not([data-theme="light"]) in that media query is what makes
+   this work. */
 h1,
 h2,
 h3,
@@ -52,11 +153,11 @@ h4,
 body {
   margin: 0;
   font-family: var(--brand-font, var(--body-font));
-  background: #f7f5f0;
-  color: #222;
+  background: var(--bg);
+  color: var(--text);
 }
 a {
-  color: var(--brand-color, #2a5d3c);
+  color: var(--brand-color-safe, #2a5d3c);
 }
 /* A <button> styled to read as an inline link, for a summary-card item
    that opens a popup (PartnerSummaryCard.jsx) rather than navigating --
@@ -69,12 +170,12 @@ a {
   margin: 0;
   font: inherit;
   text-align: left;
-  color: var(--brand-color, #2a5d3c);
+  color: var(--brand-color-safe, #2a5d3c);
   text-decoration: underline;
   cursor: pointer;
 }
 .summary-item-link:hover {
-  color: var(--brand-highlight-color, #a6540f);
+  color: var(--brand-highlight-color-safe, #a6540f);
 }
 
 .app-header {
@@ -213,10 +314,10 @@ a {
      top/left come from AdminSidebar.jsx's own getBoundingClientRect, not
      this stylesheet. */
   position: fixed;
-  background: white;
-  color: #222;
+  background: var(--surface);
+  color: var(--text);
   border-radius: var(--radius-sm, 6px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow);
   padding: 0.5rem;
   min-width: 320px;
   max-width: 400px;
@@ -228,7 +329,7 @@ a {
   gap: 0.5rem;
   padding: 0.4rem 0.5rem;
   border-radius: var(--radius-sm, 6px);
-  color: #222 !important;
+  color: var(--text) !important;
   text-decoration: none;
 }
 .admin-sidebar-bell-item:hover {
@@ -241,7 +342,7 @@ a {
 .admin-sidebar-bell-item-count {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--brand-highlight-color, #a6540f);
+  color: var(--brand-highlight-color-safe, #a6540f);
 }
 .admin-sidebar-nav-badge {
   margin-left: auto;
@@ -270,6 +371,35 @@ a {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+}
+/* The sidebar bar itself is always a colored, dark surface with white text
+   regardless of the page's own light/dark theme (see the comment on
+   .admin-sidebar above) -- its own compact ThemeToggle instance matches
+   that bar's existing on-dark button convention (rgba(255,255,255,.12),
+   white text) instead of the page-theme-driven --surface-2/--muted/--text
+   tokens ThemeToggle uses everywhere else, which would be the wrong
+   contrast pairing sitting on an arbitrary brand header color. Hidden
+   entirely when the sidebar is collapsed -- no room for a 3-way control,
+   and Account Settings always has the full one. */
+.admin-sidebar-theme-toggle {
+  margin-bottom: 0.4rem;
+}
+.admin-sidebar.collapsed .admin-sidebar-theme-toggle {
+  display: none;
+}
+.admin-sidebar-theme-toggle .theme-toggle {
+  background: rgba(255, 255, 255, 0.12);
+  width: 100%;
+  justify-content: space-between;
+}
+.admin-sidebar-theme-toggle .theme-toggle-btn {
+  flex: 1;
+  color: rgba(255, 255, 255, 0.75);
+}
+.admin-sidebar-theme-toggle .theme-toggle-btn.active {
+  background: rgba(255, 255, 255, 0.22);
+  color: white;
+  box-shadow: none;
 }
 .admin-sidebar-nav a,
 .admin-sidebar-nav button,
@@ -515,9 +645,9 @@ a {
   display: block;
   margin-top: 0.4rem;
   padding: 0.5rem 0.6rem;
-  border-left: 3px solid #b45309;
-  background: #fffbeb;
-  color: #7c2d12;
+  border-left: 3px solid var(--warn);
+  background: var(--warn-soft);
+  color: var(--text);
   font-size: 0.8rem;
   font-weight: 400;
   line-height: 1.4;
@@ -753,28 +883,28 @@ a {
 .breadcrumb {
   display: block;
   font-size: 0.8rem;
-  color: #6b6f76;
+  color: var(--muted);
   margin-bottom: 0.5rem;
   position: sticky;
   top: 0;
   z-index: 11;
-  background: #f7f5f0;
+  background: var(--bg);
   padding: 0.5rem 0;
 }
 .breadcrumb a {
-  color: #6b6f76;
+  color: var(--muted);
   text-decoration: none;
 }
 .breadcrumb a:hover {
-  color: #1f2a37;
+  color: var(--text);
   text-decoration: underline;
 }
 .breadcrumb-sep {
   margin: 0 0.35rem;
-  color: #b7b3ab;
+  color: var(--border);
 }
 .breadcrumb-current {
-  color: #1f2a37;
+  color: var(--text);
   font-weight: 600;
 }
 .admin-table {
@@ -891,7 +1021,7 @@ a {
   background: #666;
 }
 .btn.danger {
-  background: #b91c1c;
+  background: var(--danger);
 }
 .btn.small {
   padding: 0.25rem 0.6rem;
@@ -930,10 +1060,10 @@ a {
 .table-actions-stack > .table-actions-row:last-child {
   justify-content: flex-end;
   padding-top: 0.5rem;
-  border-top: 1px solid #e0ded9;
+  border-top: 1px solid var(--border);
 }
 .table-actions-as {
-  color: #777;
+  color: var(--muted);
   font-size: 0.85rem;
 }
 
@@ -942,7 +1072,7 @@ a {
   flex-direction: column;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #444;
+  color: var(--text);
   gap: 0.3rem;
 }
 .admin-shell input,
@@ -952,9 +1082,10 @@ a {
   font-size: 0.9rem;
   font-weight: normal;
   width: 100%;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border);
   border-radius: 4px;
-  background: white;
+  background: var(--surface);
+  color: var(--text);
 }
 .admin-shell textarea {
   min-height: 90px;
@@ -1002,7 +1133,7 @@ a {
   border: none;
   background: transparent;
   font-size: inherit;
-  color: #222;
+  color: var(--text);
   outline: none;
   min-width: 160px;
   padding: 0;
@@ -1017,16 +1148,16 @@ a {
   line-height: 1;
 }
 .filter-search-clear:hover {
-  color: #222;
+  color: var(--text);
 }
 .filter-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
   font-size: 0.78rem;
-  border: 1px solid var(--brand-highlight-color, #a6540f);
-  background: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 12%, white);
-  color: var(--brand-highlight-color, #a6540f);
+  border: 1px solid var(--brand-highlight-color-safe, #a6540f);
+  background: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 12%, var(--surface));
+  color: var(--brand-highlight-color-safe, #a6540f);
   border-radius: var(--radius-pill);
   padding: 0.35rem 0.7rem;
   font-weight: 600;
@@ -1071,8 +1202,8 @@ a {
   cursor: pointer;
 }
 .add-filter-chip:hover {
-  border-color: var(--brand-highlight-color, #a6540f);
-  color: var(--brand-highlight-color, #a6540f);
+  border-color: var(--brand-highlight-color-safe, #a6540f);
+  color: var(--brand-highlight-color-safe, #a6540f);
 }
 .filter-popover-panel {
   position: absolute;
@@ -1098,11 +1229,11 @@ a {
   cursor: pointer;
 }
 .filter-popover-panel .fp-item:hover {
-  background: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 12%, white);
+  background: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 12%, var(--surface));
 }
 .clear-all-link {
   font-size: 0.78rem;
-  color: var(--brand-color, #2a5d3c);
+  color: var(--brand-color-safe, #2a5d3c);
   font-weight: 600;
   cursor: pointer;
   background: none;
@@ -1141,10 +1272,10 @@ a {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: white;
-  border-top: 1px solid #e2e2e2;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
   padding: 0.85rem 1.5rem;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
   z-index: 50;
 }
 .admin-section {
@@ -1185,7 +1316,7 @@ a {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  background: #f7f5f0;
+  background: var(--bg);
   padding: 0.6rem 0;
   margin-bottom: 0.5rem;
 }
@@ -1193,21 +1324,21 @@ a {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
-  color: #555;
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 .admin-section h3 {
   margin: 0 0 1rem;
   font-size: 1rem;
-  color: var(--brand-color, #2a5d3c);
-  border-bottom: 1px solid #eee;
+  color: var(--brand-color-safe, #2a5d3c);
+  border-bottom: 1px solid var(--border);
   padding-bottom: 0.5rem;
 }
 .admin-section h4 {
   margin: 1rem 0 0.75rem;
   font-size: 0.85rem;
-  color: #555;
+  color: var(--muted);
 }
 
 /* Settings sub-nav (Church Settings > Theme/Features/Users/...) -- an
@@ -1219,12 +1350,12 @@ a {
   display: flex;
   flex-wrap: wrap;
   gap: 1.5rem;
-  border-bottom: 1px solid #e2e2e2;
+  border-bottom: 1px solid var(--border);
   margin: 0.5rem 0 1.5rem;
 }
 .admin-settings-tabs a {
   padding: 0.6rem 0.1rem;
-  color: #666;
+  color: var(--muted);
   text-decoration: none;
   font-size: 0.9rem;
   font-weight: 600;
@@ -1232,11 +1363,11 @@ a {
   margin-bottom: -1px;
 }
 .admin-settings-tabs a:hover {
-  color: #222;
+  color: var(--text);
 }
 .admin-settings-tabs a.active {
-  color: var(--brand-highlight-color, #a6540f);
-  border-bottom-color: var(--brand-highlight-color, #a6540f);
+  color: var(--brand-highlight-color-safe, #a6540f);
+  border-bottom-color: var(--brand-highlight-color-safe, #a6540f);
 }
 
 .admin-checkbox-row {
@@ -1257,10 +1388,10 @@ a {
      real screenshot) and no better on touch, which has no hover state to
      reveal it. A faint standing background/border makes it read as a
      clickable control at rest, not just on hover. */
-  background: #fdf0ef;
-  border: 1px solid #f3d4d2;
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--surface));
   border-radius: 4px;
-  color: #b91c1c;
+  color: var(--danger);
   font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
@@ -1268,19 +1399,19 @@ a {
 }
 .btn-remove:hover,
 .btn-remove:focus-visible {
-  background: #fbe0de;
-  border-color: #e9b3af;
-  color: #7f1616;
+  background: color-mix(in srgb, var(--danger) 20%, var(--surface));
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--surface));
+  color: var(--danger);
 }
 
 .repeatable-row {
   position: relative;
-  border: 1px solid #e2e2e2;
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 1rem;
   padding-right: 2.5rem;
   margin-bottom: 0.75rem;
-  background: #fafaf8;
+  background: var(--surface-2);
 }
 .repeatable-row .btn-remove {
   position: absolute;
@@ -1294,7 +1425,7 @@ a {
   background: var(--surface-2);
 }
 .repeatable-row-clickable:focus-visible {
-  outline: 2px solid var(--brand-highlight-color, #a6540f);
+  outline: 2px solid var(--brand-highlight-color-safe, #a6540f);
   outline-offset: 2px;
 }
 
@@ -1318,9 +1449,9 @@ a {
 .country-stats-panel {
   margin-top: 0.5rem;
   padding: 0.75rem 1rem;
-  border: 1px solid #e2e2e2;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fafaf8;
+  background: var(--surface-2);
   font-size: 0.85rem;
 }
 .country-stats-title {
@@ -1334,7 +1465,7 @@ a {
   margin: 0;
 }
 .country-stats-grid dt {
-  color: #666;
+  color: var(--muted);
   font-weight: 500;
 }
 .country-stats-grid dd {
@@ -1416,7 +1547,7 @@ a {
 .country-stats-source {
   margin: 0.5rem 0 0;
   font-size: 0.75rem;
-  color: #888;
+  color: var(--muted);
 }
 
 .status-pill {
@@ -1426,10 +1557,10 @@ a {
   padding: 0.15rem 0.6rem;
   border-radius: var(--radius-pill);
   background: var(--surface-2);
-  color: #444;
+  color: var(--text);
 }
 .status-pill.warn {
-  background: #b45309;
+  background: var(--warn);
   color: white;
 }
 .status-pill.good {
@@ -1479,7 +1610,7 @@ a {
   transform: translateX(18px);
 }
 .admin-shell input[type="checkbox"]:focus-visible {
-  outline: 2px solid var(--brand-highlight-color, #a6540f);
+  outline: 2px solid var(--brand-highlight-color-safe, #a6540f);
   outline-offset: 2px;
 }
 .admin-shell input[type="checkbox"]:disabled {
@@ -1507,8 +1638,8 @@ a {
     border-color 0.15s;
 }
 .admin-card:hover {
-  border-color: var(--brand-highlight-color, #a6540f);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  border-color: var(--brand-highlight-color-safe, #a6540f);
+  box-shadow: var(--shadow);
 }
 /* Eyebrow category label (e.g. "Communications", "Trips") shown above a
    card's title -- CardGrid.jsx's optional `category` field. Omitted
@@ -1518,39 +1649,349 @@ a {
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--brand-color, #2a5d3c);
+  color: var(--brand-color-safe, #2a5d3c);
   font-weight: 700;
   margin-bottom: 0.35rem;
 }
 .admin-card h3 {
   margin: 0 0 0.5rem;
-  color: var(--brand-color, #2a5d3c);
+  color: var(--brand-color-safe, #2a5d3c);
 }
 .admin-card-icon {
   margin-right: 0.4rem;
 }
 .admin-card p {
   margin: 0;
-  color: #555;
+  color: var(--muted);
   font-size: 0.9rem;
 }
 
-/* max-width is a real US Letter page width (8.5in) -- deliberately not
-   shrunk to fit a narrow viewport, since this previews actual print
-   proportions. overflow-x: auto on the outer scroller lets a phone-width
-   admin scroll it horizontally instead of the whole page doing so. */
+/* Booklet config page (AdminBooklet.jsx): a two-pane layout, controls on
+   the left and the live print preview pinned on the right, so the
+   preview is visible without scrolling past every control first.
+   Controls and preview are siblings, not parent/child -- see the comment
+   above this layout in AdminBooklet.jsx for why the preview can't be
+   nested inside the `no-print`-wrapped controls column.
+
+   Default (everything below the `min-width: 1500px` block further down)
+   is a single stacked column -- controls, then the preview beneath them
+   at its full 8.5in width -- same shape the page already had. Side-by-
+   side is a progressive enhancement for a wide-enough viewport, not the
+   baseline: .booklet-preview is a fixed 8.5in (not shrink-to-fit, see
+   its own comment below), so a side-by-side column narrower than that
+   doesn't shrink the preview, it just clips most of it behind
+   .booklet-preview-scroll's own horizontal scrollbar (scrolled to 0 by
+   default) -- confirmed by screenshot at 1280px wide (#346), where the
+   cover title rendered as "Missionary Par" because only the left ~2/3 of
+   each page was ever actually visible without scrolling right. Better to
+   fall back to the proven stacked layout below that width than default
+   to a silently truncated preview. */
+.booklet-admin-shell {
+  /* Wider than the standard 1000px .admin-shell cap -- this page can pair
+     a controls column with a full real-print-width (8.5in) preview pane
+     side by side, which the standard cap would otherwise rule out even
+     on a generously wide monitor. Print output is unaffected -- the
+     existing `.admin-shell { max-width: none; ... }` print reset below
+     overrides this too. */
+  max-width: 1600px;
+}
+.booklet-admin-intro {
+  color: #666;
+  margin: -0.5rem 0 0;
+}
+.booklet-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.booklet-print-bar {
+  display: flex;
+  gap: 0.75rem;
+}
+.booklet-preview-pane {
+  background: var(--surface-2, #f4f4f2);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem;
+}
+/* Side by side only once a controls column (its own comfortable minimum,
+   not squeezed) plus the full 816px/8.5in preview plus their gap and
+   padding can all actually fit next to the expanded admin sidebar --
+   worked out against real viewport widths (1280/1366/1440 all fail that
+   math with the sidebar expanded; 1920 clears it with room to spare) and
+   confirmed by screenshot at 1536px wide, not just computed. */
+@media (min-width: 1500px) {
+  .booklet-layout {
+    display: grid;
+    grid-template-columns: minmax(300px, 420px) minmax(816px, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .booklet-preview-pane {
+    position: sticky;
+    top: 1.5rem;
+    /* Scrolls internally once the preview (which can run to dozens of
+       printed pages) is taller than the viewport, instead of the whole
+       page scrolling past this pane -- that's the actual fix for
+       "visible without scrolling past all the controls first". Reset for
+       print below: a real print/PDF job must never be clipped to one
+       screen's worth of this. */
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
+  }
+}
+
+/* Template picker -- a lightweight CSS-only visual swatch per template
+   (not a live render of the real template) so the choice reads at a
+   glance instead of two identical text-only cards. Driven by the same
+   token object templates.js/booklet.css already read (shapeStyle/
+   photoShape/frameStyle via data-* attributes, --accent via
+   resolveAccent()) -- a future third template's swatch is correct for
+   free, nothing to hand-author here. #346 follow-up: the first redesign
+   pass kept these as plain text cards, which the project owner flagged
+   as still reading like a default/unstyled form even though the page
+   layout itself had changed. */
+.booklet-template-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.booklet-template-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 13rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft, #dde1e7);
+  border-radius: var(--radius-sm, 7px);
+  background: var(--surface, #fff);
+  cursor: pointer;
+}
+.booklet-template-card:hover {
+  border-color: var(--brand-highlight-color, #a6540f);
+}
+/* 1px heavier border on selection would otherwise grow the card by 2px
+   and visibly shift the one beside it -- padding shrinks by the same
+   amount so the card's own outer box size never changes. */
+.booklet-template-card.selected {
+  border: 2px solid var(--brand-color, #2a5d3c);
+  padding: calc(0.75rem - 1px);
+}
+.booklet-template-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+}
+.booklet-template-card-desc {
+  font-size: 0.82rem;
+  font-weight: normal;
+  color: var(--muted-text, #677080);
+}
+.booklet-template-swatch {
+  position: relative;
+  height: 96px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: var(--radius-sm, 7px);
+  background: var(--surface-2, #f4f5f7);
+  border: 1px solid var(--border-soft, #dde1e7);
+  overflow: hidden;
+}
+/* Classic's shapeStyle: "circles" token -- the same corner-accent
+   treatment booklet.css's own .booklet-shape uses on the real page,
+   scaled down. Modern's shapeStyle: "none" leaves this hidden. */
+.booklet-template-swatch-shape {
+  display: none;
+  position: absolute;
+  top: -16px;
+  right: -16px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.25;
+}
+[data-shape-style="circles"] .booklet-template-swatch-shape {
+  display: block;
+}
+/* photoShape: circle (Classic) vs rect (Modern), same token booklet.css
+   reads for the real .booklet-photo. */
+.booklet-template-swatch-photo {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  background: var(--accent);
+  opacity: 0.55;
+  border-radius: 50%;
+}
+[data-photo-shape="rect"] .booklet-template-swatch-photo {
+  border-radius: 3px;
+  width: 26px;
+  height: 18px;
+}
+/* frameStyle: "rule" (Modern) -- the bold accent rule booklet.css anchors
+   the real cover/back-cover to. "none" (Classic) leaves this hidden. */
+.booklet-template-swatch-rule {
+  display: none;
+  height: 3px;
+  width: 38%;
+  border-radius: 2px;
+  background: var(--accent);
+}
+[data-frame-style="rule"] .booklet-template-swatch-rule {
+  display: block;
+}
+.booklet-template-swatch-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: auto;
+}
+.booklet-template-swatch-lines span {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-soft, #dde1e7);
+}
+.booklet-template-swatch-lines span:nth-child(1) {
+  width: 72%;
+}
+.booklet-template-swatch-lines span:nth-child(2) {
+  width: 92%;
+}
+.booklet-template-swatch-lines span:nth-child(3) {
+  width: 55%;
+}
+
+/* "What Shows on Each Page" -- a grid of click-to-toggle pill chips
+   instead of a wrapped row of plain checkbox+label pairs (#346
+   follow-up). Each chip is a real <label>/<input type="checkbox"> pair
+   (same toggleField handler, same checked/disabled state as before) --
+   only the rendering changed, so keyboard/screen-reader behavior is
+   unchanged. The checkbox itself is visually hidden (not display: none,
+   which would drop it from the accessibility tree) rather than left
+   showing the app-wide toggle-switch skin (.admin-shell
+   input[type="checkbox"] above) -- the whole chip is this control's own
+   on/off indicator here, a switch rendered inside it too would be a
+   second, redundant indicator. */
+.booklet-field-grid {
+  display: grid;
+  /* 150px (not a rounder 190px+) specifically so this reads as a real
+     multi-column grid rather than a single stacked list inside the
+     controls column's own width (minmax(300px, 420px), see
+     .booklet-layout above) -- confirmed by screenshot at that column's
+     actual rendered width, not assumed. */
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+.booklet-field-chip {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-soft, #dde1e7);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--surface, #fff);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted-text, #677080);
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.booklet-field-chip:hover {
+  border-color: var(--brand-highlight-color, #a6540f);
+}
+.booklet-field-chip input[type="checkbox"] {
+  /* Visually hidden, not display: none -- stays a real, focusable,
+     screen-reader-announced checkbox. Beats the app-wide toggle-switch
+     skin on specificity by appearing later in this file (same selector
+     weight, source order decides), but ::before is reset explicitly too
+     rather than relying on that alone. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+}
+.booklet-field-chip input[type="checkbox"]::before {
+  content: none;
+}
+.booklet-field-chip-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--border-soft, #dde1e7);
+  transition: background-color 0.15s ease;
+}
+.booklet-field-chip.on {
+  border-color: var(--brand-highlight-color, #a6540f);
+  background: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 10%, var(--surface, #fff));
+  color: #222;
+}
+.booklet-field-chip.on .booklet-field-chip-dot {
+  background: var(--brand-highlight-color, #a6540f);
+}
+.booklet-field-chip:has(input:focus-visible) {
+  outline: 2px solid var(--brand-highlight-color, #a6540f);
+  outline-offset: 2px;
+}
+.booklet-field-chip.locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 8.5in (a real US Letter page width) both ways -- min-width, not just
+   max-width -- deliberately not shrunk to fit a narrow container, since
+   this previews actual print proportions. overflow-x: auto on the outer
+   scroller lets a narrower container (a phone-width admin, or now also
+   .booklet-preview-pane's own right-hand column at an ordinary desktop
+   width -- see .booklet-layout above) scroll it horizontally instead of
+   squeezing the preview smaller than a real printed page actually is.
+   Before the two-pane layout (#346), the single-column page was wide
+   enough on most desktop widths that min-width was never in practice
+   doing anything different than max-width alone -- the preview pane's
+   own narrower column makes that no longer true. The outer
+   .booklet-preview-pane above now owns the surrounding margin/
+   background, so this wrapper itself no longer centers with its own
+   margin. */
 .booklet-preview-scroll {
   overflow-x: auto;
-  margin: 1.5rem auto;
 }
 .booklet-preview {
-  max-width: 8.5in;
+  width: 8.5in;
+  margin: 0 auto;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.15);
 }
 
 @media print {
   .no-print {
     display: none !important;
+  }
+  /* The sticky/scroll-clipping behavior above is a screen-only
+     convenience -- without this reset, a real print/PDF job would be
+     clipped to whatever fit in one on-screen viewport instead of the
+     full multi-page booklet, since Chromium's print engine still honors
+     overflow/max-height unless it's explicitly cleared here. */
+  .booklet-preview-pane {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    background: none;
+    padding: 0;
   }
   /* Hide everything, then reveal only the booklet.
      
@@ -1857,7 +2298,7 @@ a {
   color: inherit;
 }
 .recent-chip:hover {
-  border-color: var(--brand-highlight-color, #a6540f);
+  border-color: var(--brand-highlight-color-safe, #a6540f);
 }
 .recent-chip b {
   display: block;
@@ -1886,7 +2327,7 @@ a {
   background: var(--border-soft);
 }
 .wizard-progress div.done {
-  background: var(--brand-color, #2a5d3c);
+  background: var(--brand-color-safe, #2a5d3c);
 }
 
 /* Reports: the summary tiles above a report's table. Same surface, border,
@@ -1910,13 +2351,13 @@ a {
 }
 .report-summary-item dt {
   font-size: 0.8rem;
-  color: #555;
+  color: var(--muted);
 }
 .report-summary-item dd {
   margin: 0.15rem 0 0;
   font-size: 1.35rem;
   font-weight: 700;
-  color: var(--brand-color, #2a5d3c);
+  color: var(--brand-color-safe, #2a5d3c);
 }
 @media print {
   .report-summary-item {
@@ -1961,14 +2402,52 @@ button.report-summary-item[aria-pressed="true"] {
 .report-summary-label {
   display: block;
   font-size: 0.8rem;
-  color: #555;
+  color: var(--muted);
 }
 .report-summary-value {
   display: block;
   margin-top: 0.15rem;
   font-size: 1.35rem;
   font-weight: 700;
-  color: var(--brand-color, #2a5d3c);
+  color: var(--brand-color-safe, #2a5d3c);
+}
+
+/* Appearance toggle (#283) -- ThemeToggle.jsx. Same segmented-control
+   shape as the design-reference mockup's own "Appearance" control
+   (.seg/.seg-btn there), renamed to this app's own naming convention. */
+.theme-toggle {
+  display: inline-flex;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 2px;
+}
+.theme-toggle-btn {
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.theme-toggle-btn.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+.theme-toggle-btn:hover:not(.active) {
+  color: var(--text);
+}
+.theme-toggle-btn:focus-visible {
+  outline: 2px solid var(--brand-highlight-color-safe, #a6540f);
+  outline-offset: 2px;
+}
+.theme-toggle-compact .theme-toggle-btn {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.72rem;
 }
 
 .report-summary .sr-only {

@@ -213,7 +213,7 @@ prayer digest nested under Email (Sending) since it depends on it), and
 | Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Settings → Integrations, under Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Settings → Integrations, under AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 | Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Settings → Email. Today's only sender is the batched dispatch digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
-| Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Settings → Email page as Sending, independently toggled. Also sets the one informational **Inbound Email Address** field — not required for the webhook itself, but needed for the Reply-To on a trip's "Request documents" email (see [§ Trips](#trips) below). See [§ Email (Postmark)](#email-postmark) below. |
+| Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Settings → Email page as Sending, independently toggled. Also sets the one informational **Inbound Email Address** field — purely display, not required for the webhook itself. See [§ Email (Postmark)](#email-postmark) below. |
 | Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the public **Subscribe** page (`/subscribe`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on — shown nested under Email (Sending) on this page, and its checkbox can't be turned on until that one is. See [§ Dispatch: GroupMe, the admin digest, and the public digest](#dispatch-groupme-the-admin-digest-and-the-public-digest) below. |
 
 The registry backing this list lives in `backend/src/utils/features.js` —
@@ -259,8 +259,13 @@ A few things worth knowing operationally:
 - `FIELD_ENCRYPTION_KEY` encrypts two-factor (MFA) secrets in
   the database — see
   [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below.
-- MFA (TOTP) is opt-in and self-service per user, or an admin can force
-  it on a specific account. See
+- MFA (TOTP) is opt-in and self-service for the 3 full roles, or an
+  admin can force it on a specific account. A Trip Leader guest account
+  has no self-service here at all (password included) — fully
+  admin-managed, same as the rest of that account's scope — so forcing
+  MFA on one only ever goes through the required-at-first-sign-in flow;
+  turning it back off goes through Manage Users' own MFA reset, not a
+  self-service disable. See
   [USER_GUIDE.md § Your account settings](USER_GUIDE.md#your-account-settings)
   for the user-facing flow.
 
@@ -625,7 +630,9 @@ no OAuth app to register and maintain. Setup: create a free Postmark
 account, verify a sending domain (adds SPF/DKIM records to that
 domain's DNS — a one-time step with whoever manages it), then paste the
 **Server API Token** and a
-**From Address** on that domain into Settings → Email. **Send
+**From Address** on that domain (e.g. `no-reply@yourchurch.org` — this
+app never expects a reply to one of its own sends, so a no-reply
+convention is the right default) into Settings → Email. **Send
 Test Email** confirms it actually works before anything depends on it.
 Free tier is 100 emails/month with no card required; a small church's
 outbound volume plausibly fits inside that indefinitely.
@@ -677,6 +684,39 @@ right partner (or an admin can discard it). Setup:
    Features once it's configured — independent of whether **Email
    (Sending)** is also on.
 
+**Receiving from partners in a restricted context.** A partner serving
+somewhere that makes an obviously church-branded inbound address risky
+(`updates@yourchurch.org` reads as exactly what it is) can be given a
+separate, non-church-branded domain to send to instead — landing in the
+exact same auto-file / Unmatched Emails flow as everyone else. This
+app's webhook doesn't care which domain mail arrived at: it
+authenticates by the Basic Auth credentials in the URL and files by the
+sender's own address, not by the recipient domain, so one app endpoint
+can serve more than one Postmark inbound domain.
+
+Postmark allows only one domain per Inbound Stream, and one stream per
+Server, so a second inbound domain means a second (free) Postmark
+Server, not a second domain added to the existing one:
+
+1. Create a second free Postmark server under the same account.
+2. On that server's Default Inbound Stream, set its domain to whatever
+   non-church-branded domain (or subdomain of one) you're using for
+   restricted partners — add the MX record Postmark gives you, same as
+   step 2 of the primary inbound setup above.
+3. Check **Include raw email content in JSON payload** on this server
+   too.
+4. Set this server's **Inbound webhook** URL to the exact same URL
+   (and the exact same username/password) already configured for the
+   primary inbound domain in Settings → Email. Nothing restricts
+   reusing a webhook URL across Postmark servers, and this app doesn't
+   distinguish which domain or server a message arrived through — same
+   authentication, same sender-match logic either way.
+5. Give this second address only to the partners who need it. Not
+   separately confirmed against Postmark's own documentation (their
+   docs don't explicitly say whether a webhook URL can be reused across
+   servers), but nothing architecturally prevents it, and it costs
+   nothing to set up — a free second server.
+
 **Which tier do you actually need?** Every feature below that touches
 email, and exactly which of Sending/Receiving it needs — confirmed
 directly against the code, not assumed:
@@ -691,13 +731,12 @@ directly against the code, not assumed:
 | Scheduled report emails | **Sending** | |
 | Partners emailing newsletters/updates in, auto-filed to their record | **Receiving** | Works with Sending off — this direction doesn't send anything itself. |
 | Unmatched Emails review queue | **Receiving** | Same as above. |
-| Trip **document requests** (admin asks a participant to reply with a file) | **Both** | The one feature today that genuinely needs both directions — the request goes out via Sending, the participant's reply comes back via Receiving. Off on either side: the request route refuses with a clear "set up Receiving first" error rather than sending something nobody can reply to. |
 
 Receiving-only is a complete, valid setup on its own (lets partners send
 updates in, with no outbound capability at all); Sending-only is just as
-valid and is probably where most churches start. The one thing that
-*requires* setting up both is document requests — everything else works
-fine with just one side on.
+valid and is probably where most churches start. Nothing in this app
+requires setting up both — Sending and Receiving are genuinely
+independent, and every feature above needs exactly one side.
 
 **Data exposure**, same honesty this guide already applies to GroupMe and
 AI Features: mail sent or received this way passes through
@@ -1184,7 +1223,13 @@ editor — is on the other tabs shown above (**Team**, **Meetings**,
   church's own configured online-giving link, see Giving & budget
   below), date received. Donor email/phone are optional fields here
   too, shown only when **Collect donor email/phone when logging a
-  contribution** is on in Trips Settings.
+  contribution** is on in Trips Settings. For logging several
+  contributions across different trips/team members in one sitting —
+  a stack of checks that just came in, say — **Trips → Log
+  Contributions** does the same thing from one page with a Trip and
+  Team member selector up front, instead of opening each trip
+  individually; it stays on the page after each save so the next one
+  can be logged right away.
 - **Applications awaiting review** — click a row to open that
   application's own page, with the applicant's full answers already
   visible (mailing address, emergency contact, and date of birth/
@@ -1237,15 +1282,15 @@ live:
 - **Requirements** lists this participant's own fulfillment state
   against the trip's requirement list — a task can be checked off
   directly here.
-- **Documents** are this participant's own uploaded/logged files.
-  **Request documents** sends an email asking for something specific
-  — disabled until **Inbound Email Address** is set on the Email
-  settings page (see [§ Email (Postmark)](#email-postmark) above),
-  since without it there's no Reply-To for their response to route
-  back into. A document can also reach a participant's file
-  automatically, when an inbound email from them is assigned from the
-  Unmatched Emails queue (optionally marking which requirement it
-  fulfills).
+- **Documents** are this participant's own uploaded/logged files. An
+  admin can log one directly here (mail, in person, or a file already
+  in hand), optionally marking which requirement it fulfills. The
+  participant's own self-service page (see **Still needed from you**
+  below) is the primary way a requirement document actually gets
+  collected, with no admin involved — an admin logging one here is the
+  fallback for a document that arrived by some other means. A document
+  can also reach a participant's file when an unrelated inbound email
+  from them is assigned to them from the Unmatched Emails queue.
 
 **Two feature flags, not one** — see [§ Feature toggles](#feature-toggles)
 above:

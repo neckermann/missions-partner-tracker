@@ -322,7 +322,7 @@ export default function AdminPartners() {
       >
         <div>
           <h2 style={{ margin: 0 }}>{sectionTitle}</h2>
-          <p style={{ margin: "0.2rem 0 0", color: "#666" }}>
+          <p style={{ margin: "0.2rem 0 0", color: "var(--muted)" }}>
             {visible.length} active{" "}
             {visible.length === 1 ? sectionTitle.toLowerCase().replace(/s$/, "") : sectionTitle.toLowerCase()}
           </p>

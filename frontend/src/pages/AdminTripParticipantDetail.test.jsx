@@ -27,7 +27,6 @@ vi.mock("../api/client.js", () => ({
   fetchTripsSettings: vi.fn(),
   generateSupportRaisingLink: vi.fn(),
   resendParticipantAccessLink: vi.fn(),
-  requestTripDocuments: vi.fn(),
   uploadTripDocument: vi.fn(),
   deleteTripDocument: vi.fn(),
   setTripRequirementComplete: vi.fn(),

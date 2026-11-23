@@ -115,7 +115,9 @@ export default function EditableSection({
           )}
         </div>
         <div style={{ marginTop: "1rem" }}>{view(value)}</div>
-        {justSaved && !error && <p style={{ color: "#2a5d3c", marginTop: "0.75rem" }}>Saved ✓</p>}
+        {justSaved && !error && (
+          <p style={{ color: "var(--brand-color-safe, #2a5d3c)", marginTop: "0.75rem" }}>Saved ✓</p>
+        )}
       </div>
 
       {open && canEdit && (
