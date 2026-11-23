@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation } from "react-router-dom";
 import {
   fetchTrip,
   fetchTripsSettings,
@@ -45,6 +45,7 @@ function readFileAsDataUrl(file) {
 // the same explicit edit -> save/cancel boundary.
 export default function AdminTripParticipantDetail() {
   const { tripId, participantId } = useParams();
+  const location = useLocation();
   const { canWrite: globalCanWrite, isTripLeader, scopedTripId } = useCurrentUser();
   // Mirrors TripDetailLayout.jsx's own canWrite -- this page is a sibling
   // route, not nested under that layout's Outlet, so it can't inherit its
@@ -54,7 +55,10 @@ export default function AdminTripParticipantDetail() {
   const [trip, setTrip] = useState(null);
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState("");
-  const [manualAccessLink, setManualAccessLink] = useState(null); // { url } | null
+  // Seeded from AdminTripTeam.jsx's handleReview when approving an
+  // application landed here with outbound email off -- same slot
+  // handleResendAccessLink below fills on its own trigger.
+  const [manualAccessLink, setManualAccessLink] = useState(location.state?.manualAccessLink || null); // { url } | null
   const [docMessage, setDocMessage] = useState("");
   const [docFile, setDocFile] = useState(null);
   const [docRequirementChoice, setDocRequirementChoice] = useState("");
@@ -248,11 +252,14 @@ export default function AdminTripParticipantDetail() {
           {error}
         </p>
       )}
-      {manualAccessLink && <ManualSendNotice recipients={manualAccessLink} />}
       {missingFields.length > 0 && (
         <p style={{ color: "#a6540f", fontSize: "0.85rem" }}>Missing: {missingFields.join(", ")}</p>
       )}
 
+      {/* Right above "Contact & access", not up by the page title -- that's
+          where "Resend access link" (below) actually lives, so the link
+          this produces shows up next to the action that asked for it. */}
+      {manualAccessLink && <ManualSendNotice recipients={manualAccessLink} />}
       <EditableSection
         title="Contact & access"
         canEdit={canWrite}

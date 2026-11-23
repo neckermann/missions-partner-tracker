@@ -594,6 +594,48 @@ describe("Trips: adding or approving a participant catches up on existing requir
     }
   });
 
+  // Regression: unlike every other participant-facing email in this app
+  // (meeting invites, requirement notices -- see utils/tripEmails.js's own
+  // manualFallback()), this was the one place that silently dropped the
+  // link entirely with outboundEmail off, rather than handing it back for
+  // an admin to send manually -- a newly-approved participant had no way
+  // to ever reach their own trip page until an admin happened to notice
+  // and use "Resend access link" separately.
+  test("outboundEmail off hands back a manual access link instead of silently dropping it", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "accepting_applications",
+        startDate: "2026-12-20",
+        endDate: "2026-12-27",
+      },
+    });
+    const application = await prisma.tripApplication.create({
+      data: {
+        tripId: trip.body.id,
+        firstName: "Quiet",
+        lastName: "Applicant",
+        email: "quiet-link-applicant@example.test",
+      },
+    });
+
+    await setFeatures({ outboundEmail: false });
+    try {
+      const res = await admin(`/api/trips/applications/${application.id}`, {
+        method: "PUT",
+        body: { status: "approved" },
+      });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.teamWelcomeEmail?.sent, false);
+      assert.match(res.body.teamWelcomeEmail?.manualUrl || "", /^https?:\/\//);
+    } finally {
+      await setFeatures({ outboundEmail: true });
+    }
+  });
+
   // Status alone can't distinguish "closed, still upcoming" from "closed,
   // entered after the fact as history" -- both share the same string.
   // sendLateJoinerCatchUpEmails also checks the trip's own dates, so a

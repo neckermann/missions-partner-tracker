@@ -115,13 +115,16 @@ test.describe("user management", () => {
 
     const email = `e2e-managed-${Date.now()}@example.test`;
     await page.goto("/admin/settings/users");
-    await page.getByRole("button", { name: "+ Add User" }).click();
-    // Create is a 2-step Wizard (Basics, then Account Setup) -- see
-    // AdminUsers.jsx's own header comment for why. "Send a welcome email"
-    // lives on the second step, so it's never on screen at the same time
-    // as this step's Email field; exact: true is kept anyway since it's
-    // cheap and still correct. Password is optional on create (the default
-    // is a welcome-email link instead) -- this test only exercises
+    await page.getByRole("link", { name: "+ Add User" }).click();
+    await page.waitForURL(/\/admin\/settings\/users\/new$/);
+    // Create is its own page (AdminUserForm.jsx), not a modal -- same
+    // "a Wizard reads as its own page" precedent as AdminPartnerForm.jsx's
+    // "New Partner". A 2-step Wizard (Basics, then Account Setup) --
+    // see AdminUsers.jsx's own header comment for why. "Send a welcome
+    // email" lives on the second step, so it's never on screen at the same
+    // time as this step's Email field; exact: true is kept anyway since
+    // it's cheap and still correct. Password is optional on create (the
+    // default is a welcome-email link instead) -- this test only exercises
     // create/edit-role/delete through the admin UI, never signs in as the
     // user it creates, so leaving every Account Setup default as-is and
     // just finishing the wizard is enough.
@@ -133,9 +136,10 @@ test.describe("user management", () => {
     await page.getByRole("button", { name: "Finish" }).click();
     // outboundEmail is off by default (CI never turns it on globally), so
     // the wizard's own last step is a manual setup link, not an immediate
-    // close -- "Done" dismisses it. See AdminUsers.jsx's handleCreateFinish.
+    // navigation back -- "Done" dismisses it. See AdminUserForm.jsx's
+    // handleFinish.
     await page.getByRole("button", { name: "Done" }).click();
-    await expect(page.locator(".modal-panel")).toHaveCount(0);
+    await page.waitForURL(/\/admin\/settings\/users$/);
 
     const row = page.locator("tr", { hasText: email });
     await expect(row).toBeVisible();

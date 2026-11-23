@@ -41,6 +41,7 @@ const AdminPartnerForm = lazy(() => import("./pages/AdminPartnerForm.jsx"));
 const AdminPartnerDetail = lazy(() => import("./pages/AdminPartnerDetail.jsx"));
 const AdminBooklet = lazy(() => import("./pages/AdminBooklet.jsx"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers.jsx"));
+const AdminUserForm = lazy(() => import("./pages/AdminUserForm.jsx"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings.jsx"));
 const AdminSettingsHome = lazy(() => import("./pages/AdminSettingsHome.jsx"));
 const AdminSettingsAbout = lazy(() => import("./pages/AdminSettingsAbout.jsx"));
@@ -310,6 +311,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   />
                   <Route path="system-info" element={<AdminSystemInfo />} />
                   <Route path="users" element={<AdminUsers />} />
+                  <Route path="users/new" element={<AdminUserForm />} />
                 </Route>
               </Route>
             </Routes>
