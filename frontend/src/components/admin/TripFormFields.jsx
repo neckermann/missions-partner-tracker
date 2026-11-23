@@ -148,7 +148,7 @@ export default function TripFormFields({ form, setForm, partnerPicker }) {
                 checked={!!p.isLeader}
                 onChange={(e) => updateParticipant(i, "isLeader", e.target.checked)}
               />
-              Trip Leader
+              Team Leader
             </label>
           </div>
         </div>

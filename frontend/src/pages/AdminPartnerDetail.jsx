@@ -393,6 +393,18 @@ export default function AdminPartnerDetail() {
   const canEdit = canWrite;
   const canDelete = isAdmin;
 
+  // One-click shortcut for the common case (praying for a partner during
+  // today's service and recording it right after) -- same today's-date
+  // convenience as every "Mark ___" quick action on this page
+  // (submitMarkAnswered etc.), just without its own confirmation modal
+  // since there's nothing to fill in. Catching up on a date in the past
+  // still goes through the EditableSection's own edit popup below, same
+  // as every other date field on this page.
+  async function markPrayedWithCongregationToday() {
+    await save({ lastPrayedWithCongregationAt: todayInputValue() });
+    await reload();
+  }
+
   function closeModal() {
     setActiveModal(null);
   }
@@ -1587,6 +1599,58 @@ export default function AdminPartnerDetail() {
               onShowMore={filesLoadMore.showMore}
               viewAllTo={`/admin/partner-files?partnerId=${p.id}`}
               actions={canEdit ? [{ label: "+ Upload", onClick: openUploadFile }] : []}
+            />
+          )}
+
+          {enabledFeatures.prayerRequests && (
+            <EditableSection
+              title="Last Prayed For in a Service"
+              canEdit={canEdit}
+              onSaved={reload}
+              onSave={(d) =>
+                save({ lastPrayedWithCongregationAt: dateOrNull(d.lastPrayedWithCongregationAt) })
+              }
+              value={{ lastPrayedWithCongregationAt: toDateInputValue(p.lastPrayedWithCongregationAt) }}
+              view={(v) => (
+                <>
+                  <Field
+                    label="Last Prayed For in a Service"
+                    value={formatDateLong(v.lastPrayedWithCongregationAt, { fallback: "Never" })}
+                    showEmpty
+                  />
+                  <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                    Corporate prayer during a worship service or special church event — not an individual
+                    prayer request (see Prayer Requests above).
+                  </p>
+                </>
+              )}
+              edit={(d, set) => (
+                <>
+                  <label>
+                    Last Prayed For in a Service
+                    <input
+                      type="date"
+                      value={d.lastPrayedWithCongregationAt}
+                      onChange={(e) => set("lastPrayedWithCongregationAt", e.target.value)}
+                    />
+                  </label>
+                  <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                    Corporate prayer during a worship service or special church event — not an individual
+                    prayer request.
+                  </p>
+                </>
+              )}
+              actions={
+                canEdit ? (
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    onClick={markPrayedWithCongregationToday}
+                  >
+                    Mark Prayed Today
+                  </button>
+                ) : null
+              }
             />
           )}
 

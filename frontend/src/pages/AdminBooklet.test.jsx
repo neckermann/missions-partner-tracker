@@ -1,0 +1,156 @@
+import React from "react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import AdminBooklet from "./AdminBooklet.jsx";
+import { fetchPartners } from "../api/client.js";
+import { useSettings } from "../context/SettingsContext.jsx";
+
+// AdminBooklet fetches the full partner list itself (fetchPartners({
+// include: "full" })) and reads two independent contexts for
+// church/branding details -- mock all three so most cases only have to
+// exercise the include/exclude filtering that feeds buildBookletHtml.
+// useSettings is a vi.fn() (not a fixed return value) because the #322
+// accent-resolution tests below need to vary primaryColor per test.
+vi.mock("../api/client.js", () => ({
+  fetchPartners: vi.fn(),
+}));
+vi.mock("../context/SettingsContext.jsx", () => ({
+  useSettings: vi.fn(),
+}));
+vi.mock("../hooks/useChurchSettings.js", () => ({
+  default: () => ({ settings: null, loading: false, error: null }),
+}));
+
+const DEFAULT_SETTINGS = {
+  partnerTermPlural: "Missionaries",
+  usePartnerTermInAdmin: false,
+  loading: false,
+  churchName: "Test Church",
+  logo: null,
+  primaryColor: null,
+};
+
+beforeEach(() => {
+  useSettings.mockReturnValue(DEFAULT_SETTINGS);
+});
+
+const RESTRICTED_MISSIONARY = {
+  id: "m-restricted",
+  kind: "missionary",
+  displayName: "Restricted Missionary",
+  archived: false,
+  isRestricted: true,
+};
+const OPEN_MISSIONARY = {
+  id: "m-open",
+  kind: "missionary",
+  displayName: "Open Missionary",
+  archived: false,
+  isRestricted: false,
+};
+const RESTRICTED_ORG = {
+  id: "o-restricted",
+  kind: "organization",
+  displayName: "Restricted Org",
+  orgType: "Local",
+  archived: false,
+  isRestricted: true,
+};
+const OPEN_ORG = {
+  id: "o-open",
+  kind: "organization",
+  displayName: "Open Org",
+  orgType: "Local",
+  archived: false,
+  isRestricted: false,
+};
+
+function getPreviewHtml() {
+  return document.querySelector(".booklet-preview").innerHTML;
+}
+
+describe("AdminBooklet restricted-access filtering", () => {
+  it("excludes a restricted missionary and a restricted organization from the preview when unchecked", async () => {
+    fetchPartners.mockResolvedValue([RESTRICTED_MISSIONARY, OPEN_MISSIONARY, RESTRICTED_ORG, OPEN_ORG]);
+    render(<AdminBooklet />);
+
+    await waitFor(() => expect(document.querySelector(".booklet-preview")).toBeInTheDocument());
+    // Preview content settles once the fetched partners land.
+    await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
+
+    // Restricted-access defaults to checked (includeRestricted starts
+    // true) -- both restricted entries print until the admin unchecks it.
+    expect(getPreviewHtml()).toContain("Restricted Missionary");
+    expect(getPreviewHtml()).toContain("Restricted Org");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Restricted-access" }));
+
+    await waitFor(() => expect(getPreviewHtml()).not.toContain("Restricted Missionary"));
+    // The bug under #270: this line used to still be present because the
+    // organizations filter never checked isRestricted at all.
+    expect(getPreviewHtml()).not.toContain("Restricted Org");
+
+    // Unaffected entries keep printing either way.
+    expect(getPreviewHtml()).toContain("Open Missionary");
+    expect(getPreviewHtml()).toContain("Open Org");
+  });
+});
+
+// #322: the template system was rebuilt as a data-driven catalog
+// (frontend/src/booklet/templates.js) that AdminBooklet.jsx's picker now
+// renders from, instead of a literal TEMPLATE_OPTIONS array here.
+describe("AdminBooklet template picker", () => {
+  it("renders exactly Classic and Modern, nothing else", async () => {
+    fetchPartners.mockResolvedValue([OPEN_MISSIONARY]);
+    render(<AdminBooklet />);
+
+    await waitFor(() => expect(document.querySelector(".booklet-preview")).toBeInTheDocument());
+
+    // Each option's title and description share one <label>, so the
+    // radio's accessible name is the whole label text, not just the
+    // title -- assert on the two concerns separately instead: exactly two
+    // radios named "booklet-template", and exactly the two expected
+    // titles present as text.
+    const radios = document.querySelectorAll('input[name="booklet-template"]');
+    expect(radios).toHaveLength(2);
+    expect(screen.getByText("Classic")).toBeInTheDocument();
+    expect(screen.getByText("Modern")).toBeInTheDocument();
+    // The four templates that existed before #322's rebuild are no longer
+    // offered in the picker.
+    for (const deferred of ["Traditional", "Keepsake", "Portfolio", "Friendly"]) {
+      expect(screen.queryByText(deferred)).not.toBeInTheDocument();
+    }
+  });
+});
+
+// #322 fix: the booklet's accent color now defaults to
+// ChurchSettings.primaryColor, with the old fixed four-color rotation
+// kept only as the fallback for an instance that hasn't set a brand
+// color.
+describe("AdminBooklet accent resolution", () => {
+  function getCoverAccent() {
+    const style = document.querySelector(".booklet-preview .booklet-cover").getAttribute("style");
+    return style.match(/--accent:([^;"]+)/)[1];
+  }
+
+  it("uses ChurchSettings.primaryColor as the accent when the church has set one", async () => {
+    useSettings.mockReturnValue({ ...DEFAULT_SETTINGS, primaryColor: "#123abc" });
+    fetchPartners.mockResolvedValue([OPEN_MISSIONARY]);
+    render(<AdminBooklet />);
+
+    await waitFor(() => expect(document.querySelector(".booklet-cover")).toBeInTheDocument());
+    expect(getCoverAccent()).toBe("#123abc");
+  });
+
+  it("falls back to the fixed rotation when no primaryColor is configured", async () => {
+    useSettings.mockReturnValue({ ...DEFAULT_SETTINGS, primaryColor: null });
+    fetchPartners.mockResolvedValue([OPEN_MISSIONARY]);
+    render(<AdminBooklet />);
+
+    await waitFor(() => expect(document.querySelector(".booklet-cover")).toBeInTheDocument());
+    // The exact fallback hex is an implementation detail of
+    // booklet/templates.js's FALLBACK_ACCENTS -- just confirm it's a real
+    // color and not the church's (unset) brand color.
+    expect(getCoverAccent()).toMatch(/^#[0-9A-Fa-f]{6}$/);
+  });
+});

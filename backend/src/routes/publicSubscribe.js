@@ -59,12 +59,41 @@ const subscribeSchema = z.object({
   partnerIds: z.array(z.string()).optional(),
 });
 
+// Same preference order and tier-field mapping settingsDispatches.js's
+// PUT uses for migrating an already-subscribed person off a descoped
+// tier (#209), applied here to the *new*-subscriber default instead:
+// a caller that omits cadence entirely (not every caller is this app's
+// own frontend, which always sends an explicit, already-filtered value)
+// must not land on a tier the admin has turned off. Previously hardcoded
+// to "biweekly" -- harmless before this feature existed (every tier was
+// always offered), but biweekly defaults *disabled* now, so that literal
+// would have handed a disabled tier to any caller that left cadence out.
+const CADENCE_FALLBACK_PREFERENCE = ["monthly", "quarterly", "biweekly"];
+const CADENCE_TIER_FIELDS = {
+  biweekly: "cadenceBiweeklyEnabled",
+  monthly: "cadenceMonthlyEnabled",
+  quarterly: "cadenceQuarterlyEnabled",
+};
+
+async function defaultCadenceTier() {
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { cadenceBiweeklyEnabled: true, cadenceMonthlyEnabled: true, cadenceQuarterlyEnabled: true },
+  });
+  const state = settings || {
+    cadenceBiweeklyEnabled: false,
+    cadenceMonthlyEnabled: true,
+    cadenceQuarterlyEnabled: true,
+  };
+  return CADENCE_FALLBACK_PREFERENCE.find((tier) => state[CADENCE_TIER_FIELDS[tier]]) || "monthly";
+}
+
 // Shared by all three outcomes below (new/still-unconfirmed/confirmed)
 // so a caller can never tell them apart from the response.
-async function applySubscription(existing, email, data) {
+async function applySubscription(existing, email, data, fallbackCadence) {
   if (existing) await prisma.publicSubscriberPartner.deleteMany({ where: { subscriberId: existing.id } });
   const writeData = {
-    cadence: data.cadence || existing?.cadence || "biweekly",
+    cadence: data.cadence || existing?.cadence || fallbackCadence,
     allPartners: data.allPartners ?? existing?.allPartners ?? true,
     scopedPartners: data.partnerIds.length
       ? { create: data.partnerIds.map((partnerId) => ({ partnerId })) }
@@ -98,11 +127,16 @@ router.post("/", subscribeLimiter, requireSubscribeDependencies, async (req, res
     }
 
     const existing = await prisma.publicSubscriber.findUnique({ where: { email } });
-    const subscriber = await applySubscription(existing, email, {
-      cadence: parsed.data.cadence,
-      allPartners: parsed.data.allPartners,
-      partnerIds,
-    });
+    const subscriber = await applySubscription(
+      existing,
+      email,
+      {
+        cadence: parsed.data.cadence,
+        allPartners: parsed.data.allPartners,
+        partnerIds,
+      },
+      await defaultCadenceTier()
+    );
 
     if (!existing?.confirmedAt) {
       await sendConfirmEmail(subscriber).catch((err) => console.error("Confirm email failed:", err));

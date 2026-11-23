@@ -152,6 +152,25 @@ describe("GET /api/reports/:id with real seeded data", () => {
     assert.equal(row.monthly, 250);
   });
 
+  test("last-heard-from reflects a real lastPrayedWithCongregationAt value, and null when unset", async () => {
+    const prayedFor = await createPartner({
+      displayName: `${FIXTURE_TAG} Prayed-For Partner`,
+      lastPrayedWithCongregationAt: new Date("2026-10-01"),
+    });
+    const neverPrayedFor = await createPartner({
+      displayName: `${FIXTURE_TAG} Never-Prayed-For Partner`,
+    });
+
+    const res = await admin("/api/reports/last-heard-from?onlyStale=false");
+    assert.equal(res.status, 200);
+    const prayedRow = res.body.rows.find((r) => r.partnerName === prayedFor.displayName);
+    const neverRow = res.body.rows.find((r) => r.partnerName === neverPrayedFor.displayName);
+    assert.ok(prayedRow, "the seeded partner with the field set shows up");
+    assert.equal(prayedRow.lastPrayedWithCongregation, "2026-10-01");
+    assert.ok(neverRow, "the seeded partner without the field shows up");
+    assert.equal(neverRow.lastPrayedWithCongregation, null);
+  });
+
   test("format=csv returns an actual CSV body, not the JSON shape", async () => {
     const res = await admin("/api/reports/prayer-requests?format=csv");
     assert.equal(res.status, 200);

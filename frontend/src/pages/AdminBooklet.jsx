@@ -5,6 +5,13 @@ import { useSettings } from "../context/SettingsContext.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
 import { formatDateLong } from "../utils/format.js";
 import { addressByType } from "../utils/addresses.js";
+import {
+  TEMPLATE_OPTIONS,
+  DEFAULT_TEMPLATE_ID,
+  getTemplate,
+  resolveAccent,
+  templateWrapperMarkup,
+} from "../booklet/templates.js";
 
 // Every page-producing template below ends with this exact placeholder.
 // buildBookletHtml does one pass over the fully-assembled document at the
@@ -22,14 +29,10 @@ function pageNumberMarkup() {
   return `<div class="booklet-page-number">${PAGE_NUM}</div>`;
 }
 
-// Rotates per missionary page so the booklet doesn't look monotone —
-// easy to swap for real brand colors later.
-const PALETTE = [
-  { accent: "#C97A3D", tint: "#F6E4D3" },
-  { accent: "#4C7A79", tint: "#E1EDEC" },
-  { accent: "#6B5B4C", tint: "#EFE8E2" },
-  { accent: "#7A8B6F", tint: "#E9EEE4" },
-];
+// Accent color resolution (ChurchSettings.primaryColor as the default,
+// falling back to a fixed rotation only when no brand color is set) now
+// lives in booklet/templates.js's resolveAccent() -- see its own comment
+// for why, and for the fallback list itself (#322).
 
 function escapeHtml(value) {
   return String(value ?? "").replace(
@@ -189,12 +192,11 @@ function buildBlankPageHtml() {
 // One page per organization — leaner than a missionary page (no family/trip
 // capacity), just the fields explicitly asked for: type/region, supporting
 // since, contact info, overview, and focus.
-function buildOrganizationPageHtml(o, index) {
-  const palette = PALETTE[index % PALETTE.length];
+function buildOrganizationPageHtml(o, accent) {
   const eyebrow = [o.orgType, o.fieldDisplayName].filter(Boolean).join(" · ");
 
   return `
-    <section class="booklet-page" style="--accent:${palette.accent};--tint:${palette.tint}">
+    <section class="booklet-page" style="--accent:${accent}">
       <div class="booklet-shape shape-a"></div>
       <div class="booklet-shape shape-b"></div>
       <p class="booklet-eyebrow">${escapeHtml(eyebrow)}</p>
@@ -261,13 +263,12 @@ function buildBackCoverHtml({ churchName, logo, address, phone, websiteLink, acc
     </section>`;
 }
 
-function buildMissionaryPageHtml(m, index, fields) {
-  const palette = PALETTE[index % PALETTE.length];
+function buildMissionaryPageHtml(m, accent, fields) {
   const physical = addressByType(m.addresses, "physical");
   const mailing = addressByType(m.addresses, "mailing");
 
   return `
-    <section class="booklet-page" style="--accent:${palette.accent};--tint:${palette.tint}">
+    <section class="booklet-page" style="--accent:${accent}">
       <div class="booklet-shape shape-a"></div>
       <div class="booklet-shape shape-b"></div>
       ${fields.showPhoto && m.photos?.[0]?.url ? `<img class="booklet-photo" src="${escapeHtml(m.photos[0].url)}" alt="" />` : ""}
@@ -283,44 +284,6 @@ function buildMissionaryPageHtml(m, index, fields) {
     </section>`;
 }
 
-const TEMPLATE_OPTIONS = [
-  {
-    value: "classic",
-    label: "Classic",
-    description: "Warm accent-colored circles, a soft tinted callout, a circular photo — the original look.",
-  },
-  {
-    value: "modern",
-    label: "Modern",
-    description:
-      "Clean and structured — no decorative shapes, bold rules, a rectangular photo, condensed sans-serif headers.",
-  },
-  {
-    value: "traditional",
-    label: "Traditional",
-    description:
-      "Understated and formal — a thin bordered page frame, a small centered portrait, serif type throughout.",
-  },
-  {
-    value: "keepsake",
-    label: "Keepsake",
-    description:
-      "Warm and personal — a polaroid-framed, slightly tilted photo, a handwritten-note callout, soft cream background.",
-  },
-  {
-    value: "portfolio",
-    label: "Portfolio",
-    description:
-      "Photo-led and minimal — a large full-width photo, high-contrast dark header, light caption-style text.",
-  },
-  {
-    value: "friendly",
-    label: "Friendly",
-    description:
-      "Bright and casual — a bold color-block header, a large circular photo, rounded pill-style info rows.",
-  },
-];
-
 function buildBookletHtml({
   missionaries,
   organizations = [],
@@ -329,13 +292,15 @@ function buildBookletHtml({
   subtitle,
   fields,
   maxPrayerRequests = 4,
-  template = "classic",
+  template = DEFAULT_TEMPLATE_ID,
+  primaryColor,
   churchName,
   logo,
   address,
   phone,
   websiteLink,
 }) {
+  const templateObj = getTemplate(template);
   const generatedDate = new Date().toLocaleDateString(undefined, {
     year: "numeric",
     month: "long",
@@ -343,7 +308,7 @@ function buildBookletHtml({
   });
 
   const cover = `
-    <section class="booklet-cover" style="--accent:${PALETTE[0].accent}">
+    <section class="booklet-cover" style="--accent:${resolveAccent(templateObj, primaryColor, 0)}">
       <div class="booklet-shape shape-a"></div>
       <div class="booklet-shape shape-b"></div>
       <h1 class="booklet-cover-title">${escapeHtml(title)}</h1>
@@ -402,13 +367,13 @@ function buildBookletHtml({
     pages += pad();
     pages += missionaries
       .map((m, i) => {
-        const palette = PALETTE[i % PALETTE.length];
+        const accent = resolveAccent(templateObj, primaryColor, i);
         pageCount += 1;
-        const detailPage = buildMissionaryPageHtml(m, i, fields);
+        const detailPage = buildMissionaryPageHtml(m, accent, fields);
         let notesPage = "";
         if (withNotes) {
           pageCount += 1;
-          notesPage = buildNotesPageHtml(m, palette.accent, fields.showPrayerRequests, maxPrayerRequests);
+          notesPage = buildNotesPageHtml(m, accent, fields.showPrayerRequests, maxPrayerRequests);
         }
         return detailPage + notesPage;
       })
@@ -436,26 +401,29 @@ function buildBookletHtml({
     const buildOrgPages = (orgs) =>
       orgs
         .map((o, i) => {
-          const palette = PALETTE[i % PALETTE.length];
+          const accent = resolveAccent(templateObj, primaryColor, i);
           pageCount += 1;
-          const detailPage = buildOrganizationPageHtml(o, i);
+          const detailPage = buildOrganizationPageHtml(o, accent);
           let notesPage = "";
           if (withNotes) {
             pageCount += 1;
-            notesPage = buildNotesPageHtml(o, palette.accent, fields.showPrayerRequests, maxPrayerRequests);
+            notesPage = buildNotesPageHtml(o, accent, fields.showPrayerRequests, maxPrayerRequests);
           }
           return detailPage + notesPage;
         })
         .join("");
 
     if (localOrgs.length) {
-      orgSection += buildSectionDivider("Local Organizations", PALETTE[1].accent);
+      orgSection += buildSectionDivider("Local Organizations", resolveAccent(templateObj, primaryColor, 1));
       pageCount += 1;
       orgSection += pad();
       orgSection += buildOrgPages(localOrgs);
     }
     if (nationalOrgs.length) {
-      orgSection += buildSectionDivider("National Organizations", PALETTE[2].accent);
+      orgSection += buildSectionDivider(
+        "National Organizations",
+        resolveAccent(templateObj, primaryColor, 2)
+      );
       pageCount += 1;
       orgSection += pad();
       orgSection += buildOrgPages(nationalOrgs);
@@ -468,10 +436,15 @@ function buildBookletHtml({
     address,
     phone,
     websiteLink,
-    accent: PALETTE[0].accent,
+    accent: resolveAccent(templateObj, primaryColor, 0),
   });
 
-  const assembled = `<div class="tpl-${template}">${cover}${index}${pages}${orgSection}${backCover}</div>`;
+  // The template catalog's token set (booklet/templates.js) drives this
+  // wrapper's data-* attributes and --tpl-* custom properties; booklet.css
+  // reads those on every page/section beneath it instead of a per-template
+  // tpl-${template} CSS block (see that file's own header comment).
+  const { attrString, styleString } = templateWrapperMarkup(templateObj);
+  const assembled = `<div class="booklet-doc" ${attrString} style="${styleString}">${cover}${index}${pages}${orgSection}${backCover}</div>`;
 
   // One pass, numbering every PAGE_NUM placeholder in the order it
   // actually appears in the document -- see the constant's own comment for
@@ -515,13 +488,14 @@ export default function AdminBooklet() {
   const [title, setTitle] = useState("Missionary Partners");
   const [subtitle, setSubtitle] = useState("Prayer & Support Directory");
   const [maxPrayerRequests, setMaxPrayerRequests] = useState(4);
-  const [template, setTemplate] = useState("classic");
+  const [template, setTemplate] = useState(DEFAULT_TEMPLATE_ID);
   const {
     partnerTermPlural,
     usePartnerTermInAdmin,
     loading: settingsLoading,
     churchName,
     logo,
+    primaryColor,
   } = useSettings();
   // address/phone/websiteLink are withheld from the shared public-settings
   // payload on purpose (SettingsContext is read even by logged-out
@@ -594,7 +568,11 @@ export default function AdminBooklet() {
       const restrictedOk = !m.isRestricted || includeRestricted;
       return archivedOk && restrictedOk;
     });
-    const includedOrgs = organizations.filter((o) => !o.archived || includeArchived);
+    const includedOrgs = organizations.filter((o) => {
+      const archivedOk = !o.archived || includeArchived;
+      const restrictedOk = !o.isRestricted || includeRestricted;
+      return archivedOk && restrictedOk;
+    });
     return buildBookletHtml({
       missionaries: filtered,
       organizations: includedOrgs,
@@ -604,6 +582,7 @@ export default function AdminBooklet() {
       fields,
       maxPrayerRequests,
       template,
+      primaryColor,
       churchName,
       logo,
       ...churchContact,
@@ -619,6 +598,7 @@ export default function AdminBooklet() {
     fields,
     maxPrayerRequests,
     template,
+    primaryColor,
     churchName,
     logo,
     churchContact,

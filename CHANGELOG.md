@@ -14,6 +14,27 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-23
+
+### Added
+- Admin-configurable email-digest cadence tiers (biweekly/monthly/quarterly) — Settings → Notifications lets an admin choose which tiers are offered to admin and public subscribers. Disabling a tier someone's already subscribed to automatically moves them to the first still-enabled tier (preference order monthly → quarterly → biweekly); at least one tier must always stay enabled. **Requires a database migration** (three new `ChurchSettings` columns). (#209)
+- A partner's detail page now has a **Last Prayed For in a Service** field, recording the last time the whole congregation prayed for that partner together during a worship service or special church event — distinct from any individual prayer request's own answer. **Mark Prayed Today** sets it to today in one click; the field can also be edited directly to backdate it. A caption on the field spells out the distinction from an individual prayer request. **Requires a database migration** (`Partner.lastPrayedWithCongregationAt`). (#228)
+- The **Last heard from** report now has a **Last prayed w/ congregation** column alongside last newsletter, last photo, last prayer request, and last church visit — one more connectedness signal. The seed script also now populates the field for a realistic fraction of seeded partners, rather than leaving it always empty. (#228 follow-up)
+- AI scan now warns when a file has already been scanned, showing how many prayer requests/needs were previously added from it — informational only, doesn't block adding more. (#323)
+- The AI extraction model is now configurable per church (Settings → AI Features), with a clear error message if the configured model becomes unavailable instead of a generic failure. The built-in default is unchanged. **Requires a database migration** (`ChurchSettings.extractionModel`). (#324)
+
+### Changed
+- Booklet templates rebuilt as a small, data-driven catalog (`frontend/src/booklet/templates.js`), mirroring the registry/definitions split the Reports rebuild established — a template is now a token set consumed by one shared `booklet.css`, not a hand-duplicated ~150-line CSS block per template. The picker now offers exactly two templates, Classic and Modern (ported onto the new system, unchanged in look); Traditional, Keepsake, Portfolio and Friendly are removed. Their CSS can be re-added onto the new token system in a follow-up if wanted.
+- The booklet's accent color now defaults to `ChurchSettings.primaryColor` (your church's own brand color) instead of a hardcoded four-color rotation; the old rotation is kept only as the fallback for an instance that hasn't set a brand color. No database migration.
+- The roster "Trip Leader" checkbox on a trip participant's detail page is now labeled **Team Leader** and shown as a status pill — it was colliding in name with the separate "Trip Leader" scoped-guest login role, which is an unrelated concept. Display-only; the underlying field is unchanged. (#309)
+- Documentation and screenshots refreshed across SPEC.md, ARCHITECTURE.md, ADMIN_GUIDE.md, USER_GUIDE.md and the public docs site to reflect this session's changes (the Reports rebuild, the Add User and trip-application-review wizard pages, the settings-page consolidation). No functional changes.
+- `ADMIN_GUIDE.md`'s Postmark setup section now includes a decision table for which features need Email (Sending), Email (Receiving), or both, so a church can tell upfront what their chosen setup will and won't support.
+
+### Fixed
+- **Security:** a digest email's unsubscribe link could be replayed as a permanent, never-expiring admin session — it bypassed password and MFA entirely and survived a password change. The unsubscribe token is now rejected everywhere a real session is checked, and now expires after 90 days. If you've sent digest emails from an affected instance, rotate `SESSION_SECRET` as a precaution.
+- The booklet preview's "Restricted-access" checkbox only hid restricted missionaries, not restricted organizations — a restricted organization's full unmasked details printed regardless of the checkbox. Organizations are now filtered the same way.
+- Backup/restore was silently dropping 25 of 44 models on export/import — the model list is now derived from the live Prisma schema at module load, with an assertion that catches future drift instead of a hand-maintained list quietly falling out of sync again.
+
 ## [0.2.0] - 2026-11-23
 
 Still pre-1.0: this is the first version number this project has
@@ -24,7 +45,7 @@ Everything below is the project's full feature set to date, not just
 what changed since some prior release.
 
 ### Changed
-- Reports rebuilt from scratch: a hub organized by question (Money, Partner care, Trips, Contacts, System) and nine reports — support summary, support changes, prayer requests, one-time needs, data completeness, trip fundraising, trip readiness, mailing list, users & access (admin only). Each has URL-backed filters, summary tiles, CSV download and print / save as PDF. No database migration.
+- Reports rebuilt from scratch: a hub organized by question (Money, Partner care, Partners & relationships, Upcoming, Trips, Coverage, Communication, Contacts, System) and sixteen reports — support summary, support changes, prayer requests, one-time needs, data completeness, partner roster & tenure, last heard from, families & key dates, trip fundraising, trip readiness, application funnel, language coverage, where we serve, dispatch health, mailing list, users & access (admin only). Each has URL-backed filters, summary tiles, charts, click-through summary tiles, CSV download and print / save as PDF. No database migration.
 - Saved report views (private or shared) and scheduled report emails (weekly/monthly/quarterly, sent to existing users, masked for restricted partners). **Requires a database migration** (`ReportSchedule`, `SavedReport`).
 - **Removed** the previous reports (birthdays, furlough, trip history, and the earlier support, needs and prayer exports). Bookmarked `/api/reports/<old-id>` URLs now return 404.
 

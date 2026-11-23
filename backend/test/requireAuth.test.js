@@ -136,6 +136,35 @@ describe("requireAuth", () => {
     assert.equal(res.statusCode, 401);
     assert.equal(next.calls.length, 0);
   });
+
+  // #327 Finding 1: utils/emailDispatchShell.js signs a digest email's
+  // unsubscribe link as { id, unsubscribe: true } with this exact same
+  // SESSION_SECRET. Before this check existed, that token had a valid
+  // signature, a real user id, and neither mfaPending nor mfaSetup set --
+  // so it sailed through as a completely normal, fully-privileged session
+  // for that id (role read fresh from the DB), bypassing password and MFA
+  // entirely. This pins the fix: the exact token shape
+  // buildUnsubscribeToken() produces must never be accepted as a session,
+  // no matter how real the id or how valid the signature.
+  test("rejects an unsubscribe token presented as a session cookie (#327)", () => {
+    const token = signToken({ id: "real-admin-uuid", unsubscribe: true });
+    const req = fakeReq(token);
+    const res = fakeRes();
+    const next = spyNext();
+    requireAuth(req, res, next);
+    assert.equal(res.statusCode, 401);
+    assert.equal(next.calls.length, 0, "must never reach the DB lookup / req.user assignment");
+  });
+
+  test("rejects an unsubscribe token even with a short, still-valid expiry (#327)", () => {
+    const token = signToken({ id: "real-admin-uuid", unsubscribe: true }, { expiresIn: "90d" });
+    const req = fakeReq(token);
+    const res = fakeRes();
+    const next = spyNext();
+    requireAuth(req, res, next);
+    assert.equal(res.statusCode, 401);
+    assert.equal(next.calls.length, 0);
+  });
 });
 
 // #124: a real browser clicking a direct link to a requireAuth-gated route
@@ -229,12 +258,50 @@ describe("requireRole", () => {
     await requireRole("admin")(req, res, next);
     assert.equal(res.redirectedTo, "/login?next=%2Fapi%2Fbackups%2Fdownload");
   });
+
+  // #327 Finding 1: requireRole wraps requireAuth and reads role from the
+  // DB, so an unsubscribe token for a real admin id would otherwise grant
+  // real admin access -- confirm the rejection happens before role is
+  // ever consulted.
+  test("rejects an unsubscribe token before ever reaching the role check (#327)", async () => {
+    const token = signToken({ id: "real-admin-uuid", unsubscribe: true });
+    const req = fakeReq(token);
+    const res = fakeRes();
+    const next = spyNext();
+    await requireRole("admin")(req, res, next);
+    assert.equal(res.statusCode, 401);
+    assert.equal(next.calls.length, 0);
+  });
 });
 
 describe("requireAuthOrMfaSetup", () => {
   test("rejects a pending-MFA token", () => {
     const token = signToken({ id: "u1", mfaPending: true });
     const req = fakeReq(token);
+    const res = fakeRes();
+    const next = spyNext();
+    requireAuthOrMfaSetup(req, res, next);
+    assert.equal(res.statusCode, 401);
+    assert.equal(next.calls.length, 0);
+  });
+
+  // #327 Finding 1: this function accepts the session cookie OR a bearer
+  // token, and ends (via /mfa/setup + /mfa/verify-setup -> completeLogin)
+  // in a brand-new real session cookie -- a second path to the exact same
+  // bypass if the unsubscribe token weren't rejected here too.
+  test("rejects an unsubscribe token presented as a session cookie (#327)", () => {
+    const token = signToken({ id: "real-admin-uuid", unsubscribe: true });
+    const req = fakeReq(token);
+    const res = fakeRes();
+    const next = spyNext();
+    requireAuthOrMfaSetup(req, res, next);
+    assert.equal(res.statusCode, 401);
+    assert.equal(next.calls.length, 0);
+  });
+
+  test("rejects an unsubscribe token presented as a bearer token (#327)", () => {
+    const token = signToken({ id: "real-admin-uuid", unsubscribe: true });
+    const req = fakeReqBearer(token);
     const res = fakeRes();
     const next = spyNext();
     requireAuthOrMfaSetup(req, res, next);

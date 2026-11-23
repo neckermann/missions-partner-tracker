@@ -1,5 +1,7 @@
 # SPEC.md
 
+**Last verified**: 2026-11-23 · **Owner**: @neckermann
+
 As-built specification of missions-partner-tracker, derived directly from
 the current code (not from design docs, plans, or memory of intent). This
 is an audit baseline for evaluating a future rewrite/redesign — precise
@@ -52,10 +54,14 @@ rows added concurrently through their own endpoint.
 Partner (missionary | organization)
 ├── Adult[] / Child[]                  missionary-only household members
 ├── Address[]                          at most one per type: "physical" | "mailing"
-├── Trip[] → TripParticipant[]         past team trips to visit this partner
+├── Trip[] (via TripParticipant)       trips (planning → accepting_applications →
+│                                       closed/completed) this partner's team visits —
+│                                       see "Trips" below, not just a historical log
 ├── Furlough[]                         missionary-only, time off-field
 ├── ChurchVisit[]                      partner visiting this church (reverse of Trip)
 ├── SendingParty[]                     missionary-only, "church" | "org", who sent them
+├── PartnerLink[]                      external links (website, social, support page, ...)
+├── PartnerLanguage[]                  languages spoken on the field
 ├── SupportEntry[]                     monthly-support ledger (append-only history)
 ├── SupportNeed[]                      one-time financial need + decision
 ├── PrayerRequest[]                    ongoing/answered prayer content
@@ -65,6 +71,35 @@ Partner (missionary | organization)
 ├── UserFollowedPartner[]              admin digest scoping (join row)
 └── PublicSubscriberPartner[]          public digest scoping (join row)
 ```
+
+**Trips** (#252 rework) is its own cluster of models, not just a child of
+`Partner`: `TripType` (per-church customizable trip categories) →
+`Trip` (lifecycle `planning`/`accepting_applications`/`closed`/
+`completed`; public or private application links; `type` — renamed from
+`tripType` to avoid stuttering against `SendingParty.type`/
+`PartnerLink.type`/`TripType.type`) → `TripApplication` (public
+applications awaiting review) and `TripParticipant` (the roster, with
+`TripParticipantPhoto[]`) → `TripMeeting`/`TripMeetingRsvp` (meeting
+invites with calendar `.ics` attachments and Yes/No/Maybe responses),
+`TripRequirement`/`TripRequirementStatus` (per-participant document/task
+tracking), `TripDocument`/`TripDocumentBytes` (uploaded documents, bytes
+stored in-row like `PartnerFile`), `TripContribution`/`TripBudgetLine`
+(the donor-contribution ledger and budget), `TripFlightSegment`
+(multi-segment itineraries per participant).
+
+**Reports** adds two of its own tables, independent of `Partner`:
+`SavedReport` (a saved set of filters for one report, private or shared)
+and `ReportSchedule` (recurring report emails — weekly/monthly/quarterly
+— off one `SavedReport`).
+
+**Users/auth** adds `PasswordSetupToken` (the welcome-email "choose your
+password" link — single-use, only a hash stored, 72h/7-day expiry) and
+`NotificationSeen` (per-user read/unread state for in-app notices,
+unrelated to the dispatch system's `DispatchRecord` despite the similar
+name).
+
+**WhatsApp dispatch** adds `WhatsAppAuthEntry` (the encrypted linked-
+session store — see §6.2a).
 
 `InboundEmail` has no relation to `Partner` at all — it exists
 specifically to hold mail that couldn't be auto-matched, and either
@@ -137,12 +172,21 @@ in-process cron scheduler (§6) is written with that assumption explicit.
 | `/api/support-needs` | `supportNeeds.js` | session | one-time need CRUD |
 | `/api/support-entries` | `supportEntries.js` | session | monthly-support ledger |
 | `/api/prayer-requests` | `prayerRequests.js` | session | prayer request CRUD |
-| `/api/trips` | `trips.js` | session | trip CRUD |
-| `/api/reports` | `reports.js` | session, `reports` feature | report picker + run (JSON/CSV) |
+| `/api/adults` | `adults.js` | session | missionary household adult CRUD |
+| `/api/children` | `children.js` | session | missionary household child CRUD |
+| `/api/furloughs` | `furloughs.js` | session | furlough CRUD |
+| `/api/church-visits` | `churchVisits.js` | session | church-visit CRUD |
+| `/api/partner-links` | `partnerLinks.js` | session | partner external-link CRUD |
+| `/api/partner-languages` | `partnerLanguages.js` | session | partner language CRUD |
+| `/api/trip-types` | `tripTypes.js` | session | per-church trip category CRUD |
+| `/api/trips` | `trips.js`, `tripMeetings.js`, `tripRequirements.js`, `tripParticipants.js` | session, `requireTripScope`/`requirePartnerQueryScope` for `tripLeader` (§5.1) | trip CRUD + lifecycle, roster/participants, meeting invites + RSVPs, document requirements, budget lines, flight segments, contribution ledger |
+| `/api/public/trips` | `publicTrips.js`, `publicTripApplications.js`, `publicTripParticipants.js` | open, gated by `trips` + per-church `allowPrivateApplicationLinks`/`allowPublicSupportRaisingLinks`/public discovery toggles | public Trip Opportunities listing, public application form, participant support-raising/self-service pages |
+| `/api/notifications` | `notifications.js` | session | `NotificationSeen` read/unread state for in-app notices |
+| `/api/reports` | `reports.js` | session, `reports` feature (admin-only for users-&-access and schedule management) | report hub catalog (`GET /`), run a report (JSON/CSV), saved views (`GET/POST /views`, `DELETE /views/:id`), scheduled report emails (`POST /views/:id/schedule`, `DELETE /schedules/:id`, admin only) — see `backend/src/reporting/` |
 | `/api/partner-files` | `partnerFiles.js` | session, `partnerFiles` feature | newsletter/document CRUD, download, AI scan |
 | `/api/photos` | `photos.js` | open | raw photo bytes |
 | `/api/silhouette` | `silhouette.js` | open | generic SVG placeholder photos |
-| `/api/settings` | `settings.js` | session (read) / admin (write) | church profile, branding, GroupMe, email, dispatch config, Joshua Project/AI Extraction keys |
+| `/api/settings` | `settings.js`, `settingsGroupMe.js`, `settingsWhatsApp.js`, `settingsEmail.js`, `settingsTrips.js`, `settingsDispatches.js` (six files, one mount) | session (read) / admin (write) | church profile, branding, GroupMe/WhatsApp pairing + group targeting, email, Trips settings, dispatch config, Joshua Project/AI Extraction keys |
 | `/api/public/settings` | `publicSettings.js` | open | public-safe settings + logo bytes |
 | `/api/version-check` | `version.js` | admin | upstream version comparison |
 | `/api/system-info` | `systemInfo.js` | admin | runtime/DB diagnostics |
@@ -175,7 +219,7 @@ Each file owns one narrow responsibility:
 | `joshuaProject.js` | Server-side proxy for Joshua Project's country-stats API. |
 | `backup.js` | Builds the full-database NDJSON.gz export. |
 | `backupCheck.js` | Guesses the Postgres provider from `DATABASE_URL`'s hostname, for a tailored reminder message. |
-| `birthdays.js` | Pure calendar arithmetic for the Upcoming Birthdays report. |
+| `today.js` | Resolves report "today" as church-timezone-aware UTC midnight (`process.env.TZ`, set from `ChurchSettings.timezone` at startup), preferring a browser-supplied query param when present. |
 | `csv.js` | Hand-written RFC 4180 CSV serialization (no dependency). |
 | `fileResponse.js` | Serves a DB-stored file back to the browser; decides `inline` vs. attachment based on whether its signature was verified on upload. |
 | `fileSignature.js` | Magic-number verification of uploaded file content vs. declared type. |
@@ -188,6 +232,11 @@ Each file owns one narrow responsibility:
 | `upload.js` | Shared multer config: extension resolution + rejection. |
 | `versionCheck.js` | Compares the running version against upstream's latest tag. |
 | `email.js` | `sendEmail`/`sendEmailBatch` over Postmark. |
+| `emailTemplate.js` | Shared branded HTML shell reused by welcome emails and trip participant emails (meeting invites, reminders, checklist/date-change notices, team welcome). |
+| `welcomeEmails.js` | Sends the new-user "choose your password" welcome email (`PasswordSetupToken`); owns the hardcoded docs-site links used in it (see CONTRIBUTING.md's "Hardcoded links into the docs site" table). |
+| `tripEmails.js` | Trip meeting/requirement participant emails, including `manualFallback()` — the `{ sent: false, manual: [{ name, email, url }] }` shape every manual-send-link notice in the UI renders from when `outboundEmail` is off (§4). |
+| `publicSubscribeEmails.js` | Double opt-in confirm/unsubscribe emails for the public prayer-request Subscribe flow. |
+| **Reporting system (`backend/src/reporting/`)** | `registry.js` (hub catalog: `listReports`/`getReport`/`runReport`), `definitions.js` (the nine report definitions, grouped by question — Money, Partner care, Trips, Contacts, System), `masking.js` (centralized restricted-partner masking for report output), `params.js` (shared URL-backed filter-param parsing), `reports/{care,communication,partners,people,support,trips}.js` (per-report query logic). Backs `routes/reports.js` (§2.2). |
 | **Dispatch system (9 files)** | See §6. |
 
 ### 2.4 Error handling
@@ -224,8 +273,8 @@ imports the public-site pages and `Login`/`Setup` eagerly; every admin
 page and the public map/booklet are `lazy()`-loaded, for two reasons
 stated directly in the code: an anonymous visitor to the public directory
 should not download a readable map of the entire admin surface, and the
-map (Leaflet) and booklet (paged.js + a 980-line print stylesheet) are
-too heavy to make every visitor pay for.
+map (Leaflet) and booklet (a native-print stylesheet, `frontend/src/
+styles/booklet.css`) are too heavy to make every visitor pay for.
 
 ### 3.1 Routing
 
@@ -244,23 +293,40 @@ not a same-page tab bar.
 ### 3.2 Page inventory
 
 **Public surface:** `PublicDirectory`, `PublicMap`, `PublicPartnerDetail`,
-`PublicSubscribe`, `Login`, `Setup`.
+`PublicSubscribe`, `Login`, `Setup`, `PublicTripOpportunities`,
+`PublicTripApplication`, `PublicTripParticipant` (support-raising/
+self-service), `PublicTripAccessRecovery`.
 
 **Admin — content:** `AdminHome`, `AdminPartners`, `AdminPartnerForm`,
 `AdminPartnerDetail` (the ~1,000-line single edit form was replaced by
 per-section inline editing via `EditableSection.jsx` — see §3.3),
 `AdminPrayerRequests`, `AdminOneTimeNeeds`, `AdminMonthlySupport`,
-`AdminTripHistory`, `AdminTripOpportunities`, `AdminPartnerFiles`,
-`AdminBooklet`, `AdminReports`.
+`AdminPartnerFiles`, `AdminBooklet`, `AdminReports` (the question-based
+hub) and `AdminReport` (one report's own view — filters, summary tiles,
+chart, `SavedViewsBar`, CSV download, print).
+
+**Admin — trips** (#252 rework; replaces the old `AdminTripHistory`/
+`AdminTripOpportunities`): `AdminTrips` (list), `AdminTripOverview`,
+`AdminTripTeam` (roster, including the merged Confirmed Team table),
+`AdminTripFinancial` (budget + contribution ledger), `AdminTripFlights`,
+`AdminTripMeetings`, `AdminTripRequirements`, `AdminTripParticipantDetail`,
+`AdminTripApplicationDetail` (the application-review wizard — Decision
+then Confirm, with inline manual-send-link notices).
 
 **Admin — communications:** `AdminInboundEmailQueue`,
 `AdminPendingDispatches`, `AdminDispatchSettings`.
 
-**Admin — site administration:** `AdminSettingsAbout`,
-`AdminSettingsBranding`, `AdminSettingsFeatures`, `AdminSettingsGroupMe`,
-`AdminSettingsJoshuaProject`, `AdminSettingsAiExtraction`,
-`AdminSettingsEmail`, `AdminSettingsBackups`, `AdminSystemInfo`,
-`AdminUsers`, `AdminUserForm`.
+**Admin — site administration:** `AdminSettingsAbout` (church
+info + branding together, one page — "About & Branding" in the sidebar),
+`AdminSettingsFeatures`, `AdminSettingsGroupMe`,
+`AdminSettingsWhatsApp`, `AdminSettingsIntegrations` (Joshua Project +
+AI Features together, one page), `AdminSettingsEmail`, `AdminSettingsTrips`,
+`AdminSystemInfo` (runtime/DB diagnostics + database backups together,
+one page — "About App" in the sidebar), `AdminUsers`, `AdminUserForm`
+(its own wizard page at `/admin/settings/users/new`, not a modal — email/
+name/role, optional password override, "Send a welcome email" toggle,
+"Require two-factor authentication at first sign-in", and for Trip
+Leader a scoped-trip picker + optional access-expiry date).
 
 **Admin — self-service:** `AccountSettings`.
 
@@ -274,9 +340,10 @@ per-section inline editing via `EditableSection.jsx` — see §3.3),
   guards; the admin-feature guard is a client-side convenience only, the
   real enforcement is `requireFeature` on the backend (404, not a UI
   state).
-- `ApiKeySettingsPage` — the shared shell behind both
-  `AdminSettingsJoshuaProject` and `AdminSettingsAiExtraction` (previously
-  two near-identical hand-written pages).
+- `ApiKeySettingsPage` — the shared shell `AdminSettingsIntegrations`
+  renders twice, once for Joshua Project and once for AI Features
+  (previously two near-identical standalone pages, each its own route;
+  now one page/route with both sections).
 - `PartnerSelect`, `AddressFields`, `SendingPartySection`,
   `PresetOrCustomSelect`, `AlbumLinkField`, `SourcePicker`/`SourceLink` —
   reusable form building blocks shared across the partner-detail sections
@@ -316,12 +383,14 @@ when off) independent of the frontend hiding the corresponding nav entry.
 | `prayerRequests` | Prayer requests | on | admin | — |
 | `oneTimeNeeds` | One-time needs | on | admin | — |
 | `monthlySupport` | Monthly support | on | admin | — |
-| `trips` | Mission trips | on | admin | — |
+| `trips` | Mission trips | **off** | admin | — |
+| `publicTripDiscovery` | Public trip discovery | **off** | public | `trips` |
 | `booklet` | Print booklet | on | admin | — |
 | `reports` | Reports | on | admin | — |
 | `outboundEmail` | Email (Sending) | **off** | admin/communications | — |
 | `inboundEmail` | Email (Receiving) | **off** | admin/communications | — |
 | `groupme` | GroupMe dispatch | **off** | admin/communications | — |
+| `whatsapp` | WhatsApp dispatch | **off** | admin/communications | — |
 | `publicPrayerDigest` | Public prayer digest | **off** | admin/communications | `publicDirectory` + `outboundEmail` |
 | `aiExtraction` | AI Features | **off** | admin/integrations | — |
 | `joshuaProject` | Joshua Project stats | **off** | admin/integrations | — |
@@ -703,27 +772,14 @@ Separate from the factual description above — things noticed while
 reading the code that a rewrite audit would want to know about. None of
 these are bugs severe enough to block current operation.
 
-1. **A stale comment, not stale behavior**: `backend/src/reports/index.js`
-   (lines 18-19) and `backend/src/routes/reports.js` (lines 66-67) both
-   say "No church timezone is stored anywhere" as the reason report
-   "today" resolution prefers a frontend-supplied query param over the
-   server clock. That's no longer true — `ChurchSettings.timezone` was
-   added by the #202 redesign specifically so server-side time
-   calculations have a real church-local time to use. The *behavior*
-   (preferring the browser's own `today`) isn't necessarily wrong, but
-   the stated reasoning for it is now incorrect, and nothing currently
-   makes `furlough.js`'s Current/Upcoming split or a report's year
-   default use the configured timezone as a fallback instead of the raw
-   server clock for a direct API call that omits `today`. Worth a
-   decision either way, not just a comment fix.
-2. **No index on `DispatchRecord`'s stamp/review columns.** The model
+1. **No index on `DispatchRecord`'s stamp/review columns.** The model
    has `@@index([type])` and `@@index([partnerId])` but nothing on
    `dispatchReviewedAt`, `groupmeDispatchedAt`, or the three email-dispatch-sent-at columns,
    all of which `clearDispatchRecords()` and the per-channel send passes
    filter/scan on every pass. Harmless at this app's actual scale (one
    church's queue, cleared regularly), but worth knowing if event volume
    or send frequency ever grows.
-3. **Two independent per-minute cron registrations** (`emailDispatchScheduler.js`,
+2. **Two independent per-minute cron registrations** (`emailDispatchScheduler.js`,
    `groupmeChannel.js`'s own trigger) with no coordination beyond both
    calling the same `clearDispatchRecords()` afterward. Explicitly
    justified in-code as fine at one-instance scale, with a named fix
@@ -732,7 +788,7 @@ these are bugs severe enough to block current operation.
    rediscover that this was a conscious tradeoff, not an oversight.
    Related: nothing in the code enforces single-instance today — a
    second instance would double-send with no warning.
-4. **`SendingParty`, `Address`, and `ChurchSettings.address` all re-declare
+3. **`SendingParty`, `Address`, and `ChurchSettings.address` all re-declare
    the same address-field shape** (`addressLine1`/`addressLine2`/`city`/
    `stateProvinceRegion`/`postalCode`/`country`) three times — twice as
    real columns, once as a JSON blob — rather than a shared embeddable
@@ -740,7 +796,7 @@ these are bugs severe enough to block current operation.
    that would unify this cleanly today, so this may be an accepted
    limitation rather than an oversight; worth confirming either way in a
    rewrite that might use a different ORM or database.
-5. **Digest-email customization (`emailDispatchSubjectTemplate`, `emailDispatchSignature`,
+4. **Digest-email customization (`emailDispatchSubjectTemplate`, `emailDispatchSignature`,
    `emailDispatchLayout`) lives on `ChurchSettings` as free columns**, with
    `{church}/{month}/{year}/{date}/{cadence}/{name}/{term}` token
    substitution implemented by hand in `emailDispatchShell.js` rather than a
@@ -749,10 +805,11 @@ these are bugs severe enough to block current operation.
    flagging as a spot where a future feature request (more tokens,
    conditionals) would need either a bigger rewrite of that one function
    or an explicit decision to keep refusing that scope.
-6. **The entire dispatch system's correctness rests on every call
+5. **The entire dispatch system's correctness rests on every call
    site remembering to route through `buildBlurb()`** rather than reading
    a `DispatchRecord` row's raw fields — enforced by convention and code
-   review, not by the type system or a lint rule. All three current
-   channels do this correctly (verified directly), but nothing would
-   catch a future channel or a careless edit that reads `row.payload`
-   directly and leaks a restricted partner's real content.
+   review, not by the type system or a lint rule. All four current
+   channels (GroupMe, WhatsApp, admin email, public email) do this
+   correctly (verified directly), but nothing would catch a future
+   channel or a careless edit that reads `row.payload` directly and
+   leaks a restricted partner's real content.

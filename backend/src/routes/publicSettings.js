@@ -30,6 +30,19 @@ router.get("/", async (req, res, next) => {
       usePartnerTermInAdmin: settings?.usePartnerTermInAdmin || false,
       publicTagline: settings?.publicTagline || null,
       aboutText: settings?.aboutText || null,
+      // Which of the three email-digest cadence tiers an admin has chosen
+      // to offer (#209) -- exposed here, unauthenticated, specifically so
+      // the public Subscribe page / "follow this partner" form (both
+      // reached by a logged-out visitor) can filter their own cadence
+      // picker down to only these, same reasoning enabledFeatures below
+      // is public. Defaults mirror ChurchSettings' own column defaults so
+      // an unconfigured instance behaves identically to one that's
+      // explicitly saved these settings once.
+      cadenceTiersEnabled: {
+        biweekly: settings?.cadenceBiweeklyEnabled ?? false,
+        monthly: settings?.cadenceMonthlyEnabled ?? true,
+        quarterly: settings?.cadenceQuarterlyEnabled ?? true,
+      },
       // Demo-mode banner, kept entirely separate from the real About
       // Church content above -- DEMO_RESET_TOKEN existing is already what
       // decides whether POST /api/demo/reset is even mounted (see

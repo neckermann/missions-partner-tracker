@@ -203,15 +203,15 @@ prayer digest nested under Email (Sending) since it depends on it), and
 | Newsletters & Docs | On | Newsletters and documents (survey responses, signed policies, etc.) on missionary/organization pages and their own admin section. |
 | Prayer requests | On | The Prayer Requests admin section, and the prayer request list on missionary/organization pages. |
 | One-time needs | On | The One-Time Needs admin section, and the one-time needs list on missionary/organization pages. Only gates the standalone `/api/support-needs` CRUD — a need can still be added via a missionary/organization's own edit form either way (a narrower gap than the other toggles here). |
-| Monthly support | On | The Monthly Support report page. |
+| Monthly support | On | The Monthly Support admin section (the per-partner support ledger). |
 | Mission trips | **Off** | Trip tracking, recruiting, teams, meetings, documents, and support raising — the Trips admin page (Existing Trips / Plan a Trip tabs). Default flipped from on to off once this reached well beyond an admin-only page into public application forms and outbound email, so it needs an explicit decision rather than being on by default. A fork relying on it staying on for its existing trip-logging needs flips it back on once after upgrading. See [§ Trips](#trips) below. |
 | Public trip discovery | **Off** | The public Trip Opportunities listing (`/trips`) and plain, id-addressed application links. Also requires Mission trips to be on. A church can run trips entirely by private link with this off and Mission trips on — see [§ Trips](#trips) below. |
 | Print booklet | On | The printable prayer & support directory generator. |
-| Reports | On | Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history, furlough — with CSV download and a print view. |
+| Reports | On | A question-based hub of read-only reports over existing data (support, prayer requests, one-time needs, data completeness, trips, mailing list, users & access, and more), each with URL-backed filters, summary tiles, CSV download, and a print view. Reports can be saved (private or shared) and, for an admin, scheduled as a recurring email. See [USER_GUIDE.md § Reports](USER_GUIDE.md#reports). |
 | GroupMe dispatch | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Settings → Dispatch Settings, or via manual send from Pending Dispatches. Configured entirely in the UI (Settings → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only). |
 | WhatsApp dispatch | **Off** | The same three dispatch types as GroupMe, posted to their own groups inside one WhatsApp community, on the same daily schedule and content-type mutes as GroupMe (a church can run either or both). Configured entirely in the UI (Settings → WhatsApp): link a **dedicated** phone number by scanning a QR code, pick the community, then a group per dispatch type. Off by default because it's an **unofficial** connection — see [Dispatch: WhatsApp](#dispatch-whatsapp) below before turning it on. See [USER_GUIDE.md § WhatsApp dispatch](USER_GUIDE.md#whatsapp-dispatch-admin-only). |
-| Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Settings → Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
-| AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Settings → AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
+| Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Settings → Integrations, under Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
+| AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Settings → Integrations, under AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 | Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Settings → Email. Today's only sender is the batched dispatch digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
 | Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Settings → Email page as Sending, independently toggled. Also sets the one informational **Inbound Email Address** field — not required for the webhook itself, but needed for the Reply-To on a trip's "Request documents" email (see [§ Trips](#trips) below). See [§ Email (Postmark)](#email-postmark) below. |
 | Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the public **Subscribe** page (`/subscribe`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on — shown nested under Email (Sending) on this page, and its checkbox can't be turned on until that one is. See [§ Dispatch: GroupMe, the admin digest, and the public digest](#dispatch-groupme-the-admin-digest-and-the-public-digest) below. |
@@ -222,11 +222,15 @@ check on the relevant route(s), not a database migration.
 
 All of this lives under **Settings**, an expandable group in
 the admin sidebar itself (not a separate page with its own tab bar) —
-click it to reveal About Church, Manage Users, Branding, Enabled
-Features, and Backups, then two further sub-groups shown only once
-their features are on: **Communications** (Email, GroupMe, WhatsApp,
-Dispatch Settings, Email Dispatch Subscribers) and **Integrations** (AI
-Features, Joshua Project). User
+click it to reveal **About & Branding** (Church Info/address and
+branding together on one page), **Manage Users**, **Enabled
+Features**, and **About App** (runtime/database diagnostics plus
+database backups, on one page — see [§ Database
+backups](#database-backups) below), then two further sub-groups shown
+only once their features are on: **Communications** (Email, GroupMe,
+WhatsApp, Dispatch Settings — which itself includes a read-only Email
+Dispatch Subscribers section, not a separate nav link) and
+**Integrations** (AI Features, Joshua Project). User
 Management moved here from its own top-level nav link. Adding a new
 settings category later is a new entry in `buildSiteAdminLinks()`
 (`components/admin/AdminSidebar.jsx`) plus a new child route in
@@ -673,6 +677,28 @@ right partner (or an admin can discard it). Setup:
    Features once it's configured — independent of whether **Email
    (Sending)** is also on.
 
+**Which tier do you actually need?** Every feature below that touches
+email, and exactly which of Sending/Receiving it needs — confirmed
+directly against the code, not assumed:
+
+| You want... | You need | Notes |
+|---|---|---|
+| Prayer request / one-time need / newsletter digests (admin or public) | **Sending** | Also needs Public directory for the public digest specifically. |
+| New-user welcome emails, "resend my setup link" | **Sending** | Off (or unconfigured): the admin gets a manual link to copy/send themselves instead of a failed send. |
+| Trip participant access links (self-service or admin resend) | **Sending** | Same manual-link fallback when off. |
+| Trip meeting invites, reschedules, day-before reminders | **Sending** | RSVP itself (see below) needs no email at all once the participant has the link. |
+| Trip meeting **RSVP tracking** (yes/no/maybe) | **Sending only** | Deliberately link-based, not reply-based — a participant clicks one of three token-verified links in their invite email; nothing needs to come back in. **Receiving is not required for this**, by design (see `TripMeetingRsvp` in `schema.prisma`). |
+| Scheduled report emails | **Sending** | |
+| Partners emailing newsletters/updates in, auto-filed to their record | **Receiving** | Works with Sending off — this direction doesn't send anything itself. |
+| Unmatched Emails review queue | **Receiving** | Same as above. |
+| Trip **document requests** (admin asks a participant to reply with a file) | **Both** | The one feature today that genuinely needs both directions — the request goes out via Sending, the participant's reply comes back via Receiving. Off on either side: the request route refuses with a clear "set up Receiving first" error rather than sending something nobody can reply to. |
+
+Receiving-only is a complete, valid setup on its own (lets partners send
+updates in, with no outbound capability at all); Sending-only is just as
+valid and is probably where most churches start. The one thing that
+*requires* setting up both is document requests — everything else works
+fine with just one side on.
+
 **Data exposure**, same honesty this guide already applies to GroupMe and
 AI Features: mail sent or received this way passes through
 Postmark's infrastructure in transit. Postmark's data centers carry SOC
@@ -843,11 +869,30 @@ exact scheduled minute just skips that one occurrence, picking it up
 at the next.
 
 Those schedules are interpreted in this church's own configured
-timezone (Settings → About Church → **Timezone**), not the
+timezone (Settings → About & Branding → **Timezone**), not the
 server's. Every "send at hour N" field in this app depends on that
 setting — without it, "9" would mean 9am on the server (effectively
 UTC on Render, never a church's own local time). Changing the timezone
 takes effect on the next restart/deploy, not instantly.
+
+**Which tiers are even offered.** Each of the three cadence tiers can
+be turned off from the same Dispatch Settings page's Email Schedule
+section — biweekly is off by default (an existing admin's suggested
+starting point), monthly and quarterly are on. Turning a tier off
+removes it from both cadence pickers (an admin's own Account Settings,
+and the public Subscribe/"follow this partner" forms) going forward,
+and immediately moves anyone currently on that tier to the first tier
+still enabled, in preference order Monthly → Quarterly → Biweekly — a
+one-time move, not a reversible one: re-enabling the tier later does
+not move anyone back. No email is sent to notify someone their cadence
+changed; the next digest they receive simply arrives on the new tier
+instead. At least one tier must always stay enabled, since the
+reassignment above needs somewhere to send a descoped subscriber.
+
+A subscriber's own already-saved cadence always stays visible and
+selectable on their picker even after an admin disables it — an
+admin's own Account Settings only, since the public forms are
+new-subscriber-only and have no existing choice to preserve.
 
 ### Urgent dispatch
 
@@ -986,15 +1031,6 @@ detail page, reached from either tab described below.
 
 ![The Trips page's Existing Trips tab, with its Status filter and dual count tiles](docs/assets/screenshots/trip-history.png)
 
-<!-- SCREENSHOT NEEDED: trip-history.png should be retaken to show the
-current tabbed page (one nav item "Trips", "Existing Trips" / "Plan a
-Trip" tabs at the top) rather than a standalone page — the Trips and
-Plan a Trip admin pages were merged into one page with two tabs since
-this screenshot was last taken. Capture per the project's standard
-screenshot protocol: demo admin logged in, rich demo state, backup
-banner dismissed, one window, no real secrets or mismatched identity
-visible. Tracked alongside #264/#266. -->
-
 **One page, one nav item ("Trips"), two tabs that answer two different
 questions.** The **Existing Trips** tab is the filterable log of every
 trip — it opens showing **Active (not completed)** trips by default
@@ -1029,10 +1065,6 @@ better tool when you don't yet know *which* partner needs one.
 
 ![The Plan a Trip tab: which partner to send a team to next](docs/assets/screenshots/trip-opportunities.png)
 
-<!-- SCREENSHOT NEEDED: trip-opportunities.png should be retaken for the
-same reason as trip-history.png above — this is now a tab on the same
-page, not its own standalone page with its own nav item. -->
-
 **On a trip's own detail page** (below the basic setup fields — name,
 status, dates, team size, support-raising goal, description, the
 "Visible on public discovery page" toggle, and **Collect parent/
@@ -1042,15 +1074,12 @@ phone/email to that trip's own application form and requires date of
 birth to apply, regardless of the church-wide date-of-birth defaults on
 Trips Settings):
 
-![A full recruiting trip's detail page -- setup, flight itinerary, team, requirements, meetings, budget, contributions, applications, and the private link/question editor](docs/assets/screenshots/admin-trip-detail.png)
+![A recruiting trip's detail page: the Overview tab, with setup fields and the restricted-partner warning when it applies](docs/assets/screenshots/admin-trip-detail.png)
 
-<!-- SCREENSHOT NEEDED: admin-trip-detail.png should be retaken -- the
-Meetings table/form gained a title field and column, the Trip-wide
-documents upload form gained a title input and now shows file size,
-and the Contributions method dropdown gained an Online option, none of
-which existed the last time this screenshot was captured. Same
-protocol as every other flagged screenshot here. Tracked alongside
-#264/#266. -->
+The rest of a trip's management — team, requirements, meetings, budget,
+contributions, applications, flight itinerary, the private link/question
+editor — is on the other tabs shown above (**Team**, **Meetings**,
+**Requirements**, **Financial**, **Flights**), not all on one page.
 
 - **Support-raising goal** shows a suggested per-person figure right
   under the field itself, once a budget total and a team size exist —
@@ -1156,12 +1185,20 @@ protocol as every other flagged screenshot here. Tracked alongside
   below), date received. Donor email/phone are optional fields here
   too, shown only when **Collect donor email/phone when logging a
   contribution** is on in Trips Settings.
-- **Applications awaiting review** — **Approve** or **Decline** each
-  one, with each applicant's full answers (including mailing address,
-  emergency contact, and date of birth/parent-guardian info, when
-  those are collected) expandable inline.
-  A declined application isn't gone — **Show declined** reveals it
+- **Applications awaiting review** — click a row to open that
+  application's own page, with the applicant's full answers already
+  visible (mailing address, emergency contact, and date of birth/
+  parent-guardian info, when those are collected, plus every application
+  question's answer). **Approve or Decline** there launches a short
+  wizard — Decision, then Confirm — ending with what actually happened:
+  for an approval with outbound email on, a welcome email with their own
+  trip access link is on its way automatically; with email off, the setup
+  link is shown right there on the confirmation screen to send yourself;
+  for a trip with no dates set yet, nothing is sent automatically either
+  way. A declined application isn't gone — **Show declined** reveals it
   again, with a **Reconsider** action to move it back to pending.
+
+  ![An application's own review page, with answers and the Approve/Decline wizard](docs/assets/screenshots/admin-trip-application-detail.png)
 - **Private application link** — a dedicated **Generate** button
   (appears only once **Allow staff to generate private application
   links** is on, under Trips Settings) creates a secret link you share
@@ -1371,16 +1408,16 @@ out of the box. Confirm your provider's backup retention matches how much
 data loss your church would tolerate before you're relying on real
 partner data.
 
-On top of that, **Settings → Backups** gives any admin a
-self-service way to download a full backup on demand — every partner,
-user, and uploaded file, as a single gzipped file — without connecting a
-storage provider or setting anything up first. Nothing about this is
-scheduled or automatic, and nothing is kept server-side: downloading is
-the only copy that exists, so store it somewhere safe immediately (a
-password manager's file storage, an encrypted drive — somewhere only
-trusted people can reach).
+On top of that, the **Backups** section of **Settings → About App**
+gives any admin a self-service way to download a full backup on demand
+— every partner, user, and uploaded file, as a single gzipped file —
+without connecting a storage provider or setting anything up first.
+Nothing about this is scheduled or automatic, and nothing is kept
+server-side: downloading is the only copy that exists, so store it
+somewhere safe immediately (a password manager's file storage, an
+encrypted drive — somewhere only trusted people can reach).
 
-![The Backups page: a Back up now button and the opt-out for the periodic reminder](docs/assets/screenshots/backups-settings.png)
+![The Backups section of the About App page: a Back up now button and the opt-out for the periodic reminder](docs/assets/screenshots/backups-settings.png)
 
 **This file is the most sensitive thing this app can produce.** It
 contains unmasked data for every partner, including restricted ones
@@ -1454,8 +1491,9 @@ to `FIELD_ENCRYPTION_KEY` at all, so normal login is unaffected.
 
 ### System Info
 
-The **System Info** page (Settings, alongside Backups) is
-"what's actually running" on this instance — useful when debugging
+**System Info** is the top section of the **About App** page under
+Settings (Backups, described above, is the section below it on the same
+page) — "what's actually running" on this instance, useful when debugging
 something, or checking what you're on before filing a bug against a
 fork, without needing shell/SSH access:
 

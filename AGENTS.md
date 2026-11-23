@@ -249,6 +249,21 @@ When delegating a task to a fresh agent in this repo, include:
   it. A fresh agent with no memory of this repo's docs won't infer
   which docs apply on its own; naming them in the brief is what
   closes the gap.
+- **If the feature adds data worth tracking over time or across
+  partners — an engagement signal, a status field, a "date of last
+  X" — check whether it belongs in the reporting hub
+  (`backend/src/reporting/`, the registry/definitions + report-module
+  split from the Reports rebuild, #296) as part of the same task, not
+  a later follow-up.** Either wire it into an existing report's
+  columns, or explicitly propose a new report in the PR/issue if one
+  doesn't fit. Confirmed as a real gap, not hypothetical: issue #228
+  (Last Prayed w/ Congregation) shipped without this, even though its
+  whole purpose — tracking engagement/connectedness with a partner —
+  is exactly what the "Last heard from" report
+  (`backend/src/reporting/reports/partners.js`, group `people`,
+  "Which partners have gone quiet?") already exists to answer. Name
+  the specific report(s) to check in the brief, the same way doc
+  sections get named above.
 
 ## TODO
 
