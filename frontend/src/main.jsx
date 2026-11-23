@@ -66,6 +66,7 @@ const AdminTripRequirements = lazy(() => import("./pages/AdminTripRequirements.j
 const AdminTripFinancial = lazy(() => import("./pages/AdminTripFinancial.jsx"));
 const AdminTripFlights = lazy(() => import("./pages/AdminTripFlights.jsx"));
 const AdminTripParticipantDetail = lazy(() => import("./pages/AdminTripParticipantDetail.jsx"));
+const AdminTripApplicationDetail = lazy(() => import("./pages/AdminTripApplicationDetail.jsx"));
 const AdminSettingsTrips = lazy(() => import("./pages/AdminSettingsTrips.jsx"));
 const AdminPartnerFiles = lazy(() => import("./pages/AdminPartnerFiles.jsx"));
 
@@ -236,6 +237,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   element={
                     <RequireAdminFeature feature="trips">
                       <AdminTripParticipantDetail />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
+                  path="trips/:tripId/applications/:applicationId"
+                  element={
+                    <RequireAdminFeature feature="trips">
+                      <AdminTripApplicationDetail />
                     </RequireAdminFeature>
                   }
                 />
