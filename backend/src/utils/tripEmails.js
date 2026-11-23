@@ -330,10 +330,22 @@ function isTripHistorical(trip) {
 // carries their access link and already gets the manual-link treatment
 // when email's off; re-surfacing that same link again here would just be
 // noise for the admin, not a second genuinely missed notification.
-async function sendLateJoinerCatchUpEmails(trip, participant) {
+//
+// `since`, when passed (issue #310's re-check path -- see
+// sendTripDatesUpdateEmail below), scopes this to only meetings/
+// requirements created after that moment. Without it (every existing
+// join-time call site, unchanged), every current meeting/requirement is
+// in scope, exactly as before -- `since` exists so a *re-run* against a
+// participant who already got a real join-time catch-up doesn't re-send
+// for something they were already notified about. TripMeeting/
+// TripRequirement.createdAt (added for this) make that comparison
+// possible at all; neither existed before.
+async function sendLateJoinerCatchUpEmails(trip, participant, { since } = {}) {
   if (isTripHistorical(trip)) return;
   const now = new Date();
-  const futureMeetings = (trip.meetings || []).filter((m) => !m.cancelledAt && new Date(m.startAt) > now);
+  const futureMeetings = (trip.meetings || []).filter(
+    (m) => !m.cancelledAt && new Date(m.startAt) > now && (!since || new Date(m.createdAt) > since)
+  );
   for (const meeting of futureMeetings) {
     await sendMeetingEmail(
       { ...trip, participants: [participant] },
@@ -343,7 +355,7 @@ async function sendLateJoinerCatchUpEmails(trip, participant) {
   }
 
   const notifiableRequirements = (trip.requirements || []).filter(
-    (r) => r.kind === "document" || r.kind === "esignature"
+    (r) => (r.kind === "document" || r.kind === "esignature") && (!since || new Date(r.createdAt) > since)
   );
   for (const requirement of notifiableRequirements) {
     await sendRequirementNotificationEmail(trip, requirement, [participant]);
@@ -359,9 +371,15 @@ async function sendLateJoinerCatchUpEmails(trip, participant) {
 // now-wrong dates. The reused UID means a calendar client updates its
 // existing entry rather than creating a duplicate one, exactly as a
 // meeting reschedule's resend already relies on for the same reason.
+//
+// #310: this is also the one sender in this file that used to have no
+// manual-fallback path at all -- outbound email off meant a completely
+// silent no-op, with the calling route not even inspecting a return
+// value. Now returns the same { sent, manual } shape every sibling
+// sender already does.
 async function sendTripDatesUpdateEmail(trip) {
-  if (isTripHistorical(trip) || !trip.startDate || !trip.endDate) return;
-  if (!(await outboundEmailEnabled())) return;
+  if (isTripHistorical(trip) || !trip.startDate || !trip.endDate) return null;
+  if (!(await outboundEmailEnabled())) return manualFallback(trip.participants);
   for (const participant of trip.participants || []) {
     await sendParticipantEmail(
       participant,
@@ -390,6 +408,7 @@ async function sendTripDatesUpdateEmail(trip) {
       }
     );
   }
+  return { sent: true };
 }
 
 // participant email with the same .ics attachment shape, just a

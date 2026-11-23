@@ -362,7 +362,12 @@ describe("Trips: reschedule resends trip dates", () => {
     );
   });
 
-  test("outboundEmail off suppresses the resend", async () => {
+  // #310: this used to just silently drop the update -- the route didn't
+  // even look at sendTripDatesUpdateEmail's return value, and that
+  // function itself returned nothing on this path. Now it's the same
+  // manualFallback() shape every other sender in tripEmails.js already
+  // returns, surfaced on the response as `datesUpdateEmail`.
+  test("outboundEmail off hands back a manual link instead of silently dropping the resend", async () => {
     await setFeatures({ outboundEmail: false });
     try {
       const { trip } = await createTripWithParticipant();
@@ -372,11 +377,187 @@ describe("Trips: reschedule resends trip dates", () => {
           body: { startDate: "2026-12-05" },
         });
         assert.equal(res.status, 200);
+        assert.equal(res.body.datesUpdateEmail?.sent, false);
+        assert.equal(res.body.datesUpdateEmail?.manual?.length, 1);
+        assert.equal(res.body.datesUpdateEmail.manual[0].email, "jamie-reschedule@example.test");
+        assert.match(res.body.datesUpdateEmail.manual[0].url, /^https?:\/\//);
       });
-      assert.equal(sent.length, 0, "outboundEmail off must suppress the dates-update resend too");
+      assert.equal(sent.length, 0, "outboundEmail off must still suppress the real send");
     } finally {
       await setFeatures({ outboundEmail: true });
     }
+  });
+
+  test("outboundEmail on reports sent:true, no manual link", async () => {
+    const { trip } = await createTripWithParticipant();
+    const res = await admin(`/api/trips/${trip.id}`, { method: "PUT", body: { startDate: "2026-12-05" } });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.datesUpdateEmail, { sent: true });
+  });
+});
+
+// #310 Gap 2: setting dates is also the first moment it's worth
+// re-checking whether anyone currently on the roster is still owed a
+// catch-up for a meeting/requirement that didn't exist yet when they
+// originally joined (a direct add or an approved application only ever
+// runs catch-up once, at join time). The `since: participant.createdAt`
+// scoping is what has to be right here: re-sending for something that
+// already existed when they joined (and so already went out via that
+// original join-time call) would be a real duplicate-send regression,
+// not just redundant -- these tests exist specifically to pin that down,
+// not just confirm the new code path fires at all.
+describe("Trips: setting dates re-checks late-joiner catch-up", () => {
+  async function captureEmails(run) {
+    const captured = [];
+    const prevFetch = global.fetch;
+    global.fetch = (url, options) => {
+      if (String(url).startsWith("https://api.postmarkapp.com") && options?.body) {
+        try {
+          captured.push(JSON.parse(options.body));
+        } catch {
+          /* non-JSON body */
+        }
+      }
+      return prevFetch(url, options);
+    };
+    try {
+      await run();
+    } finally {
+      global.fetch = prevFetch;
+    }
+    return captured;
+  }
+
+  test("a meeting added after a dateless participant joined is caught up on once dates are set, not re-sent for one that existed before they joined", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction", status: "planning" }, // no dates yet
+    });
+
+    await prisma.tripMeeting.create({
+      data: { tripId: trip.body.id, startAt: "2027-01-10T19:00:00.000Z", title: "Orientation" },
+    });
+
+    // Joins while the trip has no dates -- isTripHistorical is false for
+    // a dateless trip, so the normal join-time catch-up already runs and
+    // already covers earlyMeeting; it must not be re-sent below.
+    const joinSent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.body.id}/participants`, {
+        method: "POST",
+        body: { firstName: "Late", lastName: "Joiner", email: "late-joiner-310@example.test" },
+      });
+      assert.equal(res.status, 201);
+    });
+    const earlyInvite = joinSent.find((m) => /^Meeting: Orientation/.test(m.Subject));
+    assert.ok(earlyInvite, "join-time catch-up must cover the meeting that already existed");
+
+    // A second meeting is added AFTER the participant joined -- the real
+    // issue #310 gap: nothing re-checks this participant for it until
+    // dates get set.
+    await prisma.tripMeeting.create({
+      data: { tripId: trip.body.id, startAt: "2027-01-17T19:00:00.000Z", title: "Packing session" },
+    });
+
+    const dateSent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.body.id}`, {
+        method: "PUT",
+        body: { startDate: "2026-12-20", endDate: "2026-12-27" },
+      });
+      assert.equal(res.status, 200);
+    });
+
+    const earlyInviteResent = dateSent.filter((m) => /^Meeting: Orientation/.test(m.Subject));
+    assert.equal(
+      earlyInviteResent.length,
+      0,
+      "a meeting that already existed when the participant joined must not be re-sent just because dates changed"
+    );
+    const lateInvite = dateSent.find((m) => /^Meeting: Packing session/.test(m.Subject));
+    assert.ok(
+      lateInvite,
+      "a meeting added after the participant joined must be caught up on once dates are set"
+    );
+    assert.equal(lateInvite.To, "late-joiner-310@example.test");
+
+    // Plus the trip-dates-update email itself, to the same participant --
+    // confirmed separately above, just noting it's expected in this count
+    // too so a future reader isn't surprised dateSent.length is 2.
+    assert.equal(dateSent.length, 2, "exactly the new meeting's catch-up plus the dates-update email itself");
+  });
+
+  test("a participant who joined after a meeting already existed gets no duplicate when dates later change", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "planning",
+        startDate: "2026-12-01",
+        endDate: "2026-12-08",
+      },
+    });
+    await prisma.tripMeeting.create({
+      data: { tripId: trip.body.id, startAt: "2027-01-10T19:00:00.000Z", title: "Orientation" },
+    });
+    const joined = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.body.id}/participants`, {
+        method: "POST",
+        body: { firstName: "Normal", lastName: "Joiner", email: "normal-joiner-310@example.test" },
+      });
+      assert.equal(res.status, 201);
+    });
+    assert.ok(
+      joined.some((m) => /^Meeting: Orientation/.test(m.Subject)),
+      "sanity check: join-time catch-up fired as expected"
+    );
+
+    const dateSent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.body.id}`, {
+        method: "PUT",
+        body: { startDate: "2026-12-02" },
+      });
+      assert.equal(res.status, 200);
+    });
+    const duplicateInvite = dateSent.find((m) => /^Meeting: Orientation/.test(m.Subject));
+    assert.equal(
+      duplicateInvite,
+      undefined,
+      "a meeting the participant was already caught up on at join time must not be re-sent on an unrelated dates change"
+    );
+    // The dates-update email itself still goes out -- that's the
+    // unrelated, already-covered Gap 1 behavior, just confirming this
+    // test's own dates PUT did something rather than silently no-op'ing.
+    assert.equal(dateSent.length, 1);
+    assert.match(dateSent[0].Subject, /^Trip dates updated:/);
+  });
+
+  test("a completed trip skips the re-check entirely", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        type: "Construction",
+        status: "planning",
+      },
+    });
+    await prisma.tripParticipant.create({
+      data: { tripId: trip.body.id, firstName: "Hist", email: "historical-310@example.test" },
+    });
+    await prisma.tripMeeting.create({
+      data: { tripId: trip.body.id, startAt: "2027-02-01T19:00:00.000Z", title: "Should not notify" },
+    });
+
+    const sent = await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.body.id}`, {
+        method: "PUT",
+        body: { status: "completed", startDate: "2020-01-01", endDate: "2020-01-08" },
+      });
+      assert.equal(res.status, 200);
+    });
+    assert.equal(sent.length, 0, "a completed trip must not run the catch-up re-check (or the dates email)");
   });
 });
 
