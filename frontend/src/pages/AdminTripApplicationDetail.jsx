@@ -3,8 +3,6 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { fetchTrip, fetchTripApplications, reviewTripApplication } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import useCurrentUser from "../hooks/useCurrentUser.js";
-import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
-import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import Wizard from "../components/shared/Wizard.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
@@ -15,9 +13,16 @@ import { mapServerErrorMessage } from "../utils/friendlyError.js";
 // canWrite/breadcrumb scoping rather than inheriting it) -- not a Modal
 // launched from the Team tab. A popup-modal version of this previously
 // shipped and was corrected in review, same reasoning as AdminUserForm.jsx:
-// a genuine Wizard flow (the Confirm & Notify step below) reads as its own
-// page -- breadcrumb, title, Cancel/Next pinned to the viewport bottom --
-// not a dialog floating over the Team tab's own tables.
+// a genuine Wizard flow reads as its own page -- breadcrumb, title,
+// Cancel/Next pinned to the viewport bottom -- not a dialog floating over
+// the Team tab's own tables.
+//
+// One Wizard handles both outcomes -- Review, then Decision (Approve or
+// Decline), then Confirm -- rather than two separate flows (an approve
+// wizard plus a decline confirm-dialog). The shape is identical either
+// way and identical regardless of whether outbound email is on; only the
+// Confirm step's own content and the end page after Finish change based
+// on what was decided and, for an approval, whether email is enabled.
 export default function AdminTripApplicationDetail() {
   const { tripId, applicationId } = useParams();
   const navigate = useNavigate();
@@ -27,17 +32,17 @@ export default function AdminTripApplicationDetail() {
   // sibling route, not nested under TripDetailLayout's Outlet, so it can't
   // inherit its context and has to repeat the same scope check here.
   const canWrite = globalCanWrite || (isTripLeader && tripId === scopedTripId);
-  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
 
   const [trip, setTrip] = useState(null);
   const [applications, setApplications] = useState([]);
   const [error, setError] = useState("");
-  // The approve flow's own Wizard (Review -> Confirm & Notify, same shell
-  // as AdminUserForm.jsx's) and what it produces.
-  const [approvingApplication, setApprovingApplication] = useState(false);
-  const [approving, setApproving] = useState(false);
-  const [approveError, setApproveError] = useState("");
-  const [approvalResult, setApprovalResult] = useState(null); // { name, email, url, participantId } | null
+  const [reviewing, setReviewing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  // The Wizard's own end page -- set once Finish actually does something,
+  // and the one thing that varies by outcome/decision/outboundEmail. See
+  // the component's own header comment.
+  const [result, setResult] = useState(null); // { kind, name?, email?, url?, participantId? } | null
 
   const reload = useCallback(() => {
     fetchTrip(tripId).then(setTrip).catch(console.error);
@@ -69,31 +74,6 @@ export default function AdminTripApplicationDetail() {
     const answer = Array.isArray(raw) ? raw.join(", ") : raw;
     return { id: q.id, label: q.label, answer: answer || "(no answer)" };
   });
-
-  async function handleDecline() {
-    const result = await confirmDialog({
-      title: `Decline ${application.firstName} ${application.lastName}'s application?`,
-      body: (
-        <ConfirmMessageBody>
-          They won't be notified automatically -- the application moves to Declined, and can still be
-          reconsidered later.
-        </ConfirmMessageBody>
-      ),
-      confirmLabel: "Decline",
-      danger: true,
-      textInput: {
-        label: "Reason (optional, admin-only -- never shown to the applicant)",
-        placeholder: "e.g. Team is full, schedule conflict, ...",
-      },
-    });
-    if (!result.confirmed) return;
-    try {
-      await reviewTripApplication(application.id, "declined", result.text);
-      backToTeam();
-    } catch (err) {
-      setError(mapServerErrorMessage(err?.response?.data?.error) || "Couldn't decline this application.");
-    }
-  }
 
   async function handleReconsider() {
     try {
@@ -141,40 +121,44 @@ export default function AdminTripApplicationDetail() {
     return `Email sending isn't enabled here, so nothing is sent automatically. After approving, you'll get a link below to send them yourself.${extrasText}`;
   }
 
-  async function handleApprove() {
-    setApproving(true);
-    setApproveError("");
+  // The Decision step's choice drives everything from here on -- same
+  // Wizard shape either way, only this function's outcome (and the end
+  // page it sets) differs.
+  async function handleFinish(values) {
+    setSubmitting(true);
+    setSubmitError("");
     try {
-      const result = await reviewTripApplication(application.id, "approved", null);
-      if (result?.teamWelcomeEmail?.manualUrl) {
+      if (values.decision === "declined") {
+        await reviewTripApplication(application.id, "declined", values.declineReason?.trim() || null);
+        setResult({ kind: "declined" });
+        return;
+      }
+      const res = await reviewTripApplication(application.id, "approved", null);
+      if (res?.teamWelcomeEmail?.manualUrl) {
         // Stay right here with the link in view instead of navigating away
         // behind it -- same reasoning as every other manual-fallback fix
         // this pass (AdminUserForm.jsx, AdminTripMeetings.jsx, ...).
-        setApprovalResult({
+        setResult({
+          kind: "approved-manual",
           name: `${application.firstName} ${application.lastName}`.trim(),
           email: application.email,
-          url: result.teamWelcomeEmail.manualUrl,
-          participantId: result.participant?.id,
+          url: res.teamWelcomeEmail.manualUrl,
+          participantId: res.participant?.id,
         });
       } else {
-        const participantId = result?.participant?.id;
-        if (participantId) {
-          navigate(`/admin/trips/${tripId}/participants/${participantId}`);
-        } else {
-          backToTeam();
-        }
+        setResult({ kind: "approved-sent", participantId: res?.participant?.id });
       }
     } catch (err) {
-      setApproveError(
-        mapServerErrorMessage(err?.response?.data?.error) || "Couldn't approve this application."
+      setSubmitError(
+        mapServerErrorMessage(err?.response?.data?.error) || "Couldn't update this application."
       );
     } finally {
-      setApproving(false);
+      setSubmitting(false);
     }
   }
 
-  function finishApproval() {
-    const participantId = approvalResult?.participantId;
+  function finishResult() {
+    const participantId = result?.participantId;
     if (participantId) {
       navigate(`/admin/trips/${tripId}/participants/${participantId}`);
     } else {
@@ -182,16 +166,61 @@ export default function AdminTripApplicationDetail() {
     }
   }
 
-  const approvalSteps = [
+  const reviewSteps = [
     {
       key: "review",
       label: "Review",
       render: () => <ApplicantAnswers application={application} answers={answers} />,
     },
     {
-      key: "notify",
-      label: "Confirm & Notify",
-      render: () => <p>{approvalNotice()}</p>,
+      key: "decision",
+      label: "Decision",
+      validate: (values) => (values.decision ? null : "Choose Approve or Decline."),
+      render: ({ values, setValue }) => (
+        <div className="admin-checkbox-row">
+          <label>
+            <input
+              type="radio"
+              name="decision"
+              checked={values.decision === "approved"}
+              onChange={() => setValue("decision", "approved")}
+            />
+            Approve
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="decision"
+              checked={values.decision === "declined"}
+              onChange={() => setValue("decision", "declined")}
+            />
+            Decline
+          </label>
+        </div>
+      ),
+    },
+    {
+      key: "confirm",
+      label: "Confirm",
+      render: ({ values, setValue }) =>
+        values.decision === "declined" ? (
+          <>
+            <p>
+              They won't be notified automatically -- the application moves to Declined, and can still be
+              reconsidered later.
+            </p>
+            <label>
+              Reason (optional, admin-only -- never shown to the applicant)
+              <input
+                value={values.declineReason}
+                onChange={(e) => setValue("declineReason", e.target.value)}
+                placeholder="e.g. Team is full, schedule conflict, ..."
+              />
+            </label>
+          </>
+        ) : (
+          <p>{approvalNotice()}</p>
+        ),
     },
   ];
 
@@ -233,28 +262,38 @@ export default function AdminTripApplicationDetail() {
       )}
 
       <div className="admin-section">
-        {approvalResult ? (
+        {result ? (
           <>
-            <p>{approvalResult.name} is on the team now. Share their trip access link with them directly:</p>
-            <ManualSendNotice recipients={approvalResult} />
+            {result.kind === "approved-manual" && (
+              <>
+                <p>{result.name} is on the team now. Share their trip access link with them directly:</p>
+                <ManualSendNotice recipients={result} />
+              </>
+            )}
+            {result.kind === "approved-sent" && (
+              <p>They're on the team now, and their welcome email is on its way.</p>
+            )}
+            {result.kind === "declined" && (
+              <p>This application has been declined. They won't be notified automatically.</p>
+            )}
             <div style={{ marginTop: "1rem" }}>
-              <button type="button" className="btn" onClick={finishApproval}>
+              <button type="button" className="btn" onClick={finishResult}>
                 Done
               </button>
             </div>
           </>
-        ) : approvingApplication ? (
+        ) : reviewing ? (
           <>
             <Wizard
-              steps={approvalSteps}
-              initialValues={{}}
-              onFinish={handleApprove}
-              onCancel={() => setApprovingApplication(false)}
-              finishing={approving}
+              steps={reviewSteps}
+              initialValues={{ decision: "", declineReason: "" }}
+              onFinish={handleFinish}
+              onCancel={() => setReviewing(false)}
+              finishing={submitting}
             />
-            {approveError && (
+            {submitError && (
               <p className="form-error" role="alert">
-                {approveError}
+                {submitError}
               </p>
             )}
           </>
@@ -264,14 +303,9 @@ export default function AdminTripApplicationDetail() {
             {canWrite && (
               <div className="table-actions" style={{ marginTop: "1rem" }}>
                 {application.status === "pending" ? (
-                  <>
-                    <button className="btn small" onClick={() => setApprovingApplication(true)}>
-                      Approve
-                    </button>
-                    <button className="btn danger small" onClick={handleDecline}>
-                      Decline
-                    </button>
-                  </>
+                  <button className="btn small" onClick={() => setReviewing(true)}>
+                    Review
+                  </button>
                 ) : (
                   <button type="button" className="btn secondary small" onClick={handleReconsider}>
                     Reconsider
@@ -282,8 +316,6 @@ export default function AdminTripApplicationDetail() {
           </>
         )}
       </div>
-
-      {confirmElement}
     </div>
   );
 }
