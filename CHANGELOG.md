@@ -33,6 +33,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 ### Fixed
 - The booklet's decorative corner shapes (Classic template) could bleed past their own page's edges and visually overlap the next page's content/page number in the on-screen preview — `.booklet-page`/`.booklet-cover`/`.booklet-index` now clip their own content (`overflow: hidden`), and the shapes themselves now anchor to a page corner instead of one of them floating mid-edge. (#346)
 - `POST /api/auth/password-setup/request` ("send me a new setup link") now explicitly checks `outboundEmail` before attempting to send, matching every other `sendWelcomeEmail` call site (`users.js`). Previously it relied on `sendWelcomeEmail` throwing its own "not configured" error when the feature was off, silently caught by this route's deliberate catch-all — same end-user-visible behavior (the generic response never changes either way), but fragile, not explicit. (#345 email review follow-up)
+- Adding a user whose email already belongs to another account showed the generic "That value is already in use" — reads as a form-validation complaint, not as "this account already exists." `POST /api/users` now says "A user with this email already exists. To change their permissions, edit their existing account instead."
 
 ## [0.3.0] - 2026-11-23
 

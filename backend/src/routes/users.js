@@ -185,6 +185,21 @@ router.post("/", async (req, res, next) => {
     }
     res.status(201).json({ ...sanitize(created), welcomeEmail });
   } catch (err) {
+    // The generic P2002 handler in middleware/errors.js says "That value is
+    // already in use" -- technically correct, but an admin adding a user
+    // reads it as a form-validation complaint, not as "this account already
+    // exists, you don't need a new one." Worth the specific message here:
+    // this is the one place in the app where the unique field being an
+    // *account* (not a partner, a trip, etc.) actually changes what the
+    // right next action is. email is User's only @unique field, so any
+    // P2002 from this create() is necessarily this collision -- no need to
+    // inspect err.meta.target, whose shape isn't reliable with this
+    // project's Prisma driver adapter (confirmed: it came back empty here).
+    if (err?.code === "P2002") {
+      return res.status(409).json({
+        error: "A user with this email already exists. To change their permissions, edit their existing account instead.",
+      });
+    }
     next(err);
   }
 });
