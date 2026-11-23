@@ -15,17 +15,12 @@ const DEFAULT_TTL_HOURS = 72;
 // right away, so their link lives longer.
 const DEFAULT_TRIP_LEADER_TTL_HOURS = 24 * 7;
 
-function positiveHours(value, fallback) {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
-}
-
-// Hours a setup link stays valid for this role. Overridable per fork with
-// PASSWORD_SETUP_TTL_HOURS / PASSWORD_SETUP_TRIP_LEADER_TTL_HOURS.
-function setupTtlHours(role, env = process.env) {
-  return role === "tripLeader"
-    ? positiveHours(env.PASSWORD_SETUP_TRIP_LEADER_TTL_HOURS, DEFAULT_TRIP_LEADER_TTL_HOURS)
-    : positiveHours(env.PASSWORD_SETUP_TTL_HOURS, DEFAULT_TTL_HOURS);
+// Hours a setup link stays valid for this role. Fixed, not configurable --
+// see issue #303: a church tuning this isn't a real need, and an env var
+// would be the wrong place for it even if it were (nothing per-instance
+// lives in an env var in this app).
+function setupTtlHours(role) {
+  return role === "tripLeader" ? DEFAULT_TRIP_LEADER_TTL_HOURS : DEFAULT_TTL_HOURS;
 }
 
 function generateToken() {

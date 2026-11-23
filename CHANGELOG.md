@@ -27,9 +27,9 @@ participant emails (meeting invites with Yes/No/Maybe buttons, reminders,
 checklist and date-change notices, team welcome) and the new welcome email
 share one branded, reusable template (`backend/src/utils/emailTemplate.js`).
 **Needs a migration** (new `PasswordSetupToken` table) -- run
-`npx prisma migrate dev`. New optional env vars: `USER_GUIDE_URL`,
-`TRIP_LEADER_GUIDE_URL`, `SUPPORT_URL`, `MFA_HELP_URL`,
-`PASSWORD_SETUP_TTL_HOURS`, `PASSWORD_SETUP_TRIP_LEADER_TTL_HOURS`.
+`npx prisma migrate dev`. Guide/support links in the welcome email point
+at this project's own docs and aren't configurable per fork (no new env
+vars).
 
 The notification system is now called **Dispatch** throughout the app
 and its database schema, so it can't collide with a future in-app
