@@ -615,138 +615,183 @@ export default function AdminBooklet() {
     window.print();
   }
 
+  // Two-pane layout (.booklet-layout, index.css): controls on the left,
+  // the live preview pinned on the right so it's visible without
+  // scrolling past every control first -- see AdminReport.jsx/
+  // backend/src/reporting/ for the "configure, see a live result"
+  // precedent this follows, adapted into a side-by-side pane since a
+  // print preview (fixed 8.5in page width) doesn't fit FilterBar's
+  // horizontal-row shape the way a report's filters do. Only
+  // .booklet-controls carries `no-print` -- the preview itself must stay
+  // outside that wrapper (it's what the Print Booklet button actually
+  // prints, via the .booklet-preview reveal rule in index.css), which is
+  // why this isn't nested inside a single "admin-shell no-print" div the
+  // way a plain settings page would be.
   return (
-    <>
-      <div className="admin-shell no-print">
-        <h2>Missionary Booklet</h2>
-        <div className="admin-form">
-          <div className="admin-section">
-            <h3>Look &amp; Feel</h3>
-            <div className="admin-checkbox-row" style={{ gap: "1rem", flexWrap: "wrap" }}>
-              {TEMPLATE_OPTIONS.map((t) => (
-                <label
-                  key={t.value}
-                  style={{
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                    border: template === t.value ? "2px solid #333" : "1px solid #ddd",
-                    borderRadius: "8px",
-                    padding: "0.6rem 0.75rem",
-                    maxWidth: "16rem",
-                    cursor: "pointer",
-                  }}
-                >
-                  <span style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: "bold" }}>
-                    <input
-                      type="radio"
-                      name="booklet-template"
-                      checked={template === t.value}
-                      onChange={() => setTemplate(t.value)}
-                    />
-                    {t.label}
-                  </span>
-                  <span style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
-                    {t.description}
-                  </span>
+    <div className="admin-shell booklet-admin-shell">
+      <div className="booklet-layout">
+        <div className="booklet-controls no-print">
+          <h2>Missionary Booklet</h2>
+          <p className="booklet-admin-intro">
+            Choose a template, pick who and what's included, then print or save as a PDF. The preview updates
+            as you go.
+          </p>
+
+          <div className="admin-form">
+            <div className="admin-section">
+              <h3>Look &amp; Feel</h3>
+              <div className="booklet-template-picker">
+                {TEMPLATE_OPTIONS.map((t) => {
+                  // A lightweight visual hint, not a live render of the real
+                  // template -- plain CSS shapes driven by the same token
+                  // object templates.js/booklet.css already use
+                  // (shapeStyle/photoShape/frameStyle), so a future
+                  // template's swatch is correct for free rather than
+                  // needing its own hand-drawn entry here. accent reuses
+                  // resolveAccent() (ChurchSettings.primaryColor, same as
+                  // the real booklet) so the swatch reflects the church's
+                  // actual brand color, not a hardcoded hex.
+                  const tpl = getTemplate(t.value);
+                  const accent = resolveAccent(tpl, primaryColor, 0);
+                  const selected = template === t.value;
+                  return (
+                    <label key={t.value} className={`booklet-template-card${selected ? " selected" : ""}`}>
+                      <div
+                        className="booklet-template-swatch"
+                        style={{ "--accent": accent }}
+                        data-shape-style={tpl.tokens.shapeStyle}
+                        data-photo-shape={tpl.tokens.photoShape}
+                        data-frame-style={tpl.tokens.frameStyle}
+                        aria-hidden="true"
+                      >
+                        <span className="booklet-template-swatch-shape" />
+                        <span className="booklet-template-swatch-photo" />
+                        <span className="booklet-template-swatch-rule" />
+                        <span className="booklet-template-swatch-lines">
+                          <span />
+                          <span />
+                          <span />
+                        </span>
+                      </div>
+                      <span className="booklet-template-card-title">
+                        <input
+                          type="radio"
+                          name="booklet-template"
+                          checked={selected}
+                          onChange={() => setTemplate(t.value)}
+                        />
+                        {t.label}
+                      </span>
+                      <span className="booklet-template-card-desc">{t.description}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="admin-section">
+              <h3>Who's Included</h3>
+              <div className="admin-checkbox-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={includeArchived}
+                    onChange={(e) => setIncludeArchived(e.target.checked)}
+                  />
+                  Archived
                 </label>
-              ))}
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={includeRestricted}
+                    onChange={(e) => setIncludeRestricted(e.target.checked)}
+                  />
+                  Restricted-access
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={includeOrganizations}
+                    onChange={(e) => setIncludeOrganizations(e.target.checked)}
+                  />
+                  Local &amp; National Organizations
+                </label>
+              </div>
+            </div>
+
+            <div className="admin-section">
+              <h3>What Shows on Each Page</h3>
+              <div className="booklet-field-grid">
+                {FIELD_OPTIONS.map(([key, label, tooltip]) => {
+                  // Prayer requests now print at the top of the Notes &
+                  // Prayer page itself, so that page can't be turned off
+                  // while they're showing -- there'd be nowhere left to
+                  // print them.
+                  const lockedOn = key === "showNotesPage" && fields.showPrayerRequests;
+                  const on = fields[key];
+                  return (
+                    <label
+                      key={key}
+                      className={`booklet-field-chip${on ? " on" : ""}${lockedOn ? " locked" : ""}`}
+                      title={lockedOn ? "Required while Prayer Requests is on" : tooltip}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        disabled={lockedOn}
+                        onChange={() => toggleField(key)}
+                      />
+                      <span className="booklet-field-chip-dot" aria-hidden="true" />
+                      {label}
+                    </label>
+                  );
+                })}
+              </div>
+              {fields.showPrayerRequests && (
+                <label
+                  style={{ marginTop: "0.75rem", maxWidth: "16rem" }}
+                  title="Even a partner with many eligible requests only shows this many, most recent first, so the section doesn't crowd out the rest of their page."
+                >
+                  Max prayer requests per partner
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={maxPrayerRequests}
+                    onChange={(e) => setMaxPrayerRequests(Math.max(1, Number(e.target.value) || 1))}
+                  />
+                </label>
+              )}
+            </div>
+
+            <div className="admin-section">
+              <h3>Cover Page Text</h3>
+              <div className="form-grid">
+                <label>
+                  Booklet Title
+                  <input value={title} onChange={(e) => setTitle(e.target.value)} />
+                </label>
+                <label>
+                  Subtitle
+                  <input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
+                </label>
+              </div>
             </div>
           </div>
 
-          <div className="admin-section">
-            <h3>Who's Included</h3>
-            <div className="admin-checkbox-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={includeArchived}
-                  onChange={(e) => setIncludeArchived(e.target.checked)}
-                />
-                Archived
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={includeRestricted}
-                  onChange={(e) => setIncludeRestricted(e.target.checked)}
-                />
-                Restricted-access
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={includeOrganizations}
-                  onChange={(e) => setIncludeOrganizations(e.target.checked)}
-                />
-                Local &amp; National Organizations
-              </label>
-            </div>
-          </div>
-
-          <div className="admin-section">
-            <h3>What Shows on Each Page</h3>
-            <div className="admin-checkbox-row">
-              {FIELD_OPTIONS.map(([key, label, tooltip]) => {
-                // Prayer requests now print at the top of the Notes &
-                // Prayer page itself, so that page can't be turned off
-                // while they're showing -- there'd be nowhere left to
-                // print them.
-                const lockedOn = key === "showNotesPage" && fields.showPrayerRequests;
-                return (
-                  <label key={key} title={lockedOn ? "Required while Prayer Requests is on" : tooltip}>
-                    <input
-                      type="checkbox"
-                      checked={fields[key]}
-                      disabled={lockedOn}
-                      onChange={() => toggleField(key)}
-                    />
-                    {label}
-                  </label>
-                );
-              })}
-            </div>
-            {fields.showPrayerRequests && (
-              <label
-                style={{ marginTop: "0.75rem", maxWidth: "16rem" }}
-                title="Even a partner with many eligible requests only shows this many, most recent first, so the section doesn't crowd out the rest of their page."
-              >
-                Max prayer requests per partner
-                <input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={maxPrayerRequests}
-                  onChange={(e) => setMaxPrayerRequests(Math.max(1, Number(e.target.value) || 1))}
-                />
-              </label>
-            )}
-          </div>
-
-          <div className="admin-section">
-            <h3>Cover Page Text</h3>
-            <div className="form-grid">
-              <label>
-                Booklet Title
-                <input value={title} onChange={(e) => setTitle(e.target.value)} />
-              </label>
-              <label>
-                Subtitle
-                <input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
-              </label>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: "0.75rem" }}>
+          <div className="booklet-print-bar">
             <button className="btn" onClick={handlePrint}>
               Print Booklet
             </button>
           </div>
         </div>
-      </div>
 
-      <div className="booklet-preview-scroll">
-        <div className="booklet-preview" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+        <div className="booklet-preview-pane">
+          <div className="booklet-preview-scroll">
+            <div className="booklet-preview" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+          </div>
+        </div>
       </div>
-    </>
+    </div>
   );
 }

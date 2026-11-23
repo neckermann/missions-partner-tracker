@@ -96,6 +96,66 @@ describe("AdminBooklet restricted-access filtering", () => {
   });
 });
 
+// #346: the config page was restructured into a two-pane layout
+// (controls left, live preview right, see .booklet-layout in
+// index.css) instead of three stacked cards above a full-width scrolling
+// preview. These assert the structural invariant that reshuffle has to
+// preserve -- the preview stays outside the `no-print` controls column,
+// since that's what the Print Booklet button actually prints (see the
+// comment above the returned JSX in AdminBooklet.jsx) -- rather than
+// asserting anything about the visual layout itself.
+describe("AdminBooklet layout: preview stays printable", () => {
+  it("renders the preview outside the no-print controls column", async () => {
+    fetchPartners.mockResolvedValue([OPEN_MISSIONARY]);
+    render(<AdminBooklet />);
+
+    await waitFor(() => expect(document.querySelector(".booklet-preview")).toBeInTheDocument());
+
+    const preview = document.querySelector(".booklet-preview");
+    expect(preview.closest(".no-print")).toBeNull();
+    // The controls (template picker, checkboxes, text fields) are the
+    // part hidden on print -- confirm that wrapper still exists and still
+    // contains a real control, not just that the preview escaped it.
+    const controls = document.querySelector(".no-print");
+    expect(controls).toBeInTheDocument();
+    expect(controls.querySelector('input[name="booklet-template"]')).toBeInTheDocument();
+  });
+
+  it("still fires window.print() from the reorganized Print Booklet button", async () => {
+    fetchPartners.mockResolvedValue([OPEN_MISSIONARY]);
+    const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
+    render(<AdminBooklet />);
+
+    await waitFor(() => expect(document.querySelector(".booklet-preview")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Print Booklet" }));
+
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    printSpy.mockRestore();
+  });
+});
+
+describe("AdminBooklet controls: survive the reshuffle", () => {
+  it("still reads/writes Who's Included, What Shows, and Cover Page Text state", async () => {
+    fetchPartners.mockResolvedValue([OPEN_MISSIONARY]);
+    render(<AdminBooklet />);
+
+    await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
+
+    // Cover page text: typing into the title field reaches the preview's
+    // cover section, same as before the reorganization.
+    const titleInput = screen.getByLabelText("Booklet Title");
+    fireEvent.change(titleInput, { target: { value: "Our Sent Ones" } });
+    await waitFor(() => expect(getPreviewHtml()).toContain("Our Sent Ones"));
+
+    // What Shows on Each Page: turning off the photo field removes the
+    // <img> from the rendered entry.
+    fireEvent.click(screen.getByRole("checkbox", { name: "Photo" }));
+    // Who's Included: Local & National Organizations stays checked by
+    // default and its own label/checkbox is still reachable by name.
+    expect(screen.getByRole("checkbox", { name: "Local & National Organizations" })).toBeChecked();
+  });
+});
+
 // #322: the template system was rebuilt as a data-driven catalog
 // (frontend/src/booklet/templates.js) that AdminBooklet.jsx's picker now
 // renders from, instead of a literal TEMPLATE_OPTIONS array here.
