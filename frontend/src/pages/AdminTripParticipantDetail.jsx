@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useParams, Link, useLocation } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import {
   fetchTrip,
   fetchTripsSettings,
@@ -45,7 +45,6 @@ function readFileAsDataUrl(file) {
 // the same explicit edit -> save/cancel boundary.
 export default function AdminTripParticipantDetail() {
   const { tripId, participantId } = useParams();
-  const location = useLocation();
   const { canWrite: globalCanWrite, isTripLeader, scopedTripId } = useCurrentUser();
   // Mirrors TripDetailLayout.jsx's own canWrite -- this page is a sibling
   // route, not nested under that layout's Outlet, so it can't inherit its
@@ -55,10 +54,7 @@ export default function AdminTripParticipantDetail() {
   const [trip, setTrip] = useState(null);
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState("");
-  // Seeded from AdminTripTeam.jsx's handleReview when approving an
-  // application landed here with outbound email off -- same slot
-  // handleResendAccessLink below fills on its own trigger.
-  const [manualAccessLink, setManualAccessLink] = useState(location.state?.manualAccessLink || null); // { url } | null
+  const [manualAccessLink, setManualAccessLink] = useState(null); // { url } | null
   const [docMessage, setDocMessage] = useState("");
   const [docFile, setDocFile] = useState(null);
   const [docRequirementChoice, setDocRequirementChoice] = useState("");

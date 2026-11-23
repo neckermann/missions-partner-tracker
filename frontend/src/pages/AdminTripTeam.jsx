@@ -12,8 +12,11 @@ import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestions
 import Table from "../components/shared/Table.jsx";
 import Modal from "../components/Modal.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import Wizard from "../components/shared/Wizard.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import { useSettings } from "../context/SettingsContext.jsx";
+import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 
 // Confirmed Team + the recruiting pipeline that feeds it (Applications,
 // the private link, and this trip's own application questions) --
@@ -27,14 +30,35 @@ export default function AdminTripTeam() {
   const { trip, setTrip, applications, reload, questionLibrary, confirmDialog, navigate, id, canWrite } =
     useOutletContext();
   const { isTripLeader } = useCurrentUser();
+  const settings = useSettings();
   const [error, setError] = useState("");
   const [openApplication, setOpenApplication] = useState(null);
+  // The approve flow's own Wizard (Review -> Confirm & Notify, same shell
+  // as AdminUserForm.jsx's) and what it produces -- scoped separately from
+  // `error` (a page-level banner) since these render inside the
+  // application modal itself and reset whenever that modal changes to a
+  // different application.
+  const [approvingApplication, setApprovingApplication] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [approveError, setApproveError] = useState("");
+  const [approvalResult, setApprovalResult] = useState(null); // { name, email, url, participantId } | null
   const [showDeclined, setShowDeclined] = useState(false);
   const [showAddParticipant, setShowAddParticipant] = useState(false);
   const [newParticipant, setNewParticipant] = useState({ firstName: "", lastName: "", email: "" });
 
   function reportError(err, fallback) {
     setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
+  }
+
+  // Every place that opens/closes/switches the application modal goes
+  // through this, so the approve flow's own state can never leak from one
+  // application (or one modal session) into the next.
+  function openApplicationModal(app) {
+    setApprovingApplication(false);
+    setApproving(false);
+    setApproveError("");
+    setApprovalResult(null);
+    setOpenApplication(app);
   }
 
   async function saveQuestions(questions) {
@@ -60,30 +84,91 @@ export default function AdminTripTeam() {
     }
   }
 
+  // Decline and reconsider only -- approving has its own confirm-first
+  // flow below (handleApprove), since only that status transition creates
+  // a participant and can trigger a notification worth previewing.
   async function handleReview(appId, status, declinedReason) {
     try {
-      const result = await reviewTripApplication(appId, status, declinedReason);
-      setOpenApplication(null);
-      if (result?.participant) {
-        // Outbound email off -> teamWelcomeEmail carries a manualUrl
-        // instead of silently dropping the new participant's only link to
-        // their own trip page. Handed to the participant detail page via
-        // navigation state so it shows up right there, in the same
-        // ManualSendNotice slot that page's own "Resend access link"
-        // uses -- not a separate notice on this page the admin is
-        // navigating away from anyway.
-        navigate(`/admin/trips/${id}/participants/${result.participant.id}`, {
-          state: result.teamWelcomeEmail?.manualUrl
-            ? { manualAccessLink: { url: result.teamWelcomeEmail.manualUrl } }
-            : undefined,
-        });
-        return;
-      }
+      await reviewTripApplication(appId, status, declinedReason);
+      openApplicationModal(null);
       reload();
       setError("");
     } catch (err) {
       reportError(err, "Couldn't update this application.");
     }
+  }
+
+  // What approving this application is actually about to do -- read
+  // directly off the trip/settings already loaded for this page, no
+  // separate preview request needed. Mirrors the exact gating/content the
+  // backend route itself applies (see tripParticipants.js's PUT
+  // /applications/:id), so this never promises something the approval
+  // won't really do.
+  function approvalNotice() {
+    const hasDates = trip.status !== "completed" && trip.startDate && trip.endDate;
+    const outboundOn = !!settings.enabledFeatures?.outboundEmail;
+    const now = new Date();
+    const futureMeetings = (trip.meetings || []).filter((m) => !m.cancelledAt && new Date(m.startAt) > now);
+    const notifiableRequirements = (trip.requirements || []).filter(
+      (r) => r.kind === "document" || r.kind === "esignature"
+    );
+    const extras = [];
+    if (futureMeetings.length > 0) {
+      extras.push(`${futureMeetings.length} upcoming meeting${futureMeetings.length === 1 ? "" : "s"}`);
+    }
+    if (notifiableRequirements.length > 0) {
+      extras.push(
+        `${notifiableRequirements.length} outstanding requirement${notifiableRequirements.length === 1 ? "" : "s"}`
+      );
+    }
+    const extrasText =
+      extras.length > 0
+        ? ` Their trip page also covers ${extras.join(" and ")} already on this trip -- no separate notice for those.`
+        : "";
+
+    if (!hasDates) {
+      return "This trip has no dates set, so no welcome message is sent automatically on approval. You can still reach out to them another way.";
+    }
+    if (outboundOn) {
+      return `They'll immediately be emailed a welcome message with their own trip access link.${extrasText}`;
+    }
+    return `Email sending isn't enabled here, so nothing is sent automatically. After approving, you'll get a link below to send them yourself.${extrasText}`;
+  }
+
+  async function handleApprove(application) {
+    setApproving(true);
+    setApproveError("");
+    try {
+      const result = await reviewTripApplication(application.id, "approved", null);
+      reload();
+      if (result?.teamWelcomeEmail?.manualUrl) {
+        // Stay right here with the link in view instead of navigating away
+        // behind it -- same reasoning as every other manual-fallback fix
+        // this pass (AdminUserForm.jsx, AdminTripMeetings.jsx, ...).
+        setApprovalResult({
+          name: `${application.firstName} ${application.lastName}`.trim(),
+          email: application.email,
+          url: result.teamWelcomeEmail.manualUrl,
+          participantId: result.participant?.id,
+        });
+      } else {
+        const participantId = result?.participant?.id;
+        openApplicationModal(null);
+        if (participantId) navigate(`/admin/trips/${id}/participants/${participantId}`);
+      }
+    } catch (err) {
+      setApproveError(
+        mapServerErrorMessage(err?.response?.data?.error) || "Couldn't approve this application."
+      );
+    } finally {
+      setApproving(false);
+    }
+  }
+
+  function finishApproval() {
+    const participantId = approvalResult?.participantId;
+    openApplicationModal(null);
+    if (participantId) navigate(`/admin/trips/${id}/participants/${participantId}`);
   }
 
   async function handleDecline(a) {
@@ -191,6 +276,29 @@ export default function AdminTripTeam() {
     },
   ];
 
+  // Approve's own 2-step Wizard -- Review, then Confirm & Notify -- same
+  // shell as every other Wizard in the app (AdminUserForm.jsx's Basics/
+  // Account Setup). Neither step collects input (values/setValue are
+  // unused -- a plain `{}` initialValues is enough), so the steps are
+  // read-only content gated purely on reaching Finish; all the real work
+  // happens in handleApprove, called from onFinish below.
+  const approvalSteps = openApplication
+    ? [
+        {
+          key: "review",
+          label: "Review",
+          render: () => (
+            <ApplicantAnswers application={openApplication} answers={answersFor(openApplication)} />
+          ),
+        },
+        {
+          key: "notify",
+          label: "Confirm & Notify",
+          render: () => <p>{approvalNotice()}</p>,
+        },
+      ]
+    : [];
+
   return (
     <div>
       {error && (
@@ -232,7 +340,7 @@ export default function AdminTripTeam() {
             { key: "submittedAt", label: "Submitted", type: "date" },
           ]}
           rows={pending}
-          onRowClick={(a) => setOpenApplication({ ...a, mode: "pending" })}
+          onRowClick={(a) => openApplicationModal({ ...a, mode: "pending" })}
           emptyMessage="Nothing awaiting review."
         />
 
@@ -255,7 +363,7 @@ export default function AdminTripTeam() {
                     },
                   ]}
                   rows={declined}
-                  onRowClick={(a) => setOpenApplication({ ...a, mode: "declined" })}
+                  onRowClick={(a) => openApplicationModal({ ...a, mode: "declined" })}
                 />
               </div>
             )}
@@ -366,33 +474,61 @@ export default function AdminTripTeam() {
       {openApplication && (
         <Modal
           title={`${openApplication.firstName} ${openApplication.lastName}`}
-          onClose={() => setOpenApplication(null)}
+          onClose={() => openApplicationModal(null)}
         >
-          <ApplicantAnswers application={openApplication} answers={answersFor(openApplication)} />
-          {canWrite && (
-            <div className="table-actions" style={{ marginTop: "1rem" }}>
-              {openApplication.mode === "pending" ? (
-                <>
-                  <button
-                    className="btn small"
-                    onClick={() => handleReview(openApplication.id, "approved", null)}
-                  >
-                    Approve
-                  </button>
-                  <button className="btn danger small" onClick={() => handleDecline(openApplication)}>
-                    Decline
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="btn secondary small"
-                  onClick={() => handleReview(openApplication.id, "pending", null)}
-                >
-                  Reconsider
+          {approvalResult ? (
+            <>
+              <p>
+                {approvalResult.name} is on the team now. Share their trip access link with them directly:
+              </p>
+              <ManualSendNotice recipients={approvalResult} />
+              <div style={{ marginTop: "1rem" }}>
+                <button type="button" className="btn" onClick={finishApproval}>
+                  Done
                 </button>
+              </div>
+            </>
+          ) : approvingApplication ? (
+            <>
+              <Wizard
+                steps={approvalSteps}
+                initialValues={{}}
+                onFinish={() => handleApprove(openApplication)}
+                onCancel={() => setApprovingApplication(false)}
+                finishing={approving}
+              />
+              {approveError && (
+                <p className="form-error" role="alert">
+                  {approveError}
+                </p>
               )}
-            </div>
+            </>
+          ) : (
+            <>
+              <ApplicantAnswers application={openApplication} answers={answersFor(openApplication)} />
+              {canWrite && (
+                <div className="table-actions" style={{ marginTop: "1rem" }}>
+                  {openApplication.mode === "pending" ? (
+                    <>
+                      <button className="btn small" onClick={() => setApprovingApplication(true)}>
+                        Approve
+                      </button>
+                      <button className="btn danger small" onClick={() => handleDecline(openApplication)}>
+                        Decline
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn secondary small"
+                      onClick={() => handleReview(openApplication.id, "pending", null)}
+                    >
+                      Reconsider
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </Modal>
       )}

@@ -98,7 +98,17 @@ test.describe("Trip Team tab: Table + Modal", () => {
     await row.click();
 
     await expect(page.locator(".modal-panel")).toContainText(uniqueEmail);
+    // Approve now opens its own 2-step Wizard (Review, then Confirm &
+    // Notify) -- same shell as every other Wizard in the app -- showing
+    // what approving is about to do before actually doing it.
     await page.locator(".modal-panel button", { hasText: "Approve" }).click();
+    await page.locator(".modal-panel button", { hasText: "Next" }).click();
+    await page.locator(".modal-panel button", { hasText: "Finish" }).click();
+    // outboundEmail is off by default (CI never turns it on globally), so
+    // finishing lands on the manual-link step, not an immediate
+    // navigation -- "Done" dismisses it. See AdminTripTeam.jsx's
+    // handleApprove.
+    await page.locator(".modal-panel button", { hasText: "Done" }).click();
     await expect(page.locator(".modal-panel")).toHaveCount(0);
 
     // Approving navigates straight to the new participant's own detail page
