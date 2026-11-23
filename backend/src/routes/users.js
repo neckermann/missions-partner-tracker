@@ -197,7 +197,8 @@ router.post("/", async (req, res, next) => {
     // project's Prisma driver adapter (confirmed: it came back empty here).
     if (err?.code === "P2002") {
       return res.status(409).json({
-        error: "A user with this email already exists. To change their permissions, edit their existing account instead.",
+        error:
+          "A user with this email already exists. To change their permissions, edit their existing account instead.",
       });
     }
     next(err);
