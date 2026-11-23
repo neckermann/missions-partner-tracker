@@ -88,6 +88,19 @@ export default function AdminDispatchSettings() {
         To review or edit what's currently queued, see the <strong>Pending Dispatches</strong> page in the
         main menu.
       </p>
+      <p style={{ color: "#888", fontSize: "0.85rem" }}>
+        Every schedule on this page only fires from the separate background worker process, not the main site
+        -- a church that skipped deploying it (see{" "}
+        <a
+          href="https://missionspartnertracker.com/admin-guide.html#skipping-the-worker-service"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Admin Guide
+        </a>
+        ) can still edit these settings, but nothing here will ever actually send until that worker is
+        running.
+      </p>
 
       {enabledFeatures.publicPrayerDigest && (
         <div className="admin-section">
