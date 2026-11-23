@@ -103,12 +103,12 @@ test.describe("Trip Team tab: Table + Modal", () => {
     // same reasoning as AdminUserForm.jsx's "New Partner"-shaped page.
     await page.waitForURL(/\/admin\/trips\/[^/]+\/applications\/[^/]+$/);
     await expect(page.locator("body")).toContainText(uniqueEmail);
-    // "Review" opens one Wizard that handles both outcomes -- Review, then
-    // Decision (Approve/Decline), then Confirm -- same shell as every
-    // other Wizard in the app, showing what the decision is about to do
-    // before actually doing it.
-    await page.getByRole("button", { name: "Review" }).click();
-    await page.getByRole("button", { name: "Next" }).click(); // Review -> Decision
+    // "Approve or Decline" opens one Wizard that handles both outcomes --
+    // Decision, then Confirm -- same shell as every other Wizard in the
+    // app, showing what the decision is about to do before actually doing
+    // it. No separate Review step -- the answers above are already the
+    // review.
+    await page.getByRole("button", { name: "Approve or Decline" }).click();
     await page.getByLabel("Approve").check();
     await page.getByRole("button", { name: "Next" }).click(); // Decision -> Confirm
     await page.getByRole("button", { name: "Finish" }).click();

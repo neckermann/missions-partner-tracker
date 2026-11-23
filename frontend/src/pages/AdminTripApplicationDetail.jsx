@@ -1,6 +1,11 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { fetchTrip, fetchTripApplications, reviewTripApplication } from "../api/client.js";
+import {
+  fetchTrip,
+  fetchTripApplications,
+  fetchTripsSettings,
+  reviewTripApplication,
+} from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
@@ -17,12 +22,16 @@ import { mapServerErrorMessage } from "../utils/friendlyError.js";
 // Cancel/Next pinned to the viewport bottom -- not a dialog floating over
 // the Team tab's own tables.
 //
-// One Wizard handles both outcomes -- Review, then Decision (Approve or
-// Decline), then Confirm -- rather than two separate flows (an approve
-// wizard plus a decline confirm-dialog). The shape is identical either
-// way and identical regardless of whether outbound email is on; only the
-// Confirm step's own content and the end page after Finish change based
-// on what was decided and, for an approval, whether email is enabled.
+// One Wizard handles both outcomes -- Decision (Approve or Decline), then
+// Confirm -- rather than two separate flows (an approve wizard plus a
+// decline confirm-dialog). No separate "Review" step: the applicant's
+// details are already fully visible on this page before the Wizard ever
+// starts, so re-showing them as the Wizard's own first step was found to
+// be pure duplication, not a second look at anything new. The shape is
+// identical either way and identical regardless of whether outbound email
+// is on; only the Confirm step's own content and the end page after
+// Finish change based on what was decided and, for an approval, whether
+// email is enabled.
 export default function AdminTripApplicationDetail() {
   const { tripId, applicationId } = useParams();
   const navigate = useNavigate();
@@ -35,6 +44,7 @@ export default function AdminTripApplicationDetail() {
 
   const [trip, setTrip] = useState(null);
   const [applications, setApplications] = useState([]);
+  const [tripsSettings, setTripsSettings] = useState(null);
   const [error, setError] = useState("");
   const [reviewing, setReviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -47,6 +57,7 @@ export default function AdminTripApplicationDetail() {
   const reload = useCallback(() => {
     fetchTrip(tripId).then(setTrip).catch(console.error);
     fetchTripApplications(tripId).then(setApplications).catch(console.error);
+    fetchTripsSettings().then(setTripsSettings).catch(console.error);
   }, [tripId]);
 
   useEffect(() => {
@@ -69,7 +80,20 @@ export default function AdminTripApplicationDetail() {
     );
   }
 
-  const answers = (trip.applicationQuestions || []).map((q) => {
+  // Same combined, ordered list the public application form itself
+  // renders -- church-wide questions (ChurchSettings.tripApplicationTemplate)
+  // first, then this trip's own -- see publicTrips.js's shapeTripForApplicant.
+  // Reading only trip.applicationQuestions here (the trip-specific layer
+  // alone) was a real bug: any trip using the common case -- entirely
+  // church-wide questions, nothing trip-specific added -- showed "no
+  // application questions set" despite the applicant having answered real
+  // ones, because TripApplication.responses is keyed by question id
+  // regardless of which layer it came from.
+  const combinedQuestions = [
+    ...(tripsSettings?.tripApplicationTemplate || []),
+    ...(trip.applicationQuestions || []),
+  ];
+  const answers = combinedQuestions.map((q) => {
     const raw = application.responses?.[q.id];
     const answer = Array.isArray(raw) ? raw.join(", ") : raw;
     return { id: q.id, label: q.label, answer: answer || "(no answer)" };
@@ -134,7 +158,15 @@ export default function AdminTripApplicationDetail() {
         return;
       }
       const res = await reviewTripApplication(application.id, "approved", null);
-      if (res?.teamWelcomeEmail?.manualUrl) {
+      // teamWelcomeEmail is null exactly when the backend's own gate (trip
+      // not completed, both dates set) never fired at all -- not "sent",
+      // not "manual", genuinely nothing attempted. Conflating that with
+      // "sent" here would tell an admin an email went out when none did,
+      // on every trip with no dates yet (a very ordinary state for a
+      // still-recruiting trip).
+      if (!res?.teamWelcomeEmail) {
+        setResult({ kind: "approved-no-dates", participantId: res?.participant?.id });
+      } else if (res.teamWelcomeEmail.manualUrl) {
         // Stay right here with the link in view instead of navigating away
         // behind it -- same reasoning as every other manual-fallback fix
         // this pass (AdminUserForm.jsx, AdminTripMeetings.jsx, ...).
@@ -167,11 +199,6 @@ export default function AdminTripApplicationDetail() {
   }
 
   const reviewSteps = [
-    {
-      key: "review",
-      label: "Review",
-      render: () => <ApplicantAnswers application={application} answers={answers} />,
-    },
     {
       key: "decision",
       label: "Decision",
@@ -273,6 +300,12 @@ export default function AdminTripApplicationDetail() {
             {result.kind === "approved-sent" && (
               <p>They're on the team now, and their welcome email is on its way.</p>
             )}
+            {result.kind === "approved-no-dates" && (
+              <p>
+                They're on the team now. This trip has no dates set yet, so no welcome message was sent
+                automatically -- reach out to them another way for now.
+              </p>
+            )}
             {result.kind === "declined" && (
               <p>This application has been declined. They won't be notified automatically.</p>
             )}
@@ -304,7 +337,7 @@ export default function AdminTripApplicationDetail() {
               <div className="table-actions" style={{ marginTop: "1rem" }}>
                 {application.status === "pending" ? (
                   <button className="btn small" onClick={() => setReviewing(true)}>
-                    Review
+                    Approve or Decline
                   </button>
                 ) : (
                   <button type="button" className="btn secondary small" onClick={handleReconsider}>
@@ -320,62 +353,63 @@ export default function AdminTripApplicationDetail() {
   );
 }
 
+// Same bold-label/value grid convention as AdminTripParticipantDetail.jsx's
+// own "Contact & access" view (ViewField/.form-grid) -- this used to be a
+// single run-together paragraph joined with middots, cramped even by
+// modal standards and worse now that this page has a full page's width to
+// use. Short structured fields go in the grid; a question's own answer
+// can run to a paragraph (a textarea response), so those stay a stacked
+// label-then-value list instead.
 function ApplicantAnswers({ application: a, answers }) {
+  const address = [a.addressLine1, a.addressLine2, a.city, a.stateProvinceRegion, a.postalCode, a.country]
+    .filter(Boolean)
+    .join(", ");
+  const emergencyContactName = [a.emergencyContactFirstName, a.emergencyContactLastName]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <>
-      <p style={{ margin: "0 0 0.4rem", fontSize: "0.85rem" }}>
-        <strong>Email:</strong> {a.email || "—"}
-        {a.phone && (
-          <>
-            {" "}
-            · <strong>Phone:</strong> {a.phone}
-          </>
-        )}
-        {(a.addressLine1 || a.city) && (
-          <>
-            {" "}
-            · <strong>Address:</strong>{" "}
-            {[a.addressLine1, a.addressLine2, a.city, a.stateProvinceRegion, a.postalCode, a.country]
-              .filter(Boolean)
-              .join(", ")}
-          </>
-        )}
-        {(a.emergencyContactFirstName || a.emergencyContactPhone) && (
-          <>
-            {" "}
-            · <strong>Emergency contact:</strong>{" "}
-            {[
-              [a.emergencyContactFirstName, a.emergencyContactLastName].filter(Boolean).join(" "),
-              a.emergencyContactPhone,
-              a.emergencyContactEmail,
-            ]
-              .filter(Boolean)
-              .join(", ")}
-          </>
-        )}
-      </p>
+      <div className="form-grid">
+        <ViewField label="Email" value={a.email} />
+        <ViewField label="Phone" value={a.phone} />
+        <ViewField label="Address" value={address} />
+        <ViewField label="Emergency contact" value={emergencyContactName} />
+        <ViewField label="Emergency phone" value={a.emergencyContactPhone} />
+        <ViewField label="Emergency email" value={a.emergencyContactEmail} />
+      </div>
       {/* Only ever meaningful once this application has actually been
           declined -- `declinedReason` is cleared to null (not left
           undefined) for every other status, so checking truthiness alone
           would still show "(no reason given)" on a pending application
           that was never declined. */}
       {a.status === "declined" && (
-        <p style={{ margin: "0 0 0.4rem", fontSize: "0.85rem" }}>
-          <strong>Declined reason:</strong> {a.declinedReason || "(no reason given)"}
-        </p>
+        <div className="form-grid" style={{ marginTop: "0.75rem" }}>
+          <ViewField label="Declined reason" value={a.declinedReason || "(no reason given)"} />
+        </div>
       )}
+      <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Application questions</h4>
       {answers.length === 0 ? (
         <p style={{ color: "#888", fontSize: "0.85rem" }}>This trip has no application questions set.</p>
       ) : (
         <dl style={{ margin: 0 }}>
           {answers.map((q) => (
-            <div key={q.id} style={{ marginBottom: "0.4rem" }}>
-              <dt style={{ fontSize: "0.85rem", fontWeight: 600 }}>{q.label}</dt>
-              <dd style={{ margin: "0.1rem 0 0", fontSize: "0.85rem", color: "#333" }}>{q.answer}</dd>
+            <div key={q.id} style={{ marginBottom: "0.6rem" }}>
+              <dt style={{ fontSize: "0.75rem", color: "#888", fontWeight: 600 }}>{q.label}</dt>
+              <dd style={{ margin: "0.15rem 0 0", fontSize: "0.9rem" }}>{q.answer}</dd>
             </div>
           ))}
         </dl>
       )}
     </>
+  );
+}
+
+function ViewField({ label, value }) {
+  return (
+    <div>
+      <div style={{ fontSize: "0.75rem", color: "#888", fontWeight: 600 }}>{label}</div>
+      <div>{value || "—"}</div>
+    </div>
   );
 }
