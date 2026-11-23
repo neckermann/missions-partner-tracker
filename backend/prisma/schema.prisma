@@ -315,6 +315,14 @@ model TripParticipant {
   tripId String
   trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
+  // #310: lets a later re-check (e.g. PUT /api/trips/:id setting dates
+  // for the first time) tell "a meeting/requirement that existed when
+  // this participant joined, so sendLateJoinerCatchUpEmails already
+  // caught them up on it" apart from "one added since -- they're still
+  // owed a catch-up for this." Without it, re-running catch-up for every
+  // current participant would re-send for things they already got.
+  createdAt DateTime @default(now())
+
   // New participant/applicant records use split name fields (issue
   // #257's broader uplift is separate, later work) -- this model's own
   // first/last columns don't wait on that.
@@ -505,6 +513,8 @@ model TripMeeting {
   id             String    @id @default(uuid())
   tripId         String
   trip           Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  // #310: see TripParticipant.createdAt's own comment -- same reason.
+  createdAt      DateTime  @default(now())
   startAt        DateTime
   // Short, identifying name -- what shows as the email subject and
   // calendar-entry title. A real, distinct need from the "two unused
@@ -583,10 +593,12 @@ model TripMeetingRsvp {
 // real child model, not JSON -- TripDocument.requirementId needs an
 // actual foreign key for the fulfillment anti-join to work.
 model TripRequirement {
-  id     String @id @default(uuid())
-  tripId String
-  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  label  String
+  id        String   @id @default(uuid())
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  // #310: see TripParticipant.createdAt's own comment -- same reason.
+  createdAt DateTime @default(now())
+  label     String
 
   // "document" (fulfilled by an upload, the original behavior) |
   // "task" (fulfilled by an admin directly checking it off for a

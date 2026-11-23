@@ -113,6 +113,7 @@ CREATE TABLE "Trip" (
 CREATE TABLE "TripParticipant" (
     "id" TEXT NOT NULL,
     "tripId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "firstName" TEXT,
     "lastName" TEXT,
     "role" TEXT,
@@ -191,6 +192,7 @@ CREATE TABLE "TripApplication" (
 CREATE TABLE "TripMeeting" (
     "id" TEXT NOT NULL,
     "tripId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "startAt" TIMESTAMP(3) NOT NULL,
     "title" TEXT,
     "location" TEXT,
@@ -217,6 +219,7 @@ CREATE TABLE "TripMeetingRsvp" (
 CREATE TABLE "TripRequirement" (
     "id" TEXT NOT NULL,
     "tripId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "label" TEXT NOT NULL,
     "kind" TEXT NOT NULL DEFAULT 'document',
     "bodyText" TEXT,

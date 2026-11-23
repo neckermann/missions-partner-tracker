@@ -15,7 +15,11 @@ const {
 } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { generateShareToken } = require("../utils/tripAccessToken");
-const { sendTripDatesUpdateEmail } = require("../utils/tripEmails");
+const {
+  sendTripDatesUpdateEmail,
+  sendLateJoinerCatchUpEmails,
+  isTripHistorical,
+} = require("../utils/tripEmails");
 const { APPLICATION_QUESTION_SCHEMA } = require("../utils/applicationQuestions");
 const { sendStoredFile } = require("../utils/fileResponse");
 const { tripDocumentUpload } = require("../utils/upload");
@@ -458,11 +462,32 @@ router.put(
         });
       });
 
+      let datesUpdateEmail = null;
       if (datesChanged) {
-        await sendTripDatesUpdateEmail(updated);
+        datesUpdateEmail = await sendTripDatesUpdateEmail(updated);
+
+        // #310: setting dates (including for the first time) is also the
+        // first moment it's worth re-checking whether anyone currently on
+        // the roster is still owed a catch-up for a meeting/requirement
+        // that didn't exist yet when they originally joined -- a direct
+        // add or an approved application only ever runs catch-up once, at
+        // join time. `since: participant.createdAt` keeps this from
+        // re-sending for anything that already existed back then (which
+        // already went out via that original join-time call) -- only
+        // genuinely new-to-them content is in scope. tripInclude doesn't
+        // carry meetings (no other PUT /:id consumer needs them), so
+        // fetched narrowly here, only when this path actually runs.
+        if (!isTripHistorical(updated) && (updated.participants || []).length > 0) {
+          const meetings = await prisma.tripMeeting.findMany({ where: { tripId: req.params.id } });
+          for (const participant of updated.participants) {
+            await sendLateJoinerCatchUpEmails({ ...updated, meetings }, participant, {
+              since: participant.createdAt,
+            });
+          }
+        }
       }
 
-      res.json(updated);
+      res.json({ ...updated, datesUpdateEmail });
     } catch (err) {
       next(err);
     }
