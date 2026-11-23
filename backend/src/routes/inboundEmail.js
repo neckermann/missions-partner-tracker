@@ -127,19 +127,7 @@ router.post("/postmark", async (req, res, next) => {
       select: { id: true },
     });
 
-    // Trips (#252) -- when trips is on, TripParticipant.email also
-    // counts toward the match total. Tie-break rule: combined match
-    // count across both identity types, not a separate ambiguity check
-    // per type -- auto-file only when that combined total is exactly 1.
-    const tripsOn = isFeatureEnabled(settings.enabledFeatures, "trips");
-    const participantMatches = tripsOn
-      ? await prisma.tripParticipant.findMany({
-          where: { email: { equals: fromAddress, mode: "insensitive" } },
-          select: { id: true },
-        })
-      : [];
-
-    if (matches.length === 1 && participantMatches.length === 0) {
+    if (matches.length === 1) {
       const created = await prisma.partnerFile.create({
         data: {
           partnerId: matches[0].id,
@@ -161,29 +149,7 @@ router.post("/postmark", async (req, res, next) => {
       return res.status(200).json({ matched: true });
     }
 
-    if (matches.length === 0 && participantMatches.length === 1) {
-      await prisma.tripDocument.create({
-        data: {
-          tripId: (
-            await prisma.tripParticipant.findUnique({
-              where: { id: participantMatches[0].id },
-              select: { tripId: true },
-            })
-          ).tripId,
-          participantId: participantMatches[0].id,
-          title: subject,
-          fileName,
-          contentType: "message/rfc822",
-          fileSize: bytes.length,
-          bytesRow: { create: { bytes } },
-        },
-      });
-      return res.status(200).json({ matched: true });
-    }
-
-    // Zero matches, more than one match of either type, or exactly one
-    // of each (which would each individually look unambiguous in
-    // isolation) -- don't guess. Queue it.
+    // Zero matches or more than one -- don't guess. Queue it.
     await prisma.inboundEmail.create({
       data: { fromAddress, subject, fileName, bytesRow: { create: { bytes } } },
     });
@@ -203,9 +169,19 @@ router.use(requireFeature("inboundEmail"));
 // never selected here at all.
 const inboundEmailInclude = {};
 
-// GET /api/inbound-email -- the pending queue, newest first. No role
-// restriction beyond being logged in, same as GET /api/partner-files.
-router.get("/", async (req, res, next) => {
+// #329 Finding 1: this queue previously had no role restriction beyond
+// being logged in (same as GET /api/partner-files), which let a Trip
+// Leader scoped guest (role: "tripLeader") read the whole church's
+// unmatched-inbound-email queue -- every sender address and raw .eml,
+// across every partner and trip, not just their own. Unlike
+// partner-files/prayer-requests/etc, there's no sensible trip-scoped
+// version of "mail nobody could match yet" (that's the whole point of
+// this queue -- it isn't attached to a partner or trip at all), so this
+// excludes tripLeader entirely rather than scoping it, the same
+// requireRole("admin", "editor", "viewer") pattern GET /api/trips/planning
+// already uses for a route that should reach every full role but not the
+// scoped-guest tier.
+router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const records = await prisma.inboundEmail.findMany({
       ...inboundEmailInclude,
@@ -221,8 +197,10 @@ router.get("/", async (req, res, next) => {
 // deciding who it's from. Same sendStoredFile helper
 // partnerFiles.js's /:id/download uses; contentType is always
 // message/rfc822 here so it isn't a stored column (see the model
-// comment in schema.prisma).
-router.get("/:id/raw", async (req, res, next) => {
+// comment in schema.prisma). #329 Finding 1: same tripLeader exclusion as
+// GET / above -- the raw .eml is the same unmatched-queue data, just one
+// row at a time.
+router.get("/:id/raw", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const record = await prisma.inboundEmail.findUnique({
       where: { id: req.params.id },

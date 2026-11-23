@@ -5,7 +5,6 @@ import {
   fetchTripsSettings,
   generateSupportRaisingLink,
   resendParticipantAccessLink,
-  requestTripDocuments,
   uploadTripDocument,
   deleteTripDocument,
   setTripRequirementComplete,
@@ -56,7 +55,6 @@ export default function AdminTripParticipantDetail() {
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState("");
   const [manualAccessLink, setManualAccessLink] = useState(null); // { url } | null
-  const [docMessage, setDocMessage] = useState("");
   const [docFile, setDocFile] = useState(null);
   const [docRequirementChoice, setDocRequirementChoice] = useState("");
 
@@ -148,17 +146,6 @@ export default function AdminTripParticipantDetail() {
       setManualAccessLink(result?.manualUrl ? { url: result.manualUrl } : null);
     } catch (err) {
       reportError(err, "Couldn't resend the access link.");
-    }
-  }
-
-  async function handleRequestDocuments() {
-    if (!docMessage) return;
-    try {
-      await requestTripDocuments(tripId, participantId, docMessage);
-      setDocMessage("");
-      setError("");
-    } catch (err) {
-      reportError(err, "Couldn't send -- check that outbound and inbound email are configured.");
     }
   }
 
@@ -741,23 +728,6 @@ export default function AdminTripParticipantDetail() {
 
         {canWrite && (
           <>
-            <div style={{ marginTop: "0.75rem" }}>
-              <input
-                style={{ width: 260 }}
-                placeholder="Document request message"
-                value={docMessage}
-                onChange={(e) => setDocMessage(e.target.value)}
-              />
-              <button
-                type="button"
-                className="btn secondary small"
-                onClick={handleRequestDocuments}
-                style={{ marginLeft: "0.5rem" }}
-              >
-                Request documents
-              </button>
-            </div>
-
             <div style={{ marginTop: "0.5rem" }}>
               <input
                 type="file"

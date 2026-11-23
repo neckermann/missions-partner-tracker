@@ -82,7 +82,7 @@ const emailParticipantSelect = { id: true, email: true, accessTokenVersion: true
 //
 // attachments: [{ name, content (Buffer), contentType }] -- passed
 // straight through to Postmark's Attachments field (base64-encoded).
-async function sendParticipantEmail(participant, subject, content, { attachments, replyTo } = {}) {
+async function sendParticipantEmail(participant, subject, content, { attachments } = {}) {
   if (!participant.email) return { sent: false, reason: "no-email" };
   try {
     const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
@@ -100,7 +100,6 @@ async function sendParticipantEmail(participant, subject, content, { attachments
       subject: message.subject,
       text: message.text,
       html: message.html,
-      replyTo,
       attachments: attachments?.map((a) => ({
         Name: a.name,
         Content: a.content.toString("base64"),

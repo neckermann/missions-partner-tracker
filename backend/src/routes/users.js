@@ -270,7 +270,10 @@ router.put("/:id", async (req, res, next) => {
 // Recovery path for a user who lost their authenticator device — clears
 // MFA so they can log in with just their password and re-enroll from
 // Account Settings. Admins can't see or set the secret itself, only force
-// it off.
+// it off. (Doesn't apply to a tripLeader account: #329 Finding 2 made
+// MFA enrollment/disable fully admin-managed for that role, with no
+// self-service re-enroll -- an admin wanting MFA back on would need to
+// require it again via PUT /:id and let them re-enroll at next login.)
 //
 // Refuses to target the caller's own account, same guard as DELETE /:id
 // below. auth.js's self-service /mfa/disable deliberately requires

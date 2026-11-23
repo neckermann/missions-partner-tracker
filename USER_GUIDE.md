@@ -621,8 +621,10 @@ covered below.
 **A participant's own detail page** (click their name from Confirmed
 Team) is where their contact info gets corrected, their public
 support-raising page gets set up (photo, story), and their own
-requirement fulfillment and documents live. **Request documents**
-sends them an email asking for something specific.
+requirement fulfillment and documents live. A participant uploads
+their own requirement documents from their self-service page; an
+admin can also log one here directly for a document that arrived some
+other way.
 
 ![A participant's own detail page](docs/assets/screenshots/admin-trip-participant-detail.png)
 
@@ -1425,11 +1427,14 @@ the Scan for requests button.
 
 ### Your account settings
 
-**My Account** is where you manage your own login, regardless of role.
-You can change your password (current password required) and
-enable/disable two-factor authentication — enabling walks you through
-scanning a QR code and confirming a code; disabling requires your current
-password.
+**My Account** is where you manage your own login, for every role except
+Trip Leader. You can change your password (current password required)
+and enable/disable two-factor authentication — enabling walks you
+through scanning a QR code and confirming a code; disabling requires
+your current password. (A Trip Leader guest account has no "My Account"
+page and no self-service here at all — see
+[Understanding your role](#understanding-your-role); an admin manages
+that account's password and MFA from Manage Users instead.)
 
 If [Email (Sending)](#email-admin-only) is turned on for the church,
 there's also an **Email Dispatch** section here: a cadence (no
