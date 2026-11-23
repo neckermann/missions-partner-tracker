@@ -14,6 +14,15 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-23
+
+### Fixed
+- **Security:** a digest email's unsubscribe link could be replayed as a permanent, never-expiring admin session — it bypassed password and MFA entirely and survived a password change. The unsubscribe token is now rejected everywhere a real session is checked, and now expires after 90 days. If you've sent digest emails from an affected instance, rotate `SESSION_SECRET` as a precaution.
+- The booklet preview's "Restricted-access" checkbox only hid restricted missionaries, not restricted organizations — a restricted organization's full unmasked details printed regardless of the checkbox. Organizations are now filtered the same way.
+
+### Changed
+- Documentation and screenshots refreshed across SPEC.md, ARCHITECTURE.md, ADMIN_GUIDE.md, USER_GUIDE.md and the public docs site to reflect this session's changes (the Reports rebuild, the Add User and trip-application-review wizard pages, the settings-page consolidation). No functional changes.
+
 ## [0.2.0] - 2026-11-23
 
 Still pre-1.0: this is the first version number this project has
@@ -24,7 +33,7 @@ Everything below is the project's full feature set to date, not just
 what changed since some prior release.
 
 ### Changed
-- Reports rebuilt from scratch: a hub organized by question (Money, Partner care, Trips, Contacts, System) and nine reports — support summary, support changes, prayer requests, one-time needs, data completeness, trip fundraising, trip readiness, mailing list, users & access (admin only). Each has URL-backed filters, summary tiles, CSV download and print / save as PDF. No database migration.
+- Reports rebuilt from scratch: a hub organized by question (Money, Partner care, Partners & relationships, Upcoming, Trips, Coverage, Communication, Contacts, System) and sixteen reports — support summary, support changes, prayer requests, one-time needs, data completeness, partner roster & tenure, last heard from, families & key dates, trip fundraising, trip readiness, application funnel, language coverage, where we serve, dispatch health, mailing list, users & access (admin only). Each has URL-backed filters, summary tiles, charts, click-through summary tiles, CSV download and print / save as PDF. No database migration.
 - Saved report views (private or shared) and scheduled report emails (weekly/monthly/quarterly, sent to existing users, masked for restricted partners). **Requires a database migration** (`ReportSchedule`, `SavedReport`).
 - **Removed** the previous reports (birthdays, furlough, trip history, and the earlier support, needs and prayer exports). Bookmarked `/api/reports/<old-id>` URLs now return 404.
 

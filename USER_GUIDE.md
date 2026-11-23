@@ -95,15 +95,19 @@ email sending only),
 [feature toggle](ADMIN_GUIDE.md#feature-toggles) is on.
 
 **Settings**, an expandable group at the bottom of the
-sidebar, appears only for admins and holds **About Church**,
-[**Manage Users**](#user-management-admin-only), **Branding**,
-[**Enabled Features**](ADMIN_GUIDE.md#feature-toggles),
-[**Backups**](#database-backups-admin-only), and [**System
-Info**](#system-info-admin-only) up front, then two further sub-groups
+sidebar, appears only for admins and holds **About & Branding**
+(Church Info/address and branding together on one page — see [Church
+Settings](#church-settings-admin-only)),
+[**Manage Users**](#user-management-admin-only),
+[**Enabled Features**](ADMIN_GUIDE.md#feature-toggles), and **About
+App** ([system info](#system-info-admin-only) and
+[database backups](#database-backups-admin-only) together on one
+page) up front, then two further sub-groups
 that only appear once their own features are on:
 
 - **Communications** — [**Email**](#email-admin-only),
-  [**GroupMe**](#groupme-dispatch-admin-only), and
+  [**GroupMe**](#groupme-dispatch-admin-only),
+  [**WhatsApp**](#whatsapp-dispatch-admin-only), and
   [**Dispatch Settings**](#dispatch-settings-admin-only) (schedules,
   GroupMe's content-type mutes, the restricted-partner safety gate,
   digest appearance, and subscriber counts — the queue itself is
@@ -111,8 +115,7 @@ that only appear once their own features are on:
 - **Integrations** — [**AI Features**](#ai-features-admin-only) and
   [**Joshua Project**](#joshua-project-admin-only).
 
-See [Church Settings](#church-settings-admin-only) for About Church and
-Branding. The footer has **My Account**, a link back to the public
+The footer has **My Account**, a link back to the public
 site, and **Log out**.
 
 ![The Home dashboard's card grid, mirroring the sidebar](docs/assets/screenshots/admin-home.png)
@@ -173,13 +176,14 @@ those are person-specific.
 #### Editing a partner
 
 There's no single "edit form" holding the whole record — each section on
-a partner's **detail page** edits in place. Click that section's own
-**Edit**, the fields become editable right there, **Save** (or
-**Cancel**) without leaving the page. Every section saves only its own
-fields, so fixing a typo in the overview never touches anything else on
-the record.
+a partner's **detail page** edits on its own. Click that section (or a
+specific row's own **Edit**, for a list like Adults or Links), and a
+small popup opens with just that section's fields — **Save** (or
+**Close**) returns you to the same spot on the page, nothing else
+reloads. Every section saves only its own fields, so fixing a typo in
+the overview never touches anything else on the record.
 
-![A section's inline edit state on the partner detail page](docs/assets/screenshots/partner-edit-inline.png)
+![Editing one household adult's fields in a popup over the partner detail page](docs/assets/screenshots/partner-edit-inline.png)
 
 The page groups its sections to match what you'd actually open it to do,
 not just what topic they fall under:
@@ -474,10 +478,6 @@ each answering a different question:
 
 ![The Trips page's Existing Trips tab](docs/assets/screenshots/trip-history.png)
 
-<!-- SCREENSHOT NEEDED: trip-history.png should be retaken to show the
-current tabbed page, same as the equivalent flag in ADMIN_GUIDE.md.
-Tracked alongside #264/#266. -->
-
 - The **Existing Trips** tab is the filterable log of every trip — filter by status,
   type, year, team size. It opens showing **Active (not completed)**
   trips by default (planning, accepting applications, and closed-but-
@@ -521,20 +521,17 @@ Tracked alongside #264/#266. -->
 
 ![The Plan a Trip tab](docs/assets/screenshots/trip-opportunities.png)
 
-<!-- SCREENSHOT NEEDED: trip-opportunities.png should be retaken for
-the same reason as trip-history.png above. Tracked alongside #264/#266. -->
-
 **On a trip's own detail page**, beyond the basic setup fields (name,
 dates, team size, description, visible-on-public-discovery toggle, and
 **Collect parent/guardian info** for a trip that may have minors on
 it):
 
-![A trip's full detail page](docs/assets/screenshots/admin-trip-detail.png)
+![A trip's detail page: the Overview tab, with its setup fields](docs/assets/screenshots/admin-trip-detail.png)
 
-<!-- SCREENSHOT NEEDED: admin-trip-detail.png should be retaken -- same
-flag as ADMIN_GUIDE.md (Meetings title field/column, Trip-wide
-documents title input + file size, Contributions' new Online method).
-Tracked alongside #264/#266. -->
+The rest — team, requirements, meetings, budget, contributions,
+applications, flight itinerary — lives on that same page's other tabs
+(**Team**, **Meetings**, **Requirements**, **Financial**, **Flights**),
+covered below.
 
 - **Support-raising goal** shows a suggested per-person figure once a
   budget and a team size exist — always just a suggestion, never
@@ -591,8 +588,10 @@ Tracked alongside #264/#266. -->
   shown to applicants or participants.
 - **Contributions** is the giving ledger — who gave, how much, by
   Check/Cash/Online/Other, to whom it's credited.
-- **Applications awaiting review** — **Approve** or **Decline** each
-  one; a declined one can still be reconsidered later.
+- **Applications awaiting review** — click a row to open its own review
+  page, with the applicant's full answers already shown. **Approve or
+  Decline** there launches a short wizard (Decision, then Confirm); a
+  declined one can still be reconsidered later.
 - **Private application link** — a dedicated "Generate" button
   (appears only once **Allow staff to generate private application
   links** is on, under Settings → Trips Settings) creates a
@@ -753,43 +752,60 @@ prayer/support directory for your congregation.
 
 ### Reports
 
-Read-only views over data already in the tracker, for anyone who needs
-numbers rather than a record-by-record browse. Pick a report, set its
-filters, and click **Run report**; **Reset Filters** clears everything
-back to that report's defaults. Every report's results can be exported
-as **Download CSV** (a spreadsheet, same rows and columns as the screen)
-or **Print** (a clean paginated layout for handing to a meeting).
+A hub organized by the question you're actually asking, not a flat list
+of report names. **Reports** opens a page of groups — **Money**,
+**Partner care**, **Partners & relationships**, **Upcoming**, **Trips**,
+**Coverage**, **Communication**, **Contacts**, **System** — each showing
+the reports under it as a plain question ("What monthly support has the
+church committed, and to whom?", "Who is still missing a requirement
+before departure?"). Click a question to open that report.
 
-Prayer Requests, One-Time Needs, and Furlough each add a **Quick Range**
-dropdown next to their From/To date fields — pick **This Month**/**This
-Year**/**Last Year** (or, for Furlough, **This Year**/**Next Year**, since
-a furlough you're tracking is as likely to be upcoming as past) to fill
-in the date range in one click, or set From/To by hand for anything more
-specific.
+![The Reports hub, grouped by question](docs/assets/screenshots/reports-hub.png)
 
-| Report | Shows |
+Every report page works the same way: set its filters (each one is
+reflected in the URL, so a link to a filtered view can be bookmarked or
+shared), click **Run report**, and read the summary tiles above the
+table for the headline numbers before scanning rows — some tiles are
+themselves clickable, filtering the table to just that slice. Results
+export as **Download CSV** (same rows and columns as the screen) or
+**Print** (a clean paginated layout for handing to a meeting).
+
+![One report's own page, with filters, summary tiles, and a chart](docs/assets/screenshots/admin-report-detail.png)
+
+The current reports, by group:
+
+| Group | Reports |
 |---|---|
-| Upcoming Birthdays | Adults and children with a birthday, with the partner they belong to. Defaults to a full-year view (every month, in order); switch its **View** filter to **One month** for a single calendar month instead. No feature toggle gates this one — it's always available. |
-| Monthly Support | Every partner's current monthly support amount, as of its most recent entry — the same number [Monthly Support](#financial-support--one-time-needs) shows. |
-| One-Time Needs | One-time gift requests in a date range, with what was requested, what was approved, and what's still pending a decision. |
-| Prayer Requests | Prayer requests across every partner, filterable by category, status, and date range. |
-| Trip History | Mission trips across every missionary and organization, with dates, type, and team size — the same filters as the [Trips](#trips) page's own history view. |
-| Furlough | Missionaries currently on furlough or with an upcoming furlough on file, filterable by status (current/upcoming) and when the furlough starts. No feature toggle gates this one — furlough tracking is always available. |
+| Money | Support summary · Support changes |
+| Partner care | Prayer requests · One-time needs · Data completeness |
+| Partners & relationships | Partner roster & tenure · Last heard from |
+| Upcoming | Families & key dates |
+| Trips | Trip fundraising · Trip readiness · Application funnel |
+| Coverage | Language coverage · Where we serve |
+| Communication | Dispatch health |
+| Contacts | Mailing list |
+| System | Users & access (admin only) |
 
 A report tied to a feature that's turned off (see
 [ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles))
-simply doesn't appear in the picker — Upcoming Birthdays and Furlough are
-the two exceptions, since neither has a feature of its own to tie to.
+simply doesn't appear in the hub.
 
-![The Reports page, with the Prayer Requests report run](docs/assets/screenshots/reports-preview.png)
+**Saved views** on a report's own page let you save a set of filters by
+name — **private** (only you see it) or **shared** (everyone with access
+to Reports sees it) — and apply it again later with one click instead of
+re-setting every filter. An admin can turn any saved view into a
+**scheduled report email**: pick weekly, monthly, or quarterly, and it's
+emailed with that view's filters already applied to the recipients you
+choose, masked the same way the screen is for a restricted partner.
 
 ## Settings
 
 ### Church Settings (Admin only)
 
-One record controls the whole instance's branding, split across two pages
-under Settings — changes on either take effect immediately,
-everywhere, with no code changes needed:
+One record controls the whole instance's branding, on one **About &
+Branding** page under Settings, split into two sections — changes on
+either take effect immediately, everywhere, with no code changes
+needed:
 
 - **About Church** — Church Info: name, phone, contact name/email,
   website, and address. This is also what auto-fills "Sent by our church"
@@ -827,10 +843,25 @@ everywhere, with no code changes needed:
 ### User management (Admin only)
 
 **Manage Users** lists everyone with access — email, role, active status,
-MFA status, last login. **+ Add User** creates one: email, role, and a
-password (every account is email + password, per
-[Logging in](#logging-in) above). Editing lets you change role,
-deactivate, force MFA enrollment, or reset a password. **Reset MFA**
+MFA status, last login. **+ Add User** opens its own page: email, name,
+role (Admin, Editor, Viewer, or Trip Leader — pick a trip to scope a Trip
+Leader to), then how they'll get access — **Send a welcome email** (on
+by default) emails them a one-time "Choose your password" link so you
+never type or see their password; **Require two-factor authentication at
+first sign-in** can be turned on at the same time. If outbound email
+isn't set up, the setup link is shown right there on the page instead, to
+copy and send however you like. Turn the welcome email off to set a
+password yourself (or leave it blank and use **Send setup link** on their
+row in Manage Users later) — either way, every account is still email +
+password once set up, per [Logging in](#logging-in) above. A setup link
+expires after 72 hours (7 days for a Trip Leader); their account stays
+pending — visible in Manage Users, but unable to sign in — until a
+password is actually set.
+
+![The Add User page, with Basics and Account Setup steps](docs/assets/screenshots/add-user.png)
+
+Editing an existing user (from their row in Manage Users) lets you change
+role, deactivate, force MFA enrollment, or reset a password. **Reset MFA**
 clears a locked-out user's two-factor setup so they can log back in with
 just their password and re-enroll — for your own account, use **Disable
 Two-Factor Authentication** on [Your account settings](#your-account-settings)
@@ -845,36 +876,39 @@ one way back in.
 
 ### Database Backups (Admin only)
 
-**Backups**, under Settings, lets any admin download a full
-backup of everything in the database — every partner, user, and uploaded
-file — as a single file, on demand, with no setup required. Nothing is
-kept server-side; the download is the only copy, so save it somewhere
-safe right away. The file is unmasked and highly sensitive (restricted
+**Backups** is a section of the **About App** page under Settings
+(formerly its own nav item, now folded in alongside System Info below —
+same page, scroll down). Any admin can download a full backup of
+everything in the database — every partner, user, and uploaded file —
+as a single file, on demand, with no setup required. Nothing is kept
+server-side; the download is the only copy, so save it somewhere safe
+right away. The file is unmasked and highly sensitive (restricted
 partners' real data, password hashes, encrypted two-factor secrets) —
 treat it accordingly. Restoring one is a deliberate command-line step,
 not a button — see
 [ADMIN_GUIDE.md § Database backups](ADMIN_GUIDE.md#database-backups) for
 the full runbook.
 
-The same page also has a periodic reminder banner (asking you to confirm
-your database provider's own backups are working) with an explicit,
-permanent opt-out for a church that's already confirmed that elsewhere —
-checking that box requires a deliberate save, not just a casual dismiss.
+The same section also has a periodic reminder banner (asking you to
+confirm your database provider's own backups are working) with an
+explicit, permanent opt-out for a church that's already confirmed that
+elsewhere — checking that box requires a deliberate save, not just a
+casual dismiss.
 
-![The Backups page: a Back up now button and the opt-out for the periodic reminder](docs/assets/screenshots/backups-settings.png)
+![The Backups section of the About App page: a Back up now button and the opt-out for the periodic reminder](docs/assets/screenshots/backups-settings.png)
 
 ### System Info (Admin only)
 
-**System Info**, right below Backups, is a read-only page showing
-what's actually running on this instance: the app version (plus the
-same "update available" check the dashboard banner already does),
-Node.js/React/React DOM versions, the Postgres version and database
-size, and — when running on Render — the service name, git commit,
-and external URL. Useful for confirming what you're on before filing
-a bug, without needing shell access. Never shows a connection string
-or any credential.
+**System Info** is the top section of the same **About App** page
+(Settings → About App) — a read-only view of what's actually running on
+this instance: the app version (plus the same "update available" check
+the dashboard banner already does), Node.js/React/React DOM versions,
+the Postgres version and database size, and — when running on Render —
+the service name, git commit, and external URL. Useful for confirming
+what you're on before filing a bug, without needing shell access. Never
+shows a connection string or any credential.
 
-![The System Info page: app, runtime, database, and deployment details](docs/assets/screenshots/system-info.png)
+![The top of the About App page: app, runtime, database, and deployment details](docs/assets/screenshots/system-info.png)
 
 ## Communications
 
@@ -1021,7 +1055,7 @@ that newsletter instead of repeated separately. There's no manual
 go out right away, check **urgent** on it when you create it instead,
 see [Marking something urgent](#marking-something-urgent).
 
-![The Pending Dispatches page: a regular partner's prayer requests and one-time needs (new and answered/decided), grouped with a restricted partner's already-reviewed items below](docs/assets/screenshots/pending-notifications.png)
+![The Pending Dispatches page: a regular partner's prayer requests and one-time needs (new and answered/decided), grouped with a restricted partner's already-reviewed items below](docs/assets/screenshots/pending-dispatches.png)
 
 A queued item only clears once every currently-enabled channel has
 actually sent it — if GroupMe is down but email goes out fine, that item
@@ -1140,7 +1174,7 @@ type — nothing to hold, nothing to review, because nothing's queued.
 Turning it on takes on that review responsibility in exchange for
 restricted partners' content reaching every channel like anyone else's.
 
-![The Dispatch Settings page: subscriber counts, the Restricted Partners gate, digest customization, email schedule, and the GroupMe/WhatsApp chat schedule](docs/assets/screenshots/notifications-settings.png)
+![The Dispatch Settings page: subscriber counts, the Restricted Partners gate, digest customization, email schedule, and the GroupMe/WhatsApp chat schedule](docs/assets/screenshots/dispatch-settings.png)
 
 #### Email Dispatch Customization
 

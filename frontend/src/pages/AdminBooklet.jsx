@@ -594,7 +594,11 @@ export default function AdminBooklet() {
       const restrictedOk = !m.isRestricted || includeRestricted;
       return archivedOk && restrictedOk;
     });
-    const includedOrgs = organizations.filter((o) => !o.archived || includeArchived);
+    const includedOrgs = organizations.filter((o) => {
+      const archivedOk = !o.archived || includeArchived;
+      const restrictedOk = !o.isRestricted || includeRestricted;
+      return archivedOk && restrictedOk;
+    });
     return buildBookletHtml({
       missionaries: filtered,
       organizations: includedOrgs,
