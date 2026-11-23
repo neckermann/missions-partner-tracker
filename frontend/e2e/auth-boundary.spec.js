@@ -116,19 +116,25 @@ test.describe("user management", () => {
     const email = `e2e-managed-${Date.now()}@example.test`;
     await page.goto("/admin/settings/users");
     await page.getByRole("button", { name: "+ Add User" }).click();
-    // Password is optional on create now (the default is a welcome-email
-    // link instead) -- this test only exercises create/edit-role/delete
-    // through the admin UI, never signs in as the user it creates, so it
-    // doesn't need one. Leaving "Send a welcome email" at its own default
-    // (checked) means never touching that checkbox at all, which also
-    // sidesteps getByLabel("Email") colliding with its label text ("Send a
-    // welcome email so they...") -- exact: true here isn't just tidy, it's
-    // required once that checkbox is on the page.
+    // Create is a 2-step Wizard (Basics, then Account Setup) -- see
+    // AdminUsers.jsx's own header comment for why. "Send a welcome email"
+    // lives on the second step, so it's never on screen at the same time
+    // as this step's Email field; exact: true is kept anyway since it's
+    // cheap and still correct. Password is optional on create (the default
+    // is a welcome-email link instead) -- this test only exercises
+    // create/edit-role/delete through the admin UI, never signs in as the
+    // user it creates, so leaving every Account Setup default as-is and
+    // just finishing the wizard is enough.
     await page.getByLabel("Email", { exact: true }).fill(email);
     await page.getByLabel("First Name").fill("Managed");
     await page.getByLabel("Last Name").fill("User");
     await page.getByLabel("Role").selectOption("viewer");
-    await page.click('.modal-panel button[type="submit"]');
+    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Finish" }).click();
+    // outboundEmail is off by default (CI never turns it on globally), so
+    // the wizard's own last step is a manual setup link, not an immediate
+    // close -- "Done" dismisses it. See AdminUsers.jsx's handleCreateFinish.
+    await page.getByRole("button", { name: "Done" }).click();
     await expect(page.locator(".modal-panel")).toHaveCount(0);
 
     const row = page.locator("tr", { hasText: email });
