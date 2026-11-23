@@ -116,16 +116,18 @@ test.describe("user management", () => {
     const email = `e2e-managed-${Date.now()}@example.test`;
     await page.goto("/admin/settings/users");
     await page.getByRole("button", { name: "+ Add User" }).click();
-    // Uncheck the welcome-email default so the admin-typed-password field
-    // (this test's whole point) actually renders -- the checkbox's own
-    // label text ("Send a welcome email so they...") is also why plain
-    // getByLabel("Email") below needs exact: true, not just this field.
-    await page.getByLabel("Send a welcome email", { exact: false }).uncheck();
+    // Password is optional on create now (the default is a welcome-email
+    // link instead) -- this test only exercises create/edit-role/delete
+    // through the admin UI, never signs in as the user it creates, so it
+    // doesn't need one. Leaving "Send a welcome email" at its own default
+    // (checked) means never touching that checkbox at all, which also
+    // sidesteps getByLabel("Email") colliding with its label text ("Send a
+    // welcome email so they...") -- exact: true here isn't just tidy, it's
+    // required once that checkbox is on the page.
     await page.getByLabel("Email", { exact: true }).fill(email);
     await page.getByLabel("First Name").fill("Managed");
     await page.getByLabel("Last Name").fill("User");
     await page.getByLabel("Role").selectOption("viewer");
-    await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
     await page.click('.modal-panel button[type="submit"]');
     await expect(page.locator(".modal-panel")).toHaveCount(0);
 
