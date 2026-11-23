@@ -4,7 +4,7 @@ const SEARCH_DEBOUNCE_MS = 250;
 
 // Generic filter-bar shell, resource-agnostic -- a resource page supplies
 // a `fields` array ({ name, label, type, options?, showWhen? }, the exact
-// contract backend/src/reports/index.js's listReports() already returns)
+// contract backend/src/reporting/registry.js's listReports() (each report's `fields`) already returns)
 // plus its current `values` and an `onChange(name, value)` -- typically
 // backed by hooks/useFilterState.js, which owns syncing those values to
 // the URL query string.

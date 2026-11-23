@@ -94,7 +94,7 @@ const FEATURES = {
   reports: {
     label: "Reports",
     description:
-      "Read-only reports over existing data — birthdays, monthly support, one-time needs, prayer requests, trip history, furlough — with CSV download and a print view.",
+      "Read-only reports over existing data — committed support, prayer requests, one-time needs, data completeness, trip fundraising and readiness, mailing list — with CSV download and a print view.",
     defaultEnabled: true,
     group: "admin",
   },
