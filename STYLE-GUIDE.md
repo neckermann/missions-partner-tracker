@@ -83,6 +83,19 @@ per page) — those are gone, not alternatives.
   groups: Basics / Details / Visibility & status) was the one genuine
   case. Use the same bar for a new resource: short and single-topic
   stays a form, long and multi-topic becomes a `Wizard`.
+  **A `Wizard` always renders as its own dedicated page** (breadcrumb,
+  `<h2>` title, `admin-section` wrapping the `Wizard`, Cancel/Next/
+  Finish pinned to the viewport bottom) — never inside a `Modal`. Two
+  flows shipped as a popup `Modal` first and were corrected in review
+  for exactly this mismatch before this rule was written down: Add
+  User (`AdminUserForm.jsx`, "/admin/settings/users/new") and the trip
+  application approval flow (`AdminTripApplicationDetail.jsx`,
+  "/admin/trips/:tripId/applications/:applicationId") — both now match
+  `AdminPartnerForm.jsx`'s original "New Partner" shape. If a flow
+  needs more than view-only confirmation after the `Wizard` finishes
+  (e.g. a manual send-link fallback), that result replaces the
+  `Wizard` in the same `admin-section`, with its own "Done" button —
+  see any of the three pages above for the pattern.
 - **Confirmations**: `useConfirmDialog` (`frontend/src/hooks/useConfirmDialog.jsx`),
   never `window.confirm`/`prompt`/`alert`. See
   [CONTRIBUTING.md § Code style](CONTRIBUTING.md#code-style) for the

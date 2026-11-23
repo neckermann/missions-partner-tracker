@@ -70,7 +70,7 @@ test.describe("Trip Team tab: Table + Modal", () => {
     await expect(confirmedTeamSection.locator(".admin-table")).toContainText(uniqueName);
   });
 
-  test("reviews a pending application via the row-click Modal", async ({ page }) => {
+  test("reviews a pending application via its own detail page", async ({ page }) => {
     await login(page);
     // The plain id-addressed /apply route 404s unless the trip is public
     // AND the publicTripDiscovery feature is on -- the latter is
@@ -97,19 +97,26 @@ test.describe("Trip Team tab: Table + Modal", () => {
     await expect(row).toBeVisible();
     await row.click();
 
-    await expect(page.locator(".modal-panel")).toContainText(uniqueEmail);
-    // Approve now opens its own 2-step Wizard (Review, then Confirm &
-    // Notify) -- same shell as every other Wizard in the app -- showing
-    // what approving is about to do before actually doing it.
-    await page.locator(".modal-panel button", { hasText: "Approve" }).click();
-    await page.locator(".modal-panel button", { hasText: "Next" }).click();
-    await page.locator(".modal-panel button", { hasText: "Finish" }).click();
+    // Row click navigates to the application's own detail page
+    // (AdminTripApplicationDetail.jsx) -- not a Modal. A popup-modal
+    // version of this previously shipped and was corrected in review,
+    // same reasoning as AdminUserForm.jsx's "New Partner"-shaped page.
+    await page.waitForURL(/\/admin\/trips\/[^/]+\/applications\/[^/]+$/);
+    await expect(page.locator("body")).toContainText(uniqueEmail);
+    // "Review" opens one Wizard that handles both outcomes -- Review, then
+    // Decision (Approve/Decline), then Confirm -- same shell as every
+    // other Wizard in the app, showing what the decision is about to do
+    // before actually doing it.
+    await page.getByRole("button", { name: "Review" }).click();
+    await page.getByRole("button", { name: "Next" }).click(); // Review -> Decision
+    await page.getByLabel("Approve").check();
+    await page.getByRole("button", { name: "Next" }).click(); // Decision -> Confirm
+    await page.getByRole("button", { name: "Finish" }).click();
     // outboundEmail is off by default (CI never turns it on globally), so
-    // finishing lands on the manual-link step, not an immediate
-    // navigation -- "Done" dismisses it. See AdminTripTeam.jsx's
-    // handleApprove.
-    await page.locator(".modal-panel button", { hasText: "Done" }).click();
-    await expect(page.locator(".modal-panel")).toHaveCount(0);
+    // finishing lands on the manual-link end page, not an immediate
+    // navigation -- "Done" dismisses it. See
+    // AdminTripApplicationDetail.jsx's handleFinish.
+    await page.getByRole("button", { name: "Done" }).click();
 
     // Approving navigates straight to the new participant's own detail page
     // (same behavior as before this migration, unchanged).
