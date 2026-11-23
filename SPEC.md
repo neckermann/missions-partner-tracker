@@ -345,9 +345,13 @@ Leader a scoped-trip picker + optional access-expiry date).
   (previously two near-identical standalone pages, each its own route;
   now one page/route with both sections).
 - `PartnerSelect`, `AddressFields`, `SendingPartySection`,
-  `PresetOrCustomSelect`, `AlbumLinkField`, `SourcePicker`/`SourceLink` —
-  reusable form building blocks shared across the partner-detail sections
-  and the Trip/Monthly-Support/Prayer-Request/One-Time-Need pages.
+  `PresetOrCustomSelect`, `AlbumLinkField`, `SourcePicker`/`SourceLink`,
+  `TripSelect` — reusable form building blocks shared across the
+  partner-detail sections and the Trip/Monthly-Support/Prayer-Request/
+  One-Time-Need pages. `TripSelect` (added for `AdminTripContributions`,
+  #272) is the cross-trip counterpart to `PartnerSelect` — a plain
+  `<select>` over every trip, grouped by status, for a page that isn't
+  already scoped to one trip the way `TripDetailLayout` is.
 - `ExtractionReviewModal` — the AI-scan review flow (accept/edit/reject
   each suggested request/need before it's created).
 - `DispatchReviewModal` / `ApproveRestrictedTextConfirmBody` /

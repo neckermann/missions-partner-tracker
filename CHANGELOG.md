@@ -14,6 +14,9 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Added
+- A dedicated **Log Contributions** page (Trips → Log Contributions) lets an admin/editor log a trip contribution for any trip and any team member from one place, instead of navigating into each trip's own Financial tab one at a time — built for working through a stack of checks for several trips/people in one sitting. Same backend endpoint and data shape as the existing per-trip form; the Trip selector stays sticky after each save, and a running "Logged this session" list shows what's been entered so far. Only reachable when Trip budgeting (Settings → Trips) is turned on, same as the per-trip Financial tab it complements. (#272)
+
 ### Removed
 - The trip "document request" feature (an admin emailing a participant asking for a file, with their reply routed back via Reply-To and filed as a `TripDocument`) is removed. This is a deliberate simplification, not a bug fix: it duplicated something better that already existed — adding a document-kind `TripRequirement` already emails the participant proactively, and their own self-service trip page already has a real upload control for it. Self-service upload via the participant's own trip page remains the way to collect trip documents; an admin can still log one manually on a participant's detail page for a document that arrived some other way.
 

@@ -1185,7 +1185,13 @@ editor — is on the other tabs shown above (**Team**, **Meetings**,
   church's own configured online-giving link, see Giving & budget
   below), date received. Donor email/phone are optional fields here
   too, shown only when **Collect donor email/phone when logging a
-  contribution** is on in Trips Settings.
+  contribution** is on in Trips Settings. For logging several
+  contributions across different trips/team members in one sitting —
+  a stack of checks that just came in, say — **Trips → Log
+  Contributions** does the same thing from one page with a Trip and
+  Team member selector up front, instead of opening each trip
+  individually; it stays on the page after each save so the next one
+  can be logged right away.
 - **Applications awaiting review** — click a row to open that
   application's own page, with the applicant's full answers already
   visible (mailing address, emergency contact, and date of birth/
