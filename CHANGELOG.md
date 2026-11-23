@@ -15,7 +15,8 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 ## [Unreleased]
 
 ### Added
-- A partner's detail page now has a **Last Prayed w/ Congregation** field, recording the last time the whole congregation prayed for that partner together — distinct from any individual prayer request's own answer. **Mark Prayed Today** sets it to today in one click; the field can also be edited directly to backdate it. **Requires a database migration** (`Partner.lastPrayedWithCongregationAt`). (#228)
+- A partner's detail page now has a **Last Prayed For in a Service** field, recording the last time the whole congregation prayed for that partner together during a worship service or special church event — distinct from any individual prayer request's own answer. **Mark Prayed Today** sets it to today in one click; the field can also be edited directly to backdate it. A caption on the field spells out the distinction from an individual prayer request. **Requires a database migration** (`Partner.lastPrayedWithCongregationAt`). (#228)
+- The **Last heard from** report now has a **Last prayed w/ congregation** column alongside last newsletter, last photo, last prayer request, and last church visit — one more connectedness signal. The seed script also now populates the field for a realistic fraction of seeded partners, rather than leaving it always empty. (#228 follow-up)
 
 ### Changed
 - Booklet templates rebuilt as a small, data-driven catalog (`frontend/src/booklet/templates.js`), mirroring the registry/definitions split the Reports rebuild established — a template is now a token set consumed by one shared `booklet.css`, not a hand-duplicated ~150-line CSS block per template. The picker now offers exactly two templates, Classic and Modern (ported onto the new system, unchanged in look); Traditional, Keepsake, Portfolio and Friendly are removed. Their CSS can be re-added onto the new token system in a follow-up if wanted.

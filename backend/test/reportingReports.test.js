@@ -145,6 +145,7 @@ test("last heard from flags partners with no newsletter or an old one", () => {
     photos: [],
     prayerRequests: [],
     churchVisits: [],
+    lastPrayedWithCongregationAt: null,
   });
   const out = run("last-heard-from", {}, [
     p("Fresh", ["2026-11-01"]),
@@ -155,6 +156,43 @@ test("last heard from flags partners with no newsletter or an old one", () => {
     out.rows.map((r) => r.partnerName),
     ["Never", "Old"]
   );
+});
+
+test("last heard from reports the last-prayed-with-congregation date, or null when it's never been recorded", () => {
+  const p = (name, lastPrayedWithCongregationAt) => ({
+    displayName: name,
+    isRestricted: false,
+    files: [],
+    photos: [],
+    prayerRequests: [],
+    churchVisits: [],
+    lastPrayedWithCongregationAt,
+  });
+  const out = run("last-heard-from", {}, [p("A", day("2026-10-01")), p("B", null)]);
+  assert.strictEqual(out.rows.find((r) => r.partnerName === "A").lastPrayedWithCongregation, "2026-10-01");
+  assert.strictEqual(out.rows.find((r) => r.partnerName === "B").lastPrayedWithCongregation, null);
+});
+
+test("last heard from's lastPrayedWithCongregation column is masked the same way as its other date columns -- not blanked for a restricted partner, only the name is", () => {
+  const r = getReport("last-heard-from", all);
+  const rows = [
+    {
+      partnerName: "Mary Lou Green",
+      newsletter: "2026-10-01",
+      photo: "2026-10-01",
+      prayer: "2026-10-01",
+      visit: "2026-10-01",
+      lastPrayedWithCongregation: "2026-10-01",
+      _restricted: true,
+    },
+  ];
+  const shared = applyMasking(rows, r.columns, "shared")[0];
+  assert.strictEqual(shared.partnerName, "M.L.G.");
+  // None of this report's date columns are marked `sensitive` -- restricted
+  // partners still have their name reduced to initials, but these dates
+  // pass through unchanged, same as every other column here.
+  assert.strictEqual(shared.newsletter, "2026-10-01");
+  assert.strictEqual(shared.lastPrayedWithCongregation, "2026-10-01");
 });
 
 test("dispatch health and application funnel summarize correctly", () => {

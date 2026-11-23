@@ -276,6 +276,7 @@ const lastHeardFrom = {
     { key: "photo", label: "Last photo", type: "date" },
     { key: "prayer", label: "Last prayer request", type: "date" },
     { key: "visit", label: "Last church visit", type: "date" },
+    { key: "lastPrayedWithCongregation", label: "Last prayed w/ congregation", type: "date" },
   ],
   fetch: (params, { prisma }) =>
     prisma.partner.findMany({
@@ -283,6 +284,7 @@ const lastHeardFrom = {
       select: {
         displayName: true,
         isRestricted: true,
+        lastPrayedWithCongregationAt: true,
         files: { where: { kind: "newsletter" }, select: { receivedDate: true } },
         photos: { select: { receivedDate: true } },
         prayerRequests: { select: { dateReceived: true } },
@@ -305,6 +307,7 @@ const lastHeardFrom = {
         photo: ymd(latest(p.photos, "receivedDate")),
         prayer: ymd(latest(p.prayerRequests, "dateReceived")),
         visit: ymd(latest(p.churchVisits, "visitDate")),
+        lastPrayedWithCongregation: ymd(p.lastPrayedWithCongregationAt),
         _restricted: p.isRestricted,
       });
     }

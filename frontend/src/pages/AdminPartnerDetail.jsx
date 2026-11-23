@@ -1569,46 +1569,6 @@ export default function AdminPartnerDetail() {
           <h2 className="admin-group-heading">Communication</h2>
 
           {enabledFeatures.prayerRequests && (
-            <EditableSection
-              title="Last Prayed w/ Congregation"
-              canEdit={canEdit}
-              onSaved={reload}
-              onSave={(d) =>
-                save({ lastPrayedWithCongregationAt: dateOrNull(d.lastPrayedWithCongregationAt) })
-              }
-              value={{ lastPrayedWithCongregationAt: toDateInputValue(p.lastPrayedWithCongregationAt) }}
-              view={(v) => (
-                <Field
-                  label="Last Prayed w/ Congregation"
-                  value={formatDateLong(v.lastPrayedWithCongregationAt, { fallback: "Never" })}
-                  showEmpty
-                />
-              )}
-              edit={(d, set) => (
-                <label>
-                  Last Prayed w/ Congregation
-                  <input
-                    type="date"
-                    value={d.lastPrayedWithCongregationAt}
-                    onChange={(e) => set("lastPrayedWithCongregationAt", e.target.value)}
-                  />
-                </label>
-              )}
-              actions={
-                canEdit ? (
-                  <button
-                    type="button"
-                    className="btn secondary small"
-                    onClick={markPrayedWithCongregationToday}
-                  >
-                    Mark Prayed Today
-                  </button>
-                ) : null
-              }
-            />
-          )}
-
-          {enabledFeatures.prayerRequests && (
             <PartnerSummaryCard
               icon="🙏"
               title="Prayer Requests"
@@ -1639,6 +1599,58 @@ export default function AdminPartnerDetail() {
               onShowMore={filesLoadMore.showMore}
               viewAllTo={`/admin/partner-files?partnerId=${p.id}`}
               actions={canEdit ? [{ label: "+ Upload", onClick: openUploadFile }] : []}
+            />
+          )}
+
+          {enabledFeatures.prayerRequests && (
+            <EditableSection
+              title="Last Prayed For in a Service"
+              canEdit={canEdit}
+              onSaved={reload}
+              onSave={(d) =>
+                save({ lastPrayedWithCongregationAt: dateOrNull(d.lastPrayedWithCongregationAt) })
+              }
+              value={{ lastPrayedWithCongregationAt: toDateInputValue(p.lastPrayedWithCongregationAt) }}
+              view={(v) => (
+                <>
+                  <Field
+                    label="Last Prayed For in a Service"
+                    value={formatDateLong(v.lastPrayedWithCongregationAt, { fallback: "Never" })}
+                    showEmpty
+                  />
+                  <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                    Corporate prayer during a worship service or special church event — not an individual
+                    prayer request (see Prayer Requests above).
+                  </p>
+                </>
+              )}
+              edit={(d, set) => (
+                <>
+                  <label>
+                    Last Prayed For in a Service
+                    <input
+                      type="date"
+                      value={d.lastPrayedWithCongregationAt}
+                      onChange={(e) => set("lastPrayedWithCongregationAt", e.target.value)}
+                    />
+                  </label>
+                  <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                    Corporate prayer during a worship service or special church event — not an individual
+                    prayer request.
+                  </p>
+                </>
+              )}
+              actions={
+                canEdit ? (
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    onClick={markPrayedWithCongregationToday}
+                  >
+                    Mark Prayed Today
+                  </button>
+                ) : null
+              }
             />
           )}
 

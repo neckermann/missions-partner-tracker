@@ -2933,6 +2933,9 @@ async function main() {
         focusArea: `Primary focus: ${focusList.join(", ")}.`,
         supportingSince: new Date(year, 0, 1),
         anniversary: isFamily ? dateBetween(35, 5) : null,
+        // Not every partner has had this recorded -- leave a meaningful
+        // fraction "Never" rather than always filling it in.
+        lastPrayedWithCongregationAt: chance(0.6) ? dateBetween(1, 0) : null,
         languages: { create: buildLanguages() },
         tripTeamSizeMin: chance(0.7) ? randInt(2, 6) : null,
         tripTeamSizeMax: chance(0.7) ? randInt(8, 15) : null,
@@ -3076,6 +3079,9 @@ async function main() {
         overviewShort,
         focusArea: `Primary focus: ${focusList.join(", ")}.`,
         supportingSince: new Date(year, 0, 1),
+        // Not every partner has had this recorded -- leave a meaningful
+        // fraction "Never" rather than always filling it in.
+        lastPrayedWithCongregationAt: chance(0.6) ? dateBetween(1, 0) : null,
         contactFirstName: pick(FIRST_M.concat(FIRST_F)),
         contactLastName: pick(LAST),
         contactPhone: fakePhone(),
