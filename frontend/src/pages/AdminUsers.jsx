@@ -136,11 +136,24 @@ export default function AdminUsers() {
 
   async function openEdit(u) {
     setFormError("");
-    setEditingUser({ id: u.id, form: emptyForm }); // show the modal immediately, loading state implicit
+    // `loaded: false` keeps the modal's real, interactive form from
+    // rendering at all until fetchUser resolves -- this used to render
+    // the form immediately against `emptyForm` as a loading stand-in, but
+    // emptyForm is a real, editable form, not an inert placeholder: a
+    // change made in that window (role, name, ...) was silently
+    // overwritten the moment the fetch below landed and replaced the
+    // whole form with the server's own data, discarding whatever was just
+    // typed/selected with no error or indication anything was lost. Confirmed
+    // as the actual cause of this suite's own "edit sticks" test going
+    // flaky in CI (never locally, where the fetch resolves long before a
+    // person or Playwright could react) -- not a timing issue to paper
+    // over in the test, a real bug any slow connection could hit.
+    setEditingUser({ id: u.id, form: emptyForm, loaded: false });
     try {
       const full = await fetchUser(u.id);
       setEditingUser({
         id: u.id,
+        loaded: true,
         form: {
           ...emptyForm,
           ...full,
@@ -280,107 +293,118 @@ export default function AdminUsers() {
       />
 
       {editingUser && (
-        <QuickActionModal title="Edit User" onClose={() => setEditingUser(null)} onSubmit={handleSaveUser}>
-          <div className="form-grid">
-            <label>
-              Email
-              <input type="email" value={editingUser.form.email} disabled required />
-            </label>
-            <label>
-              First Name
-              <input
-                value={editingUser.form.firstName || ""}
-                onChange={(e) => updateForm("firstName", e.target.value)}
-              />
-            </label>
-            <label>
-              Last Name
-              <input
-                value={editingUser.form.lastName || ""}
-                onChange={(e) => updateForm("lastName", e.target.value)}
-              />
-            </label>
-            <label>
-              Role
-              <select value={editingUser.form.role} onChange={(e) => updateForm("role", e.target.value)}>
-                <option value="admin">Admin</option>
-                <option value="editor">Editor</option>
-                <option value="viewer">Viewer</option>
-                <option value="tripLeader">Trip Leader (scoped guest)</option>
-              </select>
-            </label>
-          </div>
+        <QuickActionModal
+          title="Edit User"
+          onClose={() => setEditingUser(null)}
+          onSubmit={handleSaveUser}
+          submitDisabled={!editingUser.loaded}
+        >
+          {!editingUser.loaded ? (
+            <p style={{ color: "#888" }}>Loading…</p>
+          ) : (
+            <>
+              <div className="form-grid">
+                <label>
+                  Email
+                  <input type="email" value={editingUser.form.email} disabled required />
+                </label>
+                <label>
+                  First Name
+                  <input
+                    value={editingUser.form.firstName || ""}
+                    onChange={(e) => updateForm("firstName", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Last Name
+                  <input
+                    value={editingUser.form.lastName || ""}
+                    onChange={(e) => updateForm("lastName", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Role
+                  <select value={editingUser.form.role} onChange={(e) => updateForm("role", e.target.value)}>
+                    <option value="admin">Admin</option>
+                    <option value="editor">Editor</option>
+                    <option value="viewer">Viewer</option>
+                    <option value="tripLeader">Trip Leader (scoped guest)</option>
+                  </select>
+                </label>
+              </div>
 
-          {editingUser.form.role === "tripLeader" && (
-            <div className="form-grid" style={{ marginTop: "1rem" }}>
-              <label>
-                Trip
-                <select
-                  value={editingUser.form.scopedTripId}
-                  onChange={(e) => updateForm("scopedTripId", e.target.value)}
-                  required
-                >
-                  <option value="">Choose a trip…</option>
-                  {trips.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {[t.partner?.displayName, t.name || t.type, t.startDate?.slice(0, 10)]
-                        .filter(Boolean)
-                        .join(" — ")}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Access expires (optional)
+              {editingUser.form.role === "tripLeader" && (
+                <div className="form-grid" style={{ marginTop: "1rem" }}>
+                  <label>
+                    Trip
+                    <select
+                      value={editingUser.form.scopedTripId}
+                      onChange={(e) => updateForm("scopedTripId", e.target.value)}
+                      required
+                    >
+                      <option value="">Choose a trip…</option>
+                      {trips.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {[t.partner?.displayName, t.name || t.type, t.startDate?.slice(0, 10)]
+                            .filter(Boolean)
+                            .join(" — ")}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Access expires (optional)
+                    <input
+                      type="date"
+                      value={editingUser.form.expiresAt}
+                      onChange={(e) => updateForm("expiresAt", e.target.value)}
+                    />
+                  </label>
+                </div>
+              )}
+              {editingUser.form.role === "tripLeader" && (
+                <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
+                  A scoped guest login: read/write access to this one trip's own content and a read-only look
+                  at its linked partner, nothing else in the app.
+                </p>
+              )}
+
+              <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={editingUser.form.active}
+                    onChange={(e) => updateForm("active", e.target.checked)}
+                  />
+                  Active
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={editingUser.form.mfaSetupRequired}
+                    onChange={(e) => updateForm("mfaSetupRequired", e.target.checked)}
+                  />
+                  Require Two-Factor Authentication
+                </label>
+              </div>
+              {editingUser.form.mfaEnabled && (
+                <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
+                  This user already has two-factor authentication enabled. Use "Reset MFA" on their row if
+                  they need to re-enroll.
+                </p>
+              )}
+
+              <label style={{ marginTop: "1rem" }}>
+                Reset Password (leave blank to keep current)
                 <input
-                  type="date"
-                  value={editingUser.form.expiresAt}
-                  onChange={(e) => updateForm("expiresAt", e.target.value)}
+                  type="password"
+                  value={editingUser.form.password}
+                  onChange={(e) => updateForm("password", e.target.value)}
+                  minLength={8}
                 />
               </label>
-            </div>
+            </>
           )}
-          {editingUser.form.role === "tripLeader" && (
-            <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
-              A scoped guest login: read/write access to this one trip's own content and a read-only look at
-              its linked partner, nothing else in the app.
-            </p>
-          )}
-
-          <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={editingUser.form.active}
-                onChange={(e) => updateForm("active", e.target.checked)}
-              />
-              Active
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={editingUser.form.mfaSetupRequired}
-                onChange={(e) => updateForm("mfaSetupRequired", e.target.checked)}
-              />
-              Require Two-Factor Authentication
-            </label>
-          </div>
-          {editingUser.form.mfaEnabled && (
-            <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
-              This user already has two-factor authentication enabled. Use "Reset MFA" on their row if they
-              need to re-enroll.
-            </p>
-          )}
-
-          <label style={{ marginTop: "1rem" }}>
-            Reset Password (leave blank to keep current)
-            <input
-              type="password"
-              value={editingUser.form.password}
-              onChange={(e) => updateForm("password", e.target.value)}
-              minLength={8}
-            />
-          </label>
 
           {formError && (
             <p className="form-error" role="alert">
