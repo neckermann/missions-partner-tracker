@@ -1425,11 +1425,14 @@ the Scan for requests button.
 
 ### Your account settings
 
-**My Account** is where you manage your own login, regardless of role.
-You can change your password (current password required) and
-enable/disable two-factor authentication — enabling walks you through
-scanning a QR code and confirming a code; disabling requires your current
-password.
+**My Account** is where you manage your own login, for every role except
+Trip Leader. You can change your password (current password required)
+and enable/disable two-factor authentication — enabling walks you
+through scanning a QR code and confirming a code; disabling requires
+your current password. (A Trip Leader guest account has no "My Account"
+page and no self-service here at all — see
+[Understanding your role](#understanding-your-role); an admin manages
+that account's password and MFA from Manage Users instead.)
 
 If [Email (Sending)](#email-admin-only) is turned on for the church,
 there's also an **Email Dispatch** section here: a cadence (no

@@ -259,8 +259,13 @@ A few things worth knowing operationally:
 - `FIELD_ENCRYPTION_KEY` encrypts two-factor (MFA) secrets in
   the database — see
   [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below.
-- MFA (TOTP) is opt-in and self-service per user, or an admin can force
-  it on a specific account. See
+- MFA (TOTP) is opt-in and self-service for the 3 full roles, or an
+  admin can force it on a specific account. A Trip Leader guest account
+  has no self-service here at all (password included) — fully
+  admin-managed, same as the rest of that account's scope — so forcing
+  MFA on one only ever goes through the required-at-first-sign-in flow;
+  turning it back off goes through Manage Users' own MFA reset, not a
+  self-service disable. See
   [USER_GUIDE.md § Your account settings](USER_GUIDE.md#your-account-settings)
   for the user-facing flow.
 
