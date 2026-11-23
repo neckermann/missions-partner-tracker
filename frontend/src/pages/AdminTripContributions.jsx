@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { fetchTrips, fetchTripsSettings, addTripContribution } from "../api/client.js";
+import { fetchTrips, addTripContribution } from "../api/client.js";
 import TripSelect from "../components/admin/TripSelect.jsx";
 import { formatDate } from "../utils/format.js";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
@@ -14,6 +13,14 @@ import useCurrentUser from "../hooks/useCurrentUser.js";
 // (POST /trips/:id/contributions) and data shape as that page's own
 // form, just reachable with a Trip selector up front instead of already
 // being on that trip's page -- no schema/route change needed.
+//
+// Rendered as a tab on AdminTrips.jsx (route "trips/contributions"), not
+// its own page -- the parent supplies the "Trips" shell/heading and the
+// RequireAdminFeature("trips") gate. Gated on the Trips feature only, NOT
+// enableTripBudgeting: that sub-setting governs the per-trip Financial
+// tab's *budget-line* tracking (estimated costs vs. raised), a genuinely
+// separate thing from "a gift came in, log it" -- you can receive and
+// record a contribution without ever having set a planned budget.
 const emptyEntry = { donorName: "", amount: "", method: "check", receivedDate: "" };
 
 function tripSummaryLabel(trip) {
@@ -24,8 +31,6 @@ function tripSummaryLabel(trip) {
 export default function AdminTripContributions() {
   const { canWrite, loading: userLoading } = useCurrentUser();
   const [trips, setTrips] = useState([]);
-  const [settingsLoading, setSettingsLoading] = useState(true);
-  const [budgetingEnabled, setBudgetingEnabled] = useState(false);
   const [tripId, setTripId] = useState("");
   const [participantId, setParticipantId] = useState("");
   const [entry, setEntry] = useState(emptyEntry);
@@ -44,10 +49,6 @@ export default function AdminTripContributions() {
 
   useEffect(() => {
     reload();
-    fetchTripsSettings()
-      .then((s) => setBudgetingEnabled(!!s.enableTripBudgeting))
-      .catch(console.error)
-      .finally(() => setSettingsLoading(false));
   }, []);
 
   const selectedTrip = useMemo(() => trips.find((t) => t.id === tripId) || null, [trips, tripId]);
@@ -108,40 +109,16 @@ export default function AdminTripContributions() {
     }
   }
 
-  if (userLoading || settingsLoading) return <div className="admin-shell">Loading…</div>;
-
-  if (!budgetingEnabled) {
-    return (
-      <div className="admin-shell">
-        <h2>Log Contributions</h2>
-        <p style={{ color: "#555" }}>
-          Trip budgeting isn't turned on, so there's nothing to log contributions against yet. Turn it on at{" "}
-          <Link to="/admin/settings/trips">Trips Settings</Link> first.
-        </p>
-      </div>
-    );
-  }
+  if (userLoading) return <p>Loading…</p>;
 
   if (!canWrite) {
-    return (
-      <div className="admin-shell">
-        <h2>Log Contributions</h2>
-        <p style={{ color: "#555" }}>You don't have permission to log contributions.</p>
-      </div>
-    );
+    return <p style={{ color: "#555" }}>You don't have permission to log contributions.</p>;
   }
 
   const raised = (selectedTrip?.contributions || []).reduce((sum, c) => sum + c.amount, 0);
 
   return (
-    <div className="admin-shell">
-      <h2>Log Contributions</h2>
-      <p style={{ color: "#555" }}>
-        Pick a trip and a team member (or leave it trip-wide), then log a gift the same way the trip's own
-        Financial tab does -- built for working through a stack of checks for several trips/team members
-        without navigating back and forth.
-      </p>
-
+    <div>
       {error && (
         <p className="form-error" role="alert">
           {error}

@@ -139,18 +139,6 @@ function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       label: "One-Time Needs",
     },
     enabledFeatures.trips && { key: "trips", to: "/admin/trips", icon: "✈️", label: "Trips" },
-    // #272: same gate as "Trips" itself, not a second check against
-    // enableTripBudgeting -- that sub-setting only decides whether the
-    // page has anything to do once you're on it (see its own "Trip
-    // budgeting isn't turned on yet" state), same way every other nav
-    // entry here links to a page that might still show its own
-    // not-configured-yet message rather than being hidden outright.
-    enabledFeatures.trips && {
-      key: "tripContributions",
-      to: "/admin/trips/contributions",
-      icon: "🧾",
-      label: "Log Contributions",
-    },
     (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
       key: "pendingDispatches",
       to: "/admin/pending-dispatches",

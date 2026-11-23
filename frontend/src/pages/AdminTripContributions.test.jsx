@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AdminTripContributions from "./AdminTripContributions.jsx";
-import { fetchTrips, fetchTripsSettings, addTripContribution } from "../api/client.js";
+import { fetchTrips, addTripContribution } from "../api/client.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 
 // #272: this page is the cross-trip counterpart to AdminTripFinancial.jsx's
@@ -11,10 +11,11 @@ import useCurrentUser from "../hooks/useCurrentUser.js";
 // call, just reachable with a Trip selector up front. Mocked the same way
 // AdminTripParticipantDetail.test.jsx mocks this module, plus
 // useCurrentUser directly (not a react-router useParams override -- this
-// page reads no route params).
+// page reads no route params). Rendered as a tab inside AdminTrips.jsx in
+// the real app, but tested standalone here -- it reads no route/outlet
+// context of its own, so this is an equivalent render.
 vi.mock("../api/client.js", () => ({
   fetchTrips: vi.fn(),
-  fetchTripsSettings: vi.fn(),
   addTripContribution: vi.fn(),
 }));
 vi.mock("../hooks/useCurrentUser.js", () => ({
@@ -46,19 +47,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   useCurrentUser.mockReturnValue({ canWrite: true, loading: false });
   fetchTrips.mockResolvedValue([TRIP]);
-  fetchTripsSettings.mockResolvedValue({ enableTripBudgeting: true });
 });
 
 describe("AdminTripContributions (#272)", () => {
-  it("shows a not-configured message instead of the form when Trip budgeting is off", async () => {
-    fetchTripsSettings.mockResolvedValue({ enableTripBudgeting: false });
-
-    renderPage();
-
-    await waitFor(() => expect(screen.getByText(/Trip budgeting isn't turned on/)).toBeInTheDocument());
-    expect(screen.queryByLabelText("Trip")).not.toBeInTheDocument();
-  });
-
   it("hides the form for a role without write access", async () => {
     useCurrentUser.mockReturnValue({ canWrite: false, loading: false });
 
