@@ -62,12 +62,7 @@ function getPreviewHtml() {
 
 describe("AdminBooklet restricted-access filtering", () => {
   it("excludes a restricted missionary and a restricted organization from the preview when unchecked", async () => {
-    fetchPartners.mockResolvedValue([
-      RESTRICTED_MISSIONARY,
-      OPEN_MISSIONARY,
-      RESTRICTED_ORG,
-      OPEN_ORG,
-    ]);
+    fetchPartners.mockResolvedValue([RESTRICTED_MISSIONARY, OPEN_MISSIONARY, RESTRICTED_ORG, OPEN_ORG]);
     render(<AdminBooklet />);
 
     await waitFor(() => expect(document.querySelector(".booklet-preview")).toBeInTheDocument());

@@ -108,11 +108,9 @@ describe("#327 defense-in-depth -- the unsubscribe token itself now expires", ()
   });
 
   test("GET /api/auth/unsubscribe rejects an expired token", async () => {
-    const expired = jwt.sign(
-      { id: targetAdmin.id, unsubscribe: true },
-      process.env.SESSION_SECRET,
-      { expiresIn: -1 }
-    );
+    const expired = jwt.sign({ id: targetAdmin.id, unsubscribe: true }, process.env.SESSION_SECRET, {
+      expiresIn: -1,
+    });
     const base = await startServer();
     const res = await fetch(`${base}/api/auth/unsubscribe?token=${encodeURIComponent(expired)}`);
     assert.equal(res.status, 400);
