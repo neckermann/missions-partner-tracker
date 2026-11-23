@@ -89,12 +89,7 @@ function SearchBox({ field, value, onChange }) {
   return (
     <div className="filter-search-box">
       <span aria-hidden="true">🔍</span>
-      <input
-        type="text"
-        value={local}
-        onChange={(e) => setLocal(e.target.value)}
-        placeholder={field.label}
-      />
+      <input type="text" value={local} onChange={(e) => setLocal(e.target.value)} placeholder={field.label} />
       {local && (
         <button
           type="button"

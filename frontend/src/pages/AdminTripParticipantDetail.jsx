@@ -17,6 +17,7 @@ import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 
@@ -44,11 +45,16 @@ function readFileAsDataUrl(file) {
 // the same explicit edit -> save/cancel boundary.
 export default function AdminTripParticipantDetail() {
   const { tripId, participantId } = useParams();
-  const { canWrite, isTripLeader } = useCurrentUser();
+  const { canWrite: globalCanWrite, isTripLeader, scopedTripId } = useCurrentUser();
+  // Mirrors TripDetailLayout.jsx's own canWrite -- this page is a sibling
+  // route, not nested under that layout's Outlet, so it can't inherit its
+  // context and has to repeat the same scope check here.
+  const canWrite = globalCanWrite || (isTripLeader && tripId === scopedTripId);
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [trip, setTrip] = useState(null);
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState("");
+  const [manualAccessLink, setManualAccessLink] = useState(null); // { url } | null
   const [docMessage, setDocMessage] = useState("");
   const [docFile, setDocFile] = useState(null);
   const [docRequirementChoice, setDocRequirementChoice] = useState("");
@@ -136,8 +142,9 @@ export default function AdminTripParticipantDetail() {
 
   async function handleResendAccessLink() {
     try {
-      await resendParticipantAccessLink(participantId);
+      const result = await resendParticipantAccessLink(participantId);
       setError("");
+      setManualAccessLink(result?.manualUrl ? { url: result.manualUrl } : null);
     } catch (err) {
       reportError(err, "Couldn't resend the access link.");
     }
@@ -211,7 +218,12 @@ export default function AdminTripParticipantDetail() {
           isTripLeader
             ? [
                 ...(trip.partner?.id
-                  ? [{ label: trip.partner.displayName || "Partner", to: `/admin/partners/${trip.partner.id}` }]
+                  ? [
+                      {
+                        label: trip.partner.displayName || "Partner",
+                        to: `/admin/partners/${trip.partner.id}`,
+                      },
+                    ]
                   : []),
                 { label: trip.name || trip.type || "Trip", to: `/admin/trips/${tripId}` },
                 { label: `${participant.firstName} ${participant.lastName}` },
@@ -240,6 +252,10 @@ export default function AdminTripParticipantDetail() {
         <p style={{ color: "#a6540f", fontSize: "0.85rem" }}>Missing: {missingFields.join(", ")}</p>
       )}
 
+      {/* Right above "Contact & access", not up by the page title -- that's
+          where "Resend access link" (below) actually lives, so the link
+          this produces shows up next to the action that asked for it. */}
+      {manualAccessLink && <ManualSendNotice recipients={manualAccessLink} />}
       <EditableSection
         title="Contact & access"
         canEdit={canWrite}
@@ -305,7 +321,9 @@ export default function AdminTripParticipantDetail() {
                   className="btn secondary small"
                   onClick={handleGenerateSupportRaisingLink}
                 >
-                  {participant.shareToken ? "Regenerate support-raising link" : "Generate support-raising link"}
+                  {participant.shareToken
+                    ? "Regenerate support-raising link"
+                    : "Generate support-raising link"}
                 </button>
               )}
             </>
@@ -605,7 +623,9 @@ export default function AdminTripParticipantDetail() {
             onSave={(draft) =>
               saveParticipant({
                 story: draft.story,
-                ...(draft.photoDataUrl ? { photo: draft.photoDataUrl, photoContentType: draft.photoContentType } : {}),
+                ...(draft.photoDataUrl
+                  ? { photo: draft.photoDataUrl, photoContentType: draft.photoContentType }
+                  : {}),
               })
             }
             view={() => (

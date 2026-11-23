@@ -325,7 +325,12 @@ export default function AdminPartnerFiles() {
       <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
 
       {activeModal === "add-file" && (
-        <QuickActionModal title="Upload File" onClose={closeModal} onSubmit={submitAddFile} submitLabel="Upload">
+        <QuickActionModal
+          title="Upload File"
+          onClose={closeModal}
+          onSubmit={submitAddFile}
+          submitLabel="Upload"
+        >
           <PartnerFileFormFields
             form={newFile}
             setForm={setNewFile}
@@ -359,7 +364,10 @@ export default function AdminPartnerFiles() {
         fileDetail &&
         (canEdit ? (
           <QuickActionModal title="Newsletter / Doc" onClose={closeModal} onSubmit={submitFileDetail}>
-            <Link to={`/admin/partners/${fileDetail.form.partnerId}`} style={{ display: "inline-block", marginBottom: "0.75rem" }}>
+            <Link
+              to={`/admin/partners/${fileDetail.form.partnerId}`}
+              style={{ display: "inline-block", marginBottom: "0.75rem" }}
+            >
               Go to partner →
             </Link>
             <PartnerFileFormFields
@@ -388,10 +396,16 @@ export default function AdminPartnerFiles() {
           </QuickActionModal>
         ) : (
           <Modal title="Newsletter / Doc" onClose={closeModal}>
-            <Link to={`/admin/partners/${fileDetail.form.partnerId}`} style={{ display: "inline-block", marginBottom: "0.75rem" }}>
+            <Link
+              to={`/admin/partners/${fileDetail.form.partnerId}`}
+              style={{ display: "inline-block", marginBottom: "0.75rem" }}
+            >
               Go to partner →
             </Link>
-            <Field label="Partner" value={partners.find((p) => p.id === fileDetail.form.partnerId)?.displayName} />
+            <Field
+              label="Partner"
+              value={partners.find((p) => p.id === fileDetail.form.partnerId)?.displayName}
+            />
             <Field label="Kind" value={fileKindLabel(fileDetail.form)} />
             <Field label="Title" value={fileDetail.form.title} />
             <Field label="Received Date" value={formatDateLong(fileDetail.form.receivedDate)} />

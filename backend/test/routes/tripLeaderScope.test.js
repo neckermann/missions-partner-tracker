@@ -10,7 +10,14 @@ const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const bcrypt = require("bcryptjs");
 const prisma = require("../../src/prismaClient");
-const { client, stopServer, ensureTestUsers, removeTestUsers, removeFixturePartners, FIXTURE_TAG } = require("./helpers");
+const {
+  client,
+  stopServer,
+  ensureTestUsers,
+  removeTestUsers,
+  removeFixturePartners,
+  FIXTURE_TAG,
+} = require("./helpers");
 
 const TRIP_LEADER_EMAIL = "route-test-tripleader@example.test";
 const TRIP_LEADER_PASSWORD = "RouteTestTripLeader123!";
@@ -120,7 +127,10 @@ describe("Trip Leader: trip scope", () => {
 
   test("writes their own trip (editor-equivalent)", async () => {
     const leader = await leaderClient();
-    const res = await leader(`/api/trips/${tripA.id}`, { method: "PUT", body: { notes: "trip leader note" } });
+    const res = await leader(`/api/trips/${tripA.id}`, {
+      method: "PUT",
+      body: { notes: "trip leader note" },
+    });
     assert.equal(res.status, 200);
     assert.equal(res.body.notes, "trip leader note");
   });
@@ -223,7 +233,12 @@ describe("Trip Leader: Monthly Support / One-Time Needs blocked, Newsletters & D
       data: { partnerId: partnerA.id, amount: 500, effectiveDate: new Date("2026-01-01") },
     });
     await prisma.supportNeed.create({
-      data: { partnerId: partnerA.id, description: "New laptop", requestedAmount: 800, requestDate: new Date("2026-01-01") },
+      data: {
+        partnerId: partnerA.id,
+        description: "New laptop",
+        requestedAmount: 800,
+        requestDate: new Date("2026-01-01"),
+      },
     });
     fileA = await prisma.partnerFile.create({
       data: {

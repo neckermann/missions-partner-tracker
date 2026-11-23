@@ -13,8 +13,10 @@
 const cron = require("node-cron");
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
-const { sendParticipantEmail, buildMeetingIcs, buildMeetingEmailBody } = require("./tripEmails");
+const { sendParticipantEmail, buildMeetingIcs, buildMeetingEmailContent } = require("./tripEmails");
 const { isMinorForTrip } = require("./tripParticipantSchema");
+const { blocks } = require("./emailTemplate");
+const { buildTripParticipantAccessUrl } = require("./tripAccessToken");
 
 async function checkAndSendTripMeetingReminders() {
   const settings = await prisma.churchSettings.findUnique({
@@ -40,14 +42,14 @@ async function checkAndSendTripMeetingReminders() {
     // Keyed by participantId -- the reminder is the one email this
     // feature sends after a participant could plausibly have already
     // responded to the original invite, so it shows what's on file
-    // instead of bare links (buildMeetingEmailBody's own comment has
+    // instead of bare links (buildMeetingEmailContent's own comment has
     // the full reasoning).
     const rsvpByParticipantId = new Map(meeting.rsvps.map((r) => [r.participantId, r.response]));
     for (const participant of meeting.trip.participants) {
       await sendParticipantEmail(
         participant,
         `Reminder: meeting tomorrow for ${meeting.trip.name || meeting.trip.type || "your trip"}`,
-        buildMeetingEmailBody(
+        buildMeetingEmailContent(
           meeting,
           "This is a reminder that your trip meeting is tomorrow.",
           participant,
@@ -115,7 +117,17 @@ async function checkAndSendRequirementReminders() {
       await sendParticipantEmail(
         participant,
         `Reminder: ${requirement.label} due soon for ${requirement.trip.name || requirement.trip.type || "your trip"}`,
-        `This is a reminder that "${requirement.label}" is due by ${requirement.dueAt.toISOString().slice(0, 10)}.`
+        {
+          eyebrow: "Reminder",
+          blocks: [
+            blocks.paragraph("This is a friendly reminder that an item on your trip checklist is due soon."),
+            blocks.details([
+              { label: "To do", value: requirement.label },
+              { label: "Due", value: requirement.dueAt.toISOString().slice(0, 10) },
+            ]),
+            blocks.button(buildTripParticipantAccessUrl(participant), "Open your trip page"),
+          ],
+        }
       );
       await prisma.tripRequirementStatus.upsert({
         where: {

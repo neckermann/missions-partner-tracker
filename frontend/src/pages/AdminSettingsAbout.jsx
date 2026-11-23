@@ -144,16 +144,26 @@ export default function AdminSettingsAbout() {
             <p style={{ color: "#555" }}>{v.websiteLink || "No website set"}</p>
             <p style={{ color: "#555" }}>Timezone: {v.timezone}</p>
             {showSyncPrompt && sentByOurChurchCount > 0 && (
+              // Not itself interactive -- just stops clicks/keydowns on the
+              // real button inside from bubbling into the card's own
+              // open-on-activate handler above.
+              // eslint-disable-next-line jsx-a11y/no-static-element-interactions
               <div
                 className="table-actions"
                 style={{ marginTop: "0.75rem", alignItems: "center" }}
                 onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
               >
                 <span style={{ color: "#555" }}>
-                  {sentByOurChurchCount} partner{sentByOurChurchCount === 1 ? "" : "s"} marked &ldquo;Sent by our
-                  church.&rdquo;
+                  {sentByOurChurchCount} partner{sentByOurChurchCount === 1 ? "" : "s"} marked &ldquo;Sent by
+                  our church.&rdquo;
                 </span>
-                <button type="button" className="btn secondary small" onClick={handleSyncAll} disabled={syncing}>
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  onClick={handleSyncAll}
+                  disabled={syncing}
+                >
                   {syncing ? "Updating..." : "Update them all with this info"}
                 </button>
                 {syncSuccess && <span style={{ color: "#2a5d3c" }}>{syncSuccess}</span>}
@@ -170,7 +180,11 @@ export default function AdminSettingsAbout() {
               </label>
               <label>
                 Phone
-                <input value={d.phone || ""} onChange={(e) => set("phone", e.target.value)} autoComplete="off" />
+                <input
+                  value={d.phone || ""}
+                  onChange={(e) => set("phone", e.target.value)}
+                  autoComplete="off"
+                />
               </label>
               <label>
                 Contact First Name
@@ -181,7 +195,10 @@ export default function AdminSettingsAbout() {
               </label>
               <label>
                 Contact Last Name
-                <input value={d.contactLastName || ""} onChange={(e) => set("contactLastName", e.target.value)} />
+                <input
+                  value={d.contactLastName || ""}
+                  onChange={(e) => set("contactLastName", e.target.value)}
+                />
               </label>
               <label>
                 Contact Email
@@ -203,8 +220,9 @@ export default function AdminSettingsAbout() {
               </label>
             </div>
             <p style={{ color: "#666", fontSize: "0.85rem", marginTop: "0.5rem" }}>
-              Timezone drives every scheduled send in this app (email digests, GroupMe) so "send at 9" actually
-              means 9am here, not UTC. Changing this takes effect the next time the app restarts, not instantly.
+              Timezone drives every scheduled send in this app (email digests, GroupMe) so "send at 9"
+              actually means 9am here, not UTC. Changing this takes effect the next time the app restarts, not
+              instantly.
             </p>
             <h4>Address</h4>
             <AddressFields
@@ -301,7 +319,11 @@ export default function AdminSettingsAbout() {
               </label>
               <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
                 Header Color
-                <input type="color" value={d.headerColor || "#2c2a28"} onChange={(e) => set("headerColor", e.target.value)} />
+                <input
+                  type="color"
+                  value={d.headerColor || "#2c2a28"}
+                  onChange={(e) => set("headerColor", e.target.value)}
+                />
               </label>
               <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
                 The header bar and admin sidebar background.
@@ -315,7 +337,8 @@ export default function AdminSettingsAbout() {
                 />
               </label>
               <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
-                Buttons, links, headings, and report letterheads -- the color people associate with this church.
+                Buttons, links, headings, and report letterheads -- the color people associate with this
+                church.
               </p>
               <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
                 Highlight Color
@@ -443,8 +466,9 @@ export default function AdminSettingsAbout() {
             <>
               <p style={{ marginTop: 0, color: "#666", fontSize: "0.85rem" }}>
                 What this church calls its missionary and organization partners — e.g. "Go Team Partner" / "Go
-                Team Partners". Used on the public site regardless of whether a partner is an individual/family
-                or an organization. Leave blank to keep the default "Missionary" / "Missionaries" wording.
+                Team Partners". Used on the public site regardless of whether a partner is an
+                individual/family or an organization. Leave blank to keep the default "Missionary" /
+                "Missionaries" wording.
               </p>
               <div className="form-grid">
                 <label>

@@ -1,6 +1,6 @@
 # Working here as an agent
 
-**Last verified**: 2026-11-11 · **Owner**: @neckermann
+**Last verified**: 2026-11-22 · **Owner**: @neckermann
 
 For an agent/subagent picking up work in this repo. Project basics
 (what this is, hard rules, key commands) are in
@@ -110,6 +110,14 @@ check immediately, then poll every 20-30s. Avoid a plain fixed-interval
 loop that reprints identical output on every tick; only emit when the
 check states actually change, or you'll spam duplicate updates for the
 whole 3-4 minutes.
+
+## Cloud workspace vs. local
+
+Prefer a cloud/remote workspace for building new code that has no
+dependency on anything local. Local-dependent work (CI-style
+verification against this repo's own setup, anything that needs to run
+on this computer) may well be faster done locally — don't default it
+to cloud just because.
 
 ## Schema changes and redeploy caches
 
@@ -226,6 +234,21 @@ When delegating a task to a fresh agent in this repo, include:
   "read CLAUDE.md") — e.g. "adding a new notification channel, see
   [SPEC.md § 6](SPEC.md) and
   [CONTRIBUTING.md § Code style](CONTRIBUTING.md#code-style)."
+- **Docs are part of "done," not a follow-up pass** — name which of
+  `CHANGELOG.md`, `RUNBOOK.md` (env vars), `SPEC.md` (architecture),
+  `ADMIN_GUIDE.md`/`USER_GUIDE.md` (operator/end-user-facing behavior
+  changes) a feature this size would plausibly touch, and ask the
+  agent to update them in the same pass, not leave it for review to
+  catch. Confirmed as a real, repeated gap, not hypothetical: the
+  welcome-emails/password-setup/guided-MFA PR (2026-11-22) shipped with
+  a `CHANGELOG.md` entry and `.env.example` additions but no
+  `RUNBOOK.md` env-var entries, no `SPEC.md` § 5 coverage of the new
+  `PasswordSetupToken` mechanism, and a `USER_GUIDE.md` "+ Add User"
+  section left describing the *old* (admin-typed-password) behavior --
+  all found on review, not during the build that should have caught
+  it. A fresh agent with no memory of this repo's docs won't infer
+  which docs apply on its own; naming them in the brief is what
+  closes the gap.
 
 ## TODO
 

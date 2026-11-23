@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { fetchUsers, deleteUser, fetchCurrentUser, resetUserMfa, fetchUser, createUser, updateUser, fetchTrips } from "../api/client.js";
+import { Link, useLocation } from "react-router-dom";
+import {
+  fetchUsers,
+  deleteUser,
+  sendUserSetupLink,
+  fetchCurrentUser,
+  resetUserMfa,
+  fetchUser,
+  updateUser,
+  fetchTrips,
+} from "../api/client.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
@@ -7,6 +17,7 @@ import Table from "../components/shared/Table.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import { toDateInputValue } from "../utils/format.js";
+import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 
 const emptyForm = {
   email: "",
@@ -16,6 +27,11 @@ const emptyForm = {
   authProvider: "local",
   active: true,
   password: "",
+  // Create-only: email a secure link so the person sets their own password
+  // (no password is ever typed by an admin or emailed), and optionally
+  // force two-factor enrollment at first sign-in.
+  sendWelcomeEmail: true,
+  requireMfa: false,
   mfaSetupRequired: false,
   mfaEnabled: false,
   scopedTripId: "",
@@ -23,18 +39,34 @@ const emptyForm = {
 };
 
 // A user record list, same shape as every other consolidated list page
-// (Table, onRowClick -> a QuickActionModal with the add/edit form) --
-// not EditableSection, which is for sections *within* one record, not a
-// collection of many. The dedicated /new and /:id routes AdminUserForm.jsx
-// used to own are gone; everything happens from this one page now.
+// (Table, onRowClick -> a QuickActionModal with the edit form) -- not
+// EditableSection, which is for sections *within* one record, not a
+// collection of many.
+//
+// Create is the one exception, and lives on its own page
+// (AdminUserForm.jsx, "/admin/settings/users/new") rather than a modal
+// here: once the welcome-email/password/MFA options (#285) were added on
+// top of the basic who-is-this fields, Add User crossed the same "~6
+// fields, 2+ conceptual groups" bar Wizard exists for (see
+// STYLE-GUIDE.md -- Multi-step creation, and AdminPartnerForm.jsx's own
+// field-count survey comment), and a Wizard reads as its own page --
+// breadcrumb, title, Cancel/Next pinned to the viewport bottom -- not a
+// dialog floating over this list (a popup-modal version shipped briefly
+// and was corrected in review for exactly that mismatch with "New
+// Partner"). Edit stays the plain QuickActionModal here: it never had the
+// welcome-email step, and resetting a password or changing a role is a
+// single-topic action.
 export default function AdminUsers() {
+  const location = useLocation();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [trips, setTrips] = useState([]);
   const [error, setError] = useState("");
-  const [editingUser, setEditingUser] = useState(null); // { id, form } or { form } for create
+  const [editingUser, setEditingUser] = useState(null); // { id, form } for edit
   const [formError, setFormError] = useState("");
+  const [notice, setNotice] = useState(location.state?.notice || "");
+  const [manualSetupLink, setManualSetupLink] = useState(null); // { name, email, url } | null
 
   function reportError(err, fallback) {
     setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
@@ -85,9 +117,21 @@ export default function AdminUsers() {
     }
   }
 
-  function openCreate() {
-    setFormError("");
-    setEditingUser({ id: null, form: emptyForm });
+  // Sends (or re-sends) the password-setup email to an account that has no
+  // password yet; a fresh link replaces any earlier one.
+  async function handleSendSetupLink(id, email) {
+    setError("");
+    setManualSetupLink(null);
+    try {
+      const result = await sendUserSetupLink(id);
+      if (result?.manualSetupUrl) {
+        setManualSetupLink({ email, url: result.manualSetupUrl });
+      } else {
+        setNotice(`Setup link sent to ${email}.`);
+      }
+    } catch (err) {
+      reportError(err, "Couldn't send the setup link");
+    }
   }
 
   async function openEdit(u) {
@@ -123,12 +167,9 @@ export default function AdminUsers() {
     };
     if (!payload.password) delete payload.password;
 
-    if (id) {
-      const { email, authProvider, ...updatable } = payload;
-      await updateUser(id, updatable);
-    } else {
-      await createUser(payload);
-    }
+    // sendWelcomeEmail/requireMfa only exist on create.
+    const { email, authProvider, sendWelcomeEmail, requireMfa, ...updatable } = payload;
+    await updateUser(id, updatable);
     reload();
   }
 
@@ -156,7 +197,18 @@ export default function AdminUsers() {
       ),
     },
     { key: "authProvider", label: "Auth" },
-    { key: "active", label: "Active", render: (u) => (u.active ? "Yes" : "No") },
+    {
+      key: "active",
+      label: "Active",
+      render: (u) =>
+        u.passwordSetupPending ? (
+          <span className="status-pill warn">Awaiting setup</span>
+        ) : u.active ? (
+          "Yes"
+        ) : (
+          "No"
+        ),
+    },
     {
       key: "mfa",
       label: "MFA",
@@ -184,9 +236,9 @@ export default function AdminUsers() {
         title={`Users (${users.length})`}
         crumbLabel="Manage Users"
         actions={
-          <button type="button" className="btn" onClick={openCreate}>
+          <Link to="/admin/settings/users/new" className="btn">
             + Add User
-          </button>
+          </Link>
         }
       />
 
@@ -195,6 +247,8 @@ export default function AdminUsers() {
           {error}
         </p>
       )}
+      {notice && <p role="status">{notice}</p>}
+      {manualSetupLink && <ManualSendNotice recipients={manualSetupLink} />}
 
       <Table
         columns={columns}
@@ -203,6 +257,11 @@ export default function AdminUsers() {
         emptyMessage="No users yet."
         renderActions={(u) => (
           <>
+            {u.authProvider === "local" && u.active && u.passwordSetupPending && (
+              <button className="btn secondary small" onClick={() => handleSendSetupLink(u.id, u.email)}>
+                Send setup link
+              </button>
+            )}
             {u.authProvider === "local" && u.mfaEnabled && (
               <button className="btn secondary small" onClick={() => handleResetMfa(u.id, u.email)}>
                 Reset MFA
@@ -221,21 +280,11 @@ export default function AdminUsers() {
       />
 
       {editingUser && (
-        <QuickActionModal
-          title={editingUser.id ? "Edit User" : "Add User"}
-          onClose={() => setEditingUser(null)}
-          onSubmit={handleSaveUser}
-        >
+        <QuickActionModal title="Edit User" onClose={() => setEditingUser(null)} onSubmit={handleSaveUser}>
           <div className="form-grid">
             <label>
               Email
-              <input
-                type="email"
-                value={editingUser.form.email}
-                onChange={(e) => updateForm("email", e.target.value)}
-                disabled={!!editingUser.id}
-                required
-              />
+              <input type="email" value={editingUser.form.email} disabled required />
             </label>
             <label>
               First Name
@@ -298,26 +347,24 @@ export default function AdminUsers() {
             </p>
           )}
 
-          {editingUser.id && (
-            <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={editingUser.form.active}
-                  onChange={(e) => updateForm("active", e.target.checked)}
-                />
-                Active
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={editingUser.form.mfaSetupRequired}
-                  onChange={(e) => updateForm("mfaSetupRequired", e.target.checked)}
-                />
-                Require Two-Factor Authentication
-              </label>
-            </div>
-          )}
+          <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
+            <label>
+              <input
+                type="checkbox"
+                checked={editingUser.form.active}
+                onChange={(e) => updateForm("active", e.target.checked)}
+              />
+              Active
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={editingUser.form.mfaSetupRequired}
+                onChange={(e) => updateForm("mfaSetupRequired", e.target.checked)}
+              />
+              Require Two-Factor Authentication
+            </label>
+          </div>
           {editingUser.form.mfaEnabled && (
             <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
               This user already has two-factor authentication enabled. Use "Reset MFA" on their row if they
@@ -326,17 +373,20 @@ export default function AdminUsers() {
           )}
 
           <label style={{ marginTop: "1rem" }}>
-            {editingUser.id ? "Reset Password (leave blank to keep current)" : "Password"}
+            Reset Password (leave blank to keep current)
             <input
               type="password"
               value={editingUser.form.password}
               onChange={(e) => updateForm("password", e.target.value)}
-              required={!editingUser.id}
               minLength={8}
             />
           </label>
 
-          {formError && <p className="form-error" role="alert">{formError}</p>}
+          {formError && (
+            <p className="form-error" role="alert">
+              {formError}
+            </p>
+          )}
         </QuickActionModal>
       )}
 

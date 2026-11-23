@@ -273,7 +273,11 @@ export default function AdminMonthlySupport() {
           </table>
         )}
         columns={[
-          { key: "name", label: "Name", render: (row) => <span style={{ fontWeight: 600 }}>{row.name}</span> },
+          {
+            key: "name",
+            label: "Name",
+            render: (row) => <span style={{ fontWeight: 600 }}>{row.name}</span>,
+          },
           { key: "type", label: "Type" },
           { key: "field", label: "Field / Region" },
           { key: "amount", label: "Monthly Amount", type: "currency" },
