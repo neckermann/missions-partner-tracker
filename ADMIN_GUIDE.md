@@ -684,6 +684,39 @@ right partner (or an admin can discard it). Setup:
    Features once it's configured — independent of whether **Email
    (Sending)** is also on.
 
+**Receiving from partners in a restricted context.** A partner serving
+somewhere that makes an obviously church-branded inbound address risky
+(`updates@yourchurch.org` reads as exactly what it is) can be given a
+separate, non-church-branded domain to send to instead — landing in the
+exact same auto-file / Unmatched Emails flow as everyone else. This
+app's webhook doesn't care which domain mail arrived at: it
+authenticates by the Basic Auth credentials in the URL and files by the
+sender's own address, not by the recipient domain, so one app endpoint
+can serve more than one Postmark inbound domain.
+
+Postmark allows only one domain per Inbound Stream, and one stream per
+Server, so a second inbound domain means a second (free) Postmark
+Server, not a second domain added to the existing one:
+
+1. Create a second free Postmark server under the same account.
+2. On that server's Default Inbound Stream, set its domain to whatever
+   non-church-branded domain (or subdomain of one) you're using for
+   restricted partners — add the MX record Postmark gives you, same as
+   step 2 of the primary inbound setup above.
+3. Check **Include raw email content in JSON payload** on this server
+   too.
+4. Set this server's **Inbound webhook** URL to the exact same URL
+   (and the exact same username/password) already configured for the
+   primary inbound domain in Settings → Email. Nothing restricts
+   reusing a webhook URL across Postmark servers, and this app doesn't
+   distinguish which domain or server a message arrived through — same
+   authentication, same sender-match logic either way.
+5. Give this second address only to the partners who need it. Not
+   separately confirmed against Postmark's own documentation (their
+   docs don't explicitly say whether a webhook URL can be reused across
+   servers), but nothing architecturally prevents it, and it costs
+   nothing to set up — a free second server.
+
 **Which tier do you actually need?** Every feature below that touches
 email, and exactly which of Sending/Receiving it needs — confirmed
 directly against the code, not assumed:
