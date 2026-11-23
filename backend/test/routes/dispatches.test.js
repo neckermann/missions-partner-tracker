@@ -49,6 +49,9 @@ before(async () => {
       emailDispatchDayOfMonth: true,
       emailDispatchHour: true,
       chatDispatchHour: true,
+      cadenceBiweeklyEnabled: true,
+      cadenceMonthlyEnabled: true,
+      cadenceQuarterlyEnabled: true,
       churchName: true,
       addressLine1: true,
       addressLine2: true,
@@ -73,6 +76,9 @@ before(async () => {
       emailDispatchDayOfMonth: null,
       emailDispatchHour: null,
       chatDispatchHour: null,
+      cadenceBiweeklyEnabled: false,
+      cadenceMonthlyEnabled: true,
+      cadenceQuarterlyEnabled: true,
     },
     create: { id: "singleton" },
   });
@@ -121,6 +127,13 @@ describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
         emailDispatchDayOfMonth: null,
         emailDispatchHour: null,
         chatDispatchHour: null,
+        // #209's own defaults -- not this file's concern (see
+        // cadenceTiers.test.js), but this test's deepEqual below checks
+        // the response's *entire* shape, so these have to be pinned to
+        // something explicit too.
+        cadenceBiweeklyEnabled: false,
+        cadenceMonthlyEnabled: true,
+        cadenceQuarterlyEnabled: true,
       },
     });
     const res = await admin("/api/settings/dispatches");
@@ -137,6 +150,9 @@ describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
       emailDispatchDayOfMonth: null,
       emailDispatchHour: null,
       chatDispatchHour: null,
+      cadenceBiweeklyEnabled: false,
+      cadenceMonthlyEnabled: true,
+      cadenceQuarterlyEnabled: true,
     });
   });
 

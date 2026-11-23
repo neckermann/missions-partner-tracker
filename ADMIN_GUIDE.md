@@ -853,6 +853,25 @@ setting — without it, "9" would mean 9am on the server (effectively
 UTC on Render, never a church's own local time). Changing the timezone
 takes effect on the next restart/deploy, not instantly.
 
+**Which tiers are even offered.** Each of the three cadence tiers can
+be turned off from the same Dispatch Settings page's Email Schedule
+section — biweekly is off by default (an existing admin's suggested
+starting point), monthly and quarterly are on. Turning a tier off
+removes it from both cadence pickers (an admin's own Account Settings,
+and the public Subscribe/"follow this partner" forms) going forward,
+and immediately moves anyone currently on that tier to the first tier
+still enabled, in preference order Monthly → Quarterly → Biweekly — a
+one-time move, not a reversible one: re-enabling the tier later does
+not move anyone back. No email is sent to notify someone their cadence
+changed; the next digest they receive simply arrives on the new tier
+instead. At least one tier must always stay enabled, since the
+reassignment above needs somewhere to send a descoped subscriber.
+
+A subscriber's own already-saved cadence always stays visible and
+selectable on their picker even after an admin disables it — an
+admin's own Account Settings only, since the public forms are
+new-subscriber-only and have no existing choice to preserve.
+
 ### Urgent dispatch
 
 An admin or editor can mark a prayer request or one-time need **urgent**
