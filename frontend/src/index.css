@@ -1535,22 +1535,119 @@ a {
   font-size: 0.9rem;
 }
 
-/* max-width is a real US Letter page width (8.5in) -- deliberately not
-   shrunk to fit a narrow viewport, since this previews actual print
-   proportions. overflow-x: auto on the outer scroller lets a phone-width
-   admin scroll it horizontally instead of the whole page doing so. */
+/* Booklet config page (AdminBooklet.jsx): a two-pane layout, controls on
+   the left and the live print preview pinned on the right, so the
+   preview is visible without scrolling past every control first.
+   Controls and preview are siblings, not parent/child -- see the comment
+   above this layout in AdminBooklet.jsx for why the preview can't be
+   nested inside the `no-print`-wrapped controls column.
+
+   Default (everything below the `min-width: 1500px` block further down)
+   is a single stacked column -- controls, then the preview beneath them
+   at its full 8.5in width -- same shape the page already had. Side-by-
+   side is a progressive enhancement for a wide-enough viewport, not the
+   baseline: .booklet-preview is a fixed 8.5in (not shrink-to-fit, see
+   its own comment below), so a side-by-side column narrower than that
+   doesn't shrink the preview, it just clips most of it behind
+   .booklet-preview-scroll's own horizontal scrollbar (scrolled to 0 by
+   default) -- confirmed by screenshot at 1280px wide (#346), where the
+   cover title rendered as "Missionary Par" because only the left ~2/3 of
+   each page was ever actually visible without scrolling right. Better to
+   fall back to the proven stacked layout below that width than default
+   to a silently truncated preview. */
+.booklet-admin-shell {
+  /* Wider than the standard 1000px .admin-shell cap -- this page can pair
+     a controls column with a full real-print-width (8.5in) preview pane
+     side by side, which the standard cap would otherwise rule out even
+     on a generously wide monitor. Print output is unaffected -- the
+     existing `.admin-shell { max-width: none; ... }` print reset below
+     overrides this too. */
+  max-width: 1600px;
+}
+.booklet-admin-intro {
+  color: #666;
+  margin: -0.5rem 0 0;
+}
+.booklet-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.booklet-print-bar {
+  display: flex;
+  gap: 0.75rem;
+}
+.booklet-preview-pane {
+  background: var(--surface-2, #f4f4f2);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem;
+}
+/* Side by side only once a controls column (its own comfortable minimum,
+   not squeezed) plus the full 816px/8.5in preview plus their gap and
+   padding can all actually fit next to the expanded admin sidebar --
+   worked out against real viewport widths (1280/1366/1440 all fail that
+   math with the sidebar expanded; 1920 clears it with room to spare) and
+   confirmed by screenshot at 1536px wide, not just computed. */
+@media (min-width: 1500px) {
+  .booklet-layout {
+    display: grid;
+    grid-template-columns: minmax(300px, 420px) minmax(816px, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .booklet-preview-pane {
+    position: sticky;
+    top: 1.5rem;
+    /* Scrolls internally once the preview (which can run to dozens of
+       printed pages) is taller than the viewport, instead of the whole
+       page scrolling past this pane -- that's the actual fix for
+       "visible without scrolling past all the controls first". Reset for
+       print below: a real print/PDF job must never be clipped to one
+       screen's worth of this. */
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
+  }
+}
+
+/* 8.5in (a real US Letter page width) both ways -- min-width, not just
+   max-width -- deliberately not shrunk to fit a narrow container, since
+   this previews actual print proportions. overflow-x: auto on the outer
+   scroller lets a narrower container (a phone-width admin, or now also
+   .booklet-preview-pane's own right-hand column at an ordinary desktop
+   width -- see .booklet-layout above) scroll it horizontally instead of
+   squeezing the preview smaller than a real printed page actually is.
+   Before the two-pane layout (#346), the single-column page was wide
+   enough on most desktop widths that min-width was never in practice
+   doing anything different than max-width alone -- the preview pane's
+   own narrower column makes that no longer true. The outer
+   .booklet-preview-pane above now owns the surrounding margin/
+   background, so this wrapper itself no longer centers with its own
+   margin. */
 .booklet-preview-scroll {
   overflow-x: auto;
-  margin: 1.5rem auto;
 }
 .booklet-preview {
-  max-width: 8.5in;
+  width: 8.5in;
+  margin: 0 auto;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.15);
 }
 
 @media print {
   .no-print {
     display: none !important;
+  }
+  /* The sticky/scroll-clipping behavior above is a screen-only
+     convenience -- without this reset, a real print/PDF job would be
+     clipped to whatever fit in one on-screen viewport instead of the
+     full multi-page booklet, since Chromium's print engine still honors
+     overflow/max-height unless it's explicitly cleared here. */
+  .booklet-preview-pane {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    background: none;
+    padding: 0;
   }
   /* Hide everything, then reveal only the booklet.
      

@@ -21,6 +21,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 ### Changed
 - Booklet templates rebuilt as a small, data-driven catalog (`frontend/src/booklet/templates.js`), mirroring the registry/definitions split the Reports rebuild established — a template is now a token set consumed by one shared `booklet.css`, not a hand-duplicated ~150-line CSS block per template. The picker now offers exactly two templates, Classic and Modern (ported onto the new system, unchanged in look); Traditional, Keepsake, Portfolio and Friendly are removed. Their CSS can be re-added onto the new token system in a follow-up if wanted.
 - The booklet's accent color now defaults to `ChurchSettings.primaryColor` (your church's own brand color) instead of a hardcoded four-color rotation; the old rotation is kept only as the fallback for an instance that hasn't set a brand color. No database migration.
+- `/admin/booklet` reorganized into a two-pane layout — the same controls (template picker, who's included, what shows on each page, cover text, Print Booklet) on the left, the live print preview pinned on the right so it's visible without scrolling past every control first, instead of three stacked cards above a full-width preview further down the page. Every control's own behavior is unchanged. (#346)
+
+### Fixed
+- The booklet's decorative corner shapes (Classic template) could bleed past their own page's edges and visually overlap the next page's content/page number in the on-screen preview — `.booklet-page`/`.booklet-cover`/`.booklet-index` now clip their own content (`overflow: hidden`), and the shapes themselves now anchor to a page corner instead of one of them floating mid-edge. (#346)
 
 ## [0.2.1] - 2026-11-23
 
