@@ -14,6 +14,15 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-23
+
+Still pre-1.0: this is the first version number this project has
+actually tagged and released (see `package.json` history — earlier
+`1.x` entries in this file were never tagged or published, and the
+version was dropped back below `1.0` to stop implying otherwise).
+Everything below is the project's full feature set to date, not just
+what changed since some prior release.
+
 ### Changed
 - Reports rebuilt from scratch: a hub organized by question (Money, Partner care, Trips, Contacts, System) and nine reports — support summary, support changes, prayer requests, one-time needs, data completeness, trip fundraising, trip readiness, mailing list, users & access (admin only). Each has URL-backed filters, summary tiles, CSV download and print / save as PDF. No database migration.
 - **Removed** the previous reports (birthdays, furlough, trip history, and the earlier support, needs and prayer exports). Bookmarked `/api/reports/<old-id>` URLs now return 404.
