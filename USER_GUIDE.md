@@ -454,12 +454,16 @@ or leave it as "None."
   answered over time, not just a log of what's currently outstanding.
 
 Separately from any individual request above, a partner's detail page
-also has its own **Last Prayed w/ Congregation** field — a record of the
-last time the whole congregation prayed for that partner together (in a
-service or a dedicated prayer gathering), not any one request's own
-answer. Click **Mark Prayed Today** right after it happens, or open the
-field to enter/correct a past date if you're catching up on a few
-weeks of history.
+also has its own **Last Prayed For in a Service** field (a caption on
+the field itself spells this out) — a record of the last time the whole
+congregation prayed for that partner together during a worship service
+or special church event, not any one request's own answer. Click **Mark
+Prayed Today** right after it happens, or open the field to
+enter/correct a past date if you're catching up on a few weeks of
+history. It also shows up as its own column on the **Last heard from**
+report (see [Reports](#reports) below), alongside last newsletter, last
+photo, last prayer request, and last church visit — one more
+connectedness signal when reviewing who's gone quiet.
 
 The central **Prayer Requests** page lists every request across every
 partner, filterable by category, with a running count of how many have

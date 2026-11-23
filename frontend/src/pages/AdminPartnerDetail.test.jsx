@@ -78,7 +78,7 @@ vi.mock("../context/SettingsContext.jsx", () => ({
 // Organization, not missionary, specifically to skip the Sending
 // Church/Sending Org sections (missionary-only) -- this page renders a
 // lot per partner, and this fixture only needs to be complete enough to
-// reach the "Last Prayed w/ Congregation" section in the Communication
+// reach the "Last Prayed For in a Service" section in the Communication
 // group without crashing on a missing field elsewhere.
 const BASE_PARTNER = {
   id: "partner-1",
@@ -127,7 +127,7 @@ function renderDetailPage() {
   );
 }
 
-describe("AdminPartnerDetail: Last Prayed w/ Congregation (#228)", () => {
+describe("AdminPartnerDetail: Last Prayed For in a Service (#228)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -152,6 +152,19 @@ describe("AdminPartnerDetail: Last Prayed w/ Congregation (#228)", () => {
     expect(patch.lastPrayedWithCongregationAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it("shows a caption clarifying this is corporate prayer, not an individual prayer request", async () => {
+    const { fetchPartner } = await import("../api/client.js");
+    fetchPartner.mockResolvedValue({ ...BASE_PARTNER });
+
+    renderDetailPage();
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Test Organization" })).toBeInTheDocument()
+    );
+    expect(screen.getByRole("heading", { name: "Last Prayed For in a Service" })).toBeInTheDocument();
+    expect(screen.getByText(/not an individual prayer request/)).toBeInTheDocument();
+  });
+
   it("lets an admin backdate it through the edit popup, not just today", async () => {
     const { fetchPartner } = await import("../api/client.js");
     fetchPartner.mockResolvedValue({
@@ -169,7 +182,7 @@ describe("AdminPartnerDetail: Last Prayed w/ Congregation (#228)", () => {
     // The whole card (title + current view content) is the click target
     // to open the edit popup -- same convention as every other
     // EditableSection on this page.
-    fireEvent.click(screen.getByRole("button", { name: /Last Prayed w\/ Congregation/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Last Prayed For in a Service/ }));
 
     // getByLabelText is ambiguous here -- the Modal's own aria-labelledby
     // points at the same heading text as the <label> wrapping the date
