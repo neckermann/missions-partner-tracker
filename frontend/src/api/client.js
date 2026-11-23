@@ -710,22 +710,17 @@ export async function setTripRequirementComplete(requirementId, participantId, c
   );
   return data;
 }
-export async function requestTripDocuments(tripId, participantId, message) {
-  const { data } = await api.post(`/trips/${tripId}/participants/${participantId}/request-documents`, {
-    message,
-  });
-  return data;
-}
 export async function addTripContribution(tripId, payload) {
   const { data } = await api.post(`/trips/${tripId}/contributions`, payload);
   return data;
 }
-// Manually logs a document as received -- the only other path into
-// TripDocument is inboundEmail.js's /assign (an inbound email the admin
-// routes to a participant), which has nothing to offer a document that
-// arrived by any other means (mail, in person, a file the admin already
-// has). participantId/requirementId/title are all optional, same as the
-// backend route itself allows.
+// Manually logs a document as received -- the other paths into
+// TripDocument are inboundEmail.js's /assign (an inbound email the admin
+// routes to a participant) and the participant's own per-requirement
+// self-service upload (uploadTripRequirementDocument below); this one
+// covers a document that arrived by any other means (mail, in person, a
+// file the admin already has). participantId/requirementId/title are all
+// optional, same as the backend route itself allows.
 export async function uploadTripDocument(tripId, file, { participantId, requirementId, title } = {}) {
   const formData = new FormData();
   formData.append("file", file);

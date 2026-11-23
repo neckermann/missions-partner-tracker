@@ -43,7 +43,7 @@ router.use(requireFeature("trips"));
 async function getSettings() {
   return prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { enabledFeatures: true, allowPublicSupportRaisingLinks: true, inboundEmailAddress: true },
+    select: { enabledFeatures: true, allowPublicSupportRaisingLinks: true },
   });
 }
 
@@ -409,35 +409,6 @@ router.post(
       } else {
         res.json({ sent: false, manualUrl: buildTripParticipantAccessUrl(participant) });
       }
-    } catch (err) {
-      next(err);
-    }
-  }
-);
-
-// ---- Documents: the one route here that's about requesting one from a
-// participant (a text message, no file handling), not storing one --
-// see trips.js for the actual TripDocument CRUD.
-router.post(
-  "/:tripId/participants/:id/request-documents",
-  requireFeature("outboundEmail"),
-  requireFeature("inboundEmail"),
-  requireRole("admin", "editor", "tripLeader"),
-  requireTripScope("tripId"),
-  async (req, res, next) => {
-    try {
-      const { message } = z.object({ message: z.string().min(1) }).parse(req.body);
-      const settings = await getSettings();
-      if (!settings?.inboundEmailAddress) {
-        return res.status(400).json({ error: "Set an inbound email address under Settings → Email first" });
-      }
-      const participant = await prisma.tripParticipant.findUnique({ where: { id: req.params.id } });
-      if (!participant) return res.status(404).json({ error: "Not found" });
-
-      const result = await sendParticipantEmail(participant, "Document request", message, {
-        replyTo: settings.inboundEmailAddress,
-      });
-      res.json(result);
     } catch (err) {
       next(err);
     }

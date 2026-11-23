@@ -1730,14 +1730,13 @@ model ChurchSettings {
   // precedent (routine public-application-form content, default on).
   enableTripBudgeting Boolean @default(false)
 
-  // Not trip-specific at all -- the address partners/participants were
-  // told (outside this app) to send mail to, under whatever inbound
-  // domain was configured in Postmark's own dashboard. Purely
+  // Not trip-specific at all -- the address partners were told (outside
+  // this app) to send their newsletters/updates to, under whatever
+  // inbound domain was configured in Postmark's own dashboard. Purely
   // informational/display, same as emailFromAddress being informational
-  // about a domain verified entirely in Postmark's own UI. Lets a
-  // document-request email (tripEmails.js) set a real Reply-To header,
-  // and gives admins an in-app place to see/share the address partners
-  // already send newsletters to.
+  // about a domain verified entirely in Postmark's own UI -- gives
+  // admins an in-app place to see/share the address partners already
+  // send newsletters to.
   inboundEmailAddress String?
 
   // Church-wide base question set every trip's application form renders

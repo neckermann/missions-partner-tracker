@@ -14,6 +14,16 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Removed
+- The trip "document request" feature (an admin emailing a participant asking for a file, with their reply routed back via Reply-To and filed as a `TripDocument`) is removed. This is a deliberate simplification, not a bug fix: it duplicated something better that already existed — adding a document-kind `TripRequirement` already emails the participant proactively, and their own self-service trip page already has a real upload control for it. Self-service upload via the participant's own trip page remains the way to collect trip documents; an admin can still log one manually on a participant's detail page for a document that arrived some other way.
+
+### Changed
+- Inbound email matching is simplified now that document request is gone: the Postmark webhook no longer checks the sender against `TripParticipant.email` at all — it's Partner-only. Exactly one matching partner files the email as a Newsletter automatically; zero or more than one lands in the Unmatched Emails queue, same as before. (An admin can still manually assign an already-queued, unmatched email to a trip participant from that queue — that manual action is unchanged.)
+- `backend/.env.example`'s `FROM_EMAIL_ADDRESS` example is now `no-reply@yourchurch.org` instead of `updates@yourchurch.org`, matching the fact that this app never expects a reply to its own outbound sends now that document request is gone. `ADMIN_GUIDE.md`'s Email (Postmark) section is updated to match — the Receiving side is now described as single-purpose ("lets partners send their newsletters/updates directly"), and the Sending-vs-Receiving decision table no longer has a "needs both" row.
+
+### Fixed
+- `POST /api/auth/password-setup/request` ("send me a new setup link") now explicitly checks `outboundEmail` before attempting to send, matching every other `sendWelcomeEmail` call site (`users.js`). Previously it relied on `sendWelcomeEmail` throwing its own "not configured" error when the feature was off, silently caught by this route's deliberate catch-all — same end-user-visible behavior (the generic response never changes either way), but fragile, not explicit. (#345 email review follow-up)
+
 ## [0.3.0] - 2026-11-23
 
 ### Added
