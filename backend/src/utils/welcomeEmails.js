@@ -5,19 +5,21 @@
 // (emailDispatchShell.js's buildTransactionalMessage) so it looks like
 // everything else this church sends.
 //
-// Guide URLs point at this project's own docs (GitHub-rendered markdown,
-// same convention as BackupReminder.jsx/AdminSettingsEmail.jsx/
-// AdminSystemInfo.jsx's own doc links) -- not configurable per fork. These
-// are this project's own documentation, not church-specific branding, so
-// there's no "keep forks upgradable" reason to make them an env var or a
-// ChurchSettings field (see issue #303).
+// Guide URLs point at this project's own published docs site (the
+// GitHub Pages-rendered guide, not a raw GitHub blob -- see
+// docs/user-guide.html and docs/assets/guide.js: that page reimplements
+// GitHub's own heading-slug algorithm specifically so these #anchor
+// fragments resolve identically there) -- not configurable per fork.
+// These are this project's own documentation, not church-specific
+// branding, so there's no "keep forks upgradable" reason to make them an
+// env var or a ChurchSettings field (see issue #303).
 const { renderEmail, blocks } = require("./emailTemplate");
 const { buildSetupUrl, setupTtlHours } = require("./passwordSetup");
 
-const DOCS_BASE = "https://github.com/neckermann/missions-partner-tracker/blob/main";
-const USER_GUIDE_URL = `${DOCS_BASE}/USER_GUIDE.md`;
-const TRIP_LEADER_GUIDE_URL = `${DOCS_BASE}/USER_GUIDE.md#understanding-your-role`;
-const MFA_HELP_URL = `${DOCS_BASE}/USER_GUIDE.md#your-account-settings`;
+const DOCS_BASE = "https://missionspartnertracker.com";
+const USER_GUIDE_URL = `${DOCS_BASE}/user-guide.html`;
+const TRIP_LEADER_GUIDE_URL = `${DOCS_BASE}/user-guide.html#understanding-your-role`;
+const MFA_HELP_URL = `${DOCS_BASE}/user-guide.html#your-account-settings`;
 const SUPPORT_URL = "https://github.com/neckermann/missions-partner-tracker/issues";
 
 // { label, url } pairs for the guides relevant to this role.
