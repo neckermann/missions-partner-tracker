@@ -66,6 +66,15 @@ before(async () => {
       emailFromAddress: null,
       inboundEmailWebhookUsername: null,
       inboundEmailWebhookPassword: null,
+      // Missing here was the real bug behind #284's "admin sees
+      // unconfigured" failure -- every other inbound/outbound email
+      // credential field got reset to a clean slate except this one, so
+      // a Postgres instance that ever had Trips (#252) inbound email
+      // configured on it (manual testing, an earlier seed run, ...) left
+      // this field set, and "admin sees unconfigured" failed against
+      // that real leftover value instead of this test's own assumed
+      // blank state.
+      inboundEmailAddress: null,
       enabledFeatures: { outboundEmail: true },
     },
     create: { id: "singleton", enabledFeatures: { outboundEmail: true } },
