@@ -298,9 +298,14 @@ router.post("/password-setup/complete", async (req, res, next) => {
 // out after responding, so neither the message nor the response time
 // reveals whether an account exists.
 router.post("/password-setup/request", async (req, res) => {
-  res.json({ ok: true, message: "If that email has an account waiting to be set up, a new link is on its way." });
+  res.json({
+    ok: true,
+    message: "If that email has an account waiting to be set up, a new link is on its way.",
+  });
   try {
-    const email = String(req.body?.email || "").toLowerCase().trim();
+    const email = String(req.body?.email || "")
+      .toLowerCase()
+      .trim();
     if (!email) return;
     const user = await prisma.user.findUnique({ where: { email } });
     if (user && user.active && user.authProvider === "local" && !user.passwordHash) {

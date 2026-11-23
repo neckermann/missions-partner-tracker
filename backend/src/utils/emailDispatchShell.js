@@ -268,7 +268,16 @@ function accentColorFor(settings) {
 // are the message body below the greeting; `footerNote` is the one line
 // of small print above the contact block. Returns { subject, html, text }
 // for utils/email.js's sendEmail. Doesn't send anything itself.
-function buildTransactionalMessage({ settings, subject, subtitleLine, greetingName, bodyHtml, bodyText, footerNote, footerLink }) {
+function buildTransactionalMessage({
+  settings,
+  subject,
+  subtitleLine,
+  greetingName,
+  bodyHtml,
+  bodyText,
+  footerNote,
+  footerLink,
+}) {
   const churchName = settings?.churchName || "Missions Partner Tracker";
   const headerColor = settings?.headerColor || HEADER_FALLBACK_COLOR;
   const accentColor = settings?.primaryColor || ACCENT_FALLBACK_COLOR;
