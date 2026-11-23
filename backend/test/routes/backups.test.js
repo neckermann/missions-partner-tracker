@@ -10,6 +10,7 @@ let admin;
 let editor;
 let viewer;
 let unauthenticated;
+let originalEnabledFeatures;
 
 before(async () => {
   await ensureTestUsers();
@@ -19,9 +20,34 @@ before(async () => {
     client("viewer"),
     client(),
   ]);
+
+  // The TripMeeting round-trip fixture below needs POST /api/trips and
+  // POST /api/trips/:id/meetings reachable -- `trips` defaults to off
+  // (see routes/tripMeetings.js's own requireFeature("trips")), and CI's
+  // e2e job deliberately enables it only *after* the whole backend
+  // route-test suite runs (see ci.yml's own comment on that ordering),
+  // so this can't rely on ambient state the way a purely local run might
+  // happen to have. Same save/restore convention as trips.test.js's own
+  // setFeatures -- restore to whatever existed when this file started,
+  // not unconditionally back to off.
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
+  originalEnabledFeatures = settings?.enabledFeatures ?? {};
+  const enabledFeatures = { ...originalEnabledFeatures, trips: true };
+  await prisma.churchSettings.upsert({
+    where: { id: "singleton" },
+    update: { enabledFeatures },
+    create: { id: "singleton", enabledFeatures },
+  });
 });
 
 after(async () => {
+  await prisma.churchSettings.update({
+    where: { id: "singleton" },
+    data: { enabledFeatures: originalEnabledFeatures },
+  });
   await removeTestUsers();
   await stopServer();
 });
@@ -115,5 +141,56 @@ describe("backup/restore round trip", () => {
     assert.equal(restored.displayName, rawRow.displayName);
 
     await prisma.partner.delete({ where: { id: created.body.id } });
+  });
+
+  // #271 Finding 8's actual bug, not just MODELS containing the right
+  // strings: TripMeeting was one of the 25 models that fell off backup/
+  // restore entirely -- buildBackup never queried it, and parseBackup
+  // would have thrown "Unknown model in backup file" if a restore file
+  // somehow ever had one. This exercises the real round trip end to end:
+  // create it, back the whole database up through buildBackup/
+  // parseBackup (not a hand-built rowsByModel), delete it, restore, and
+  // confirm it -- and the trip it hangs off of -- both survive with their
+  // data intact.
+  test("a TripMeeting (one of the 25 models #271 Finding 8 found missing) survives a full backup/restore round trip", async () => {
+    const partner = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} Trip Meeting Fixture` },
+    });
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.body.id, status: "planning" },
+    });
+    const meeting = await admin(`/api/trips/${trip.body.id}/meetings`, {
+      method: "POST",
+      body: {
+        startAt: "2027-01-15T18:00:00.000Z",
+        title: `${FIXTURE_TAG} Prep Meeting`,
+        agenda: "Packing list review",
+      },
+    });
+    assert.equal(meeting.status, 201);
+
+    const { buffer } = await buildBackup(prisma);
+    const text = zlib.gunzipSync(buffer).toString("utf8");
+    const { rowsByModel } = parseBackup(text);
+    assert.ok(rowsByModel.tripMeeting, "tripMeeting should be a known model in the backup file");
+    const backedUpMeeting = rowsByModel.tripMeeting.find((r) => r.id === meeting.body.id);
+    assert.ok(backedUpMeeting, "the fixture meeting should appear in the backup");
+
+    await prisma.tripMeeting.delete({ where: { id: meeting.body.id } });
+    assert.equal(await prisma.tripMeeting.findUnique({ where: { id: meeting.body.id } }), null);
+
+    const counts = await restoreRows(prisma, { tripMeeting: [backedUpMeeting] });
+    assert.equal(counts.tripMeeting, 1);
+
+    const restored = await prisma.tripMeeting.findUnique({ where: { id: meeting.body.id } });
+    assert.ok(restored, "the deleted meeting should exist again after restore");
+    assert.equal(restored.title, `${FIXTURE_TAG} Prep Meeting`);
+    assert.equal(restored.agenda, "Packing list review");
+    assert.equal(restored.tripId, trip.body.id);
+
+    await prisma.trip.delete({ where: { id: trip.body.id } });
+    await prisma.partner.delete({ where: { id: partner.body.id } });
   });
 });
