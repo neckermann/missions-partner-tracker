@@ -556,6 +556,16 @@ function ExistingTripsTab() {
         ]}
         renderActions={(trip) => (
           <>
+            <button
+              type="button"
+              className="btn secondary small"
+              onClick={(e) => {
+                e.stopPropagation();
+                trip.status === "completed" ? openTripDetail(trip) : navigate(`/admin/trips/${trip.id}`);
+              }}
+            >
+              View
+            </button>
             {isAdmin && (
               <button
                 type="button"
@@ -636,22 +646,6 @@ const QUICK_FILTERS = [
   { value: "committed", label: "Committed" },
   { value: "fallback", label: "No trip scheduled" },
 ];
-
-// Action-link style shared by this tab's "Clone trip" secondary action --
-// same idiom as the Status column's badge+"View trip →" link pairing
-// just below it (a primary element, a small text link underneath), but
-// "Clone trip" triggers an API call before navigating rather than being
-// a plain navigation, so it has to stay a <button> styled to read as a
-// link rather than an actual <Link>.
-const linkButtonStyle = {
-  background: "none",
-  border: "none",
-  padding: 0,
-  color: "#1f6b4f",
-  textDecoration: "underline",
-  cursor: "pointer",
-  fontSize: "0.78rem",
-};
 
 function PlanATripTab() {
   const [rows, setRows] = useState([]);
@@ -856,16 +850,14 @@ function PlanATripTab() {
                 </button>
               )}
               {canWrite && row.cloneFromTripId && (
-                <div style={{ marginTop: row.kind === "fallback" ? "0.3rem" : 0 }}>
-                  <button
-                    type="button"
-                    style={linkButtonStyle}
-                    disabled={cloningId === row.partnerId}
-                    onClick={() => handleClone(row)}
-                  >
-                    {cloningId === row.partnerId ? "Cloning…" : "Clone trip"}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  disabled={cloningId === row.partnerId}
+                  onClick={() => handleClone(row)}
+                >
+                  {cloningId === row.partnerId ? "Cloning…" : "Clone trip"}
+                </button>
               )}
             </>
           )}
