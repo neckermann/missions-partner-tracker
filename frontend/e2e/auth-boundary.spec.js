@@ -116,7 +116,12 @@ test.describe("user management", () => {
     const email = `e2e-managed-${Date.now()}@example.test`;
     await page.goto("/admin/settings/users");
     await page.getByRole("button", { name: "+ Add User" }).click();
-    await page.getByLabel("Email").fill(email);
+    // Uncheck the welcome-email default so the admin-typed-password field
+    // (this test's whole point) actually renders -- the checkbox's own
+    // label text ("Send a welcome email so they...") is also why plain
+    // getByLabel("Email") below needs exact: true, not just this field.
+    await page.getByLabel("Send a welcome email", { exact: false }).uncheck();
+    await page.getByLabel("Email", { exact: true }).fill(email);
     await page.getByLabel("First Name").fill("Managed");
     await page.getByLabel("Last Name").fill("User");
     await page.getByLabel("Role").selectOption("viewer");

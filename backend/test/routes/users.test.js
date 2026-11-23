@@ -19,6 +19,35 @@ after(async () => {
   await stopServer();
 });
 
+describe("POST /api/users", () => {
+  // Regression: sendWelcomeEmail defaults to true, so any caller that
+  // supplies a password without also sending sendWelcomeEmail: false (every
+  // caller that predates this field, e.g. the e2e suite's own user-creation
+  // helper) used to get a silently passwordless account -- the password was
+  // discarded with no error, and the account could never sign in. An
+  // explicitly-given password must always be used, regardless of
+  // sendWelcomeEmail's default.
+  test("a password is used even when sendWelcomeEmail isn't explicitly set to false", async () => {
+    const email = `created-${Date.now()}@example.test`;
+    const password = "CreatedUserPassword123!";
+    const res = await admin("/api/users", {
+      method: "POST",
+      body: { email, role: "viewer", password },
+    });
+    try {
+      assert.equal(res.status, 201);
+      assert.deepEqual(res.body.welcomeEmail, { sent: false, skipped: true });
+
+      const loggedIn = await client({ email, password });
+      const self = await loggedIn("/api/auth/me");
+      assert.equal(self.status, 200);
+      assert.equal(self.body.user.email, email);
+    } finally {
+      await prisma.user.deleteMany({ where: { email } });
+    }
+  });
+});
+
 describe("POST /api/users/:id/mfa/reset", () => {
   test("an admin cannot reset their own MFA through this route", async () => {
     // auth.js's self-service /mfa/disable deliberately requires the

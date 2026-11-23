@@ -133,10 +133,18 @@ router.post("/", async (req, res, next) => {
       return res.status(400).json({ error: TRIP_LEADER_SCOPE_ISSUE.message });
     }
     // With a welcome email the person chooses their own password, so the
-    // account starts with none (it can't sign in until they do). Without
-    // one, an admin-typed password is used if given; otherwise the
-    // account stays pending until a setup link is sent.
-    const passwordHash = !sendWelcome && password ? await bcrypt.hash(password, 12) : null;
+    // account starts with none (it can't sign in until they do). An
+    // explicitly-given password always wins over that, though, regardless
+    // of sendWelcomeEmail -- a caller that bothers to supply one clearly
+    // wants it used, and silently discarding it (sendWelcomeEmail defaults
+    // to true, so every pre-existing caller that doesn't know about this
+    // field would otherwise get a passwordless account with no error and
+    // no indication why) is a real backward-compatibility break, not a
+    // feature. Confirmed as a real bug, not a hypothetical: every e2e test
+    // that creates a user via POST /api/users with a password and no
+    // sendWelcomeEmail field (pre-existing helper, written before this
+    // field existed) got a passwordless account and hung at sign-in.
+    const passwordHash = password ? await bcrypt.hash(password, 12) : null;
 
     const created = await prisma.user.create({
       data: {
@@ -160,7 +168,7 @@ router.post("/", async (req, res, next) => {
     // automatic emailing does, so hand the admin the link directly instead
     // of pretending this can't be done without email configured.
     let welcomeEmail = { sent: false, skipped: true };
-    if (sendWelcome) {
+    if (sendWelcome && !password) {
       const settings = await getSettings();
       if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
         try {
