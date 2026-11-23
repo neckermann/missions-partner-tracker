@@ -621,8 +621,10 @@ covered below.
 **A participant's own detail page** (click their name from Confirmed
 Team) is where their contact info gets corrected, their public
 support-raising page gets set up (photo, story), and their own
-requirement fulfillment and documents live. **Request documents**
-sends them an email asking for something specific.
+requirement fulfillment and documents live. A participant uploads
+their own requirement documents from their self-service page; an
+admin can also log one here directly for a document that arrived some
+other way.
 
 ![A participant's own detail page](docs/assets/screenshots/admin-trip-participant-detail.png)
 

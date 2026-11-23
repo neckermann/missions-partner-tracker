@@ -12,6 +12,7 @@ const { appBaseUrl } = require("../utils/dispatchBlurbs");
 const { escapeHtml } = require("../utils/emailDispatchShell");
 const { findValidSetupToken, hashToken } = require("../utils/passwordSetup");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
+const { isFeatureEnabled } = require("../utils/features");
 const { DEFAULT_TRIP_REQUIREMENT_TEMPLATE } = require("../utils/defaultTripRequirementTemplate");
 
 const router = express.Router();
@@ -324,7 +325,20 @@ router.post("/password-setup/request", async (req, res) => {
     if (!email) return;
     const user = await prisma.user.findUnique({ where: { email } });
     if (user && user.active && user.authProvider === "local" && !user.passwordHash) {
-      await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired });
+      // Explicit check, same as users.js's own sendWelcomeEmail call sites --
+      // without it, this would still "work" by accident: sendWelcomeEmail
+      // throws when outboundEmail is off, and the catch below swallows it.
+      // That's incidental, not intentional, and fragile the next time this
+      // route changes. No manual-link fallback to offer here (unlike
+      // users.js, this is self-service with no admin present to hand a
+      // link to), so skip the send outright rather than invent one.
+      const settings = await prisma.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: { enabledFeatures: true },
+      });
+      if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+        await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired });
+      }
     }
   } catch {
     // Deliberately swallowed: this endpoint must never signal a difference.
