@@ -75,6 +75,17 @@ async function requireAuth(req, res, next) {
     return unauthorized(req, res, "MFA verification required");
   }
 
+  // #327 Finding 1: a digest email's unsubscribe link is signed with this
+  // same SESSION_SECRET as a { id, unsubscribe: true } token, with no
+  // other discriminator requireAuth used to check -- so it was accepted
+  // as a completely normal session for that id, bypassing password and
+  // MFA entirely and never expiring. Same denylist pattern as
+  // mfaPending/mfaSetup above: refuse a token minted for a different
+  // purpose, no matter how valid its signature is.
+  if (decoded.unsubscribe) {
+    return unauthorized(req, res, "Invalid or expired session");
+  }
+
   try {
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
@@ -134,6 +145,13 @@ async function requireAuthOrMfaSetup(req, res, next) {
   }
 
   if (decoded.mfaPending) return res.status(401).json({ error: "MFA verification required" });
+
+  // #327 Finding 1, same reasoning as requireAuth's own check above: an
+  // unsubscribe token presented here would otherwise reach
+  // POST /mfa/setup and /mfa/verify-setup, which end in completeLogin and
+  // hand back a brand-new, fully-privileged session cookie -- a second
+  // way in for the exact same forged token, if this one were left out.
+  if (decoded.unsubscribe) return res.status(401).json({ error: "Invalid or expired session" });
 
   try {
     // Deliberately only existence and active, not role: a setup token has no

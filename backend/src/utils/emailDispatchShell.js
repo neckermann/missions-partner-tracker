@@ -73,11 +73,20 @@ function partnerTileDetails(p) {
 }
 
 // Same { id, <purpose>: true } shape routes/auth.js already uses for
-// MFA-pending/MFA-setup tokens, signed with the same SESSION_SECRET --
-// deliberately no expiresIn, since an unsubscribe link saved from an old
-// email should still work whenever it's clicked.
+// MFA-pending/MFA-setup tokens, signed with the same SESSION_SECRET.
+// #327 Finding 1: this token has no *type* check distinguishing it from a
+// real session (that's fixed in middleware/requireAuth.js), but as
+// defense-in-depth it also shouldn't be able to live forever the way the
+// session-cookie-shaped forgery did. 90 days is generous enough that an
+// unsubscribe link saved from an old digest email still works for anyone
+// who kept it a while, same as auth.js's signMfaPendingToken/
+// signMfaSetupToken use expiresIn for their own shorter-lived purposes.
+const UNSUBSCRIBE_TOKEN_TTL = "90d";
+
 function buildUnsubscribeToken(userId) {
-  return jwt.sign({ id: userId, unsubscribe: true }, process.env.SESSION_SECRET);
+  return jwt.sign({ id: userId, unsubscribe: true }, process.env.SESSION_SECRET, {
+    expiresIn: UNSUBSCRIBE_TOKEN_TTL,
+  });
 }
 
 function buildUnsubscribeUrl(userId) {

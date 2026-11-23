@@ -480,10 +480,17 @@ router.put("/dispatch-by-email", requireAuth, async (req, res, next) => {
 // from a link in a digest email (see utils/emailDispatchShell.js's
 // buildUnsubscribeUrl). Verifies the same { id, unsubscribe: true }
 // token shape/signing as the MFA-pending/MFA-setup tokens above, minted
-// fresh per recipient per email, deliberately with no expiry (an old,
-// saved email's unsubscribe link should still work). Renders a plain
-// HTML confirmation page, not JSON -- this is a link a person clicks in
-// their mail client, not an API call.
+// fresh per recipient per email, with a 90-day expiry (#327 Finding 1 --
+// generous enough that an old, saved email's unsubscribe link still
+// works, but not forever). This jwt.verify call is this route's own --
+// separate from, and not gated by, middleware/requireAuth, so an expired
+// token here fails the same way any other invalid token does below, and
+// never touches requireAuth's own unrelated rejection of
+// decoded.unsubscribe (that check exists so this token can never be
+// presented as a *session cookie* instead; it has nothing to do with
+// this route verifying it directly). Renders a plain HTML confirmation
+// page, not JSON -- this is a link a person clicks in their mail client,
+// not an API call.
 router.get("/unsubscribe", async (req, res) => {
   // Branded to match the digest email's own header-band treatment (see
   // utils/emailDispatchShell.js) -- same three colors/font, same fallbacks, so
