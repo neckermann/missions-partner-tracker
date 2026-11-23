@@ -11,7 +11,6 @@ test("welcome email has the setup link, branding and escaped church name", () =>
     ...base,
     user: { firstName: "Sam", role: "editor" },
     requireMfa: false,
-    env: {},
   });
   assert.match(m.html, /https:\/\/app\.example\/set-password\?token=abc/);
   assert.match(m.html, /#123456/);
@@ -23,29 +22,30 @@ test("welcome email has the setup link, branding and escaped church name", () =>
 });
 
 test("MFA note appears only when MFA is required", () => {
-  const withMfa = buildWelcomeEmail({ ...base, user: { role: "editor" }, requireMfa: true, env: {} });
+  const withMfa = buildWelcomeEmail({ ...base, user: { role: "editor" }, requireMfa: true });
   assert.match(withMfa.text, /authenticator app/);
   assert.match(withMfa.html, /authenticator app/);
 });
 
-test("guide links are role-specific and omitted when unset or not http(s)", () => {
-  const env = {
-    USER_GUIDE_URL: "https://x.test/user",
-    TRIP_LEADER_GUIDE_URL: "https://x.test/leader",
-    SUPPORT_URL: "javascript:alert(1)",
-  };
-  assert.deepEqual(guideLinks("editor", env), [{ label: "User guide", url: "https://x.test/user" }]);
-  assert.deepEqual(guideLinks("tripLeader", env), [
-    { label: "Trip Leader guide", url: "https://x.test/leader" },
-  ]);
-  assert.deepEqual(guideLinks("editor", {}), []);
+test("guide links are role-specific and always point at this project's own docs", () => {
+  const editorLinks = guideLinks("editor");
+  assert.deepEqual(
+    editorLinks.map((l) => l.label),
+    ["User guide", "Support and help", "Setting up two-factor authentication"]
+  );
+  editorLinks.forEach((l) => assert.match(l.url, /^https:\/\/github\.com\//));
+
+  const leaderLinks = guideLinks("tripLeader");
+  assert.deepEqual(
+    leaderLinks.map((l) => l.label),
+    ["Trip Leader guide", "Support and help", "Setting up two-factor authentication"]
+  );
+  leaderLinks.forEach((l) => assert.match(l.url, /^https:\/\/github\.com\//));
 });
 
-test("trip leaders get a longer default expiry, overridable by env", () => {
-  assert.equal(setupTtlHours("editor", {}), 72);
-  assert.equal(setupTtlHours("tripLeader", {}), 168);
-  assert.equal(setupTtlHours("editor", { PASSWORD_SETUP_TTL_HOURS: "24" }), 24);
-  assert.equal(setupTtlHours("editor", { PASSWORD_SETUP_TTL_HOURS: "junk" }), 72);
+test("trip leaders get a longer fixed expiry than everyone else", () => {
+  assert.equal(setupTtlHours("editor"), 72);
+  assert.equal(setupTtlHours("tripLeader"), 168);
 });
 
 test("tokens are random, url-safe, and hashed deterministically", () => {
