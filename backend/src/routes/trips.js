@@ -7,7 +7,12 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole, requireTripScope, requirePartnerQueryScope } = require("../middleware/requireAuth");
+const {
+  requireAuth,
+  requireRole,
+  requireTripScope,
+  requirePartnerQueryScope,
+} = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { generateShareToken } = require("../utils/tripAccessToken");
 const { sendTripDatesUpdateEmail } = require("../utils/tripEmails");
@@ -21,15 +26,24 @@ const { SOON_DAYS, isRequirementFulfilledForParticipant } = require("../notifica
 // -- requireTripScope needs the owning trip id before it can check it
 // against a Trip Leader's own scopedTripId.
 async function tripIdOfBudgetLine(req) {
-  const row = await prisma.tripBudgetLine.findUnique({ where: { id: req.params.id }, select: { tripId: true } });
+  const row = await prisma.tripBudgetLine.findUnique({
+    where: { id: req.params.id },
+    select: { tripId: true },
+  });
   return row?.tripId;
 }
 async function tripIdOfFlightSegment(req) {
-  const row = await prisma.tripFlightSegment.findUnique({ where: { id: req.params.id }, select: { tripId: true } });
+  const row = await prisma.tripFlightSegment.findUnique({
+    where: { id: req.params.id },
+    select: { tripId: true },
+  });
   return row?.tripId;
 }
 async function tripIdOfDocument(req) {
-  const row = await prisma.tripDocument.findUnique({ where: { id: req.params.id }, select: { tripId: true } });
+  const row = await prisma.tripDocument.findUnique({
+    where: { id: req.params.id },
+    select: { tripId: true },
+  });
   return row?.tripId;
 }
 
@@ -386,69 +400,74 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   }
 });
 
-router.put("/:id", requireRole("admin", "editor", "tripLeader"), requireTripScope("id"), async (req, res, next) => {
-  try {
-    const { participants, ...data } = tripSchema
-      .partial()
-      .refine(datesInOrder, DATE_ORDER_ISSUE)
-      .refine(albumLinkValid, ALBUM_LINK_ISSUE)
-      .parse(req.body);
+router.put(
+  "/:id",
+  requireRole("admin", "editor", "tripLeader"),
+  requireTripScope("id"),
+  async (req, res, next) => {
+    try {
+      const { participants, ...data } = tripSchema
+        .partial()
+        .refine(datesInOrder, DATE_ORDER_ISSUE)
+        .refine(albumLinkValid, ALBUM_LINK_ISSUE)
+        .parse(req.body);
 
-    const existing = await prisma.trip.findUnique({ where: { id: req.params.id } });
-    if (!existing) return res.status(404).json({ error: "Not found" });
+      const existing = await prisma.trip.findUnique({ where: { id: req.params.id } });
+      if (!existing) return res.status(404).json({ error: "Not found" });
 
-    // The goal actually in effect once this update applies -- this call's
-    // own value if it's touching supportRaisingGoal, otherwise whatever
-    // the trip already had.
-    const effectiveGoal =
-      data.supportRaisingGoal !== undefined ? data.supportRaisingGoal : existing.supportRaisingGoal;
+      // The goal actually in effect once this update applies -- this call's
+      // own value if it's touching supportRaisingGoal, otherwise whatever
+      // the trip already had.
+      const effectiveGoal =
+        data.supportRaisingGoal !== undefined ? data.supportRaisingGoal : existing.supportRaisingGoal;
 
-    // Same "did this actually change" shape PUT /meetings/:id already uses
-    // for its own reschedule-resend check -- only startDate/endDate count
-    // (not every field this route can touch), and only when the incoming
-    // value actually differs from what's stored (datesChanged helper
-    // treats a present-but-unchanged field, or a field left out of this
-    // request entirely, the same way: no resend).
-    function dateChanged(incoming, current) {
-      if (incoming === undefined) return false;
-      const incomingTime = incoming ? new Date(incoming).getTime() : null;
-      const currentTime = current ? new Date(current).getTime() : null;
-      return incomingTime !== currentTime;
-    }
-    const datesChanged =
-      dateChanged(data.startDate, existing.startDate) || dateChanged(data.endDate, existing.endDate);
-
-    const updated = await prisma.$transaction(async (tx) => {
-      if (participants !== undefined) {
-        await tx.tripParticipant.deleteMany({ where: { tripId: req.params.id, applicationId: null } });
+      // Same "did this actually change" shape PUT /meetings/:id already uses
+      // for its own reschedule-resend check -- only startDate/endDate count
+      // (not every field this route can touch), and only when the incoming
+      // value actually differs from what's stored (datesChanged helper
+      // treats a present-but-unchanged field, or a field left out of this
+      // request entirely, the same way: no resend).
+      function dateChanged(incoming, current) {
+        if (incoming === undefined) return false;
+        const incomingTime = incoming ? new Date(incoming).getTime() : null;
+        const currentTime = current ? new Date(current).getTime() : null;
+        return incomingTime !== currentTime;
       }
-      return tx.trip.update({
-        where: { id: req.params.id },
-        data: {
-          ...data,
-          participants:
-            participants !== undefined
-              ? {
-                  create: participants.map((p) => ({
-                    ...p,
-                    supportRaisingGoal: defaultParticipantGoal(p, effectiveGoal),
-                  })),
-                }
-              : undefined,
-        },
-        include: tripInclude,
+      const datesChanged =
+        dateChanged(data.startDate, existing.startDate) || dateChanged(data.endDate, existing.endDate);
+
+      const updated = await prisma.$transaction(async (tx) => {
+        if (participants !== undefined) {
+          await tx.tripParticipant.deleteMany({ where: { tripId: req.params.id, applicationId: null } });
+        }
+        return tx.trip.update({
+          where: { id: req.params.id },
+          data: {
+            ...data,
+            participants:
+              participants !== undefined
+                ? {
+                    create: participants.map((p) => ({
+                      ...p,
+                      supportRaisingGoal: defaultParticipantGoal(p, effectiveGoal),
+                    })),
+                  }
+                : undefined,
+          },
+          include: tripInclude,
+        });
       });
-    });
 
-    if (datesChanged) {
-      await sendTripDatesUpdateEmail(updated);
+      if (datesChanged) {
+        await sendTripDatesUpdateEmail(updated);
+      }
+
+      res.json(updated);
+    } catch (err) {
+      next(err);
     }
-
-    res.json(updated);
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
@@ -609,7 +628,9 @@ router.post(
         data: {
           tripId: req.params.id,
           ...data,
-          participants: participantIds?.length ? { connect: participantIds.map((id) => ({ id })) } : undefined,
+          participants: participantIds?.length
+            ? { connect: participantIds.map((id) => ({ id })) }
+            : undefined,
         },
         include: { participants: { select: { id: true, firstName: true, lastName: true } } },
       });

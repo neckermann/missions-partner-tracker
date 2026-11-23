@@ -113,7 +113,11 @@ export default function AdminInboundEmailQueue() {
     setError("");
     setBusy(true);
     try {
-      await assignInboundEmail(a.email.id, { partnerId: a.partnerId, kind: a.kind, customKind: a.customKind });
+      await assignInboundEmail(a.email.id, {
+        partnerId: a.partnerId,
+        kind: a.kind,
+        customKind: a.customKind,
+      });
       setAssigning(null);
       await reload();
     } catch (err) {

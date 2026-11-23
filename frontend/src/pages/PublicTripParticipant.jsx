@@ -174,7 +174,9 @@ export default function PublicTripParticipant() {
       await updateTripParticipantSelfService({
         token: accessToken,
         story: pageDraftStory,
-        ...(pageDraftPhotoDataUrl ? { photo: pageDraftPhotoDataUrl, photoContentType: pageDraftPhotoContentType } : {}),
+        ...(pageDraftPhotoDataUrl
+          ? { photo: pageDraftPhotoDataUrl, photoContentType: pageDraftPhotoContentType }
+          : {}),
       });
       setEditingPage(false);
       await reload();
@@ -289,7 +291,13 @@ export default function PublicTripParticipant() {
                     <img
                       src={tripParticipantPhotoUrl(data.id)}
                       alt=""
-                      style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        flexShrink: 0,
+                      }}
                     />
                   )}
                   <p style={{ margin: 0, color: "#555" }}>{data.story || "No story set yet."}</p>
@@ -320,7 +328,13 @@ export default function PublicTripParticipant() {
                       <img
                         src={pageDraftPhotoDataUrl || tripParticipantPhotoUrl(data.id)}
                         alt=""
-                        style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                          flexShrink: 0,
+                        }}
                       />
                     )}
                     <input
@@ -330,7 +344,9 @@ export default function PublicTripParticipant() {
                     />
                   </div>
                   {!pageDraftPhotoDataUrl && !data.hasPhoto && (
-                    <span style={{ display: "block", fontSize: "0.8rem", color: "#888", marginTop: "0.2rem" }}>
+                    <span
+                      style={{ display: "block", fontSize: "0.8rem", color: "#888", marginTop: "0.2rem" }}
+                    >
                       No photo on file yet.
                     </span>
                   )}

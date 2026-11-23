@@ -14,6 +14,23 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+**Welcome emails with secure password setup.** Adding a user (including a
+Trip Leader) now emails them a one-time "Choose your password" link instead
+of an admin typing a password. The link is single-use, expires (72 hours;
+7 days for Trip Leaders), and only a hash of it is stored. Add User has a
+"Send a welcome email" toggle (on by default) and a "Require two-factor
+authentication at first sign-in" option; turning the email off leaves the
+account pending until a password is set or "Send setup link" is used on its
+row. The sign-in-time two-factor setup screen and Account Settings now walk
+first-timers through installing and using an authenticator app. Trip
+participant emails (meeting invites with Yes/No/Maybe buttons, reminders,
+checklist and date-change notices, team welcome) and the new welcome email
+share one branded, reusable template (`backend/src/utils/emailTemplate.js`).
+**Needs a migration** (new `PasswordSetupToken` table) -- run
+`npx prisma migrate dev`. New optional env vars: `USER_GUIDE_URL`,
+`TRIP_LEADER_GUIDE_URL`, `SUPPORT_URL`, `MFA_HELP_URL`,
+`PASSWORD_SETUP_TTL_HOURS`, `PASSWORD_SETUP_TRIP_LEADER_TTL_HOURS`.
+
 The notification system is now called **Dispatch** throughout the app
 and its database schema, so it can't collide with a future in-app
 notifications feature. Nothing about how it behaves changed — "Pending

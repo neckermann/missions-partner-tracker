@@ -13,7 +13,9 @@ export default function Field({ label, value, showEmpty = false }) {
   if (isEmpty && !showEmpty) return null;
   return (
     <div>
-      <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+      <div
+        style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase", letterSpacing: "0.03em" }}
+      >
         {label}
       </div>
       <div style={isEmpty ? { color: "#aaa" } : undefined}>{isEmpty ? "—" : value}</div>

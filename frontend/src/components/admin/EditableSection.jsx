@@ -101,7 +101,15 @@ export default function EditableSection({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h3 style={{ flex: 1, marginBottom: 0 }}>{title}</h3>
           {actions && (
-            <div className="table-actions" onClick={(e) => e.stopPropagation()}>
+            // Not itself interactive -- just stops clicks/keydowns on the
+            // real buttons inside from bubbling into the card's own
+            // open-on-activate handler above.
+            // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+            <div
+              className="table-actions"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
               {actions}
             </div>
           )}

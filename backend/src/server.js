@@ -159,6 +159,17 @@ app.use("/api/auth/mfa/login-verify", rateLimit({ windowMs: 15 * 60 * 1000, max:
 // /login is, for the brief window between a fresh deploy going live and
 // its owner actually completing setup.
 app.use("/api/auth/setup", rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }));
+// Welcome-link redemption is public and guess-able in principle (the token
+// is 256-bit random, so not in practice) -- still capped, with a much
+// tighter cap on "email me a new link" since each call can send mail.
+app.use(
+  "/api/auth/password-setup/request",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 5 })
+);
+app.use(
+  "/api/auth/password-setup",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 30 })
+);
 
 // Everything else under /api/auth that guesses at a secret. These sit
 // behind a session, which is why they were missed -- but a session is not

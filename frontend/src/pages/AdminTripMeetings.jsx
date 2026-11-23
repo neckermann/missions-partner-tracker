@@ -12,6 +12,7 @@ import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import RecordList from "../components/admin/RecordList.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import Field from "../components/admin/Field.jsx";
+import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 
 const emptyMeetingForm = { startAt: "", title: "", location: "", meetingLink: "", agenda: "" };
 
@@ -23,11 +24,20 @@ function MeetingFields({ form, setForm }) {
     <div className="form-grid">
       <label>
         Meeting title
-        <input value={form.title} placeholder="e.g. Pre-Field Training" onChange={(e) => set("title", e.target.value)} />
+        <input
+          value={form.title}
+          placeholder="e.g. Pre-Field Training"
+          onChange={(e) => set("title", e.target.value)}
+        />
       </label>
       <label>
         Date/time
-        <input type="datetime-local" value={form.startAt} onChange={(e) => set("startAt", e.target.value)} required />
+        <input
+          type="datetime-local"
+          value={form.startAt}
+          onChange={(e) => set("startAt", e.target.value)}
+          required
+        />
       </label>
       <label>
         Location
@@ -35,11 +45,20 @@ function MeetingFields({ form, setForm }) {
       </label>
       <label>
         Join link (if virtual or hybrid)
-        <input value={form.meetingLink} placeholder="https://zoom.us/..." onChange={(e) => set("meetingLink", e.target.value)} />
+        <input
+          value={form.meetingLink}
+          placeholder="https://zoom.us/..."
+          onChange={(e) => set("meetingLink", e.target.value)}
+        />
       </label>
       <label style={{ gridColumn: "1 / -1" }}>
         Agenda
-        <textarea rows={2} value={form.agenda} placeholder="What this meeting will cover" onChange={(e) => set("agenda", e.target.value)} />
+        <textarea
+          rows={2}
+          value={form.agenda}
+          placeholder="What this meeting will cover"
+          onChange={(e) => set("agenda", e.target.value)}
+        />
       </label>
     </div>
   );
@@ -54,16 +73,19 @@ export default function AdminTripMeetings() {
   const { trip, reload, confirmDialog, id, canWrite } = useOutletContext();
   const [error, setError] = useState("");
   const [modalMeeting, setModalMeeting] = useState(null); // null | { id: null|meetingId, form, cancelledAt }
+  const [manualEmailRecipients, setManualEmailRecipients] = useState(null); // [{ name, email, url }] | null
 
   function reportError(err, fallback) {
     setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
   }
 
   function openAdd() {
+    setManualEmailRecipients(null);
     setModalMeeting({ id: null, form: emptyMeetingForm, cancelledAt: false });
   }
 
   function openEdit(m) {
+    setManualEmailRecipients(null);
     setModalMeeting({
       id: m.id,
       form: {
@@ -89,19 +111,26 @@ export default function AdminTripMeetings() {
       meetingLink: modalMeeting.form.meetingLink.trim() || null,
       agenda: modalMeeting.form.agenda.trim() || null,
     };
+    let result;
     if (modalMeeting.id == null) {
       if (!patch.startAt) throw new Error("Choose a date/time");
-      await scheduleTripMeeting(id, patch);
+      result = await scheduleTripMeeting(id, patch);
     } else {
-      await updateTripMeeting(modalMeeting.id, patch);
+      result = await updateTripMeeting(modalMeeting.id, patch);
     }
     reload();
+    const manual = result?.manualEmail || null;
+    setManualEmailRecipients(manual);
+    // Stay open with the link in view instead of auto-closing behind it --
+    // same reasoning as AdminUserForm.jsx's wizard.
+    if (manual?.length > 0) return false;
   }
 
   async function handleResendMeetingInvite(meetingId) {
     try {
-      await resendTripMeetingInvite(meetingId);
+      const result = await resendTripMeetingInvite(meetingId);
       setError("");
+      setManualEmailRecipients(result?.manual || null);
     } catch (err) {
       reportError(err, "Couldn't resend the invite.");
     }
@@ -120,10 +149,14 @@ export default function AdminTripMeetings() {
     });
     if (!confirmed) return;
     try {
-      await cancelTripMeeting(meetingId);
-      setModalMeeting(null);
+      const result = await cancelTripMeeting(meetingId);
       reload();
       setError("");
+      // Stays open (reflecting the now-cancelled state in place, same as
+      // Resend) instead of closing behind the manual-cancellation-notice
+      // link -- see submitModal's own comment.
+      setModalMeeting((d) => (d ? { ...d, cancelledAt: true } : d));
+      setManualEmailRecipients(result?.manualEmail || null);
     } catch (err) {
       reportError(err, "Couldn't cancel this meeting.");
     }
@@ -181,7 +214,9 @@ export default function AdminTripMeetings() {
             ? new Date(m.startAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
             : "—";
           const whereLabel =
-            m.location && m.meetingLink ? `${m.location} + online` : m.location || (m.meetingLink ? "Online" : "—");
+            m.location && m.meetingLink
+              ? `${m.location} + online`
+              : m.location || (m.meetingLink ? "Online" : "—");
           const rsvpSummary = m.cancelledAt
             ? "Cancelled"
             : `${tally.yes} yes · ${tally.no} no · ${tally.maybe} maybe` +
@@ -201,11 +236,15 @@ export default function AdminTripMeetings() {
         (canWrite ? (
           <QuickActionModal
             title={modalMeeting.id == null ? "Schedule meeting" : "Edit meeting"}
-            onClose={() => setModalMeeting(null)}
+            onClose={() => {
+              setModalMeeting(null);
+              setManualEmailRecipients(null);
+            }}
             onSubmit={submitModal}
             submitLabel={modalMeeting.id == null ? "Schedule meeting" : "Save"}
           >
             <MeetingFields form={modalMeeting.form} setForm={setModalForm} />
+            {manualEmailRecipients?.length > 0 && <ManualSendNotice recipients={manualEmailRecipients} />}
             {modalMeeting.id != null && (
               <div className="table-actions" style={{ marginTop: "0.75rem" }}>
                 {modalMeeting.cancelledAt ? (
@@ -220,7 +259,11 @@ export default function AdminTripMeetings() {
                   </button>
                 )}
                 {!modalMeeting.cancelledAt && (
-                  <button type="button" className="btn secondary small" onClick={() => handleCancelMeeting(modalMeeting.id)}>
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    onClick={() => handleCancelMeeting(modalMeeting.id)}
+                  >
                     Cancel meeting
                   </button>
                 )}
@@ -234,7 +277,8 @@ export default function AdminTripMeetings() {
                     const rsvp = (trip.meetings?.find((m) => m.id === modalMeeting.id)?.rsvps || []).find(
                       (r) => r.participantId === p.id
                     );
-                    const label = { yes: "Yes", no: "No", maybe: "Maybe" }[rsvp?.response] || "No response yet";
+                    const label =
+                      { yes: "Yes", no: "No", maybe: "Maybe" }[rsvp?.response] || "No response yet";
                     return (
                       <li key={p.id} style={{ padding: "0.15rem 0" }}>
                         {p.firstName} {p.lastName} — {label}

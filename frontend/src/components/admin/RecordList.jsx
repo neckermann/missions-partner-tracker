@@ -91,10 +91,25 @@ export default function RecordList({
                 : undefined
             }
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: "1rem",
+              }}
+            >
               <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>{renderItem(item)}</div>
               {(canEdit || canDelete) && (
-                <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                // Not itself interactive -- just stops clicks/keydowns on the
+                // real buttons inside from bubbling into the row's own
+                // open-on-activate handler above.
+                // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+                <div
+                  style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
                   {canEdit && (
                     <button type="button" className="btn secondary small" onClick={() => onEdit(item)}>
                       Edit
@@ -111,7 +126,9 @@ export default function RecordList({
           </div>
         ))
       )}
-      {onShowMore && <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={onShowMore} size="small" />}
+      {onShowMore && (
+        <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={onShowMore} size="small" />
+      )}
     </>
   );
 

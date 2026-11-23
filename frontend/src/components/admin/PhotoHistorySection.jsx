@@ -9,7 +9,13 @@ import PhotoTile from "../shared/PhotoTile.jsx";
 // photos is expected pre-sorted newest-received-first (see
 // partnerRecordInclude in backend/src/routes/partners.js), so photos[0] is
 // "current."
-export default function PhotoHistorySection({ partnerId, photos, onChange, canEdit = true, canDelete = true }) {
+export default function PhotoHistorySection({
+  partnerId,
+  photos,
+  onChange,
+  canEdit = true,
+  canDelete = true,
+}) {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [showAddForm, setShowAddForm] = useState(false);
   const [receivedDate, setReceivedDate] = useState(todayInputValue());

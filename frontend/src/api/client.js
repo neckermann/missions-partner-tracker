@@ -993,6 +993,27 @@ export async function fetchUser(id) {
   return data;
 }
 
+// Sends (or re-sends) the welcome/password-setup email to an account that
+// has no password yet.
+export async function sendUserSetupLink(id) {
+  const { data } = await api.post(`/users/${id}/setup-link`);
+  return data;
+}
+
+// --- First-time password setup (public, token from the welcome email) ---
+export async function validatePasswordSetup(token) {
+  const { data } = await api.get("/auth/password-setup/validate", { params: { token } });
+  return data;
+}
+export async function completePasswordSetup(token, password) {
+  const { data } = await api.post("/auth/password-setup/complete", { token, password });
+  return data;
+}
+export async function requestPasswordSetupLink(email) {
+  const { data } = await api.post("/auth/password-setup/request", { email });
+  return data;
+}
+
 export async function createUser(payload) {
   const { data } = await api.post("/users", payload);
   return data;

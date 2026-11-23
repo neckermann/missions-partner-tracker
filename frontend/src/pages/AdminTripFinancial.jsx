@@ -127,7 +127,9 @@ export default function AdminTripFinancial() {
             </>
           )}
         />
-        {(trip.budgetLines || []).length > 0 && <p style={{ fontWeight: 700, marginTop: "0.5rem" }}>Total: ${budgetTotal}</p>}
+        {(trip.budgetLines || []).length > 0 && (
+          <p style={{ fontWeight: 700, marginTop: "0.5rem" }}>Total: ${budgetTotal}</p>
+        )}
         <p style={{ marginTop: "0.6rem", fontWeight: 600 }}>
           Est. total cost: ${budgetTotal} · Raised: ${raised} · Still needed: $
           {Math.max(budgetTotal - raised, 0)}

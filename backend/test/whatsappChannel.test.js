@@ -3,9 +3,12 @@ const assert = require("node:assert/strict");
 // whatsappChannel.js transitively requires prismaClient.js, which reads
 // DATABASE_URL eagerly at require time -- same reason
 // emailDispatchScheduler.test.js needs this. Everything exercised here is pure or
-// mocks the WhatsApp client; no DB is touched.
+// mocks the WhatsApp client (and, on the failure path, the dispatchRecord
+// write that records the error -- see the in-app notifications plan's
+// "Dispatch send failures"); no DB is touched.
 require("dotenv").config({ quiet: true });
 const whatsappClient = require("../src/utils/whatsappClient");
+const prisma = require("../src/prismaClient");
 const {
   MAX_MESSAGE_LENGTH,
   hasWhatsAppTarget,
@@ -16,7 +19,17 @@ const {
 } = require("../src/utils/whatsappChannel");
 const { CHANNELS, isEligibleForChannel } = require("../src/utils/dispatchEligibility");
 
-afterEach(() => mock.restoreAll());
+// Plain reassignment, not mock.method, for the Prisma delegate -- Prisma
+// 7's model delegate is a Proxy whose own property descriptors don't
+// reflect what member access actually returns, which mock.method relies
+// on and trips over (confirmed: it throws "must be a method. Received
+// undefined" even though `prisma.dispatchRecord.updateMany` is plainly a
+// function). mock.method remains fine for whatsappClient below.
+const realUpdateMany = prisma.dispatchRecord.updateMany;
+afterEach(() => {
+  mock.restoreAll();
+  prisma.dispatchRecord.updateMany = realUpdateMany;
+});
 
 const blurb = (id, text, topicKey = "groupmePrayerTopicId") => ({ id, groupmeText: text, topicKey });
 
@@ -283,8 +296,12 @@ describe("postToWhatsApp", () => {
     mock.method(whatsappClient, "sendText", async (jid) => {
       if (jid === "needs@g.us") throw new Error("[baileys-antiban] Message blocked: paused");
     });
+    const calls = [];
+    prisma.dispatchRecord.updateMany = async (args) => calls.push(args);
     const ids = await postToWhatsApp([prayer("a", "Pray"), need("c")], partnerById, settings);
     assert.deepEqual([...ids], ["a"]);
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].data, { whatsappError: "[baileys-antiban] Message blocked: paused" });
   });
 
   test("a failed piece of a split request leaves that request unsent and skips its later pieces", async () => {
@@ -295,6 +312,8 @@ describe("postToWhatsApp", () => {
       if (calls === 2) throw new Error("boom");
       sent.push(text);
     });
+    const updateManyCalls = [];
+    prisma.dispatchRecord.updateMany = async (args) => updateManyCalls.push(args);
     const long = `${"A very long prayer request. ".repeat(400)}`; // ~11k chars -> 3+ pieces
     const ids = await postToWhatsApp(
       [prayer("long", long), prayer("after", "short one")],
@@ -304,6 +323,8 @@ describe("postToWhatsApp", () => {
     assert.equal(ids.has("long"), false);
     assert.equal(ids.has("after"), true);
     assert.equal(calls, 3); // piece 1 ok, piece 2 failed, remaining pieces skipped, then "after"
+    assert.equal(updateManyCalls.length, 1);
+    assert.deepEqual(updateManyCalls[0].data, { whatsappError: "boom" });
   });
 
   test("a restricted partner's text is masked exactly as for GroupMe", async () => {
