@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import {
   fetchUsers,
   deleteUser,
@@ -6,7 +7,6 @@ import {
   fetchCurrentUser,
   resetUserMfa,
   fetchUser,
-  createUser,
   updateUser,
   fetchTrips,
 } from "../api/client.js";
@@ -15,8 +15,6 @@ import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import Table from "../components/shared/Table.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
-import Modal from "../components/Modal.jsx";
-import Wizard from "../components/shared/Wizard.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import { toDateInputValue } from "../utils/format.js";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
@@ -43,33 +41,31 @@ const emptyForm = {
 // A user record list, same shape as every other consolidated list page
 // (Table, onRowClick -> a QuickActionModal with the edit form) -- not
 // EditableSection, which is for sections *within* one record, not a
-// collection of many. The dedicated /new and /:id routes AdminUserForm.jsx
-// used to own are gone; everything happens from this one page now.
+// collection of many.
 //
-// Create is the one exception: once the welcome-email/password/MFA options
-// (#285) were added on top of the basic who-is-this fields, this crossed
-// the same "~6 fields, 2+ conceptual groups" bar Wizard exists for (see
+// Create is the one exception, and lives on its own page
+// (AdminUserForm.jsx, "/admin/settings/users/new") rather than a modal
+// here: once the welcome-email/password/MFA options (#285) were added on
+// top of the basic who-is-this fields, Add User crossed the same "~6
+// fields, 2+ conceptual groups" bar Wizard exists for (see
 // STYLE-GUIDE.md -- Multi-step creation, and AdminPartnerForm.jsx's own
-// field-count survey comment) -- Basics vs. Account Setup. Edit stays the
-// plain QuickActionModal: it never had the welcome-email step to begin
-// with, and resetting a password or changing a role is a single-topic
-// action.
+// field-count survey comment), and a Wizard reads as its own page --
+// breadcrumb, title, Cancel/Next pinned to the viewport bottom -- not a
+// dialog floating over this list (a popup-modal version shipped briefly
+// and was corrected in review for exactly that mismatch with "New
+// Partner"). Edit stays the plain QuickActionModal here: it never had the
+// welcome-email step, and resetting a password or changing a role is a
+// single-topic action.
 export default function AdminUsers() {
+  const location = useLocation();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [trips, setTrips] = useState([]);
   const [error, setError] = useState("");
   const [editingUser, setEditingUser] = useState(null); // { id, form } for edit
-  const [showCreate, setShowCreate] = useState(false);
-  const [creating, setCreating] = useState(false);
-  // Set only when the account the wizard just created needs a manual
-  // setup link (outbound email is off) -- shown as the wizard's own last
-  // step, in the same modal, instead of closing and hoping the admin
-  // notices the page-level notice behind it.
-  const [createManualLink, setCreateManualLink] = useState(null); // { email, url } | null
   const [formError, setFormError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(location.state?.notice || "");
   const [manualSetupLink, setManualSetupLink] = useState(null); // { name, email, url } | null
 
   function reportError(err, fallback) {
@@ -138,17 +134,6 @@ export default function AdminUsers() {
     }
   }
 
-  function openCreate() {
-    setFormError("");
-    setCreateManualLink(null);
-    setShowCreate(true);
-  }
-
-  function closeCreate() {
-    setShowCreate(false);
-    setCreateManualLink(null);
-  }
-
   async function openEdit(u) {
     setFormError("");
     setEditingUser({ id: u.id, form: emptyForm }); // show the modal immediately, loading state implicit
@@ -187,169 +172,6 @@ export default function AdminUsers() {
     await updateUser(id, updatable);
     reload();
   }
-
-  async function handleCreateFinish(values) {
-    setCreating(true);
-    setFormError("");
-    try {
-      const payload = {
-        ...values,
-        scopedTripId: values.role === "tripLeader" ? values.scopedTripId || null : null,
-        expiresAt: values.role === "tripLeader" && values.expiresAt ? values.expiresAt : null,
-      };
-      if (!payload.password) delete payload.password;
-
-      const created = await createUser(payload);
-      reload();
-      if (created.welcomeEmail?.manualSetupUrl) {
-        // Outbound email is off -- stay open and hand the admin the link
-        // right here, rather than closing and hoping they notice it on
-        // the page behind the modal.
-        setCreateManualLink({ email: created.email, url: created.welcomeEmail.manualSetupUrl });
-        return;
-      }
-      if (created.welcomeEmail && !created.welcomeEmail.sent && !created.welcomeEmail.skipped) {
-        setError(
-          `${created.email} was created, but the welcome email couldn't be sent (${created.welcomeEmail.error}). Use "Send setup link" on their row to try again.`
-        );
-      }
-      setShowCreate(false);
-    } catch (err) {
-      setFormError(mapServerErrorMessage(err?.response?.data?.error) || "Failed to create user");
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  const createSteps = [
-    {
-      key: "basics",
-      label: "Basics",
-      validate: (values) => {
-        if (!values.email.trim()) return "Email is required.";
-        if (values.role === "tripLeader" && !values.scopedTripId) {
-          return "Choose a trip for this Trip Leader.";
-        }
-        return null;
-      },
-      render: ({ values, setValue }) => (
-        <>
-          <div className="form-grid">
-            <label>
-              Email
-              <input
-                type="email"
-                value={values.email}
-                onChange={(e) => setValue("email", e.target.value)}
-                required
-              />
-            </label>
-            <label>
-              First Name
-              <input value={values.firstName} onChange={(e) => setValue("firstName", e.target.value)} />
-            </label>
-            <label>
-              Last Name
-              <input value={values.lastName} onChange={(e) => setValue("lastName", e.target.value)} />
-            </label>
-            <label>
-              Role
-              <select value={values.role} onChange={(e) => setValue("role", e.target.value)}>
-                <option value="admin">Admin</option>
-                <option value="editor">Editor</option>
-                <option value="viewer">Viewer</option>
-                <option value="tripLeader">Trip Leader (scoped guest)</option>
-              </select>
-            </label>
-          </div>
-
-          {values.role === "tripLeader" && (
-            <div className="form-grid" style={{ marginTop: "1rem" }}>
-              <label>
-                Trip
-                <select
-                  value={values.scopedTripId}
-                  onChange={(e) => setValue("scopedTripId", e.target.value)}
-                  required
-                >
-                  <option value="">Choose a trip…</option>
-                  {trips.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {[t.partner?.displayName, t.name || t.type, t.startDate?.slice(0, 10)]
-                        .filter(Boolean)
-                        .join(" — ")}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Access expires (optional)
-                <input
-                  type="date"
-                  value={values.expiresAt}
-                  onChange={(e) => setValue("expiresAt", e.target.value)}
-                />
-              </label>
-            </div>
-          )}
-          {values.role === "tripLeader" && (
-            <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
-              A scoped guest login: read/write access to this one trip's own content and a read-only look at
-              its linked partner, nothing else in the app.
-            </p>
-          )}
-        </>
-      ),
-    },
-    {
-      key: "access",
-      label: "Account Setup",
-      validate: (values) => {
-        if (!values.sendWelcomeEmail && values.password && values.password.length < 8) {
-          return "Password must be at least 8 characters.";
-        }
-        return null;
-      },
-      render: ({ values, setValue }) => (
-        <>
-          <div className="admin-checkbox-row">
-            <label>
-              <input
-                type="checkbox"
-                checked={values.sendWelcomeEmail}
-                onChange={(e) => setValue("sendWelcomeEmail", e.target.checked)}
-              />
-              Send a welcome email so they can set their own password (recommended)
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={values.requireMfa}
-                onChange={(e) => setValue("requireMfa", e.target.checked)}
-              />
-              Require two-factor authentication at first sign-in
-            </label>
-          </div>
-          <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
-            {values.sendWelcomeEmail
-              ? "They'll get a one-time link to choose their own password. Nobody else ever sees it."
-              : 'No email is sent. Set a password below, or leave it blank and use "Send setup link" on their row later. Until a password is set they can\'t sign in.'}
-          </p>
-          {!values.sendWelcomeEmail && (
-            <label style={{ marginTop: "1rem" }}>
-              Password (optional)
-              <input
-                type="password"
-                value={values.password}
-                onChange={(e) => setValue("password", e.target.value)}
-                minLength={8}
-              />
-            </label>
-          )}
-        </>
-      ),
-    },
-  ];
 
   const columns = [
     { key: "email", label: "Email", sortable: true },
@@ -414,9 +236,9 @@ export default function AdminUsers() {
         title={`Users (${users.length})`}
         crumbLabel="Manage Users"
         actions={
-          <button type="button" className="btn" onClick={openCreate}>
+          <Link to="/admin/settings/users/new" className="btn">
             + Add User
-          </button>
+          </Link>
         }
       />
 
@@ -566,38 +388,6 @@ export default function AdminUsers() {
             </p>
           )}
         </QuickActionModal>
-      )}
-
-      {showCreate && (
-        <Modal title="Add User" onClose={closeCreate}>
-          {createManualLink ? (
-            <>
-              <p>
-                {createManualLink.email} was created. Outbound email is off, so share this setup link with
-                them directly instead:
-              </p>
-              <ManualSendNotice recipients={createManualLink} />
-              <div style={{ marginTop: "1rem" }}>
-                <button type="button" className="btn" onClick={closeCreate}>
-                  Done
-                </button>
-              </div>
-            </>
-          ) : (
-            <Wizard
-              steps={createSteps}
-              initialValues={emptyForm}
-              onFinish={handleCreateFinish}
-              onCancel={closeCreate}
-              finishing={creating}
-            />
-          )}
-          {formError && (
-            <p className="form-error" role="alert">
-              {formError}
-            </p>
-          )}
-        </Modal>
       )}
 
       {confirmElement}

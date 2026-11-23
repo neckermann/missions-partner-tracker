@@ -153,6 +153,7 @@ router.put(
       // ever receive their own access link or support-raising link
       // automatically. Now carries both, in one email, rather than a
       // second dedicated send for the support-raising link.
+      let teamWelcomeEmail = null;
       if (
         updated.participant &&
         application.trip.status !== "completed" &&
@@ -174,6 +175,13 @@ router.put(
               ],
             }
           );
+        } else {
+          // Outbound email off -- this is the only place a newly-approved
+          // participant would otherwise ever get their own trip-access
+          // link automatically. Same manualUrl shape as the dedicated
+          // /participants/:id/request-access-link route below, so the
+          // frontend can hand it to the same ManualSendNotice either way.
+          teamWelcomeEmail = { sent: false, manualUrl: buildTripParticipantAccessUrl(updated.participant) };
         }
       }
 
@@ -193,7 +201,7 @@ router.put(
       // returned here. Never caught: no existing test asserted on the
       // response shape, only status 200 (found via e2e/trip-team-table-
       // modal.spec.js, the first real coverage of this page).
-      res.json({ ...updated.app, participant: updated.participant });
+      res.json({ ...updated.app, participant: updated.participant, teamWelcomeEmail });
     } catch (err) {
       next(err);
     }

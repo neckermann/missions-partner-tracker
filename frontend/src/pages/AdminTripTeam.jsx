@@ -65,7 +65,18 @@ export default function AdminTripTeam() {
       const result = await reviewTripApplication(appId, status, declinedReason);
       setOpenApplication(null);
       if (result?.participant) {
-        navigate(`/admin/trips/${id}/participants/${result.participant.id}`);
+        // Outbound email off -> teamWelcomeEmail carries a manualUrl
+        // instead of silently dropping the new participant's only link to
+        // their own trip page. Handed to the participant detail page via
+        // navigation state so it shows up right there, in the same
+        // ManualSendNotice slot that page's own "Resend access link"
+        // uses -- not a separate notice on this page the admin is
+        // navigating away from anyway.
+        navigate(`/admin/trips/${id}/participants/${result.participant.id}`, {
+          state: result.teamWelcomeEmail?.manualUrl
+            ? { manualAccessLink: { url: result.teamWelcomeEmail.manualUrl } }
+            : undefined,
+        });
         return;
       }
       reload();

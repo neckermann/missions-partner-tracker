@@ -46,10 +46,12 @@ export default function AdminTripRequirements() {
   }
 
   function openAddRequirement() {
+    setManualEmailRecipients(null);
     setReqModal({ id: null, form: emptyRequirementForm });
   }
 
   function openEditRequirement(r) {
+    setManualEmailRecipients(null);
     setReqModal({
       id: r.id,
       label: r.label,
@@ -68,6 +70,7 @@ export default function AdminTripRequirements() {
   }
 
   async function submitReqModal() {
+    let manual = null;
     if (reqModal.id == null) {
       if (!reqModal.form.label.trim()) throw new Error("Enter a label");
       const result = await addTripRequirement(trip.id, {
@@ -77,7 +80,7 @@ export default function AdminTripRequirements() {
         dueAt: reqModal.form.dueAt || null,
         minorsOnly: reqModal.form.minorsOnly,
       });
-      setManualEmailRecipients(result?.manualEmail || null);
+      manual = result?.manualEmail || null;
     } else {
       await updateTripRequirement(reqModal.id, {
         dueAt: reqModal.form.dueAt || null,
@@ -87,6 +90,12 @@ export default function AdminTripRequirements() {
       });
     }
     reload();
+    setManualEmailRecipients(manual);
+    // Stay open with the link in view instead of auto-closing behind it --
+    // same reasoning as AdminUserForm.jsx's wizard. QuickActionModal's own
+    // "Saved" state/auto-close only fires when onSubmit doesn't return
+    // false, so this is the one case that opts out of it.
+    if (manual?.length > 0) return false;
   }
 
   async function handleAddRequirementFromLibrary() {
@@ -170,7 +179,6 @@ export default function AdminTripRequirements() {
           {error}
         </p>
       )}
-      {manualEmailRecipients?.length > 0 && <ManualSendNotice recipients={manualEmailRecipients} />}
 
       <div className="admin-section">
         <h3>Trip Requirements</h3>
@@ -202,6 +210,13 @@ export default function AdminTripRequirements() {
               + Add to this trip
             </button>
           </div>
+        )}
+        {/* Only the library quick-add's own notice renders here -- the
+            reqModal's version of this same state renders inside that
+            modal instead (below), right next to the action that produced
+            it, not up here disconnected from either one. */}
+        {!reqModal && manualEmailRecipients?.length > 0 && (
+          <ManualSendNotice recipients={manualEmailRecipients} />
         )}
         <RecordList
           bare
@@ -288,9 +303,13 @@ export default function AdminTripRequirements() {
       {reqModal && canWrite && (
         <QuickActionModal
           title={reqModal.id == null ? "Add Requirement" : "Edit Requirement"}
-          onClose={() => setReqModal(null)}
+          onClose={() => {
+            setReqModal(null);
+            setManualEmailRecipients(null);
+          }}
           onSubmit={submitReqModal}
         >
+          {manualEmailRecipients?.length > 0 && <ManualSendNotice recipients={manualEmailRecipients} />}
           {reqModal.id == null ? (
             <div className="form-grid">
               <label style={{ gridColumn: "1 / -1" }}>

@@ -80,10 +80,12 @@ export default function AdminTripMeetings() {
   }
 
   function openAdd() {
+    setManualEmailRecipients(null);
     setModalMeeting({ id: null, form: emptyMeetingForm, cancelledAt: false });
   }
 
   function openEdit(m) {
+    setManualEmailRecipients(null);
     setModalMeeting({
       id: m.id,
       form: {
@@ -116,8 +118,12 @@ export default function AdminTripMeetings() {
     } else {
       result = await updateTripMeeting(modalMeeting.id, patch);
     }
-    setManualEmailRecipients(result?.manualEmail || null);
     reload();
+    const manual = result?.manualEmail || null;
+    setManualEmailRecipients(manual);
+    // Stay open with the link in view instead of auto-closing behind it --
+    // same reasoning as AdminUserForm.jsx's wizard.
+    if (manual?.length > 0) return false;
   }
 
   async function handleResendMeetingInvite(meetingId) {
@@ -144,9 +150,12 @@ export default function AdminTripMeetings() {
     if (!confirmed) return;
     try {
       const result = await cancelTripMeeting(meetingId);
-      setModalMeeting(null);
       reload();
       setError("");
+      // Stays open (reflecting the now-cancelled state in place, same as
+      // Resend) instead of closing behind the manual-cancellation-notice
+      // link -- see submitModal's own comment.
+      setModalMeeting((d) => (d ? { ...d, cancelledAt: true } : d));
       setManualEmailRecipients(result?.manualEmail || null);
     } catch (err) {
       reportError(err, "Couldn't cancel this meeting.");
@@ -184,7 +193,6 @@ export default function AdminTripMeetings() {
           {error}
         </p>
       )}
-      {manualEmailRecipients?.length > 0 && <ManualSendNotice recipients={manualEmailRecipients} />}
       <RecordList
         title="Meetings"
         items={trip.meetings || []}
@@ -228,11 +236,15 @@ export default function AdminTripMeetings() {
         (canWrite ? (
           <QuickActionModal
             title={modalMeeting.id == null ? "Schedule meeting" : "Edit meeting"}
-            onClose={() => setModalMeeting(null)}
+            onClose={() => {
+              setModalMeeting(null);
+              setManualEmailRecipients(null);
+            }}
             onSubmit={submitModal}
             submitLabel={modalMeeting.id == null ? "Schedule meeting" : "Save"}
           >
             <MeetingFields form={modalMeeting.form} setForm={setModalForm} />
+            {manualEmailRecipients?.length > 0 && <ManualSendNotice recipients={manualEmailRecipients} />}
             {modalMeeting.id != null && (
               <div className="table-actions" style={{ marginTop: "0.75rem" }}>
                 {modalMeeting.cancelledAt ? (
