@@ -677,6 +677,28 @@ right partner (or an admin can discard it). Setup:
    Features once it's configured — independent of whether **Email
    (Sending)** is also on.
 
+**Which tier do you actually need?** Every feature below that touches
+email, and exactly which of Sending/Receiving it needs — confirmed
+directly against the code, not assumed:
+
+| You want... | You need | Notes |
+|---|---|---|
+| Prayer request / one-time need / newsletter digests (admin or public) | **Sending** | Also needs Public directory for the public digest specifically. |
+| New-user welcome emails, "resend my setup link" | **Sending** | Off (or unconfigured): the admin gets a manual link to copy/send themselves instead of a failed send. |
+| Trip participant access links (self-service or admin resend) | **Sending** | Same manual-link fallback when off. |
+| Trip meeting invites, reschedules, day-before reminders | **Sending** | RSVP itself (see below) needs no email at all once the participant has the link. |
+| Trip meeting **RSVP tracking** (yes/no/maybe) | **Sending only** | Deliberately link-based, not reply-based — a participant clicks one of three token-verified links in their invite email; nothing needs to come back in. **Receiving is not required for this**, by design (see `TripMeetingRsvp` in `schema.prisma`). |
+| Scheduled report emails | **Sending** | |
+| Partners emailing newsletters/updates in, auto-filed to their record | **Receiving** | Works with Sending off — this direction doesn't send anything itself. |
+| Unmatched Emails review queue | **Receiving** | Same as above. |
+| Trip **document requests** (admin asks a participant to reply with a file) | **Both** | The one feature today that genuinely needs both directions — the request goes out via Sending, the participant's reply comes back via Receiving. Off on either side: the request route refuses with a clear "set up Receiving first" error rather than sending something nobody can reply to. |
+
+Receiving-only is a complete, valid setup on its own (lets partners send
+updates in, with no outbound capability at all); Sending-only is just as
+valid and is probably where most churches start. The one thing that
+*requires* setting up both is document requests — everything else works
+fine with just one side on.
+
 **Data exposure**, same honesty this guide already applies to GroupMe and
 AI Features: mail sent or received this way passes through
 Postmark's infrastructure in transit. Postmark's data centers carry SOC
