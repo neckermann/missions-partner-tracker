@@ -13,32 +13,20 @@ test.describe("Trips tabs", () => {
     await login(page);
 
     await page.goto("/admin/trips");
-    await expect(page.getByRole("tab", { name: "Existing Trips" })).toHaveAttribute(
-      "aria-selected",
-      "true"
-    );
+    await expect(page.getByRole("tab", { name: "Existing Trips" })).toHaveAttribute("aria-selected", "true");
 
     await page.getByRole("tab", { name: "Plan a Trip" }).click();
     await expect(page).toHaveURL(/\/admin\/trips\/planning$/);
-    await expect(page.getByRole("tab", { name: "Plan a Trip" })).toHaveAttribute(
-      "aria-selected",
-      "true"
-    );
+    await expect(page.getByRole("tab", { name: "Plan a Trip" })).toHaveAttribute("aria-selected", "true");
 
     // A fresh load of the Plan-a-Trip URL (simulating a refresh or a
     // shared link) must land on that tab directly, not default back to
     // Existing Trips.
     await page.goto("/admin/trips/planning");
-    await expect(page.getByRole("tab", { name: "Plan a Trip" })).toHaveAttribute(
-      "aria-selected",
-      "true"
-    );
+    await expect(page.getByRole("tab", { name: "Plan a Trip" })).toHaveAttribute("aria-selected", "true");
 
     await page.getByRole("tab", { name: "Existing Trips" }).click();
     await expect(page).toHaveURL(/\/admin\/trips$/);
-    await expect(page.getByRole("tab", { name: "Existing Trips" })).toHaveAttribute(
-      "aria-selected",
-      "true"
-    );
+    await expect(page.getByRole("tab", { name: "Existing Trips" })).toHaveAttribute("aria-selected", "true");
   });
 });

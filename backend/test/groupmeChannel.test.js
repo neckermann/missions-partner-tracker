@@ -9,11 +9,19 @@ const crypto = require("crypto");
 require("dotenv").config({ quiet: true });
 process.env.FIELD_ENCRYPTION_KEY = crypto.randomBytes(32).toString("base64");
 const { encryptField } = require("../src/utils/crypto");
+const prisma = require("../src/prismaClient");
 const { MAX_MESSAGE_LENGTH, postMessage, postToGroupMe } = require("../src/utils/groupmeChannel");
 
 const realFetch = global.fetch;
+// Plain reassignment, not node:test's mock.method -- Prisma 7's model
+// delegate is a Proxy whose own property descriptors don't reflect what
+// member access actually returns, which mock.method relies on and trips
+// over (confirmed: it throws "must be a method. Received undefined" even
+// though `prisma.dispatchRecord.updateMany` is plainly a function).
+const realUpdateMany = prisma.dispatchRecord.updateMany;
 afterEach(() => {
   global.fetch = realFetch;
+  prisma.dispatchRecord.updateMany = realUpdateMany;
 });
 
 function groupmeJson(status, body) {
@@ -118,8 +126,12 @@ describe("postToGroupMe", () => {
         return groupmeJson(500, { meta: { errors: ["down"] } });
       return groupmeJson(202, { response: null });
     };
+    const calls = [];
+    prisma.dispatchRecord.updateMany = async (args) => calls.push(args);
     const ids = await postToGroupMe([prayer("a", "Pray"), need("c")], partnerById, settings);
     assert.deepEqual([...ids], ["a"]);
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].where.id.in, ["c"]);
   });
 
   // #244's core acceptance criterion: a single blurb over 1,000 chars is
@@ -149,6 +161,8 @@ describe("postToGroupMe", () => {
       JSON.parse(options.body); // still a well-formed request
       return groupmeJson(202, { response: null });
     };
+    const updateManyCalls = [];
+    prisma.dispatchRecord.updateMany = async (args) => updateManyCalls.push(args);
     const long = `${"A very long prayer request. ".repeat(100)}end`;
     const ids = await postToGroupMe(
       [prayer("long", long), prayer("after", "short one")],
@@ -158,6 +172,8 @@ describe("postToGroupMe", () => {
     assert.equal(ids.has("long"), false);
     assert.equal(ids.has("after"), true);
     assert.equal(calls, 3); // piece 1 ok, piece 2 failed, remaining piece(s) of "long" skipped, then "after"
+    assert.equal(updateManyCalls.length, 1);
+    assert.match(updateManyCalls[0].data.groupmeError, /boom/);
   });
 
   test("a restricted partner's text is masked exactly as for WhatsApp/the digests", async () => {

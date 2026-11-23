@@ -85,8 +85,8 @@ export default function AdminDispatchSettings() {
       <p style={{ color: "#555" }}>
         Schedules for the admin/public email dispatch and for {chatLabel || "GroupMe/WhatsApp"}, the chat
         channels' own content-type mutes, the restricted-partner safety gate, and email dispatch appearance.
-        To review or edit what's currently queued, see the <strong>Pending Dispatches</strong> page in the main
-        menu.
+        To review or edit what's currently queued, see the <strong>Pending Dispatches</strong> page in the
+        main menu.
       </p>
 
       {enabledFeatures.publicPrayerDigest && (
@@ -123,7 +123,9 @@ export default function AdminDispatchSettings() {
           value={{ allowRestrictedPartnerDispatch: settings.allowRestrictedPartnerDispatch }}
           onSave={savePartial}
           onSaved={reload}
-          view={(v) => <p>{v.allowRestrictedPartnerDispatch ? "Recorded, subject to review" : "Never recorded"}</p>}
+          view={(v) => (
+            <p>{v.allowRestrictedPartnerDispatch ? "Recorded, subject to review" : "Never recorded"}</p>
+          )}
           edit={(d, set) => (
             <>
               <p style={{ color: "#555", fontSize: "0.9rem" }}>
@@ -181,13 +183,15 @@ export default function AdminDispatchSettings() {
                     style={{ width: "auto" }}
                   >
                     <option value="classic">Classic -- text only</option>
-                    <option value="snapshot">Snapshot -- adds each partner's photo, field, and overview</option>
+                    <option value="snapshot">
+                      Snapshot -- adds each partner's photo, field, and overview
+                    </option>
                   </select>
                 </label>
                 <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
                   Snapshot shows each partner's photo (or a generic silhouette if they don't have one, or if
-                  they're a restricted-access partner), field, "Supporting since" year, and short overview above
-                  their items -- for both the admin email and the public email.
+                  they're a restricted-access partner), field, "Supporting since" year, and short overview
+                  above their items -- for both the admin email and the public email.
                 </p>
                 <label style={{ marginTop: "1rem" }}>
                   Subject line
@@ -234,7 +238,8 @@ export default function AdminDispatchSettings() {
             view={(v) => (
               <>
                 <p>
-                  Biweekly day: {v.emailDispatchDayOfWeek != null ? DAY_NAMES[v.emailDispatchDayOfWeek] : "Not set"}
+                  Biweekly day:{" "}
+                  {v.emailDispatchDayOfWeek != null ? DAY_NAMES[v.emailDispatchDayOfWeek] : "Not set"}
                 </p>
                 <p>Monthly/quarterly day: {v.emailDispatchDayOfMonth ?? "Not set"}</p>
                 <p>Time: {hourSummary(v.emailDispatchHour)}</p>
@@ -243,15 +248,18 @@ export default function AdminDispatchSettings() {
             edit={(d, set) => (
               <>
                 <p style={{ color: "#555", fontSize: "0.9rem" }}>
-                  The cadence each admin (from their own <a href="/admin/account">Account Settings</a>) and each
-                  public subscriber (from the Subscribe page or a partner's own "follow this partner" form)
-                  picks for themselves. Nothing sends on a given tier until its schedule here is actually set.
+                  The cadence each admin (from their own <a href="/admin/account">Account Settings</a>) and
+                  each public subscriber (from the Subscribe page or a partner's own "follow this partner"
+                  form) picks for themselves. Nothing sends on a given tier until its schedule here is
+                  actually set.
                 </p>
                 <label>
                   Day of week (biweekly)
                   <select
                     value={d.emailDispatchDayOfWeek ?? ""}
-                    onChange={(e) => set("emailDispatchDayOfWeek", e.target.value === "" ? null : Number(e.target.value))}
+                    onChange={(e) =>
+                      set("emailDispatchDayOfWeek", e.target.value === "" ? null : Number(e.target.value))
+                    }
                     style={{ width: "auto" }}
                   >
                     <option value="">Not set -- biweekly won't send</option>
@@ -284,7 +292,9 @@ export default function AdminDispatchSettings() {
                   <HourSelect
                     id="email-dispatch-hour"
                     value={d.emailDispatchHour}
-                    onChange={(e) => set("emailDispatchHour", e.target.value === "" ? null : Number(e.target.value))}
+                    onChange={(e) =>
+                      set("emailDispatchHour", e.target.value === "" ? null : Number(e.target.value))
+                    }
                   />
                 </label>
               </>
@@ -334,7 +344,9 @@ export default function AdminDispatchSettings() {
                   <HourSelect
                     id="chat-dispatch-hour"
                     value={d.chatDispatchHour}
-                    onChange={(e) => set("chatDispatchHour", e.target.value === "" ? null : Number(e.target.value))}
+                    onChange={(e) =>
+                      set("chatDispatchHour", e.target.value === "" ? null : Number(e.target.value))
+                    }
                   />
                 </label>
 

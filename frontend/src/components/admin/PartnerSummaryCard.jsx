@@ -40,12 +40,7 @@ export default function PartnerSummaryCard({
         </h3>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
           {actions?.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              className="btn secondary small"
-              onClick={action.onClick}
-            >
+            <button key={action.label} type="button" className="btn secondary small" onClick={action.onClick}>
               {action.label}
             </button>
           ))}
@@ -76,7 +71,9 @@ export default function PartnerSummaryCard({
           })}
         </ul>
       )}
-      {onShowMore && <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={onShowMore} size="small" />}
+      {onShowMore && (
+        <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={onShowMore} size="small" />
+      )}
     </div>
   );
 }

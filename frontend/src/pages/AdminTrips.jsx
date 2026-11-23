@@ -463,7 +463,9 @@ function ExistingTripsTab() {
         style={{ marginTop: "1rem" }}
         rows={visibleTrips}
         rowKey={(trip) => trip.id}
-        onRowClick={(trip) => (trip.status === "completed" ? openTripDetail(trip) : navigate(`/admin/trips/${trip.id}`))}
+        onRowClick={(trip) =>
+          trip.status === "completed" ? openTripDetail(trip) : navigate(`/admin/trips/${trip.id}`)
+        }
         emptyMessage="No trips match these filters."
         columns={[
           {
@@ -495,7 +497,9 @@ function ExistingTripsTab() {
                     when a category can't link straight to one specific trip
                     (several are responsible at once), so this list is still
                     where someone can visually find the right one. */}
-                {(trip.hasPendingApplications || trip.hasOverdueRequirement || trip.departingSoonIncomplete) && (
+                {(trip.hasPendingApplications ||
+                  trip.hasOverdueRequirement ||
+                  trip.departingSoonIncomplete) && (
                   <div style={{ fontSize: "0.7rem", color: "#a6540f", fontWeight: 600, marginTop: "0.2rem" }}>
                     {trip.hasPendingApplications && <div>📝 Pending application</div>}
                     {trip.hasOverdueRequirement && <div>⏰ Overdue requirement</div>}
@@ -596,7 +600,9 @@ function ExistingTripsTab() {
               label="Participants"
               value={
                 tripDetail.form.participants.length > 0
-                  ? tripDetail.form.participants.map((p) => [p.firstName, p.lastName].filter(Boolean).join(" ")).join(", ")
+                  ? tripDetail.form.participants
+                      .map((p) => [p.firstName, p.lastName].filter(Boolean).join(" "))
+                      .join(", ")
                   : null
               }
               showEmpty

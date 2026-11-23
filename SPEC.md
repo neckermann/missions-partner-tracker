@@ -432,6 +432,31 @@ partner's rows). `AdminLayout.jsx` mirrors this client-side (redirects a
 purely so they never see a flash of the wrong page before the backend's
 own 403 lands — the frontend check is not the real boundary.
 
+**Frontend `canWrite` for a Trip Leader is scope-aware, and that scoping
+doesn't propagate for free.** `useCurrentUser()`'s own `canWrite` is
+global (`admin`/`editor` only, always `false` for `tripLeader` — see its
+own comment). `TripDetailLayout.jsx` computes a second, trip-scoped
+`canWrite = globalCanWrite || (isTripLeader && id === scopedTripId)` and
+passes it down via `useOutletContext()` to every route nested under its
+Outlet (`AdminTripTeam.jsx`, `AdminTripOverview.jsx`,
+`AdminTripFinancial.jsx`, etc.) — none of those call `useCurrentUser()`
+for `canWrite` themselves, they just read the context. A route that
+lives *outside* that Outlet but still operates on one trip's data (e.g.
+`AdminTripParticipantDetail.jsx`, routed as a standalone sibling at
+`trips/:tripId/participants/:participantId`, not nested under
+`trips/:id`) has no context to inherit and must repeat the exact same
+computation itself. Confirmed as a real, shipped bug, not a
+theoretical one: `AdminTripParticipantDetail.jsx` called the global
+`canWrite` directly and showed a Trip Leader a read-only UI on their
+own trip's own participant, despite the backend correctly granting
+them write access there the whole time (middleware above, not this
+page's own code, was always right). Fixed by replicating
+`TripDetailLayout.jsx`'s exact formula locally rather than inventing a
+new one. If you add another sibling route under `trips/:tripId/...`
+outside `TripDetailLayout`'s Outlet, give it this same local
+computation — don't assume `useCurrentUser()`'s `canWrite` is enough
+just because it works for every other role.
+
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 
 Visual diagram, with the admin-vs-public and GroupMe-vs-WhatsApp

@@ -1,6 +1,6 @@
 # Style guide
 
-**Last verified**: 2026-11-19 · **Owner**: @neckermann
+**Last verified**: 2026-11-22 · **Owner**: @neckermann
 
 Design tokens, component patterns, and copy tone for this app. For
 contribution process/code-style rules (no linter note, comment
@@ -50,6 +50,14 @@ per page) — those are gone, not alternatives.
   (`overflow-x: auto`) automatically — a wide table scrolls horizontally
   within its own box at a narrow viewport instead of forcing the whole
   page wider; don't add a second wrapper around it.
+  **Add/edit on a consolidated cross-record list**: `onRowClick` opens
+  a `Modal`/`QuickActionModal` (the latter for a quick add/update form,
+  same chrome as `EditableSection` below), not a separate page or an
+  inline expanded row — `AdminUsers.jsx`, `AdminInboundEmailQueue.jsx`,
+  `AdminTripTeam.jsx` are the reference shape. The embedded-row
+  equivalent of this same pairing, for a small list scoped to one
+  parent record rather than a standalone admin list, is `RecordList` +
+  `QuickActionModal` below.
   **Not every list is a good fit**: a resource whose rows carry
   variable-length content plus independent inline forms (Prayer
   Requests' answer flow, One-Time Needs' decide flow) uses `FilterBar`
@@ -83,29 +91,64 @@ per page) — those are gone, not alternatives.
   error (not a confirmation) — a failed delete, a failed inline save —
   goes in a `role="alert"` inline message near the action, same pattern
   as every save-error path below; never `alert()`.
-- **Section-level editing**: `EditableSection`
+- **Click → popup → edit → save, everywhere.** This is the one rule
+  the rest of this bullet and the next one exist to apply: the whole
+  card/row is the click target (not a separate "Edit" button), opening
+  a popup with an explicit Save/Cancel boundary. Continued under
+  [issue #270](https://github.com/neckermann/missions-partner-tracker/issues/270).
+  onBlur-autosave is retired app-wide, with no exceptions left — it
+  used to be kept for repeating-row CRUD (a trip's budget/financial
+  lines, meetings, flight segments, requirements), reasoning that
+  forcing add/remove-a-row behind a page-level Edit toggle was worse UX
+  than the autosave risk; that reasoning is gone, not just the code —
+  `RecordList` + `QuickActionModal` (below) turned out to cover that
+  same content with the same click-row-opens-popup shape everyone else
+  uses, so the exception wasn't earning its keep. The **only** two
+  real exceptions still standing: a genuine multi-step creation wizard
+  (`Wizard`, above), and an external-service connection/setup flow
+  (GroupMe, WhatsApp pairing) where a later step's existence
+  structurally depends on an earlier step's save having already
+  round-tripped to the server (confirmed, not assumed — e.g. `GET
+  /groupme/groups` 400s with "Save a GroupMe access token first" until
+  the token is actually persisted).
+  **Section-level editing**: `EditableSection`
   (`frontend/src/components/admin/EditableSection.jsx`) is the save
-  standard for grouped scalar fields — explicit Edit → Save/Cancel,
-  draft state kept separate from the saved record (so a failed save
-  can't silently revert what someone typed), a brief success
-  confirmation on save, and `utils/friendlyError.js`'s plain-language
-  mapping for a server validation error instead of a raw Zod message.
-  Reuse it for any new editable section rather than wiring another
-  onBlur-autosave field — that pattern is retired app-wide (it shipped
-  the same silent-failure bug independently in two different files
-  before being replaced).
-  **The one deliberate exception**: repeating-row CRUD (a trip's budget
-  lines, meetings, flight segments, requirements) stays per-field
-  `onBlur`, not `EditableSection` — forcing add/remove-a-row behind a
-  page-level Edit toggle is worse UX than the autosave risk it would
-  guard against, for content that's already one row = one independent
-  record. What *does* carry over from `EditableSection`'s standard:
-  every one of those handlers gets real `try/catch` with a visible
-  inline error — "per-field onBlur" was never license to skip error
-  handling, just to skip the Edit/Save toggle. See
-  `frontend/src/pages/AdminTripBudget.jsx` for the reference shape
-  (`error` state + `mapServerErrorMessage` + an inline `role="alert"`
-  paragraph).
+  standard for grouped scalar fields on a detail page — explicit Edit
+  → Save/Cancel, draft state kept separate from the saved record (so a
+  failed save can't silently revert what someone typed), a brief
+  success confirmation on save, and `utils/friendlyError.js`'s
+  plain-language mapping for a server validation error instead of a
+  raw Zod message. Reuse it for any new editable section.
+  **Repeating-row CRUD**: `RecordList`
+  (`frontend/src/components/admin/RecordList.jsx`) for the display
+  half — click a row to open `QuickActionModal`
+  (`frontend/src/components/shared/QuickActionModal.jsx`) for add/edit,
+  same error/success chrome as `EditableSection`. `AdminTripFinancial.jsx`,
+  `AdminTripMeetings.jsx`, `AdminTripFlights.jsx`,
+  `AdminTripRequirements.jsx` are the reference shape. A consolidated
+  cross-record admin list (not scoped to one parent record) uses `Table`
+  + `Modal`, below, instead — `RecordList` is specifically for a small
+  parent-scoped list embedded on that parent's own detail page.
+  **Accessibility gotcha, easy to reintroduce**: a clickable card/row's
+  header often has its own action buttons (e.g. a "Sync" button inside
+  an `EditableSection` title row) that must not also trigger the
+  card's own open-on-activate handler. Stopping the **click** from
+  bubbling (`onClick={(e) => e.stopPropagation()}` on the actions
+  wrapper) is necessary but not sufficient — a keyboard user tabbing to
+  that nested button and pressing Enter/Space fires a `keydown` that
+  still bubbles up to the card's own `onKeyDown` unless the wrapper
+  stops that too (`onKeyDown={(e) => e.stopPropagation()}`), silently
+  double-firing (the button's own action *and* the card's editor
+  popping open). `eslint-plugin-jsx-a11y` only catches the click half
+  of this (`click-events-have-key-events`) — it has no way to know the
+  wrapper's real job is pure event-boundary, not an interactive element
+  in its own right, so it still flags `no-static-element-interactions`
+  even after the `onKeyDown` fix; that one's a justified
+  `eslint-disable-next-line` with a comment explaining why, not
+  something to silence by faking `role`/`tabIndex` on an element that
+  was never meant to be focusable. `EditableSection.jsx`/`RecordList.jsx`/
+  `AdminSettingsAbout.jsx` are the reference fix if this resurfaces
+  elsewhere.
 - **Photo display**: `PhotoTile` (`frontend/src/components/shared/PhotoTile.jsx`)
   — `{src, alt, shape: "circle"|"rect", size, fluidWidth, className}`.
   Replaces three previously-independent hardcoded `object-fit: cover`

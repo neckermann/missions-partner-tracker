@@ -40,7 +40,10 @@ test.describe("Prayer requests", () => {
     await card.locator("button.summary-item-link", { hasText: uniqueText }).click();
     await expect(page.locator(".modal-panel")).toContainText("Prayer Request");
     await page.locator(".modal-panel button", { hasText: "Mark Answered" }).click();
-    await page.fill(".modal-panel input[type=\"text\"], .modal-panel input:not([type])", "Answered during this test run");
+    await page.fill(
+      '.modal-panel input[type="text"], .modal-panel input:not([type])',
+      "Answered during this test run"
+    );
     await page.click('.modal-panel button[type="submit"]');
     await expect(page.locator(".modal-panel")).toHaveCount(0);
 

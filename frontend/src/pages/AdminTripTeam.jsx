@@ -113,10 +113,14 @@ export default function AdminTripTeam() {
 
   const fulfillmentFor = (participantId) =>
     (trip.requirements || [])
-      .filter((req) => !req.minorsOnly || isMinorForTrip(
-        (trip.participants || []).find((p) => p.id === participantId)?.dateOfBirth,
-        trip.startDate
-      ))
+      .filter(
+        (req) =>
+          !req.minorsOnly ||
+          isMinorForTrip(
+            (trip.participants || []).find((p) => p.id === participantId)?.dateOfBirth,
+            trip.startDate
+          )
+      )
       .map((req) => ({
         id: req.id,
         kind: req.kind,
@@ -165,7 +169,9 @@ export default function AdminTripTeam() {
         return (
           <span
             className={`status-pill ${done === fulfillment.length ? "ok" : overdue ? "danger" : "warn"}`}
-            title={fulfillment.map((f, i) => `${trip.requirements[i]?.label}: ${f.fulfilled ? "done" : "missing"}`).join(", ")}
+            title={fulfillment
+              .map((f, i) => `${trip.requirements[i]?.label}: ${f.fulfilled ? "done" : "missing"}`)
+              .join(", ")}
           >
             {done}/{fulfillment.length} complete{overdue ? " (overdue)" : ""}
           </span>
@@ -233,7 +239,8 @@ export default function AdminTripTeam() {
                     {
                       key: "declinedReason",
                       label: "Reason",
-                      render: (a) => a.declinedReason || <span style={{ color: "#888" }}>(no reason given)</span>,
+                      render: (a) =>
+                        a.declinedReason || <span style={{ color: "#888" }}>(no reason given)</span>,
                     },
                   ]}
                   rows={declined}
@@ -355,7 +362,10 @@ export default function AdminTripTeam() {
             <div className="table-actions" style={{ marginTop: "1rem" }}>
               {openApplication.mode === "pending" ? (
                 <>
-                  <button className="btn small" onClick={() => handleReview(openApplication.id, "approved", null)}>
+                  <button
+                    className="btn small"
+                    onClick={() => handleReview(openApplication.id, "approved", null)}
+                  >
                     Approve
                   </button>
                   <button className="btn danger small" onClick={() => handleDecline(openApplication)}>

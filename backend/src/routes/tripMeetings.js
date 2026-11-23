@@ -150,14 +150,9 @@ router.post(
         where: { id: req.params.id },
         data: { cancelledAt: existing.cancelledAt || new Date() },
       });
-      const emailResult = await sendMeetingEmail(
-        existing.trip,
-        cancelled,
-        "A trip meeting has been cancelled.",
-        {
-          cancelled: true,
-        }
-      );
+      const emailResult = await sendMeetingEmail(existing.trip, cancelled, "A trip meeting has been cancelled.", {
+        cancelled: true,
+      });
       res.json({ ...cancelled, manualEmail: emailResult?.manual });
     } catch (err) {
       next(err);

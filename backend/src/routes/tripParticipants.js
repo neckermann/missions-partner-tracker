@@ -186,7 +186,14 @@ router.put(
         await sendLateJoinerCatchUpEmails(application.trip, updated.participant);
       }
 
-      res.json(updated.app);
+      // The frontend navigates straight to the new participant's own
+      // detail page on a successful approval (AdminTripTeam.jsx's
+      // handleReview checks result?.participant) -- this was silently
+      // never possible before, since only the application itself was
+      // returned here. Never caught: no existing test asserted on the
+      // response shape, only status 200 (found via e2e/trip-team-table-
+      // modal.spec.js, the first real coverage of this page).
+      res.json({ ...updated.app, participant: updated.participant });
     } catch (err) {
       next(err);
     }

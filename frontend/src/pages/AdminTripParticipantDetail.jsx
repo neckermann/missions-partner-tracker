@@ -45,7 +45,11 @@ function readFileAsDataUrl(file) {
 // the same explicit edit -> save/cancel boundary.
 export default function AdminTripParticipantDetail() {
   const { tripId, participantId } = useParams();
-  const { canWrite, isTripLeader } = useCurrentUser();
+  const { canWrite: globalCanWrite, isTripLeader, scopedTripId } = useCurrentUser();
+  // Mirrors TripDetailLayout.jsx's own canWrite -- this page is a sibling
+  // route, not nested under that layout's Outlet, so it can't inherit its
+  // context and has to repeat the same scope check here.
+  const canWrite = globalCanWrite || (isTripLeader && tripId === scopedTripId);
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [trip, setTrip] = useState(null);
   const [settings, setSettings] = useState(null);

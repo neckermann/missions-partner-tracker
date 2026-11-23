@@ -101,7 +101,9 @@ export default function TripLeaderPartnerView({ partnerId }) {
             prayerRequests.map((r, i) => (
               <div
                 key={r.id}
-                style={i > 0 ? { borderTop: "1px solid #eee", marginTop: "1rem", paddingTop: "1rem" } : undefined}
+                style={
+                  i > 0 ? { borderTop: "1px solid #eee", marginTop: "1rem", paddingTop: "1rem" } : undefined
+                }
               >
                 <Field label="Category" value={r.category === "strategic" ? "Strategic" : "Situational"} />
                 <Field label="Date Received" value={formatDateLong(r.dateReceived)} />
@@ -130,7 +132,9 @@ export default function TripLeaderPartnerView({ partnerId }) {
             files.map((f, i) => (
               <div
                 key={f.id}
-                style={i > 0 ? { borderTop: "1px solid #eee", marginTop: "1rem", paddingTop: "1rem" } : undefined}
+                style={
+                  i > 0 ? { borderTop: "1px solid #eee", marginTop: "1rem", paddingTop: "1rem" } : undefined
+                }
               >
                 <Field label="Kind" value={fileKindLabel(f.kind)} />
                 <Field label="Title" value={f.title || f.fileName} />
