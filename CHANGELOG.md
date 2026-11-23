@@ -14,6 +14,9 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Security
+- A Trip Leader scoped guest account could still read the full Pending Dispatches queue (`GET /api/dispatches/pending`) — the exact text about to go out for every partner/trip/prayer request/one-time need churchwide, unfiltered and not attached to any one trip. Excluded entirely, same `requireRole("admin", "editor", "viewer")` pattern as #329's inbound-email-queue fix (there's no sensible trip-scoped version of this queue). No database migration. (#350)
+
 ## [0.4.0] - 2026-11-23
 
 ### Added

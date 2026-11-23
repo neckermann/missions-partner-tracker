@@ -16,14 +16,21 @@ const { countUrgentRecipients } = require("../utils/dispatchOrchestrator");
 const router = express.Router();
 router.use(requireAuth);
 
-// GET /api/dispatches/pending -- any logged-in role, same "viewing is
-// harmless" reasoning as GET /api/partner-files/GET /api/inbound-email.
+// GET /api/dispatches/pending -- #350: this queue holds the exact text
+// about to go out for every partner, trip, prayer request, and one-time
+// need churchwide, unfiltered and not attached to any one trip -- there's
+// no sensible trip-scoped version of it, so (same reasoning and same
+// requireRole("admin", "editor", "viewer") pattern as #329's fix to
+// GET /api/inbound-email) a Trip Leader scoped guest is excluded entirely
+// rather than scoped. Every full role (admin/editor/viewer) still reaches
+// it with no further gating -- same "viewing is harmless" reasoning as
+// GET /api/partner-files/GET /api/inbound-email among those three roles.
 // Reuses buildBlurb so the admin sees the exact same text that would
 // actually go out. Deliberately unfiltered -- every row shows here
 // regardless of which channel(s) it's relevant to (e.g. a prayer
 // request muted on GroupMe but still relevant to the public email
 // dispatch still shows), since this page was never scoped to one channel.
-router.get("/pending", async (req, res, next) => {
+router.get("/pending", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const rows = await prisma.dispatchRecord.findMany({ orderBy: { createdAt: "asc" } });
     const partners = await prisma.partner.findMany({

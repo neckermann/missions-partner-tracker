@@ -267,6 +267,23 @@ describe("Trip Leader: inbound email queue blocked entirely", () => {
   });
 });
 
+// #350: same exclusion pattern as #329's inbound-email fix above -- this
+// queue holds the exact text about to go out churchwide, unfiltered and
+// not attached to any one trip, so there's no sensible trip-scoped
+// version of it.
+describe("Trip Leader: Pending Dispatches queue blocked entirely", () => {
+  test("403s the pending queue", async () => {
+    const leader = await leaderClient();
+    const res = await leader("/api/dispatches/pending");
+    assert.equal(res.status, 403);
+  });
+
+  test("admin still reads the queue -- only tripLeader is excluded", async () => {
+    const res = await admin("/api/dispatches/pending");
+    assert.equal(res.status, 200);
+  });
+});
+
 // #329 Finding 2: a Trip Leader scoped guest is fully admin-managed, not
 // self-service -- AdminSidebar.jsx renders no "My Account" link for this
 // role and AdminLayout.jsx's own route guard already redirects away from
