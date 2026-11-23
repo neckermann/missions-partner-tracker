@@ -81,7 +81,7 @@ export default function Wizard({ steps, initialValues = {}, onFinish, onCancel, 
             style={{
               fontSize: "0.8rem",
               fontWeight: i === stepIndex ? 700 : 400,
-              color: i === stepIndex ? undefined : "#888",
+              color: i === stepIndex ? undefined : "var(--muted)",
             }}
           >
             {i + 1}. {s.label}

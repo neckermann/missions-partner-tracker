@@ -112,7 +112,7 @@ export default function SavedViewsBar({ reportId, queryValues, onApply, isAdmin 
     <div className="admin-section no-print">
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
         <strong>Saved views</strong>
-        {views.length === 0 && <span style={{ color: "#666" }}>None yet.</span>}
+        {views.length === 0 && <span style={{ color: "var(--muted)" }}>None yet.</span>}
         {views.map((v) => (
           <span key={v.id} className="recent-chip" style={{ display: "inline-flex", gap: "0.35rem" }}>
             <button type="button" className="summary-item-link" onClick={() => onApply(v.params)}>

@@ -4,6 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Missions Team | Our Missionaries</title>
+    <!-- Sets data-theme before first paint (#283), so a saved "light"/"dark"
+         override applies immediately instead of flashing the system/light
+         default for one frame while main.jsx's React tree mounts and
+         useTheme() runs its first effect. Mirrors applyTheme() in
+         hooks/useTheme.js exactly -- keep the two in sync if that logic
+         changes. Wrapped in try/catch: localStorage can throw (private
+         browsing, blocked storage), and this must never be what breaks the
+         page load. -->
+    <script>
+      try {
+        var t = window.localStorage.getItem("admin.theme");
+        if (t === "light" || t === "dark") {
+          document.documentElement.setAttribute("data-theme", t);
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

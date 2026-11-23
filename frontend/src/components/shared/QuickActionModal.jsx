@@ -46,8 +46,10 @@ export default function QuickActionModal({
     <Modal title={title} onClose={onClose} maxWidth={maxWidth}>
       <form onSubmit={handleSubmit}>
         {children}
-        {error && <p style={{ color: "#b91c1c", marginTop: "0.75rem" }}>{error}</p>}
-        {justSaved && !error && <p style={{ color: "#2a5d3c", marginTop: "0.75rem" }}>Saved ✓</p>}
+        {error && <p style={{ color: "var(--danger)", marginTop: "0.75rem" }}>{error}</p>}
+        {justSaved && !error && (
+          <p style={{ color: "var(--brand-color-safe, #2a5d3c)", marginTop: "0.75rem" }}>Saved ✓</p>
+        )}
         <div style={{ marginTop: "1rem" }}>
           <button type="submit" className="btn" disabled={saving || justSaved || submitDisabled}>
             {saving ? "Saving…" : justSaved ? "Saved ✓" : submitLabel}

@@ -14,6 +14,9 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Added
+- Admin light/dark/system appearance toggle — a System/Light/Dark segmented control on My Account (and a compact copy in the sidebar footer) that persists per-browser via `localStorage`, with no backend/`ChurchSettings` change. System follows the OS via `prefers-color-scheme`; Light/Dark pin it with a `data-theme` attribute on `<html>`. A church's configured brand colors (`primaryColor`/`headerColor`/`highlightColor`) are respected in both modes — dark mode uses a lightened, contrast-safe derived variant for brand color used as text/foreground, not the raw configured color unchanged. Covers the admin shell/sidebar, shared primitives (buttons, modals, tables, forms, `StatusPill`, filter bar, wizard), and the Home/Partners/Partner Detail/Account Settings pages. Known incomplete: the public-facing site (directory/map/partner detail/subscribe) and the print-oriented Reports/Booklet screens weren't audited for dark mode. (#283)
+
 ### Security
 - A Trip Leader scoped guest account (`User.role === "tripLeader"`) could read the entire church's unmatched-inbound-email queue (`GET /api/inbound-email`, `GET /api/inbound-email/:id/raw`) — not scoped to their own trip at all, since that queue holds mail nobody could match to any partner or trip yet. Excluded entirely rather than scoped: there's no sensible "my trip's unmatched mail" view. No database migration. (#329)
 - A Trip Leader could also self-service their own password and MFA (`POST /api/auth/change-password`, `/mfa/setup`, `/mfa/verify-setup`, `/mfa/disable`) even though the admin UI already treats that account as fully admin-managed (no "My Account" nav link, no route to it). The backend now matches that existing policy — forced MFA enrollment at first sign-in (set by an admin) still works, since that's not self-service. No database migration. (#329)

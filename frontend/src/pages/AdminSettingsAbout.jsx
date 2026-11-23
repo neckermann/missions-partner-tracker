@@ -107,7 +107,7 @@ export default function AdminSettingsAbout() {
   return (
     <div className="admin-shell">
       <SettingsPageHeader title="About & Branding" />
-      <p style={{ color: "#555" }}>
+      <p style={{ color: "var(--muted)" }}>
         Church info, contact details, and how this church presents itself — public-site tagline, about text,
         brand colors, font, logo, and what to call its partners.
       </p>
@@ -136,13 +136,13 @@ export default function AdminSettingsAbout() {
             <p>
               <strong>{v.churchName || "Not set"}</strong>
             </p>
-            <p style={{ color: "#555" }}>
+            <p style={{ color: "var(--muted)" }}>
               {[v.contactFirstName, v.contactLastName].filter(Boolean).join(" ") || "No contact set"}
               {v.contactEmail ? ` · ${v.contactEmail}` : ""}
               {v.phone ? ` · ${v.phone}` : ""}
             </p>
-            <p style={{ color: "#555" }}>{v.websiteLink || "No website set"}</p>
-            <p style={{ color: "#555" }}>Timezone: {v.timezone}</p>
+            <p style={{ color: "var(--muted)" }}>{v.websiteLink || "No website set"}</p>
+            <p style={{ color: "var(--muted)" }}>Timezone: {v.timezone}</p>
             {showSyncPrompt && sentByOurChurchCount > 0 && (
               // Not itself interactive -- just stops clicks/keydowns on the
               // real button inside from bubbling into the card's own
@@ -154,7 +154,7 @@ export default function AdminSettingsAbout() {
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
               >
-                <span style={{ color: "#555" }}>
+                <span style={{ color: "var(--muted)" }}>
                   {sentByOurChurchCount} partner{sentByOurChurchCount === 1 ? "" : "s"} marked &ldquo;Sent by
                   our church.&rdquo;
                 </span>
@@ -166,7 +166,9 @@ export default function AdminSettingsAbout() {
                 >
                   {syncing ? "Updating..." : "Update them all with this info"}
                 </button>
-                {syncSuccess && <span style={{ color: "#2a5d3c" }}>{syncSuccess}</span>}
+                {syncSuccess && (
+                  <span style={{ color: "var(--brand-color-safe, #2a5d3c)" }}>{syncSuccess}</span>
+                )}
               </div>
             )}
           </>
@@ -219,7 +221,7 @@ export default function AdminSettingsAbout() {
                 </select>
               </label>
             </div>
-            <p style={{ color: "#666", fontSize: "0.85rem", marginTop: "0.5rem" }}>
+            <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: "0.5rem" }}>
               Timezone drives every scheduled send in this app (email digests, GroupMe) so "send at 9"
               actually means 9am here, not UTC. Changing this takes effect the next time the app restarts, not
               instantly.
@@ -260,7 +262,7 @@ export default function AdminSettingsAbout() {
               <p>
                 <strong>Tagline:</strong> {v.publicTagline || "Not set"}
               </p>
-              <p style={{ color: "#555" }}>{v.aboutText || "No about text set"}</p>
+              <p style={{ color: "var(--muted)" }}>{v.aboutText || "No about text set"}</p>
               <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
                 <span
                   title="Header color"
@@ -270,7 +272,7 @@ export default function AdminSettingsAbout() {
                     height: 20,
                     borderRadius: 4,
                     background: v.headerColor || "#2c2a28",
-                    border: "1px solid #ccc",
+                    border: "1px solid var(--border)",
                   }}
                 />
                 <span
@@ -281,7 +283,7 @@ export default function AdminSettingsAbout() {
                     height: 20,
                     borderRadius: 4,
                     background: v.primaryColor || "#2a5d3c",
-                    border: "1px solid #ccc",
+                    border: "1px solid var(--border)",
                   }}
                 />
                 <span
@@ -292,7 +294,7 @@ export default function AdminSettingsAbout() {
                     height: 20,
                     borderRadius: 4,
                     background: v.highlightColor || "#a6540f",
-                    border: "1px solid #ccc",
+                    border: "1px solid var(--border)",
                   }}
                 />
               </div>
@@ -325,7 +327,7 @@ export default function AdminSettingsAbout() {
                   onChange={(e) => set("headerColor", e.target.value)}
                 />
               </label>
-              <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+              <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
                 The header bar and admin sidebar background.
               </p>
               <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
@@ -336,7 +338,7 @@ export default function AdminSettingsAbout() {
                   onChange={(e) => set("primaryColor", e.target.value)}
                 />
               </label>
-              <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+              <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
                 Buttons, links, headings, and report letterheads -- the color people associate with this
                 church.
               </p>
@@ -348,7 +350,7 @@ export default function AdminSettingsAbout() {
                   onChange={(e) => set("highlightColor", e.target.value)}
                 />
               </label>
-              <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+              <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
                 Hover, focus, and active/selected states -- e.g. a button on hover, the current nav item.
               </p>
               <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
@@ -402,7 +404,7 @@ export default function AdminSettingsAbout() {
                   style={{ background: form.headerColor || "#2c2a28" }}
                 />
               ) : (
-                <p style={{ color: "#555" }}>No logo set</p>
+                <p style={{ color: "var(--muted)" }}>No logo set</p>
               )}
             </div>
           )}
@@ -464,7 +466,7 @@ export default function AdminSettingsAbout() {
           )}
           edit={(d, set) => (
             <>
-              <p style={{ marginTop: 0, color: "#666", fontSize: "0.85rem" }}>
+              <p style={{ marginTop: 0, color: "var(--muted)", fontSize: "0.85rem" }}>
                 What this church calls its missionary and organization partners — e.g. "Go Team Partner" / "Go
                 Team Partners". Used on the public site regardless of whether a partner is an
                 individual/family or an organization. Leave blank to keep the default "Missionary" /
