@@ -1610,6 +1610,219 @@ a {
   }
 }
 
+/* Template picker -- a lightweight CSS-only visual swatch per template
+   (not a live render of the real template) so the choice reads at a
+   glance instead of two identical text-only cards. Driven by the same
+   token object templates.js/booklet.css already read (shapeStyle/
+   photoShape/frameStyle via data-* attributes, --accent via
+   resolveAccent()) -- a future third template's swatch is correct for
+   free, nothing to hand-author here. #346 follow-up: the first redesign
+   pass kept these as plain text cards, which the project owner flagged
+   as still reading like a default/unstyled form even though the page
+   layout itself had changed. */
+.booklet-template-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.booklet-template-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 13rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft, #dde1e7);
+  border-radius: var(--radius-sm, 7px);
+  background: var(--surface, #fff);
+  cursor: pointer;
+}
+.booklet-template-card:hover {
+  border-color: var(--brand-highlight-color, #a6540f);
+}
+/* 1px heavier border on selection would otherwise grow the card by 2px
+   and visibly shift the one beside it -- padding shrinks by the same
+   amount so the card's own outer box size never changes. */
+.booklet-template-card.selected {
+  border: 2px solid var(--brand-color, #2a5d3c);
+  padding: calc(0.75rem - 1px);
+}
+.booklet-template-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+}
+.booklet-template-card-desc {
+  font-size: 0.82rem;
+  font-weight: normal;
+  color: var(--muted-text, #677080);
+}
+.booklet-template-swatch {
+  position: relative;
+  height: 96px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: var(--radius-sm, 7px);
+  background: var(--surface-2, #f4f5f7);
+  border: 1px solid var(--border-soft, #dde1e7);
+  overflow: hidden;
+}
+/* Classic's shapeStyle: "circles" token -- the same corner-accent
+   treatment booklet.css's own .booklet-shape uses on the real page,
+   scaled down. Modern's shapeStyle: "none" leaves this hidden. */
+.booklet-template-swatch-shape {
+  display: none;
+  position: absolute;
+  top: -16px;
+  right: -16px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.25;
+}
+[data-shape-style="circles"] .booklet-template-swatch-shape {
+  display: block;
+}
+/* photoShape: circle (Classic) vs rect (Modern), same token booklet.css
+   reads for the real .booklet-photo. */
+.booklet-template-swatch-photo {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  background: var(--accent);
+  opacity: 0.55;
+  border-radius: 50%;
+}
+[data-photo-shape="rect"] .booklet-template-swatch-photo {
+  border-radius: 3px;
+  width: 26px;
+  height: 18px;
+}
+/* frameStyle: "rule" (Modern) -- the bold accent rule booklet.css anchors
+   the real cover/back-cover to. "none" (Classic) leaves this hidden. */
+.booklet-template-swatch-rule {
+  display: none;
+  height: 3px;
+  width: 38%;
+  border-radius: 2px;
+  background: var(--accent);
+}
+[data-frame-style="rule"] .booklet-template-swatch-rule {
+  display: block;
+}
+.booklet-template-swatch-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: auto;
+}
+.booklet-template-swatch-lines span {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-soft, #dde1e7);
+}
+.booklet-template-swatch-lines span:nth-child(1) {
+  width: 72%;
+}
+.booklet-template-swatch-lines span:nth-child(2) {
+  width: 92%;
+}
+.booklet-template-swatch-lines span:nth-child(3) {
+  width: 55%;
+}
+
+/* "What Shows on Each Page" -- a grid of click-to-toggle pill chips
+   instead of a wrapped row of plain checkbox+label pairs (#346
+   follow-up). Each chip is a real <label>/<input type="checkbox"> pair
+   (same toggleField handler, same checked/disabled state as before) --
+   only the rendering changed, so keyboard/screen-reader behavior is
+   unchanged. The checkbox itself is visually hidden (not display: none,
+   which would drop it from the accessibility tree) rather than left
+   showing the app-wide toggle-switch skin (.admin-shell
+   input[type="checkbox"] above) -- the whole chip is this control's own
+   on/off indicator here, a switch rendered inside it too would be a
+   second, redundant indicator. */
+.booklet-field-grid {
+  display: grid;
+  /* 150px (not a rounder 190px+) specifically so this reads as a real
+     multi-column grid rather than a single stacked list inside the
+     controls column's own width (minmax(300px, 420px), see
+     .booklet-layout above) -- confirmed by screenshot at that column's
+     actual rendered width, not assumed. */
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+.booklet-field-chip {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-soft, #dde1e7);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--surface, #fff);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted-text, #677080);
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.booklet-field-chip:hover {
+  border-color: var(--brand-highlight-color, #a6540f);
+}
+.booklet-field-chip input[type="checkbox"] {
+  /* Visually hidden, not display: none -- stays a real, focusable,
+     screen-reader-announced checkbox. Beats the app-wide toggle-switch
+     skin on specificity by appearing later in this file (same selector
+     weight, source order decides), but ::before is reset explicitly too
+     rather than relying on that alone. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+}
+.booklet-field-chip input[type="checkbox"]::before {
+  content: none;
+}
+.booklet-field-chip-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--border-soft, #dde1e7);
+  transition: background-color 0.15s ease;
+}
+.booklet-field-chip.on {
+  border-color: var(--brand-highlight-color, #a6540f);
+  background: color-mix(in srgb, var(--brand-highlight-color, #a6540f) 10%, var(--surface, #fff));
+  color: #222;
+}
+.booklet-field-chip.on .booklet-field-chip-dot {
+  background: var(--brand-highlight-color, #a6540f);
+}
+.booklet-field-chip:has(input:focus-visible) {
+  outline: 2px solid var(--brand-highlight-color, #a6540f);
+  outline-offset: 2px;
+}
+.booklet-field-chip.locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* 8.5in (a real US Letter page width) both ways -- min-width, not just
    max-width -- deliberately not shrunk to fit a narrow container, since
    this previews actual print proportions. overflow-x: auto on the outer

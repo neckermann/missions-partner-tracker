@@ -93,6 +93,12 @@ body {
   overflow: hidden;
   break-after: page;
   padding: 0.25in;
+  /* A real page is white paper -- correct for print, and on screen it's
+     also what actually makes each page read as a distinct sheet against
+     .booklet-preview-pane's grey admin-chrome background (index.css)
+     rather than blending into it. Harmless at print: this is the page's
+     own background either way, nothing added on top of it. */
+  background: #fff;
 }
 
 /* Decorative corner shapes -- Classic's `shapeStyle: "circles"` token.

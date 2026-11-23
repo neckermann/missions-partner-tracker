@@ -640,36 +640,52 @@ export default function AdminBooklet() {
           <div className="admin-form">
             <div className="admin-section">
               <h3>Look &amp; Feel</h3>
-              <div className="admin-checkbox-row" style={{ gap: "1rem", flexWrap: "wrap" }}>
-                {TEMPLATE_OPTIONS.map((t) => (
-                  <label
-                    key={t.value}
-                    style={{
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      border: template === t.value ? "2px solid #333" : "1px solid #ddd",
-                      borderRadius: "8px",
-                      padding: "0.6rem 0.75rem",
-                      maxWidth: "16rem",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <span
-                      style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: "bold" }}
-                    >
-                      <input
-                        type="radio"
-                        name="booklet-template"
-                        checked={template === t.value}
-                        onChange={() => setTemplate(t.value)}
-                      />
-                      {t.label}
-                    </span>
-                    <span style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
-                      {t.description}
-                    </span>
-                  </label>
-                ))}
+              <div className="booklet-template-picker">
+                {TEMPLATE_OPTIONS.map((t) => {
+                  // A lightweight visual hint, not a live render of the real
+                  // template -- plain CSS shapes driven by the same token
+                  // object templates.js/booklet.css already use
+                  // (shapeStyle/photoShape/frameStyle), so a future
+                  // template's swatch is correct for free rather than
+                  // needing its own hand-drawn entry here. accent reuses
+                  // resolveAccent() (ChurchSettings.primaryColor, same as
+                  // the real booklet) so the swatch reflects the church's
+                  // actual brand color, not a hardcoded hex.
+                  const tpl = getTemplate(t.value);
+                  const accent = resolveAccent(tpl, primaryColor, 0);
+                  const selected = template === t.value;
+                  return (
+                    <label key={t.value} className={`booklet-template-card${selected ? " selected" : ""}`}>
+                      <div
+                        className="booklet-template-swatch"
+                        style={{ "--accent": accent }}
+                        data-shape-style={tpl.tokens.shapeStyle}
+                        data-photo-shape={tpl.tokens.photoShape}
+                        data-frame-style={tpl.tokens.frameStyle}
+                        aria-hidden="true"
+                      >
+                        <span className="booklet-template-swatch-shape" />
+                        <span className="booklet-template-swatch-photo" />
+                        <span className="booklet-template-swatch-rule" />
+                        <span className="booklet-template-swatch-lines">
+                          <span />
+                          <span />
+                          <span />
+                        </span>
+                      </div>
+                      <span className="booklet-template-card-title">
+                        <input
+                          type="radio"
+                          name="booklet-template"
+                          checked={selected}
+                          onChange={() => setTemplate(t.value)}
+                        />
+                        {t.label}
+                      </span>
+                      <span className="booklet-template-card-desc">{t.description}</span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
 
@@ -705,21 +721,27 @@ export default function AdminBooklet() {
 
             <div className="admin-section">
               <h3>What Shows on Each Page</h3>
-              <div className="admin-checkbox-row">
+              <div className="booklet-field-grid">
                 {FIELD_OPTIONS.map(([key, label, tooltip]) => {
                   // Prayer requests now print at the top of the Notes &
                   // Prayer page itself, so that page can't be turned off
                   // while they're showing -- there'd be nowhere left to
                   // print them.
                   const lockedOn = key === "showNotesPage" && fields.showPrayerRequests;
+                  const on = fields[key];
                   return (
-                    <label key={key} title={lockedOn ? "Required while Prayer Requests is on" : tooltip}>
+                    <label
+                      key={key}
+                      className={`booklet-field-chip${on ? " on" : ""}${lockedOn ? " locked" : ""}`}
+                      title={lockedOn ? "Required while Prayer Requests is on" : tooltip}
+                    >
                       <input
                         type="checkbox"
-                        checked={fields[key]}
+                        checked={on}
                         disabled={lockedOn}
                         onChange={() => toggleField(key)}
                       />
+                      <span className="booklet-field-chip-dot" aria-hidden="true" />
                       {label}
                     </label>
                   );
