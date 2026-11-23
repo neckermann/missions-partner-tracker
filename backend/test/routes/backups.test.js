@@ -10,6 +10,7 @@ let admin;
 let editor;
 let viewer;
 let unauthenticated;
+let originalEnabledFeatures;
 
 before(async () => {
   await ensureTestUsers();
@@ -19,9 +20,34 @@ before(async () => {
     client("viewer"),
     client(),
   ]);
+
+  // The TripMeeting round-trip fixture below needs POST /api/trips and
+  // POST /api/trips/:id/meetings reachable -- `trips` defaults to off
+  // (see routes/tripMeetings.js's own requireFeature("trips")), and CI's
+  // e2e job deliberately enables it only *after* the whole backend
+  // route-test suite runs (see ci.yml's own comment on that ordering),
+  // so this can't rely on ambient state the way a purely local run might
+  // happen to have. Same save/restore convention as trips.test.js's own
+  // setFeatures -- restore to whatever existed when this file started,
+  // not unconditionally back to off.
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
+  originalEnabledFeatures = settings?.enabledFeatures ?? {};
+  const enabledFeatures = { ...originalEnabledFeatures, trips: true };
+  await prisma.churchSettings.upsert({
+    where: { id: "singleton" },
+    update: { enabledFeatures },
+    create: { id: "singleton", enabledFeatures },
+  });
 });
 
 after(async () => {
+  await prisma.churchSettings.update({
+    where: { id: "singleton" },
+    data: { enabledFeatures: originalEnabledFeatures },
+  });
   await removeTestUsers();
   await stopServer();
 });
