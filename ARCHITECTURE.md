@@ -1,10 +1,10 @@
 # Architecture — where does a change go
 
-**Last verified**: 2026-11-11 · **Owner**: @neckermann
+**Last verified**: 2026-11-23 · **Owner**: @neckermann
 
 This is an index, not a duplicate — [SPEC.md](SPEC.md) is the full,
 authoritative architecture reference (data model, backend/frontend
-structure, feature flags, auth model, the notification system,
+structure, feature flags, auth model, the dispatch system,
 deployment topology). This doc exists to answer "where does my change
 belong" quickly, pointing into SPEC.md's sections rather than
 restating them.
@@ -21,7 +21,7 @@ restating them.
 | Reusing an existing UI pattern instead of writing a new one | [STYLE-GUIDE.md](STYLE-GUIDE.md), [SPEC.md § 3.3](SPEC.md) |
 | Gating something behind a feature flag | [SPEC.md § 4](SPEC.md) — see "One rule this index exists to reinforce" below |
 | Touching permissions/roles | [SPEC.md § 5](SPEC.md) |
-| Touching notifications (email/GroupMe/WhatsApp, review gate, urgent broadcast) | [SPEC.md § 6](SPEC.md) |
+| Touching dispatch (email/GroupMe/WhatsApp, review gate, urgent broadcast) | [SPEC.md § 6](SPEC.md) |
 | Deciding what a restricted/non-public partner should ever expose | [SPEC.md § 7](SPEC.md) (public vs. admin surface boundary) |
 | Touching deploy config, Render, or migrations in production | [SPEC.md § 8](SPEC.md), [RUNBOOK.md](RUNBOOK.md) |
 
