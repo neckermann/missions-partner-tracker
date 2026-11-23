@@ -14,6 +14,9 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Added
+- A partner's detail page now has a **Last Prayed w/ Congregation** field, recording the last time the whole congregation prayed for that partner together — distinct from any individual prayer request's own answer. **Mark Prayed Today** sets it to today in one click; the field can also be edited directly to backdate it. **Requires a database migration** (`Partner.lastPrayedWithCongregationAt`). (#228)
+
 ## [0.2.1] - 2026-11-23
 
 ### Fixed

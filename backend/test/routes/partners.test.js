@@ -252,6 +252,70 @@ describe("partners: read models", () => {
   });
 });
 
+describe("partners: last prayed with congregation (#228)", () => {
+  // A manual, Partner-level record of when the whole congregation last
+  // prayed for this partner together -- distinct from any individual
+  // PrayerRequest's own dateAnswered. Covers the same round trip the
+  // frontend's "Mark Prayed Today"/edit-to-backdate actions rely on: set
+  // via the ordinary partial PUT, read back off the detail record.
+  test("defaults to null, then round-trips through PUT and GET", async () => {
+    const p = await createPartner();
+    assert.equal(p.lastPrayedWithCongregationAt, null);
+
+    const updated = await admin(`/api/partners/${p.id}`, {
+      method: "PUT",
+      body: { lastPrayedWithCongregationAt: "2026-11-01" },
+    });
+    assert.equal(updated.status, 200);
+    assert.match(updated.body.lastPrayedWithCongregationAt, /^2026-11-01/);
+
+    const read = await admin(`/api/partners/${p.id}`);
+    assert.equal(read.status, 200);
+    assert.match(read.body.lastPrayedWithCongregationAt, /^2026-11-01/);
+  });
+
+  test("can be backdated to a past date, not just today", async () => {
+    const p = await createPartner();
+    const res = await admin(`/api/partners/${p.id}`, {
+      method: "PUT",
+      body: { lastPrayedWithCongregationAt: "2026-09-15" },
+    });
+    assert.equal(res.status, 200);
+    assert.match(res.body.lastPrayedWithCongregationAt, /^2026-09-15/);
+  });
+
+  test("can be cleared back to null (an empty date input sends null, not an invalid date)", async () => {
+    const p = await createPartner({ lastPrayedWithCongregationAt: "2026-10-01" });
+    const res = await admin(`/api/partners/${p.id}`, {
+      method: "PUT",
+      body: { lastPrayedWithCongregationAt: null },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.lastPrayedWithCongregationAt, null);
+  });
+
+  test("an editor can set it, same write permission as other partner content", async () => {
+    const p = await createPartner();
+    const res = await editor(`/api/partners/${p.id}`, {
+      method: "PUT",
+      body: { lastPrayedWithCongregationAt: "2026-11-10" },
+    });
+    assert.equal(res.status, 200);
+    assert.match(res.body.lastPrayedWithCongregationAt, /^2026-11-10/);
+  });
+
+  test("not included in the public partner view, same as other admin-only record-keeping fields", async () => {
+    const p = await createPartner({
+      isPublic: true,
+      lastPrayedWithCongregationAt: "2026-11-05",
+      overview: "Serving faithfully.",
+    });
+    const res = await anon(`/api/public/partners/${p.id}`);
+    assert.equal(res.status, 200);
+    assert.ok(!("lastPrayedWithCongregationAt" in res.body));
+  });
+});
+
 describe("partners: collections are not writable through the partner record", () => {
   // This is the regression test for the data-loss bug. Before the rebuild,
   // saving a partner replaced every child collection wholesale from the

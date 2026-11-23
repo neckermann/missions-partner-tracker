@@ -453,6 +453,14 @@ or leave it as "None."
   request itself — a real, growing record of how prayers actually get
   answered over time, not just a log of what's currently outstanding.
 
+Separately from any individual request above, a partner's detail page
+also has its own **Last Prayed w/ Congregation** field — a record of the
+last time the whole congregation prayed for that partner together (in a
+service or a dedicated prayer gathering), not any one request's own
+answer. Click **Mark Prayed Today** right after it happens, or open the
+field to enter/correct a past date if you're catching up on a few
+weeks of history.
+
 The central **Prayer Requests** page lists every request across every
 partner, filterable by category, with a running count of how many have
 been answered so far. A request pointed at a source this way, or added
