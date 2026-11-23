@@ -397,9 +397,6 @@ export default function AdminSidebar() {
         )}
       </nav>
       <div className="admin-sidebar-footer">
-        <div className="admin-sidebar-theme-toggle">
-          <ThemeToggle compact />
-        </div>
         {publicLinkNode}
         <SidebarLink to="/admin/account" label="My Account" icon="🙋" />
         <button
@@ -413,6 +410,9 @@ export default function AdminSidebar() {
           <span aria-hidden="true">🚪</span>
           <span className="sb-label">Log out</span>
         </button>
+        <div className="admin-sidebar-theme-toggle">
+          <ThemeToggle compact />
+        </div>
       </div>
     </aside>
   );
