@@ -74,22 +74,21 @@ function diffSettings(before, after) {
   return { changes, secrets, toggles };
 }
 
-function auditSettingsWrites(req, res, next) {
+async function auditSettingsWrites(req, res, next) {
   if (!WRITE_METHODS.has(req.method)) return next();
   let before = null;
   let wasEnabled = false;
-  const ready = (async () => {
-    try {
-      wasEnabled = await isAuditEnabled();
-      if (wasEnabled) before = await snapshot();
-    } catch {
-      // Never block a settings write on the audit trail.
-    }
-  })();
+  // Taken BEFORE the route runs (awaited, not fired and forgotten): a fast
+  // handler would otherwise write first and the diff would see no change.
+  try {
+    wasEnabled = await isAuditEnabled();
+    if (wasEnabled) before = await snapshot();
+  } catch {
+    // Never block a settings write on the audit trail.
+  }
   res.on("finish", async () => {
     if (res.statusCode >= 400) return;
     try {
-      await ready;
       clearAuditEnabledCache();
       const after = await snapshot();
       const nowEnabled = await isAuditEnabled();

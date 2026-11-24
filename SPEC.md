@@ -133,9 +133,12 @@ outcome (assign, discard) deletes the row.
   (null = never reviewed), `PublicSubscriber.confirmedAt` (null = never
   confirmed) — each replaces what used to be (or could have been) a
   boolean + a value that might contradict each other.
-- **Audit fields (`createdById`/`updatedById`) exist only on `Partner`**,
-  deliberately — they used to be inconsistently populated elsewhere, and
-  half-populated provenance was judged worse than none.
+- **"Last edited by" is stamped centrally, not per route (#341).** The
+  old `createdById`/`updatedById` pair existed only on `Partner` because
+  per-route stamping was inconsistently populated, and half-populated
+  provenance was judged worse than none. It is now one Prisma client
+  extension (§5.6), so it cannot be half-populated. `Partner.createdById`/
+  `updatedById` remain for their existing uses.
 
 ## 2. Backend architecture
 
@@ -514,9 +517,8 @@ afterwards does **not** silently reactivate it. The Users list marks
 "inactive" guests (deactivated, all access expired, or none left —
 computed, not stored) and `GET /api/users?inactive=true` /
 the "Inactive accounts only" filter lists just those so an admin can reach
-out and clean up. Grant changes are **not** audit-logged yet: who granted,
-extended or removed access (and the deactivation) is deferred to the
-admin audit/activity design in #341.
+out and clean up. Grant changes are recorded in the activity log (§5.6): who granted,
+extended or removed access, and the deactivation that follows.
 
 **MFA is required for a guest** (`mfaSetupRequired` is forced on at
 creation and role change, and again by an admin MFA reset). A guest can
@@ -783,6 +785,56 @@ through the existing dispatch channels.
   on the need the team can open.
 - **Not built:** the "prayed-for" summary to existing subscribers, and Phase 2
   (church-member notes through a public form) — both deferred.
+
+### 5.6 Activity log and last-edited-by (#341)
+
+Two mechanisms, deliberately separate, because they have opposite retention:
+
+**`AuditLog` — what happened, when (bounded).** One append-only row per
+sensitive event (`utils/auditLog.js`, the `AUDIT_ACTIONS` catalogue is the line
+between audit-worthy and routine). Gated by the `auditTrail` feature (off by
+default; the demo seed and reset turn it on and seed example entries). Actor and
+target are plain ids with an email/name snapshot and **no foreign keys**, so an
+entry survives either account being deleted; the API flags `deleted` when the id
+no longer matches a user. `details` holds old/new values and never a secret:
+secret columns are noted `"changed"` (`secretChange`). Kept for
+`ChurchSettings.auditRetentionDays` (30/60/90, default 90), pruned daily at
+03:30 church time by the worker (`auditPruneScheduler.js`) whether or not the
+feature is on. Included in backup/restore. Account, access, delete and care-team
+entries are written in the **same transaction** as the change (`recordAudit(tx)`),
+so an access change that cannot be recorded does not happen; sign-in events use
+`recordAuditSafe`, which never blocks a login.
+
+- *Settings* are written by eight route files, so one middleware
+  (`middleware/auditSettings.js`) mounted on `/api/settings` snapshots the
+  `ChurchSettings` row before a write and diffs it after, logging each feature
+  toggled separately and everything else as one entry per request. It ignores the
+  stamp columns. Turning the log off records the switch-off (`force`), then it is
+  quiet.
+- *Restricted-partner views* are logged once per (viewer, partner, church-local
+  day) — `recordRestrictedView`.
+- *Sign-in* records failures with the reason (`unknown_email`, `inactive`,
+  `wrong_password`, `wrong_two_factor_code`, …) and the IP (`trust proxy` is set
+  to 1). The caller still gets the one generic answer.
+- *Read side:* `routes/audit.js`, admin-only and flag-gated (`GET /api/audit`
+  with `q`/`category`/`action`/`from`/`to`, cursor paging; `/export` CSV through
+  the formula-safe `toCsv`; `/meta`; `PUT /retention`). Reading it is not logged.
+  The page is Settings → Activity.
+
+**`lastEditedById` / `lastEditedByName` / `lastEditedAt` — who last touched this
+record (unbounded).** On 32 editable models. Stamped by a Prisma client extension
+(`prismaClient.js`) on every `create`/`update`/`upsert` made while a signed-in
+request runs; the actor comes from an `AsyncLocalStorage` (`utils/actorContext.js`)
+entered by `requireAuth`. No actor — the seed, the worker's jobs, a public
+submission — means nothing is stamped and the old value stays. Overwritten in
+place, never pruned, and the name is a snapshot so it survives account deletion.
+Only the row written directly is stamped, not rows touched by a nested write.
+**Excluded on purpose:** `AuditLog`, every `*Bytes` table, `ChurchSettingsLogo`,
+`TripAccess` (audited instead), `KeyDateReminder`, `PasswordSetupToken`,
+`NotificationSeen`, `UserFollowedPartner`, `PublicSubscriber*`, `InboundEmail*`,
+`TripMeetingRsvp`, `TripParticipantPhoto`, `WhatsAppAuthEntry`. It is shown on the
+partner, trip and trip-participant pages (not to guests) and **never on the public
+site** (tested). A new model opts in by declaring the three columns.
 
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 

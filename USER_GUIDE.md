@@ -1131,6 +1131,24 @@ The app never contacts a partner on its own — a person always does. If you're 
 - **To clear one**, [log the contact](#contact-log) as something **you** sent or did (we reached out): topic **Need / support** for a decision, **Encouragement** or **Prayer** for an answered prayer — a thank-you card or call counts. An entry made because the partner reached out doesn't clear it.
 - **When a partner tells you a prayer was answered** and you mark it answered, that is logged as a contact for you automatically (it still waits for staff approval before the church is told).
 
+### Activity log (admin only)
+
+With **Activity log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles), admins get **Settings → Activity**: who did what, and when, for the actions that matter if you ever need to ask "who changed that?".
+
+- **What is recorded:** sign-ins (and failed ones, with the reason and where from), password and two-factor changes, accounts created, changed or deleted, a guest's trip access given, changed or removed, care team changes, every change to church settings (a feature turned on or off, an API key changed), partners and trips deleted, backups downloaded, a partner being marked restricted, and **each person's first look at a restricted partner each day**.
+- **What isn't:** routine work — a new prayer request, an edited overview, a logged contact. Those are already visible on the record itself.
+- **Secrets are never stored.** Changing an API key or token is listed as "changed"; the value is not kept anywhere in the log.
+- **Find things:** search by name, email, record or IP address; filter by what kind of event and by date; **Export CSV** downloads exactly what the filters show.
+- **Admin only.** The log names restricted partners in full (admins can already see them), so treat an export like any other file holding that data.
+- **Deleted accounts stay readable.** An entry keeps the name and email of who did it and who it was done to, so it still reads after either account is deleted, and is tagged "(deleted account)".
+- **How long it is kept:** 30, 60 or 90 days (default 90), set on the same page. Older entries are deleted each night.
+
+![The Activity page: who did what, with filters, an export button and the retention setting](docs/assets/screenshots/activity-log.png)
+
+**Who last edited a record** is separate and kept for good. Partner, trip and trip-participant pages show "Last edited by Dana Whitfield on 11/24/2026" under the name (not to Guests, and never on the public site). It is stamped on every record an admin, editor or care team member changes, and not by background jobs or a public form, so a record nobody has edited shows no line. The name is a snapshot, so it still reads after that person's account is deleted.
+
+![A partner's page with "Last edited by Alex Hartley" under the name](docs/assets/screenshots/last-edited-by.png)
+
 ### Pending Dispatches
 
 The **Pending Dispatches** page (in the main menu, alongside

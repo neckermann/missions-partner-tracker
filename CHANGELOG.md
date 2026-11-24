@@ -14,6 +14,25 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Added
+
+- **Activity log (#341).** New feature (Settings → Enabled Features → Activity log, off by default) that records who did what and when for sensitive actions: sign-ins and failed sign-ins (with the reason and IP address), password and two-factor changes, accounts created/changed/deleted, guest trip-access changes, care team changes, every change to church settings (secrets noted as changed, never stored), partner and trip deletes, backup downloads, a partner's restricted status changing, and each person's first look at a restricted partner each day. Admins get **Settings → Activity** with search, filters and CSV export. Entries are kept 30, 60 or 90 days (default 90) and pruned nightly. Actor and target are stored as ids plus an email/name snapshot with no foreign keys, so entries stay readable after an account is deleted.
+- **Last edited by (#341).** 32 editable models gain `lastEditedById`, `lastEditedByName` and `lastEditedAt`, stamped centrally by a Prisma client extension for every write made by a signed-in person (not by background jobs, the seed or public forms). Shown on partner, trip and trip-participant pages (not to guests, never on the public site). Kept indefinitely, unlike the log.
+- The demo turns the Activity log on and seeds example entries.
+
+### Changed
+
+- The lapsed demo guest `sam.okafor` now uses the demo admin's email domain, like the other demo logins.
+
+### Fixed
+
+- The pinned Back/Cancel/Next/Save bar ran off the right edge on a phone, leaving its last buttons unreachable, on every wizard and form that uses it.
+- Add User's Care team step now appears only when the Guest role is chosen.
+
+### Upgrading
+
+- Two new migrations (`audit_log`, `last_edited_by`): run `prisma migrate deploy` as usual. The pre-1.0 convention folds them into the baseline before a release, in which case an existing database needs the reset described under 0.6.0.
+
 ## [0.6.0] - 2026-11-24
 
 ### Added

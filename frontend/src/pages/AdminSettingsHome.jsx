@@ -41,6 +41,12 @@ function buildSections(enabledFeatures) {
       icon: "🤝",
       description: "The default lead for partners without a care team, and key-date reminders.",
     },
+    enabledFeatures.auditTrail && {
+      to: "/admin/settings/activity",
+      title: "Activity",
+      icon: "📜",
+      description: "Who did what and when: sign-ins, access and settings changes, deletes, backups.",
+    },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       to: "/admin/settings/email",
       title: "Email",

@@ -2577,6 +2577,8 @@ async function seedTripsDemo() {
         trips: true,
         careTeam: true,
         contactLog: true,
+        // The activity log is on for a demo, with example entries (seedAuditLogDemo).
+        auditTrail: true,
         // Off on a demo: it would email the fake seeded accounts. See
         // utils/demoMode.js (the reset script applies the same list).
         ...demoDisabledFeatureFlags(),
@@ -3197,6 +3199,257 @@ async function seedKeyDatesDemo() {
 // partners" has something to show on the bell. Relative dates, like the other
 // demo seeders. Demo extras only; runs after the care teams and contact log.
 // ---------------------------------------------------------------------
+// #341: example entries for the activity log, so a demo visitor sees what it
+// records. Entries sit inside the default 90-day retention window, are written
+// by the demo's real accounts, and use reserved documentation IP addresses
+// (RFC 5737). Account-deleted examples use ids that match no user.
+async function seedAuditLogDemo() {
+  console.log("Seeding the activity log...");
+  const { demoEmailDomain } = require("../src/utils/demoLogins");
+  const users = await prisma.user.findMany({ orderBy: { createdAt: "asc" } });
+  const byEmail = (email) => users.find((u) => u.email === email);
+  const admin = users.find((u) => u.role === "admin" && u.active) || users[0];
+  if (!admin) return;
+  const named = (first, last) => users.find((u) => u.firstName === first && u.lastName === last);
+  const pat = named("Pat", "Reynolds");
+  const jordan = named("Jordan", "Lee");
+  const casey = named("Casey", "Nguyen");
+  const careMember = byEmail(demoCareMemberEmail());
+  const tripLeader = byEmail(demoTripLeaderEmail());
+  const lapsed =
+    users.find((u) => u.role === "guest" && !u.active) || users.find((u) => u.email.startsWith("sam."));
+  const trip = await prisma.trip.findFirst({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+  const restricted = await prisma.partner.findFirst({
+    where: { isRestricted: true },
+    select: { id: true, displayName: true },
+  });
+  const team = await prisma.careTeamMember.findMany({
+    take: 3,
+    orderBy: { createdAt: "asc" },
+    include: {
+      partner: { select: { id: true, displayName: true } },
+      user: { select: { firstName: true, lastName: true, email: true } },
+    },
+  });
+  const domain = demoEmailDomain();
+  const ipPool = ["203.0.113.14", "203.0.113.27", "198.51.100.8", "198.51.100.63", "192.0.2.40"];
+  const ip = (i) => ipPool[i % ipPool.length];
+  const label = (u) => [u?.firstName, u?.lastName].filter(Boolean).join(" ") || u?.email || null;
+  const person = (prefix, u) => ({
+    [`${prefix}UserId`]: u?.id ?? null,
+    [`${prefix}Email`]: u?.email ?? null,
+    [`${prefix}Name`]: u ? label(u) : null,
+  });
+  const at = (daysAgo, hour = 9, minute = 0) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    d.setHours(hour, minute, 0, 0);
+    return d;
+  };
+  const rows = [];
+  const add = (daysAgo, action, extra = {}, hour = 9 + (rows.length % 8), minute = (rows.length * 7) % 60) =>
+    rows.push({ createdAt: at(daysAgo, hour, minute), action, ...extra });
+
+  // Sign-ins: the demo's people, spread over the last month.
+  const signers = [admin, pat, jordan, casey, careMember, tripLeader].filter(Boolean);
+  signers.forEach((u, i) => {
+    for (const d of [2, 9, 21]) {
+      if ((i + d) % 3 === 0) continue;
+      add(d + (i % 2), "auth.login_success", { ...person("actor", u), ip: ip(i + d) });
+    }
+  });
+  // Someone guessing at the admin login, and a typo.
+  add(
+    6,
+    "auth.login_failed",
+    { targetEmail: `info@${domain}`, ip: "198.51.100.99", details: { reason: "unknown_email" } },
+    3,
+    12
+  );
+  add(
+    6,
+    "auth.login_failed",
+    { targetEmail: `administrator@${domain}`, ip: "198.51.100.99", details: { reason: "unknown_email" } },
+    3,
+    13
+  );
+  if (pat)
+    add(
+      11,
+      "auth.login_failed",
+      { ...person("target", pat), ip: ip(2), details: { reason: "wrong_password" } },
+      8,
+      41
+    );
+  if (pat) add(11, "auth.login_success", { ...person("actor", pat), ip: ip(2) }, 8, 42);
+
+  // Accounts and access.
+  if (jordan) {
+    add(41, "user.created", {
+      ...person("actor", admin),
+      ...person("target", jordan),
+      ip: ip(0),
+      details: { role: "viewer" },
+    });
+    add(21, "user.updated", {
+      ...person("actor", admin),
+      ...person("target", jordan),
+      ip: ip(0),
+      details: { role: { from: "viewer", to: "editor" } },
+    });
+    add(20, "auth.mfa_enabled", { ...person("actor", jordan), ip: ip(3) });
+  }
+  if (casey)
+    add(30, "user.created", {
+      ...person("actor", admin),
+      ...person("target", casey),
+      ip: ip(0),
+      details: { role: "viewer" },
+    });
+  if (pat) add(14, "auth.password_changed", { ...person("actor", pat), ip: ip(2) });
+  add(18, "user.mfa_reset", { ...person("actor", admin), ...person("target", casey || pat), ip: ip(0) });
+  add(27, "user.deleted", {
+    ...person("actor", admin),
+    targetUserId: "00000000-0000-4000-8000-0000000000a1",
+    targetEmail: `former.volunteer@${domain}`,
+    targetName: "Former Volunteer",
+    ip: ip(0),
+    details: { role: "editor" },
+  });
+  if (trip && tripLeader) {
+    add(35, "trip_access.grant", {
+      ...person("actor", admin),
+      ...person("target", tripLeader),
+      entityType: "trip",
+      entityId: trip.id,
+      entityLabel: trip.name,
+      ip: ip(0),
+      details: { expiresAt: { from: null, to: null } },
+    });
+  }
+  if (trip && lapsed) {
+    add(33, "trip_access.grant", {
+      ...person("actor", admin),
+      ...person("target", lapsed),
+      entityType: "trip",
+      entityId: trip.id,
+      entityLabel: trip.name,
+      ip: ip(0),
+    });
+    add(8, "trip_access.revoke", {
+      ...person("actor", admin),
+      ...person("target", lapsed),
+      entityType: "trip",
+      entityId: trip.id,
+      entityLabel: trip.name,
+      ip: ip(0),
+    });
+    add(
+      8,
+      "guest.deactivate_no_access",
+      { ...person("actor", admin), ...person("target", lapsed), ip: ip(0) },
+      10,
+      31
+    );
+  }
+  team.forEach((seat, i) => {
+    add(19 - i * 4, "care_team.updated", {
+      ...person("actor", admin),
+      entityType: "partner",
+      entityId: seat.partner.id,
+      entityLabel: seat.partner.displayName,
+      ip: ip(0),
+      details: seat.isLead
+        ? { added: [label(seat.user)], lead: { from: null, to: label(seat.user) } }
+        : { added: [label(seat.user)] },
+    });
+  });
+
+  // Settings, features, data.
+  add(45, "settings.feature_toggled", {
+    ...person("actor", admin),
+    entityType: "settings",
+    entityLabel: "Care teams",
+    ip: ip(0),
+    details: { feature: "careTeam", from: false, to: true },
+  });
+  add(
+    45,
+    "settings.feature_toggled",
+    {
+      ...person("actor", admin),
+      entityType: "settings",
+      entityLabel: "Contact log",
+      ip: ip(0),
+      details: { feature: "contactLog", from: false, to: true },
+    },
+    10,
+    5
+  );
+  add(40, "settings.updated", {
+    ...person("actor", admin),
+    entityType: "settings",
+    entityLabel: "email",
+    ip: ip(0),
+    details: { postmarkServerToken: "changed", emailFromAddress: { from: null, to: `no-reply@${domain}` } },
+  });
+  add(23, "settings.updated", {
+    ...person("actor", admin),
+    entityType: "settings",
+    entityLabel: "ai-extraction",
+    ip: ip(0),
+    details: { anthropicApiKey: "changed" },
+  });
+  add(12, "settings.updated", {
+    ...person("actor", admin),
+    entityType: "settings",
+    entityLabel: "activity log retention",
+    ip: ip(0),
+    details: { retentionDays: { from: 60, to: 90 } },
+  });
+  add(30, "backup.downloaded", { ...person("actor", admin), ip: ip(0) });
+  add(7, "backup.downloaded", { ...person("actor", admin), ip: ip(0) });
+  add(26, "partner.deleted", {
+    ...person("actor", admin),
+    entityType: "partner",
+    entityId: "00000000-0000-4000-8000-0000000000b1",
+    entityLabel: "Old Example Ministry (archived)",
+    ip: ip(0),
+  });
+  add(17, "trip.deleted", {
+    ...person("actor", admin),
+    entityType: "trip",
+    entityId: "00000000-0000-4000-8000-0000000000c1",
+    entityLabel: "Cancelled planning trip",
+    ip: ip(0),
+  });
+
+  // Restricted partner: who changed it and who looked.
+  if (restricted) {
+    const r = { entityType: "partner", entityId: restricted.id, entityLabel: restricted.displayName };
+    add(38, "partner.restricted_changed", {
+      ...person("actor", admin),
+      ...r,
+      ip: ip(0),
+      details: { isRestricted: { from: false, to: true } },
+    });
+    for (const [d, who] of [
+      [15, admin],
+      [9, pat],
+      [3, admin],
+      [2, jordan],
+    ]) {
+      if (who) add(d, "partner.restricted_viewed", { ...person("actor", who), ...r, ip: ip(d) });
+    }
+  }
+
+  await prisma.auditLog.createMany({ data: rows });
+  console.log(`  ${rows.length} entries.`);
+}
+
 async function seedPartnerUpdatesDemo() {
   console.log("Seeding care team updates...");
   const careMember = await prisma.user.findUnique({ where: { email: demoCareMemberEmail() } });
@@ -3583,6 +3836,7 @@ async function main() {
     await seedContactLogDemo();
     await seedKeyDatesDemo();
     await seedPartnerUpdatesDemo();
+    await seedAuditLogDemo();
   }
 
   const finalMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });
