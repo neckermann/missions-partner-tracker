@@ -147,11 +147,13 @@ test("last heard from flags partners with no newsletter or an old one", () => {
     churchVisits: [],
     lastPrayedWithCongregationAt: null,
   });
-  const out = run("last-heard-from", {}, [
-    p("Fresh", ["2026-11-01"]),
-    p("Old", ["2026-01-01"]),
-    p("Never", []),
-  ]);
+  const out = run(
+    "last-heard-from",
+    {},
+    {
+      partners: [p("Fresh", ["2026-11-01"]), p("Old", ["2026-01-01"]), p("Never", [])],
+    }
+  );
   assert.deepStrictEqual(
     out.rows.map((r) => r.partnerName),
     ["Never", "Old"]
@@ -168,7 +170,7 @@ test("last heard from reports the last-prayed-with-congregation date, or null wh
     churchVisits: [],
     lastPrayedWithCongregationAt,
   });
-  const out = run("last-heard-from", {}, [p("A", day("2026-10-01")), p("B", null)]);
+  const out = run("last-heard-from", {}, { partners: [p("A", day("2026-10-01")), p("B", null)] });
   assert.strictEqual(out.rows.find((r) => r.partnerName === "A").lastPrayedWithCongregation, "2026-10-01");
   assert.strictEqual(out.rows.find((r) => r.partnerName === "B").lastPrayedWithCongregation, null);
 });
@@ -236,4 +238,43 @@ test("summary tiles can carry a click-through filter that the report honours", (
   assert.strictEqual(tile.value, 1);
   const filtered = run("prayer-requests", tile.filter, [req("2026-11-10"), req("2026-01-01")]);
   assert.strictEqual(filtered.rows.length, 1);
+});
+
+// #288: a logged contact counts as hearing from a partner, alongside a
+// newsletter, but only while the contact log is on.
+test("last heard from counts a logged contact as hearing from them, when the contact log is on", () => {
+  const p = (name, newsletterDates, contactDates) => ({
+    displayName: name,
+    isRestricted: false,
+    files: newsletterDates.map((d) => ({ receivedDate: day(d) })),
+    photos: [],
+    prayerRequests: [],
+    churchVisits: [],
+    contactLogs: contactDates.map((d) => ({ contactDate: day(d) })),
+    lastPrayedWithCongregationAt: null,
+  });
+  const partners = [
+    p("Old newsletter, recent call", ["2026-01-01"], ["2026-11-01"]),
+    p("Old both", ["2026-01-01"], ["2026-01-15"]),
+    p("Contact only", [], ["2026-11-01"]),
+    p("Nothing", [], []),
+  ];
+  const on = run("last-heard-from", {}, { partners, contactLogOn: true });
+  assert.deepStrictEqual(
+    on.rows.map((r) => r.partnerName),
+    ["Nothing", "Old both"],
+    "recent contact (or a recent newsletter) means not quiet"
+  );
+  assert.strictEqual(on.rows.find((r) => r.partnerName === "Old both").contact, "2026-01-15");
+  assert.match(on.notes[0], /logged contact/);
+
+  // off: contact data is ignored even if rows carry it, exactly as before
+  const off = run("last-heard-from", {}, { partners, contactLogOn: false });
+  assert.deepStrictEqual(
+    off.rows.map((r) => r.partnerName),
+    ["Contact only", "Nothing", "Old both", "Old newsletter, recent call"],
+    "newsletters alone decide: a contact-only partner has no newsletter, so it is quiet"
+  );
+  assert.ok(off.rows.every((r) => r.contact === null));
+  assert.doesNotMatch(off.notes[0], /logged contact/);
 });

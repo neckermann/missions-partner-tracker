@@ -28,6 +28,8 @@ const partnerLinkRoutes = require("./routes/partnerLinks");
 const partnerLanguageRoutes = require("./routes/partnerLanguages");
 const tripTypeRoutes = require("./routes/tripTypes");
 const tripRoutes = require("./routes/trips");
+const careTeamRoutes = require("./routes/careTeams");
+const contactLogRoutes = require("./routes/contactLog");
 const tripMeetingRoutes = require("./routes/tripMeetings");
 const tripRequirementRoutes = require("./routes/tripRequirements");
 const tripParticipantRoutes = require("./routes/tripParticipants");
@@ -256,6 +258,8 @@ app.use("/api/partner-links", partnerLinkRoutes); // protected (admin) — sessi
 app.use("/api/partner-languages", partnerLanguageRoutes); // protected (admin) — session required
 app.use("/api/trip-types", tripTypeRoutes); // protected (admin) — session required
 app.use("/api/trips", tripRoutes); // protected (admin) — session required
+app.use("/api/care-team", careTeamRoutes); // protected; flag-gated (careTeam) -- see that file's own comment
+app.use("/api/contact-log", contactLogRoutes); // protected; flag-gated (contactLog) -- see that file's own comment
 // #271 Finding 1: three sibling sub-resource routers, same prefix as
 // tripRoutes above (not a separate API surface) -- split out of a
 // single oversized trips.js. Each still gates independently

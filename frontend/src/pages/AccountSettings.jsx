@@ -27,6 +27,7 @@ function validationError(message) {
 export default function AccountSettings() {
   const { enabledFeatures } = useSettings();
   const [user, setUser] = useState(null);
+  const isGuest = user?.role === "guest";
 
   function reloadUser() {
     return fetchCurrentUser().then(setUser);
@@ -51,7 +52,7 @@ export default function AccountSettings() {
       <h2>My Account</h2>
       {user && (
         <p style={{ color: "var(--muted)" }}>
-          Signed in as <strong>{user.email}</strong> ({user.role})
+          Signed in as <strong>{user.email}</strong> ({isGuest ? "Guest" : user.role})
         </p>
       )}
 
@@ -99,7 +100,11 @@ export default function AccountSettings() {
       )}
 
       {user?.authProvider === "local" && <MfaSection user={user} onChange={reloadUser} />}
-      {user && enabledFeatures.outboundEmail && <EmailDispatchSection user={user} onChange={reloadUser} />}
+      {/* A guest sees password and MFA only (#356). The admin digest is
+          church-wide content, not something a scoped login subscribes to. */}
+      {user && !isGuest && enabledFeatures.outboundEmail && (
+        <EmailDispatchSection user={user} onChange={reloadUser} />
+      )}
 
       <div className="admin-section">
         <h3>Appearance</h3>
@@ -260,6 +265,7 @@ function EmailDispatchSection({ user, onChange }) {
 // view/edit toggle. Keeps its own try/catch-per-action error handling,
 // which already shows a plain-language message per action.
 function MfaSection({ user, onChange }) {
+  const isGuest = user.role === "guest";
   const [setupData, setSetupData] = useState(null); // { secret, qrCode }
   const [code, setCode] = useState("");
   const [disablePassword, setDisablePassword] = useState("");
@@ -328,25 +334,32 @@ function MfaSection({ user, onChange }) {
           <p style={{ color: "var(--muted)" }}>
             Your account requires a code from your authenticator app at login.
           </p>
-          <form
-            onSubmit={handleDisable}
-            style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: 320 }}
-          >
-            <label>
-              Current Password
-              <input
-                type="password"
-                value={disablePassword}
-                onChange={(e) => setDisablePassword(e.target.value)}
-                required
-              />
-            </label>
-            <div>
-              <button type="submit" className="btn danger" disabled={busy}>
-                {busy ? "Disabling..." : "Disable Two-Factor Authentication"}
-              </button>
-            </div>
-          </form>
+          {isGuest ? (
+            <p style={{ color: "var(--muted)" }}>
+              Two-factor authentication is required for guest accounts, so it can't be turned off here. If you
+              lose your authenticator app, ask an admin to reset it.
+            </p>
+          ) : (
+            <form
+              onSubmit={handleDisable}
+              style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: 320 }}
+            >
+              <label>
+                Current Password
+                <input
+                  type="password"
+                  value={disablePassword}
+                  onChange={(e) => setDisablePassword(e.target.value)}
+                  required
+                />
+              </label>
+              <div>
+                <button type="submit" className="btn danger" disabled={busy}>
+                  {busy ? "Disabling..." : "Disable Two-Factor Authentication"}
+                </button>
+              </div>
+            </form>
+          )}
         </>
       ) : setupData ? (
         <>
@@ -397,7 +410,9 @@ function MfaSection({ user, onChange }) {
             <span className="status-pill">Disabled</span>
           </p>
           <p style={{ color: "var(--muted)" }}>
-            Add an extra step at login using an authenticator app on your phone.
+            {isGuest
+              ? "Guest accounts need an extra step at login. Set it up with an authenticator app on your phone."
+              : "Add an extra step at login using an authenticator app on your phone."}
           </p>
           <button className="btn" onClick={handleStartSetup} disabled={busy}>
             {busy ? "Starting..." : "Enable Two-Factor Authentication"}

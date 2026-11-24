@@ -163,6 +163,7 @@ function buildSiteAdminLinks(enabledFeatures) {
     { to: "/admin/settings/features", label: "Enabled Features", icon: "🧩" },
     { to: "/admin/settings/system-info", label: "About App", icon: "ℹ️" },
     enabledFeatures.trips && { to: "/admin/settings/trips", label: "Trips", icon: "✈️" },
+    enabledFeatures.careTeam && { to: "/admin/settings/care-team", label: "Care Teams", icon: "🤝" },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       to: "/admin/settings/email",
       label: "Email",
@@ -220,63 +221,22 @@ function SidebarLink({ to, label, end, icon, badgeCount }) {
   );
 }
 
-// A Trip Leader (role: "tripLeader") is a scoped guest -- their own
-// trip, logged out, nothing else. No settings gear, no "My Account"
-// (that guest tier has no self-service password change, see
-// AccountSettings.jsx), no partner/prayer/needs/trips nav items, no
-// collapse toggle (nothing here to need the extra room for).
-function TripLeaderSidebar({ scopedTrip, title }) {
-  const navigate = useNavigate();
-  return (
-    <aside className="admin-sidebar no-print">
-      <div className="admin-sidebar-title">
-        <h1
-          className="admin-sidebar-title-text"
-          title={title}
-          style={{ fontSize: "inherit", fontWeight: "inherit", margin: 0 }}
-        >
-          {title}
-        </h1>
-      </div>
-      <nav className="admin-sidebar-nav">
-        {scopedTrip && (
-          <RouterNavLink
-            to={`/admin/trips/${scopedTrip.id}`}
-            className={({ isActive }) => (isActive ? "active" : undefined)}
-          >
-            <span aria-hidden="true">✈️</span>
-            <span className="sb-label">{scopedTrip.label}</span>
-          </RouterNavLink>
-        )}
-        {scopedTrip?.partnerId && (
-          <RouterNavLink
-            to={`/admin/partners/${scopedTrip.partnerId}`}
-            className={({ isActive }) => (isActive ? "active" : undefined)}
-          >
-            <span aria-hidden="true">👤</span>
-            <span className="sb-label">{scopedTrip.partnerLabel || "Partner"}</span>
-          </RouterNavLink>
-        )}
-      </nav>
-      <div className="admin-sidebar-footer">
-        <button
-          type="button"
-          title="Log out"
-          onClick={async () => {
-            await logout();
-            navigate("/login");
-          }}
-        >
-          <span aria-hidden="true">🚪</span>
-          <span className="sb-label">Log out</span>
-        </button>
-      </div>
-    </aside>
-  );
-}
+// A guest (role: "guest") sees the same sidebar as everyone -- same header with
+// the bell and collapse button, same footer with My Account, Log out and the
+// theme toggle, and the same nav entries in the same order (#289). They just
+// get fewer of them: only the pages that are limited server-side to the
+// partners and trips they reach. No Home dashboard, Print Booklet, Reports,
+// Pending Dispatches, Unmatched Email or Settings.
+//
+// Two sizes, because the two kinds of guest have different scopes: a trip
+// leader (a trip grant) gets just Trips and the Partners page, which lists only
+// their trip's partner; a care team member also gets the list pages for the
+// partners they look after.
+const TRIP_GUEST_NAV_KEYS = new Set(["partners", "trips"]);
+const CARE_GUEST_NAV_KEYS = new Set(["partners", "partnerFiles", "prayerRequests", "oneTimeNeeds", "trips"]);
 
 export default function AdminSidebar() {
-  const { loading: userLoading, isAdmin, isTripLeader, scopedTrip } = useCurrentUser();
+  const { loading: userLoading, isAdmin, isGuest, careTeamSeats } = useCurrentUser();
   const { categories, totalUnread, markSeen } = useNotifications();
   const categoryByKey = new Map(categories.map((c) => [c.key, c]));
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
@@ -286,8 +246,8 @@ export default function AdminSidebar() {
   const title = churchName ? `${churchName} Admin` : "Missions Team Admin";
 
   // Until the role is known, render neither nav -- showing the full admin
-  // nav by default (useCurrentUser's `user` starts null, so isTripLeader
-  // is briefly false on every load) flashed every item a Trip Leader must
+  // nav by default (useCurrentUser's `user` starts null, so isGuest
+  // is briefly false on every load) flashed every item a guest must
   // never see, for the instant before this resolves.
   if (userLoading) {
     return (
@@ -305,15 +265,18 @@ export default function AdminSidebar() {
     );
   }
 
-  if (isTripLeader) return <TripLeaderSidebar scopedTrip={scopedTrip} title={title} />;
-
-  const navItems = buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures).map((item) => {
-    const categoryKeys = NAV_BADGE_CATEGORIES[item.key];
-    const badgeCount = categoryKeys
-      ? categoryKeys.reduce((sum, key) => sum + (categoryByKey.get(key)?.count || 0), 0)
-      : undefined;
-    return badgeCount ? { ...item, badgeCount } : item;
-  });
+  const navItems = buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures)
+    .filter(
+      (item) =>
+        !isGuest || (careTeamSeats.length > 0 ? CARE_GUEST_NAV_KEYS : TRIP_GUEST_NAV_KEYS).has(item.key)
+    )
+    .map((item) => {
+      const categoryKeys = NAV_BADGE_CATEGORIES[item.key];
+      const badgeCount = categoryKeys
+        ? categoryKeys.reduce((sum, key) => sum + (categoryByKey.get(key)?.count || 0), 0)
+        : undefined;
+      return badgeCount ? { ...item, badgeCount } : item;
+    });
   const siteAdminLinks = buildSiteAdminLinks(enabledFeatures);
   const inSiteAdmin = location.pathname.startsWith("/admin/settings");
 
@@ -364,7 +327,7 @@ export default function AdminSidebar() {
         {navItems.map(({ key, ...item }) => (
           <SidebarLink key={key} {...item} />
         ))}
-        {isAdmin && (
+        {isAdmin && !isGuest && (
           <>
             <RouterNavLink
               to="/admin/settings"

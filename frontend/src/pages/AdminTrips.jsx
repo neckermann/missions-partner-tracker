@@ -535,19 +535,11 @@ function ExistingTripsTab() {
           {
             key: "size",
             label: "Team",
-            render: (trip) => {
-              const leaders = (trip.participants || [])
-                .filter((p) => p.isLeader)
-                .map((p) => [p.firstName, p.lastName].filter(Boolean).join(" "));
-              return (
-                <>
-                  {trip.size} / {trip.teamSizeMax ?? "?"} filled
-                  {leaders.length > 0 && (
-                    <div style={{ fontSize: "0.75rem", color: "#888" }}>{leaders.join(", ")}</div>
-                  )}
-                </>
-              );
-            },
+            render: (trip) => (
+              <>
+                {trip.size} / {trip.teamSizeMax ?? "?"} filled
+              </>
+            ),
           },
           {
             key: "raised",
@@ -898,17 +890,22 @@ const TABS = [
 export default function AdminTrips() {
   const location = useLocation();
   const navigate = useNavigate();
+  // A guest (#289) sees the same Trips page as everyone, with just the one tab
+  // they can use: their own trips. Planning and logging gifts are staff's.
+  const { isGuest } = useCurrentUser();
+  const visibleTabs = isGuest ? TABS.filter((t) => t.value === "existing") : TABS;
   // /admin/trips, /admin/trips/planning, and /admin/trips/contributions
   // all render this same component -- real tabs (URL-backed, not just
   // local state), same tab-bar treatment TripDetailLayout.jsx already
   // uses for its own real sub-nav, so refreshing/bookmarking/sharing a
   // link to any tab lands back on that same tab instead of always
   // defaulting to Existing Trips.
-  const tab = location.pathname.endsWith("/planning")
+  const requestedTab = location.pathname.endsWith("/planning")
     ? "plan"
     : location.pathname.endsWith("/contributions")
       ? "contributions"
       : "existing";
+  const tab = isGuest ? "existing" : requestedTab;
   const activeTab = TABS.find((t) => t.value === tab) || TABS[0];
 
   const TAB_PATHS = {
@@ -934,7 +931,7 @@ export default function AdminTrips() {
         }}
         role="tablist"
       >
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <button
             key={t.value}
             type="button"

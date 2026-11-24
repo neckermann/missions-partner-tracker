@@ -28,6 +28,8 @@ import {
   updateFurlough,
   deleteFurlough,
   fetchChurchVisits,
+  fetchContactLog,
+  fetchCareTeam,
   createChurchVisit,
   updateChurchVisit,
   deleteChurchVisit,
@@ -45,10 +47,12 @@ import {
   deleteTripType,
 } from "../api/client.js";
 import CountryStats from "../components/CountryStats.jsx";
-import TripLeaderPartnerView from "../components/admin/TripLeaderPartnerView.jsx";
 import StatusPill from "../components/admin/StatusPill.jsx";
 import Field from "../components/admin/Field.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
+import CareTeamPanel from "../components/admin/CareTeamPanel.jsx";
+import ContactCard from "../components/admin/ContactCard.jsx";
+import ContactLogSection from "../components/admin/ContactLogSection.jsx";
 import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
 import RecordList from "../components/admin/RecordList.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
@@ -271,8 +275,12 @@ export default function AdminPartnerDetail() {
       Promise.all([
         fetchPrayerRequests({ partnerId: id }),
         fetchPartnerFiles({ partnerId: id }),
-        fetchSupportEntries({ partnerId: id }),
-        fetchSupportNeeds({ partnerId: id }),
+        // Monthly support is never shown to a guest (#289) -- and its route
+        // 403s for them -- so don't ask. One-time needs they do read.
+        isGuest ? Promise.resolve([]) : fetchSupportEntries({ partnerId: id }),
+        // One-time needs are a care team view (#289): a guest who reaches this
+        // partner only through a trip never sees them, and their route 403s.
+        isGuest && !isOnCareTeamFor(id) ? Promise.resolve([]) : fetchSupportNeeds({ partnerId: id }),
         enabledFeatures.trips ? fetchTrips({ partnerId: id }) : Promise.resolve([]),
         fetchAdults({ partnerId: id }),
         fetchChildren({ partnerId: id }),
@@ -317,28 +325,42 @@ export default function AdminPartnerDetail() {
     ]);
   }
 
-  const { canWrite, isAdmin, isTripLeader, loading: userLoading } = useCurrentUser();
+  const { user, canWrite, isAdmin, isGuest, isOnCareTeamFor, loading: userLoading } = useCurrentUser();
+
+  // Contact log (#288): shared by the contact card up top and the log
+  // section below. Anyone who can see the partner may use it, except a trip
+  // leader (a guest without a seat here), whose scope is smaller.
+  const [contactEntries, setContactEntries] = useState([]);
+  const [teammates, setTeammates] = useState([]);
+  const contactLogShown = !!enabledFeatures.contactLog && (!isGuest || isOnCareTeamFor(id));
+  const reloadContactLog = () =>
+    fetchContactLog({ partnerId: id }).then(setContactEntries).catch(console.error);
+  useEffect(() => {
+    if (userLoading || !contactLogShown) return;
+    reloadContactLog();
+    if (enabledFeatures.careTeam) {
+      fetchCareTeam(id)
+        .then((t) =>
+          setTeammates(
+            [t.lead, ...t.members].filter(Boolean).map((m) => ({
+              userId: m.userId,
+              name: [m.firstName, m.lastName].filter(Boolean).join(" ") || "Teammate",
+            }))
+          )
+        )
+        .catch(console.error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, userLoading, contactLogShown]);
 
   useEffect(() => {
-    // A Trip Leader never renders through this page's own big fetch path
-    // at all (see the isTripLeader render-guard below) -- they get the
-    // separate, deliberately minimal TripLeaderPartnerView instead, with
-    // its own independent fetch of just what it shows. Skipping reload()
-    // here once that's confirmed avoids a wasted (and, for
-    // supportEntries/supportNeeds specifically, now-403ing) fetch -- but
-    // this check is NOT gated on userLoading first: isTripLeader is false
-    // for every role during that brief resolving window regardless of the
-    // real role, so gating on it too would delay every admin/editor/
-    // viewer's initial load behind the role check finishing first, for a
-    // race that, for an actual Trip Leader, is harmless anyway (the
-    // rejected promise this might still kick off a moment before
-    // isTripLeader flips true is caught below exactly like any other
-    // transient fetch failure, and never reaches a render that would use
-    // it -- see the render-guard's own comment).
-    if (isTripLeader) return;
+    // Wait for the role before loading: what to fetch depends on it (a guest
+    // skips support amounts, whose routes 403 for them -- and one rejected
+    // request would reject the whole Promise.all in reload()).
+    if (userLoading) return;
     reload().catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, isTripLeader]);
+  }, [id, isGuest, userLoading]);
 
   // Called unconditionally, before the loading guard below, so the number
   // of hooks this component calls doesn't change between the "still
@@ -358,12 +380,6 @@ export default function AdminPartnerDetail() {
   const tripsLoadMore = useLoadMore(collections.trips, { initialCount: 3, step: 100 });
 
   if (userLoading) return <p style={{ padding: "2rem" }}>Loading...</p>;
-  // A Trip Leader (role: "tripLeader") gets a separate, deliberately
-  // minimal view of their one linked Partner -- not this page's full
-  // admin/editor/viewer layout with sections hidden/shown by role. See
-  // TripLeaderPartnerView's own comment for what it does and doesn't show
-  // and why.
-  if (isTripLeader) return <TripLeaderPartnerView partnerId={id} />;
 
   if (!p) return <p style={{ padding: "2rem" }}>Loading...</p>;
 
@@ -390,8 +406,19 @@ export default function AdminPartnerDetail() {
   // child collections (adults/children/furloughs/church visits/languages/
   // links/trip types) and photos, confirmed against each resource's own
   // DELETE route.
-  const canEdit = canWrite;
+  // A care team member who isn't staff (#289) has what an editor has on this
+  // partner -- every section here -- except: they never see monthly support
+  // (hidden for guests above), never record a decision on a one-time need
+  // (the committee's -- `canWrite` below gates it), never delete, and no "send
+  // right away": whatever they enter is saved at once but its dispatch is held
+  // for staff review. `limited` hides those send-right-away controls.
+  const onTeam = isOnCareTeamFor(id);
+  const canEdit = canWrite || onTeam;
   const canDelete = isAdmin;
+  const limited = !canWrite;
+  const canSubmit = canEdit;
+  const canEditPrayer = () => canEdit;
+  const canEditNeed = () => canEdit;
 
   // One-click shortcut for the common case (praying for a partner during
   // today's service and recording it right after) -- same today's-date
@@ -694,7 +721,15 @@ export default function AdminPartnerDetail() {
 
   return (
     <div className="admin-shell">
-      <Breadcrumb items={[{ label: "Partners", to: "/admin/partners" }, { label: p.displayName }]} />
+      {/* A guest has no Partners directory to go back to (same trimming as the
+          trip pages' breadcrumbs). */}
+      <Breadcrumb
+        items={
+          isGuest
+            ? [{ label: p.displayName }]
+            : [{ label: "Partners", to: "/admin/partners" }, { label: p.displayName }]
+        }
+      />
       <div>
         <h2 style={{ marginBottom: "0.25rem" }}>{p.displayName}</h2>
         <p style={{ color: "var(--muted)", margin: 0 }}>
@@ -730,13 +765,20 @@ export default function AdminPartnerDetail() {
         {p.archived && <StatusPill label={`Archived ${formatDateLong(p.archivedAt)}`} color="#a6540f" />}
       </div>
 
+      {enabledFeatures.careTeam && (
+        <CareTeamPanel partnerId={p.id} canEdit={canWrite} canInviteGuest={isAdmin} />
+      )}
+
+      {contactLogShown && <ContactCard partner={p} adults={collections.adults} entries={contactEntries} />}
+
       <div className="partner-jump-rail">
         {[
           { label: "Overview", href: "#section-overview" },
           !isOrg && { label: "Family & Personal", href: "#section-family" },
           { label: "Location & Contact", href: "#section-location" },
-          (enabledFeatures.monthlySupport || enabledFeatures.oneTimeNeeds) && {
-            label: "Financial",
+          ((!isGuest && enabledFeatures.monthlySupport) ||
+            (enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)))) && {
+            label: isGuest ? "One-Time Needs" : "Financial",
             href: "#section-financial",
           },
           { label: "Mission Trips", href: "#section-trips" },
@@ -760,7 +802,9 @@ export default function AdminPartnerDetail() {
             displayName: p.displayName,
             isPublic: p.isPublic,
             isRestricted: p.isRestricted,
-            ...(!isOrg ? { contactSafe: p.contactSafe } : {}),
+            ...(!isOrg
+              ? { contactSafe: p.contactSafe, contactInstructions: p.contactInstructions || "" }
+              : {}),
           }}
           view={(v) => (
             <>
@@ -770,6 +814,9 @@ export default function AdminPartnerDetail() {
                 <Field label="Restricted-access location" value={v.isRestricted ? "Yes" : "No"} />
                 {!isOrg && <Field label="Safe to Contact" value={v.contactSafe ? "Yes" : "No"} />}
               </div>
+              {!isOrg && !v.contactSafe && v.contactInstructions && (
+                <Field label="Special communication instructions" value={v.contactInstructions} />
+              )}
             </>
           )}
           edit={(d, set) => (
@@ -806,6 +853,17 @@ export default function AdminPartnerDetail() {
                   </label>
                 )}
               </div>
+              {!isOrg && !d.contactSafe && (
+                <label style={{ display: "block", marginTop: "0.75rem" }}>
+                  Special communication instructions
+                  <textarea
+                    rows={3}
+                    value={d.contactInstructions}
+                    onChange={(e) => set("contactInstructions", e.target.value)}
+                    placeholder="How, if at all, should this partner be contacted? Shown instead of the call/text/email buttons."
+                  />
+                </label>
+              )}
             </>
           )}
         />
@@ -896,10 +954,12 @@ export default function AdminPartnerDetail() {
                   <Field label="Phone 1" value={a.phone1} />
                   <Field label="Phone 2" value={a.phone2} />
                   <Field label="Email" value={a.email} />
+                  {a.isPrimaryContact && <Field label="Primary contact" value="Yes" />}
                 </>
               )}
               onAdd={() =>
                 adultCrud.openAdd({
+                  isPrimaryContact: false,
                   firstName: "",
                   lastName: "",
                   phone1: "",
@@ -910,6 +970,7 @@ export default function AdminPartnerDetail() {
               }
               onEdit={(a) =>
                 adultCrud.openEdit(a.id, {
+                  isPrimaryContact: !!a.isPrimaryContact,
                   firstName: a.firstName || "",
                   lastName: a.lastName || "",
                   phone1: a.phone1 || "",
@@ -1365,32 +1426,36 @@ export default function AdminPartnerDetail() {
           />
         </div>
 
-        {(enabledFeatures.monthlySupport || enabledFeatures.oneTimeNeeds) && (
+        {((!isGuest && enabledFeatures.monthlySupport) ||
+          (enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)))) && (
           <div className="admin-section-group" id="section-financial">
-            <h2 className="admin-group-heading">Financial</h2>
+            <h2 className="admin-group-heading">{isGuest ? "One-Time Needs" : "Financial"}</h2>
 
-            <EditableSection
-              title="Supporting Since"
-              canEdit={canEdit}
-              onSaved={reload}
-              onSave={(d) => save({ supportingSince: dateOrNull(d.supportingSince) })}
-              value={{ supportingSince: toDateInputValue(p.supportingSince) }}
-              view={(v) => (
-                <Field label="Supporting Since" value={formatDateLong(v.supportingSince)} showEmpty />
-              )}
-              edit={(d, set) => (
-                <label>
-                  Supporting Since
-                  <input
-                    type="date"
-                    value={d.supportingSince}
-                    onChange={(e) => set("supportingSince", e.target.value)}
-                  />
-                </label>
-              )}
-            />
+            {/* Monthly support, and how long we've given it, are never shown to a guest. */}
+            {!isGuest && (
+              <EditableSection
+                title="Supporting Since"
+                canEdit={canEdit}
+                onSaved={reload}
+                onSave={(d) => save({ supportingSince: dateOrNull(d.supportingSince) })}
+                value={{ supportingSince: toDateInputValue(p.supportingSince) }}
+                view={(v) => (
+                  <Field label="Supporting Since" value={formatDateLong(v.supportingSince)} showEmpty />
+                )}
+                edit={(d, set) => (
+                  <label>
+                    Supporting Since
+                    <input
+                      type="date"
+                      value={d.supportingSince}
+                      onChange={(e) => set("supportingSince", e.target.value)}
+                    />
+                  </label>
+                )}
+              />
+            )}
 
-            {enabledFeatures.monthlySupport && (
+            {enabledFeatures.monthlySupport && !isGuest && (
               <PartnerSummaryCard
                 icon="🤲"
                 title="Monthly Support"
@@ -1405,7 +1470,7 @@ export default function AdminPartnerDetail() {
               />
             )}
 
-            {enabledFeatures.oneTimeNeeds && (
+            {enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)) && (
               <PartnerSummaryCard
                 icon="🎁"
                 title="One-Time Needs"
@@ -1420,7 +1485,7 @@ export default function AdminPartnerDetail() {
                 remaining={needRequestsLoadMore.remaining}
                 onShowMore={needRequestsLoadMore.showMore}
                 viewAllTo={`/admin/support/needs?partnerId=${p.id}`}
-                actions={canEdit ? [{ label: "+ Add", onClick: openAddNeed }] : []}
+                actions={canSubmit ? [{ label: "+ Add", onClick: openAddNeed }] : []}
               />
             )}
           </div>
@@ -1445,7 +1510,9 @@ export default function AdminPartnerDetail() {
               onShowMore={tripsLoadMore.showMore}
               viewAllTo={`/admin/trips?partnerId=${p.id}`}
               actions={
-                canEdit
+                // Starting a trip is staff's: a care team member can see this
+                // partner's trips but not create one (#289).
+                canWrite
                   ? [
                       {
                         label: "+ Add",
@@ -1585,7 +1652,7 @@ export default function AdminPartnerDetail() {
               remaining={prayerRequestsLoadMore.remaining}
               onShowMore={prayerRequestsLoadMore.showMore}
               viewAllTo={`/admin/prayer-requests?partnerId=${p.id}`}
-              actions={canEdit ? [{ label: "+ Add", onClick: openAddPrayerRequest }] : []}
+              actions={canSubmit ? [{ label: "+ Add", onClick: openAddPrayerRequest }] : []}
             />
           )}
 
@@ -1601,7 +1668,7 @@ export default function AdminPartnerDetail() {
               hasMore={filesLoadMore.hasMore}
               remaining={filesLoadMore.remaining}
               onShowMore={filesLoadMore.showMore}
-              viewAllTo={`/admin/partner-files?partnerId=${p.id}`}
+              viewAllTo={isGuest ? undefined : `/admin/partner-files?partnerId=${p.id}`}
               actions={canEdit ? [{ label: "+ Upload", onClick: openUploadFile }] : []}
             />
           )}
@@ -1655,6 +1722,17 @@ export default function AdminPartnerDetail() {
                   </button>
                 ) : null
               }
+            />
+          )}
+
+          {contactLogShown && (
+            <ContactLogSection
+              partnerId={p.id}
+              entries={contactEntries}
+              onChanged={reloadContactLog}
+              canFix={canWrite}
+              currentUserId={user?.id}
+              teammates={teammates}
             />
           )}
 
@@ -1735,6 +1813,7 @@ export default function AdminPartnerDetail() {
             setForm={setPrayerForm}
             files={collections.files}
             mode="create"
+            limited={limited}
             hasEnabledChannel={hasEnabledChannel}
             canApproveNow={canApproveNow}
             enabledFeatures={enabledFeatures}
@@ -1767,13 +1846,14 @@ export default function AdminPartnerDetail() {
 
       {activeModal === "view-prayer" &&
         prayerDetail &&
-        (canEdit ? (
+        (canEditPrayer(prayerDetail.form) ? (
           <QuickActionModal title="Prayer Request" onClose={closeModal} onSubmit={submitPrayerDetail}>
             <PrayerRequestFormFields
               form={prayerDetail.form}
               setForm={setPrayerDetailForm}
               files={collections.files}
               mode="edit"
+              limited={limited}
             />
             {prayerDetail.form.status !== "answered" && (
               <button
@@ -1820,6 +1900,7 @@ export default function AdminPartnerDetail() {
             setForm={setNeedForm}
             files={collections.files}
             mode="create"
+            limited={limited}
             hasEnabledChannel={hasEnabledChannel}
             canApproveNow={canApproveNow}
             enabledFeatures={enabledFeatures}
@@ -1862,15 +1943,16 @@ export default function AdminPartnerDetail() {
 
       {activeModal === "view-need" &&
         needDetail &&
-        (canEdit ? (
+        (canEditNeed(needDetail.form) ? (
           <QuickActionModal title="One-Time Need" onClose={closeModal} onSubmit={submitNeedDetail}>
             <SupportNeedFormFields
               form={needDetail.form}
               setForm={setNeedDetailForm}
               files={collections.files}
               mode="edit"
+              limited={limited}
             />
-            {needDetail.form.approvedAmount == null && (
+            {canWrite && needDetail.form.approvedAmount == null && (
               <button
                 type="button"
                 className="btn secondary small"
@@ -1974,6 +2056,7 @@ export default function AdminPartnerDetail() {
               phone2: adultCrud.form.phone2.trim() || null,
               email: adultCrud.form.email.trim() || null,
               birthday: adultCrud.form.birthday || null,
+              isPrimaryContact: !!adultCrud.form.isPrimaryContact,
             })
           }
         >
@@ -2023,6 +2106,16 @@ export default function AdminPartnerDetail() {
               />
             </label>
           </div>
+          {enabledFeatures.contactLog && (
+            <label style={{ display: "block", marginTop: "0.75rem" }}>
+              <input
+                type="checkbox"
+                checked={!!adultCrud.form.isPrimaryContact}
+                onChange={(e) => adultCrud.setForm((f) => ({ ...f, isPrimaryContact: e.target.checked }))}
+              />{" "}
+              Primary contact (reach this person first)
+            </label>
+          )}
         </QuickActionModal>
       )}
 

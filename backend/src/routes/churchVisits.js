@@ -1,7 +1,12 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
+const {
+  requireAuth,
+  requireRole,
+  requirePartnerQueryScope,
+  requirePartnerWriter,
+} = require("../middleware/requireAuth");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
@@ -35,7 +40,7 @@ router.get("/", requirePartnerQueryScope, async (req, res, next) => {
 });
 
 // POST /api/church-visits  (create — editor or admin)
-router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
+router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) => {
   try {
     const data = churchVisitSchema.parse(req.body);
     const created = await prisma.churchVisit.create({ data, include: churchVisitInclude });
@@ -46,7 +51,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 });
 
 // PUT /api/church-visits/:id  (update — editor or admin)
-router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.put("/:id", requirePartnerWriter({ model: "churchVisit" }), async (req, res, next) => {
   try {
     const data = churchVisitSchema.partial().parse(req.body);
     const updated = await prisma.churchVisit.update({

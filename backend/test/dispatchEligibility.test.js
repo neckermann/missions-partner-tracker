@@ -171,3 +171,60 @@ describe("isEligibleForChannel", () => {
     );
   });
 });
+
+// #289: a record made from a care team member's prayer request or need is
+// held for staff review whatever the partner, on every channel -- the admin
+// email digest and the chat channels as well as the public email -- and the
+// one release is the same dispatchReviewedAt that releases a restricted
+// partner's content.
+describe("reviewRequired (care team submissions)", () => {
+  const ordinary = { isRestricted: false, isPublic: true };
+  const held = (type, extra = {}) => ({ type, reviewRequired: true, dispatchReviewedAt: null, ...extra });
+
+  test("holds an ordinary partner's prayer request or need until reviewed", () => {
+    for (const type of [
+      "prayerRequestCreated",
+      "prayerRequestAnswered",
+      "supportNeedCreated",
+      "supportNeedDecided",
+    ]) {
+      assert.equal(needsReview(held(type), ordinary), true, type);
+    }
+  });
+
+  test("releases once staff have reviewed it", () => {
+    assert.equal(
+      needsReview(held("prayerRequestCreated", { dispatchReviewedAt: new Date() }), ordinary),
+      false
+    );
+  });
+
+  test("a staff-made record on an ordinary partner is never held", () => {
+    assert.equal(needsReview({ type: "prayerRequestCreated", reviewRequired: false }, ordinary), false);
+    assert.equal(needsReview({ type: "prayerRequestCreated" }, ordinary), false);
+  });
+
+  test("is not eligible on ANY channel while held, and becomes eligible when reviewed", () => {
+    const row = held("supportNeedCreated");
+    for (const channel of Object.values(CHANNELS)) {
+      assert.equal(isEligibleForChannel(row, channel, ordinary, onSettings, true), false, channel);
+    }
+    const released = { ...row, dispatchReviewedAt: new Date() };
+    assert.equal(isEligibleForChannel(released, CHANNELS.EMAIL_ADMIN, ordinary, onSettings, true), true);
+    assert.equal(isEligibleForChannel(released, CHANNELS.GROUPME, ordinary, onSettings, true), true);
+    assert.equal(isEligibleForChannel(released, CHANNELS.WHATSAPP, ordinary, onSettings, true), true);
+  });
+
+  test("a care team member's newsletter is held too, but a restricted partner's own newsletter is still exempt", () => {
+    assert.equal(needsReview({ type: "newsletterCreated", reviewRequired: true }, ordinary), true);
+    assert.equal(
+      needsReview(
+        { type: "newsletterCreated", reviewRequired: true, dispatchReviewedAt: new Date() },
+        ordinary
+      ),
+      false
+    );
+    // unchanged from #187: restricted partner, staff-made newsletter -> not held
+    assert.equal(needsReview({ type: "newsletterCreated" }, { isRestricted: true }), false);
+  });
+});

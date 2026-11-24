@@ -35,6 +35,12 @@ function buildSections(enabledFeatures) {
       icon: "✈️",
       description: "Question library, requirement templates, and budgeting.",
     },
+    enabledFeatures.careTeam && {
+      to: "/admin/settings/care-team",
+      title: "Care Teams",
+      icon: "🤝",
+      description: "The default lead for partners without a care team, and key-date reminders.",
+    },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       to: "/admin/settings/email",
       title: "Email",

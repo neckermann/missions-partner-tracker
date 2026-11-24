@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { fetchPendingDispatches, deletePendingDispatch, updatePendingDispatch } from "../api/client.js";
 import DispatchReviewModal from "../components/admin/DispatchReviewModal.jsx";
 import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
+import ApproveCareTeamTextConfirmBody from "../components/admin/ApproveCareTeamTextConfirmBody.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import StatusPill from "../components/admin/StatusPill.jsx";
 import Table from "../components/shared/Table.jsx";
@@ -112,10 +113,16 @@ function RestrictedBadge() {
 // Same amber language as RestrictedBadge, worded differently -- this one
 // means "nothing has gone out yet, and nothing will until this is
 // reviewed," not just "this row's content is masked" (#187).
-function AwaitingReviewBadge() {
+//
+// `byCareTeam` (#289): the item is held not because the partner is restricted
+// but because a care team member entered it, so say that.
+function AwaitingReviewBadge({ byCareTeam = false }) {
   return (
     <span style={{ marginLeft: "0.5rem" }}>
-      <StatusPill label="Awaiting review" color={RESTRICTED_BORDER} />
+      <StatusPill
+        label={byCareTeam ? "Awaiting review · entered by a care team member" : "Awaiting review"}
+        color={RESTRICTED_BORDER}
+      />
     </span>
   );
 }
@@ -195,7 +202,12 @@ export default function AdminPendingDispatches() {
   async function handleQuickApprove(blurb) {
     const confirmed = await confirmDialog({
       title: "Approve and send?",
-      body: <ApproveRestrictedTextConfirmBody text={blurb.bodyText} />,
+      body:
+        blurb.reviewRequired && !blurb.isRestricted ? (
+          <ApproveCareTeamTextConfirmBody text={blurb.bodyText} />
+        ) : (
+          <ApproveRestrictedTextConfirmBody text={blurb.bodyText} />
+        ),
       confirmLabel: "Approve and send",
     });
     if (!confirmed) return;
@@ -266,7 +278,9 @@ export default function AdminPendingDispatches() {
                 <div>
                   {row.blurb.emoji} <strong>{row.blurb.summary}</strong>
                   <SentStatus blurb={row.blurb} />
-                  {row.blurb.needsReview && <AwaitingReviewBadge />}
+                  {row.blurb.needsReview && (
+                    <AwaitingReviewBadge byCareTeam={row.blurb.reviewRequired && !row.blurb.isRestricted} />
+                  )}
                   {row.blurb.isRestricted && row.blurb.dispatchReviewedAt && !row.blurb.needsReview && (
                     <span style={{ color: "#2a5d3c", fontSize: "0.8rem", marginLeft: "0.5rem" }}>
                       Reviewed ✓

@@ -15,7 +15,7 @@ export const TRIP_TYPE_PRESETS = [
   "Administrative/Support",
 ];
 
-const emptyParticipant = { firstName: "", lastName: "", role: "", isLeader: false, phone: "", email: "" };
+const emptyParticipant = { firstName: "", lastName: "", role: "", phone: "", email: "" };
 
 export const emptyTripForm = {
   partnerId: "",
@@ -139,16 +139,6 @@ export default function TripFormFields({ form, setForm, partnerPicker }) {
             <label>
               Email
               <input value={p.email || ""} onChange={(e) => updateParticipant(i, "email", e.target.value)} />
-            </label>
-          </div>
-          <div className="admin-checkbox-row" style={{ marginTop: "0.5rem" }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={!!p.isLeader}
-                onChange={(e) => updateParticipant(i, "isLeader", e.target.checked)}
-              />
-              Team Leader
             </label>
           </div>
         </div>

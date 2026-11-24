@@ -11,7 +11,6 @@ const participantSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
   role: z.string().optional().nullable(),
-  isLeader: z.boolean().optional(),
   phone: z.string().optional().nullable(),
   email: z.string().optional().nullable(),
   // Optional override -- almost always left unset, in which case every

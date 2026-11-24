@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
+  fetchReachablePartners,
   fetchUsers,
   deleteUser,
   sendUserSetupLink,
@@ -16,7 +17,11 @@ import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import Table from "../components/shared/Table.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
-import { toDateInputValue } from "../utils/format.js";
+import { formatUtcDate } from "../utils/format.js";
+import { GuestGrantsPanel } from "../components/admin/GuestAccessPanels.jsx";
+import TripGrantPicker from "../components/admin/TripGrantPicker.jsx";
+import CareSeatPicker from "../components/admin/CareSeatPicker.jsx";
+import { useSettings } from "../context/SettingsContext.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 
 const emptyForm = {
@@ -34,8 +39,19 @@ const emptyForm = {
   requireMfa: false,
   mfaSetupRequired: false,
   mfaEnabled: false,
-  scopedTripId: "",
-  expiresAt: "",
+  // Only used when an existing non-guest is changed to a guest; a guest's
+  // own trips are managed live in GuestGrantsPanel instead.
+  tripAccess: [],
+  // Same idea for care team seats: [{ partnerId }], only sent when promoting.
+  careTeam: [],
+};
+
+// Why a guest account currently can't sign in, in an admin's words. Matches
+// the `inactiveReason` the API computes (never set for the full roles).
+const INACTIVE_LABELS = {
+  deactivated: "Deactivated",
+  expired: "Access expired",
+  no_access: "No trips left",
 };
 
 // A user record list, same shape as every other consolidated list page
@@ -62,11 +78,18 @@ export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [trips, setTrips] = useState([]);
+  const [partners, setPartners] = useState([]);
+  const { enabledFeatures } = useSettings();
+  const careEnabled = !!enabledFeatures?.careTeam;
   const [error, setError] = useState("");
   const [editingUser, setEditingUser] = useState(null); // { id, form } for edit
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState(location.state?.notice || "");
   const [manualSetupLink, setManualSetupLink] = useState(null); // { name, email, url } | null
+  // Guests whose access has lapsed or been removed, so an admin can reach
+  // out and clean up (#356). Filtered here from the list's own
+  // `inactiveReason` rather than refetching.
+  const [inactiveOnly, setInactiveOnly] = useState(false);
 
   function reportError(err, fallback) {
     setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
@@ -80,7 +103,8 @@ export default function AdminUsers() {
     reload();
     fetchCurrentUser().then(setCurrentUser);
     fetchTrips().then(setTrips).catch(console.error);
-  }, []);
+    if (careEnabled) fetchReachablePartners().then(setPartners).catch(console.error);
+  }, [careEnabled]);
 
   async function handleDelete(id, email) {
     const confirmed = await confirmDialog({
@@ -154,12 +178,16 @@ export default function AdminUsers() {
       setEditingUser({
         id: u.id,
         loaded: true,
+        // Remembered so the modal knows whether this is an existing guest
+        // (trips managed live) or someone being promoted to one (pick the
+        // first trips here, sent with the save).
+        originalRole: full.role,
         form: {
           ...emptyForm,
           ...full,
           password: "",
-          scopedTripId: full.scopedTripId || "",
-          expiresAt: toDateInputValue(full.expiresAt) || "",
+          tripAccess: [],
+          careTeam: [],
         },
       });
     } catch {
@@ -172,16 +200,48 @@ export default function AdminUsers() {
   }
 
   async function handleSaveUser() {
-    const { id, form } = editingUser;
-    const payload = {
-      ...form,
-      scopedTripId: form.role === "tripLeader" ? form.scopedTripId || null : null,
-      expiresAt: form.role === "tripLeader" && form.expiresAt ? form.expiresAt : null,
-    };
+    const { id, form, originalRole } = editingUser;
+    const payload = { ...form };
     if (!payload.password) delete payload.password;
+    // First trips are only sent when promoting someone to a guest; an
+    // existing guest's trips are changed through GuestGrantsPanel.
+    const becomingGuest = form.role === "guest" && originalRole !== "guest";
+    if (!becomingGuest) {
+      delete payload.tripAccess;
+      delete payload.careTeam;
+    }
+    // A guest reaches something only through a trip or a care team seat, and
+    // may already hold seats from before they were promoted.
+    const existingSeats = careEnabled ? (form.careTeamSeats || []).length : 0;
+    const newSeats = careEnabled ? form.careTeam.length : 0;
+    if (becomingGuest && form.tripAccess.length + newSeats + existingSeats === 0) {
+      throw {
+        response: {
+          data: {
+            error: careEnabled
+              ? "Choose at least one trip or partner for this guest"
+              : "Choose at least one trip for this guest",
+          },
+        },
+      };
+    }
+    if (becomingGuest && (!careEnabled || newSeats === 0)) delete payload.careTeam;
+    // read-only API extras
+    delete payload.careTeamSeats;
 
-    // sendWelcomeEmail/requireMfa only exist on create.
-    const { email, authProvider, sendWelcomeEmail, requireMfa, ...updatable } = payload;
+    // sendWelcomeEmail/requireMfa only exist on create. The grants array
+    // and read-only API extras aren't part of the update schema either.
+    const {
+      email,
+      authProvider,
+      sendWelcomeEmail,
+      requireMfa,
+      inactiveReason,
+      passwordSetupPending,
+      createdAt,
+      lastLoginAt,
+      ...updatable
+    } = payload;
     await updateUser(id, updatable);
     reload();
   }
@@ -198,14 +258,22 @@ export default function AdminUsers() {
       label: "Role",
       render: (u) => (
         <>
-          {u.role === "tripLeader" ? "Trip Leader" : u.role}
-          {u.scopedTrip && (
-            <div style={{ fontSize: "0.75rem", color: "#888" }}>
-              {[u.scopedTrip.partner?.displayName, u.scopedTrip.name || u.scopedTrip.type]
-                .filter(Boolean)
-                .join(" — ")}
+          {u.role === "guest" ? "Guest" : u.role}
+          {u.role === "guest" &&
+            u.tripAccess?.map((g) => (
+              <div key={g.id} style={{ fontSize: "0.75rem", color: g.active ? "#888" : "var(--danger)" }}>
+                {[g.trip.partner?.displayName, g.trip.name || g.trip.type].filter(Boolean).join(" — ") ||
+                  "Trip"}
+                {g.effectiveExpiresAt &&
+                  ` · ${g.active ? "until" : "ended"} ${formatUtcDate(g.effectiveExpiresAt)}`}
+              </div>
+            ))}
+          {u.careTeamSeats?.map((seat) => (
+            <div key={seat.id} style={{ fontSize: "0.75rem", color: "#888" }}>
+              Care team: {seat.partner.displayName}
+              {seat.isLead ? " (Lead)" : ""}
             </div>
-          )}
+          ))}
         </>
       ),
     },
@@ -214,7 +282,9 @@ export default function AdminUsers() {
       key: "active",
       label: "Active",
       render: (u) =>
-        u.passwordSetupPending ? (
+        u.inactiveReason ? (
+          <span className="status-pill warn">{INACTIVE_LABELS[u.inactiveReason]}</span>
+        ) : u.passwordSetupPending ? (
           <span className="status-pill warn">Awaiting setup</span>
         ) : u.active ? (
           "Yes"
@@ -243,6 +313,9 @@ export default function AdminUsers() {
     },
   ];
 
+  const inactiveCount = users.filter((u) => u.inactiveReason).length;
+  const shownUsers = inactiveOnly ? users.filter((u) => u.inactiveReason) : users;
+
   return (
     <div className="admin-shell">
       <SettingsPageHeader
@@ -263,11 +336,24 @@ export default function AdminUsers() {
       {notice && <p role="status">{notice}</p>}
       {manualSetupLink && <ManualSendNotice recipients={manualSetupLink} />}
 
+      {(inactiveCount > 0 || inactiveOnly) && (
+        <div className="admin-checkbox-row" style={{ marginBottom: "0.5rem" }}>
+          <label>
+            <input
+              type="checkbox"
+              checked={inactiveOnly}
+              onChange={(e) => setInactiveOnly(e.target.checked)}
+            />
+            Inactive accounts only ({inactiveCount}) -- guests whose access has ended or been removed
+          </label>
+        </div>
+      )}
+
       <Table
         columns={columns}
-        rows={users}
+        rows={shownUsers}
         onRowClick={openEdit}
-        emptyMessage="No users yet."
+        emptyMessage={inactiveOnly ? "No inactive accounts." : "No users yet."}
         renderActions={(u) => (
           <>
             {u.authProvider === "local" && u.active && u.passwordSetupPending && (
@@ -328,45 +414,38 @@ export default function AdminUsers() {
                     <option value="admin">Admin</option>
                     <option value="editor">Editor</option>
                     <option value="viewer">Viewer</option>
-                    <option value="tripLeader">Trip Leader (scoped guest)</option>
+                    <option value="guest">Guest (only the trips you choose)</option>
                   </select>
                 </label>
               </div>
 
-              {editingUser.form.role === "tripLeader" && (
-                <div className="form-grid" style={{ marginTop: "1rem" }}>
-                  <label>
-                    Trip
-                    <select
-                      value={editingUser.form.scopedTripId}
-                      onChange={(e) => updateForm("scopedTripId", e.target.value)}
-                      required
-                    >
-                      <option value="">Choose a trip…</option>
-                      {trips.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {[t.partner?.displayName, t.name || t.type, t.startDate?.slice(0, 10)]
-                            .filter(Boolean)
-                            .join(" — ")}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Access expires (optional)
-                    <input
-                      type="date"
-                      value={editingUser.form.expiresAt}
-                      onChange={(e) => updateForm("expiresAt", e.target.value)}
+              {editingUser.form.role === "guest" && (
+                <div style={{ marginTop: "1rem" }}>
+                  <h4 style={{ margin: "0 0 0.5rem" }}>Trip access</h4>
+                  {editingUser.originalRole === "guest" ? (
+                    <GuestGrantsPanel userId={editingUser.id} trips={trips} onChanged={reload} />
+                  ) : (
+                    <TripGrantPicker
+                      trips={trips}
+                      value={editingUser.form.tripAccess}
+                      onChange={(next) => updateForm("tripAccess", next)}
                     />
-                  </label>
+                  )}
+                  {careEnabled && editingUser.originalRole !== "guest" && (
+                    <div style={{ marginTop: "1rem" }}>
+                      <h4 style={{ margin: "0 0 0.5rem" }}>Care team</h4>
+                      <CareSeatPicker
+                        partners={partners}
+                        value={editingUser.form.careTeam}
+                        onChange={(next) => updateForm("careTeam", next)}
+                      />
+                    </div>
+                  )}
+                  <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
+                    A guest can work on these trips and see their partners, nothing else in the app. Changes
+                    to an existing guest's trips save immediately.
+                  </p>
                 </div>
-              )}
-              {editingUser.form.role === "tripLeader" && (
-                <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
-                  A scoped guest login: read/write access to this one trip's own content and a read-only look
-                  at its linked partner, nothing else in the app.
-                </p>
               )}
 
               <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
@@ -381,10 +460,12 @@ export default function AdminUsers() {
                 <label>
                   <input
                     type="checkbox"
-                    checked={editingUser.form.mfaSetupRequired}
+                    checked={editingUser.form.role === "guest" || editingUser.form.mfaSetupRequired}
+                    disabled={editingUser.form.role === "guest"}
                     onChange={(e) => updateForm("mfaSetupRequired", e.target.checked)}
                   />
                   Require Two-Factor Authentication
+                  {editingUser.form.role === "guest" && " (always required for guests)"}
                 </label>
               </div>
               {editingUser.form.mfaEnabled && (

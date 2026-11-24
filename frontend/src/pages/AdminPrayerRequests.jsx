@@ -5,7 +5,7 @@ import {
   createPrayerRequest,
   updatePrayerRequest,
   deletePrayerRequest,
-  fetchPartners,
+  fetchReachablePartners,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import SourceLink from "../components/admin/SourceLink.jsx";
@@ -111,8 +111,15 @@ export default function AdminPrayerRequests() {
     clearPartnerFilter,
     setPartnerFilter,
   } = usePartnerUrlFilter();
-  const { canWrite, isAdmin } = useCurrentUser();
-  const canEdit = canWrite;
+  const { canWrite, isAdmin, isGuest, careTeamSeats, isOnCareTeamFor } = useCurrentUser();
+  // Staff do everything. A care team member who isn't staff (#289) has what an
+  // editor has for a partner on their team -- add, edit, answer -- but never
+  // delete, and no "send right away" (their dispatch is held for review).
+  const limited = !canWrite;
+  const canAdd = canWrite || careTeamSeats.length > 0;
+  const canEditRow = (r) => canWrite || isOnCareTeamFor(r.partnerId);
+  // A member can only add for partners on their own team.
+  const addablePartners = canWrite ? partners : partners.filter((p) => isOnCareTeamFor(p.id));
   const [activeModal, setActiveModal] = useState(null); // "add" | "view" | "answer" | null
   const [newRequest, setNewRequest] = useState(emptyNewRequest);
   const [answeringRequest, setAnsweringRequest] = useState(null);
@@ -159,7 +166,7 @@ export default function AdminPrayerRequests() {
 
   useEffect(() => {
     reload();
-    fetchPartners().then(setPartners).catch(console.error);
+    fetchReachablePartners().then(setPartners).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.category, filters.dateRange, filterPartnerId]);
 
@@ -285,7 +292,8 @@ export default function AdminPrayerRequests() {
       {filterPartnerId && (
         <Breadcrumb
           items={[
-            { label: "Partners", to: "/admin/partners" },
+            // A guest has no Partners directory to go back to.
+            ...(isGuest ? [] : [{ label: "Partners", to: "/admin/partners" }]),
             { label: filterPartnerName || "…", to: `/admin/partners/${filterPartnerId}` },
             { label: "Prayer Requests" },
           ]}
@@ -293,7 +301,7 @@ export default function AdminPrayerRequests() {
       )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Prayer Requests</h2>
-        {canEdit && (
+        {canAdd && (
           <button
             className="btn"
             onClick={() => {
@@ -365,7 +373,7 @@ export default function AdminPrayerRequests() {
         ]}
         renderActions={(request) => (
           <>
-            {canEdit && request.status !== "answered" && (
+            {canEditRow(request) && request.status !== "answered" && (
               <button
                 type="button"
                 className="btn secondary small"
@@ -401,6 +409,7 @@ export default function AdminPrayerRequests() {
             setForm={setNewRequest}
             files={sourceFiles}
             mode="create"
+            limited={limited}
             hasEnabledChannel={hasEnabledChannel}
             canApproveNow={canApproveNow}
             enabledFeatures={enabledFeatures}
@@ -408,7 +417,7 @@ export default function AdminPrayerRequests() {
               <label style={{ gridColumn: "1 / -1" }}>
                 Partner
                 <PartnerSelect
-                  partners={partners}
+                  partners={addablePartners}
                   value={newRequest.partnerId}
                   onChange={(partnerId) => {
                     setNewRequest((f) => ({ ...f, partnerId, sourceFileId: null }));
@@ -445,7 +454,7 @@ export default function AdminPrayerRequests() {
 
       {activeModal === "view" &&
         requestDetail &&
-        (canEdit ? (
+        (canEditRow({ partnerId: requestDetail.form.partnerId, ...requestDetail.form }) ? (
           <QuickActionModal title="Prayer Request" onClose={closeModal} onSubmit={submitRequestDetail}>
             <Link
               to={`/admin/partners/${requestDetail.form.partnerId}`}
@@ -458,6 +467,7 @@ export default function AdminPrayerRequests() {
               setForm={setRequestDetailForm}
               files={sourceFiles}
               mode="edit"
+              limited={limited}
             />
             {requestDetail.form.status !== "answered" && (
               <button

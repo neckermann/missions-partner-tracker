@@ -2,7 +2,8 @@ const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("../utils/features");
-const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { requireAuth, requireRole, requirePartnerWriter } = require("../middleware/requireAuth");
+const { canReadPartner, readablePartnerIds } = require("../utils/guestAccess");
 const { withPhotoUrls } = require("../utils/photoUrls");
 const { geocodeAddress } = require("../utils/geocode");
 const { matchesFileSignature } = require("../utils/fileSignature");
@@ -221,6 +222,8 @@ const partnerSchema = z.object({
 
   // --- Missionary-only ---
   contactSafe: z.boolean().optional(),
+  // #288: staff-facing note shown instead of tap-to-call actions when contactSafe is off.
+  contactInstructions: z.string().trim().max(2000).optional().nullable(),
   sentByOurChurch: z.boolean().optional(),
   anniversary: z.coerce.date().optional().nullable(),
   emergencyContactName: z.string().optional().nullable(),
@@ -343,9 +346,39 @@ async function syncSendingChurch(client, partnerId) {
 // own one trip's own linked Partner, read-only, via GET /:id below. No
 // requireTripScope here (there's no single :id to check against a
 // collection route), just an outright role block.
-router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
+// GET /api/partners/reachable -- the partners this login may read, as just
+// enough for a picker ({ id, kind, displayName, archived, isRestricted }).
+// For a guest that's exactly the partners their active grants reach (#289);
+// every other role reaches all of them. Registered before "/:id" so
+// "reachable" isn't read as a partner id.
+router.get("/reachable", async (req, res, next) => {
+  try {
+    const ids = readablePartnerIds(req.user);
+    const records = await prisma.partner.findMany({
+      where: ids ? { id: { in: ids } } : {},
+      select: { id: true, kind: true, displayName: true, archived: true, isRestricted: true },
+      orderBy: { displayName: "asc" },
+    });
+    res.json(records);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// A guest (#289) lists the same directory as everyone, limited by the server
+// to the partners they reach, and without the one thing they never see:
+// money (the current monthly support amount, and "supporting since").
+const { supportEntries: _s, supportingSince: _ss, ...guestSummarySelect } = partnerSummarySelect;
+
+router.get("/", requireRole("admin", "editor", "viewer", "guest"), async (req, res, next) => {
   try {
     const where = {};
+    const reachable = readablePartnerIds(req.user);
+    if (reachable) {
+      // The booklet's full dump is staff/viewer only.
+      if (req.query.include === "full") return res.status(403).json({ error: "Insufficient permissions" });
+      where.id = { in: reachable };
+    }
     if (req.query.kind) where.kind = String(req.query.kind);
     if (req.query.archived === "true") where.archived = true;
     if (req.query.archived === "false") where.archived = false;
@@ -405,7 +438,7 @@ router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next)
 
     const records = await prisma.partner.findMany({
       where,
-      select: partnerSummarySelect,
+      select: reachable ? guestSummarySelect : partnerSummarySelect,
       orderBy: { displayName: "asc" },
     });
     res.json(records.map((r) => ({ ...r, photos: withPhotoUrls(r.photos) })));
@@ -418,19 +451,13 @@ router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next)
 // see partnerRecordInclude for why the history collections aren't here)
 router.get("/:id", async (req, res, next) => {
   try {
-    // Trip Leader guest tier: read-only, and only the exact Partner tied
-    // to their own scoped trip -- "they can view the partner details page
-    // as part of that," not the directory at large. Looked up fresh each
-    // request (not cached on the token), same revocation-takes-effect-
-    // immediately reasoning as requireAuth's own role re-read.
-    if (req.user.role === "tripLeader") {
-      const trip = await prisma.trip.findUnique({
-        where: { id: req.user.scopedTripId },
-        select: { partnerId: true },
-      });
-      if (!trip?.partnerId || trip.partnerId !== req.params.id) {
-        return res.status(403).json({ error: "Insufficient permissions" });
-      }
+    // Guest tier: read-only, and only partners their active grants reach
+    // (today: the partner of each granted trip) -- "they can view the
+    // partner details page as part of that," not the directory at large.
+    // Resolved fresh each request by requireAuth, same revocation-takes-
+    // effect-immediately reasoning as its role re-read.
+    if (!canReadPartner(req.user, req.params.id)) {
+      return res.status(403).json({ error: "Insufficient permissions" });
     }
     const record = await prisma.partner.findUnique({
       where: { id: req.params.id },
@@ -502,80 +529,85 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 // Adds a new Photo row rather than overwriting one — the previous current
 // photo becomes history instead of being deleted, so it can be viewed or
 // individually removed later (see DELETE /:id/photos/:photoId below).
-router.post("/:id/image", requireRole("admin", "editor"), upload.single("image"), async (req, res, next) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: "No image file provided" });
+router.post(
+  "/:id/image",
+  requirePartnerWriter({ param: "id" }),
+  upload.single("image"),
+  async (req, res, next) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No image file provided" });
 
-    const ext = resolveImageExt(req.file);
-    // Verified against the canonical type for the resolved extension, not
-    // req.file.mimetype directly -- a HEIC or webp upload's own
-    // Content-Type can't always be trusted (see resolveImageExt's
-    // comment), so the signature check needs to know what it's actually
-    // supposed to be.
-    const signatureMime = ext === "heic" ? "image/heic" : ext === "webp" ? "image/webp" : req.file.mimetype;
-    if (!matchesFileSignature(req.file.buffer, signatureMime)) {
-      return res.status(400).json({ error: "File content doesn't match its declared image type" });
-    }
-
-    let bytes = req.file.buffer;
-    // Also what actually gets stored, so a served photo's Content-Type
-    // header is always correct regardless of what the upload itself
-    // claimed -- same reasoning as the signature check above.
-    let contentType = signatureMime;
-    let fileSize = req.file.size;
-
-    // HEIC doesn't render in an <img> tag in most browsers outside Safari
-    // (Chrome/Firefox/Edge on Windows and Android can't display it), so
-    // it's transcoded to JPEG here rather than stored as-is -- nothing
-    // downstream (display, the public site, VERIFIED_INLINE_TYPES in
-    // utils/fileResponse.js) ever needs to know a HEIC file was involved.
-    if (ext === "heic") {
-      try {
-        bytes = await heicConvert({ buffer: req.file.buffer, format: "JPEG", quality: 0.9 });
-      } catch {
-        return res.status(400).json({
-          error: "Couldn't read this HEIC file — it may be corrupted or use an unsupported variant",
-        });
+      const ext = resolveImageExt(req.file);
+      // Verified against the canonical type for the resolved extension, not
+      // req.file.mimetype directly -- a HEIC or webp upload's own
+      // Content-Type can't always be trusted (see resolveImageExt's
+      // comment), so the signature check needs to know what it's actually
+      // supposed to be.
+      const signatureMime = ext === "heic" ? "image/heic" : ext === "webp" ? "image/webp" : req.file.mimetype;
+      if (!matchesFileSignature(req.file.buffer, signatureMime)) {
+        return res.status(400).json({ error: "File content doesn't match its declared image type" });
       }
-      contentType = "image/jpeg";
-      fileSize = bytes.length;
+
+      let bytes = req.file.buffer;
+      // Also what actually gets stored, so a served photo's Content-Type
+      // header is always correct regardless of what the upload itself
+      // claimed -- same reasoning as the signature check above.
+      let contentType = signatureMime;
+      let fileSize = req.file.size;
+
+      // HEIC doesn't render in an <img> tag in most browsers outside Safari
+      // (Chrome/Firefox/Edge on Windows and Android can't display it), so
+      // it's transcoded to JPEG here rather than stored as-is -- nothing
+      // downstream (display, the public site, VERIFIED_INLINE_TYPES in
+      // utils/fileResponse.js) ever needs to know a HEIC file was involved.
+      if (ext === "heic") {
+        try {
+          bytes = await heicConvert({ buffer: req.file.buffer, format: "JPEG", quality: 0.9 });
+        } catch {
+          return res.status(400).json({
+            error: "Couldn't read this HEIC file — it may be corrupted or use an unsupported variant",
+          });
+        }
+        contentType = "image/jpeg";
+        fileSize = bytes.length;
+      }
+
+      const existing = await prisma.partner.findUnique({ where: { id: req.params.id } });
+      if (!existing) return res.status(404).json({ error: "Not found" });
+
+      // Defaults to today, same as the newsletter upload's receivedDate —
+      // lets an admin backfill an older photo with its real date instead.
+      // Same z.coerce.date() mechanism every other date-only write in this
+      // app uses, even though this route isn't otherwise Zod-validated (it's
+      // multer/multipart, not a JSON body schema).
+      const receivedDate = z.coerce
+        .date()
+        .optional()
+        .default(() => new Date())
+        .parse(req.body.receivedDate);
+
+      await prisma.photo.create({
+        data: {
+          partnerId: req.params.id,
+          receivedDate,
+          contentType,
+          fileSize,
+          bytesRow: { create: { bytes } },
+        },
+      });
+
+      const updated = await prisma.partner.update({
+        where: { id: req.params.id },
+        data: { updatedById: req.user.id },
+        include: partnerRecordInclude,
+      });
+
+      res.json(shapePartner(updated));
+    } catch (err) {
+      next(err);
     }
-
-    const existing = await prisma.partner.findUnique({ where: { id: req.params.id } });
-    if (!existing) return res.status(404).json({ error: "Not found" });
-
-    // Defaults to today, same as the newsletter upload's receivedDate —
-    // lets an admin backfill an older photo with its real date instead.
-    // Same z.coerce.date() mechanism every other date-only write in this
-    // app uses, even though this route isn't otherwise Zod-validated (it's
-    // multer/multipart, not a JSON body schema).
-    const receivedDate = z.coerce
-      .date()
-      .optional()
-      .default(() => new Date())
-      .parse(req.body.receivedDate);
-
-    await prisma.photo.create({
-      data: {
-        partnerId: req.params.id,
-        receivedDate,
-        contentType,
-        fileSize,
-        bytesRow: { create: { bytes } },
-      },
-    });
-
-    const updated = await prisma.partner.update({
-      where: { id: req.params.id },
-      data: { updatedById: req.user.id },
-      include: partnerRecordInclude,
-    });
-
-    res.json(shapePartner(updated));
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 // DELETE /api/partners/:id/photos/:photoId (admin only — same permission
 // level as deleting a newsletter). Deletes one photo from history; if it
@@ -614,7 +646,7 @@ router.delete("/:id/photos/:photoId", requireRole("admin"), async (req, res, nex
 // recreating every row on each save — which churned their ids, reset
 // their timestamps, and silently destroyed any row added through the
 // other endpoint since the client last loaded the record.
-router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.put("/:id", requirePartnerWriter({ param: "id" }), async (req, res, next) => {
   try {
     const data = partnerSchema.partial().parse(req.body);
     const { sendingChurch, sendingOrg, addresses, ...scalarData } = data;
@@ -710,7 +742,7 @@ router.post("/sync-sending-church", requireRole("admin"), async (req, res, next)
 // support by adding a new $0 SupportEntry (never edits/removes old entries,
 // so support history stays intact), and flags it archived so it drops out
 // of the default admin list view.
-router.post("/:id/archive", requireRole("admin", "editor"), async (req, res, next) => {
+router.post("/:id/archive", requirePartnerWriter({ param: "id" }), async (req, res, next) => {
   try {
     const existing = await prisma.partner.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: "Not found" });
@@ -740,7 +772,7 @@ router.post("/:id/archive", requireRole("admin", "editor"), async (req, res, nex
 // POST /api/partners/:id/unarchive (editor or admin) — reverses archive.
 // Does not restore isPublic or re-add support on its own; those are
 // deliberate decisions to make again once someone's actually back.
-router.post("/:id/unarchive", requireRole("admin", "editor"), async (req, res, next) => {
+router.post("/:id/unarchive", requirePartnerWriter({ param: "id" }), async (req, res, next) => {
   try {
     const updated = await prisma.partner.update({
       where: { id: req.params.id },

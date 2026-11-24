@@ -8,6 +8,9 @@ import Table from "../components/shared/Table.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import { TripGuestsPanel } from "../components/admin/GuestAccessPanels.jsx";
+import CareTeamPanel from "../components/admin/CareTeamPanel.jsx";
+import { useSettings } from "../context/SettingsContext.jsx";
 
 // Confirmed Team + the recruiting pipeline that feeds it (Applications,
 // the private link, and this trip's own application questions) --
@@ -21,7 +24,8 @@ import useCurrentUser from "../hooks/useCurrentUser.js";
 export default function AdminTripTeam() {
   const { trip, setTrip, applications, reload, questionLibrary, confirmDialog, navigate, id, canWrite } =
     useOutletContext();
-  const { isTripLeader } = useCurrentUser();
+  const { isGuest, isAdmin } = useCurrentUser();
+  const { enabledFeatures } = useSettings();
   const [error, setError] = useState("");
   const [showDeclined, setShowDeclined] = useState(false);
   const [showAddParticipant, setShowAddParticipant] = useState(false);
@@ -202,6 +206,25 @@ export default function AdminTripTeam() {
         )}
       </div>
 
+      {/* The same care team the partner's own page shows, here because the
+          people who keep in touch with this trip's partner are usually the
+          ones planning the trip (#289). Anyone who can see the trip sees it;
+          admin/editor can assign it. */}
+      {enabledFeatures.careTeam && trip.partner?.id && (
+        <CareTeamPanel partnerId={trip.partner.id} canEdit={canWrite && !isGuest} canInviteGuest={isAdmin} />
+      )}
+
+      {isAdmin && (
+        <div className="admin-section">
+          <h3>Guest access</h3>
+          <p style={{ color: "#555" }}>
+            Guests can work on this trip and see its partner, nothing else in the app. Access ends 30 days
+            after the trip ends unless you set a different date.
+          </p>
+          <TripGuestsPanel tripId={id} />
+        </div>
+      )}
+
       <div className="admin-section">
         <h3>Private application link</h3>
         <p style={{ color: "#555" }}>
@@ -216,10 +239,10 @@ export default function AdminTripTeam() {
           <p style={{ color: "#888" }}>No link generated yet.</p>
         )}
         {/* Backend blocks this action for a Trip Leader (requireRole on the
-        generate-application-link route excludes tripLeader) -- hiding it
+        generate-application-link route excludes guest) -- hiding it
         here instead of letting them hit the button and get a misleading
         "check Trip settings" error when the real reason is their role. */}
-        {canWrite && !isTripLeader && (
+        {canWrite && !isGuest && (
           <button type="button" className="btn secondary small" onClick={handleGenerateLink}>
             {trip.applicationShareToken ? "Regenerate link" : "Generate private application link"}
           </button>

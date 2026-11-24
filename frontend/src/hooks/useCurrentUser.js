@@ -31,14 +31,44 @@ export default function useCurrentUser() {
 
   const canWrite = user?.role === "admin" || user?.role === "editor";
   const isAdmin = user?.role === "admin";
-  // Trip Leader guest tier -- a scoped guest with editor-equivalent write
-  // access to exactly their own trip's own content (never reflected in
-  // canWrite above, which is global), read-only elsewhere. Pages inside
-  // that one trip's own subtree (TripDetailLayout.jsx) combine this with
-  // their own scope check rather than trusting canWrite directly.
-  const isTripLeader = user?.role === "tripLeader";
-  const scopedTripId = user?.scopedTripId ?? null;
-  const scopedTrip = user?.scopedTrip ?? null;
+  // Guest tier (#356): a scoped login whose reach is exactly its grants --
+  // editor-equivalent write access to each trip it was granted (never
+  // reflected in canWrite above, which is global), read-only on those
+  // trips' partners, nothing else. Pages inside a trip's subtree
+  // (TripDetailLayout.jsx) combine canAccessTrip with their own check
+  // rather than trusting canWrite directly. guestTrips comes from /me:
+  // [{ id, label, partnerId, partnerLabel, expiresAt }] for each grant
+  // that is active right now.
+  const isGuest = user?.role === "guest";
+  const guestTrips = isGuest ? (user?.guestTrips ?? []) : [];
+  const guestTripIds = guestTrips.map((t) => t.id);
+  // Every trip a guest may open: their granted trips (editable) plus, via a
+  // care team seat, their partner's trips (view only).
+  const guestReadTripIds = isGuest ? (user?.guestReadTripIds ?? guestTripIds) : [];
+  const canAccessTrip = (tripId) => isGuest && !!tripId && guestTripIds.includes(tripId);
 
-  return { user, loading, canWrite, isAdmin, isTripLeader, scopedTripId, scopedTrip };
+  // Care team seats (#289), for every role: [{ id, label, isLead }] -- empty
+  // while the careTeam feature is off. Being on a partner's care team is what
+  // lets a non-staff login submit and edit that partner's prayer requests and
+  // one-time needs (everything they enter is held for staff review before it
+  // is dispatched) -- never decide a need, delete, or make anything public or
+  // urgent. Staff (canWrite) can do all of that for any partner.
+  const careTeamSeats = user?.careTeamSeats ?? [];
+  const isOnCareTeamFor = (partnerId) => !!partnerId && careTeamSeats.some((s) => s.id === partnerId);
+  const canSubmitFor = (partnerId) => canWrite || isOnCareTeamFor(partnerId);
+
+  return {
+    user,
+    loading,
+    canWrite,
+    isAdmin,
+    isGuest,
+    guestTrips,
+    guestTripIds,
+    guestReadTripIds,
+    canAccessTrip,
+    careTeamSeats,
+    isOnCareTeamFor,
+    canSubmitFor,
+  };
 }

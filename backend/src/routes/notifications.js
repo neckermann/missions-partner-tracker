@@ -14,7 +14,9 @@ router.get("/summary", async (req, res, next) => {
     const categories = await resolveNotificationSummary({
       userId: req.user.id,
       role: req.user.role,
-      scopeTripId: req.user.role === "tripLeader" ? req.user.scopedTripId : null,
+      scopeTripIds: req.user.role === "guest" ? req.user.tripIds : null,
+      // A guest's new-need/prayer counts are limited to their care team partners (#292).
+      scopePartnerIds: req.user.role === "guest" ? req.user.careTeamPartnerIds || [] : null,
     });
     res.json({ categories });
   } catch (err) {

@@ -28,6 +28,7 @@ describe("GET /api/public/settings -- demo-mode fields", () => {
       assert.equal(res.body.isDemo, false);
       assert.equal(res.body.demoLoginEmail, null);
       assert.equal(res.body.demoLoginPassword, null);
+      assert.deepEqual(res.body.demoGuestLogins, [], "no guest logins are advertised off the demo either");
     } finally {
       if (original) process.env.DEMO_RESET_TOKEN = original;
     }
@@ -53,6 +54,51 @@ describe("GET /api/public/settings -- demo-mode fields", () => {
         if (value === undefined) delete process.env[key];
         else process.env[key] = value;
       }
+    }
+  });
+});
+
+describe("GET /api/public/settings -- demo guest logins (the demo banner)", () => {
+  const keys = ["DEMO_RESET_TOKEN", "DEMO_GUEST_PASSWORD", "DEMO_ADMIN_PASSWORD", "DEMO_ADMIN_EMAIL"];
+  const saved = {};
+  const restore = () => {
+    for (const k of keys) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  };
+
+  test("lists the care team member and trip leader, with the demo admin's password", async () => {
+    keys.forEach((k) => (saved[k] = process.env[k]));
+    process.env.DEMO_RESET_TOKEN = "test-token";
+    process.env.DEMO_ADMIN_PASSWORD = "the-demo-password";
+    process.env.DEMO_ADMIN_EMAIL = "demo@church.example";
+    delete process.env.DEMO_GUEST_PASSWORD;
+    try {
+      const res = await anon("/api/public/settings");
+      assert.deepEqual(
+        res.body.demoGuestLogins.map((g) => [g.key, g.email, g.password]),
+        [
+          ["careTeamMember", "care.member@church.example", "the-demo-password"],
+          ["tripLeader", "trip.leader@church.example", "the-demo-password"],
+        ]
+      );
+      assert.equal(res.body.demoLoginPassword, "the-demo-password", "the same one the admin login shows");
+      assert.ok(res.body.demoGuestLogins.every((g) => g.label && g.summary));
+    } finally {
+      restore();
+    }
+  });
+
+  test("shows the same password the seed uses when DEMO_GUEST_PASSWORD is set", async () => {
+    keys.forEach((k) => (saved[k] = process.env[k]));
+    process.env.DEMO_RESET_TOKEN = "test-token";
+    process.env.DEMO_GUEST_PASSWORD = "custom-guest-pw";
+    try {
+      const res = await anon("/api/public/settings");
+      assert.ok(res.body.demoGuestLogins.every((g) => g.password === "custom-guest-pw"));
+    } finally {
+      restore();
     }
   });
 });

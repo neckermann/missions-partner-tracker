@@ -29,7 +29,7 @@ async function safeNotify(label, fn) {
 // create call rather than a later PUT. Harmless to pass for a
 // non-restricted partner (or a type outside REVIEW_GATED_TYPES) --
 // needsReview() simply never looks at dispatchReviewedAt in that case.
-async function enqueue(type, partnerId, payload, review) {
+async function enqueue(type, partnerId, payload, review, requireReview = false) {
   const reviewFields = review
     ? {
         dispatchReviewedAt: new Date(),
@@ -37,7 +37,9 @@ async function enqueue(type, partnerId, payload, review) {
         dispatchReviewedText: review.reviewedText,
       }
     : {};
-  return prisma.dispatchRecord.create({ data: { type, partnerId, payload, ...reviewFields } });
+  return prisma.dispatchRecord.create({
+    data: { type, partnerId, payload, ...reviewFields, ...(requireReview ? { reviewRequired: true } : {}) },
+  });
 }
 
 // The one place recording still depends on a setting -- restricted-
@@ -46,13 +48,13 @@ async function enqueue(type, partnerId, payload, review) {
 // route's own partnerRefSelect ({ id, kind, displayName }) on hand, not
 // a guaranteed isRestricted, and this is the one safety-critical check
 // in the system.
-async function createDispatchRecord(type, partner, payload, review) {
+async function createDispatchRecord(type, partner, payload, review, requireReview = false) {
   const [settings, freshPartner] = await Promise.all([
     getChurchSettings(),
     prisma.partner.findUnique({ where: { id: partner.id }, select: { isRestricted: true } }),
   ]);
   if (isRestrictedPartnerBlocked(freshPartner, settings)) return null;
-  return enqueue(type, partner.id, payload, review);
+  return enqueue(type, partner.id, payload, review, requireReview);
 }
 
 // Fires the immediate cross-channel dispatch when isUrgent is set --
@@ -70,11 +72,17 @@ async function maybeDispatchUrgent(row, partner, isUrgent) {
 // leaving this for Pending Dispatches later. reviewedText is always
 // exactly what they just typed, never an edited version -- a different
 // wording still goes through Pending Dispatches' own Edit flow.
-async function notifyPrayerRequestCreated(prayerRequest, approval) {
+//
+// `options.requireReview` (#289) is set for a care team member's submission:
+// the record is held for staff review whatever the partner, and the
+// inline-approve and urgent shortcuts are ignored for it -- nothing a
+// non-staff login enters is sent before an admin/editor approves it.
+async function notifyPrayerRequestCreated(prayerRequest, approval, { requireReview = false } = {}) {
   await safeNotify("Prayer request created", async () => {
-    const review = approval
-      ? { reviewedById: approval.reviewerId, reviewedText: prayerRequest.requestText }
-      : null;
+    const review =
+      approval && !requireReview
+        ? { reviewedById: approval.reviewerId, reviewedText: prayerRequest.requestText }
+        : null;
     const row = await createDispatchRecord(
       "prayerRequestCreated",
       prayerRequest.partner,
@@ -83,30 +91,38 @@ async function notifyPrayerRequestCreated(prayerRequest, approval) {
         requestText: prayerRequest.requestText,
         sourceFileId: prayerRequest.sourceFile?.id || null,
       },
-      review
+      review,
+      requireReview
     );
-    await maybeDispatchUrgent(row, prayerRequest.partner, prayerRequest.isUrgent);
+    await maybeDispatchUrgent(row, prayerRequest.partner, !requireReview && prayerRequest.isUrgent);
   });
 }
 
-async function notifyPrayerRequestAnswered(prayerRequest) {
+async function notifyPrayerRequestAnswered(prayerRequest, { requireReview = false } = {}) {
   await safeNotify("Prayer request answered", async () => {
-    await createDispatchRecord("prayerRequestAnswered", prayerRequest.partner, {
-      partnerName: prayerRequest.partner?.displayName || "A partner",
-      requestText: prayerRequest.requestText,
-      answeredNote: prayerRequest.answeredNote || null,
-      sourceFileId: prayerRequest.sourceFile?.id || null,
-    });
+    await createDispatchRecord(
+      "prayerRequestAnswered",
+      prayerRequest.partner,
+      {
+        partnerName: prayerRequest.partner?.displayName || "A partner",
+        requestText: prayerRequest.requestText,
+        answeredNote: prayerRequest.answeredNote || null,
+        sourceFileId: prayerRequest.sourceFile?.id || null,
+      },
+      null,
+      requireReview
+    );
   });
 }
 
 // Same inline "approve now" path as notifyPrayerRequestCreated above --
 // see that function's own comment.
-async function notifySupportNeedCreated(supportNeed, approval) {
+async function notifySupportNeedCreated(supportNeed, approval, { requireReview = false } = {}) {
   await safeNotify("Support need created", async () => {
-    const review = approval
-      ? { reviewedById: approval.reviewerId, reviewedText: supportNeed.description }
-      : null;
+    const review =
+      approval && !requireReview
+        ? { reviewedById: approval.reviewerId, reviewedText: supportNeed.description }
+        : null;
     const row = await createDispatchRecord(
       "supportNeedCreated",
       supportNeed.partner,
@@ -120,9 +136,10 @@ async function notifySupportNeedCreated(supportNeed, approval) {
         requestedAmount: supportNeed.requestedAmount,
         sourceFileId: supportNeed.sourceFile?.id || null,
       },
-      review
+      review,
+      requireReview
     );
-    await maybeDispatchUrgent(row, supportNeed.partner, supportNeed.isUrgent);
+    await maybeDispatchUrgent(row, supportNeed.partner, !requireReview && supportNeed.isUrgent);
   });
 }
 
@@ -141,13 +158,21 @@ async function notifySupportNeedDecided(supportNeed) {
   });
 }
 
-async function notifyNewsletterCreated(newsletter) {
+// `options.requireReview` (#289): a care team member's upload is held for
+// staff review like their prayer requests and needs.
+async function notifyNewsletterCreated(newsletter, { requireReview = false } = {}) {
   await safeNotify("Newsletter created", async () => {
-    await createDispatchRecord("newsletterCreated", newsletter.partner, {
-      partnerName: newsletter.partner?.displayName || "A partner",
-      newsletterId: newsletter.id,
-      title: newsletter.title || null,
-    });
+    await createDispatchRecord(
+      "newsletterCreated",
+      newsletter.partner,
+      {
+        partnerName: newsletter.partner?.displayName || "A partner",
+        newsletterId: newsletter.id,
+        title: newsletter.title || null,
+      },
+      null,
+      requireReview
+    );
   });
 }
 

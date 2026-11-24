@@ -60,16 +60,21 @@ treat handing someone the filing cabinet key. If you only want someone to
 see what's public, send them the public site; they don't need an account at
 all.
 
-**A 4th, narrower account type: Trip Leader.** This one's the exception
-to "an account is the whole permission" above, on purpose — a Trip Leader
-account is a temporary guest login scoped to a single trip, created from
-Manage Users with a role of "Trip Leader" and a trip picked from a
-dropdown (an optional expiration date can be set too). It can see and
-edit that one trip's own team/meetings/requirements/budget/flights, and
-can view (but not edit) that trip's one linked partner page — nothing
-else in the app. Use it for an actual trip leader or chaperone who needs
-to manage their own trip's logistics without a full account on
-everything else. See [SPEC.md § 5.1](SPEC.md#51-trip-leader--a-scoped-guest-not-a-4th-full-role)
+**A 4th, narrower account type: Guest.** This one's the exception
+to "an account is the whole permission" above, on purpose — a Guest is a
+login that only reaches the trips an admin gives it. Create one from
+Manage Users with a role of "Guest" and pick one or more trips (from the
+trip's own page you can also give an existing guest access, or invite a
+new one). A guest can see and edit those trips' team/meetings/
+requirements/budget/flights, and can view (but not edit) those trips'
+partner pages — nothing else in the app. **Access ends 30 days after
+each trip's end date** unless an admin sets a different date, so a
+guest doesn't keep access forever; an admin can extend it, end it
+early, or remove a trip at any time. Guests sign in with a password and
+two-factor authentication, which is always required for them. Use it
+for an actual trip leader or chaperone who needs to manage their own
+trip's logistics without a full account on everything else. See
+[SPEC.md § 5.1](SPEC.md#51-guest--a-scoped-login-not-a-4th-full-role)
 for the full access list.
 
 If something you expect to see isn't there (a nav link, a button), it's
@@ -854,8 +859,8 @@ needed:
 
 **Manage Users** lists everyone with access — email, role, active status,
 MFA status, last login. **+ Add User** opens its own page: email, name,
-role (Admin, Editor, Viewer, or Trip Leader — pick a trip to scope a Trip
-Leader to), then how they'll get access — **Send a welcome email** (on
+role (Admin, Editor, Viewer, or Guest — pick at least one trip for a
+Guest), then how they'll get access — **Send a welcome email** (on
 by default) emails them a one-time "Choose your password" link so you
 never type or see their password; **Require two-factor authentication at
 first sign-in** can be turned on at the same time. If outbound email
@@ -864,9 +869,20 @@ copy and send however you like. Turn the welcome email off to set a
 password yourself (or leave it blank and use **Send setup link** on their
 row in Manage Users later) — either way, every account is still email +
 password once set up, per [Logging in](#logging-in) above. A setup link
-expires after 72 hours (7 days for a Trip Leader); their account stays
+expires after 72 hours (7 days for a Guest); their account stays
 pending — visible in Manage Users, but unable to sign in — until a
 password is actually set.
+
+For a Guest, Manage Users also shows each trip they can reach and when
+that access ends. Click their row to extend a trip's access to a date,
+end it now, go back to the automatic date (30 days after the trip ends),
+add another trip, or remove one. Removing a guest's last trip
+deactivates the account (it isn't deleted). Guests whose access has
+ended or been removed are flagged in the list, and **Inactive accounts
+only** shows just those, so you can reach out and clean up. A trip's own
+**Team** tab has a **Guest access** section for the same thing from the
+trip's side, and a team member's page has **Give guest access** to
+create their login in one step.
 
 ![The Add User page, with Basics and Account Setup steps](docs/assets/screenshots/add-user.png)
 
@@ -1045,6 +1061,52 @@ group with new and decided needs:
 ![The Prayer Requests group showing new and answered prayer requests](docs/assets/screenshots/whatsapp-prayer-requests-group.png)
 ![The One-Time Needs group showing new and decided one-time needs](docs/assets/screenshots/whatsapp-one-time-needs-group.png)
 
+### Care teams
+
+With **Care teams** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles), every partner can have a **care team**: one **Lead** and any number of **Members**, the people at the church who keep in touch with that partner. An admin or editor sets it from the partner's page (**Care team**, near the top) or from the **Team** tab of one of that partner's trips, and can also add someone to a partner's team while creating their account (**Add User → Care team**). Everyone on a team needs a login; someone who isn't on your staff can be a **Guest**. **Reports → Care team coverage** lists the partners with no team or no lead.
+
+A care team member uses the same app as everyone, and for **their own partner** they can do what an editor can: edit the partner's profile, family, contact details, links and photos; add and edit prayer requests (and record answers) and one-time needs; and upload, edit and scan newsletters and documents. They can also see that partner's trips, read-only. Three things are different:
+
+- **What they enter is saved immediately, but isn't sent to the church** by email, GroupMe or WhatsApp **until an admin or editor approves it** in [Pending Dispatches](#pending-dispatches). They can't mark anything urgent or use "approve now".
+- **They can't approve or decline a one-time need** or record a decision on it. That stays with the committee or board.
+- **They never see monthly support** — its amount, how long it has run, or its history.
+
+They also can't create or delete partners, or delete records. If you're an admin or editor yourself, being on a team doesn't limit you or hold your entries; it just adds the care-team features.
+
+A **trip leader** (a Guest given a trip) has a smaller view: their trips, and those trips' partners read-only. They don't get the care-team list pages or one-time needs.
+
+### Contact log
+
+With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles), every partner page gets a **Contact** card and a **Contact Log**.
+
+- **The contact card** shows who to reach first (the adult marked **Primary contact**, or an organization's named contact), how they prefer to be reached, and one-tap **Call**, **Text**, **Email** and **WhatsApp** buttons, plus when anyone last was in touch.
+- **If a partner isn't safe to contact**, the buttons and numbers are replaced by the **special communication instructions** staff wrote (edit them under Status & Visibility). The printed booklet also leaves out their phone, email and preferred method.
+- **Log a contact** with **+ Log contact**: pick what happened (call, text, email, visit, card, video, prayed for them), who reached out, optional topics, the date, who made the contact (you, by default), an optional note and an optional **follow up by** date. Anyone who can see the partner can log one. Only an admin or editor can edit or delete an entry.
+- **A prayer request a care team member enters** also logs the contact, so it isn't typed twice.
+- **Assigned to me** (a tab on the Partners page, for anyone on a care team) lists your partners longest-quiet first: days since the last contact, any follow-up that has come due, the next birthday or anniversary, and open prayer requests and needs. A partner counts as **quiet** after 90 days without a logged contact.
+- **Partners to reach out to** on the bell and Home page counts your partners that are quiet or have a follow-up due.
+
+The **Last heard from** report counts a logged contact as hearing from a partner: a partner is only "quiet" when both the latest newsletter and the latest contact are old. Trip leaders don't get the contact log.
+
+### Key-date reminders
+
+With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **supported-since milestone** (the first year, then every fifth) a week ahead.
+
+- **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **Assigned to me** tab also flags a key date inside the week.
+- **By email**, one message a day, only on a day something is due, listing everything coming up for your partners (not one email per partner). It needs Email (Sending) turned on, and it's sent at 7am church time.
+- **Who gets it:** the whole care team, lead and members. A partner with no care team goes to the **default lead** an admin picks under Settings → Care Teams; with neither, nobody hears about it.
+- **To clear a reminder**, send the card or make the call and **log it as a contact with the topic "Key date"**. That stops the reminders for that occasion, and it counts as being in touch.
+- The app never sends the card for you, and a restricted partner appears in the email by initials only. A partner who isn't safe to contact is marked in the email so a reminder to "send a card" isn't read as "call them".
+
+### Passing updates on to partners
+
+The app never contacts a partner on its own — a person always does. If you're on a partner's [care team](#care-teams), it tells you when there's something to pass on:
+
+- **New needs and prayer requests** on your partners show on the bell (as they do for staff), so you know before the church does.
+- **Updates to pass on to partners** (bell and Home page) counts, for your partners, a one-time need the committee **decided** and a prayer request that was **answered** in the last 30 days. Open the partner to see the decision and its note, then tell them yourself.
+- **To clear one**, [log the contact](#contact-log) as something **you** sent or did (we reached out): topic **Need / support** for a decision, **Encouragement** or **Prayer** for an answered prayer — a thank-you card or call counts. An entry made because the partner reached out doesn't clear it.
+- **When a partner tells you a prayer was answered** and you mark it answered, that is logged as a contact for you automatically (it still waits for staff approval before the church is told).
+
 ### Pending Dispatches
 
 The **Pending Dispatches** page (in the main menu, alongside
@@ -1066,6 +1128,8 @@ go out right away, check **urgent** on it when you create it instead,
 see [Marking something urgent](#marking-something-urgent).
 
 ![The Pending Dispatches page: a regular partner's prayer requests and one-time needs (new and answered/decided), grouped with a restricted partner's already-reviewed items below](docs/assets/screenshots/pending-dispatches.png)
+
+Items a [care team member](#care-teams) enters are held here for review whatever the partner — nothing goes out until an admin or editor approves it, the same way a restricted partner's items are held.
 
 A queued item only clears once every currently-enabled channel has
 actually sent it — if GroupMe is down but email goes out fine, that item
@@ -1427,14 +1491,15 @@ the Scan for requests button.
 
 ### Your account settings
 
-**My Account** is where you manage your own login, for every role except
-Trip Leader. You can change your password (current password required)
-and enable/disable two-factor authentication — enabling walks you
-through scanning a QR code and confirming a code; disabling requires
-your current password. (A Trip Leader guest account has no "My Account"
-page and no self-service here at all — see
-[Understanding your role](#understanding-your-role); an admin manages
-that account's password and MFA from Manage Users instead.)
+**My Account** is where you manage your own login, for every role. You
+can change your password (current password required) and enable/disable
+two-factor authentication — enabling walks you through scanning a QR code
+and confirming a code; disabling requires your current password. (A Guest
+sees just password and two-factor authentication here, and can't turn
+two-factor authentication off, since it's required for them — see
+[Understanding your role](#understanding-your-role). If a guest loses
+their authenticator app, an admin resets it from Manage Users and they set
+it up again at next sign-in.)
 
 If [Email (Sending)](#email-admin-only) is turned on for the church,
 there's also an **Email Dispatch** section here: a cadence (no

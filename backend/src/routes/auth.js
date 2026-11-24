@@ -14,6 +14,7 @@ const { findValidSetupToken, hashToken } = require("../utils/passwordSetup");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
 const { isFeatureEnabled } = require("../utils/features");
 const { DEFAULT_TRIP_REQUIREMENT_TEMPLATE } = require("../utils/defaultTripRequirementTemplate");
+const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
 
 const router = express.Router();
@@ -220,22 +221,13 @@ router.get("/me", requireAuth, async (req, res, next) => {
 // Self-service password change — requires knowing the current password,
 // unlike the admin-only reset in routes/users.js.
 //
-// #329 Finding 2: a Trip Leader scoped guest (role: "tripLeader") is
-// fully admin-managed, not self-service -- AdminSidebar.jsx's
-// TripLeaderSidebar deliberately renders no "My Account" link, and
-// AdminLayout.jsx's own route guard already redirects a tripLeader away
-// from /admin/account entirely (both predate this fix and already
-// documented the intended policy; the backend just hadn't caught up).
-// This was the one surface where that policy actually disagreed: a
-// tripLeader who hit this endpoint directly (no UI route needed one) got
-// a real password change. Blocked here instead of requiring a
-// password-setup-link resend from an admin, the same way their account
-// got set up in the first place.
+//
+// #356: a guest may change their own password here, like every other role.
+// #329 Finding 2 had blocked it while the Trip Leader tier was fully
+// admin-managed; guests now get a "My account" page (password and MFA
+// self-service), so the backend no longer disagrees with the UI.
 router.post("/change-password", requireAuth, async (req, res, next) => {
   try {
-    if (req.user.role === "tripLeader") {
-      return res.status(403).json({ error: "Insufficient permissions" });
-    }
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: "Current and new password are required" });
@@ -371,19 +363,6 @@ router.post("/password-setup/request", async (req, res) => {
 // abandoned setup attempt never leaves the account half-configured.
 router.post("/mfa/setup", requireAuthOrMfaSetup, async (req, res, next) => {
   try {
-    // #329 Finding 2: voluntary self-service enrollment (a real session,
-    // req.user.role === "tripLeader") is the one disallowed path here --
-    // same "fully admin-managed, not self-service" policy as
-    // change-password above. A forced-setup token (req.user = { id,
-    // mfaSetup: true }, no role claim at all -- see signMfaSetupToken)
-    // must still work regardless of role: an admin can require MFA on a
-    // tripLeader account (AdminUserForm.jsx's "Require two-factor
-    // authentication at first sign-in" checkbox is unconditional), and
-    // that first-sign-in enrollment is mandatory, not voluntary, so it's
-    // never blocked here.
-    if (req.user.role === "tripLeader") {
-      return res.status(403).json({ error: "Insufficient permissions" });
-    }
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
     if (!user || user.authProvider !== "local") {
       return res.status(400).json({ error: "MFA is only available for local accounts" });
@@ -414,12 +393,6 @@ router.post("/mfa/setup", requireAuthOrMfaSetup, async (req, res, next) => {
 // is what actually lets the user in once they've enrolled.
 router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) => {
   try {
-    // #329 Finding 2: same voluntary-vs-forced distinction as /mfa/setup
-    // above -- only blocks a real session whose role is tripLeader, not a
-    // forced-setup token (no role claim) completing mandatory enrollment.
-    if (req.user.role === "tripLeader") {
-      return res.status(403).json({ error: "Insufficient permissions" });
-    }
     const { token } = req.body;
     if (!token) return res.status(400).json({ error: "Code is required" });
 
@@ -457,14 +430,16 @@ router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) =
 // Requires the current password (not just an active session) so a hijacked
 // browser tab can't silently strip MFA off the account.
 //
-// #329 Finding 2: same "fully admin-managed, not self-service" policy as
-// change-password/mfa-setup above -- an admin who needs to turn MFA off
-// a tripLeader account uses routes/users.js's own admin-side MFA reset
-// (POST /api/users/:id/mfa/reset) instead of this self-service endpoint.
+// #356: MFA is required for a guest (their account is created with
+// mfaSetupRequired), so unlike every other role a guest enrols and
+// re-enrols from "My account" but cannot switch it off -- an admin who
+// needs to clear a lost authenticator uses routes/users.js's admin-side
+// MFA reset (POST /api/users/:id/mfa/reset), after which the guest must
+// enrol again at next sign-in.
 router.post("/mfa/disable", requireAuth, async (req, res, next) => {
   try {
-    if (req.user.role === "tripLeader") {
-      return res.status(403).json({ error: "Insufficient permissions" });
+    if (req.user.role === "guest") {
+      return res.status(403).json({ error: "Two-factor authentication is required for guest accounts" });
     }
     const { password } = req.body;
     if (!password) return res.status(400).json({ error: "Current password is required" });
@@ -707,38 +682,70 @@ async function sanitizeUser(user) {
     });
     partnerIds = rows.map((r) => r.partnerId);
   }
-  // Trip Leader guest tier only -- a short label for the sidebar's own
-  // minimal nav (AdminSidebar.jsx), not the full Trip record. Looked up
-  // here rather than left for the frontend to fetch separately, since a
-  // tripLeader has no route that would otherwise ever hand them this.
-  // partnerId/partnerLabel let that same sidebar link to the one Partner
-  // a tripLeader may read (Trip.partnerId is optional -- a trip with no
-  // linked partner yet means no such link to show).
-  let scopedTrip = null;
-  if (user.scopedTripId) {
-    const trip = await prisma.trip.findUnique({
-      where: { id: user.scopedTripId },
-      select: {
-        id: true,
-        name: true,
-        type: true,
-        partnerId: true,
-        partner: { select: { displayName: true, fieldDisplayName: true } },
-      },
+  // Guest tier only -- the trips their active grants reach, as short
+  // labels for the sidebar's own minimal nav (AdminSidebar.jsx), not full
+  // Trip records. Looked up here rather than left for the frontend to
+  // fetch separately, since a guest has no route that would otherwise
+  // ever hand them this. partnerId/partnerLabel let that same sidebar
+  // link to the Partner each trip belongs to (Trip.partnerId is optional
+  // -- a trip with no linked partner yet means no such link to show).
+  //
+  // #356: partnerLabel prefers displayName over fieldDisplayName. The
+  // sidebar used to show the field alias while the partner page it links
+  // to shows the real name, so the link and its destination disagreed.
+  let guestTrips = [];
+  // The partners this login is on the care team of (#289) -- [{ id, label,
+  // isLead }] -- for every role: a full role gets the marker and the
+  // "Assigned to me" view, a guest also reaches the partner through it, and
+  // any non-staff member may submit prayers/needs for it. Empty while the
+  // careTeam feature is off, since seats are ignored then.
+  let careTeamSeats = [];
+  if (user.role === "guest") {
+    const grants = (await listTripGrants(user.id)).filter((g) => g.active);
+    const partners = await prisma.partner.findMany({
+      where: { id: { in: grants.map((g) => g.trip.partnerId).filter(Boolean) } },
+      select: { id: true, displayName: true, fieldDisplayName: true },
     });
-    if (trip) {
-      scopedTrip = {
-        id: trip.id,
-        label:
-          trip.name ||
-          trip.type ||
-          trip.partner?.fieldDisplayName ||
-          trip.partner?.displayName ||
-          "Your trip",
-        partnerId: trip.partnerId,
-        partnerLabel: trip.partner?.fieldDisplayName || trip.partner?.displayName || null,
+    const partnerById = new Map(partners.map((p) => [p.id, p]));
+    guestTrips = grants.map((g) => {
+      const partner = partnerById.get(g.trip.partnerId);
+      const partnerLabel = partner?.displayName || partner?.fieldDisplayName || null;
+      return {
+        id: g.tripId,
+        label: g.trip.name || g.trip.type || partnerLabel || "Your trip",
+        partnerId: g.trip.partnerId,
+        partnerLabel,
+        expiresAt: g.effectiveExpiresAt,
       };
+    });
+  }
+  if (await isCareTeamEnabled()) {
+    const seats = await prisma.careTeamMember.findMany({
+      where: { userId: user.id },
+      select: { isLead: true, partner: { select: { id: true, displayName: true, fieldDisplayName: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+    careTeamSeats = seats.map((s) => ({
+      id: s.partner.id,
+      label: s.partner.displayName || s.partner.fieldDisplayName || "Partner",
+      isLead: s.isLead,
+    }));
+  }
+  // Every trip a guest may OPEN: the ones they hold a grant for (read and
+  // write) plus, through a care team seat, every trip of that partner (read
+  // only, #289). The frontend's route guard uses this so a guest is only ever
+  // sent to pages the server will actually show them.
+  let guestReadTripIds = [];
+  if (user.role === "guest") {
+    const ids = new Set(guestTrips.map((t) => t.id));
+    if (careTeamSeats.length > 0) {
+      const viaSeats = await prisma.trip.findMany({
+        where: { partnerId: { in: careTeamSeats.map((s) => s.id) } },
+        select: { id: true },
+      });
+      viaSeats.forEach((t) => ids.add(t.id));
     }
+    guestReadTripIds = [...ids];
   }
   return {
     id: user.id,
@@ -751,8 +758,9 @@ async function sanitizeUser(user) {
     cadence: user.cadence,
     allPartners: user.allPartners,
     followedPartnerIds: partnerIds,
-    scopedTripId: user.scopedTripId,
-    scopedTrip,
+    guestTrips,
+    guestReadTripIds,
+    careTeamSeats,
   };
 }
 

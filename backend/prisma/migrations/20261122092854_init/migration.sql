@@ -16,8 +16,10 @@ CREATE TABLE "Partner" (
     "overviewShort" TEXT,
     "focusArea" TEXT,
     "supportingSince" DATE,
+    "lastPrayedWithCongregationAt" DATE,
     "preferredContactMethod" TEXT,
     "contactSafe" BOOLEAN NOT NULL DEFAULT true,
+    "contactInstructions" TEXT,
     "sentByOurChurch" BOOLEAN NOT NULL DEFAULT false,
     "contactFirstName" TEXT,
     "contactLastName" TEXT,
@@ -50,6 +52,7 @@ CREATE TABLE "Adult" (
     "phone2" TEXT,
     "email" TEXT,
     "birthday" DATE,
+    "isPrimaryContact" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Adult_pkey" PRIMARY KEY ("id")
@@ -117,7 +120,6 @@ CREATE TABLE "TripParticipant" (
     "firstName" TEXT,
     "lastName" TEXT,
     "role" TEXT,
-    "isLeader" BOOLEAN NOT NULL DEFAULT false,
     "phone" TEXT,
     "email" TEXT,
     "applicationId" TEXT,
@@ -336,6 +338,39 @@ CREATE TABLE "ChurchVisit" (
 );
 
 -- CreateTable
+CREATE TABLE "ContactLog" (
+    "id" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "contactType" TEXT NOT NULL,
+    "direction" TEXT NOT NULL,
+    "topics" TEXT[],
+    "contactedById" TEXT,
+    "createdById" TEXT,
+    "contactDate" DATE NOT NULL,
+    "notes" TEXT,
+    "followUpDate" DATE,
+    "prayerRequestId" TEXT,
+    "supportNeedId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ContactLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "KeyDateReminder" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "kind" TEXT NOT NULL,
+    "subjectId" TEXT NOT NULL DEFAULT '',
+    "occurrenceDate" DATE NOT NULL,
+    "sentAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "KeyDateReminder_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "PartnerLink" (
     "id" TEXT NOT NULL,
     "partnerId" TEXT NOT NULL,
@@ -398,6 +433,33 @@ CREATE TABLE "SupportEntry" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "SupportEntry_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SavedReport" (
+    "id" TEXT NOT NULL,
+    "reportId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "params" JSONB NOT NULL,
+    "shared" BOOLEAN NOT NULL DEFAULT false,
+    "ownerId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SavedReport_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ReportSchedule" (
+    "id" TEXT NOT NULL,
+    "savedReportId" TEXT NOT NULL,
+    "cadence" TEXT NOT NULL,
+    "recipientIds" TEXT[],
+    "skipIfEmpty" BOOLEAN NOT NULL DEFAULT true,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "lastSentAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ReportSchedule_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -471,6 +533,7 @@ CREATE TABLE "InboundEmail" (
     "subject" TEXT,
     "fileName" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "queueReason" TEXT,
 
     CONSTRAINT "InboundEmail_pkey" PRIMARY KEY ("id")
 );
@@ -505,6 +568,7 @@ CREATE TABLE "DispatchRecord" (
     "dispatchReviewedAt" TIMESTAMP(3),
     "dispatchReviewedById" TEXT,
     "dispatchReviewedText" TEXT,
+    "reviewRequired" BOOLEAN NOT NULL DEFAULT false,
     "biweeklyEmailDispatchSentAt" TIMESTAMP(3),
     "monthlyEmailDispatchSentAt" TIMESTAMP(3),
     "quarterlyEmailDispatchSentAt" TIMESTAMP(3),
@@ -585,6 +649,7 @@ CREATE TABLE "ChurchSettings" (
     "whatsappNewsletterGroupName" TEXT,
     "joshuaProjectApiKey" TEXT,
     "anthropicApiKey" TEXT,
+    "extractionModel" TEXT,
     "postmarkServerToken" TEXT,
     "emailFromAddress" TEXT,
     "inboundEmailWebhookUsername" TEXT,
@@ -605,9 +670,14 @@ CREATE TABLE "ChurchSettings" (
     "chatDispatchOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
     "chatDispatchNewsletters" BOOLEAN NOT NULL DEFAULT true,
     "allowRestrictedPartnerDispatch" BOOLEAN NOT NULL DEFAULT false,
+    "restrictedPartnerInitialsEnabled" BOOLEAN NOT NULL DEFAULT true,
+    "defaultCareLeadUserId" TEXT,
     "emailDispatchSubjectTemplate" TEXT,
     "emailDispatchSignature" TEXT,
     "emailDispatchLayout" TEXT,
+    "cadenceBiweeklyEnabled" BOOLEAN NOT NULL DEFAULT false,
+    "cadenceMonthlyEnabled" BOOLEAN NOT NULL DEFAULT true,
+    "cadenceQuarterlyEnabled" BOOLEAN NOT NULL DEFAULT true,
     "onlineGivingUrl" TEXT,
     "onlineGivingInstructions" TEXT,
     "collectDonorContactInfo" BOOLEAN NOT NULL DEFAULT false,
@@ -648,8 +718,7 @@ CREATE TABLE "User" (
     "active" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "lastLoginAt" TIMESTAMP(3),
-    "scopedTripId" TEXT,
-    "expiresAt" TIMESTAMP(3),
+    "sessionVersion" INTEGER NOT NULL DEFAULT 0,
     "mfaEnabled" BOOLEAN NOT NULL DEFAULT false,
     "mfaSecret" TEXT,
     "mfaLastTimeStep" INTEGER,
@@ -658,6 +727,29 @@ CREATE TABLE "User" (
     "allPartners" BOOLEAN NOT NULL DEFAULT true,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PasswordSetupToken" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "usedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PasswordSetupToken_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TripAccess" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "tripId" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TripAccess_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -675,6 +767,17 @@ CREATE TABLE "UserFollowedPartner" (
     "partnerId" TEXT NOT NULL,
 
     CONSTRAINT "UserFollowedPartner_pkey" PRIMARY KEY ("userId","partnerId")
+);
+
+-- CreateTable
+CREATE TABLE "CareTeamMember" (
+    "id" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "isLead" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CareTeamMember_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -799,6 +902,21 @@ CREATE INDEX "Furlough_partnerId_idx" ON "Furlough"("partnerId");
 CREATE INDEX "ChurchVisit_partnerId_idx" ON "ChurchVisit"("partnerId");
 
 -- CreateIndex
+CREATE INDEX "ContactLog_partnerId_contactDate_idx" ON "ContactLog"("partnerId", "contactDate");
+
+-- CreateIndex
+CREATE INDEX "ContactLog_contactedById_idx" ON "ContactLog"("contactedById");
+
+-- CreateIndex
+CREATE INDEX "ContactLog_followUpDate_idx" ON "ContactLog"("followUpDate");
+
+-- CreateIndex
+CREATE INDEX "KeyDateReminder_partnerId_idx" ON "KeyDateReminder"("partnerId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "KeyDateReminder_userId_partnerId_kind_subjectId_occurrenceD_key" ON "KeyDateReminder"("userId", "partnerId", "kind", "subjectId", "occurrenceDate");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "PartnerLink_partnerId_type_key" ON "PartnerLink"("partnerId", "type");
 
 -- CreateIndex
@@ -812,6 +930,15 @@ CREATE UNIQUE INDEX "SendingParty_partnerId_type_key" ON "SendingParty"("partner
 
 -- CreateIndex
 CREATE INDEX "SupportEntry_partnerId_idx" ON "SupportEntry"("partnerId");
+
+-- CreateIndex
+CREATE INDEX "SavedReport_ownerId_idx" ON "SavedReport"("ownerId");
+
+-- CreateIndex
+CREATE INDEX "SavedReport_reportId_idx" ON "SavedReport"("reportId");
+
+-- CreateIndex
+CREATE INDEX "ReportSchedule_savedReportId_idx" ON "ReportSchedule"("savedReportId");
 
 -- CreateIndex
 CREATE INDEX "SupportNeed_partnerId_idx" ON "SupportNeed"("partnerId");
@@ -844,7 +971,28 @@ CREATE INDEX "Photo_partnerId_idx" ON "Photo"("partnerId");
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "PasswordSetupToken_tokenHash_key" ON "PasswordSetupToken"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "PasswordSetupToken_userId_idx" ON "PasswordSetupToken"("userId");
+
+-- CreateIndex
+CREATE INDEX "PasswordSetupToken_expiresAt_idx" ON "PasswordSetupToken"("expiresAt");
+
+-- CreateIndex
+CREATE INDEX "TripAccess_tripId_idx" ON "TripAccess"("tripId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TripAccess_userId_tripId_key" ON "TripAccess"("userId", "tripId");
+
+-- CreateIndex
 CREATE INDEX "UserFollowedPartner_partnerId_idx" ON "UserFollowedPartner"("partnerId");
+
+-- CreateIndex
+CREATE INDEX "CareTeamMember_userId_idx" ON "CareTeamMember"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "CareTeamMember_partnerId_userId_key" ON "CareTeamMember"("partnerId", "userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "PublicSubscriber_email_key" ON "PublicSubscriber"("email");
@@ -931,6 +1079,21 @@ ALTER TABLE "Furlough" ADD CONSTRAINT "Furlough_partnerId_fkey" FOREIGN KEY ("pa
 ALTER TABLE "ChurchVisit" ADD CONSTRAINT "ChurchVisit_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "ContactLog" ADD CONSTRAINT "ContactLog_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ContactLog" ADD CONSTRAINT "ContactLog_contactedById_fkey" FOREIGN KEY ("contactedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ContactLog" ADD CONSTRAINT "ContactLog_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "KeyDateReminder" ADD CONSTRAINT "KeyDateReminder_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "KeyDateReminder" ADD CONSTRAINT "KeyDateReminder_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "PartnerLink" ADD CONSTRAINT "PartnerLink_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -944,6 +1107,12 @@ ALTER TABLE "SendingParty" ADD CONSTRAINT "SendingParty_partnerId_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "SupportEntry" ADD CONSTRAINT "SupportEntry_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SavedReport" ADD CONSTRAINT "SavedReport_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ReportSchedule" ADD CONSTRAINT "ReportSchedule_savedReportId_fkey" FOREIGN KEY ("savedReportId") REFERENCES "SavedReport"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SupportNeed" ADD CONSTRAINT "SupportNeed_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -976,10 +1145,19 @@ ALTER TABLE "Photo" ADD CONSTRAINT "Photo_partnerId_fkey" FOREIGN KEY ("partnerI
 ALTER TABLE "PhotoBytes" ADD CONSTRAINT "PhotoBytes_id_fkey" FOREIGN KEY ("id") REFERENCES "Photo"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "ChurchSettings" ADD CONSTRAINT "ChurchSettings_defaultCareLeadUserId_fkey" FOREIGN KEY ("defaultCareLeadUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "ChurchSettingsLogo" ADD CONSTRAINT "ChurchSettingsLogo_id_fkey" FOREIGN KEY ("id") REFERENCES "ChurchSettings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "User" ADD CONSTRAINT "User_scopedTripId_fkey" FOREIGN KEY ("scopedTripId") REFERENCES "Trip"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "PasswordSetupToken" ADD CONSTRAINT "PasswordSetupToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TripAccess" ADD CONSTRAINT "TripAccess_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TripAccess" ADD CONSTRAINT "TripAccess_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "Trip"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "NotificationSeen" ADD CONSTRAINT "NotificationSeen_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -989,6 +1167,12 @@ ALTER TABLE "UserFollowedPartner" ADD CONSTRAINT "UserFollowedPartner_userId_fke
 
 -- AddForeignKey
 ALTER TABLE "UserFollowedPartner" ADD CONSTRAINT "UserFollowedPartner_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CareTeamMember" ADD CONSTRAINT "CareTeamMember_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CareTeamMember" ADD CONSTRAINT "CareTeamMember_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PublicSubscriberPartner" ADD CONSTRAINT "PublicSubscriberPartner_subscriberId_fkey" FOREIGN KEY ("subscriberId") REFERENCES "PublicSubscriber"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1003,68 +1187,10 @@ ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSeg
 ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSegmentToTripParticipant_B_fkey" FOREIGN KEY ("B") REFERENCES "TripParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 
--- CreateTable
-CREATE TABLE "PasswordSetupToken" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "tokenHash" TEXT NOT NULL,
-    "expiresAt" TIMESTAMP(3) NOT NULL,
-    "usedAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+-- At most one lead per partner. Prisma's schema language can't express a
+-- partial unique index, so it is added by hand here (the route enforces the
+-- same rule; this makes the database refuse a second lead too).
+CREATE UNIQUE INDEX "CareTeamMember_one_lead_per_partner" ON "CareTeamMember"("partnerId") WHERE "isLead";
 
-    CONSTRAINT "PasswordSetupToken_pkey" PRIMARY KEY ("id")
-);
-
--- CreateIndex
-CREATE UNIQUE INDEX "PasswordSetupToken_tokenHash_key" ON "PasswordSetupToken"("tokenHash");
-
--- CreateIndex
-CREATE INDEX "PasswordSetupToken_userId_idx" ON "PasswordSetupToken"("userId");
-
--- CreateIndex
-CREATE INDEX "PasswordSetupToken_expiresAt_idx" ON "PasswordSetupToken"("expiresAt");
-
--- AddForeignKey
-ALTER TABLE "PasswordSetupToken" ADD CONSTRAINT "PasswordSetupToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- CreateTable
-CREATE TABLE "SavedReport" (
-    "id" TEXT NOT NULL,
-    "reportId" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "params" JSONB NOT NULL,
-    "shared" BOOLEAN NOT NULL DEFAULT false,
-    "ownerId" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "SavedReport_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "ReportSchedule" (
-    "id" TEXT NOT NULL,
-    "savedReportId" TEXT NOT NULL,
-    "cadence" TEXT NOT NULL,
-    "recipientIds" TEXT[],
-    "skipIfEmpty" BOOLEAN NOT NULL DEFAULT true,
-    "active" BOOLEAN NOT NULL DEFAULT true,
-    "lastSentAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "ReportSchedule_pkey" PRIMARY KEY ("id")
-);
-
--- CreateIndex
-CREATE INDEX "SavedReport_ownerId_idx" ON "SavedReport"("ownerId");
-
--- CreateIndex
-CREATE INDEX "SavedReport_reportId_idx" ON "SavedReport"("reportId");
-
--- CreateIndex
-CREATE INDEX "ReportSchedule_savedReportId_idx" ON "ReportSchedule"("savedReportId");
-
--- AddForeignKey
-ALTER TABLE "SavedReport" ADD CONSTRAINT "SavedReport_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ReportSchedule" ADD CONSTRAINT "ReportSchedule_savedReportId_fkey" FOREIGN KEY ("savedReportId") REFERENCES "SavedReport"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- At most one primary contact per partner (same reason as above).
+CREATE UNIQUE INDEX "Adult_one_primary_contact_per_partner" ON "Adult"("partnerId") WHERE "isPrimaryContact";

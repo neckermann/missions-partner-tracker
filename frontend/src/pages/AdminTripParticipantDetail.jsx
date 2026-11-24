@@ -15,11 +15,11 @@ import { formatDate, isMinorForTrip } from "../utils/format.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
-import StatusPill from "../components/admin/StatusPill.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import GiveGuestAccessModal from "../components/admin/GiveGuestAccessModal.jsx";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -45,16 +45,17 @@ function readFileAsDataUrl(file) {
 // the same explicit edit -> save/cancel boundary.
 export default function AdminTripParticipantDetail() {
   const { tripId, participantId } = useParams();
-  const { canWrite: globalCanWrite, isTripLeader, scopedTripId } = useCurrentUser();
+  const { canWrite: globalCanWrite, isGuest, isAdmin, canAccessTrip } = useCurrentUser();
   // Mirrors TripDetailLayout.jsx's own canWrite -- this page is a sibling
   // route, not nested under that layout's Outlet, so it can't inherit its
   // context and has to repeat the same scope check here.
-  const canWrite = globalCanWrite || (isTripLeader && tripId === scopedTripId);
+  const canWrite = globalCanWrite || canAccessTrip(tripId);
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [trip, setTrip] = useState(null);
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState("");
-  const [manualAccessLink, setManualAccessLink] = useState(null); // { url } | null
+  const [manualAccessLink, setManualAccessLink] = useState(null); // { email?, url } | null
+  const [showGuestAccess, setShowGuestAccess] = useState(false);
   const [docFile, setDocFile] = useState(null);
   const [docRequirementChoice, setDocRequirementChoice] = useState("");
 
@@ -139,6 +140,19 @@ export default function AdminTripParticipantDetail() {
     reload();
   }
 
+  async function handleGuestAccessCreated(created) {
+    setError("");
+    // Outbound email off: the account exists but nobody was emailed, so show
+    // the one-time setup link right here, next to the action that made it.
+    if (created.welcomeEmail?.manualSetupUrl) {
+      setManualAccessLink({ email: created.email, url: created.welcomeEmail.manualSetupUrl });
+    } else if (created.welcomeEmail && !created.welcomeEmail.sent && !created.welcomeEmail.skipped) {
+      setError(
+        `${created.email} now has guest access, but the welcome email couldn't be sent (${created.welcomeEmail.error}). Use "Send setup link" on their row in Manage Users to try again.`
+      );
+    }
+  }
+
   async function handleResendAccessLink() {
     try {
       const result = await resendParticipantAccessLink(participantId);
@@ -199,11 +213,11 @@ export default function AdminTripParticipantDetail() {
   return (
     <div className="admin-shell">
       <Breadcrumb
-        // A Trip Leader has no access to the Partners directory or a
+        // A guest has no access to the Partners directory or a
         // cross-trip "Trips" list -- same reasoning as TripDetailLayout.jsx's
         // identically-trimmed breadcrumb.
         items={
-          isTripLeader
+          isGuest
             ? [
                 ...(trip.partner?.id
                   ? [
@@ -253,7 +267,6 @@ export default function AdminTripParticipantDetail() {
           email: participant.email || "",
           phone: participant.phone || "",
           role: participant.role || "",
-          isLeader: !!participant.isLeader,
           addressLine1: participant.addressLine1 || "",
           addressLine2: participant.addressLine2 || "",
           city: participant.city || "",
@@ -278,7 +291,6 @@ export default function AdminTripParticipantDetail() {
             email: draft.email.trim() || null,
             phone: draft.phone.trim() || null,
             role: draft.role.trim() || null,
-            isLeader: draft.isLeader,
             addressLine1: draft.addressLine1.trim() || null,
             addressLine2: draft.addressLine2.trim() || null,
             city: draft.city.trim() || null,
@@ -303,6 +315,16 @@ export default function AdminTripParticipantDetail() {
               <button type="button" className="btn secondary small" onClick={handleResendAccessLink}>
                 Resend access link
               </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  onClick={() => setShowGuestAccess(true)}
+                  title="Create a guest login for this trip"
+                >
+                  Give guest access
+                </button>
+              )}
               {settings?.allowPublicSupportRaisingLinks && (
                 <button
                   type="button"
@@ -325,12 +347,6 @@ export default function AdminTripParticipantDetail() {
               <ViewField label="Email" value={v.email} />
               <ViewField label="Phone" value={v.phone} />
               <ViewField label="Role" value={v.role} />
-              <ViewField
-                label="Team Leader"
-                value={
-                  <StatusPill label={v.isLeader ? "Yes" : "No"} color={v.isLeader ? "#2a5d3c" : "#6b6f76"} />
-                }
-              />
             </div>
             <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Address</h4>
             <div className="form-grid">
@@ -388,15 +404,6 @@ export default function AdminTripParticipantDetail() {
                   placeholder="e.g. Medical, Construction, Translator"
                   onChange={(e) => set("role", e.target.value)}
                 />
-              </label>
-              <label style={{ flexDirection: "row", alignItems: "center", gap: "0.4rem" }}>
-                <input
-                  type="checkbox"
-                  style={{ width: "auto" }}
-                  checked={draft.isLeader}
-                  onChange={(e) => set("isLeader", e.target.checked)}
-                />
-                Team Leader
               </label>
             </div>
             <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Address</h4>
@@ -761,6 +768,14 @@ export default function AdminTripParticipantDetail() {
           </>
         )}
       </div>
+      {showGuestAccess && (
+        <GiveGuestAccessModal
+          tripId={tripId}
+          participant={participant}
+          onClose={() => setShowGuestAccess(false)}
+          onCreated={handleGuestAccessCreated}
+        />
+      )}
       {confirmElement}
     </div>
   );

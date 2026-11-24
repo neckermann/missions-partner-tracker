@@ -1015,14 +1015,13 @@ function buildTrips(participantNamePool) {
     const start = dateBetween(4, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + randInt(5, 12));
-    const participants = pickN(participantNamePool, randInt(2, 5)).map((name, idx) => {
+    const participants = pickN(participantNamePool, randInt(2, 5)).map((name) => {
       const [firstName, ...rest] = name.split(" ");
       const lastName = rest.join(" ") || null;
       return {
         firstName,
         lastName,
         role: pick(TRIP_ROLES),
-        isLeader: idx === 0,
         // Always populated now, not a coin flip -- a historical,
         // already-completed trip's team is exactly the kind of record
         // a real admin would have on file in full; "sometimes missing"
@@ -1540,7 +1539,6 @@ async function seedTripsDemo() {
       lastName: "Krishnan",
       email: "priya.krishnan@example.org",
       role: "Team Lead",
-      isLeader: true,
       supportRaisingGoal: 1200,
       shareToken: generateShareToken(),
       story: "I'm excited to serve this summer and would love your support!",
@@ -1964,7 +1962,6 @@ async function seedTripsDemo() {
           {
             firstName: "Marcus",
             lastName: "Thibodeaux",
-            isLeader: true,
             email: "marcus.t@example.org",
             supportRaisingGoal: 900,
             shareToken: generateShareToken(),
@@ -2300,7 +2297,6 @@ async function seedTripsDemo() {
       email: "rachel.nguyen@example.org",
       phone: fakePhone(),
       role: "Team Lead",
-      isLeader: true,
       dateOfBirth: dateYearsAgo(34, 10),
       ...fakeUsAddress(),
       ...fakeEmergencyContact("Nguyen"),
@@ -2578,6 +2574,9 @@ async function seedTripsDemo() {
         oneTimeNeeds: true,
         monthlySupport: true,
         trips: true,
+        careTeam: true,
+        contactLog: true,
+        keyDates: true,
         publicTripDiscovery: true,
         booklet: true,
         reports: true,
@@ -2799,6 +2798,433 @@ async function seedNotificationQueue() {
     include: { partner: { select: partnerSelect } },
   });
   if (newsletter) await notifyNewsletterCreated(newsletter);
+}
+
+// ---------------------------------------------------------------------
+// Care teams and guest accounts (#289, #356) -- so the demo sites show the
+// whole care-team goal, not an empty feature. Demo-extras only (like the other
+// seeders above): the route-test database assumes nothing but its own fixtures
+// touched User/DispatchRecord.
+//
+// Two demo logins are PUBLISHED (demo/README.md), the same way the demo admin's
+// is: a care team member and a trip leader. They are the one exception to
+// "MFA is required for a guest" -- a shared, published account can't enrol an
+// authenticator without locking every other visitor out, so these two are
+// created with mfaSetupRequired off (the API/Add User path always forces it
+// on). Everything else seeded here is a populate-the-list account nobody logs
+// into, with the fixed fake password the other additional users use.
+// ---------------------------------------------------------------------
+// Defined once in src/utils/demoLogins.js, which the demo banner also reads.
+const { demoCareMemberEmail, demoTripLeaderEmail, demoGuestPassword } = require("../src/utils/demoLogins");
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+async function seedCareTeamsDemo() {
+  console.log("Seeding care teams and guest accounts...");
+  const bcrypt = require("bcryptjs");
+  const {
+    notifyPrayerRequestCreated,
+    notifyPrayerRequestAnswered,
+    notifySupportNeedCreated,
+  } = require("../src/utils/dispatchRecording");
+  const publishedHash = await bcrypt.hash(demoGuestPassword(), 12);
+  const fakeHash = await bcrypt.hash("SeedDemoUser2026!", 12);
+
+  const makeGuest = (email, firstName, lastName, { published, lapsed }) =>
+    prisma.user.upsert({
+      where: { email },
+      update: {},
+      create: {
+        email,
+        firstName,
+        lastName,
+        passwordHash: published ? publishedHash : fakeHash,
+        role: "guest",
+        authProvider: "local",
+        active: true,
+        mfaSetupRequired: !published,
+        lastLoginAt: lapsed ? null : dateBetween(0, 0),
+      },
+    });
+  const careMember = await makeGuest(demoCareMemberEmail(), "Dana", "Whitfield", { published: true });
+  const tripLeader = await makeGuest(demoTripLeaderEmail(), "Chris", "Alvarez", { published: true });
+  const lapsedGuest = await makeGuest("sam.okafor@example.org", "Sam", "Okafor", { lapsed: true });
+
+  // The editor and viewer seedAdditionalUsers already made: a full role can be
+  // on a team too (the marker and view, never extra reach).
+  const editor = await prisma.user.findFirst({ where: { firstName: "Pat", lastName: "Reynolds" } });
+  const viewer = await prisma.user.findFirst({ where: { firstName: "Casey", lastName: "Nguyen" } });
+
+  // Variety for the coverage report: covered, members-but-no-lead, no team.
+  const partners = await prisma.partner.findMany({
+    where: { archived: false, isRestricted: false },
+    orderBy: { displayName: "asc" },
+    take: 10,
+    select: { id: true, displayName: true },
+  });
+  const team = async (partner, lead, members) => {
+    if (!partner) return;
+    const seats = [
+      ...(lead ? [{ user: lead, isLead: true }] : []),
+      ...members.map((user) => ({ user, isLead: false })),
+    ];
+    for (const { user, isLead } of seats.filter((x) => x.user)) {
+      await prisma.careTeamMember.upsert({
+        where: { partnerId_userId: { partnerId: partner.id, userId: user.id } },
+        update: { isLead },
+        create: { partnerId: partner.id, userId: user.id, isLead },
+      });
+    }
+  };
+  await team(partners[0], careMember, [viewer]);
+  await team(partners[1], editor, [careMember]);
+  await team(partners[2], careMember, []);
+  await team(partners[3], null, [editor]); // members, no lead
+  await team(partners[4], editor, [viewer]);
+  await team(partners[5], null, [careMember]); // members, no lead
+  // partners[6..9] are left with no care team, so the coverage report has gaps.
+
+  // Trip leader: one granted trip. Expiry is derived from the trip's end date
+  // + 30 days, so give them a trip that hasn't ended. The lapsed guest gets a
+  // trip with an explicit past override, so the "Inactive accounts" filter has
+  // a real example whatever the demo's dates are.
+  const upcomingTrip = await prisma.trip.findFirst({
+    where: { endDate: { gte: new Date() }, status: { not: "completed" } },
+    orderBy: { startDate: "asc" },
+  });
+  const pastTrip = await prisma.trip.findFirst({
+    where: { status: "completed" },
+    orderBy: { endDate: "desc" },
+  });
+  if (upcomingTrip) {
+    await prisma.tripAccess.upsert({
+      where: { userId_tripId: { userId: tripLeader.id, tripId: upcomingTrip.id } },
+      update: {},
+      create: { userId: tripLeader.id, tripId: upcomingTrip.id },
+    });
+  }
+  const lapsedTrip = pastTrip || upcomingTrip;
+  if (lapsedTrip) {
+    await prisma.tripAccess.upsert({
+      where: { userId_tripId: { userId: lapsedGuest.id, tripId: lapsedTrip.id } },
+      update: {},
+      create: { userId: lapsedGuest.id, tripId: lapsedTrip.id, expiresAt: new Date(Date.now() - 5 * DAY_MS) },
+    });
+  }
+
+  // A few things the care team member "entered", each with its dispatch held
+  // for staff review -- so Pending Dispatches shows the approval flow. Goes
+  // through the real notify* functions with requireReview, like the routes do,
+  // so a seeded row is exactly what a real entry produces.
+  const target = partners[0];
+  if (target) {
+    const include = {
+      partner: { select: { id: true, displayName: true, isRestricted: true } },
+      sourceFile: { select: { id: true } },
+    };
+    const today = new Date();
+    const fresh = async (model, where) => !(await prisma[model].findFirst({ where }));
+    const prayerText =
+      "Their daughter starts at a new school next week and is nervous about the move. Please pray for a good first week.";
+    if (await fresh("prayerRequest", { partnerId: target.id, requestText: prayerText })) {
+      const created = await prisma.prayerRequest.create({
+        data: {
+          partnerId: target.id,
+          category: "situational",
+          requestText: prayerText,
+          dateReceived: today,
+          notes: "Heard on our Sunday call.",
+        },
+        include,
+      });
+      await notifyPrayerRequestCreated(created, null, { requireReview: true });
+    }
+    const answeredText = "Pray for the visa renewal to come through before the end of the month.";
+    if (await fresh("prayerRequest", { partnerId: target.id, requestText: answeredText })) {
+      const answered = await prisma.prayerRequest.create({
+        data: {
+          partnerId: target.id,
+          category: "situational",
+          requestText: answeredText,
+          dateReceived: new Date(Date.now() - 20 * DAY_MS),
+          status: "answered",
+          dateAnswered: today,
+          answeredNote: "The renewal was approved this week.",
+        },
+        include,
+      });
+      await notifyPrayerRequestAnswered(answered, { requireReview: true });
+    }
+    const needText = "Replace the laptop that was stolen on the field before the new term starts.";
+    if (await fresh("supportNeed", { partnerId: target.id, description: needText })) {
+      const need = await prisma.supportNeed.create({
+        data: {
+          partnerId: target.id,
+          description: needText,
+          requestedAmount: 850,
+          requestDate: today,
+          notes: "They asked whether the committee could help; no deadline beyond the term start.",
+        },
+        include,
+      });
+      await notifySupportNeedCreated(need, null, { requireReview: true });
+    }
+  }
+}
+
+// ---------------------------------------------------------------------
+// Contact log demo (#288): a believable history so the contact card, the log,
+// "Assigned to me" and the "Partners to reach out to" alert all have something
+// to show. Runs after seedCareTeamsDemo -- it reads the seats that made.
+// Demo extras only, like the other seeders.
+// ---------------------------------------------------------------------
+async function seedContactLogDemo() {
+  console.log("Seeding the contact log...");
+  const daysAgo = (n) => new Date(Date.now() - n * DAY_MS);
+  const careMember = await prisma.user.findUnique({ where: { email: demoCareMemberEmail() } });
+  const editor = await prisma.user.findFirst({ where: { firstName: "Pat", lastName: "Reynolds" } });
+  const admin = await prisma.user.findFirst({ where: { role: "admin" }, orderBy: { createdAt: "asc" } });
+
+  const seats = await prisma.careTeamMember.findMany({
+    include: { partner: { select: { id: true, displayName: true } } },
+    orderBy: [{ partner: { displayName: "asc" } }, { createdAt: "asc" }],
+  });
+  const byPartner = new Map();
+  for (const seat of seats) {
+    const list = byPartner.get(seat.partnerId) || [];
+    list.push(seat);
+    byPartner.set(seat.partnerId, list);
+  }
+  const teamPartners = [...byPartner.keys()];
+
+  const log = (partnerId, userId, daysBack, over) =>
+    prisma.contactLog.create({
+      data: {
+        partnerId,
+        contactType: "call",
+        direction: "outbound",
+        topics: [],
+        contactedById: userId,
+        createdById: userId,
+        contactDate: daysAgo(daysBack),
+        ...over,
+      },
+    });
+
+  // Spread across the care-team partners so each state appears: recently in
+  // touch, long quiet with a follow-up that has come due, and never contacted.
+  const plans = [
+    // [ index into teamPartners, entries as [daysBack, extra] ]
+    [
+      0,
+      [
+        [
+          4,
+          {
+            contactType: "video",
+            direction: "inbound",
+            topics: ["checkin"],
+            notes: "Caught up on the move; all settled in.",
+          },
+        ],
+        [31, { contactType: "text", topics: ["encouragement"] }],
+      ],
+    ],
+    [
+      1,
+      [
+        [
+          124,
+          {
+            contactType: "call",
+            topics: ["prayer"],
+            notes: "Asked us to pray about the school year.",
+            followUpDays: -20,
+          },
+        ],
+      ],
+    ],
+    [
+      2,
+      [
+        [
+          12,
+          { contactType: "card", topics: ["encouragement"], notes: "Sent a birthday card to the family." },
+        ],
+        [58, { contactType: "email", direction: "inbound", topics: ["update"] }],
+      ],
+    ],
+    // teamPartners[3] is left with no contact at all (never contacted).
+    [
+      4,
+      [[75, { contactType: "visit", topics: ["furlough"], notes: "Had them over for lunch on furlough." }]],
+    ],
+    [5, [[8, { contactType: "prayed", topics: ["prayer"], notes: "Prayed for them in our small group." }]]],
+  ];
+  for (const [idx, entries] of plans) {
+    const seatList = byPartner.get(teamPartners[idx]);
+    if (!seatList) continue;
+    const who = seatList.find((x) => x.isLead) || seatList[0];
+    for (const [daysBack, { followUpDays, ...extra }] of entries) {
+      await log(who.partnerId, who.userId, daysBack, {
+        ...extra,
+        ...(followUpDays !== undefined ? { followUpDate: daysAgo(-followUpDays) } : {}),
+      });
+    }
+  }
+
+  // The published care member has a couple of their own entries, so the
+  // demo opens with history under their name.
+  const mine = seats.find((x) => x.userId === careMember?.id);
+  if (mine) {
+    await log(mine.partnerId, careMember.id, 2, {
+      contactType: "text",
+      direction: "inbound",
+      topics: ["prayer"],
+      notes: "They texted a prayer request.",
+    });
+  }
+  // Staff-logged entries on a couple of partners nobody is assigned to.
+  const others = await prisma.partner.findMany({
+    where: { archived: false, isRestricted: false, id: { notIn: teamPartners } },
+    orderBy: { displayName: "asc" },
+    take: 3,
+    select: { id: true },
+  });
+  for (const [i, partner] of others.entries()) {
+    await log(partner.id, (i % 2 ? admin : editor)?.id || null, 10 + i * 40, { topics: ["checkin"] });
+  }
+
+  // A primary contact on the first adult of a handful of missionary families.
+  const families = await prisma.partner.findMany({
+    where: { kind: "missionary", archived: false, adults: { some: {} } },
+    orderBy: { displayName: "asc" },
+    take: 8,
+    select: { id: true, adults: { orderBy: { createdAt: "asc" }, take: 2, select: { id: true } } },
+  });
+  for (const f of families) {
+    // the second adult when there is one, so it isn't always the first
+    const adult = f.adults[f.adults.length - 1];
+    await prisma.adult.updateMany({ where: { partnerId: f.id }, data: { isPrimaryContact: false } });
+    await prisma.adult.update({ where: { id: adult.id }, data: { isPrimaryContact: true } });
+  }
+
+  // One partner who is not safe to contact, so the card's "special
+  // communication instructions" and the booklet's withholding are visible.
+  const sensitive = await prisma.partner.findFirst({
+    where: { kind: "missionary", archived: false, isRestricted: false, contactSafe: true },
+    orderBy: { displayName: "desc" },
+    select: { id: true },
+  });
+  if (sensitive) {
+    await prisma.partner.update({
+      where: { id: sensitive.id },
+      data: {
+        contactSafe: false,
+        contactInstructions:
+          "Please don't call or text. Email the family's sending organization, who will relay messages.",
+      },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
+// Key-date reminders demo (#291): birthdays landing inside the 7-day window so
+// the bell shows something the day a demo is reset, and a default lead so a
+// partner with no care team still has someone to tell. Dates are relative to
+// "now" (a fixed date would be stale by the next reset). Runs after the care
+// teams and contact log. Demo extras only.
+// ---------------------------------------------------------------------
+async function seedKeyDatesDemo() {
+  console.log("Seeding key-date reminders...");
+  const inDays = (n, yearsAgo) => {
+    const d = new Date();
+    return new Date(Date.UTC(d.getUTCFullYear() - yearsAgo, d.getUTCMonth(), d.getUTCDate() + n));
+  };
+  const careMember = await prisma.user.findUnique({ where: { email: demoCareMemberEmail() } });
+  const editor = await prisma.user.findFirst({ where: { firstName: "Pat", lastName: "Reynolds" } });
+
+  // A birthday in 3 days on a partner the published care member looks after.
+  const seat = careMember
+    ? await prisma.careTeamMember.findFirst({
+        where: { userId: careMember.id },
+        orderBy: { createdAt: "asc" },
+      })
+    : null;
+  if (seat) {
+    const adult = await prisma.adult.findFirst({
+      where: { partnerId: seat.partnerId },
+      orderBy: { createdAt: "asc" },
+    });
+    if (adult) await prisma.adult.update({ where: { id: adult.id }, data: { birthday: inDays(3, 41) } });
+  }
+
+  // A team-less partner with a birthday in 5 days: it goes to the default lead.
+  const teamed = await prisma.careTeamMember.findMany({ select: { partnerId: true } });
+  const teamless = await prisma.partner.findFirst({
+    where: {
+      kind: "missionary",
+      archived: false,
+      isRestricted: false,
+      id: { notIn: teamed.map((t) => t.partnerId) },
+      adults: { some: {} },
+    },
+    orderBy: { displayName: "asc" },
+    select: { id: true, adults: { take: 1, orderBy: { createdAt: "asc" }, select: { id: true } } },
+  });
+  if (teamless) {
+    await prisma.adult.update({ where: { id: teamless.adults[0].id }, data: { birthday: inDays(5, 36) } });
+  }
+
+  if (editor) {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { defaultCareLeadUserId: editor.id },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
+// Care team updates demo (#292): a decided need and an answered prayer on a
+// partner the published care member looks after, so "Updates to pass on to
+// partners" has something to show on the bell. Relative dates, like the other
+// demo seeders. Demo extras only; runs after the care teams and contact log.
+// ---------------------------------------------------------------------
+async function seedPartnerUpdatesDemo() {
+  console.log("Seeding care team updates...");
+  const careMember = await prisma.user.findUnique({ where: { email: demoCareMemberEmail() } });
+  if (!careMember) return;
+  const seat = await prisma.careTeamMember.findFirst({
+    where: { userId: careMember.id },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!seat) return;
+  const daysAgo = (n) => {
+    const d = new Date();
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - n));
+  };
+  await prisma.supportNeed.create({
+    data: {
+      partnerId: seat.partnerId,
+      description: "Help covering the cost of the family's annual residency renewal.",
+      requestedAmount: 600,
+      requestDate: daysAgo(14),
+      approvedAmount: 400,
+      approvedDate: daysAgo(2),
+      decisionNote:
+        "Funded in part from the missions committee's fund; the family may want to know the rest is theirs to raise.",
+    },
+  });
+  await prisma.prayerRequest.create({
+    data: {
+      partnerId: seat.partnerId,
+      category: "situational",
+      requestText: "Pray for their daughter's health as she recovers from surgery.",
+      dateReceived: daysAgo(25),
+      status: "answered",
+      dateAnswered: daysAgo(3),
+      answeredNote: "She is home and doing well.",
+    },
+  });
 }
 
 async function main() {
@@ -3143,6 +3569,12 @@ async function main() {
     // Last -- reads back the prayer requests/needs/newsletters just
     // created above, so it needs them to already exist.
     await seedNotificationQueue();
+    // After the queue: its generic pass sends the first few ordinary prayers
+    // through unreviewed, and this adds the HELD care-team ones on top.
+    await seedCareTeamsDemo();
+    await seedContactLogDemo();
+    await seedKeyDatesDemo();
+    await seedPartnerUpdatesDemo();
   }
 
   const finalMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });
@@ -3168,4 +3600,13 @@ if (require.main === module) {
 // rows created by running the full seed repeatedly) without re-running
 // the whole missionary/organization seed, which is additive and would
 // otherwise just keep growing every time.
-module.exports = { buildFakePdf, buildFakeEml, scannableExtras, seedTripsDemo };
+module.exports = {
+  buildFakePdf,
+  buildFakeEml,
+  scannableExtras,
+  seedTripsDemo,
+  seedCareTeamsDemo,
+  seedContactLogDemo,
+  seedKeyDatesDemo,
+  seedPartnerUpdatesDemo,
+};

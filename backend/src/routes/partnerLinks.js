@@ -1,7 +1,12 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
+const {
+  requireAuth,
+  requireRole,
+  requirePartnerQueryScope,
+  requirePartnerWriter,
+} = require("../middleware/requireAuth");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 const { LINK_TYPES } = require("./linkTypes");
 
@@ -42,7 +47,7 @@ router.get("/", requirePartnerQueryScope, async (req, res, next) => {
 // file 400s with a plain Prisma unique-constraint error -- the UI offers
 // only the partner's remaining unused types, so this is a true conflict,
 // not an expected path.
-router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
+router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) => {
   try {
     const data = partnerLinkSchema.parse(req.body);
     const created = await prisma.partnerLink.create({ data, include: partnerLinkInclude });
@@ -53,7 +58,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 });
 
 // PUT /api/partner-links/:id  (update — editor or admin)
-router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.put("/:id", requirePartnerWriter({ model: "partnerLink" }), async (req, res, next) => {
   try {
     const data = partnerLinkSchema.partial().parse(req.body);
     const updated = await prisma.partnerLink.update({

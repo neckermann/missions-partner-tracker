@@ -52,7 +52,7 @@ const REMINDER_NEEDS_DUE_DATE_ISSUE = {
 
 router.post(
   "/:id/requirements",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope("id"),
   async (req, res, next) => {
     try {
@@ -86,7 +86,7 @@ router.post(
 
 router.put(
   "/requirements/:id",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfRequirement),
   async (req, res, next) => {
     try {
@@ -104,7 +104,7 @@ router.put(
 
 router.delete(
   "/requirements/:id",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfRequirement),
   async (req, res, next) => {
     try {
@@ -124,7 +124,7 @@ router.delete(
 // reminder scheduler needs one.
 router.put(
   "/requirements/:id/participants/:participantId/complete",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfRequirement),
   async (req, res, next) => {
     try {

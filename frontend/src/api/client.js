@@ -490,6 +490,32 @@ export async function deleteFurlough(id) {
   await api.delete(`/furloughs/${id}`);
 }
 
+// Contact log (#288). The fixed type/direction/topic lists come from the
+// server so the UI never keeps its own copy.
+export async function fetchContactLogOptions() {
+  const { data } = await api.get("/contact-log/options");
+  return data;
+}
+export async function fetchContactLog(params = {}) {
+  const { data } = await api.get("/contact-log", { params });
+  return data;
+}
+export async function createContactLogEntry(payload) {
+  const { data } = await api.post("/contact-log", payload);
+  return data;
+}
+export async function updateContactLogEntry(id, payload) {
+  const { data } = await api.put(`/contact-log/${id}`, payload);
+  return data;
+}
+export async function deleteContactLogEntry(id) {
+  await api.delete(`/contact-log/${id}`);
+}
+export async function fetchAssignedPartners() {
+  const { data } = await api.get("/contact-log/assigned");
+  return data;
+}
+
 export async function fetchChurchVisits(params = {}) {
   const { data } = await api.get("/church-visits", { params });
   return data;
@@ -1001,8 +1027,37 @@ export async function updateNotifyByEmail({ cadence, allPartners, partnerIds }) 
   return data.user;
 }
 
-export async function fetchUsers() {
-  const { data } = await api.get("/users");
+// `inactive: true` lists only guest accounts that can't currently sign in
+// (deactivated, all trip access lapsed, or none left) -- see #356.
+export async function fetchUsers({ inactive = false } = {}) {
+  const { data } = await api.get("/users", { params: inactive ? { inactive: true } : undefined });
+  return data;
+}
+
+// --- Guest trip access (#356). Admin only. ---
+// Grants for one guest, and guests for one trip. A grant's `expiresAt` is
+// only an override; `effectiveExpiresAt` is what actually applies (the
+// override, else the trip's end date + 30 days, else null = no expiry).
+export async function fetchUserTripAccess(userId) {
+  const { data } = await api.get(`/users/${userId}/trip-access`);
+  return data;
+}
+export async function fetchTripGuests(tripId) {
+  const { data } = await api.get(`/users/by-trip/${tripId}`);
+  return data;
+}
+export async function addUserTripAccess(userId, { tripId, expiresAt = null }) {
+  const { data } = await api.post(`/users/${userId}/trip-access`, { tripId, expiresAt });
+  return data;
+}
+// expiresAt: a date/timestamp to extend or end early, null to go back to
+// the derived date.
+export async function setUserTripAccessExpiry(userId, tripId, expiresAt) {
+  const { data } = await api.put(`/users/${userId}/trip-access/${tripId}`, { expiresAt });
+  return data;
+}
+export async function removeUserTripAccess(userId, tripId) {
+  const { data } = await api.delete(`/users/${userId}/trip-access/${tripId}`);
   return data;
 }
 
@@ -1044,4 +1099,41 @@ export async function updateUser(id, payload) {
 
 export async function deleteUser(id) {
   await api.delete(`/users/${id}`);
+}
+
+// --- Care teams (#289). Gated by the careTeam feature (404 when off). ---
+// A partner's team: { lead: member|null, members: [member] } where member is
+// { userId, isLead, firstName, lastName, role, email? } (no email for a
+// guest viewer).
+export async function fetchCareTeam(partnerId) {
+  const { data } = await api.get(`/care-team/${partnerId}`);
+  return data;
+}
+// Replaces the whole team in one go.
+export async function setCareTeam(partnerId, { leadUserId, memberUserIds }) {
+  const { data } = await api.put(`/care-team/${partnerId}`, { leadUserId, memberUserIds });
+  return data;
+}
+// Active logins a team can be made from (admin/editor).
+// The church's default lead (#291): who key-date reminders go to for a partner
+// with no care team. Admin sets it; admin/editor read it.
+export async function fetchDefaultCareLead() {
+  const { data } = await api.get("/care-team/default-lead");
+  return data.defaultLead;
+}
+export async function setDefaultCareLead(userId) {
+  const { data } = await api.put("/care-team/default-lead", { userId });
+  return data.defaultLead;
+}
+export async function fetchCareTeamCandidates() {
+  const { data } = await api.get("/care-team/candidates");
+  return data;
+}
+
+// The partners this login may read, as { id, kind, displayName, archived } --
+// all of them for a full role, just the ones their grants reach for a guest
+// (#289). What a picker uses when a guest can't list the whole directory.
+export async function fetchReachablePartners() {
+  const { data } = await api.get("/partners/reachable");
+  return data;
 }
