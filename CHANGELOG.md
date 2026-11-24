@@ -14,6 +14,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Changed
+
+- **The demo seeds "last edited by" data.** Most demo partners, trips, prayer requests and needs now carry a demo editor's name and a date within the last ten weeks, so the **Last updated** column on Partners and Trips isn't blank on a fresh demo; about one in seven is left blank, as on a real install.
+
 ### Fixed
 
 - **A partner's Newsletters & Docs card showed "undefined"** where the file kind belongs (and a custom kind never showed its own text) (#369).
