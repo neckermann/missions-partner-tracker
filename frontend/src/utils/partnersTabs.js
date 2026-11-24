@@ -3,13 +3,12 @@
 //
 // - Staff (admin/editor/viewer) land on All and can switch to My partners: it is an
 //   option, not the default, so nobody who manages the whole list is moved away from it.
-// - A care team guest only ever sees the partners they are on the team for, so they get
-//   My partners alone: no All tab, no tab bar.
+// - A guest, whether on a care team, given a trip or both, sees one plain list of every
+//   partner they can reach: no tabs. A trip guest and a care team guest get the same page.
 //
 // `assignedParam` is the `?assigned=` query value (the notification links use "1").
 // Returns { showAssigned, showTabs }.
 export function partnersTabState({ hasAssignedTab, isGuest, assignedParam }) {
-  if (!hasAssignedTab) return { showAssigned: false, showTabs: false };
-  if (isGuest) return { showAssigned: true, showTabs: false };
+  if (!hasAssignedTab || isGuest) return { showAssigned: false, showTabs: false };
   return { showAssigned: assignedParam === "1", showTabs: true };
 }

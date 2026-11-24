@@ -19,10 +19,10 @@ describe("partnersTabState", () => {
     });
   });
 
-  it("gives a care team guest My partners alone, whatever the URL asks for", () => {
-    expect(partnersTabState({ ...base, isGuest: true })).toEqual({ showAssigned: true, showTabs: false });
-    expect(partnersTabState({ ...base, isGuest: true, assignedParam: "0" })).toEqual({
-      showAssigned: true,
+  it("gives every guest one plain list, whatever the URL asks for", () => {
+    expect(partnersTabState({ ...base, isGuest: true })).toEqual({ showAssigned: false, showTabs: false });
+    expect(partnersTabState({ ...base, isGuest: true, assignedParam: "1" })).toEqual({
+      showAssigned: false,
       showTabs: false,
     });
   });

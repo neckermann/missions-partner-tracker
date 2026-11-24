@@ -1095,9 +1095,9 @@ They also can't create or delete partners, or delete records. If you're an admin
 
 ![Pending Dispatches, where an entry from a care team member is held for staff to approve](docs/assets/screenshots/pending-dispatches-care-team.png)
 
-A care team **Guest** lands on **My partners** when they open Partners (there's no All tab when every partner they can see is one they look after), with their partners longest-quiet first. Staff who are on a care team still land on All and switch to the **My partners** tab when they want it.
+A **Guest**, whether on a care team, given a trip, or both, sees one plain **Partners** list of every partner they can reach, with no tabs. Staff who are on a care team still land on All and switch to the **My partners** tab when they want it.
 
-![A care team guest's Partners page, which opens on My partners](docs/assets/screenshots/care-team-member-partners.png)
+![A care team guest's Partners page: one list of the partners they can reach](docs/assets/screenshots/care-team-member-partners.png)
 
 A **trip leader** (a Guest given a trip) has a smaller view: their trips, and those trips' partners read-only. They don't get the care-team list pages or one-time needs.
 

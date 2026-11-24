@@ -106,16 +106,13 @@ export default function AdminPartners() {
   const [searchParams, setSearchParams] = useSearchParams();
   const hasAssignedTab =
     !!enabledFeatures.contactLog && !!enabledFeatures.careTeam && careTeamSeats.length > 0;
-  // Staff land on All; a care team guest gets My partners alone (see utils/partnersTabs.js).
+  // Staff land on All; a guest gets one plain list, no tabs (see utils/partnersTabs.js).
   const { showAssigned, showTabs } = partnersTabState({
     hasAssignedTab,
     isGuest,
     assignedParam: searchParams.get("assigned"),
   });
-  const setTab = (assigned) =>
-    setSearchParams(isGuest ? (assigned ? {} : { assigned: "0" }) : assigned ? { assigned: "1" } : {}, {
-      replace: true,
-    });
+  const setTab = (assigned) => setSearchParams(assigned ? { assigned: "1" } : {}, { replace: true });
 
   useEffect(() => {
     fetchPartners().then(setAllForOptions).catch(console.error);
