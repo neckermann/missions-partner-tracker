@@ -54,7 +54,9 @@ and a record's "Last edited by" line something to show. The dates are relative t
 The demo never requires two-factor: a shared, published account can't enrol an
 authenticator without locking every other visitor out, so the church-wide
 **Two-factor sign-in** switch (Manage Users, #385) is off on a demo and the app
-refuses to turn it on while `DEMO_RESET_TOKEN` is set. The other guests the
+refuses to turn it on while `DEMO_RESET_TOKEN` is set. Every reset sets it off in
+`reset-demo-data.js`, and the sign-in check ignores a stored `true` while
+`DEMO_RESET_TOKEN` is set, so nothing can lock visitors out. The other guests the
 seed creates (for example the lapsed `sam.okafor@<admin's domain>`, who exists
 to populate the "Inactive accounts only" filter) have a password nobody is
 told. **The published logins also look alike**,

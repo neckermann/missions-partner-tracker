@@ -290,6 +290,25 @@ describe("two-factor requirement: on", () => {
   });
 });
 
+describe("two-factor requirement: on a demo deployment", () => {
+  before(() => setRequirement(true));
+  after(() => {
+    delete process.env.DEMO_RESET_TOKEN;
+    return setRequirement(false);
+  });
+
+  test("a stored requirement is ignored: a password alone signs in, no enrolment", async () => {
+    process.env.DEMO_RESET_TOKEN = "demo-token-for-this-test";
+    const res = await login(TEST_USERS.editor.email, TEST_PASSWORD);
+    assert.equal(res.status, 200);
+    assert.notEqual(res.body.mfaSetupRequired, true);
+    assert.ok(res.cookie, "a session");
+    const me = await as(res.cookie)("/api/auth/me");
+    assert.equal(me.status, 200);
+    assert.equal(me.body.user.twoFactorRequired, false);
+  });
+});
+
 describe("two-factor requirement: a session open when it is turned on", () => {
   test("stops working at once for an account that has not enrolled, and works again if it is turned off", async () => {
     await setRequirement(false);
