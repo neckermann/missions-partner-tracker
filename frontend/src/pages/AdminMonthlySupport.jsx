@@ -12,6 +12,7 @@ import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
+import useSendingChurchField from "../hooks/useSendingChurchField.js";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
@@ -22,7 +23,7 @@ import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 const formatCurrency = (amount) => formatMoney(amount, { fallback: "—" });
 
 const emptyNewEntry = { partnerId: "", amount: "", effectiveDate: todayInputValue(), notes: "" };
-const emptyFilters = { includeArchived: false };
+const emptyFilters = { sendingChurch: "all", includeArchived: false };
 
 // Phase 2 of the UX-rebuild plan: this page already used the expanded-row-
 // below-the-row pattern by hand (History toggle) -- Table's own
@@ -45,7 +46,11 @@ export default function AdminMonthlySupport() {
   const [history, setHistory] = useState([]);
   const navigate = useNavigate();
 
-  const fields = useMemo(() => [INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD], []);
+  const sendingChurchField = useSendingChurchField();
+  const fields = useMemo(
+    () => [...(sendingChurchField ? [sendingChurchField] : []), INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD],
+    [sendingChurchField]
+  );
   const {
     values: filters,
     setValue: updateFilter,
@@ -67,14 +72,16 @@ export default function AdminMonthlySupport() {
   const historyForRef = useRef(null);
 
   function reload() {
-    fetchPartners().then(setPartners).catch(console.error);
+    fetchPartners(filters.sendingChurch !== "all" ? { sendingChurch: filters.sendingChurch } : {})
+      .then(setPartners)
+      .catch(console.error);
     if (historyFor) loadHistory(historyFor);
   }
 
   useEffect(() => {
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [filters.sendingChurch]);
 
   function loadHistory(partnerId) {
     historyForRef.current = partnerId;
@@ -278,7 +285,6 @@ export default function AdminMonthlySupport() {
             label: "Name",
             render: (row) => <span style={{ fontWeight: 600 }}>{row.name}</span>,
           },
-          { key: "type", label: "Type" },
           { key: "field", label: "Field / Region" },
           { key: "amount", label: "Monthly Amount", type: "currency" },
           { key: "effectiveDate", label: "Effective Date", type: "date" },

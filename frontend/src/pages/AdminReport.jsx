@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { listReports, runReport, reportCsvUrl } from "../api/client.js";
+import { listReports, runReport, reportCsvUrl, fetchSendingChurches } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
@@ -46,7 +46,31 @@ export default function AdminReport() {
     };
   }, [reportId]);
 
-  const fields = useMemo(() => meta?.fields || [], [meta]);
+  // A field flagged `dynamicOptions: "sendingChurches"` is filled in from the server:
+  // the churches any partner has (ours first), not a list the report can hard-code.
+  const [sendingChurches, setSendingChurches] = useState(null);
+  const needsChurches = (meta?.fields || []).some((f) => f.dynamicOptions === "sendingChurches");
+  useEffect(() => {
+    if (!needsChurches || sendingChurches) return;
+    fetchSendingChurches()
+      .then(setSendingChurches)
+      .catch(() => setSendingChurches([]));
+  }, [needsChurches, sendingChurches]);
+  const fields = useMemo(
+    () =>
+      (meta?.fields || []).map((f) =>
+        f.dynamicOptions === "sendingChurches"
+          ? {
+              ...f,
+              options: [
+                { value: "all", label: "All" },
+                ...(sendingChurches || []).map((o) => ({ value: o.value, label: `${o.label} (${o.count})` })),
+              ],
+            }
+          : f
+      ),
+    [meta, sendingChurches]
+  );
   const defaults = useMemo(() => {
     const d = {};
     for (const f of fields) {

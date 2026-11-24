@@ -54,6 +54,12 @@ export async function fetchPartners(params = {}) {
   return data;
 }
 
+// The options for the "Sending church" filter: ours first, then every other church.
+export async function fetchSendingChurches() {
+  const { data } = await api.get("/partners/sending-churches");
+  return data;
+}
+
 export async function fetchPartner(id) {
   const { data } = await api.get(`/partners/${id}`);
   return data;
@@ -1136,4 +1142,26 @@ export async function fetchCareTeamCandidates() {
 export async function fetchReachablePartners() {
   const { data } = await api.get("/partners/reachable");
   return data;
+}
+
+// --- Audit log (#341) ---
+// Empty filters are dropped, not sent as "" (the date inputs start blank).
+const withoutBlanks = (params) => Object.fromEntries(Object.entries(params).filter(([, v]) => v));
+export async function fetchAuditLog(params = {}) {
+  const { data } = await api.get("/audit", { params: withoutBlanks(params) });
+  return data;
+}
+export async function fetchAuditMeta() {
+  const { data } = await api.get("/audit/meta");
+  return data;
+}
+export async function setAuditRetention(days) {
+  const { data } = await api.put("/audit/retention", { days });
+  return data;
+}
+// A plain link the browser downloads (the session cookie rides along), same as
+// reportCsvUrl -- the filters on screen are the filters exported.
+export function auditExportUrl(params = {}) {
+  const query = new URLSearchParams(Object.entries(withoutBlanks(params))).toString();
+  return `${api.defaults.baseURL}/audit/export${query ? `?${query}` : ""}`;
 }

@@ -16,6 +16,9 @@ import useFilterState from "../hooks/useFilterState.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import useSendingChurchField from "../hooks/useSendingChurchField.js";
+import { partnersTabState } from "../utils/partnersTabs.js";
+import LastUpdatedCell, { lastUpdatedSortKey } from "../components/shared/LastUpdatedCell.jsx";
 import AssignedPartnersTable from "../components/admin/AssignedPartnersTable.jsx";
 
 // Same field as backend/src/utils/maskData.js's public `country` -- the
@@ -58,6 +61,7 @@ function matchesLastVisitQuick(row, quick) {
 
 const emptyFilters = {
   entityType: "all",
+  sendingChurch: "all",
   isPublic: "all",
   restricted: "all",
   continent: "all",
@@ -80,6 +84,9 @@ const emptyFilters = {
 // reason: it reads churchVisits[0] off a row already fetched for the
 // Last Visit column and its sort, so there's no new request to make it
 // server-side for.
+// Sent by our church only applies to missionaries.
+const isSentByUs = (row) => row.type === "missionary" && row.sentByOurChurch;
+
 export default function AdminPartners() {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [partners, setPartners] = useState([]);
@@ -92,14 +99,19 @@ export default function AdminPartners() {
   const navigate = useNavigate();
   const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const sectionTitle = usePartnerTermInAdmin ? partnerTermPlural : "Partners";
-  const { canWrite, isAdmin, careTeamSeats } = useCurrentUser();
-  // #288: "Assigned to me" -- only for someone who holds a care team seat,
+  const { canWrite, isAdmin, isGuest, careTeamSeats } = useCurrentUser();
+  // #288: "My partners" -- only for someone who holds a care team seat,
   // and only while both features are on. The notification's link lands here
   // with ?assigned=1.
   const [searchParams, setSearchParams] = useSearchParams();
   const hasAssignedTab =
     !!enabledFeatures.contactLog && !!enabledFeatures.careTeam && careTeamSeats.length > 0;
-  const showAssigned = hasAssignedTab && searchParams.get("assigned") === "1";
+  // Staff land on All; a guest gets one plain list, no tabs (see utils/partnersTabs.js).
+  const { showAssigned, showTabs } = partnersTabState({
+    hasAssignedTab,
+    isGuest,
+    assignedParam: searchParams.get("assigned"),
+  });
   const setTab = (assigned) => setSearchParams(assigned ? { assigned: "1" } : {}, { replace: true });
 
   useEffect(() => {
@@ -111,9 +123,11 @@ export default function AdminPartners() {
     [allForOptions]
   );
 
+  const sendingChurchField = useSendingChurchField();
   const fields = useMemo(
     () => [
       PARTNER_TYPE_FILTER_FIELD,
+      ...(sendingChurchField ? [sendingChurchField] : []),
       {
         name: "isPublic",
         label: "Public",
@@ -165,7 +179,7 @@ export default function AdminPartners() {
       },
       { name: "search", label: "Search by name, field, focus, or summary" },
     ],
-    [availableContinents]
+    [availableContinents, sendingChurchField]
   );
   const {
     values: filters,
@@ -177,6 +191,7 @@ export default function AdminPartners() {
     setLoading(true);
     const params = {};
     if (filters.entityType !== "all") params.kind = filters.entityType;
+    if (filters.sendingChurch !== "all") params.sendingChurch = filters.sendingChurch;
     if (filters.isPublic !== "all") params.isPublic = filters.isPublic;
     if (filters.restricted !== "all") params.restricted = filters.restricted;
     if (filters.continent !== "all") params.continent = filters.continent;
@@ -191,6 +206,7 @@ export default function AdminPartners() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(reload, [
     filters.entityType,
+    filters.sendingChurch,
     filters.isPublic,
     filters.restricted,
     filters.continent,
@@ -217,6 +233,8 @@ export default function AdminPartners() {
           overviewShort: p.overviewShort,
           country: resolveCountry(p),
           detailLink: `/admin/partners/${p.id}`,
+          lastUpdatedAt: p.lastUpdatedAt,
+          lastUpdatedByName: p.lastUpdatedByName,
         }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     [partners]
@@ -348,7 +366,7 @@ export default function AdminPartners() {
         )}
       </div>
 
-      {hasAssignedTab && (
+      {showTabs && (
         <div
           role="tablist"
           aria-label="Partner views"
@@ -370,7 +388,7 @@ export default function AdminPartners() {
             className={showAssigned ? "btn small" : "btn secondary small"}
             onClick={() => setTab(true)}
           >
-            Assigned to me
+            My partners
           </button>
         </div>
       )}
@@ -395,72 +413,53 @@ export default function AdminPartners() {
             emptyMessage={loading ? "Loading…" : "No partners match these filters."}
             columns={[
               {
-                key: "photo",
-                label: "Photo",
-                render: (row) =>
-                  row.photo ? (
-                    <img
-                      src={row.photo}
-                      alt={row.name}
-                      className="missionary-thumb"
-                      onError={(e) => (e.target.style.display = "none")}
-                    />
-                  ) : (
-                    ""
-                  ),
-              },
-              {
                 key: "name",
                 label: "Display Name",
+                // The photo sits beside the name instead of in a column of its own:
+                // that column was blank for every partner without one. A fixed-size
+                // slot keeps the names aligned whether or not a row has a photo.
                 render: (row) => (
-                  <>
-                    <span style={{ fontWeight: 600 }}>{row.name}</span>
-                    {row.archived && (
-                      <span style={{ marginLeft: "0.5rem" }}>
-                        <StatusPill label="Archived" color="#a6540f" />
-                      </span>
-                    )}
-                  </>
+                  <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                    <span style={{ width: 36, height: 36, flexShrink: 0 }}>
+                      {row.photo && (
+                        <img
+                          src={row.photo}
+                          alt={row.name}
+                          className="missionary-thumb"
+                          style={{ width: 36, height: 36 }}
+                          onError={(e) => (e.target.style.display = "none")}
+                        />
+                      )}
+                    </span>
+                    <span>
+                      <span style={{ fontWeight: 600 }}>{row.name}</span>
+                      {row.archived && (
+                        <span style={{ marginLeft: "0.5rem" }}>
+                          <StatusPill label="Archived" color="#a6540f" />
+                        </span>
+                      )}
+                    </span>
+                  </span>
                 ),
               },
               { key: "typeLabel", label: "Type" },
               { key: "field", label: "Field" },
               {
-                key: "isPublic",
-                label: "Public",
-                sortable: true,
+                key: "flags",
+                label: "Flags",
+                // Only what is out of the ordinary (Restricted, not on the public site,
+                // sent by us), not three yes/no columns where "No" is the usual answer.
+                // Not sortable: a row can carry several flags at once, so a sort could
+                // not isolate one; the filters above do that.
                 render: (row) =>
-                  row.isPublic ? (
-                    <StatusPill label="Yes" color="#2a5d3c" />
+                  row.isRestricted || !row.isPublic || isSentByUs(row) ? (
+                    <span style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
+                      {row.isRestricted && <StatusPill label="Restricted" color="#a6540f" />}
+                      {!row.isPublic && <StatusPill label="Not public" color="#6b6f76" />}
+                      {isSentByUs(row) && <StatusPill label="Sent by us" color="#6b6f76" />}
+                    </span>
                   ) : (
-                    <StatusPill label="No" color="#6b6f76" />
-                  ),
-              },
-              {
-                key: "isRestricted",
-                label: "Restricted",
-                sortable: true,
-                render: (row) =>
-                  row.isRestricted ? (
-                    <StatusPill label="Yes" color="#a6540f" />
-                  ) : (
-                    <StatusPill label="No" color="#6b6f76" />
-                  ),
-              },
-              {
-                key: "sentByOurChurch",
-                label: "Sent By Us",
-                sortable: true,
-                // Same bland, muted pill for Yes and No -- unlike Public/
-                // Restricted, this isn't a safety or exposure question, just
-                // bookkeeping, so neither state earns the attention a brighter
-                // color would draw. Still a pill, not plain text, for visual
-                // consistency with the rest of the row.
-                render: (row) =>
-                  row.type !== "missionary" ? (
                     "—"
-                  ) : (
-                    <StatusPill label={row.sentByOurChurch ? "Yes" : "No"} color="#6b6f76" />
                   ),
               },
               {
@@ -473,6 +472,21 @@ export default function AdminPartners() {
                 },
                 render: (row) => lastVisit(row.churchVisits),
               },
+              // When the partner, or anything on its page, was last changed (staff
+              // only: a guest's list carries no editor names).
+              ...(isGuest
+                ? []
+                : [
+                    {
+                      key: "lastUpdatedAt",
+                      label: "Last updated",
+                      sortable: true,
+                      sortBy: (row) => lastUpdatedSortKey(row.lastUpdatedAt),
+                      render: (row) => (
+                        <LastUpdatedCell at={row.lastUpdatedAt} name={row.lastUpdatedByName} />
+                      ),
+                    },
+                  ]),
             ]}
             renderActions={(row) => (
               <>

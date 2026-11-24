@@ -1,4 +1,6 @@
 const express = require("express");
+const { withSendingChurch } = require("../utils/sendingChurch");
+
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const {
@@ -82,6 +84,7 @@ router.get("/", allowGuestPartnerList, async (req, res, next) => {
     if (reachable && !req.query.partnerId) where.partnerId = { in: reachable };
     if (req.query.kind) where.kind = String(req.query.kind);
     if (req.query.entityType) where.partner = { kind: String(req.query.entityType) };
+    withSendingChurch(where, req.query.sendingChurch);
     if (req.query.from || req.query.to) {
       where.receivedDate = {};
       if (req.query.from) where.receivedDate.gte = new Date(String(req.query.from));

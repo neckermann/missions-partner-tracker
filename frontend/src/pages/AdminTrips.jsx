@@ -20,7 +20,7 @@ import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import Modal from "../components/Modal.jsx";
 import Field from "../components/admin/Field.jsx";
 import { formatDate, toDateInputValue } from "../utils/format.js";
-import { partnerKindLabel, PARTNER_TYPE_FILTER_FIELD } from "../utils/partnerEntity.js";
+import { PARTNER_TYPE_FILTER_FIELD } from "../utils/partnerEntity.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
@@ -33,7 +33,9 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
+import useSendingChurchField from "../hooks/useSendingChurchField.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import LastUpdatedCell, { lastUpdatedSortKey } from "../components/shared/LastUpdatedCell.jsx";
 import AdminTripContributions from "./AdminTripContributions.jsx";
 
 // Merged (design review, post-#252) from two previously separate pages/
@@ -74,6 +76,7 @@ const STATUS_QUICK_FILTERS = [
 const emptyFilters = {
   status: "active",
   entityType: "all",
+  sendingChurch: "all",
   type: "all",
   year: "all",
   minSize: "",
@@ -82,7 +85,7 @@ const emptyFilters = {
 
 function ExistingTripsTab() {
   const navigate = useNavigate();
-  const { canWrite, isAdmin } = useCurrentUser();
+  const { canWrite, isAdmin, isGuest } = useCurrentUser();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [records, setRecords] = useState([]);
   const [partners, setPartners] = useState([]);
@@ -102,11 +105,12 @@ function ExistingTripsTab() {
   const [tripDetail, setTripDetail] = useState(null);
 
   function reload() {
-    fetchTrips().then(setRecords).catch(console.error);
+    fetchTrips(filters.sendingChurch !== "all" ? { sendingChurch: filters.sendingChurch } : {})
+      .then(setRecords)
+      .catch(console.error);
   }
 
   useEffect(() => {
-    reload();
     fetchPartners().then(setPartners).catch(console.error);
   }, []);
 
@@ -140,12 +144,14 @@ function ExistingTripsTab() {
     [trips]
   );
 
+  const sendingChurchField = useSendingChurchField();
   const fields = useMemo(
     () => [
       // Rendered via `pills` below, not the field grid -- present here so
       // useFilterState knows about it for URL-sync/reset purposes.
       { name: "status" },
       PARTNER_TYPE_FILTER_FIELD,
+      ...(sendingChurchField ? [sendingChurchField] : []),
       {
         name: "type",
         label: "Trip Type",
@@ -164,13 +170,17 @@ function ExistingTripsTab() {
       { name: "minSize", label: "Min Team Size", type: "number" },
       { name: "maxSize", label: "Max Team Size", type: "number" },
     ],
-    [typeOptions, yearOptions]
+    [typeOptions, yearOptions, sendingChurchField]
   );
   const {
     values: filters,
     setValue: updateFilter,
     reset: resetFilters,
   } = useFilterState(fields, emptyFilters);
+
+  // Reload when the sending church changes (it narrows the request itself, unlike
+  // the filters the page applies to what it already has).
+  useEffect(reload, [filters.sendingChurch]);
   const {
     partnerId: filterPartnerId,
     partnerName: filterPartnerName,
@@ -491,7 +501,6 @@ function ExistingTripsTab() {
               </>
             ),
           },
-          { key: "entityType", label: "Type", render: (trip) => partnerKindLabel(trip.entityType) },
           {
             key: "status",
             label: "Status",
@@ -515,7 +524,6 @@ function ExistingTripsTab() {
               </>
             ),
           },
-          { key: "type", label: "Trip Type", render: (trip) => trip.type || "—" },
           {
             key: "startDate",
             label: "Dates",
@@ -551,6 +559,19 @@ function ExistingTripsTab() {
               </>
             ),
           },
+          // When the trip, or any part of it (team, meetings, requirements, money),
+          // was last changed (staff only: a guest's list carries no editor names).
+          ...(isGuest
+            ? []
+            : [
+                {
+                  key: "lastUpdatedAt",
+                  label: "Last updated",
+                  sortable: true,
+                  sortBy: (trip) => lastUpdatedSortKey(trip.lastUpdatedAt),
+                  render: (trip) => <LastUpdatedCell at={trip.lastUpdatedAt} name={trip.lastUpdatedByName} />,
+                },
+              ]),
         ]}
         renderActions={(trip) => (
           <>

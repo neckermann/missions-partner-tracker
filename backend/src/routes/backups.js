@@ -1,5 +1,6 @@
 const express = require("express");
 const prisma = require("../prismaClient");
+const { recordAudit } = require("../utils/auditLog");
 const { requireRole } = require("../middleware/requireAuth");
 const { buildBackup } = require("../utils/backup");
 
@@ -21,6 +22,7 @@ router.use(requireRole("admin"));
 router.get("/download", async (req, res, next) => {
   try {
     const { buffer, manifest } = await buildBackup(prisma);
+    await recordAudit(null, { action: "backup.downloaded", actor: req.user, req });
     const filename = `backup-${manifest.createdAt.replace(/[:.]/g, "-")}.ndjson.gz`;
 
     res.setHeader("Content-Type", "application/gzip");

@@ -133,9 +133,12 @@ outcome (assign, discard) deletes the row.
   (null = never reviewed), `PublicSubscriber.confirmedAt` (null = never
   confirmed) — each replaces what used to be (or could have been) a
   boolean + a value that might contradict each other.
-- **Audit fields (`createdById`/`updatedById`) exist only on `Partner`**,
-  deliberately — they used to be inconsistently populated elsewhere, and
-  half-populated provenance was judged worse than none.
+- **"Last edited by" is stamped centrally, not per route (#341).** The
+  old `createdById`/`updatedById` pair existed only on `Partner` because
+  per-route stamping was inconsistently populated, and half-populated
+  provenance was judged worse than none. It is now one Prisma client
+  extension (§5.6), so it cannot be half-populated. `Partner.createdById`/
+  `updatedById` remain for their existing uses.
 
 ## 2. Backend architecture
 
@@ -514,9 +517,8 @@ afterwards does **not** silently reactivate it. The Users list marks
 "inactive" guests (deactivated, all access expired, or none left —
 computed, not stored) and `GET /api/users?inactive=true` /
 the "Inactive accounts only" filter lists just those so an admin can reach
-out and clean up. Grant changes are **not** audit-logged yet: who granted,
-extended or removed access (and the deactivation) is deferred to the
-admin audit/activity design in #341.
+out and clean up. Grant changes are recorded in the audit log (§5.6): who granted,
+extended or removed access, and the deactivation that follows.
 
 **MFA is required for a guest** (`mfaSetupRequired` is forced on at
 creation and role change, and again by an admin MFA reset). A guest can
@@ -584,7 +586,7 @@ fixed ("Care team", "Lead", "Member", "Guest"), not settings. Any role can
 hold a seat; a guest outside the team is how someone without a full account
 joins one. The Lead is a label today: no extra permission or notification
 (everyone on the team is treated the same); the "You're the lead" marker and
-the "Assigned to me" view come with #288.
+the "My partners" view come with #288.
 
 **One app for everyone.** There is no care-team-only or guest-only app. A
 guest uses the same shell (header with bell and collapse, footer with My
@@ -683,7 +685,7 @@ review (it isn't dispatched anywhere).
 is the one number for "quiet": no logged contact for that long, or never. A
 follow-up date is answered by any later-entered contact dated on or after the
 one that set it; unanswered and past, it is *due*. `utils/contactLogQueries.js`
-`loadAssignedPartners` is the single read model behind the **Assigned to me**
+`loadAssignedPartners` is the single read model behind the **My partners**
 tab (`GET /api/contact-log/assigned`, needs the care team feature too) and the
 `partnersNeedingContact` notification (guest-visible, counts the caller's seats
 that are quiet or due, 0 while either feature is off), so they can't disagree.
@@ -733,7 +735,7 @@ person: one card goes to the family.
 
 **Bell.** The guest-visible `keyDatesComing` category in
 `notifications/categories.js`, computed live for the caller (one partner links
-straight to it, several to Assigned to me).
+straight to it, several to My partners).
 
 **Email.** `utils/keyDateReminderScheduler.js`, registered in `worker.js` (not
 the web process) on a daily 07:00 church-local cron, in the shape of
@@ -783,6 +785,79 @@ through the existing dispatch channels.
   on the need the team can open.
 - **Not built:** the "prayed-for" summary to existing subscribers, and Phase 2
   (church-member notes through a public form) — both deferred.
+
+### 5.6 Audit log and last-edited-by (#341)
+
+Two mechanisms, deliberately separate, because they have opposite retention:
+
+**`AuditLog` — what happened, when (bounded).** One append-only row per
+sensitive event (`utils/auditLog.js`, the `AUDIT_ACTIONS` catalogue is the line
+between audit-worthy and routine). Gated by the `auditTrail` feature (**on by
+default**, so it is recording from the first sign-in and a church that upgrades
+gets it; the demo seed also seeds example entries). Actor and
+target are plain ids with an email/name snapshot and **no foreign keys**, so an
+entry survives either account being deleted; the API flags `deleted` when the id
+no longer matches a user. `details` holds old/new values and never a secret:
+secret columns are noted `"changed"` (`secretChange`). Kept for
+`ChurchSettings.auditRetentionDays` (30/60/90, default 90), pruned daily at
+03:30 church time by the worker (`auditPruneScheduler.js`) whether or not the
+feature is on. Included in backup/restore. Account, access, delete and care-team
+entries are written in the **same transaction** as the change (`recordAudit(tx)`),
+so an access change that cannot be recorded does not happen; sign-in events use
+`recordAuditSafe`, which never blocks a login.
+
+- *Settings* are written by eight route files, so one middleware
+  (`middleware/auditSettings.js`) mounted on `/api/settings` snapshots the
+  `ChurchSettings` row before a write and diffs it after, logging each feature
+  toggled separately and everything else as one entry per request. It ignores the
+  stamp columns. Turning the log off records the switch-off (`force`), then it is
+  quiet.
+- *Restricted-partner views* are logged once per (viewer, partner, church-local
+  day) — `recordRestrictedView`.
+- *Sign-in* records failures with the reason (`unknown_email`, `inactive`,
+  `wrong_password`, `wrong_two_factor_code`, …) and the IP (`trust proxy` is set
+  to 1). The caller still gets the one generic answer.
+- *Read side:* `routes/audit.js`, admin-only and flag-gated (`GET /api/audit`
+  with `q`/`category`/`action`/`from`/`to`, cursor paging; `/export` CSV through
+  the formula-safe `toCsv`; `/meta`; `PUT /retention`). Reading it is not logged.
+  The page is Settings → Audit log.
+
+**`lastEditedById` / `lastEditedByName` / `lastEditedAt` — who last touched this
+record (unbounded).** On 32 editable models. Stamped by a Prisma client extension
+(`prismaClient.js`) on every `create`/`update`/`upsert` made while a signed-in
+request runs; the actor comes from an `AsyncLocalStorage` (`utils/actorContext.js`)
+entered by `requireAuth`. No actor — the seed, the worker's jobs, a public
+submission — means nothing is stamped and the old value stays. Overwritten in
+place, never pruned, and the name is a snapshot so it survives account deletion.
+Only the row written directly is stamped, not rows touched by a nested write.
+**Excluded on purpose:** `AuditLog`, every `*Bytes` table, `ChurchSettingsLogo`,
+`TripAccess` (audited instead), `KeyDateReminder`, `PasswordSetupToken`,
+`NotificationSeen`, `UserFollowedPartner`, `PublicSubscriber*`, `InboundEmail*`,
+`TripMeetingRsvp`, `TripParticipantPhoto`, `WhatsAppAuthEntry`. **Sending church filter** (`utils/sendingChurch.js`): one `sendingChurch` query
+parameter on every list about partners or their records (partners, partner files, trips,
+prayer requests, support needs, monthly support) and on every partner-level report
+(`sendingChurchParam`/`sendingChurchField` in `reporting/params.js`; the field is
+flagged `dynamicOptions: "sendingChurches"` and filled from
+`GET /api/partners/sending-churches`). `__ours__` means the `sentByOurChurch` flag;
+anything else matches a `SendingParty` (type `church`) name, case-insensitively; a
+partner sent by us is counted under ours, not under its own name. Staff only.
+
+**Master records read across their sections** (`utils/lastUpdated.js`): the
+partner and trip pages, the Partners and Trips list columns ("Last updated",
+sortable) and the Data completeness report show the latest change to the record
+*or any section on its page* (a partner's adults, children, addresses, furloughs,
+visits, links, languages, sending parties, support entries and photos; a trip's
+participants, applications, meetings, requirements and their statuses, documents,
+contributions, budget lines and flights). Done at read time with one `UNION` query
+over a fixed table list rather than by also stamping the parent on every child
+write, which would run outside the request's transaction and could block on the
+parent row it already holds; deletes are not seen. Lists omit the fields for
+guests. It is shown on the
+partner, trip, trip-participant and trip-application pages and in the prayer
+request and one-time need detail dialogs (not to guests), as **Last edited by /
+Last edited** columns in the Data completeness report only
+(`reporting/reports/care.js`; reports are not open to guests; the prayer request
+and one-time need reports stay compact because their dialogs carry it), and **never on the public site** (tested). A new model opts in by declaring the three columns.
 
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 

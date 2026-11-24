@@ -156,12 +156,12 @@ const FEATURES = {
   // changes for a church that doesn't turn it on (one office contact, no
   // care teams).
   // #288: a log of every touchpoint with a partner, a contact card on the
-  // partner page, an "Assigned to me" view and a "needs reaching out" alert.
+  // partner page, an "My partners" view and a "needs reaching out" alert.
   // Off by default so nothing changes for a church that doesn't want it.
   contactLog: {
     label: "Contact log",
     description:
-      "Record every call, text, email, visit or card with a partner, show a contact card on each partner page, flag partners nobody has been in touch with lately, and add an Assigned to me view for care team members.",
+      "Record every call, text, email, visit or card with a partner, show a contact card on each partner page, flag partners nobody has been in touch with lately, and add an My partners view for care team members.",
     defaultEnabled: false,
     group: "admin",
   },
@@ -181,6 +181,13 @@ const FEATURES = {
     description:
       "Give each partner a care team: one lead plus members from your logins who keep in touch with them. Guests can be given a partner this way. Also adds a coverage report of partners with no care team.",
     defaultEnabled: false,
+    group: "admin",
+  },
+  auditTrail: {
+    label: "Audit log",
+    description:
+      "On by default. Records who did what and when for sensitive actions (sign-ins with their IP address, role and access changes, settings changes, deletes, backups, views of restricted partners), with an admin-only Audit log page and CSV export. Events are kept for the retention window set under Audit log (30, 60 or 90 days); who last edited a record is kept for good.",
+    defaultEnabled: true,
     group: "admin",
   },
   aiExtraction: {

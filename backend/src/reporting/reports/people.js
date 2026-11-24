@@ -1,6 +1,7 @@
 // Contacts and access: mailing list, and who can sign in.
 const { z } = require("zod");
-const { flag, oneOf, ymd } = require("../params");
+const { flag, oneOf, ymd, sendingChurchParam, sendingChurchField } = require("../params");
+const { sendingChurchPartnerWhere } = require("../../utils/sendingChurch");
 const { GRANT_SELECT, summarizeGrants, guestInactiveReason } = require("../../utils/tripAccessRules");
 
 const mailingList = {
@@ -8,7 +9,11 @@ const mailingList = {
   group: "contacts",
   label: "Mailing list",
   question: "Who gets mail or packages, and where do they go?",
-  params: z.object({ deliver: oneOf(["mail", "packages", "either"], "mail"), includeArchived: flag(false) }),
+  params: z.object({
+    deliver: oneOf(["mail", "packages", "either"], "mail"),
+    includeArchived: flag(false),
+    sendingChurch: sendingChurchParam,
+  }),
   fields: [
     {
       name: "deliver",
@@ -20,6 +25,7 @@ const mailingList = {
         { value: "either", label: "Mail or packages" },
       ],
     },
+    sendingChurchField,
     { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
   ],
   columns: [
@@ -35,7 +41,10 @@ const mailingList = {
   fetch: (params, { prisma }) =>
     prisma.address.findMany({
       where: {
-        partner: params.includeArchived ? {} : { archived: false },
+        partner: {
+          ...(params.includeArchived ? {} : { archived: false }),
+          ...(sendingChurchPartnerWhere(params.sendingChurch) || {}),
+        },
         OR:
           params.deliver === "mail"
             ? [{ receiveMail: true }]

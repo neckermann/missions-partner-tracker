@@ -107,6 +107,7 @@ const MODELS = [
   "careTeamMember", // -> partner, user (#289)
   "contactLog", // -> partner, user (#288)
   "keyDateReminder", // -> partner, user (#291)
+  "auditLog", // standalone: ids and snapshots, no FKs (#341)
   "savedReport", // savedReport.ownerId -> user
   "reportSchedule", // reportSchedule.savedReportId -> savedReport
   "passwordSetupToken", // -> user

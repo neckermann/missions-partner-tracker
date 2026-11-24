@@ -5,6 +5,7 @@ const prisma = require("../prismaClient");
 const { requireRole } = require("../middleware/requireAuth");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
 const { isFeatureEnabled } = require("../utils/features");
+const { recordAudit } = require("../utils/auditLog");
 const {
   GRANT_SELECT,
   summarizeGrants,
@@ -56,13 +57,31 @@ async function allPartnersExist(partnerIds) {
 
 // Plain-member seats on partners' care teams, for a login created or
 // promoted with `careTeam`. Never touches an existing lead.
-async function addCareSeats(db, user, inputs) {
+async function addCareSeats(db, user, inputs, ctx) {
   for (const { partnerId } of inputs) {
+    const had = await db.careTeamMember.findUnique({
+      where: { partnerId_userId: { partnerId, userId: user.id } },
+      select: { id: true },
+    });
     await db.careTeamMember.upsert({
       where: { partnerId_userId: { partnerId, userId: user.id } },
       update: {},
       create: { partnerId, userId: user.id, isLead: false },
     });
+    if (!had && ctx) {
+      const partner = await db.partner.findUnique({
+        where: { id: partnerId },
+        select: { displayName: true },
+      });
+      await recordAudit(db, {
+        action: "care_team.updated",
+        actor: ctx.actor,
+        target: user,
+        entity: { type: "partner", id: partnerId, label: partner?.displayName ?? null },
+        req: ctx.req,
+        details: { added: ["as a member"] },
+      });
+    }
   }
 }
 
@@ -71,6 +90,8 @@ async function allTripsExist(tripIds) {
   const found = await prisma.trip.count({ where: { id: { in: unique } } });
   return found === unique.length;
 }
+
+const auditCtx = (req) => ({ actor: req.user, req });
 
 const createUserSchema = z.object({
   email: z.string().email(),
@@ -140,13 +161,34 @@ async function wouldRemoveLastAdmin(targetId, becomingNonAdminOrInactive) {
 // access is deferred to the admin audit/activity design in #341, which
 // should cover these events (grant, extend/end, revoke, and the
 // deactivation below) along with the rest of the app's sensitive actions.
-async function grantTripAccess(db, user, inputs) {
+// Records one trip-access event (#341). `ctx` is { actor, req } from the route;
+// the row commits with the change when `db` is a transaction handle.
+async function auditAccess(db, ctx, action, user, tripId, details) {
+  if (!ctx) return;
+  const trip = await db.trip.findUnique({ where: { id: tripId }, select: { id: true, name: true } });
+  await recordAudit(db, {
+    action,
+    actor: ctx.actor,
+    target: user,
+    entity: { type: "trip", id: tripId, label: trip?.name ?? null },
+    req: ctx.req,
+    details,
+  });
+}
+
+async function grantTripAccess(db, user, inputs, ctx) {
   for (const input of inputs) {
     const expiresAt = input.expiresAt == null ? null : parseOverrideExpiry(input.expiresAt);
+    const before = await db.tripAccess.findUnique({
+      where: { userId_tripId: { userId: user.id, tripId: input.tripId } },
+    });
     await db.tripAccess.upsert({
       where: { userId_tripId: { userId: user.id, tripId: input.tripId } },
       update: { expiresAt },
       create: { userId: user.id, tripId: input.tripId, expiresAt },
+    });
+    await auditAccess(db, ctx, before ? "trip_access.update" : "trip_access.grant", user, input.tripId, {
+      expiresAt: { from: before?.expiresAt ?? null, to: expiresAt },
     });
   }
 }
@@ -154,9 +196,25 @@ async function grantTripAccess(db, user, inputs) {
 // Removes trip grants. If that leaves a guest with no grant of any kind (no
 // trip, no care team seat), deactivates the login (not deletes) so an admin
 // can still find it under the Inactive filter, and ends any open session.
-async function revokeTripAccess(db, user, tripIds) {
+async function revokeTripAccess(db, user, tripIds, ctx, reason) {
+  const existing = await db.tripAccess.findMany({
+    where: { userId: user.id, tripId: { in: tripIds } },
+    select: { tripId: true },
+  });
   await db.tripAccess.deleteMany({ where: { userId: user.id, tripId: { in: tripIds } } });
-  return deactivateGuestIfNoGrants(db, user);
+  for (const { tripId } of existing) {
+    await auditAccess(db, ctx, "trip_access.revoke", user, tripId, reason ? { reason } : undefined);
+  }
+  const deactivated = await deactivateGuestIfNoGrants(db, user);
+  if (deactivated && ctx) {
+    await recordAudit(db, {
+      action: "guest.deactivate_no_access",
+      actor: ctx.actor,
+      target: user,
+      req: ctx.req,
+    });
+  }
+  return deactivated;
 }
 
 // Grants are included (with each trip's end date) so the Users list can show
@@ -291,10 +349,17 @@ router.post("/", async (req, res, next) => {
           mfaSetupRequired: requireMfa,
         },
       });
-      if (isGuest) await grantTripAccess(tx, user, grantInputs);
+      await recordAudit(tx, {
+        action: "user.created",
+        actor: req.user,
+        target: user,
+        req,
+        details: { role: user.role },
+      });
+      if (isGuest) await grantTripAccess(tx, user, grantInputs, auditCtx(req));
       // Any role can hold a seat (a full role gets the marker and view, a
       // guest gets reach), so this isn't guest-only.
-      await addCareSeats(tx, user, careInputs);
+      await addCareSeats(tx, user, careInputs, auditCtx(req));
       return user;
     });
 
@@ -362,10 +427,24 @@ router.post("/:id/setup-link", async (req, res, next) => {
     const settings = await getSettings();
     if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
       await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired });
+      await recordAudit(null, {
+        action: "user.setup_link_sent",
+        actor: req.user,
+        target: user,
+        req,
+        details: { delivery: "email" },
+      });
       res.json({ sent: true });
     } else {
       const { issueSetupToken, buildSetupUrl } = require("../utils/passwordSetup");
       const { token } = await issueSetupToken(user);
+      await recordAudit(null, {
+        action: "user.setup_link_sent",
+        actor: req.user,
+        target: user,
+        req,
+        details: { delivery: "link shown to the admin" },
+      });
       res.json({ sent: false, manualSetupUrl: buildSetupUrl(token) });
     }
   } catch (err) {
@@ -414,7 +493,7 @@ router.post("/:id/trip-access", async (req, res, next) => {
     if (!(await allTripsExist([input.tripId]))) {
       return res.status(400).json({ error: "That trip doesn't exist" });
     }
-    await prisma.$transaction((tx) => grantTripAccess(tx, user, [input]));
+    await prisma.$transaction((tx) => grantTripAccess(tx, user, [input], auditCtx(req)));
     const rows = await prisma.tripAccess.findMany({
       where: { userId: user.id },
       select: GRANT_SELECT,
@@ -439,7 +518,12 @@ router.put("/:id/trip-access/:tripId", async (req, res, next) => {
     });
     if (!existing) return res.status(404).json({ error: "Not found" });
     const value = expiresAt === null ? null : parseOverrideExpiry(expiresAt);
-    await prisma.tripAccess.update({ where: { id: existing.id }, data: { expiresAt: value } });
+    await prisma.$transaction(async (tx) => {
+      await tx.tripAccess.update({ where: { id: existing.id }, data: { expiresAt: value } });
+      await auditAccess(tx, auditCtx(req), "trip_access.update", user, req.params.tripId, {
+        expiresAt: { from: existing.expiresAt, to: value },
+      });
+    });
     const rows = await prisma.tripAccess.findMany({
       where: { userId: user.id },
       select: GRANT_SELECT,
@@ -455,7 +539,9 @@ router.delete("/:id/trip-access/:tripId", async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!user) return res.status(404).json({ error: "Not found" });
-    const deactivated = await prisma.$transaction((tx) => revokeTripAccess(tx, user, [req.params.tripId]));
+    const deactivated = await prisma.$transaction((tx) =>
+      revokeTripAccess(tx, user, [req.params.tripId], auditCtx(req))
+    );
     res.json({ deactivated });
   } catch (err) {
     next(err);
@@ -519,8 +605,24 @@ router.put("/:id", async (req, res, next) => {
 
     const updated = await prisma.$transaction(async (tx) => {
       const user = await tx.user.update({ where: { id: req.params.id }, data: updateData });
-      if (becomingGuest) await grantTripAccess(tx, user, grantInputs);
-      await addCareSeats(tx, user, careInputs);
+      const changes = {};
+      for (const key of ["email", "firstName", "lastName", "role", "active", "authProvider"]) {
+        if (data[key] !== undefined && data[key] !== existing[key]) {
+          changes[key] = { from: existing[key], to: data[key] };
+        }
+      }
+      if (password) changes.password = "reset by an admin";
+      if (Object.keys(changes).length > 0) {
+        await recordAudit(tx, {
+          action: "user.updated",
+          actor: req.user,
+          target: user,
+          req,
+          details: changes,
+        });
+      }
+      if (becomingGuest) await grantTripAccess(tx, user, grantInputs, auditCtx(req));
+      await addCareSeats(tx, user, careInputs, auditCtx(req));
       if (leavingGuest) {
         // Grants mean nothing off the guest role -- clear them so they can't
         // silently revive if this account is ever made a guest again.
@@ -530,7 +632,9 @@ router.put("/:id", async (req, res, next) => {
         await revokeTripAccess(
           tx,
           user,
-          rows.map((r) => r.tripId)
+          rows.map((r) => r.tripId),
+          auditCtx(req),
+          "no longer a guest"
         );
       }
       return user;
@@ -582,6 +686,7 @@ router.post("/:id/mfa/reset", async (req, res, next) => {
         ...(target.role === "guest" ? { mfaSetupRequired: true } : {}),
       },
     });
+    await recordAudit(null, { action: "user.mfa_reset", actor: req.user, target: updated, req });
     res.json(sanitize(updated));
   } catch (err) {
     next(err);
@@ -597,7 +702,17 @@ router.delete("/:id", async (req, res, next) => {
       return res.status(400).json({ error: "Cannot delete the last active admin" });
     }
 
-    await prisma.user.delete({ where: { id: req.params.id } });
+    await prisma.$transaction(async (tx) => {
+      const target = await tx.user.findUnique({ where: { id: req.params.id } });
+      await tx.user.delete({ where: { id: req.params.id } });
+      await recordAudit(tx, {
+        action: "user.deleted",
+        actor: req.user,
+        target,
+        req,
+        details: target ? { role: target.role } : undefined,
+      });
+    });
     res.status(204).send();
   } catch (err) {
     next(err);

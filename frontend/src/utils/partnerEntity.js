@@ -52,3 +52,13 @@ export const INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD = {
   label: "Include archived partners",
   type: "checkbox",
 };
+
+// "Sending church" -- the church that sent the partner, ours included ("Sent by us").
+// Its options are loaded from the server by useSendingChurchField (hooks/), so this
+// is only the shape; the list is every church any partner has, not a fixed set.
+export const SENDING_CHURCH_FILTER_FIELD = {
+  name: "sendingChurch",
+  label: "Sending church",
+  type: "select",
+  options: [{ value: "all", label: "All" }],
+};
