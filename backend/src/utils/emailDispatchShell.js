@@ -107,10 +107,32 @@ function buildSubscriberUnsubscribeToken(subscriberId) {
   return jwt.sign({ id: subscriberId, subscriberUnsubscribe: true }, process.env.SESSION_SECRET);
 }
 
+// #327 Finding 11 -- POST /api/public/subscribe used to apply a change to
+// an already-confirmed subscriber's preferences immediately, with no
+// proof the requester actually owns that email address: anyone who knew
+// (or guessed) a subscriber's address could silently re-scope or
+// re-cadence their subscription. The proposed change travels inside this
+// token itself (not written to the row at all until confirmed) so no
+// schema change is needed -- same shape discriminator pattern as every
+// other token here, plus the actual proposed values as extra claims.
+function buildSubscriberConfirmChangeToken(subscriberId, { cadence, allPartners, partnerIds }) {
+  return jwt.sign(
+    { id: subscriberId, subscriberConfirmChange: true, cadence, allPartners, partnerIds },
+    process.env.SESSION_SECRET
+  );
+}
+
 function buildSubscriberConfirmUrl(subscriberId) {
   const base = appBaseUrl();
   if (!base) return null;
   return `${base}/api/public/subscribe/confirm?token=${encodeURIComponent(buildSubscriberConfirmToken(subscriberId))}`;
+}
+
+function buildSubscriberConfirmChangeUrl(subscriberId, proposed) {
+  const base = appBaseUrl();
+  if (!base) return null;
+  const token = buildSubscriberConfirmChangeToken(subscriberId, proposed);
+  return `${base}/api/public/subscribe/confirm?token=${encodeURIComponent(token)}`;
 }
 
 function buildSubscriberUnsubscribeUrl(subscriberId) {
@@ -359,8 +381,10 @@ module.exports = {
   buildUnsubscribeToken,
   buildUnsubscribeUrl,
   buildSubscriberConfirmToken,
+  buildSubscriberConfirmChangeToken,
   buildSubscriberUnsubscribeToken,
   buildSubscriberConfirmUrl,
+  buildSubscriberConfirmChangeUrl,
   buildSubscriberUnsubscribeUrl,
   buildEmailDispatchMessage,
 };
