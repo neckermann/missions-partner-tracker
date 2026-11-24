@@ -765,7 +765,7 @@ directly against the code, not assumed:
 | You want... | You need | Notes |
 |---|---|---|
 | Prayer request / one-time need / newsletter digests (admin or public) | **Sending** | Also needs Public directory for the public digest specifically. |
-| New-user welcome emails, "resend my setup link" | **Sending** | Off (or unconfigured): the admin gets a manual link to copy/send themselves instead of a failed send. |
+| New-user welcome emails, "resend my setup link" | **Sending** | Off (or unconfigured): the admin gets a manual link to copy/send themselves instead of a failed send. On the expired-link page a person asking for a new link is told that this site can't send email and to ask their church administrator (the same message for every address, so it reveals nothing about accounts); the admin then uses **Send setup link** on their row in Manage Users. |
 | Trip participant access links (self-service or admin resend) | **Sending** | Same manual-link fallback when off. |
 | Trip meeting invites, reschedules, day-before reminders | **Sending** | RSVP itself (see below) needs no email at all once the participant has the link. |
 | Trip meeting **RSVP tracking** (yes/no/maybe) | **Sending only** | Deliberately link-based, not reply-based — a participant clicks one of three token-verified links in their invite email; nothing needs to come back in. **Receiving is not required for this**, by design (see `TripMeetingRsvp` in `schema.prisma`). |

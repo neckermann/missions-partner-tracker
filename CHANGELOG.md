@@ -42,6 +42,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 - **The Audit log export downloaded as `activity-log-….csv`**, a leftover from before the page was renamed; it is now `audit-log-….csv`. A link in the Admin Guide to the Audit log section was also dead.
 - **A link to a deleted record left the page on "Loading..." forever.** The partner, trip, participant and application pages now say the record wasn't found (or that you don't have access to it) and link back to the list. An old bookmark, or a tab left open across a demo reset, is the usual way to hit this.
 - **A guest's trip page never showed the Financial tab**, even with trip budgeting on, because the page asked for the church-wide trip settings, which are closed to guests. Whether budgeting is on now comes with the trip itself, and the trip pages no longer request the closed settings for a guest (#370).
+- **"Email me a new link" no longer promises a link that won't come ([#345](https://github.com/neckermann/missions-partner-tracker/issues/345)).** While outbound email is off, the expired-link page now says this site can't send email and to ask the church administrator for a new setup link, instead of "a new link is on its way". It is the same message for every address, so it still reveals nothing about which accounts exist.
 
 ### Upgrading
 

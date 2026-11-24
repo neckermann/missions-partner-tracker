@@ -90,7 +90,7 @@ after(async () => {
 });
 
 describe("POST /api/auth/password-setup/request -- outboundEmail off", () => {
-  test("still returns the generic success response, and never attempts to send", async () => {
+  test("says to ask an administrator (nobody is left waiting for an email), and never attempts to send", async () => {
     postmarkCalls = [];
     const res = await anon("/api/auth/password-setup/request", {
       method: "POST",
@@ -98,7 +98,8 @@ describe("POST /api/auth/password-setup/request -- outboundEmail off", () => {
     });
     assert.equal(res.status, 200);
     assert.equal(res.body.ok, true);
-    assert.match(res.body.message, /if that email has an account/i);
+    assert.equal(res.body.emailOff, true);
+    assert.match(res.body.message, /ask your church administrator/i);
 
     // The response above fires before the email attempt even starts (see
     // routes/auth.js's own comment on why), so give it a moment to not
@@ -107,15 +108,67 @@ describe("POST /api/auth/password-setup/request -- outboundEmail off", () => {
     assert.equal(postmarkCalls.length, 0, "no Postmark send should have been attempted");
   });
 
-  test("the same generic response is returned for an email with no account at all", async () => {
+  test("the same reply comes back for an email with no account at all, so it reveals nothing about accounts", async () => {
     postmarkCalls = [];
+    const real = await anon("/api/auth/password-setup/request", {
+      method: "POST",
+      body: { email: user.email },
+    });
     const res = await anon("/api/auth/password-setup/request", {
       method: "POST",
       body: { email: `nobody-${Date.now()}@${FROM_DOMAIN}` },
     });
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
+    assert.deepEqual(res.body, real.body);
     await new Promise((resolve) => setTimeout(resolve, 100));
     assert.equal(postmarkCalls.length, 0);
+  });
+});
+
+describe("POST /api/auth/password-setup/request -- outboundEmail on", () => {
+  before(async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { outboundEmail: true } },
+    });
+  });
+  after(async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { outboundEmail: false } },
+    });
+  });
+
+  test("the same generic reply for an account waiting to be set up and for an unknown address", async () => {
+    const real = await anon("/api/auth/password-setup/request", {
+      method: "POST",
+      body: { email: user.email },
+    });
+    const unknown = await anon("/api/auth/password-setup/request", {
+      method: "POST",
+      body: { email: `nobody-${Date.now()}@${FROM_DOMAIN}` },
+    });
+    assert.equal(real.status, 200);
+    assert.deepEqual(real.body, unknown.body);
+    assert.equal(real.body.emailOff, undefined);
+    assert.match(real.body.message, /if that email has an account/i);
+    // The waiting account's link is sent after the reply; let it finish so it can't be
+    // counted by the next test.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  });
+
+  test("a link is sent to a waiting account, and nothing is sent for an unknown address", async () => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    postmarkCalls = [];
+    await anon("/api/auth/password-setup/request", {
+      method: "POST",
+      body: { email: `nobody-${Date.now()}@${FROM_DOMAIN}` },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    assert.equal(postmarkCalls.length, 0, "no account, so nothing is sent");
+
+    await anon("/api/auth/password-setup/request", { method: "POST", body: { email: user.email } });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    assert.equal(postmarkCalls.length, 1, "the waiting account is sent its link");
   });
 });
