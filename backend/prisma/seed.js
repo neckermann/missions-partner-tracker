@@ -2574,6 +2574,7 @@ async function seedTripsDemo() {
         oneTimeNeeds: true,
         monthlySupport: true,
         trips: true,
+        careTeam: true,
         publicTripDiscovery: true,
         booklet: true,
         reports: true,
@@ -2795,6 +2796,178 @@ async function seedNotificationQueue() {
     include: { partner: { select: partnerSelect } },
   });
   if (newsletter) await notifyNewsletterCreated(newsletter);
+}
+
+// ---------------------------------------------------------------------
+// Care teams and guest accounts (#289, #356) -- so the demo sites show the
+// whole care-team goal, not an empty feature. Demo-extras only (like the other
+// seeders above): the route-test database assumes nothing but its own fixtures
+// touched User/DispatchRecord.
+//
+// Two demo logins are PUBLISHED (demo/README.md), the same way the demo admin's
+// is: a care team member and a trip leader. They are the one exception to
+// "MFA is required for a guest" -- a shared, published account can't enrol an
+// authenticator without locking every other visitor out, so these two are
+// created with mfaSetupRequired off (the API/Add User path always forces it
+// on). Everything else seeded here is a populate-the-list account nobody logs
+// into, with the fixed fake password the other additional users use.
+// ---------------------------------------------------------------------
+const DEMO_GUEST_PASSWORD = process.env.DEMO_GUEST_PASSWORD || "TryTheGuestDemo2026!";
+const DEMO_CARE_MEMBER_EMAIL = "care.member@example.org";
+const DEMO_TRIP_LEADER_EMAIL = "trip.leader@example.org";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+async function seedCareTeamsDemo() {
+  console.log("Seeding care teams and guest accounts...");
+  const bcrypt = require("bcryptjs");
+  const {
+    notifyPrayerRequestCreated,
+    notifyPrayerRequestAnswered,
+    notifySupportNeedCreated,
+  } = require("../src/utils/dispatchRecording");
+  const publishedHash = await bcrypt.hash(DEMO_GUEST_PASSWORD, 12);
+  const fakeHash = await bcrypt.hash("SeedDemoUser2026!", 12);
+
+  const makeGuest = (email, firstName, lastName, { published, lapsed }) =>
+    prisma.user.upsert({
+      where: { email },
+      update: {},
+      create: {
+        email,
+        firstName,
+        lastName,
+        passwordHash: published ? publishedHash : fakeHash,
+        role: "guest",
+        authProvider: "local",
+        active: true,
+        mfaSetupRequired: !published,
+        lastLoginAt: lapsed ? null : dateBetween(0, 0),
+      },
+    });
+  const careMember = await makeGuest(DEMO_CARE_MEMBER_EMAIL, "Dana", "Whitfield", { published: true });
+  const tripLeader = await makeGuest(DEMO_TRIP_LEADER_EMAIL, "Chris", "Alvarez", { published: true });
+  const lapsedGuest = await makeGuest("sam.okafor@example.org", "Sam", "Okafor", { lapsed: true });
+
+  // The editor and viewer seedAdditionalUsers already made: a full role can be
+  // on a team too (the marker and view, never extra reach).
+  const editor = await prisma.user.findFirst({ where: { firstName: "Pat", lastName: "Reynolds" } });
+  const viewer = await prisma.user.findFirst({ where: { firstName: "Casey", lastName: "Nguyen" } });
+
+  // Variety for the coverage report: covered, members-but-no-lead, no team.
+  const partners = await prisma.partner.findMany({
+    where: { archived: false, isRestricted: false },
+    orderBy: { displayName: "asc" },
+    take: 10,
+    select: { id: true, displayName: true },
+  });
+  const team = async (partner, lead, members) => {
+    if (!partner) return;
+    const seats = [
+      ...(lead ? [{ user: lead, isLead: true }] : []),
+      ...members.map((user) => ({ user, isLead: false })),
+    ];
+    for (const { user, isLead } of seats.filter((x) => x.user)) {
+      await prisma.careTeamMember.upsert({
+        where: { partnerId_userId: { partnerId: partner.id, userId: user.id } },
+        update: { isLead },
+        create: { partnerId: partner.id, userId: user.id, isLead },
+      });
+    }
+  };
+  await team(partners[0], careMember, [viewer]);
+  await team(partners[1], editor, [careMember]);
+  await team(partners[2], careMember, []);
+  await team(partners[3], null, [editor]); // members, no lead
+  await team(partners[4], editor, [viewer]);
+  await team(partners[5], null, [careMember]); // members, no lead
+  // partners[6..9] are left with no care team, so the coverage report has gaps.
+
+  // Trip leader: one granted trip. Expiry is derived from the trip's end date
+  // + 30 days, so give them a trip that hasn't ended. The lapsed guest gets a
+  // trip with an explicit past override, so the "Inactive accounts" filter has
+  // a real example whatever the demo's dates are.
+  const upcomingTrip = await prisma.trip.findFirst({
+    where: { endDate: { gte: new Date() }, status: { not: "completed" } },
+    orderBy: { startDate: "asc" },
+  });
+  const pastTrip = await prisma.trip.findFirst({
+    where: { status: "completed" },
+    orderBy: { endDate: "desc" },
+  });
+  if (upcomingTrip) {
+    await prisma.tripAccess.upsert({
+      where: { userId_tripId: { userId: tripLeader.id, tripId: upcomingTrip.id } },
+      update: {},
+      create: { userId: tripLeader.id, tripId: upcomingTrip.id },
+    });
+  }
+  const lapsedTrip = pastTrip || upcomingTrip;
+  if (lapsedTrip) {
+    await prisma.tripAccess.upsert({
+      where: { userId_tripId: { userId: lapsedGuest.id, tripId: lapsedTrip.id } },
+      update: {},
+      create: { userId: lapsedGuest.id, tripId: lapsedTrip.id, expiresAt: new Date(Date.now() - 5 * DAY_MS) },
+    });
+  }
+
+  // A few things the care team member "entered", each with its dispatch held
+  // for staff review -- so Pending Dispatches shows the approval flow. Goes
+  // through the real notify* functions with requireReview, like the routes do,
+  // so a seeded row is exactly what a real entry produces.
+  const target = partners[0];
+  if (target) {
+    const include = {
+      partner: { select: { id: true, displayName: true, isRestricted: true } },
+      sourceFile: { select: { id: true } },
+    };
+    const today = new Date();
+    const fresh = async (model, where) => !(await prisma[model].findFirst({ where }));
+    const prayerText =
+      "Their daughter starts at a new school next week and is nervous about the move. Please pray for a good first week.";
+    if (await fresh("prayerRequest", { partnerId: target.id, requestText: prayerText })) {
+      const created = await prisma.prayerRequest.create({
+        data: {
+          partnerId: target.id,
+          category: "situational",
+          requestText: prayerText,
+          dateReceived: today,
+          notes: "Heard on our Sunday call.",
+        },
+        include,
+      });
+      await notifyPrayerRequestCreated(created, null, { requireReview: true });
+    }
+    const answeredText = "Pray for the visa renewal to come through before the end of the month.";
+    if (await fresh("prayerRequest", { partnerId: target.id, requestText: answeredText })) {
+      const answered = await prisma.prayerRequest.create({
+        data: {
+          partnerId: target.id,
+          category: "situational",
+          requestText: answeredText,
+          dateReceived: new Date(Date.now() - 20 * DAY_MS),
+          status: "answered",
+          dateAnswered: today,
+          answeredNote: "The renewal was approved this week.",
+        },
+        include,
+      });
+      await notifyPrayerRequestAnswered(answered, { requireReview: true });
+    }
+    const needText = "Replace the laptop that was stolen on the field before the new term starts.";
+    if (await fresh("supportNeed", { partnerId: target.id, description: needText })) {
+      const need = await prisma.supportNeed.create({
+        data: {
+          partnerId: target.id,
+          description: needText,
+          requestedAmount: 850,
+          requestDate: today,
+          notes: "They asked whether the committee could help; no deadline beyond the term start.",
+        },
+        include,
+      });
+      await notifySupportNeedCreated(need, null, { requireReview: true });
+    }
+  }
 }
 
 async function main() {
@@ -3139,6 +3312,9 @@ async function main() {
     // Last -- reads back the prayer requests/needs/newsletters just
     // created above, so it needs them to already exist.
     await seedNotificationQueue();
+    // After the queue: its generic pass sends the first few ordinary prayers
+    // through unreviewed, and this adds the HELD care-team ones on top.
+    await seedCareTeamsDemo();
   }
 
   const finalMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });
@@ -3164,4 +3340,10 @@ if (require.main === module) {
 // rows created by running the full seed repeatedly) without re-running
 // the whole missionary/organization seed, which is additive and would
 // otherwise just keep growing every time.
-module.exports = { buildFakePdf, buildFakeEml, scannableExtras, seedTripsDemo };
+module.exports = {
+  buildFakePdf,
+  buildFakeEml,
+  scannableExtras,
+  seedTripsDemo,
+  seedCareTeamsDemo,
+};

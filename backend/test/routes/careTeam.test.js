@@ -440,6 +440,9 @@ describe("care team: submitting prayer requests and needs", () => {
     // ...and the existing review queue lists it as held.
     const queue = await admin("/api/dispatches/pending");
     assert.equal(queue.body.find((r) => r.id === row.id)?.needsReview, true);
+    // ...and says WHY: a care team member entered it, not a restricted partner
+    assert.equal(queue.body.find((r) => r.id === row.id)?.reviewRequired, true);
+    assert.equal(queue.body.find((r) => r.id === row.id)?.isRestricted, false);
   });
 
   test("staff approving it in Pending Dispatches releases it", async () => {

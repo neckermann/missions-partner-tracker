@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import Modal from "../Modal.jsx";
 import { revealPendingDispatch, updatePendingDispatch } from "../../api/client.js";
 import ApproveRestrictedTextConfirmBody from "./ApproveRestrictedTextConfirmBody.jsx";
+import ApproveCareTeamTextConfirmBody from "./ApproveCareTeamTextConfirmBody.jsx";
 
 // Lets an admin see the real (unmasked) text behind a queued dispatch
 // and edit it before it sends (#187) -- available on any row, not just
@@ -80,7 +81,11 @@ export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
 
       {status === "ready" && confirmingApproval && (
         <>
-          <ApproveRestrictedTextConfirmBody text={text.trim()} />
+          {blurb.reviewRequired && !blurb.isRestricted ? (
+            <ApproveCareTeamTextConfirmBody text={text.trim()} />
+          ) : (
+            <ApproveRestrictedTextConfirmBody text={text.trim()} />
+          )}
 
           {error && (
             <p style={{ color: "#b91c1c" }} role="alert">
@@ -112,6 +117,11 @@ export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
               masked no matter what. Review the text below for anything else that could identify them or their
               location before saving.
               {blurb.needsReview && " Saving is what clears this to send -- it won't go out until you do."}
+            </p>
+          ) : blurb.reviewRequired && blurb.needsReview ? (
+            <p style={{ color: "#555", fontSize: "0.9rem" }}>
+              A care team member entered this, so it hasn't gone out. Edit the text if it needs it, then save
+              -- saving is what clears it to send.
             </p>
           ) : (
             <p style={{ color: "#555", fontSize: "0.9rem" }}>Edit the text that will go out.</p>

@@ -622,6 +622,7 @@ one-time need, and they never see monthly funding):
 | Approve in Pending Dispatches | Yes | No | No |
 | Assign the care team | Yes | No (can view) | No |
 | Trips of the partner | Manage all | **View only** | Manage their granted trips |
+| Trip participants' personal details (contact info, notes) on those trips | Yes | **Yes, read only** — the trip is theirs to see, same as the roster an editor sees | Yes, on their granted trips |
 
 Everything a non-staff login does is a request to the same routes an editor
 uses; `requirePartnerWriter` (staff, or on **that partner's** care team) gates
