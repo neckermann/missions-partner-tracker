@@ -1,0 +1,77 @@
+import React from "react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import TripDetailLayout from "./TripDetailLayout.jsx";
+import { fetchTrip, fetchTripApplications, fetchTripsSettings } from "../../api/client.js";
+
+// The trip page's Financial tab depends on the church's "trip budgeting" setting. Staff read it
+// from the trip settings; a guest can't (that route is 403 for them, #327), so it comes with the
+// trip itself and the layout must not ask for the closed settings at all (#370).
+vi.mock("../../api/client.js", () => ({
+  fetchTrip: vi.fn(),
+  fetchTripApplications: vi.fn().mockResolvedValue([]),
+  fetchTripsSettings: vi.fn().mockResolvedValue({}),
+}));
+
+const user = vi.hoisted(() => ({ current: {} }));
+vi.mock("../../hooks/useCurrentUser.js", () => ({ default: () => user.current }));
+vi.mock("../../hooks/useRecentlyViewed.js", () => ({ useRecordRecentlyViewed: () => {} }));
+
+const TRIP = {
+  id: "t1",
+  name: "Summer Trip",
+  status: "planning",
+  partner: { id: "p1", displayName: "Partner One" },
+  participants: [],
+};
+
+function renderLayout() {
+  return render(
+    <MemoryRouter initialEntries={["/admin/trips/t1"]}>
+      <Routes>
+        <Route path="/admin/trips/:id" element={<TripDetailLayout />}>
+          <Route index element={<div>overview</div>} />
+        </Route>
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
+describe("TripDetailLayout: Financial tab (#370)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fetchTripApplications.mockResolvedValue([]);
+    fetchTripsSettings.mockResolvedValue({ enableTripBudgeting: true });
+  });
+
+  it("shows the Financial tab to a guest when budgeting is on, without reading trip settings", async () => {
+    user.current = { isGuest: true, canWrite: false, isAdmin: false, canAccessTrip: () => true };
+    fetchTrip.mockResolvedValue({ ...TRIP, enableTripBudgeting: true });
+
+    renderLayout();
+
+    expect(await screen.findByRole("link", { name: "Financial" })).toBeInTheDocument();
+    expect(fetchTripsSettings).not.toHaveBeenCalled();
+  });
+
+  it("hides the Financial tab from a guest when budgeting is off", async () => {
+    user.current = { isGuest: true, canWrite: false, isAdmin: false, canAccessTrip: () => true };
+    fetchTrip.mockResolvedValue({ ...TRIP, enableTripBudgeting: false });
+
+    renderLayout();
+
+    expect(await screen.findByRole("link", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Financial" })).not.toBeInTheDocument();
+  });
+
+  it("still loads the trip settings for staff, and follows the same flag for the tab", async () => {
+    user.current = { isGuest: false, canWrite: true, isAdmin: true, canAccessTrip: () => true };
+    fetchTrip.mockResolvedValue({ ...TRIP, enableTripBudgeting: true });
+
+    renderLayout();
+
+    expect(await screen.findByRole("link", { name: "Financial" })).toBeInTheDocument();
+    expect(fetchTripsSettings).toHaveBeenCalledTimes(1);
+  });
+});

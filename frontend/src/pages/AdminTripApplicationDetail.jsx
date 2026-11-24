@@ -58,8 +58,9 @@ export default function AdminTripApplicationDetail() {
   const reload = useCallback(() => {
     fetchTrip(tripId).then(setTrip).catch(console.error);
     fetchTripApplications(tripId).then(setApplications).catch(console.error);
-    fetchTripsSettings().then(setTripsSettings).catch(console.error);
-  }, [tripId]);
+    // Closed to a guest (403) and not something they edit.
+    if (!isGuest) fetchTripsSettings().then(setTripsSettings).catch(console.error);
+  }, [tripId, isGuest]);
 
   useEffect(() => {
     reload();

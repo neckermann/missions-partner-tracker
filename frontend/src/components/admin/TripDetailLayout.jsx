@@ -35,23 +35,25 @@ export default function TripDetailLayout() {
   const [questionLibrary, setQuestionLibrary] = useState([]);
   const [requirementLibrary, setRequirementLibrary] = useState([]);
   const [applicationTemplate, setApplicationTemplate] = useState([]);
-  const [enableTripBudgeting, setEnableTripBudgeting] = useState(false);
 
   const reload = useCallback(() => {
     fetchTrip(id).then(setTrip).catch(console.error);
     fetchTripApplications(id).then(setApplications).catch(console.error);
   }, [id]);
 
+  // Trip settings (libraries, application template) are closed to a guest (403), and a guest
+  // doesn't edit them, so only staff fetch them. Whether budgeting is on comes with the trip
+  // itself (below), so the Financial tab shows for a guest too.
   useEffect(() => {
+    if (isGuest) return;
     fetchTripsSettings()
       .then((s) => {
         setQuestionLibrary(s.tripQuestionLibrary || []);
         setRequirementLibrary(s.tripRequirementLibrary || []);
         setApplicationTemplate(s.tripApplicationTemplate || []);
-        setEnableTripBudgeting(!!s.enableTripBudgeting);
       })
       .catch(console.error);
-  }, []);
+  }, [isGuest]);
 
   useEffect(() => {
     reload();
@@ -68,6 +70,7 @@ export default function TripDetailLayout() {
   if (!trip) return <div className="admin-shell">Loading…</div>;
 
   const pendingCount = applications.filter((a) => a.status === "pending").length;
+  const enableTripBudgeting = !!trip.enableTripBudgeting;
   const tabs = [
     { to: "", label: "Overview", end: true },
     { to: "team", label: pendingCount > 0 ? `Team (${pendingCount})` : "Team" },

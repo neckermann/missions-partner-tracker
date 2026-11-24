@@ -414,6 +414,30 @@ describe("Guest: settings/digest-summary reads blocked", () => {
     assert.equal(res.status, 403);
   });
 
+  test("a guest still sees whether trip budgeting is on, through their own trip (#370)", async () => {
+    const guest = await guestClient();
+    const before = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { enableTripBudgeting: true },
+    });
+    try {
+      for (const on of [true, false]) {
+        await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enableTripBudgeting: on } });
+        const res = await guest(`/api/trips/${tripA.id}`);
+        assert.equal(res.status, 200);
+        assert.equal(res.body.enableTripBudgeting, on);
+        // ...and nothing else from the closed settings route came along with it.
+        assert.equal(res.body.onlineGivingInstructions, undefined);
+        assert.equal(res.body.tripQuestionLibrary, undefined);
+      }
+    } finally {
+      await prisma.churchSettings.update({
+        where: { id: "singleton" },
+        data: { enableTripBudgeting: before?.enableTripBudgeting ?? false },
+      });
+    }
+  });
+
   test("403s GET /api/scoped-digest/summary", async () => {
     const guest = await guestClient();
     const res = await guest("/api/scoped-digest/summary");

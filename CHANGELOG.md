@@ -14,6 +14,11 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A partner's Newsletters & Docs card showed "undefined"** where the file kind belongs (and a custom kind never showed its own text) (#369).
+- **A guest's trip page never showed the Financial tab**, even with trip budgeting on, because the page asked for the church-wide trip settings, which are closed to guests. Whether budgeting is on now comes with the trip itself, and the trip pages no longer request the closed settings for a guest (#370).
+
 ## [0.7.0] - 2026-11-24
 
 ### Added

@@ -66,8 +66,9 @@ export default function AdminTripParticipantDetail() {
 
   useEffect(() => {
     reload();
-    fetchTripsSettings().then(setSettings).catch(console.error);
-  }, [reload]);
+    // Closed to a guest (403) and not something they edit.
+    if (!isGuest) fetchTripsSettings().then(setSettings).catch(console.error);
+  }, [reload, isGuest]);
 
   if (!trip) return <div className="admin-shell">Loading…</div>;
 
