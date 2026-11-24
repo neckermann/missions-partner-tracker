@@ -522,16 +522,10 @@ describe("Guest: password/MFA self-service", () => {
     assert.ok(res.body.qrCode);
   });
 
-  test("403s disabling MFA -- it is required for a guest", async () => {
-    const guest = await guestClient();
-    const res = await guest("/api/auth/mfa/disable", {
-      method: "POST",
-      body: { password: GUEST_PASSWORD },
-    });
-    assert.equal(res.status, 403);
-  });
-
-  test("an admin MFA reset makes the guest re-enrol rather than sign in with a password alone", async () => {
+  // No rule is specific to a guest (#385): switching two-factor off is blocked for everyone
+  // only while the church requires it, and a reset sends the account back through enrolment
+  // because login sends every unenrolled account there. Both are in twoFactorRequirement.test.js.
+  test("an admin MFA reset clears the guest's authenticator", async () => {
     await prisma.user.update({
       where: { id: selfUser.id },
       data: { mfaEnabled: true, mfaSecret: "placeholder", mfaSetupRequired: false },
@@ -540,7 +534,7 @@ describe("Guest: password/MFA self-service", () => {
     assert.equal(res.status, 200);
     const row = await prisma.user.findUnique({ where: { id: selfUser.id } });
     assert.equal(row.mfaEnabled, false);
-    assert.equal(row.mfaSetupRequired, true);
+    assert.equal(row.mfaSecret, null);
   });
 
   test("a full admin/editor/viewer session is unaffected", async () => {
@@ -901,7 +895,7 @@ describe("users.js: guest accounts and grants", () => {
     assert.equal(res.status, 400);
   });
 
-  test("creates a guest with its grants, and requires MFA even when not asked", async () => {
+  test("creates a guest with its grants, and requires MFA only when asked (no rule is specific to a guest)", async () => {
     const res = await admin("/api/users", {
       method: "POST",
       body: {
@@ -915,7 +909,7 @@ describe("users.js: guest accounts and grants", () => {
     assert.equal(res.status, 201);
     created.push(res.body.id);
     assert.equal(res.body.role, "guest");
-    assert.equal(res.body.mfaSetupRequired, true);
+    assert.equal(res.body.mfaSetupRequired, false);
     assert.equal(res.body.inactiveReason, null);
     assert.deepEqual(res.body.tripAccess.map((g) => g.tripId).sort(), [tripA.id, tripB.id].sort());
     const override = res.body.tripAccess.find((g) => g.tripId === tripB.id);
@@ -957,7 +951,7 @@ describe("users.js: guest accounts and grants", () => {
       body: { role: "guest", tripAccess: [{ tripId: tripA.id }] },
     });
     assert.equal(ok.status, 200);
-    assert.equal(ok.body.mfaSetupRequired, true);
+    assert.equal(ok.body.mfaSetupRequired, false);
     assert.equal(ok.body.tripAccess.length, 1);
   });
 

@@ -15,6 +15,7 @@ const {
   deactivateGuestIfNoGrants,
 } = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
+const { isTwoFactorRequired } = require("../utils/twoFactor");
 
 // Narrow-select, same discipline every other route's own getSettings()
 // follows -- this route only ever needs to know if outbound email is on.
@@ -118,8 +119,9 @@ const createUserSchema = z.object({
   // password. Off = no email is sent; the account stays pending (it can't
   // sign in) until a password is set or a link is sent from the user list.
   sendWelcomeEmail: z.boolean().default(true),
-  // Force two-factor enrollment the first time they sign in. Always on for
-  // a guest regardless of this value (#356).
+  // Force two-factor enrollment the first time this one person signs in. Separate from the
+  // church-wide requirement (ChurchSettings.requireTwoFactor, #385), which applies to everyone
+  // whatever this says.
   requireMfa: z.boolean().default(false),
 });
 
@@ -303,9 +305,9 @@ router.post("/", async (req, res, next) => {
       ...data
     } = createUserSchema.parse(req.body);
     const isGuest = data.role === "guest";
-    // MFA is required for every guest (#356); for the full roles it stays
-    // the admin's per-account choice.
-    const requireMfa = isGuest ? true : requireMfaRequested;
+    // The admin's per-account choice; no role is special. Requiring it of everyone is the
+    // church-wide setting (#385), which login and requireAuth read directly.
+    const requireMfa = requireMfaRequested;
     // Seats need the feature on; otherwise they'd be created but ignored.
     const careEnabled = await isCareTeamEnabled();
     if (careInputs.length > 0 && !careEnabled) {
@@ -375,7 +377,7 @@ router.post("/", async (req, res, next) => {
       const settings = await getSettings();
       if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
         try {
-          await sendWelcomeEmail(created, { requireMfa });
+          await sendWelcomeEmail(created, { requireMfa: requireMfa || (await isTwoFactorRequired()) });
           welcomeEmail = { sent: true };
         } catch (err) {
           welcomeEmail = { sent: false, error: err.message || "Couldn't send the welcome email" };
@@ -426,7 +428,7 @@ router.post("/:id/setup-link", async (req, res, next) => {
     }
     const settings = await getSettings();
     if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
-      await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired });
+      await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired || (await isTwoFactorRequired()) });
       await recordAudit(null, {
         action: "user.setup_link_sent",
         actor: req.user,
@@ -591,9 +593,6 @@ router.put("/:id", async (req, res, next) => {
       // An admin-set password supersedes any outstanding setup link.
       await prisma.passwordSetupToken.deleteMany({ where: { userId: req.params.id } });
     }
-    // MFA stays required for a guest (#356): it can't be switched off here,
-    // and becoming a guest queues enrolment at next sign-in.
-    if (effectiveRole === "guest") updateData.mfaSetupRequired = true;
     // #327 Finding 7: an admin-set password reset or a role change should
     // end every session this account already has open -- this is an admin
     // acting on *another* account here, not re-issuing a cookie for
@@ -649,10 +648,9 @@ router.put("/:id", async (req, res, next) => {
 // Recovery path for a user who lost their authenticator device — clears
 // MFA so they can log in with just their password and re-enroll from
 // Account Settings. Admins can't see or set the secret itself, only force
-// it off. (A guest can enrol and re-enrol themselves from "My account" but
-// never switch MFA off -- it's required for the role -- so for a guest this
-// reset is how a lost authenticator is cleared, and they re-enrol at next
-// sign-in.)
+// it off. (While the church requires two-factor (#385) nobody can switch it off
+// themselves, so this reset is how a lost authenticator is cleared: they sign in with
+// their password and are taken straight through enrolment again.)
 //
 // Refuses to target the caller's own account, same guard as DELETE /:id
 // below. auth.js's self-service /mfa/disable deliberately requires
@@ -671,20 +669,13 @@ router.post("/:id/mfa/reset", async (req, res, next) => {
     // #327 Finding 7: same reasoning as the password-reset bump above --
     // this account's existing sessions shouldn't survive an admin forcing
     // MFA off.
-    const target = await prisma.user.findUnique({ where: { id: req.params.id }, select: { role: true } });
+    const target = await prisma.user.findUnique({ where: { id: req.params.id }, select: { id: true } });
     if (!target) return res.status(404).json({ error: "Not found" });
+    // With the church-wide requirement on, they re-enrol at next sign-in because login sends
+    // every unenrolled account to enrolment; nothing per-account needs setting here.
     const updated = await prisma.user.update({
       where: { id: req.params.id },
-      data: {
-        mfaEnabled: false,
-        mfaSecret: null,
-        sessionVersion: { increment: 1 },
-        // A guest must re-enrol at next sign-in (#356): auth.js's
-        // verify-setup clears this flag on enrolment, so without setting it
-        // again here a reset would leave them able to sign in with a
-        // password alone.
-        ...(target.role === "guest" ? { mfaSetupRequired: true } : {}),
-      },
+      data: { mfaEnabled: false, mfaSecret: null, sessionVersion: { increment: 1 } },
     });
     await recordAudit(null, { action: "user.mfa_reset", actor: req.user, target: updated, req });
     res.json(sanitize(updated));
