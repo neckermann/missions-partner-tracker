@@ -14,6 +14,8 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-23
+
 ### Security
 - A Trip Leader scoped guest account could still read the full Pending Dispatches queue (`GET /api/dispatches/pending`) — the exact text about to go out for every partner/trip/prayer request/one-time need churchwide, unfiltered and not attached to any one trip. Excluded entirely, same `requireRole("admin", "editor", "viewer")` pattern as #329's inbound-email-queue fix (there's no sensible trip-scoped version of this queue). No database migration. (#350)
 - A Trip Leader could re-point their own trip's `partnerId` at any partner via `PUT /api/trips/:id` (the full field set was written straight through with no per-role filtering), then use that attacker-controlled `partnerId` to pass the partner-scope check on every partner-scoped read — the full record of a partner they were never meant to see, restricted partners included. Blocked: a Trip Leader's update is now rejected outright if it includes `partnerId`. (#327 Finding 2)
