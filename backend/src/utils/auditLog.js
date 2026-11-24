@@ -26,6 +26,8 @@ const AUDIT_ACTIONS = {
   "auth.password_reset_requested": { label: "Requested a password reset", category: "Sign-in" },
   "auth.mfa_enabled": { label: "Turned on two-factor authentication", category: "Sign-in" },
   "auth.mfa_disabled": { label: "Turned off two-factor authentication", category: "Sign-in" },
+  "auth.passkey_added": { label: "Added a passkey", category: "Sign-in" },
+  "auth.passkey_removed": { label: "Removed a passkey", category: "Sign-in" },
 
   "user.created": { label: "Created an account", category: "Accounts" },
   "user.updated": { label: "Changed an account", category: "Accounts" },
