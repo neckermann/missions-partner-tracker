@@ -55,6 +55,43 @@ describe("TripDetailLayout: Financial tab (#370)", () => {
     expect(fetchTripsSettings).not.toHaveBeenCalled();
   });
 
+  it("does not ask for the trip settings while the user is still loading, then not at all for a guest", async () => {
+    // Until the user loads, isGuest is false for everyone: a guest must not fire the request
+    // (and be refused) in that window.
+    user.current = {
+      loading: true,
+      isGuest: false,
+      canWrite: false,
+      isAdmin: false,
+      canAccessTrip: () => false,
+    };
+    fetchTrip.mockResolvedValue({ ...TRIP, enableTripBudgeting: true });
+
+    const view = renderLayout();
+    expect(await screen.findByRole("link", { name: "Financial" })).toBeInTheDocument();
+    expect(fetchTripsSettings).not.toHaveBeenCalled();
+
+    // The user then loads, as a guest: still no request.
+    user.current = {
+      loading: false,
+      isGuest: true,
+      canWrite: false,
+      isAdmin: false,
+      canAccessTrip: () => true,
+    };
+    view.rerender(
+      <MemoryRouter initialEntries={["/admin/trips/t1"]}>
+        <Routes>
+          <Route path="/admin/trips/:id" element={<TripDetailLayout />}>
+            <Route index element={<div>overview</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+    await screen.findByRole("link", { name: "Financial" });
+    expect(fetchTripsSettings).not.toHaveBeenCalled();
+  });
+
   it("hides the Financial tab from a guest when budgeting is off", async () => {
     user.current = { isGuest: true, canWrite: false, isAdmin: false, canAccessTrip: () => true };
     fetchTrip.mockResolvedValue({ ...TRIP, enableTripBudgeting: false });

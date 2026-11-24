@@ -24,7 +24,13 @@ export default function TripDetailLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
-  const { canWrite: globalCanWrite, isAdmin, isGuest, canAccessTrip } = useCurrentUser();
+  const {
+    canWrite: globalCanWrite,
+    isAdmin,
+    isGuest,
+    canAccessTrip,
+    loading: userLoading,
+  } = useCurrentUser();
   // A guest's global canWrite is false (role is neither admin nor
   // editor) -- but on a trip they hold a grant for they have editor-equivalent
   // write access (the backend's own requireTripScope already enforces
@@ -54,8 +60,10 @@ export default function TripDetailLayout() {
   // Trip settings (libraries, application template) are closed to a guest (403), and a guest
   // doesn't edit them, so only staff fetch them. Whether budgeting is on comes with the trip
   // itself (below), so the Financial tab shows for a guest too.
+  // Wait for the user to load first: until it has, isGuest is false for everyone, and a guest
+  // would fire (and be refused) the request before the page knows they are one.
   useEffect(() => {
-    if (isGuest) return;
+    if (userLoading || isGuest) return;
     fetchTripsSettings()
       .then((s) => {
         setQuestionLibrary(s.tripQuestionLibrary || []);
@@ -63,7 +71,7 @@ export default function TripDetailLayout() {
         setApplicationTemplate(s.tripApplicationTemplate || []);
       })
       .catch(console.error);
-  }, [isGuest]);
+  }, [userLoading, isGuest]);
 
   useEffect(() => {
     reload();
