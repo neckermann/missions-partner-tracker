@@ -5,6 +5,7 @@ const prisma = require("../prismaClient");
 const { requireRole } = require("../middleware/requireAuth");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
 const { isFeatureEnabled } = require("../utils/features");
+const { passwordSchema } = require("../utils/password");
 
 // Narrow-select, same discipline every other route's own getSettings()
 // follows -- this route only ever needs to know if outbound email is on.
@@ -60,7 +61,7 @@ const createUserSchema = z.object({
   // welcome email's one-time link lets the person choose their own (see
   // utils/passwordSetup.js). An admin-typed password is only used when
   // sendWelcomeEmail is false.
-  password: z.string().min(8).optional(),
+  password: passwordSchema.optional(),
   // Default on: email the new person a secure link to set their own
   // password. Off = no email is sent; the account stays pending (it can't
   // sign in) until a password is set or a link is sent from the user list.
@@ -76,7 +77,7 @@ const updateUserSchema = z.object({
   scopedTripId: z.string().optional().nullable(),
   expiresAt: z.coerce.date().optional().nullable(),
   active: z.boolean().optional(),
-  password: z.string().min(8).optional(), // admin resetting someone's password
+  password: passwordSchema.optional(), // admin resetting someone's password
   mfaSetupRequired: z.boolean().optional(), // forces MFA enrollment at next login
 });
 
