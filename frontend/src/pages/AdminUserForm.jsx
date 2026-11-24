@@ -20,7 +20,7 @@ const initialValues = {
   requireMfa: false,
   // Guests only: [{ tripId, expiresAt }] -- see TripGrantPicker.
   tripAccess: [],
-  // Any role, when care teams are on: [{ partnerId }] -- see CareSeatPicker.
+  // Guests only, when care teams are on: [{ partnerId }] -- see CareSeatPicker.
   careTeam: [],
 };
 
@@ -77,7 +77,7 @@ export default function AdminUserForm() {
       // Only a guest takes trip access; MFA is always required for one, so
       // the server ignores requireMfa for that role either way.
       if (values.role !== "guest") delete payload.tripAccess;
-      if (!careEnabled || values.careTeam.length === 0) delete payload.careTeam;
+      if (!careEnabled || values.role !== "guest" || values.careTeam.length === 0) delete payload.careTeam;
       if (!payload.password) delete payload.password;
 
       const created = await createUser(payload);
@@ -160,6 +160,10 @@ export default function AdminUserForm() {
             key: "care",
             label: "Care team",
             optional: true,
+            // Only a guest is added to partners here: anyone else already
+            // reaches partners through their role (and can be put on a
+            // team from the partner's own Care team panel).
+            show: (values) => values.role === "guest",
             render: ({ values, setValue }) => (
               <>
                 <p style={{ marginTop: 0, color: "#555" }}>
@@ -182,7 +186,7 @@ export default function AdminUserForm() {
       validate: (values) => {
         // Checked on the last step so it sees everything: a guest reaches
         // something only through a trip or a care team seat (#289).
-        const seats = careEnabled ? values.careTeam.length : 0;
+        const seats = careEnabled && values.role === "guest" ? values.careTeam.length : 0;
         if (values.role === "guest" && values.tripAccess.length === 0 && seats === 0) {
           return careEnabled
             ? "Choose at least one trip, or a partner whose care team this guest joins."

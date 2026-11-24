@@ -56,4 +56,16 @@ describe("Wizard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
   });
+
+  it("leaves out a step whose show() is false for the current values", () => {
+    const conditional = [
+      { ...steps[0], validate: undefined },
+      { key: "extra", label: "Extra", render: () => <div>Extra content</div>, show: (v) => v.name === "yes" },
+      { key: "last", label: "Last", render: () => <div>Last content</div> },
+    ];
+    render(<Wizard steps={conditional} onFinish={() => {}} />);
+    expect(screen.queryByText(/Extra$/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("Last content")).toBeInTheDocument();
+  });
 });
