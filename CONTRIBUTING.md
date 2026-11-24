@@ -482,7 +482,7 @@ Current links, by anchor:
 | `admin-guide.html#email-postmark` | `frontend/src/pages/AdminSettingsEmail.jsx` |
 | `admin-guide.html#skipping-the-worker-service` | `frontend/src/pages/AdminDispatchSettings.jsx` |
 | `user-guide.html` (no anchor) | `backend/src/utils/welcomeEmails.js` (`USER_GUIDE_URL`) |
-| `user-guide.html#understanding-your-role` | `backend/src/utils/welcomeEmails.js` (`TRIP_LEADER_GUIDE_URL`) |
+| `user-guide.html#understanding-your-role` | `backend/src/utils/welcomeEmails.js` (`GUEST_GUIDE_URL`) |
 | `user-guide.html#your-account-settings` | `backend/src/utils/welcomeEmails.js` (`MFA_HELP_URL`) |
 
 Keep this table current when you add, move, or remove one of these

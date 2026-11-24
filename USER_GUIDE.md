@@ -60,16 +60,21 @@ treat handing someone the filing cabinet key. If you only want someone to
 see what's public, send them the public site; they don't need an account at
 all.
 
-**A 4th, narrower account type: Trip Leader.** This one's the exception
-to "an account is the whole permission" above, on purpose — a Trip Leader
-account is a temporary guest login scoped to a single trip, created from
-Manage Users with a role of "Trip Leader" and a trip picked from a
-dropdown (an optional expiration date can be set too). It can see and
-edit that one trip's own team/meetings/requirements/budget/flights, and
-can view (but not edit) that trip's one linked partner page — nothing
-else in the app. Use it for an actual trip leader or chaperone who needs
-to manage their own trip's logistics without a full account on
-everything else. See [SPEC.md § 5.1](SPEC.md#51-trip-leader--a-scoped-guest-not-a-4th-full-role)
+**A 4th, narrower account type: Guest.** This one's the exception
+to "an account is the whole permission" above, on purpose — a Guest is a
+login that only reaches the trips an admin gives it. Create one from
+Manage Users with a role of "Guest" and pick one or more trips (from the
+trip's own page you can also give an existing guest access, or invite a
+new one). A guest can see and edit those trips' team/meetings/
+requirements/budget/flights, and can view (but not edit) those trips'
+partner pages — nothing else in the app. **Access ends 30 days after
+each trip's end date** unless an admin sets a different date, so a
+guest doesn't keep access forever; an admin can extend it, end it
+early, or remove a trip at any time. Guests sign in with a password and
+two-factor authentication, which is always required for them. Use it
+for an actual trip leader or chaperone who needs to manage their own
+trip's logistics without a full account on everything else. See
+[SPEC.md § 5.1](SPEC.md#51-guest--a-scoped-login-not-a-4th-full-role)
 for the full access list.
 
 If something you expect to see isn't there (a nav link, a button), it's
@@ -854,8 +859,8 @@ needed:
 
 **Manage Users** lists everyone with access — email, role, active status,
 MFA status, last login. **+ Add User** opens its own page: email, name,
-role (Admin, Editor, Viewer, or Trip Leader — pick a trip to scope a Trip
-Leader to), then how they'll get access — **Send a welcome email** (on
+role (Admin, Editor, Viewer, or Guest — pick at least one trip for a
+Guest), then how they'll get access — **Send a welcome email** (on
 by default) emails them a one-time "Choose your password" link so you
 never type or see their password; **Require two-factor authentication at
 first sign-in** can be turned on at the same time. If outbound email
@@ -864,9 +869,20 @@ copy and send however you like. Turn the welcome email off to set a
 password yourself (or leave it blank and use **Send setup link** on their
 row in Manage Users later) — either way, every account is still email +
 password once set up, per [Logging in](#logging-in) above. A setup link
-expires after 72 hours (7 days for a Trip Leader); their account stays
+expires after 72 hours (7 days for a Guest); their account stays
 pending — visible in Manage Users, but unable to sign in — until a
 password is actually set.
+
+For a Guest, Manage Users also shows each trip they can reach and when
+that access ends. Click their row to extend a trip's access to a date,
+end it now, go back to the automatic date (30 days after the trip ends),
+add another trip, or remove one. Removing a guest's last trip
+deactivates the account (it isn't deleted). Guests whose access has
+ended or been removed are flagged in the list, and **Inactive accounts
+only** shows just those, so you can reach out and clean up. A trip's own
+**Team** tab has a **Guest access** section for the same thing from the
+trip's side, and a team member's page has **Give guest access** to
+create their login in one step.
 
 ![The Add User page, with Basics and Account Setup steps](docs/assets/screenshots/add-user.png)
 
@@ -1427,14 +1443,15 @@ the Scan for requests button.
 
 ### Your account settings
 
-**My Account** is where you manage your own login, for every role except
-Trip Leader. You can change your password (current password required)
-and enable/disable two-factor authentication — enabling walks you
-through scanning a QR code and confirming a code; disabling requires
-your current password. (A Trip Leader guest account has no "My Account"
-page and no self-service here at all — see
-[Understanding your role](#understanding-your-role); an admin manages
-that account's password and MFA from Manage Users instead.)
+**My Account** is where you manage your own login, for every role. You
+can change your password (current password required) and enable/disable
+two-factor authentication — enabling walks you through scanning a QR code
+and confirming a code; disabling requires your current password. (A Guest
+sees just password and two-factor authentication here, and can't turn
+two-factor authentication off, since it's required for them — see
+[Understanding your role](#understanding-your-role). If a guest loses
+their authenticator app, an admin resets it from Manage Users and they set
+it up again at next sign-in.)
 
 If [Email (Sending)](#email-admin-only) is turned on for the church,
 there's also an **Email Dispatch** section here: a cadence (no

@@ -14,6 +14,23 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Added
+- **Trip access grants for guests (#356).** A guest login (see Changed) reaches the trips an admin gives it through a new `TripAccess` table, so one guest can lead more than one trip and a trip can have more than one guest. Access ends **30 days after the trip's end date**, worked out when the guest signs in rather than stored, so changing a trip's dates moves the expiry too (a trip with no end date never lapses on its own). An admin can extend a grant to a date, end it now, go back to the automatic date, or remove it, from the guest's row in Manage Users, from a trip's **Team → Guest access** section, or with **Give guest access** on a team member's page. **Add User** has a trip step for guests (and opens preset when you come from a trip).
+- Guests get a **My account** page for their own password and two-factor authentication.
+- Manage Users flags guest accounts that can't sign in (deactivated, all access expired, or no trips left) and has an **Inactive accounts only** filter (`GET /api/users?inactive=true`) so an admin can reach out and clean up.
+- `AuditLog`: an append-only record of who granted, changed or removed a guest's access, and of the deactivation when a guest loses their last trip. Written in the same transaction as the change. (Nothing in the app records who did what elsewhere; this is only for access changes.)
+- `backend/src/utils/guestAccess.js` is the one place that answers which partners and trips a guest may read (`canReadPartner`, `canReadTrip`); `utils/tripAccessRules.js` holds the pure expiry rules.
+
+### Changed
+- **Migration required: `npx prisma migrate deploy`.** The `tripLeader` role is renamed **`guest`** (the user-facing term is now "Guest"). The migration carries every existing Trip Leader login over: its trip becomes one `TripAccess` row, an admin-set `User.expiresAt` becomes that grant's expiry override, the role becomes `guest`, and anyone not yet enrolled is made to set up two-factor authentication at next sign-in. `User.scopedTripId` and `User.expiresAt` are dropped. A fork that referenced either, or the `"tripLeader"` role string, needs updating.
+- Two-factor authentication is **required for guests** and can't be switched off by them (an admin MFA reset makes them enrol again at next sign-in). Reverses #329 Finding 2, which had made guest passwords and MFA admin-only; the backend self-service routes are open to guests again and "My account" is how they use them.
+- The partner name shown in a guest's sidebar now prefers the partner's display name over its field display name, matching the partner page it links to.
+- The "Users & access" report derives a guest's status and expiry from their trip grants instead of the removed `User.expiresAt` column, and gains a "No access" status.
+- The welcome email for a guest now says "guest access" and links a "Guest guide".
+
+### Removed
+- The roster **Team Leader** checkbox on a trip participant (add-participant form and participant detail page) and the leader names under the Trips list's Team column. Who leads a trip is now whoever holds a guest grant for it. The `TripParticipant.isLeader` column is left in place with its data, but nothing in the app sets or reads it any more.
+
 ### Security
 - A Trip Leader scoped guest account could still read the full Pending Dispatches queue (`GET /api/dispatches/pending`) — the exact text about to go out for every partner/trip/prayer request/one-time need churchwide, unfiltered and not attached to any one trip. Excluded entirely, same `requireRole("admin", "editor", "viewer")` pattern as #329's inbound-email-queue fix (there's no sensible trip-scoped version of this queue). No database migration. (#350)
 - A Trip Leader could re-point their own trip's `partnerId` at any partner via `PUT /api/trips/:id` (the full field set was written straight through with no per-role filtering), then use that attacker-controlled `partnerId` to pass the partner-scope check on every partner-scoped read — the full record of a partner they were never meant to see, restricted partners included. Blocked: a Trip Leader's update is now rejected outright if it includes `partnerId`. (#327 Finding 2)

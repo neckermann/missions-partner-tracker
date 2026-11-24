@@ -96,7 +96,10 @@ and `ReportSchedule` (recurring report emails — weekly/monthly/quarterly
 password" link — single-use, only a hash stored, 72h/7-day expiry) and
 `NotificationSeen` (per-user read/unread state for in-app notices,
 unrelated to the dispatch system's `DispatchRecord` despite the similar
-name).
+name), `TripAccess` (a guest login's grant on one trip, §5.1) and
+`AuditLog` (append-only record of who changed whose access; actor/target
+are plain strings with an email snapshot, not foreign keys, so a row
+outlives either account).
 
 **WhatsApp dispatch** adds `WhatsAppAuthEntry` (the encrypted linked-
 session store — see §6.2a).
@@ -167,7 +170,7 @@ in-process cron scheduler (§6) is written with that assumption explicit.
 | `/api/auth` | `auth.js` | mixed (see §5) | setup, login, MFA, password change, digest-email self-service, unsubscribe link, logout |
 | `/api/partners` | `partners.js` | session (any role) | Partner CRUD, photo upload, archive/unarchive/delete, sync-sending-church |
 | `/api/public/partners` | `publicPartners.js` | open | masked public partner list/detail |
-| `/api/users` | `users.js` | admin only | user management |
+| `/api/users` | `users.js` | admin only | user management, plus a guest's trip access grants (`/:id/trip-access`, `/by-trip/:tripId`) and the `?inactive=true` filter (§5.1) |
 | `/api/public/country-info` | `countryInfo.js` | `joshuaProject` feature | Joshua Project proxy |
 | `/api/support-needs` | `supportNeeds.js` | session | one-time need CRUD |
 | `/api/support-entries` | `supportEntries.js` | session | monthly-support ledger |
@@ -179,7 +182,7 @@ in-process cron scheduler (§6) is written with that assumption explicit.
 | `/api/partner-links` | `partnerLinks.js` | session | partner external-link CRUD |
 | `/api/partner-languages` | `partnerLanguages.js` | session | partner language CRUD |
 | `/api/trip-types` | `tripTypes.js` | session | per-church trip category CRUD |
-| `/api/trips` | `trips.js`, `tripMeetings.js`, `tripRequirements.js`, `tripParticipants.js` | session, `requireTripScope`/`requirePartnerQueryScope` for `tripLeader` (§5.1) | trip CRUD + lifecycle, roster/participants, meeting invites + RSVPs, document requirements, budget lines, flight segments, contribution ledger |
+| `/api/trips` | `trips.js`, `tripMeetings.js`, `tripRequirements.js`, `tripParticipants.js` | session, `requireTripScope`/`requirePartnerQueryScope` for `guest` (§5.1) | trip CRUD + lifecycle, roster/participants, meeting invites + RSVPs, document requirements, budget lines, flight segments, contribution ledger |
 | `/api/public/trips` | `publicTrips.js`, `publicTripApplications.js`, `publicTripParticipants.js` | open, gated by `trips` + per-church `allowPrivateApplicationLinks`/`allowPublicSupportRaisingLinks`/public discovery toggles | public Trip Opportunities listing, public application form, participant support-raising/self-service pages |
 | `/api/notifications` | `notifications.js` | session | `NotificationSeen` read/unread state for in-app notices |
 | `/api/reports` | `reports.js` | session, `reports` feature (admin-only for users-&-access and schedule management) | report hub catalog (`GET /`), run a report (JSON/CSV), saved views (`GET/POST /views`, `DELETE /views/:id`), scheduled report emails (`POST /views/:id/schedule`, `DELETE /schedules/:id`, admin only) — see `backend/src/reporting/` |
@@ -233,6 +236,9 @@ Each file owns one narrow responsibility:
 | `versionCheck.js` | Compares the running version against upstream's latest tag. |
 | `email.js` | `sendEmail`/`sendEmailBatch` over Postmark. |
 | `emailTemplate.js` | Shared branded HTML shell reused by welcome emails and trip participant emails (meeting invites, reminders, checklist/date-change notices, team welcome). |
+| `tripAccessRules.js` | Pure grant rules: a trip grant's effective expiry (override, else trip end date + 30 days), what a grant looks like to the UI, and why a guest is inactive. No Prisma import, so the reporting registry can use it. |
+| `guestAccess.js` | What a guest may reach: loads active grants for `requireAuth`, and the single `readablePartnerIds`/`canReadPartner`/`readableTripIds`/`canReadTrip` helpers every scoped route asks (so none re-derives it from a trip). |
+| `auditLog.js` | `recordAudit(db, …)` — writes an `AuditLog` row inside the same transaction as the access change it describes. |
 | `welcomeEmails.js` | Sends the new-user "choose your password" welcome email (`PasswordSetupToken`); owns the hardcoded docs-site links used in it (see CONTRIBUTING.md's "Hardcoded links into the docs site" table). |
 | `tripEmails.js` | Trip meeting/requirement participant emails, including `manualFallback()` — the `{ sent: false, manual: [{ name, email, url }] }` shape every manual-send-link notice in the UI renders from when `outboundEmail` is off (§4). |
 | `publicSubscribeEmails.js` | Double opt-in confirm/unsubscribe emails for the public prayer-request Subscribe flow. |
@@ -472,44 +478,79 @@ than by omission"). Roles exist to gate **writes**, not visibility:
   no "editor can only edit their own partners" concept anywhere the 3
   full roles are concerned.
 
-### 5.1 Trip Leader — a scoped guest, not a 4th full role
+### 5.1 Guest — a scoped login, not a 4th full role
 
-`tripLeader` is a deliberately narrow 4th account tier, not a
+`guest` is a deliberately narrow 4th account tier, not a
 reconsideration of "auth is the boundary" above and not a reduction of
 any existing role's visibility — `admin`/`editor`/`viewer` are unchanged.
-It's a real login (`User.role: "tripLeader"`, same session/password
-mechanism as every other account — no bespoke portal), scoped to exactly
-one `Trip` via `User.scopedTripId` (`onDelete: Cascade` — the guest
-account only exists because that trip does), with an optional
-`User.expiresAt` enforced in `requireAuth.js` the same way `!active` is
-(blocks the session once past; never auto-deletes the row).
+It's a real login (`User.role: "guest"`, same session/password
+mechanism as every other account — no bespoke portal) whose reach comes
+only from **grant rows**, never from the role itself: effective access =
+the role's baseline (nothing, for a guest) plus whatever grants exist.
+Today the only grant table is `TripAccess` (#356); #289 adds care team
+seats to the same helpers. Grants never allow deletes, profile edits or
+settings. (Renamed from `tripLeader`, which was scoped by a single
+`User.scopedTripId`; that column and `User.expiresAt` are gone, and the
+migration carries existing logins over.)
+
+`TripAccess` is one row per (guest, trip), `onDelete: Cascade` on both
+sides. **Expiry is derived at check time, not stored:** with a null
+`TripAccess.expiresAt` the grant lapses at the end of the day 30 days
+after `Trip.endDate`, so changing a trip's dates moves every grant's
+expiry with it, and a trip with no end date never lapses on its own. A
+non-null `expiresAt` is only an admin override ("extend" or "end now") and
+wins over the derived date in both directions (`utils/tripAccessRules.js`).
+`requireAuth.js` reads a guest's grants fresh on every request; a guest
+with **no active grant** gets the same 401 as `!active` — the row is kept,
+so extending access moves a date instead of recreating the account. Care
+team seats (#289) will not expire.
+
+Removing a guest's **last** grant deactivates the account (`active:
+false`, sessions ended), never deletes it, and an admin granting access
+afterwards does **not** silently reactivate it. The Users list marks
+"inactive" guests (deactivated, all access expired, or none left —
+computed, not stored) and `GET /api/users?inactive=true` /
+the "Inactive accounts only" filter lists just those so an admin can reach
+out and clean up. Every grant, extension/end and revocation (and the
+deactivation) writes an `AuditLog` row in the same transaction.
+
+**MFA is required for a guest** (`mfaSetupRequired` is forced on at
+creation and role change, and again by an admin MFA reset). A guest can
+change their own password and enrol MFA from "My account" (reversing
+#329 Finding 2, which had made them fully admin-managed), but cannot
+disable it. "My account" shows a guest password and MFA only — never the
+admin digest subscription.
 
 | Can read | Can write |
 |---|---|
-| Their own scoped trip's own content; that trip's one linked `Partner` (read-only) | Editor-equivalent create/update/delete on their own trip's meetings/requirements/budget lines/flight segments/documents/contributions/participants/applications, matching the editor-delete exceptions above. Never the Trip entity's own delete/clone/generate-application-link (those stay admin-only or admin+editor-only even on their own trip), never anything on the Partner |
+| Each granted trip's own content; the `Partner` of each granted trip (read-only) | Editor-equivalent create/update/delete on a granted trip's meetings/requirements/budget lines/flight segments/documents/contributions/participants/applications, matching the editor-delete exceptions above. Never the Trip entity's own delete/clone/generate-application-link (those stay admin-only or admin+editor-only even on a granted trip), never anything on the Partner |
 
 Everything else in the app — the Partner directory, every other trip,
-Prayer Requests, One-Time Needs, Monthly Support, Reports, Booklet,
-Inbound Email, Pending Dispatches, Settings, Users, Account Settings — is
-a flat 403. Enforced server-side by two middleware added to
-`requireAuth.js`: `requireTripScope(tripIdResolver)` (a no-op for every
-other role; 403s a `tripLeader` whose request resolves to a different
-trip than their own — applied to every trip-scoped route, reads
-included) and `requirePartnerQueryScope` (same no-op/403 shape, for a
-Partner sub-resource's own `?partnerId=` read — prayer requests,
-one-time needs, support entries, family members, furloughs, church
-visits, links, languages, files, trips-by-partner — refusing a query
-with no `partnerId` filter at all, which would otherwise return every
-partner's rows). `AdminLayout.jsx` mirrors this client-side (redirects a
-`tripLeader` away from any path outside their own trip or `/partners/*`)
-purely so they never see a flash of the wrong page before the backend's
-own 403 lands — the frontend check is not the real boundary.
+One-Time Needs, Monthly Support (amounts), Reports, Booklet, Inbound
+Email, Pending Dispatches, Settings, Users — is a flat 403. Enforced
+server-side by two middleware in `requireAuth.js`:
+`requireTripScope(tripIdResolver)` (a no-op for every other role; 403s a
+`guest` whose request resolves to a trip they hold no active grant for —
+applied to every trip-scoped route, reads included) and
+`requirePartnerQueryScope` (same no-op/403 shape, for a Partner
+sub-resource's own `?partnerId=` read — prayer requests, support entries,
+family members, furloughs, church visits, links, languages, files,
+trips-by-partner — refusing a query with no `partnerId` filter at all,
+which would otherwise return every partner's rows). Single-record routes
+(`GET /api/partners/:id`, partner file download) and both middleware ask
+`utils/guestAccess.js` (`canReadPartner`, `canReadTrip`) rather than
+re-deriving reach from a trip; add any new partner- or trip-keyed route
+the same way. `/api/photos/:id/raw` is public by design, so it is not a
+guest leak. `AdminLayout.jsx` mirrors this client-side (redirects a guest
+away from any path outside a granted trip, `/partners/*` or
+`/account`) purely so they never see a flash of the wrong page before the
+backend's own 403 lands — the frontend check is not the real boundary.
 
-**Frontend `canWrite` for a Trip Leader is scope-aware, and that scoping
+**Frontend `canWrite` for a guest is scope-aware, and that scoping
 doesn't propagate for free.** `useCurrentUser()`'s own `canWrite` is
-global (`admin`/`editor` only, always `false` for `tripLeader` — see its
-own comment). `TripDetailLayout.jsx` computes a second, trip-scoped
-`canWrite = globalCanWrite || (isTripLeader && id === scopedTripId)` and
+global (`admin`/`editor` only, always `false` for `guest` — see its own
+comment). `TripDetailLayout.jsx` computes a second, trip-scoped
+`canWrite = globalCanWrite || canAccessTrip(id)` and
 passes it down via `useOutletContext()` to every route nested under its
 Outlet (`AdminTripTeam.jsx`, `AdminTripOverview.jsx`,
 `AdminTripFinancial.jsx`, etc.) — none of those call `useCurrentUser()`
@@ -520,7 +561,7 @@ lives *outside* that Outlet but still operates on one trip's data (e.g.
 `trips/:id`) has no context to inherit and must repeat the exact same
 computation itself. Confirmed as a real, shipped bug, not a
 theoretical one: `AdminTripParticipantDetail.jsx` called the global
-`canWrite` directly and showed a Trip Leader a read-only UI on their
+`canWrite` directly and showed a trip leader a read-only UI on their
 own trip's own participant, despite the backend correctly granting
 them write access there the whole time (middleware above, not this
 page's own code, was always right). Fixed by replicating

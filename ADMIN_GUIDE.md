@@ -260,17 +260,17 @@ A few things worth knowing operationally:
   the database — see
   [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below.
 - MFA (TOTP) is opt-in and self-service for the 3 full roles, or an
-  admin can force it on a specific account. A Trip Leader guest account
-  has no self-service here at all (password included) — fully
-  admin-managed, same as the rest of that account's scope — so forcing
-  MFA on one only ever goes through the required-at-first-sign-in flow;
-  turning it back off goes through Manage Users' own MFA reset, not a
-  self-service disable. See
+  admin can force it on a specific account. A Guest account always has
+  MFA required: it's turned on when the account is created (or an
+  existing account becomes a guest), the guest enrols from My Account
+  and can change their own password there, but cannot switch MFA off. If
+  a guest loses their authenticator, Manage Users' MFA reset clears it
+  and they enrol again at next sign-in. See
   [USER_GUIDE.md § Your account settings](USER_GUIDE.md#your-account-settings)
   for the user-facing flow.
 
 For the app's role model itself (`viewer`/`editor`/`admin`, plus the
-narrow Trip Leader guest tier scoped to a single trip), see
+narrow Guest tier, scoped to the trips an admin grants it), see
 [USER_GUIDE.md § Understanding your role](USER_GUIDE.md#understanding-your-role)
 and [SPEC.md § 5](SPEC.md#5-auth--permissions-model).
 
