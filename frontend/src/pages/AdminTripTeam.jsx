@@ -172,7 +172,7 @@ export default function AdminTripTeam() {
         <Table
           columns={[
             { key: "name", label: "Name", render: (a) => `${a.firstName} ${a.lastName}` },
-            { key: "submittedAt", label: "Submitted", type: "date" },
+            { key: "createdAt", label: "Submitted", type: "date" },
           ]}
           rows={pending}
           onRowClick={(a) => navigate(`/admin/trips/${id}/applications/${a.id}`)}

@@ -210,11 +210,11 @@ async function overdueTripRequirements(_opts, scopeTripIds) {
 async function tripApplicationsPending(_opts, scopeTripIds) {
   const rows = await prisma.tripApplication.findMany({
     where: { status: "pending", ...(scopeTripIds ? { tripId: { in: scopeTripIds } } : {}) },
-    select: { tripId: true, submittedAt: true },
+    select: { tripId: true, createdAt: true },
   });
   const distinctTripIds = new Set(rows.map((r) => r.tripId));
   const linkTo = distinctTripIds.size === 1 ? `/admin/trips/${rows[0].tripId}/team` : undefined;
-  return { count: rows.length, latest: latestOf(rows, (r) => r.submittedAt), linkTo };
+  return { count: rows.length, latest: latestOf(rows, (r) => r.createdAt), linkTo };
 }
 
 // Per-user count: "how many of these has this teammate not looked at yet,"

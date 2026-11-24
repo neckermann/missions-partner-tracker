@@ -565,6 +565,13 @@ function ExistingTripsTab() {
             ? []
             : [
                 {
+                  key: "createdAt",
+                  label: "Added",
+                  sortable: true,
+                  sortBy: (trip) => lastUpdatedSortKey(trip.createdAt),
+                  render: (trip) => (trip.createdAt ? formatDate(trip.createdAt) : ""),
+                },
+                {
                   key: "lastUpdatedAt",
                   label: "Last updated",
                   sortable: true,
