@@ -886,6 +886,8 @@ create their login in one step.
 
 ![The Add User page, with Basics and Account Setup steps](docs/assets/screenshots/add-user.png)
 
+![Add User's Care team step, choosing partners for a Guest to look after](docs/assets/screenshots/add-user-care-team.png)
+
 Editing an existing user (from their row in Manage Users) lets you change
 role, deactivate, force MFA enrollment, or reset a password. **Reset MFA**
 clears a locked-out user's two-factor setup so they can log back in with
@@ -1065,6 +1067,10 @@ group with new and decided needs:
 
 With **Care teams** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles), every partner can have a **care team**: one **Lead** and any number of **Members**, the people at the church who keep in touch with that partner. An admin or editor sets it from the partner's page (**Care team**, near the top) or from the **Team** tab of one of that partner's trips, and can also add someone to a partner's team while creating their account (**Add User → Care team**). Everyone on a team needs a login; someone who isn't on your staff can be a **Guest**. **Reports → Care team coverage** lists the partners with no team or no lead.
 
+![A partner's page with the Care team panel (a Lead and Members) beside the Contact card](docs/assets/screenshots/care-team-and-contact.png)
+
+![The Care team dialog, choosing a Lead and ticking Members](docs/assets/screenshots/assign-care-team.png)
+
 A care team member uses the same app as everyone, and for **their own partner** they can do what an editor can: edit the partner's profile, family, contact details, links and photos; add and edit prayer requests (and record answers) and one-time needs; and upload, edit and scan newsletters and documents. They can also see that partner's trips, read-only. Three things are different:
 
 - **What they enter is saved immediately, but isn't sent to the church** by email, GroupMe or WhatsApp **until an admin or editor approves it** in [Pending Dispatches](#pending-dispatches). They can't mark anything urgent or use "approve now".
@@ -1073,17 +1079,29 @@ A care team member uses the same app as everyone, and for **their own partner** 
 
 They also can't create or delete partners, or delete records. If you're an admin or editor yourself, being on a team doesn't limit you or hold your entries; it just adds the care-team features.
 
+![Pending Dispatches, where an entry from a care team member is held for staff to approve](docs/assets/screenshots/pending-dispatches-care-team.png)
+
 A **trip leader** (a Guest given a trip) has a smaller view: their trips, and those trips' partners read-only. They don't get the care-team list pages or one-time needs.
+
+![A care team member's view of their partner: they can edit what's theirs, and see no monthly support](docs/assets/screenshots/care-team-member-view.png)
 
 ### Contact log
 
 With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles), every partner page gets a **Contact** card and a **Contact Log**.
 
 - **The contact card** shows who to reach first (the adult marked **Primary contact**, or an organization's named contact), how they prefer to be reached, and one-tap **Call**, **Text**, **Email** and **WhatsApp** buttons, plus when anyone last was in touch.
+
+![A partner's Contact card, and the special communication instructions that replace the buttons when a partner isn't safe to contact](docs/assets/screenshots/contact-card-instructions.png)
 - **If a partner isn't safe to contact**, the buttons and numbers are replaced by the **special communication instructions** staff wrote (edit them under Status & Visibility). The printed booklet also leaves out their phone, email and preferred method.
 - **Log a contact** with **+ Log contact**: pick what happened (call, text, email, visit, card, video, prayed for them), who reached out, optional topics, the date, who made the contact (you, by default), an optional note and an optional **follow up by** date. Anyone who can see the partner can log one. Only an admin or editor can edit or delete an entry.
+
+![The Log a contact dialog](docs/assets/screenshots/log-a-contact.png)
+
+![A partner's Contact Log, newest first](docs/assets/screenshots/contact-log.png)
 - **A prayer request a care team member enters** also logs the contact, so it isn't typed twice.
 - **Assigned to me** (a tab on the Partners page, for anyone on a care team) lists your partners longest-quiet first: days since the last contact, any follow-up that has come due, the next birthday or anniversary, and open prayer requests and needs. A partner counts as **quiet** after 90 days without a logged contact.
+
+![The Assigned to me tab, listing a care team member's partners longest-quiet first](docs/assets/screenshots/assigned-to-me.png)
 - **Partners to reach out to** on the bell and Home page counts your partners that are quiet or have a follow-up due.
 
 The **Last heard from** report counts a logged contact as hearing from a partner: a partner is only "quiet" when both the latest newsletter and the latest contact are old. Trip leaders don't get the contact log.
@@ -1093,8 +1111,14 @@ The **Last heard from** report counts a logged contact as hearing from a partner
 With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **supported-since milestone** (the first year, then every fifth) a week ahead.
 
 - **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **Assigned to me** tab also flags a key date inside the week.
+
+![The bell, with Key dates coming up among a care team member's alerts](docs/assets/screenshots/bell-alerts.png)
 - **By email**, one message a day, only on a day something is due, listing everything coming up for your partners (not one email per partner). It needs Email (Sending) turned on, and it's sent at 7am church time.
+
+![The grouped key-date email](docs/assets/screenshots/key-date-email.png)
 - **Who gets it:** the whole care team, lead and members. A partner with no care team goes to the **default lead** an admin picks under Settings → Care Teams; with neither, nobody hears about it.
+
+![Settings → Care Teams, where an admin picks the default lead](docs/assets/screenshots/care-teams-settings.png)
 - **To clear a reminder**, send the card or make the call and **log it as a contact with the topic "Key date"**. That stops the reminders for that occasion, and it counts as being in touch.
 - The app never sends the card for you, and a restricted partner appears in the email by initials only. A partner who isn't safe to contact is marked in the email so a reminder to "send a card" isn't read as "call them".
 
