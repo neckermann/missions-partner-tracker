@@ -157,6 +157,28 @@ describe("key-date email: the daily run", () => {
     assert.equal(c.mine().length, 1, "and it goes out once they're back on");
   });
 
+  test("sends nothing on a public demo, even with every feature on", async () => {
+    const p = await newPartner("demo");
+    await addAdult(p.id, dateIn(2));
+    const u = await makeUser("demo");
+    await prisma.careTeamMember.create({ data: { partnerId: p.id, userId: u.id } });
+    const original = process.env.DEMO_RESET_TOKEN;
+    process.env.DEMO_RESET_TOKEN = "test-demo-token";
+    try {
+      const c = collector();
+      const result = await checkAndSendKeyDateReminders({ send: c.send });
+      assert.equal(c.sent.length, 0, "a demo never emails its fake accounts");
+      assert.deepEqual(result, { sent: 0, recipients: 0 });
+    } finally {
+      if (original === undefined) delete process.env.DEMO_RESET_TOKEN;
+      else process.env.DEMO_RESET_TOKEN = original;
+    }
+    // ...and it goes out as normal once it is no longer a demo
+    const c2 = collector();
+    await checkAndSendKeyDateReminders({ send: c2.send });
+    assert.equal(c2.mine().filter((m) => m.to === u.email).length, 1);
+  });
+
   test("a failed send leaves no record and is retried; the others still get theirs", async () => {
     const p = await newPartner("retry");
     await addAdult(p.id, dateIn(3));

@@ -16,11 +16,17 @@ const { sendEmail } = require("./email");
 const { appBaseUrl } = require("./dispatchBlurbs");
 const { loadOpenKeyDates } = require("./keyDateQueries");
 const { buildKeyDateEmail } = require("./keyDateReminderEmail");
+const { isDemoDeployment } = require("./demoMode");
 
 const rowKey = (userId, i) => `${userId}|${i.partnerId}|${i.kind}|${i.subjectId}|${i.date}`;
 
 // `send` and `today` are injectable so the run is testable without Postmark.
 async function checkAndSendKeyDateReminders({ today = new Date(), send = sendEmail } = {}) {
+  // A public demo never sends these: its team members are fake seeded
+  // addresses, so the mail would only bounce and spend the email plan. The
+  // reset keeps the keyDates flag off there too (utils/demoMode.js); this is
+  // the backstop for a visitor with the published admin login switching it on.
+  if (isDemoDeployment()) return { sent: 0, recipients: 0 };
   const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
   const features = settings?.enabledFeatures;
   if (
