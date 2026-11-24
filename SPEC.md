@@ -517,7 +517,7 @@ afterwards does **not** silently reactivate it. The Users list marks
 "inactive" guests (deactivated, all access expired, or none left —
 computed, not stored) and `GET /api/users?inactive=true` /
 the "Inactive accounts only" filter lists just those so an admin can reach
-out and clean up. Grant changes are recorded in the activity log (§5.6): who granted,
+out and clean up. Grant changes are recorded in the audit log (§5.6): who granted,
 extended or removed access, and the deactivation that follows.
 
 **MFA is required for a guest** (`mfaSetupRequired` is forced on at
@@ -786,14 +786,15 @@ through the existing dispatch channels.
 - **Not built:** the "prayed-for" summary to existing subscribers, and Phase 2
   (church-member notes through a public form) — both deferred.
 
-### 5.6 Activity log and last-edited-by (#341)
+### 5.6 Audit log and last-edited-by (#341)
 
 Two mechanisms, deliberately separate, because they have opposite retention:
 
 **`AuditLog` — what happened, when (bounded).** One append-only row per
 sensitive event (`utils/auditLog.js`, the `AUDIT_ACTIONS` catalogue is the line
-between audit-worthy and routine). Gated by the `auditTrail` feature (off by
-default; the demo seed and reset turn it on and seed example entries). Actor and
+between audit-worthy and routine). Gated by the `auditTrail` feature (**on by
+default**, so it is recording from the first sign-in and a church that upgrades
+gets it; the demo seed also seeds example entries). Actor and
 target are plain ids with an email/name snapshot and **no foreign keys**, so an
 entry survives either account being deleted; the API flags `deleted` when the id
 no longer matches a user. `details` holds old/new values and never a secret:
@@ -819,7 +820,7 @@ so an access change that cannot be recorded does not happen; sign-in events use
 - *Read side:* `routes/audit.js`, admin-only and flag-gated (`GET /api/audit`
   with `q`/`category`/`action`/`from`/`to`, cursor paging; `/export` CSV through
   the formula-safe `toCsv`; `/meta`; `PUT /retention`). Reading it is not logged.
-  The page is Settings → Activity.
+  The page is Settings → Audit log.
 
 **`lastEditedById` / `lastEditedByName` / `lastEditedAt` — who last touched this
 record (unbounded).** On 32 editable models. Stamped by a Prisma client extension
@@ -833,8 +834,11 @@ Only the row written directly is stamped, not rows touched by a nested write.
 `TripAccess` (audited instead), `KeyDateReminder`, `PasswordSetupToken`,
 `NotificationSeen`, `UserFollowedPartner`, `PublicSubscriber*`, `InboundEmail*`,
 `TripMeetingRsvp`, `TripParticipantPhoto`, `WhatsAppAuthEntry`. It is shown on the
-partner, trip and trip-participant pages (not to guests) and **never on the public
-site** (tested). A new model opts in by declaring the three columns.
+partner, trip, trip-participant and trip-application pages and in the prayer
+request and one-time need detail dialogs (not to guests), as **Last edited by /
+Last edited** columns in the Prayer requests, One-time needs and Data
+completeness reports (`reporting/reports/care.js`; reports are not open to
+guests), and **never on the public site** (tested). A new model opts in by declaring the three columns.
 
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 

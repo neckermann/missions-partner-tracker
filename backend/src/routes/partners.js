@@ -704,7 +704,7 @@ router.put("/:id", requirePartnerWriter({ param: "id" }), async (req, res, next)
       // checking the box means Church Settings' current values win, full
       // stop, not a merge.
       // Restricting (or un-restricting) a partner changes who can see where they
-      // are, so it is its own entry in the activity trail.
+      // are, so it is its own entry in the audit trail.
       if (scalarData.isRestricted !== undefined && scalarData.isRestricted !== before.isRestricted) {
         await recordAudit(tx, {
           action: "partner.restricted_changed",

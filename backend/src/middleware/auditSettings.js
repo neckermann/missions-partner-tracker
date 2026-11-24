@@ -1,4 +1,4 @@
-// Records every change to the church settings in the activity trail (#341),
+// Records every change to the church settings in the audit trail (#341),
 // in one place. Settings are written by eight separate route files
 // (settings.js, settingsEmail.js, settingsGroupMe.js, ...); hooking each would
 // miss the next one added. Instead this wraps every write under /api/settings:

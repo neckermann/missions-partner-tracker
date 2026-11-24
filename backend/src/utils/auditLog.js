@@ -1,4 +1,4 @@
-// The admin activity trail (#341): who did what, when, for the sensitive
+// The admin audit trail (#341): who did what, when, for the sensitive
 // actions. One append-only table (AuditLog), gated by the `auditTrail`
 // feature, kept for ChurchSettings.auditRetentionDays and then pruned.
 //
@@ -17,7 +17,7 @@
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 
-// code -> { label, category }. Categories group the Activity page's filter.
+// code -> { label, category }. Categories group the Audit log page's filter.
 const AUDIT_ACTIONS = {
   "auth.login_success": { label: "Signed in", category: "Sign-in" },
   "auth.login_failed": { label: "Failed sign-in", category: "Sign-in" },

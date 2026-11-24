@@ -278,3 +278,63 @@ test("last heard from counts a logged contact as hearing from them, when the con
   assert.ok(off.rows.every((r) => r.contact === null));
   assert.doesNotMatch(off.notes[0], /logged contact/);
 });
+
+test("the record reports say who last edited each row, and when", () => {
+  const stamped = { lastEditedByName: "Dana Whitfield", lastEditedAt: day("2026-11-20") };
+  const unstamped = { lastEditedByName: null, lastEditedAt: null };
+  const partner = { displayName: "P", isRestricted: false, partner: undefined };
+
+  const prayer = run("prayer-requests", { status: "all" }, [
+    {
+      ...stamped,
+      category: "strategic",
+      status: "ongoing",
+      dateReceived: day("2026-11-01"),
+      dateAnswered: null,
+      isUrgent: false,
+      requestText: "x",
+      partner,
+    },
+    {
+      ...unstamped,
+      category: "strategic",
+      status: "ongoing",
+      dateReceived: day("2026-11-02"),
+      dateAnswered: null,
+      isUrgent: false,
+      requestText: "y",
+      partner,
+    },
+  ]);
+  assert.deepStrictEqual(prayer.rows.map((r) => [r.editedBy, r.editedOn]).sort(), [
+    [null, null],
+    ["Dana Whitfield", "2026-11-20"],
+  ]);
+
+  const need = run("needs-pipeline", {}, [
+    {
+      ...stamped,
+      description: "n",
+      requestedAmount: 10,
+      approvedAmount: null,
+      requestDate: day("2026-11-01"),
+      approvedDate: null,
+      isUrgent: false,
+      partner,
+    },
+  ]);
+  assert.deepStrictEqual([need.rows[0].editedBy, need.rows[0].editedOn], ["Dana Whitfield", "2026-11-20"]);
+
+  const completeness = run("data-completeness", {}, [
+    { ...stamped, displayName: "P", isRestricted: false, addresses: [], languages: [], photos: [] },
+  ]);
+  assert.deepStrictEqual(
+    [completeness.rows[0].editedBy, completeness.rows[0].editedOn],
+    ["Dana Whitfield", "2026-11-20"]
+  );
+
+  for (const id of ["prayer-requests", "needs-pipeline", "data-completeness"]) {
+    const keys = getReport(id, all).columns.map((c) => c.key);
+    assert.ok(keys.includes("editedBy") && keys.includes("editedOn"), `${id} has the last-edited columns`);
+  }
+});

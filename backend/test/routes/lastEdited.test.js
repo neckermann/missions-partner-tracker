@@ -140,4 +140,41 @@ describe("last edited by", () => {
       assert.ok(!text.includes("Ada Admin"), "an editor's name leaked publicly");
     }
   });
+
+  test("prayer requests and needs carry who last edited them, and the reports show it", async () => {
+    const partner = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} Items` },
+    });
+    const prayer = await admin("/api/prayer-requests", {
+      method: "POST",
+      body: {
+        partnerId: partner.body.id,
+        category: "strategic",
+        requestText: "pray",
+        dateReceived: "2026-11-01",
+      },
+    });
+    assert.equal(prayer.status, 201, JSON.stringify(prayer.body));
+    const need = await admin("/api/support-needs", {
+      method: "POST",
+      body: {
+        partnerId: partner.body.id,
+        description: "need",
+        requestedAmount: 100,
+        requestDate: "2026-11-01",
+      },
+    });
+    assert.equal(need.status, 201, JSON.stringify(need.body));
+    assert.equal(prayer.body.lastEditedByName, "Ada Admin");
+    assert.equal(need.body.lastEditedByName, "Ada Admin");
+
+    const prayerReport = await admin("/api/reports/prayer-requests?status=all&includeArchived=true");
+    assert.equal(prayerReport.status, 200, JSON.stringify(prayerReport.body).slice(0, 200));
+    const row = prayerReport.body.rows.find((r) => String(r.partnerName).includes("Items"));
+    assert.equal(row.editedBy, "Ada Admin");
+    assert.match(row.editedOn, /^\d{4}-\d{2}-\d{2}$/);
+    const csv = await admin("/api/reports/prayer-requests?status=all&includeArchived=true&format=csv");
+    assert.ok(csv.body.includes("Last edited by"));
+  });
 });

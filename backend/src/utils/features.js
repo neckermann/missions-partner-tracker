@@ -184,10 +184,10 @@ const FEATURES = {
     group: "admin",
   },
   auditTrail: {
-    label: "Activity log",
+    label: "Audit log",
     description:
-      "Record who did what and when for sensitive actions (sign-ins, role and access changes, settings changes, deletes, backups, views of restricted partners), with an admin-only Activity page and CSV export. Events are kept for the retention window set under Activity (30, 60 or 90 days); who last edited a record is kept for good.",
-    defaultEnabled: false,
+      "On by default. Records who did what and when for sensitive actions (sign-ins with their IP address, role and access changes, settings changes, deletes, backups, views of restricted partners), with an admin-only Audit log page and CSV export. Events are kept for the retention window set under Audit log (30, 60 or 90 days); who last edited a record is kept for good.",
+    defaultEnabled: true,
     group: "admin",
   },
   aiExtraction: {

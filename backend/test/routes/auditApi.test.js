@@ -1,4 +1,4 @@
-// The Activity page's API (#341): admin-only and flag-gated, filters and
+// The Audit log page's API (#341): admin-only and flag-gated, filters and
 // paging, deleted accounts flagged, the CSV export (formula-safe, same filters),
 // and the retention setting.
 const { test, describe, before, after, beforeEach } = require("node:test");
@@ -29,7 +29,7 @@ async function setFlag(on) {
 const entry = (data, daysAgo = 0) =>
   prisma.auditLog.create({ data: { createdAt: new Date(Date.now() - daysAgo * day), ...data } });
 
-describe("activity log API", () => {
+describe("audit log API", () => {
   before(async () => {
     await ensureTestUsers();
     originalSettings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });

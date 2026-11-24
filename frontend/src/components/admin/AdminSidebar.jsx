@@ -160,9 +160,8 @@ function buildSiteAdminLinks(enabledFeatures) {
   return [
     { to: "/admin/settings/about", label: "About & Branding", icon: "🎨" },
     { to: "/admin/settings/users", label: "Manage Users", icon: "👥" },
-    enabledFeatures.auditTrail && { to: "/admin/settings/activity", label: "Activity", icon: "📜" },
+    enabledFeatures.auditTrail && { to: "/admin/settings/audit", label: "Audit log", icon: "📜" },
     { to: "/admin/settings/features", label: "Enabled Features", icon: "🧩" },
-    { to: "/admin/settings/system-info", label: "About App", icon: "ℹ️" },
     enabledFeatures.trips && { to: "/admin/settings/trips", label: "Trips", icon: "✈️" },
     enabledFeatures.careTeam && { to: "/admin/settings/care-team", label: "Care Teams", icon: "🤝" },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
@@ -182,6 +181,7 @@ function buildSiteAdminLinks(enabledFeatures) {
       label: "Integrations",
       icon: "🔌",
     },
+    { to: "/admin/settings/system-info", label: "About App", icon: "ℹ️" },
   ].filter(Boolean);
 }
 

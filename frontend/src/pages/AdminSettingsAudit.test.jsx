@@ -2,10 +2,10 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import AdminSettingsActivity from "./AdminSettingsActivity.jsx";
+import AdminSettingsAudit from "./AdminSettingsAudit.jsx";
 import { fetchAuditLog, fetchAuditMeta, setAuditRetention } from "../api/client.js";
 
-// #341: the activity log page -- the rows, the filters it sends, paging, a
+// #341: the audit log page -- the rows, the filters it sends, paging, a
 // deleted account still named, the retention setting, and the CSV link
 // carrying the on-screen filters.
 vi.mock("../api/client.js", () => ({
@@ -39,11 +39,11 @@ const meta = {
 const renderIt = () =>
   render(
     <MemoryRouter>
-      <AdminSettingsActivity />
+      <AdminSettingsAudit />
     </MemoryRouter>
   );
 
-describe("AdminSettingsActivity", () => {
+describe("AdminSettingsAudit", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     fetchAuditMeta.mockResolvedValue(meta);

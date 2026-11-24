@@ -147,7 +147,7 @@ router.post("/login", async (req, res, next) => {
     const usable = Boolean(user && user.active && user.authProvider === "local" && user.passwordHash);
     const match = await bcrypt.compare(password, usable ? user.passwordHash : DUMMY_PASSWORD_HASH);
     if (!usable || !match) {
-      // The reason is for the admin reading the activity log; the caller still
+      // The reason is for the admin reading the audit log; the caller still
       // gets the one generic answer.
       const reason = !user
         ? "unknown_email"

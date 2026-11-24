@@ -29,6 +29,7 @@ import FilterBar from "../components/shared/FilterBar.jsx";
 import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import Table from "../components/shared/Table.jsx";
+import LastEdited from "../components/shared/LastEdited.jsx";
 import useFilterState from "../hooks/useFilterState.js";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
@@ -236,6 +237,8 @@ export default function AdminPrayerRequests() {
   function openRequestDetail(request) {
     setRequestDetail({
       id: request.id,
+      lastEditedByName: request.lastEditedByName,
+      lastEditedAt: request.lastEditedAt,
       form: {
         partnerId: request.partner?.id || "",
         category: request.category,
@@ -462,6 +465,7 @@ export default function AdminPrayerRequests() {
             >
               Go to partner →
             </Link>
+            {!isGuest && <LastEdited name={requestDetail.lastEditedByName} at={requestDetail.lastEditedAt} />}
             <PrayerRequestFormFields
               form={requestDetail.form}
               setForm={setRequestDetailForm}
@@ -492,6 +496,7 @@ export default function AdminPrayerRequests() {
             >
               Go to partner →
             </Link>
+            {!isGuest && <LastEdited name={requestDetail.lastEditedByName} at={requestDetail.lastEditedAt} />}
             <Field
               label="Category"
               value={requestDetail.form.category === "strategic" ? "Strategic" : "Situational"}

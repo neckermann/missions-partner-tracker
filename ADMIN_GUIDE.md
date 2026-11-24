@@ -212,7 +212,7 @@ prayer digest nested under Email (Sending) since it depends on it), and
 | WhatsApp dispatch | **Off** | The same three dispatch types as GroupMe, posted to their own groups inside one WhatsApp community, on the same daily schedule and content-type mutes as GroupMe (a church can run either or both). Configured entirely in the UI (Settings → WhatsApp): link a **dedicated** phone number by scanning a QR code, pick the community, then a group per dispatch type. Off by default because it's an **unofficial** connection — see [Dispatch: WhatsApp](#dispatch-whatsapp) below before turning it on. See [USER_GUIDE.md § WhatsApp dispatch](USER_GUIDE.md#whatsapp-dispatch-admin-only). |
 | Care teams | **Off** | Give each partner a care team: one Lead plus Members, all logins, who keep in touch with them. A care team member can do what an editor can for their own partner, except that **what they enter is held in Pending Dispatches for you to approve before it's sent anywhere**, they can't record a decision on a one-time need, and they never see monthly support. A Guest can be given a partner this way instead of a trip. See [USER_GUIDE.md § Care teams](USER_GUIDE.md#care-teams). Turning it off hides all of it and ignores the seats for access; nothing is deleted. Adds a *Care team coverage* report. |
 | Key-date reminders | **Off** | Reminds each partner's care team about coming birthdays (including children), wedding anniversaries and supported-since milestones (the first year, then every fifth), a week ahead: on the bell and in **one grouped email a day**, sent at 7am church time only on days something is due. Needs **Care teams**; the email also needs **Email (Sending)** and is sent by the worker. A partner with no care team goes to the **default lead** (Settings → Care Teams); logging a contact with the topic "Key date" clears a reminder. Restricted partners are named by initials only. |
-| Activity log | **Off** | Records who did what and when for sensitive actions (sign-ins and failed sign-ins, role and access changes, settings changes, deletes, backups, restricted-partner changes and views) and adds an admin-only **Settings → Activity** page with filters and CSV export. Entries are kept for 30, 60 or 90 days (default 90) and pruned nightly by the worker, even if the feature is later turned off. Secrets are never stored. See [USER_GUIDE.md § Activity log](USER_GUIDE.md#activity-log-admin-only). |
+| Audit log | **On** | Records who did what and when for sensitive actions (sign-ins and failed sign-ins, role and access changes, settings changes, deletes, backups, restricted-partner changes and views) and adds an admin-only **Settings → Audit log** page with filters and CSV export. Entries are kept for 30, 60 or 90 days (default 90) and pruned nightly by the worker, even if the feature is later turned off. Secrets are never stored. It is on by default because it records nothing before it is on; sign-in entries include the IP address (personal data), so a church that doesn't want that can turn it off here. See [USER_GUIDE.md § Audit log](USER_GUIDE.md#activity-log-admin-only). |
 | Contact log | **Off** | Record every call, text, email, visit or card with a partner, show a contact card (primary contact, preferred method, one-tap call/text/email/WhatsApp) on each partner page, and flag partners nobody has been in touch with for 90 days. Adds an **Assigned to me** tab for care team members, a "Partners to reach out to" alert, and feeds the Last heard from report. A partner marked not safe to contact shows staff's special instructions instead of the buttons, and is left out of the printed booklet's contact details. Entries are internal only. |
 | Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Settings → Integrations, under Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Settings → Integrations, under AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
@@ -228,15 +228,16 @@ check on the relevant route(s), not a database migration.
 
 All of this lives under **Settings**, an expandable group in
 the admin sidebar itself (not a separate page with its own tab bar) —
-click it to reveal **About & Branding** (Church Info/address and
-branding together on one page), **Manage Users**, **Enabled
-Features**, and **About App** (runtime/database diagnostics plus
-database backups, on one page — see [§ Database
-backups](#database-backups) below), then two further sub-groups shown
-only once their features are on: **Communications** (Email, GroupMe,
-WhatsApp, Dispatch Settings — which itself includes a read-only Email
-Dispatch Subscribers section, not a separate nav link) and
-**Integrations** (AI Features, Joshua Project). User
+click it to reveal, in order: **About & Branding** (Church Info/address and
+branding together on one page), **Manage Users**, **Audit log**, and
+**Enabled Features**; then the settings for the features you've turned on
+(**Trips**, **Care Teams**, and **Communications** — Email, GroupMe,
+WhatsApp, Dispatch Settings, which itself includes a read-only Email
+Dispatch Subscribers section, not a separate nav link — and
+**Integrations**: AI Features, Joshua Project); and last **About App**
+(runtime/database diagnostics plus database backups, on one page — see
+[§ Database backups](#database-backups) below). The Settings home page
+shows the same pages as tiles in the same order. User
 Management moved here from its own top-level nav link. Adding a new
 settings category later is a new entry in `buildSiteAdminLinks()`
 (`components/admin/AdminSidebar.jsx`) plus a new child route in

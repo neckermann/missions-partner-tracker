@@ -1,5 +1,5 @@
 // Turns an audit entry's `details` JSON into one readable line, shared by the
-// Activity page and the CSV export so they never disagree. Handles the shapes
+// Audit log page and the CSV export so they never disagree. Handles the shapes
 // utils/auditLog.js's callers write: { field: { from, to } } changes,
 // { field: "changed" } secret notes, { added: [...] } lists, and plain values.
 const show = (v) => {

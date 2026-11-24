@@ -30,6 +30,7 @@ import FilterBar from "../components/shared/FilterBar.jsx";
 import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import Table from "../components/shared/Table.jsx";
+import LastEdited from "../components/shared/LastEdited.jsx";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import useFilterState from "../hooks/useFilterState.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
@@ -220,6 +221,8 @@ export default function AdminOneTimeNeeds() {
   function openNeedDetail(need) {
     setNeedDetail({
       id: need.id,
+      lastEditedByName: need.lastEditedByName,
+      lastEditedAt: need.lastEditedAt,
       form: {
         partnerId: need.partner?.id || "",
         description: need.description,
@@ -461,6 +464,7 @@ export default function AdminOneTimeNeeds() {
             >
               Go to partner →
             </Link>
+            {!isGuest && <LastEdited name={needDetail.lastEditedByName} at={needDetail.lastEditedAt} />}
             <SupportNeedFormFields
               form={needDetail.form}
               setForm={setNeedDetailForm}
@@ -491,6 +495,7 @@ export default function AdminOneTimeNeeds() {
             >
               Go to partner →
             </Link>
+            {!isGuest && <LastEdited name={needDetail.lastEditedByName} at={needDetail.lastEditedAt} />}
             <Field label="Description" value={needDetail.form.description} />
             <Field label="Requested Amount" value={formatCurrency(needDetail.form.requestedAmount)} />
             <Field label="Request Date" value={formatDateLong(needDetail.form.requestDate)} />

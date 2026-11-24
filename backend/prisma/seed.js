@@ -2577,7 +2577,7 @@ async function seedTripsDemo() {
         trips: true,
         careTeam: true,
         contactLog: true,
-        // The activity log is on for a demo, with example entries (seedAuditLogDemo).
+        // The audit log is on for a demo, with example entries (seedAuditLogDemo).
         auditTrail: true,
         // Off on a demo: it would email the fake seeded accounts. See
         // utils/demoMode.js (the reset script applies the same list).
@@ -3199,12 +3199,12 @@ async function seedKeyDatesDemo() {
 // partners" has something to show on the bell. Relative dates, like the other
 // demo seeders. Demo extras only; runs after the care teams and contact log.
 // ---------------------------------------------------------------------
-// #341: example entries for the activity log, so a demo visitor sees what it
+// #341: example entries for the audit log, so a demo visitor sees what it
 // records. Entries sit inside the default 90-day retention window, are written
 // by the demo's real accounts, and use reserved documentation IP addresses
 // (RFC 5737). Account-deleted examples use ids that match no user.
 async function seedAuditLogDemo() {
-  console.log("Seeding the activity log...");
+  console.log("Seeding the audit log...");
   const { demoEmailDomain } = require("../src/utils/demoLogins");
   const users = await prisma.user.findMany({ orderBy: { createdAt: "asc" } });
   const byEmail = (email) => users.find((u) => u.email === email);
@@ -3406,7 +3406,7 @@ async function seedAuditLogDemo() {
   add(12, "settings.updated", {
     ...person("actor", admin),
     entityType: "settings",
-    entityLabel: "activity log retention",
+    entityLabel: "audit log retention",
     ip: ip(0),
     details: { retentionDays: { from: 60, to: 90 } },
   });

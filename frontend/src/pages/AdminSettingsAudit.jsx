@@ -4,7 +4,7 @@ import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import Field from "../components/admin/Field.jsx";
 
-// The activity log (#341): who did what, when, for the sensitive actions --
+// The audit log (#341): who did what, when, for the sensitive actions --
 // sign-ins, role and access changes, settings changes, deletes, backups, views
 // of restricted partners. Admin only. Events are kept for the retention window
 // below and then pruned; who last edited a record is kept separately, on the
@@ -37,7 +37,7 @@ function Person({ p }) {
   );
 }
 
-export default function AdminSettingsActivity() {
+export default function AdminSettingsAudit() {
   const [filters, setFilters] = useState(EMPTY);
   const [applied, setApplied] = useState(EMPTY);
   const [rows, setRows] = useState(null);
@@ -61,7 +61,7 @@ export default function AdminSettingsActivity() {
         setCursor(d.nextCursor);
         setError("");
       })
-      .catch(() => !cancelled && setError("Couldn't load the activity log."));
+      .catch(() => !cancelled && setError("Couldn't load the audit log."));
     return () => {
       cancelled = true;
     };
@@ -94,7 +94,7 @@ export default function AdminSettingsActivity() {
   return (
     <div className="admin-shell">
       <SettingsPageHeader
-        title="Activity"
+        title="Audit log"
         actions={
           <a className="btn secondary" href={auditExportUrl(applied)}>
             Export CSV

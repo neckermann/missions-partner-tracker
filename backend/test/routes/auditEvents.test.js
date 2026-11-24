@@ -1,5 +1,5 @@
-// The activity trail end to end (#341): the real routes write the entries the
-// Activity page will read. Covers sign-in (success and failure, never leaking a
+// The audit trail end to end (#341): the real routes write the entries the
+// Audit log page will read. Covers sign-in (success and failure, never leaking a
 // reason to the caller), account changes, trip access, care teams, settings
 // (secrets noted as changed, never stored), feature toggles, partner/trip
 // deletes, backups and restricted-partner views.
@@ -54,7 +54,7 @@ async function until(check, ms = 4000) {
 }
 const settled = () => new Promise((r) => setTimeout(r, 300));
 
-describe("activity trail events", () => {
+describe("audit trail events", () => {
   before(async () => {
     await ensureTestUsers();
     originalSettings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
@@ -261,7 +261,7 @@ describe("activity trail events", () => {
     assert.deepEqual(rows[0].details, { feature: "reports", from: true, to: false });
   });
 
-  test("switching the activity log off records the switch-off, then goes quiet", async () => {
+  test("switching the audit log off records the switch-off, then goes quiet", async () => {
     const current = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
       select: { enabledFeatures: true },

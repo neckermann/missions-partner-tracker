@@ -1,4 +1,4 @@
-// The activity trail's database side (#341): nothing is written while the
+// The audit trail's database side (#341): nothing is written while the
 // feature is off; an entry keeps its who/what after the accounts involved are
 // deleted; a restricted partner's view is logged once per person per day; the
 // prune keeps exactly the retention window. Runs against the real database.
@@ -52,7 +52,7 @@ async function makeUser(tag, extra = {}) {
 
 const rowsFor = (where) => prisma.auditLog.findMany({ where, orderBy: { createdAt: "asc" } });
 
-describe("activity trail", () => {
+describe("audit trail", () => {
   before(async () => {
     originalSettings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
   });

@@ -1138,7 +1138,7 @@ export async function fetchReachablePartners() {
   return data;
 }
 
-// --- Activity log (#341) ---
+// --- Audit log (#341) ---
 // Empty filters are dropped, not sent as "" (the date inputs start blank).
 const withoutBlanks = (params) => Object.fromEntries(Object.entries(params).filter(([, v]) => v));
 export async function fetchAuditLog(params = {}) {

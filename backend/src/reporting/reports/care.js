@@ -65,6 +65,8 @@ const prayerRequests = {
     { key: "ageDays", label: "Days open", type: "number" },
     { key: "daysToAnswer", label: "Days to answer", type: "number" },
     { key: "urgent", label: "Urgent" },
+    { key: "editedBy", label: "Last edited by" },
+    { key: "editedOn", label: "Last edited", type: "date" },
     { key: "request", label: "Request", sensitive: true },
   ],
   fetch: (params, { prisma }) =>
@@ -81,6 +83,8 @@ const prayerRequests = {
         dateAnswered: true,
         isUrgent: true,
         requestText: true,
+        lastEditedByName: true,
+        lastEditedAt: true,
         partner: { select: { displayName: true, isRestricted: true } },
       },
     }),
@@ -103,6 +107,8 @@ const prayerRequests = {
         ageDays: s.ageDays,
         daysToAnswer: s.daysToAnswer,
         urgent: r.isUrgent ? "Yes" : "",
+        editedBy: r.lastEditedByName,
+        editedOn: ymd(r.lastEditedAt),
         request: r.requestText,
         _restricted: r.partner.isRestricted,
       });
@@ -165,6 +171,8 @@ const needsPipeline = {
     { key: "requestDate", label: "Requested", type: "date" },
     { key: "turnaround", label: "Days to decide", type: "number" },
     { key: "urgent", label: "Urgent" },
+    { key: "editedBy", label: "Last edited by" },
+    { key: "editedOn", label: "Last edited", type: "date" },
   ],
   fetch: (params, { prisma }) =>
     prisma.supportNeed.findMany({
@@ -186,6 +194,8 @@ const needsPipeline = {
         requestDate: true,
         approvedDate: true,
         isUrgent: true,
+        lastEditedByName: true,
+        lastEditedAt: true,
         partner: { select: { displayName: true, isRestricted: true } },
       },
     }),
@@ -206,6 +216,8 @@ const needsPipeline = {
         requestDate: ymd(n.requestDate),
         turnaround,
         urgent: n.isUrgent ? "Yes" : "",
+        editedBy: n.lastEditedByName,
+        editedOn: ymd(n.lastEditedAt),
         _restricted: n.partner.isRestricted,
       });
     }
@@ -266,6 +278,8 @@ const dataCompleteness = {
     { key: "partnerName", label: "Partner" },
     { key: "percent", label: "Complete (%)", type: "number" },
     { key: "missing", label: "Missing" },
+    { key: "editedBy", label: "Last edited by" },
+    { key: "editedOn", label: "Last edited", type: "date" },
   ],
   fetch: (params, { prisma }) =>
     prisma.partner.findMany({
@@ -285,6 +299,8 @@ const dataCompleteness = {
         emergencyContactPhone: true,
         emergencyContactEmail: true,
         supportingSince: true,
+        lastEditedByName: true,
+        lastEditedAt: true,
         addresses: { select: { id: true } },
         languages: { select: { id: true } },
         photos: { select: { id: true } },
@@ -301,6 +317,8 @@ const dataCompleteness = {
         partnerName: p.displayName,
         percent: c.percent,
         missing: c.missing.join(", "),
+        editedBy: p.lastEditedByName,
+        editedOn: ymd(p.lastEditedAt),
         _restricted: p.isRestricted,
       });
     }

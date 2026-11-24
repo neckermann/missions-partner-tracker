@@ -1,4 +1,4 @@
-// The Activity page's API (#341): read the audit trail, export it, and set how
+// The Audit log page's API (#341): read the audit trail, export it, and set how
 // long it is kept. Admin only, and only while the auditTrail feature is on.
 // Reading it is deliberately not itself logged -- that would make every look
 // at the log add to it.
@@ -205,7 +205,7 @@ router.put("/retention", async (req, res, next) => {
     await recordAudit(null, {
       action: "settings.updated",
       actor: req.user,
-      entity: { type: "settings", label: "activity log retention" },
+      entity: { type: "settings", label: "audit log retention" },
       req,
       details: { retentionDays: { from: retentionDays(previous?.auditRetentionDays), to: days } },
     });

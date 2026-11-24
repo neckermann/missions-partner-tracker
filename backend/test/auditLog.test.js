@@ -1,4 +1,4 @@
-// The pure parts of the activity trail (#341): the action catalogue, the
+// The pure parts of the audit trail (#341): the action catalogue, the
 // retention choices, and the secret-never-recorded helper. The database side
 // (writing, the feature gate, deletion-proof history, pruning) is covered in
 // test/routes/auditLog.test.js.
@@ -34,4 +34,17 @@ test("a secret change records that it changed, never its value", () => {
     postmarkServerToken: "changed",
   });
   assert.deepEqual(secretChange([]), {});
+});
+
+test("the audit log is on unless it is switched off", () => {
+  const { isFeatureEnabled, FEATURES } = require("../src/utils/features");
+  assert.equal(FEATURES.auditTrail.label, "Audit log");
+  assert.equal(
+    isFeatureEnabled(undefined, "auditTrail"),
+    true,
+    "no settings stored yet: recording from the first sign-in"
+  );
+  assert.equal(isFeatureEnabled({}, "auditTrail"), true, "an existing install that never set it");
+  assert.equal(isFeatureEnabled({ auditTrail: false }, "auditTrail"), false);
+  assert.equal(isFeatureEnabled({ auditTrail: true }, "auditTrail"), true);
 });
