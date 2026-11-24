@@ -612,7 +612,7 @@ async function renderUnsubscribePage(message) {
 
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>Email notifications</title></head>
-<body style="font-family:${fontFamily};background:#f7f5f0;margin:0;padding:40px 16px;">
+<body style="font-family:${escapeHtml(fontFamily)};background:#f7f5f0;margin:0;padding:40px 16px;">
 <div style="max-width:420px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;">
   <div style="background-color:${headerColor};padding:28px 24px;text-align:center;">
     ${logoHtml}

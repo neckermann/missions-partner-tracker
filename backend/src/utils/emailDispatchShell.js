@@ -252,7 +252,7 @@ function buildEmailDispatchMessage(recipient, content, settings, unsubscribeUrl)
 
   const html = `
     <div style="background-color:#f4f4f5;padding:32px 16px;">
-      <div style="font-family:${fontFamily};max-width:600px;margin:0 auto;color:#222;">
+      <div style="font-family:${escapeHtml(fontFamily)};max-width:600px;margin:0 auto;color:#222;">
         <div style="background-color:${headerColor};padding:32px 24px;border-radius:14px;text-align:center;">
           ${logoHtml}
           <h2 style="margin:0;color:#ffffff;font-size:22px;letter-spacing:0.2px;">${escapeHtml(churchName)}</h2>
@@ -338,7 +338,7 @@ function buildTransactionalMessage({
 
   const html = `
     <div style="background-color:#f4f4f5;padding:32px 16px;">
-      <div style="font-family:${fontFamily};max-width:600px;margin:0 auto;color:#222;">
+      <div style="font-family:${escapeHtml(fontFamily)};max-width:600px;margin:0 auto;color:#222;">
         <div style="background-color:${headerColor};padding:32px 24px;border-radius:14px;text-align:center;">
           ${logoHtml}
           <h2 style="margin:0;color:#ffffff;font-size:22px;letter-spacing:0.2px;">${escapeHtml(churchName)}</h2>

@@ -51,6 +51,44 @@ const upload = uploadFilteredBy(resolveImageExt, {
   message: "Only JPEG, PNG, or WebP images are allowed",
 });
 
+// #327 Finding 11.4: these three used to accept any string at all, stored
+// verbatim and later dropped straight into a `background-color:${...}` or
+// `border-top:3px solid ${...}` style attribute in every rendered email
+// and confirm page (emailDispatchShell.js, subscriberPage.js, auth.js) --
+// an admin account (or a compromised one) could've broken out of the
+// attribute into arbitrary HTML/CSS, or worse, an inline event handler,
+// in every email sent. The color inputs are native HTML `<input
+// type="color">` pickers (AdminSettingsAbout.jsx), which only ever emit
+// `#rrggbb`, so that's the full legitimate range.
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+function brandColorSchema() {
+  return z
+    .string()
+    .optional()
+    .nullable()
+    .refine((v) => !v || HEX_COLOR_PATTERN.test(v), "Must be a #rrggbb hex color");
+}
+
+// Same vulnerability, same fix, for the font-family value -- except there's
+// no native input to constrain it the way the color picker does, so this
+// is an explicit allowlist instead of a pattern. Mirrors
+// frontend/src/pages/AdminSettingsAbout.jsx's FONT_OPTIONS exactly (its
+// <select> is the only way an admin sets this today) -- keep the two in
+// sync if that list ever changes.
+const BRAND_FONT_OPTIONS = new Set([
+  "",
+  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  'Georgia, "Times New Roman", serif',
+  '"Helvetica Neue", Arial, sans-serif',
+  'Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif',
+  '"Trebuchet MS", Verdana, sans-serif',
+]);
+const brandFontSchema = z
+  .string()
+  .optional()
+  .nullable()
+  .refine((v) => !v || BRAND_FONT_OPTIONS.has(v), "Unsupported font");
+
 const settingsSchema = z.object({
   churchName: z.string().optional().nullable(),
   // #271 Finding 3: flat columns, not a nested address object -- matches
@@ -71,10 +109,10 @@ const settingsSchema = z.object({
   usePartnerTermInAdmin: z.boolean().optional(),
   publicTagline: z.string().optional().nullable(),
   aboutText: z.string().optional().nullable(),
-  primaryColor: z.string().optional().nullable(),
-  headerColor: z.string().optional().nullable(),
-  highlightColor: z.string().optional().nullable(),
-  brandFont: z.string().optional().nullable(),
+  primaryColor: brandColorSchema(),
+  headerColor: brandColorSchema(),
+  highlightColor: brandColorSchema(),
+  brandFont: brandFontSchema,
   // Sets are normally via POST /logo (below), same as missionary/org
   // photos — this is here so PUT can also clear it (form sets logo: null).
   logo: z.any().optional().nullable(),
