@@ -17,6 +17,7 @@ const FEATURE_SPECS = [
   "public-trip-application",
   "trip-detail-subpages",
   "trip-team-table-modal",
+  "two-factor-requirement",
 ].map((name) => new RegExp(`${name}\\.spec\\.js$`));
 
 export default defineConfig({
