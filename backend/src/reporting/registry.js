@@ -77,14 +77,17 @@ function getReport(id, { role, isEnabled }) {
 }
 
 // Parse, fetch, compute, then mask in one place. `audience` is "admin" for
-// the signed-in app; anything that leaves the app must pass "shared".
-async function runReport(report, query, { prisma, today, audience = "admin" }) {
+// the signed-in app; anything that leaves the app must pass "shared",
+// along with `settings` (#327 Finding 10 -- governs whether a restricted
+// partner's masked name is initials or a generic label; only read when
+// audience is "shared", since applyMasking is a no-op otherwise).
+async function runReport(report, query, { prisma, today, audience = "admin", settings }) {
   const params = report.params.parse(query);
   const data = await report.fetch(params, { prisma, today });
   const result = report.compute(data, params, { today });
   return {
     columns: report.columns,
-    rows: applyMasking(result.rows, report.columns, audience),
+    rows: applyMasking(result.rows, report.columns, audience, settings),
     summary: result.summary || [],
     chart: report.chart || null,
     notes: result.notes || [],

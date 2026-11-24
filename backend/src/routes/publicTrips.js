@@ -33,7 +33,7 @@ function shapeTripForApplicant(trip, settings) {
     description: trip.description,
     startDate: trip.startDate,
     endDate: trip.endDate,
-    fieldDisplayName: partnerFieldLabel(trip.partner),
+    fieldDisplayName: partnerFieldLabel(trip.partner, settings),
     isRestricted: !!trip.partner?.isRestricted,
     applicationQuestions: [
       ...(settings?.tripApplicationTemplate || []),

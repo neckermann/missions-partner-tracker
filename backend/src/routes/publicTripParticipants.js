@@ -88,7 +88,7 @@ router.get("/participants/by-token/:shareToken", requireFeature("trips"), async 
         description: participant.trip.description,
         startDate: participant.trip.startDate,
         endDate: participant.trip.endDate,
-        fieldDisplayName: partnerFieldLabel(participant.trip.partner),
+        fieldDisplayName: partnerFieldLabel(participant.trip.partner, settings),
       },
       // Never flightSegments, never donor contact info -- public mode only.
       giving: {

@@ -42,6 +42,7 @@ before(async () => {
       chatDispatchOneTimeNeeds: true,
       chatDispatchNewsletters: true,
       allowRestrictedPartnerDispatch: true,
+      restrictedPartnerInitialsEnabled: true,
       emailDispatchSubjectTemplate: true,
       emailDispatchSignature: true,
       emailDispatchLayout: true,
@@ -120,6 +121,10 @@ describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
         chatDispatchOneTimeNeeds: true,
         chatDispatchNewsletters: true,
         allowRestrictedPartnerDispatch: true,
+        // #327 Finding 10 -- same "pin every field explicitly" reasoning
+        // as the rest of this block, since the deepEqual below checks
+        // the response's entire shape.
+        restrictedPartnerInitialsEnabled: true,
         emailDispatchSubjectTemplate: null,
         emailDispatchSignature: null,
         emailDispatchLayout: null,
@@ -143,6 +148,7 @@ describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
       chatDispatchOneTimeNeeds: true,
       chatDispatchNewsletters: true,
       allowRestrictedPartnerDispatch: true,
+      restrictedPartnerInitialsEnabled: true,
       emailDispatchSubjectTemplate: null,
       emailDispatchSignature: null,
       emailDispatchLayout: null,
@@ -252,6 +258,49 @@ describe("GET /api/dispatches/pending -- any logged-in role", () => {
         assert.equal(item.dispatchReviewedAt, null);
       }
     } finally {
+      await prisma.dispatchRecord.deleteMany({ where: { partnerId: restrictedId } });
+      await prisma.partner.delete({ where: { id: restrictedId } }).catch(() => {});
+    }
+  });
+
+  // #327 Finding 10 -- the setting is read fresh on every request (not
+  // cached), so turning it off should immediately change what the
+  // Pending Dispatches queue shows for a restricted partner's rows.
+  test("with restrictedPartnerInitialsEnabled off, shows the field label instead of initials", async () => {
+    const restrictedPartner = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "missionary",
+        displayName: `${FIXTURE_TAG} Jordan Rivera`,
+        fieldDisplayName: "Southeast Asia",
+        isRestricted: true,
+      },
+    });
+    assert.equal(restrictedPartner.status, 201, JSON.stringify(restrictedPartner.body));
+    const restrictedId = restrictedPartner.body.id;
+
+    const requestText = `${FIXTURE_TAG} restricted partner's text, initials off`;
+    const created = await admin("/api/prayer-requests", {
+      method: "POST",
+      body: { partnerId: restrictedId, category: "situational", requestText, dateReceived: "2026-01-01" },
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+
+    await admin("/api/settings/dispatches", {
+      method: "PUT",
+      body: { restrictedPartnerInitialsEnabled: false },
+    });
+    try {
+      const res = await admin("/api/dispatches/pending");
+      const item = res.body.find((i) => i.partnerId === restrictedId);
+      assert.ok(item);
+      assert.equal(item.partnerName, "Southeast Asia");
+      assert.ok(!item.partnerName.includes("J."), "must not fall back to initials while the setting is off");
+    } finally {
+      await admin("/api/settings/dispatches", {
+        method: "PUT",
+        body: { restrictedPartnerInitialsEnabled: true },
+      });
       await prisma.dispatchRecord.deleteMany({ where: { partnerId: restrictedId } });
       await prisma.partner.delete({ where: { id: restrictedId } }).catch(() => {});
     }

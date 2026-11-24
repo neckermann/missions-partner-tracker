@@ -42,18 +42,33 @@ const publicInclude = {
 // Returns the curated/masked list for the public website (map + list view).
 // Every record goes through toPublicPartner -- no public route may bypass
 // it, which is why the serializer is a pure function tested in isolation.
+// #327 Finding 10 -- the only ChurchSettings field toPublicPartner() needs,
+// shared by both routes below.
+async function getRestrictedMaskingSettings() {
+  return prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { restrictedPartnerInitialsEnabled: true },
+  });
+}
+
 router.get("/", async (req, res, next) => {
   try {
     const where = { isPublic: true, archived: false };
     if (req.query.kind) where.kind = String(req.query.kind);
 
-    const records = await prisma.partner.findMany({
-      where,
-      include: publicInclude,
-      orderBy: { displayName: "asc" },
-    });
+    const [records, settings] = await Promise.all([
+      prisma.partner.findMany({
+        where,
+        include: publicInclude,
+        orderBy: { displayName: "asc" },
+      }),
+      getRestrictedMaskingSettings(),
+    ]);
 
-    const publicList = records.map(shapeSendingParties).map(toPublicPartner).filter(Boolean);
+    const publicList = records
+      .map(shapeSendingParties)
+      .map((p) => toPublicPartner(p, settings))
+      .filter(Boolean);
     res.json(publicList);
   } catch (err) {
     next(err);
@@ -63,12 +78,15 @@ router.get("/", async (req, res, next) => {
 // GET /api/public/partners/:id
 router.get("/:id", async (req, res, next) => {
   try {
-    const record = await prisma.partner.findUnique({
-      where: { id: req.params.id },
-      include: publicInclude,
-    });
+    const [record, settings] = await Promise.all([
+      prisma.partner.findUnique({
+        where: { id: req.params.id },
+        include: publicInclude,
+      }),
+      getRestrictedMaskingSettings(),
+    ]);
 
-    const publicRecord = toPublicPartner(shapeSendingParties(record));
+    const publicRecord = toPublicPartner(shapeSendingParties(record), settings);
     if (!publicRecord) return res.status(404).json({ error: "Not found" });
     res.json(publicRecord);
   } catch (err) {

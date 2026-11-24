@@ -1,6 +1,11 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const { toInitials, toPublicPartner, missionaryHouseholdCategory } = require("../src/utils/maskData");
+const {
+  toInitials,
+  toPublicPartner,
+  missionaryHouseholdCategory,
+  maskedDisplayName,
+} = require("../src/utils/maskData");
 
 // Missionary and Organization merged into a single Partner model with a
 // `kind` discriminator, so both fixtures below feed the same serializer.
@@ -28,6 +33,55 @@ describe("toInitials", () => {
   test("handles an empty/missing name without throwing", () => {
     assert.equal(toInitials(""), "");
     assert.equal(toInitials(undefined), "");
+  });
+});
+
+// #327 Finding 10 -- shared by the public API, dispatch blurbs (GroupMe/
+// WhatsApp/email), email digest tiles, trip pages, and shared report
+// exports, so it's unit-tested directly rather than only indirectly
+// through each of those callers.
+describe("maskedDisplayName", () => {
+  test("a non-restricted partner's real name passes through unchanged", () => {
+    assert.equal(maskedDisplayName({ isRestricted: false, displayName: "Jordan Rivera" }), "Jordan Rivera");
+  });
+
+  test("restricted, no settings at all: defaults to initials (opt-out)", () => {
+    assert.equal(maskedDisplayName({ isRestricted: true, displayName: "Jordan Rivera" }), "J.R.");
+  });
+
+  test("restricted, settings explicitly true: initials", () => {
+    assert.equal(
+      maskedDisplayName(
+        { isRestricted: true, displayName: "Jordan Rivera" },
+        { restrictedPartnerInitialsEnabled: true }
+      ),
+      "J.R."
+    );
+  });
+
+  test("restricted, settings false, fieldDisplayName set: falls back to it", () => {
+    assert.equal(
+      maskedDisplayName(
+        { isRestricted: true, displayName: "Jordan Rivera", fieldDisplayName: "Southeast Asia" },
+        { restrictedPartnerInitialsEnabled: false }
+      ),
+      "Southeast Asia"
+    );
+  });
+
+  test("restricted, settings false, no fieldDisplayName: falls back to the fixed generic label", () => {
+    assert.equal(
+      maskedDisplayName(
+        { isRestricted: true, displayName: "Jordan Rivera", fieldDisplayName: null },
+        { restrictedPartnerInitialsEnabled: false }
+      ),
+      "A restricted-access partner"
+    );
+  });
+
+  test("a missing/undefined partner never throws", () => {
+    assert.equal(maskedDisplayName(null), undefined);
+    assert.equal(maskedDisplayName(undefined), undefined);
   });
 });
 
@@ -171,7 +225,12 @@ describe("toPublicPartner — missionary", () => {
     assert.equal(result.displayName, "J.R.");
   });
 
-  test("restricted: silhouette photo matches the real household composition", () => {
+  // #327 Finding 10 -- this used to assert the OPPOSITE: that a
+  // restricted missionary's silhouette varied by real household
+  // composition. That composition is itself identifying info, so every
+  // restricted missionary now gets the same plain single-person shape
+  // regardless of their actual household.
+  test("restricted: silhouette photo is always the plain single-person shape, regardless of real household composition", () => {
     const single = toPublicPartner(
       baseMissionary({ isRestricted: true, adults: [{ name: "Jordan" }], children: [] })
     );
@@ -179,11 +238,45 @@ describe("toPublicPartner — missionary", () => {
       baseMissionary({ isRestricted: true, adults: [{ name: "Jordan" }, { name: "Alex" }], children: [] })
     );
     const family = toPublicPartner(baseMissionary({ isRestricted: true })); // baseMissionary already has a child
-    // Each category's shape is a distinct SVG, so a different household
-    // composition must not all collapse to the same generic image.
-    assert.notEqual(single.photo, couple.photo);
-    assert.notEqual(couple.photo, family.photo);
-    assert.notEqual(single.photo, family.photo);
+    assert.equal(single.photo, couple.photo);
+    assert.equal(couple.photo, family.photo);
+  });
+
+  // #327 Finding 10 -- supportingSince used to be returned unmasked even
+  // for a restricted record, which combined with country and the masked
+  // name narrows down a small country's expat community further than it
+  // needs to.
+  test("restricted: never exposes supportingSince", () => {
+    const result = toPublicPartner(baseMissionary({ isRestricted: true, supportingSince: "2014-01-01" }));
+    assert.equal(result.supportingSince, null);
+  });
+
+  test("public, non-restricted: still exposes supportingSince", () => {
+    const result = toPublicPartner(baseMissionary({ supportingSince: "2014-01-01" }));
+    assert.equal(result.supportingSince, "2014-01-01");
+  });
+
+  // #327 Finding 10 -- restrictedPartnerInitialsEnabled defaults true
+  // (opt-out), so omitting settings entirely (as every test above does)
+  // must still produce initials, not silently fall back to a generic
+  // label because settings was undefined.
+  test("restricted: still reduces the name to initials with no settings object passed at all", () => {
+    const result = toPublicPartner(baseMissionary({ isRestricted: true }), undefined);
+    assert.equal(result.displayName, "J.R.");
+  });
+
+  test("restricted: falls back to fieldDisplayName when a church turns initials off", () => {
+    const result = toPublicPartner(baseMissionary({ isRestricted: true }), {
+      restrictedPartnerInitialsEnabled: false,
+    });
+    assert.equal(result.displayName, "Southeast Asia"); // baseMissionary's fieldDisplayName
+  });
+
+  test("restricted: falls back to a fixed generic label when initials are off and fieldDisplayName is also unset", () => {
+    const result = toPublicPartner(baseMissionary({ isRestricted: true, fieldDisplayName: null }), {
+      restrictedPartnerInitialsEnabled: false,
+    });
+    assert.equal(result.displayName, "A restricted-access partner");
   });
 
   test("restricted: replaces precise GPS with a country-level centroid", () => {
