@@ -140,20 +140,28 @@ router.put(
             "Only a task requirement can be marked complete directly -- a document or e-signature requirement is fulfilled by its own document, not this",
         });
       }
+      // #327 Finding 3: requireTripScope above only confirms the CALLER's
+      // own trip matches this requirement's trip -- it says nothing about
+      // :participantId, which was never checked against the requirement's
+      // trip at all. Without this, a Trip Leader scoped to Trip A could
+      // mark any participant id (someone else's roster, Trip B) complete
+      // against one of Trip A's own requirements. Loaded unconditionally
+      // now (not just for the minorsOnly branch below) since every path
+      // needs the ownership check, not only that one.
+      const participant = await prisma.tripParticipant.findUnique({
+        where: { id: req.params.participantId },
+        select: { tripId: true, dateOfBirth: true },
+      });
+      if (!participant || participant.tripId !== requirement.tripId) {
+        return res.status(404).json({ error: "Not found" });
+      }
       // #278 -- a minors-only requirement never applies to a non-minor
       // participant at all, so there's nothing for an admin to complete
       // on their behalf either.
-      if (requirement.minorsOnly) {
-        const participant = await prisma.tripParticipant.findUnique({
-          where: { id: req.params.participantId },
-          select: { dateOfBirth: true },
+      if (requirement.minorsOnly && !isMinorForTrip(participant.dateOfBirth, requirement.trip.startDate)) {
+        return res.status(400).json({
+          error: "This requirement only applies to minor participants",
         });
-        if (!participant) return res.status(404).json({ error: "Not found" });
-        if (!isMinorForTrip(participant.dateOfBirth, requirement.trip.startDate)) {
-          return res.status(400).json({
-            error: "This requirement only applies to minor participants",
-          });
-        }
       }
       const status = await prisma.tripRequirementStatus.upsert({
         where: {

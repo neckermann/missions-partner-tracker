@@ -56,32 +56,44 @@ const tripsSettingsSchema = z.object({
   tripRequirementLibrary: REQUIREMENT_TEMPLATE_SCHEMA.optional().nullable(),
 });
 
-router.get("/trips", requireFeature("trips"), async (req, res, next) => {
-  try {
-    const settings = await prisma.churchSettings.findUnique({
-      where: { id: "singleton" },
-      select: tripsSettingsSelect,
-    });
-    res.json(
-      settings || {
-        onlineGivingUrl: null,
-        onlineGivingInstructions: null,
-        collectDonorContactInfo: false,
-        collectApplicantAddress: true,
-        collectEmergencyContact: true,
-        allowPrivateApplicationLinks: false,
-        allowPublicSupportRaisingLinks: false,
-        enableTripBudgeting: false,
-        tripApplicationTemplate: [],
-        tripQuestionLibrary: [],
-        tripRequirementTemplate: [],
-        tripRequirementLibrary: [],
-      }
-    );
-  } catch (err) {
-    next(err);
+// #327 Finding 2 (lower-value gap): this is church-wide trip configuration
+// (giving URL/instructions, application/requirement templates) -- SPEC.md
+// § 5.1's "Settings is a flat 403" policy for a Trip Leader scoped guest
+// already covers this route in intent, the code just hadn't been given
+// the role check. No legitimate Trip Leader use case for it -- their own
+// trip's application/requirements come from the trip-scoped routes, not
+// this global settings read.
+router.get(
+  "/trips",
+  requireFeature("trips"),
+  requireRole("admin", "editor", "viewer"),
+  async (req, res, next) => {
+    try {
+      const settings = await prisma.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: tripsSettingsSelect,
+      });
+      res.json(
+        settings || {
+          onlineGivingUrl: null,
+          onlineGivingInstructions: null,
+          collectDonorContactInfo: false,
+          collectApplicantAddress: true,
+          collectEmergencyContact: true,
+          allowPrivateApplicationLinks: false,
+          allowPublicSupportRaisingLinks: false,
+          enableTripBudgeting: false,
+          tripApplicationTemplate: [],
+          tripQuestionLibrary: [],
+          tripRequirementTemplate: [],
+          tripRequirementLibrary: [],
+        }
+      );
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 router.put("/trips", requireFeature("trips"), requireRole("admin"), async (req, res, next) => {
   try {
