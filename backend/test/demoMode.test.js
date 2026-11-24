@@ -21,8 +21,8 @@ test("a deployment is a demo exactly when DEMO_RESET_TOKEN is set", () => {
   }
 });
 
-test("the key-date email is one of the features a demo keeps off, and every entry is a real feature", () => {
-  assert.ok(DEMO_DISABLED_FEATURES.includes("keyDates"));
+test("the key-date reminders stay ON for a demo (its email is blocked by the scheduler guard), and every entry is a real feature", () => {
+  assert.ok(!DEMO_DISABLED_FEATURES.includes("keyDates"));
   for (const key of DEMO_DISABLED_FEATURES) {
     assert.ok(FEATURE_KEYS.includes(key), `${key} must be a real feature key`);
   }

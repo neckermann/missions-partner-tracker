@@ -13,8 +13,12 @@ function isDemoDeployment() {
 // plan's limit), so anything that emails people on its own schedule stays off
 // there. The reset script and the seed both apply this, because the seed
 // rewrites the feature list after the reset script does.
-//   keyDates -- the daily key-date reminder email (#291)
-const DEMO_DISABLED_FEATURES = ["keyDates"];
+//
+// Currently empty: the key-date reminders (#291) are ON for a demo so a visitor sees the bell
+// alert (#365). Their email can't go out anyway, because the daily job returns early on any
+// deployment where DEMO_RESET_TOKEN is set (keyDateReminderScheduler.js). Add a feature key here
+// if a new scheduled email ever needs the flag itself kept off.
+const DEMO_DISABLED_FEATURES = [];
 
 // { feature: false } for each, to spread over a feature object.
 const demoDisabledFeatureFlags = () => Object.fromEntries(DEMO_DISABLED_FEATURES.map((k) => [k, false]));

@@ -34,8 +34,8 @@ banner** at the top of the public pages (`DemoBanner.jsx`). The guest accounts
 are defined once in `backend/src/utils/demoLogins.js`, which both the seed and
 the banner read, so the banner always shows what the seed actually created:
 
-| Login                     | Password                                             | What they see                                                                                                                                                                                                                                                                                                               |
-| ------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Login                          | Password                                             | What they see                                                                                                                                                                                                                                                                                                               |
+| ------------------------------ | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `care.member@<admin's domain>` | the same as the demo admin's (`DEMO_ADMIN_PASSWORD`) | Four partners they're on the care team for: the same partner page an editor has minus monthly funding, their own prayer requests and one-time needs (no decisions), Newsletters & Docs, and a read-only view of those partners' trips. What they enter is saved but held in Pending Dispatches until the admin approves it. |
 | `trip.leader@<admin's domain>` | same                                                 | One upcoming trip they manage, plus its partner read-only. No needs, no money.                                                                                                                                                                                                                                              |
 
@@ -71,13 +71,14 @@ shows each one's password); never reuse any of these anywhere real.
 ## What a demo never does
 
 A demo must not send email to its seeded accounts (they are fake addresses, so
-the mail only bounces and spends the email plan). Anything that emails people
-on its own schedule stays **off** there: the reset script and the seed turn
-every feature on **except** the list in `backend/src/utils/demoMode.js`
-(today: Key-date reminders), and the daily key-date job also skips itself
-whenever `DEMO_RESET_TOKEN` is set, in case a visitor with the published admin
-login switches the flag back on. To keep another scheduled-email feature off a
-demo, add its key to that list.
+the mail only bounces and spends the email plan). Two things guarantee that. The
+reset script and the seed turn every feature on **except** the list in
+`backend/src/utils/demoMode.js`, which is where a scheduled-email feature would
+be kept off (today the list is empty). And the daily key-date job returns early
+whenever `DEMO_RESET_TOKEN` is set, so it can never email a demo's team members
+even though **Key-date reminders are on**: a visitor sees the "Key dates coming
+up" alert on the bell and Home page, but nothing is ever sent. To keep another
+scheduled-email feature off a demo, add its key to that list.
 
 ## Recovering after a migration squash
 

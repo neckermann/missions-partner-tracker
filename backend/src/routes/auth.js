@@ -605,6 +605,23 @@ router.put("/dispatch-by-email", requireAuth, async (req, res, next) => {
   }
 });
 
+// PUT /api/auth/key-date-email -- the daily key-date email for the people on a care team
+// (#365). Anyone signed in may turn their own off or back on (a care team guest included);
+// the bell alert is unaffected, and the church-wide settings still decide whether the email
+// exists at all.
+router.put("/key-date-email", requireAuth, async (req, res, next) => {
+  try {
+    const { optOut } = z.object({ optOut: z.boolean() }).parse(req.body);
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { keyDateEmailOptOut: optOut },
+    });
+    res.json({ user: await sanitizeUser(user) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/auth/unsubscribe -- public, no requireAuth, reached straight
 // from a link in a digest email (see utils/emailDispatchShell.js's
 // buildUnsubscribeUrl). Verifies the same { id, unsubscribe: true }
@@ -821,6 +838,7 @@ async function sanitizeUser(user) {
     cadence: user.cadence,
     allPartners: user.allPartners,
     followedPartnerIds: partnerIds,
+    keyDateEmailOptOut: user.keyDateEmailOptOut === true,
     guestTrips,
     guestReadTripIds,
     careTeamSeats,

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
   fetchContactLogOptions,
+  fetchContactTimeline,
+  fetchContactUpdates,
   createContactLogEntry,
   updateContactLogEntry,
   deleteContactLogEntry,
@@ -59,15 +61,40 @@ export default function ContactLogSection({
   const [editingId, setEditingId] = useState(null);
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
 
+  // Church visits and newsletters filed (#364): read from their own records and shown among the
+  // entries as read-only rows. A failure just leaves the log on its own.
+  const [events, setEvents] = useState([]);
+
   useEffect(() => {
     fetchContactLogOptions().then(setOptions).catch(console.error);
   }, []);
+  useEffect(() => {
+    fetchContactTimeline(partnerId)
+      .then(setEvents)
+      .catch(() => setEvents([]));
+  }, [partnerId]);
+
+  // A decided need or an answered prayer still waiting to be passed on (#364). Refreshed when the
+  // log changes, since logging the thank-you is what clears it.
+  const [updates, setUpdates] = useState([]);
+  useEffect(() => {
+    fetchContactUpdates(partnerId)
+      .then(setUpdates)
+      .catch(() => setUpdates([]));
+  }, [partnerId, entries]);
 
   const label = (list, value) => list?.find((x) => x.value === value)?.label || value;
 
   function openAdd() {
     setEditingId(null);
     setForm(blankForm());
+  }
+
+  // A prefilled "we reached out" for passing an update on: the right topic is already ticked, so
+  // saving it clears the item from the bell (a person still chooses how they got in touch).
+  function openThankYou(update) {
+    setEditingId(null);
+    setForm({ ...blankForm(), direction: "outbound", topics: [update.topic] });
   }
 
   function openEdit(entry) {
@@ -142,6 +169,46 @@ export default function ContactLogSection({
     ...teammates.filter((t) => t.userId !== currentUserId).map((t) => ({ id: t.userId, label: t.name })),
   ];
 
+  const renderEntry = (e) => (
+    <div key={e.id} className="repeatable-row" style={{ marginTop: "0.75rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}>
+        <div>
+          <strong>{label(options?.types, e.contactType)}</strong>
+          {" · "}
+          <span>{label(options?.directions, e.direction)}</span>
+          {" · "}
+          <span>{formatDateLong(e.contactDate)}</span>
+          <div style={{ fontSize: "0.85rem", color: "#666" }}>
+            by {nameOf(e.contactedBy)}
+            {e.topics?.length > 0 && <> · {e.topics.map((t) => label(options?.topics, t)).join(", ")}</>}
+          </div>
+        </div>
+        {canFix && (
+          <div style={{ display: "flex", gap: "0.4rem" }}>
+            <button type="button" className="btn secondary small" onClick={() => openEdit(e)}>
+              Edit
+            </button>
+            <button type="button" className="btn secondary small" onClick={() => handleDelete(e)}>
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+      {e.notes && <p style={{ margin: "0.4rem 0 0", whiteSpace: "pre-wrap" }}>{e.notes}</p>}
+      {e.followUpDate && (
+        <div style={{ fontSize: "0.85rem", marginTop: "0.3rem" }}>
+          Follow up by {formatDateLong(e.followUpDate)}
+        </div>
+      )}
+    </div>
+  );
+
+  // The log's own entries and the read-only events, newest first.
+  const timeline = [
+    ...entries.map((entry) => ({ entry, date: String(entry.contactDate).slice(0, 10) })),
+    ...events.map((event) => ({ event, date: event.date })),
+  ].sort((a, b) => b.date.localeCompare(a.date));
+
   return (
     <div className="admin-section" id="contact-log">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -153,46 +220,60 @@ export default function ContactLogSection({
         </button>
       </div>
 
-      {entries.length === 0 ? (
+      {updates.length > 0 && (
+        <div
+          role="status"
+          style={{
+            margin: "0.75rem 0 0",
+            padding: "0.6rem 0.75rem",
+            border: "1px solid var(--border-soft)",
+            borderRadius: "var(--radius-sm)",
+            background: "var(--surface-2)",
+          }}
+        >
+          <strong>Updates to pass on</strong>
+          <ul style={{ listStyle: "none", padding: 0, margin: "0.4rem 0 0" }}>
+            {updates.map((u) => (
+              <li
+                key={`${u.kind}:${u.id}`}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "0.75rem",
+                  padding: "0.2rem 0",
+                }}
+              >
+                <span>
+                  {u.kind === "need" ? "A need was decided" : "A prayer was answered"} (
+                  {formatDateLong(u.date)}
+                  ): {u.label}
+                </span>
+                <button type="button" className="btn secondary small" onClick={() => openThankYou(u)}>
+                  {u.kind === "need" ? "Log passing it on" : "Log a thank-you"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {timeline.length === 0 ? (
         <p style={{ color: "#888", marginTop: "0.5rem" }}>No contact logged yet.</p>
       ) : (
-        entries.map((e) => (
-          <div key={e.id} className="repeatable-row" style={{ marginTop: "0.75rem" }}>
-            <div
-              style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}
-            >
-              <div>
-                <strong>{label(options?.types, e.contactType)}</strong>
-                {" · "}
-                <span>{label(options?.directions, e.direction)}</span>
-                {" · "}
-                <span>{formatDateLong(e.contactDate)}</span>
-                <div style={{ fontSize: "0.85rem", color: "#666" }}>
-                  by {nameOf(e.contactedBy)}
-                  {e.topics?.length > 0 && (
-                    <> · {e.topics.map((t) => label(options?.topics, t)).join(", ")}</>
-                  )}
-                </div>
-              </div>
-              {canFix && (
-                <div style={{ display: "flex", gap: "0.4rem" }}>
-                  <button type="button" className="btn secondary small" onClick={() => openEdit(e)}>
-                    Edit
-                  </button>
-                  <button type="button" className="btn secondary small" onClick={() => handleDelete(e)}>
-                    Delete
-                  </button>
-                </div>
+        timeline.map((item) =>
+          item.event ? (
+            <div key={item.event.id} className="repeatable-row" style={{ marginTop: "0.75rem" }}>
+              <strong>{item.event.title}</strong>
+              {" · "}
+              <span>{formatDateLong(item.event.date)}</span>
+              {item.event.detail && (
+                <div style={{ fontSize: "0.85rem", color: "#666" }}>{item.event.detail}</div>
               )}
             </div>
-            {e.notes && <p style={{ margin: "0.4rem 0 0", whiteSpace: "pre-wrap" }}>{e.notes}</p>}
-            {e.followUpDate && (
-              <div style={{ fontSize: "0.85rem", marginTop: "0.3rem" }}>
-                Follow up by {formatDateLong(e.followUpDate)}
-              </div>
-            )}
-          </div>
-        ))
+          ) : (
+            renderEntry(item.entry)
+          )
+        )
       )}
 
       {form && options && (

@@ -895,21 +895,23 @@ With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-togg
 
 ![A partner's Contact Log, newest first](docs/assets/screenshots/contact-log.png)
 - **A prayer request a care team member enters** also logs the contact, so it isn't typed twice.
+- **Church visits and newsletters filed** for the partner also appear in the Contact Log, among the entries and newest first, as read-only rows (a visit, "Newsletter filed"). They are read from their own records when you open the page, not copied, so editing or deleting a visit or newsletter updates the log at once. Only a logged contact can be edited or deleted here.
+- **Updates to pass on.** When a one-time need has been decided or a prayer answered and nobody has passed it on yet, the Contact Log shows an **Updates to pass on** box with a **Log a thank-you** (or **Log passing it on**) button. It opens **+ Log contact** already set to "We reached out" with the right topic ticked, so saving it clears the bell's "Updates to pass on to partners". You still choose how you got in touch.
 - **My partners** and **Partners to reach out to** (for anyone on a care team) are described under [My partners](#my-partners).
 
-The **Last heard from** report counts a logged contact as hearing from a partner: a partner is only "quiet" when both the latest newsletter and the latest contact are old. Trip leaders don't get the contact log.
+The **Last heard from** report counts a logged contact, a newsletter and a church visit as hearing from a partner: a partner is only "quiet" when all of them are old. How long is "quiet" is a church setting (default 90 days; Settings → Care Teams → Timing), and the report uses it unless you type another number for a run. Trip leaders don't get the contact log.
 
 ### Key-date reminders
 
 With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **supported-since milestone** (the first year, then every fifth) a week ahead.
 
-- **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **My partners** tab also flags a key date inside the week.
+- **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **My partners** tab also flags a key date inside the window. A key date is raised **7 days ahead** by default; an admin can change that (1 to 60 days) under Settings → Care Teams → Timing.
 
 ![The bell, with Key dates coming up among a care team member's alerts](docs/assets/screenshots/bell-alerts.png)
-- **By email**, one message a day, only on a day something is due, listing everything coming up for your partners (not one email per partner). It needs Email (Sending) turned on, and it's sent at 7am church time.
+- **By email**, one message a day, only on a day something is due, listing everything coming up for your partners (not one email per partner). It needs Email (Sending) turned on, and it's sent at 7am church time. **You can turn the email off for yourself** under **My account → Key-date email** (a Guest on a care team can too); the alert on the bell stays either way.
 
 ![The grouped key-date email](docs/assets/screenshots/key-date-email.png)
-- **Who gets it:** the whole care team, lead and members. A partner with no care team goes to the **default lead** an admin picks under Settings → Care Teams; with neither, nobody hears about it.
+- **Who gets it:** the whole care team, lead and members. A partner with no care team goes to the **default lead** an admin picks under Settings → Care Teams; with neither, nobody hears about it. A staff default lead also sees those partners under **Partners to reach out to** (on My partners they are marked **Default lead**). A Guest default lead only gets the key-date reminders: it never widens which partners a guest can see.
 
 ![Settings → Care Teams, where an admin picks the default lead](docs/assets/screenshots/care-teams-settings.png)
 - **To clear a reminder**, send the card or make the call and **log it as a contact with the topic "Key date"**. That stops the reminders for that occasion, and it counts as being in touch.

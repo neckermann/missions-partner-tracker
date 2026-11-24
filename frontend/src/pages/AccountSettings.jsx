@@ -6,6 +6,7 @@ import {
   verifyMfaSetup,
   disableMfa,
   updateNotifyByEmail,
+  setKeyDateEmailOptOut,
   fetchPartners,
 } from "../api/client.js";
 import { passwordsMatch } from "../utils/password.js";
@@ -105,6 +106,12 @@ export default function AccountSettings() {
       {user && !isGuest && enabledFeatures.outboundEmail && (
         <EmailDispatchSection user={user} onChange={reloadUser} />
       )}
+      {/* Everyone on a care team may get the daily key-date email, a guest included (#365). */}
+      {user &&
+        enabledFeatures.careTeam &&
+        enabledFeatures.keyDates &&
+        enabledFeatures.outboundEmail &&
+        user.careTeamSeats?.length > 0 && <KeyDateEmailSection user={user} onChange={reloadUser} />}
 
       <div className="admin-section">
         <h3>Appearance</h3>
@@ -115,6 +122,42 @@ export default function AccountSettings() {
         <ThemeToggle />
       </div>
     </div>
+  );
+}
+
+// The daily key-date email (#365): one message on a day a birthday, anniversary or milestone is due
+// for a partner you look after. Turning it off here stops the email only; the bell alert stays.
+function KeyDateEmailSection({ user, onChange }) {
+  const optedOut = user.keyDateEmailOptOut === true;
+  return (
+    <EditableSection
+      title="Key-date email"
+      value={{ optOut: optedOut }}
+      onSave={async (draft) => {
+        await setKeyDateEmailOptOut(draft.optOut);
+        await onChange();
+      }}
+      view={(v) => (
+        <p style={{ color: "var(--muted)" }}>
+          {v.optOut
+            ? "Off. You won't get the daily email about coming birthdays and anniversaries for your partners."
+            : "On. You get one email on a day a birthday, anniversary or milestone is coming up for a partner you look after."}{" "}
+          The alert on the bell stays either way.
+        </p>
+      )}
+      edit={(draft, set) => (
+        <div className="admin-checkbox-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={!draft.optOut}
+              onChange={(e) => set("optOut", !e.target.checked)}
+            />
+            Email me about coming birthdays and anniversaries for my partners
+          </label>
+        </div>
+      )}
+    />
   );
 }
 

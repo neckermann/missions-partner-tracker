@@ -349,3 +349,36 @@ test("support preferences lists what partners chose, and who has nothing recorde
     ["Bob"]
   );
 });
+
+test("last heard from counts a church visit, and defaults to the church's quiet threshold (#364, #365)", () => {
+  const partner = (name, visitDate) => ({
+    displayName: name,
+    isRestricted: false,
+    files: [],
+    photos: [],
+    prayerRequests: [],
+    churchVisits: visitDate ? [{ visitDate }] : [],
+    contactLogs: [],
+  });
+  const data = (defaultStaleDays) => ({
+    contactLogOn: true,
+    defaultStaleDays,
+    partners: [partner("Visited", day("2026-11-01")), partner("Never", null)],
+  });
+  // 21 days since the visit: quiet at a 14-day threshold, not at 30.
+  const at14 = run("last-heard-from", {}, data(14));
+  assert.deepStrictEqual(
+    at14.rows.map((r) => r.partnerName).sort(),
+    ["Never", "Visited"],
+    "a visit 21 days ago is past a 14-day threshold"
+  );
+  const at30 = run("last-heard-from", {}, data(30));
+  assert.deepStrictEqual(
+    at30.rows.map((r) => r.partnerName),
+    ["Never"],
+    "but inside a 30-day one: the visit counts as hearing from them"
+  );
+  // An explicit threshold on the report still wins over the church's setting.
+  const explicit = run("last-heard-from", { staleDays: "10" }, data(30));
+  assert.deepStrictEqual(explicit.rows.map((r) => r.partnerName).sort(), ["Never", "Visited"]);
+});
