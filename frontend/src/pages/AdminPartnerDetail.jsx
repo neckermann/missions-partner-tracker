@@ -56,6 +56,7 @@ import ContactLogSection from "../components/admin/ContactLogSection.jsx";
 import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
 import RecordList from "../components/admin/RecordList.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import LastEdited from "../components/shared/LastEdited.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import AddressFields, { roundGps } from "../components/admin/AddressFields.jsx";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
@@ -735,6 +736,9 @@ export default function AdminPartnerDetail() {
         <p style={{ color: "var(--muted)", margin: 0 }}>
           {isOrg ? `${p.orgType || "Partner"} Organization` : "Missionary"}
         </p>
+        {!isGuest && (
+          <LastEdited name={p.lastEditedByName} at={p.lastEditedAt} style={{ margin: "0.15rem 0 0" }} />
+        )}
       </div>
 
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", margin: "1rem 0" }}>

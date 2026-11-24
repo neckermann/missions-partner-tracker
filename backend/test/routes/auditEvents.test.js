@@ -42,7 +42,17 @@ async function setAudit(on) {
   clearAuditEnabledCache();
 }
 const log = (where = {}) => prisma.auditLog.findMany({ where, orderBy: { createdAt: "asc" } });
-const wait = () => new Promise((r) => setTimeout(r, 150)); // settings audit runs on response finish
+// The settings audit runs when the response finishes, so wait for what we expect
+// instead of sleeping a fixed time (flaky under load).
+async function until(check, ms = 4000) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    if (await check()) return true;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return false;
+}
+const settled = () => new Promise((r) => setTimeout(r, 300));
 
 describe("activity trail events", () => {
   before(async () => {
@@ -227,7 +237,7 @@ describe("activity trail events", () => {
       body: { apiKey: "sk-ant-super-secret-value" },
     });
     assert.equal(res.status, 200, JSON.stringify(res.body));
-    await wait();
+    await until(async () => (await log({ action: "settings.updated" })).length > 0);
     const rows = await log({ action: "settings.updated" });
     assert.equal(rows.length, 1);
     assert.equal(rows[0].entityLabel, "ai-extraction");
@@ -245,7 +255,7 @@ describe("activity trail events", () => {
       body: { enabledFeatures: { ...current.enabledFeatures, reports: false } },
     });
     assert.equal(res.status, 200, JSON.stringify(res.body));
-    await wait();
+    await until(async () => (await log({ action: "settings.feature_toggled" })).length > 0);
     const rows = await log({ action: "settings.feature_toggled" });
     assert.equal(rows.length, 1);
     assert.deepEqual(rows[0].details, { feature: "reports", from: true, to: false });
@@ -260,12 +270,12 @@ describe("activity trail events", () => {
       method: "PUT",
       body: { enabledFeatures: { ...current.enabledFeatures, auditTrail: false } },
     });
-    await wait();
+    await until(async () => (await log({ action: "settings.feature_toggled" })).length > 0);
     const rows = await log({ action: "settings.feature_toggled" });
     assert.equal(rows.length, 1);
     assert.deepEqual(rows[0].details, { feature: "auditTrail", from: true, to: false });
     await admin("/api/settings", { method: "PUT", body: { churchName: "Changed While Off" } });
-    await wait();
+    await settled();
     assert.equal((await log({ action: "settings.updated" })).length, 0);
   });
 

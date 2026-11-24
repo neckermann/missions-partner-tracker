@@ -16,6 +16,7 @@ import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import LastEdited from "../components/shared/LastEdited.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
@@ -245,6 +246,7 @@ export default function AdminTripParticipantDetail() {
       <h2 style={{ margin: "0.5rem 0" }}>
         {participant.firstName} {participant.lastName}
       </h2>
+      <LastEdited name={participant.lastEditedByName} at={participant.lastEditedAt} />
       {error && (
         <p style={{ color: "#b91c1c" }} role="alert">
           {error}

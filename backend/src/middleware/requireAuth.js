@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const { SESSION_COOKIE_NAME } = require("../utils/jwt");
 const prisma = require("../prismaClient");
+const { actorStore, displayName } = require("../utils/actorContext");
 const {
   resolveGuestReach,
   canReadPartner,
@@ -99,6 +100,8 @@ async function requireAuth(req, res, next) {
       select: {
         id: true,
         email: true,
+        firstName: true,
+        lastName: true,
         role: true,
         active: true,
         sessionVersion: true,
@@ -127,7 +130,13 @@ async function requireAuth(req, res, next) {
     if (user.sessionVersion !== decoded.sessionVersion) {
       return unauthorized(req, res, "Invalid or expired session");
     }
-    req.user = { ...decoded, role: user.role, email: user.email };
+    req.user = {
+      ...decoded,
+      role: user.role,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    };
     if (guestReach) {
       // Only ever set for a guest -- every route's scope check treats an
       // absent tripIds/partnerIds as "not a guest, no restriction" via
@@ -137,7 +146,9 @@ async function requireAuth(req, res, next) {
       req.user.partnerIds = guestReach.partnerIds;
       req.user.careTeamPartnerIds = guestReach.careTeamPartnerIds;
     }
-    next();
+    // The rest of this request runs as this person, so a write can be stamped
+    // "last edited by" without every route passing the user down (#341).
+    actorStore.run({ id: user.id, name: displayName(user) }, next);
   } catch (err) {
     next(err);
   }

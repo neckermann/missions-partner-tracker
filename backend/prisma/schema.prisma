@@ -180,6 +180,16 @@ model Partner {
   createdById String?
   updatedById String?
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@index([kind])
   @@index([isPublic, isRestricted])
   @@index([archived])
@@ -206,6 +216,16 @@ model Adult {
   isPrimaryContact Boolean   @default(false)
   createdAt        DateTime  @default(now())
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@index([partnerId])
 }
 
@@ -217,6 +237,16 @@ model Child {
   lastName  String?
   birthday  DateTime? @db.Date
   createdAt DateTime  @default(now())
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 
   @@index([partnerId])
 }
@@ -241,6 +271,16 @@ model Address {
   gpsLng              Float?
   receiveMail         Boolean?
   receivePackages     Boolean?
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 
   @@unique([partnerId, type])
 }
@@ -325,6 +365,16 @@ model Trip {
   // trip often has more than one leader and a guest may lead more than one
   // trip.
   tripAccess     TripAccess[]
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 
   @@index([partnerId])
   @@index([status])
@@ -450,6 +500,16 @@ model TripParticipant {
   flightSegments      TripFlightSegment[]
   meetingRsvps        TripMeetingRsvp[]
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@index([tripId])
 }
 
@@ -521,6 +581,16 @@ model TripApplication {
 
   participant TripParticipant?
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@index([tripId])
 }
 
@@ -573,6 +643,16 @@ model TripMeeting {
   cancelledAt    DateTime?
 
   rsvps TripMeetingRsvp[]
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 
   @@index([tripId])
 }
@@ -662,6 +742,16 @@ model TripRequirement {
   documents           TripDocument[]
   requirementStatuses TripRequirementStatus[]
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@index([tripId])
 }
 
@@ -686,6 +776,16 @@ model TripRequirementStatus {
 
   completedAt    DateTime?
   reminderSentAt DateTime?
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 
   @@unique([requirementId, participantId])
   @@index([participantId])
@@ -750,6 +850,16 @@ model TripDocument {
   documentTextHash     String?
   bytesRow             TripDocumentBytes?
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@unique([requirementId, participantId])
   @@index([tripId])
   @@index([participantId])
@@ -786,6 +896,16 @@ model TripContribution {
 
   createdAt DateTime @default(now())
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@index([tripId])
   @@index([participantId])
 }
@@ -807,6 +927,16 @@ model TripBudgetLine {
 
   label           String
   estimatedAmount Int
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 
   @@index([tripId])
 }
@@ -837,6 +967,16 @@ model TripFlightSegment {
 
   participants TripParticipant[]
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@index([tripId])
 }
 
@@ -853,6 +993,16 @@ model Furlough {
   notes     String?   @db.Text
   createdAt DateTime  @default(now())
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@index([partnerId])
 }
 
@@ -867,6 +1017,16 @@ model ChurchVisit {
   visitDate DateTime @db.Date
   notes     String?  @db.Text
   createdAt DateTime @default(now())
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 
   @@index([partnerId])
 }
@@ -907,6 +1067,16 @@ model ContactLog {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@index([partnerId, contactDate])
   @@index([contactedById])
   @@index([followUpDate])
@@ -921,26 +1091,26 @@ model ContactLog {
 // holds a secret's value: `details` records that a key changed, not what it
 // was. `action` is a dotted code from utils/auditLog.js's AUDIT_ACTIONS.
 model AuditLog {
-  id          String   @id @default(uuid())
-  createdAt   DateTime @default(now())
-  action      String
+  id           String   @id @default(uuid())
+  createdAt    DateTime @default(now())
+  action       String
   // Who did it (null for an unauthenticated event, e.g. a failed sign-in).
-  actorUserId String?
-  actorEmail  String?
-  actorName   String?
+  actorUserId  String?
+  actorEmail   String?
+  actorName    String?
   // Who it was done to, when the event is about another account.
   targetUserId String?
   targetEmail  String?
   targetName   String?
   // The record it was about, when it is not an account (a partner, a trip,
   // the church settings...), with its label at the time.
-  entityType  String?
-  entityId    String?
-  entityLabel String?
+  entityType   String?
+  entityId     String?
+  entityLabel  String?
   // Where it came from (sign-in and access events).
-  ip          String?
+  ip           String?
   // Old/new values and context. Secrets are noted as changed, never stored.
-  details     Json?
+  details      Json?
 
   @@index([createdAt])
   @@index([actorUserId, createdAt])
@@ -989,6 +1159,16 @@ model PartnerLink {
   url       String
   createdAt DateTime @default(now())
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@unique([partnerId, type])
 }
 
@@ -1008,6 +1188,16 @@ model PartnerLanguage {
   proficiency String?
   createdAt   DateTime @default(now())
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@index([partnerId])
 }
 
@@ -1023,6 +1213,16 @@ model TripType {
   partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   type      String // e.g. "Construction", "Medical/Dental" -- preset or custom
   createdAt DateTime @default(now())
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 
   @@index([partnerId])
 }
@@ -1052,6 +1252,16 @@ model SendingParty {
   postalCode          String?
   country             String?
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@unique([partnerId, type])
 }
 
@@ -1070,6 +1280,16 @@ model SupportEntry {
   notes         String?
   createdAt     DateTime @default(now())
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@index([partnerId])
 }
 
@@ -1086,6 +1306,16 @@ model SavedReport {
   owner     User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt DateTime         @default(now())
   schedules ReportSchedule[]
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 
   @@index([ownerId])
   @@index([reportId])
@@ -1106,6 +1336,16 @@ model ReportSchedule {
   active        Boolean     @default(true)
   lastSentAt    DateTime?
   createdAt     DateTime    @default(now())
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 
   @@index([savedReportId])
 }
@@ -1146,6 +1386,16 @@ model SupportNeed {
   // comment for the full reasoning.
   sourceFileId String?
   sourceFile   PartnerFile? @relation(fields: [sourceFileId], references: [id], onDelete: SetNull)
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 
   @@index([partnerId])
 }
@@ -1213,6 +1463,16 @@ model PrayerRequest {
   sourceFileId String?
   sourceFile   PartnerFile? @relation(fields: [sourceFileId], references: [id], onDelete: SetNull)
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@index([partnerId])
   @@index([category])
   @@index([status])
@@ -1272,6 +1532,16 @@ model PartnerFile {
   sourcedPrayerRequests PrayerRequest[]
   sourcedSupportNeeds   SupportNeed[]
   bytesRow              PartnerFileBytes?
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 
   @@index([partnerId])
   @@index([kind])
@@ -1442,6 +1712,16 @@ model DispatchRecord {
   whatsappError String?
   emailError    String?
 
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
   @@index([type])
   @@index([partnerId])
 }
@@ -1471,6 +1751,16 @@ model Photo {
 
   createdAt DateTime    @default(now())
   bytesRow  PhotoBytes?
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 
   @@index([partnerId])
 }
@@ -1950,6 +2240,16 @@ model ChurchSettings {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   updatedById String?
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 }
 
 model ChurchSettingsLogo {
@@ -2058,6 +2358,16 @@ model User {
   // utils/passwordSetup.js). A pending account has passwordHash null until
   // one of these is redeemed.
   passwordSetupTokens PasswordSetupToken[]
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 }
 
 // Single-use link that lets a new user choose their own password. Only a
@@ -2152,6 +2462,16 @@ model CareTeamMember {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   isLead    Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  // #341: who last changed this record, as a current-state fact (overwritten in
+  // place, never pruned -- unlike the AuditLog event history). Stamped
+  // centrally by the Prisma client extension in prismaClient.js from the
+  // signed-in user of the request; left alone by background jobs, the seed and
+  // public submissions, which have no signed-in person. The name is a snapshot
+  // so it still reads after that account is deleted.
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
 
   @@unique([partnerId, userId])
   @@index([userId])

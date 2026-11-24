@@ -26,7 +26,18 @@ const SECRET_COLUMNS = [
   "postmarkServerToken",
   "inboundEmailWebhookPassword",
 ];
-const IGNORED_COLUMNS = new Set(["id", "updatedAt", "updatedById", "enabledFeatures"]);
+// Bookkeeping that changes on every write (including the "last edited by"
+// stamp, utils/actorContext.js), plus enabledFeatures, which is reported per
+// feature instead.
+const IGNORED_COLUMNS = new Set([
+  "id",
+  "updatedAt",
+  "updatedById",
+  "lastEditedById",
+  "lastEditedByName",
+  "lastEditedAt",
+  "enabledFeatures",
+]);
 const MAX_TEXT = 200;
 
 const snapshot = () => prisma.churchSettings.findUnique({ where: { id: "singleton" } });
