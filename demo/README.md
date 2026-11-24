@@ -29,7 +29,10 @@ the Render dashboard or a maintainer's own machine.
 Besides the admin login (`DEMO_ADMIN_EMAIL`/`DEMO_ADMIN_PASSWORD`), every
 reset seeds two **published guest logins** so a visitor can see what a care
 team member and a trip leader get. They are created by `seedCareTeamsDemo()`
-in `backend/prisma/seed.js`:
+in `backend/prisma/seed.js`, and **all three logins are listed in the demo
+banner** at the top of the public pages (`DemoBanner.jsx`). The guest accounts
+are defined once in `backend/src/utils/demoLogins.js`, which both the seed and
+the banner read, so the banner always shows what the seed actually created:
 
 | Login | Password | What they see |
 |---|---|---|

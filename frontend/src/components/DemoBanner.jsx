@@ -4,9 +4,16 @@ import { useSettings } from "../context/SettingsContext.jsx";
 // Shown only on a public demo deployment (DEMO_RESET_TOKEN set -- see the
 // comment on isDemo in routes/publicSettings.js), entirely separate from
 // a real church's own About Church content, which this never touches.
+//
+// Lists every published login a visitor can try: the admin, plus the
+// limited-access ones (a care team member, a trip leader -- see
+// utils/demoLogins.js), so they can see what each kind of person gets.
 export default function DemoBanner() {
-  const { isDemo, demoLoginEmail, demoLoginPassword } = useSettings();
+  const { isDemo, demoLoginEmail, demoLoginPassword, demoGuestLogins } = useSettings();
   if (!isDemo) return null;
+
+  const hasAdmin = demoLoginEmail && demoLoginPassword;
+  const guests = demoGuestLogins || [];
 
   return (
     <div className="demo-banner">
@@ -15,14 +22,29 @@ export default function DemoBanner() {
         Everything here is fake seeded data, and it resets automatically on a schedule — nothing you do is
         permanent.
       </p>
-      {demoLoginEmail && demoLoginPassword && (
-        <p>
-          Try the admin dashboard at{" "}
-          <a href="/login" target="_blank" rel="noreferrer">
-            /login
-          </a>{" "}
-          with <code>{demoLoginEmail}</code> / <code>{demoLoginPassword}</code>.
-        </p>
+      {(hasAdmin || guests.length > 0) && (
+        <div>
+          <p>
+            Try it from the inside at{" "}
+            <a href="/login" target="_blank" rel="noreferrer">
+              /login
+            </a>
+            , signed in as:
+          </p>
+          <ul style={{ margin: "0 0 0.5rem", paddingLeft: "1.25rem" }}>
+            {hasAdmin && (
+              <li>
+                <strong>Admin</strong> — <code>{demoLoginEmail}</code> / <code>{demoLoginPassword}</code>.
+                Sees and does everything.
+              </li>
+            )}
+            {guests.map((g) => (
+              <li key={g.key}>
+                <strong>{g.label}</strong> — <code>{g.email}</code> / <code>{g.password}</code>. {g.summary}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       <p>
         <a href="https://missionspartnertracker.com" target="_blank" rel="noreferrer">

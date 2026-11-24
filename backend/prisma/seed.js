@@ -2814,9 +2814,12 @@ async function seedNotificationQueue() {
 // on). Everything else seeded here is a populate-the-list account nobody logs
 // into, with the fixed fake password the other additional users use.
 // ---------------------------------------------------------------------
-const DEMO_GUEST_PASSWORD = process.env.DEMO_GUEST_PASSWORD || "TryTheGuestDemo2026!";
-const DEMO_CARE_MEMBER_EMAIL = "care.member@example.org";
-const DEMO_TRIP_LEADER_EMAIL = "trip.leader@example.org";
+// Defined once in src/utils/demoLogins.js, which the demo banner also reads.
+const {
+  DEMO_CARE_MEMBER_EMAIL,
+  DEMO_TRIP_LEADER_EMAIL,
+  demoGuestPassword,
+} = require("../src/utils/demoLogins");
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 async function seedCareTeamsDemo() {
@@ -2827,7 +2830,7 @@ async function seedCareTeamsDemo() {
     notifyPrayerRequestAnswered,
     notifySupportNeedCreated,
   } = require("../src/utils/dispatchRecording");
-  const publishedHash = await bcrypt.hash(DEMO_GUEST_PASSWORD, 12);
+  const publishedHash = await bcrypt.hash(demoGuestPassword(), 12);
   const fakeHash = await bcrypt.hash("SeedDemoUser2026!", 12);
 
   const makeGuest = (email, firstName, lastName, { published, lapsed }) =>

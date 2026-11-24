@@ -1,5 +1,6 @@
 const express = require("express");
 const prisma = require("../prismaClient");
+const { demoGuestLogins } = require("../utils/demoLogins");
 const { FEATURE_KEYS, isFeatureEnabled } = require("../utils/features");
 
 const router = express.Router();
@@ -55,6 +56,9 @@ router.get("/", async (req, res, next) => {
       isDemo: Boolean(process.env.DEMO_RESET_TOKEN),
       demoLoginEmail: process.env.DEMO_RESET_TOKEN ? process.env.DEMO_ADMIN_EMAIL || null : null,
       demoLoginPassword: process.env.DEMO_RESET_TOKEN ? process.env.DEMO_ADMIN_PASSWORD || null : null,
+      // The other published logins (a care team member, a trip leader) -- see
+      // utils/demoLogins.js. Same demo-only gate; [] everywhere else.
+      demoGuestLogins: process.env.DEMO_RESET_TOKEN ? demoGuestLogins() : [],
       // Resolved (not raw) per-feature booleans -- reflects the registry
       // default, not just what's stored. Not sensitive (whether a feature
       // is on isn't a secret), and this is the one settings endpoint the
