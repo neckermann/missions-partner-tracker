@@ -365,14 +365,37 @@ router.post("/password-setup/complete", async (req, res, next) => {
   }
 });
 
-// "Send me a new link." Always the same generic reply, and the email goes
-// out after responding, so neither the message nor the response time
-// reveals whether an account exists.
+// "Send me a new link." The same reply for every email address (one message while email
+// works, another while it is off), and the email goes out after responding, so neither the
+// message nor the response time reveals whether an account exists.
 router.post("/password-setup/request", async (req, res) => {
-  res.json({
-    ok: true,
-    message: "If that email has an account waiting to be set up, a new link is on its way.",
-  });
+  // Whether this site can send email at all is a church-wide fact, the same for every
+  // request, so saying so reveals nothing about any account: with email off, nobody gets a
+  // link, so the page says to ask an administrator instead of leaving them waiting for one.
+  // A failed lookup falls back to the generic reply.
+  let emailOn = true;
+  try {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { enabledFeatures: true },
+    });
+    emailOn = isFeatureEnabled(settings?.enabledFeatures, "outboundEmail");
+  } catch {
+    // keep the generic reply
+  }
+  res.json(
+    emailOn
+      ? {
+          ok: true,
+          message: "If that email has an account waiting to be set up, a new link is on its way.",
+        }
+      : {
+          ok: true,
+          emailOff: true,
+          message:
+            "This site can't send email, so we can't send a new link. Please ask your church administrator for a new setup link.",
+        }
+  );
   try {
     const email = String(req.body?.email || "")
       .toLowerCase()
@@ -384,21 +407,11 @@ router.post("/password-setup/request", async (req, res) => {
       target: user || { email },
       req,
     });
-    if (user && user.active && user.authProvider === "local" && !user.passwordHash) {
-      // Explicit check, same as users.js's own sendWelcomeEmail call sites --
-      // without it, this would still "work" by accident: sendWelcomeEmail
-      // throws when outboundEmail is off, and the catch below swallows it.
-      // That's incidental, not intentional, and fragile the next time this
-      // route changes. No manual-link fallback to offer here (unlike
-      // users.js, this is self-service with no admin present to hand a
-      // link to), so skip the send outright rather than invent one.
-      const settings = await prisma.churchSettings.findUnique({
-        where: { id: "singleton" },
-        select: { enabledFeatures: true },
-      });
-      if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
-        await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired });
-      }
+    // No send when email is off (nothing could go out, and an admin hands over a link instead,
+    // as users.js does). sendWelcomeEmail throws when outboundEmail is off; skipping it here is
+    // deliberate, not left to the catch below.
+    if (emailOn && user && user.active && user.authProvider === "local" && !user.passwordHash) {
+      await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired });
     }
   } catch {
     // Deliberately swallowed: this endpoint must never signal a difference.

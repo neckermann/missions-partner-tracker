@@ -5,7 +5,11 @@ import { validatePasswordSetup, completePasswordSetup, requestPasswordSetupLink 
 // Landing page for the "Choose your password" button in the welcome email.
 // The token in the URL is the only credential; every failure shows the same
 // generic message and offers a fresh link by email (the server answers that
-// request identically whether or not an account exists).
+// request identically whether or not an account exists). While this site can't send email it
+// says so and points to an administrator instead of promising a link that won't come.
+const GENERIC_REQUEST_MESSAGE =
+  "If that email has an account waiting to be set up, a new link is on its way.";
+
 export default function SetPassword() {
   const [params] = useSearchParams();
   const token = params.get("token") || "";
@@ -17,7 +21,9 @@ export default function SetPassword() {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState({ mfaRequired: false });
   const [requestEmail, setRequestEmail] = useState("");
-  const [requestSent, setRequestSent] = useState(false);
+  // What the server said about the new-link request (null until asked): the generic "on its
+  // way" while email works, or "ask your administrator" while this site can't send email.
+  const [requestMessage, setRequestMessage] = useState(null);
 
   useEffect(() => {
     if (!token) {
@@ -55,12 +61,14 @@ export default function SetPassword() {
 
   async function handleRequest(e) {
     e.preventDefault();
+    let message = GENERIC_REQUEST_MESSAGE;
     try {
-      await requestPasswordSetupLink(requestEmail);
+      const result = await requestPasswordSetupLink(requestEmail);
+      if (result?.message) message = result.message;
     } catch {
-      // The server always answers generically; show the same message either way.
+      // The server answers the same way for every address; show the generic message on a failure.
     }
-    setRequestSent(true);
+    setRequestMessage(message);
   }
 
   return (
@@ -133,8 +141,8 @@ export default function SetPassword() {
           <p style={{ color: "#555" }}>
             This link is invalid or has expired. Enter your email and we'll send you a new one.
           </p>
-          {requestSent ? (
-            <p role="status">If that email has an account waiting to be set up, a new link is on its way.</p>
+          {requestMessage ? (
+            <p role="status">{requestMessage}</p>
           ) : (
             <form
               onSubmit={handleRequest}
