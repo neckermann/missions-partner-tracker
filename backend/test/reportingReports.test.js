@@ -278,3 +278,29 @@ test("last heard from counts a logged contact as hearing from them, when the con
   assert.ok(off.rows.every((r) => r.contact === null));
   assert.doesNotMatch(off.notes[0], /logged contact/);
 });
+
+test("the Data completeness report says who last edited each partner, and when", () => {
+  const stamped = { lastEditedByName: "Dana Whitfield", lastEditedAt: day("2026-11-20") };
+  const completeness = run("data-completeness", {}, [
+    { ...stamped, displayName: "P", isRestricted: false, addresses: [], languages: [], photos: [] },
+    {
+      lastEditedByName: null,
+      lastEditedAt: null,
+      displayName: "Q",
+      isRestricted: false,
+      addresses: [],
+      languages: [],
+      photos: [],
+    },
+  ]);
+  const byName = Object.fromEntries(completeness.rows.map((r) => [r.partnerName, [r.editedBy, r.editedOn]]));
+  assert.deepStrictEqual(byName.P, ["Dana Whitfield", "2026-11-20"]);
+  assert.deepStrictEqual(byName.Q, [null, null], "an unedited partner has no date");
+  const keys = getReport("data-completeness", all).columns.map((c) => c.key);
+  assert.ok(keys.includes("editedBy") && keys.includes("editedOn"));
+  // The prayer request and one-time need reports do not carry them: the dialogs do.
+  for (const id of ["prayer-requests", "needs-pipeline"]) {
+    const ks = getReport(id, all).columns.map((c) => c.key);
+    assert.ok(!ks.includes("editedBy") && !ks.includes("editedOn"), `${id} stays compact`);
+  }
+});

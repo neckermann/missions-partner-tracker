@@ -135,7 +135,7 @@ the list page itself.
 
 #### The Partners list
 
-Filter by Type (missionary/organization), Public (yes/no), Restricted
+Filter by Type (missionary/organization), **Sending church**, Public (yes/no), Restricted
 (yes/no), Continent, and Country — the continent/country dropdowns only
 show what's actually represented in your data, and picking a continent
 narrows the country list to match. There's also a free-text search box
@@ -147,9 +147,23 @@ archived records, and **Reset filters** clears everything back to
 defaults.
 
 Click **+ Add Missionary** or **+ Add Organization** to create one; click
-any row to view that partner's detail page.
+any row to view that partner's detail page. The list shows each partner's
+photo beside their name, and a **Flags** column that lists only what is out
+of the ordinary (Restricted, Not public, Sent by us). **Last updated** is the
+last change to the partner or anything on its page, and sorts; Flags doesn't, since a
+row can carry several at once. To find, say, everything we sent, use the
+**Sending church** filter instead.
 
-![The Partners list, filterable by type, public/restricted status, continent, and country](docs/assets/screenshots/admin-partners.png)
+**Sending church** is a filter on every list about partners or their records —
+Partners, Newsletters & Docs, Trips, Prayer Requests, One-Time Needs, Monthly Support, and
+the reports that list partners (Data completeness, Partner roster, Support summary, Last
+heard from, Mailing list, Prayer requests, One-time needs, and the rest). Its first option
+is **Sent by us** (our own church); after that it lists each other church that has sent a
+partner, with how many, matched without regard to capitalisation. Guests don't see it.
+
+![The Partners list filtered by Sending church: Sent by us](docs/assets/screenshots/partners-sending-church-filter.png)
+
+![The Partners list, filterable by type, sending church, public/restricted status, continent, and country](docs/assets/screenshots/admin-partners.png)
 
 #### Creating a missionary
 
@@ -900,7 +914,7 @@ You can't delete your own account, and the app won't let you demote,
 deactivate, or delete the last active admin — there's always at least
 one way back in.
 
-![The Manage Users page, listing role, auth provider, and MFA status](docs/assets/screenshots/manage-users.png)
+![The Manage Users page, listing role, active status, and MFA status](docs/assets/screenshots/manage-users.png)
 
 ### Database Backups (Admin only)
 
@@ -1081,6 +1095,10 @@ They also can't create or delete partners, or delete records. If you're an admin
 
 ![Pending Dispatches, where an entry from a care team member is held for staff to approve](docs/assets/screenshots/pending-dispatches-care-team.png)
 
+A **Guest**, whether on a care team, given a trip, or both, sees one plain **Partners** list of every partner they can reach, with no tabs. Staff who are on a care team still land on All and switch to the **My partners** tab when they want it.
+
+![A care team guest's Partners page: one list of the partners they can reach](docs/assets/screenshots/care-team-member-partners.png)
+
 A **trip leader** (a Guest given a trip) has a smaller view: their trips, and those trips' partners read-only. They don't get the care-team list pages or one-time needs.
 
 ![A care team member's view of their partner: they can edit what's theirs, and see no monthly support](docs/assets/screenshots/care-team-member-view.png)
@@ -1099,9 +1117,9 @@ With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-togg
 
 ![A partner's Contact Log, newest first](docs/assets/screenshots/contact-log.png)
 - **A prayer request a care team member enters** also logs the contact, so it isn't typed twice.
-- **Assigned to me** (a tab on the Partners page, for anyone on a care team) lists your partners longest-quiet first: days since the last contact, any follow-up that has come due, the next birthday or anniversary, and open prayer requests and needs. A partner counts as **quiet** after 90 days without a logged contact.
+- **My partners** (a tab on the Partners page, for anyone on a care team) lists your partners longest-quiet first: days since the last contact, any follow-up that has come due, the next birthday or anniversary, and open prayer requests and needs. A partner counts as **quiet** after 90 days without a logged contact.
 
-![The Assigned to me tab, listing a care team member's partners longest-quiet first](docs/assets/screenshots/assigned-to-me.png)
+![The My partners tab, listing a care team member's partners longest-quiet first](docs/assets/screenshots/assigned-to-me.png)
 - **Partners to reach out to** on the bell and Home page counts your partners that are quiet or have a follow-up due.
 
 The **Last heard from** report counts a logged contact as hearing from a partner: a partner is only "quiet" when both the latest newsletter and the latest contact are old. Trip leaders don't get the contact log.
@@ -1110,7 +1128,7 @@ The **Last heard from** report counts a logged contact as hearing from a partner
 
 With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **supported-since milestone** (the first year, then every fifth) a week ahead.
 
-- **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **Assigned to me** tab also flags a key date inside the week.
+- **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **My partners** tab also flags a key date inside the week.
 
 ![The bell, with Key dates coming up among a care team member's alerts](docs/assets/screenshots/bell-alerts.png)
 - **By email**, one message a day, only on a day something is due, listing everything coming up for your partners (not one email per partner). It needs Email (Sending) turned on, and it's sent at 7am church time.
@@ -1130,6 +1148,24 @@ The app never contacts a partner on its own — a person always does. If you're 
 - **Updates to pass on to partners** (bell and Home page) counts, for your partners, a one-time need the committee **decided** and a prayer request that was **answered** in the last 30 days. Open the partner to see the decision and its note, then tell them yourself.
 - **To clear one**, [log the contact](#contact-log) as something **you** sent or did (we reached out): topic **Need / support** for a decision, **Encouragement** or **Prayer** for an answered prayer — a thank-you card or call counts. An entry made because the partner reached out doesn't clear it.
 - **When a partner tells you a prayer was answered** and you mark it answered, that is logged as a contact for you automatically (it still waits for staff approval before the church is told).
+
+### Audit log (admin only)
+
+The **Audit log** is on by default (turn it off in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) if you'd rather not keep it), and admins get **Settings → Audit log**: who did what, and when, for the actions that matter if you ever need to ask "who changed that?".
+
+- **What is recorded:** sign-ins (and failed ones, with the reason and where from), password and two-factor changes, accounts created, changed or deleted, a guest's trip access given, changed or removed, care team changes, every change to church settings (a feature turned on or off, an API key changed), partners and trips deleted, backups downloaded, a partner being marked restricted, and **each person's first look at a restricted partner each day**.
+- **What isn't:** routine work — a new prayer request, an edited overview, a logged contact. Those are already visible on the record itself.
+- **Secrets are never stored.** Changing an API key or token is listed as "changed"; the value is not kept anywhere in the log.
+- **Find things:** search by name, email, record or IP address; filter by what kind of event and by date; **Export CSV** downloads exactly what the filters show.
+- **Admin only.** The log names restricted partners in full (admins can already see them), so treat an export like any other file holding that data.
+- **Deleted accounts stay readable.** An entry keeps the name and email of who did it and who it was done to, so it still reads after either account is deleted, and is tagged "(deleted account)".
+- **How long it is kept:** 30, 60 or 90 days (default 90), set on the same page. Older entries are deleted each night.
+
+![The Audit log page: who did what, with filters, an export button and the retention setting](docs/assets/screenshots/audit-log.png)
+
+**Who last edited a record** is separate and kept for good. Partner, trip, trip-participant and trip-application pages show "Last edited by Dana Whitfield on 11/24/2026" under the name. On a partner or trip that line covers the sections on its page too — a partner's family, addresses, links, visits, support and photos; a trip's team, meetings, requirements, documents and money — so it answers "when did anyone last touch this record?" even when the change was inside a section. The **Partners** and **Trips** lists have a sortable **Last updated** column with the same date and name, so you can sort to find the records nobody has looked after in a while (blank means no signed-in person has changed it). Prayer requests, needs, newsletters and contact-log entries are not folded in; they have their own pages. A prayer request or one-time need shows its own line when you open it, and a prayer request or one-time need shows it when you open it (none of this is shown to Guests or on the public site). The **Data completeness** report has **Last edited by** and **Last edited** columns too, so you can see which partner records nobody has touched in a while and who to ask. It is stamped on every record an admin, editor or care team member changes, and not by background jobs or a public form, so a record nobody has edited shows no line. The name is a snapshot, so it still reads after that person's account is deleted.
+
+![A partner's page with "Last edited by Alex Hartley" under the name](docs/assets/screenshots/last-edited-by.png)
 
 ### Pending Dispatches
 

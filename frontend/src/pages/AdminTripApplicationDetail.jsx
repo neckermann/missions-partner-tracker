@@ -9,6 +9,7 @@ import {
 import { useSettings } from "../context/SettingsContext.jsx";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import LastEdited from "../components/shared/LastEdited.jsx";
 import Wizard from "../components/shared/Wizard.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
@@ -282,6 +283,7 @@ export default function AdminTripApplicationDetail() {
       <h2 style={{ margin: "0.5rem 0" }}>
         {application.firstName} {application.lastName}
       </h2>
+      <LastEdited name={application.lastEditedByName} at={application.lastEditedAt} />
       {error && (
         <p className="form-error" role="alert">
           {error}

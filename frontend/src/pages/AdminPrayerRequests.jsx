@@ -29,11 +29,13 @@ import FilterBar from "../components/shared/FilterBar.jsx";
 import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import Table from "../components/shared/Table.jsx";
+import LastEdited from "../components/shared/LastEdited.jsx";
 import useFilterState from "../hooks/useFilterState.js";
+import useSendingChurchField from "../hooks/useSendingChurchField.js";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 
-const emptyFilters = { category: "all", dateRange: "all", includeArchived: false };
+const emptyFilters = { category: "all", sendingChurch: "all", dateRange: "all", includeArchived: false };
 
 const emptyNewRequest = {
   partnerId: "",
@@ -83,6 +85,7 @@ export default function AdminPrayerRequests() {
   // is scoped to) -- looked up from whichever partner is currently
   // selected in the add form instead, same list this page's own
   // PartnerSelect already renders from.
+  const sendingChurchField = useSendingChurchField();
   const fields = useMemo(
     () => [
       {
@@ -96,9 +99,10 @@ export default function AdminPrayerRequests() {
         ],
       },
       { name: "dateRange", label: "Received", type: "select", options: DATE_RANGE_OPTIONS },
+      ...(sendingChurchField ? [sendingChurchField] : []),
       INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
     ],
-    []
+    [sendingChurchField]
   );
   const {
     values: filters,
@@ -154,6 +158,7 @@ export default function AdminPrayerRequests() {
     setLoading(true);
     const params = {};
     if (filters.category !== "all") params.category = filters.category;
+    if (filters.sendingChurch !== "all") params.sendingChurch = filters.sendingChurch;
     const { from, to } = resolveQuickRangeDates(filters.dateRange);
     if (from) params.from = from;
     if (to) params.to = to;
@@ -168,7 +173,7 @@ export default function AdminPrayerRequests() {
     reload();
     fetchReachablePartners().then(setPartners).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.category, filters.dateRange, filterPartnerId]);
+  }, [filters.category, filters.sendingChurch, filters.dateRange, filterPartnerId]);
 
   const filteredRequests = requests.filter((r) => filters.includeArchived || !r.partner?.archived);
   const answeredCount = requests.filter((r) => r.status === "answered").length;
@@ -236,6 +241,8 @@ export default function AdminPrayerRequests() {
   function openRequestDetail(request) {
     setRequestDetail({
       id: request.id,
+      lastEditedByName: request.lastEditedByName,
+      lastEditedAt: request.lastEditedAt,
       form: {
         partnerId: request.partner?.id || "",
         category: request.category,
@@ -462,6 +469,7 @@ export default function AdminPrayerRequests() {
             >
               Go to partner →
             </Link>
+            {!isGuest && <LastEdited name={requestDetail.lastEditedByName} at={requestDetail.lastEditedAt} />}
             <PrayerRequestFormFields
               form={requestDetail.form}
               setForm={setRequestDetailForm}
@@ -492,6 +500,7 @@ export default function AdminPrayerRequests() {
             >
               Go to partner →
             </Link>
+            {!isGuest && <LastEdited name={requestDetail.lastEditedByName} at={requestDetail.lastEditedAt} />}
             <Field
               label="Category"
               value={requestDetail.form.category === "strategic" ? "Strategic" : "Situational"}

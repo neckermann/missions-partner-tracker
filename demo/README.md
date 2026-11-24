@@ -39,10 +39,17 @@ the banner read, so the banner always shows what the seed actually created:
 | `care.member@<admin's domain>` | the same as the demo admin's (`DEMO_ADMIN_PASSWORD`) | Four partners they're on the care team for: the same partner page an editor has minus monthly funding, their own prayer requests and one-time needs (no decisions), Newsletters & Docs, and a read-only view of those partners' trips. What they enter is saved but held in Pending Dispatches until the admin approves it. |
 | `trip.leader@<admin's domain>` | same                                                 | One upcoming trip they manage, plus its partner read-only. No needs, no money.                                                                                                                                                                                                                                              |
 
+The demo also has the **Audit log** on, with example entries written by the seed
+(`seedAuditLogDemo` in `backend/prisma/seed.js`): sign-ins, a couple of failed ones, a role
+change, a guest's trip access given and removed, care team changes, settings changes, a backup
+download, deletes, and views of a restricted partner. They sit inside the default 90-day
+retention window, so a reset (which reseeds them) always leaves a populated page. Real activity
+by visitors is recorded too, until the next reset.
+
 These are the **only** accounts with two-factor off (`mfaSetupRequired:
 false`): a shared, published account can't enrol an authenticator without
 locking every other visitor out. Every other guest the seed creates (for
-example the lapsed `sam.okafor@example.org`, who exists to populate the
+example the lapsed `sam.okafor@<admin's domain>`, who exists to populate the
 "Inactive accounts only" filter) keeps the normal rule -- two-factor required
 -- and has a password nobody is told. **The published logins also look alike**,
 for simplicity: the guests' emails use the demo admin's email domain (so with

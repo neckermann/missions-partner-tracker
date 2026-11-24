@@ -1,6 +1,16 @@
 // Partner care: prayer requests, one-time needs, data completeness.
 const { z } = require("zod");
-const { optionalDay, flag, oneOf, ymd, KIND_VALUES } = require("../params");
+const { latestOf, partnerLastUpdated } = require("../../utils/lastUpdated");
+const {
+  optionalDay,
+  flag,
+  oneOf,
+  ymd,
+  KIND_VALUES,
+  sendingChurchParam,
+  sendingChurchField,
+} = require("../params");
+const { sendingChurchPartnerWhere } = require("../../utils/sendingChurch");
 const {
   prayerState,
   PRAYER_AGE_BUCKETS,
@@ -24,6 +34,7 @@ const prayerRequests = {
     bucket: oneOf(["all", ...PRAYER_AGE_BUCKETS], "all"),
     urgentOnly: flag(false),
     includeArchived: flag(false),
+    sendingChurch: sendingChurchParam,
   }),
   fields: [
     { name: "asOf", label: "As of", type: "date" },
@@ -55,6 +66,7 @@ const prayerRequests = {
       ],
     },
     { name: "urgentOnly", label: "Urgent only", type: "checkbox" },
+    sendingChurchField,
     { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
   ],
   columns: [
@@ -72,7 +84,10 @@ const prayerRequests = {
       where: {
         ...(params.category !== "all" ? { category: params.category } : {}),
         ...(params.urgentOnly ? { isUrgent: true } : {}),
-        partner: params.includeArchived ? {} : { archived: false },
+        partner: {
+          ...(params.includeArchived ? {} : { archived: false }),
+          ...(sendingChurchPartnerWhere(params.sendingChurch) || {}),
+        },
       },
       select: {
         category: true,
@@ -138,6 +153,7 @@ const needsPipeline = {
     to: optionalDay,
     decision: oneOf(["all", "pending", "approved", "partial", "declined"], "all"),
     includeArchived: flag(false),
+    sendingChurch: sendingChurchParam,
   }),
   fields: [
     { name: "from", label: "Requested from", type: "date" },
@@ -154,6 +170,7 @@ const needsPipeline = {
         { value: "declined", label: "Declined" },
       ],
     },
+    sendingChurchField,
     { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
   ],
   columns: [
@@ -177,7 +194,10 @@ const needsPipeline = {
               },
             }
           : {}),
-        partner: params.includeArchived ? {} : { archived: false },
+        partner: {
+          ...(params.includeArchived ? {} : { archived: false }),
+          ...(sendingChurchPartnerWhere(params.sendingChurch) || {}),
+        },
       },
       select: {
         description: true,
@@ -250,6 +270,7 @@ const dataCompleteness = {
   params: z.object({
     kind: oneOf(KIND_VALUES, "all"),
     includeArchived: flag(false),
+    sendingChurch: sendingChurchParam,
     onlyIncomplete: flag(true),
   }),
   fields: [
@@ -260,18 +281,22 @@ const dataCompleteness = {
       options: KIND_VALUES.map((v) => ({ value: v, label: v === "all" ? "All" : v })),
     },
     { name: "onlyIncomplete", label: "Only partners with gaps", type: "checkbox" },
+    sendingChurchField,
     { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
   ],
   columns: [
     { key: "partnerName", label: "Partner" },
     { key: "percent", label: "Complete (%)", type: "number" },
     { key: "missing", label: "Missing" },
+    { key: "editedBy", label: "Last edited by" },
+    { key: "editedOn", label: "Last edited", type: "date" },
   ],
-  fetch: (params, { prisma }) =>
-    prisma.partner.findMany({
+  fetch: async (params, { prisma }) => {
+    const partners = await prisma.partner.findMany({
       where: {
         ...(params.includeArchived ? {} : { archived: false }),
         ...(params.kind !== "all" ? { kind: params.kind } : {}),
+        ...(sendingChurchPartnerWhere(params.sendingChurch) || {}),
       },
       select: {
         displayName: true,
@@ -285,11 +310,23 @@ const dataCompleteness = {
         emergencyContactPhone: true,
         emergencyContactEmail: true,
         supportingSince: true,
+        lastEditedByName: true,
+        lastEditedAt: true,
         addresses: { select: { id: true } },
         languages: { select: { id: true } },
         photos: { select: { id: true } },
       },
-    }),
+    });
+    // "Last edited" reads across the partner's sections, like its own page does.
+    const updated = await partnerLastUpdated(
+      partners.map((p) => p.id),
+      prisma
+    );
+    return partners.map((p) => {
+      const shown = latestOf([{ at: p.lastEditedAt, name: p.lastEditedByName }, updated.get(p.id)]);
+      return { ...p, lastEditedAt: shown?.at ?? null, lastEditedByName: shown?.name ?? null };
+    });
+  },
   compute(partners, params) {
     const rows = [];
     const gaps = Object.fromEntries(COMPLETENESS_CHECKS.map((c) => [c.label, 0]));
@@ -301,6 +338,8 @@ const dataCompleteness = {
         partnerName: p.displayName,
         percent: c.percent,
         missing: c.missing.join(", "),
+        editedBy: p.lastEditedByName,
+        editedOn: ymd(p.lastEditedAt),
         _restricted: p.isRestricted,
       });
     }

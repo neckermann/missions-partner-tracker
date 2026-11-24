@@ -60,7 +60,9 @@ test.describe("Trip History", () => {
     await page.locator(".filter-chip", { hasText: "Year:" }).locator("select").selectOption("1901");
 
     const row = page.locator("tbody tr", { hasText: target.displayName });
-    await expect(row).toContainText("Construction");
+    // The list no longer has a Trip Type column (the partner name identifies the
+    // row, and filtering covers the rest); the type is confirmed on the saved
+    // record below instead.
     await expect(row).toContainText("1"); // team size
 
     // Edit: a completed trip's row is itself the click target now (the
@@ -86,6 +88,7 @@ test.describe("Trip History", () => {
         return Boolean(created);
       })
       .toBeTruthy();
+    expect(created.type).toBe("Construction");
 
     // Cleanup via the API directly (same authenticated browser context --
     // Playwright's page.request shares cookies with the page), matching

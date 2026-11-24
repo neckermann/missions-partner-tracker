@@ -1,4 +1,6 @@
 const express = require("express");
+const { withSendingChurch } = require("../utils/sendingChurch");
+
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
@@ -106,6 +108,7 @@ router.get("/", requireRole("admin", "editor", "viewer", "guest"), async (req, r
       if (req.query.from) where.requestDate.gte = new Date(String(req.query.from));
       if (req.query.to) where.requestDate.lte = new Date(String(req.query.to));
     }
+    withSendingChurch(where, req.query.sendingChurch);
 
     const records = await prisma.supportNeed.findMany({
       where,

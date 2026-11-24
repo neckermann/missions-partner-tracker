@@ -14,6 +14,29 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Added
+
+- **Audit log (#341).** New feature (Settings → Enabled Features → Audit log, **on by default**: it records nothing before it is on, so a church turning it on after something goes wrong would have nothing to look at; turn it off there if you'd rather not keep sign-in IP addresses) that records who did what and when for sensitive actions: sign-ins and failed sign-ins (with the reason and IP address), password and two-factor changes, accounts created/changed/deleted, guest trip-access changes, care team changes, every change to church settings (secrets noted as changed, never stored), partner and trip deletes, backup downloads, a partner's restricted status changing, and each person's first look at a restricted partner each day. Admins get **Settings → Audit log** with search, filters and CSV export. Entries are kept 30, 60 or 90 days (default 90) and pruned nightly. Actor and target are stored as ids plus an email/name snapshot with no foreign keys, so entries stay readable after an account is deleted.
+- **Last edited by (#341).** 32 editable models gain `lastEditedById`, `lastEditedByName` and `lastEditedAt`, stamped centrally by a Prisma client extension for every write made by a signed-in person (not by background jobs, the seed or public forms). Shown on partner, trip, trip-participant and trip-application pages (a partner's or trip's line covers its sections too: family, addresses, links, visits, support; team, meetings, requirements, money) and in the prayer request and one-time need dialogs; the **Partners** and **Trips** lists get a sortable **Last updated** column (not to guests, never on the public site), and as **Last edited by** / **Last edited** columns in the Data completeness report. Kept indefinitely, unlike the log.
+- The demo seeds example Audit log entries. Existing installs get the Audit log on at their next upgrade, since it is on unless switched off.
+
+### Changed
+
+- **"Assigned to me" is now "My partners"**, matching the key-date email's "Open my partners" button. Staff on a care team land on All and switch to it with the tab; a guest, whether on a care team or given a trip, sees one plain list of every partner they can reach, with no tabs.
+- **Filter by sending church, everywhere it applies.** A **Sending church** filter (our own church first as "Sent by us", then each other church with its partner count, matched case-insensitively) is on the Partners, Newsletters & Docs, Trips, Prayer Requests, One-Time Needs and Monthly Support lists and on every report that lists partners. New `GET /api/partners/sending-churches` (staff) for the options, and a `sendingChurch` parameter on the list routes and reports. The Partners list's **Flags** column is not sortable (a row can carry several flags); use the filter.
+- **Cleaner lists.** The Trips list drops its Type and Trip Type columns (the partner name and the filters identify a trip); Partners shows the photo beside the name instead of in a blank column and merges Public, Restricted and Sent By Us into one **Flags** column showing only exceptions; Monthly support drops Type; Manage Users drops Auth (always "local"); the Support summary report drops its Annualized column (the total stays in the summary) and the Partner roster drops Years (Supporting since stays, and the roster still sorts by it). The partner page header shows pills only for what is out of the ordinary (Not safe to contact, Not public, Restricted-access, Sent by us, On furlough, Archived), since the usual state is in the Status & Visibility card.
+- **Settings navigation order.** About App (version, system info, backups) moves to the end of Settings, after the per-feature settings, so Enabled Features is followed directly by the settings it controls; the Settings home tiles follow the same order. A test keeps the sidebar, the tiles and the route table in agreement.
+- The lapsed demo guest `sam.okafor` now uses the demo admin's email domain, like the other demo logins.
+
+### Fixed
+
+- The pinned Back/Cancel/Next/Save bar ran off the right edge on a phone, leaving its last buttons unreachable, on every wizard and form that uses it.
+- Add User's Care team step now appears only when the Guest role is chosen.
+
+### Upgrading
+
+- **Database baseline squashed again: a database that already ran 0.6.0 must be reset too (pre-1.0).** The audit log's `AuditLog` table, `ChurchSettings.auditRetentionDays` and the `lastEditedBy*` columns on 32 models are folded into the single baseline `20261122092854_init` (SPEC §8.3), so `npx prisma migrate deploy` against a 0.6.0 database reads the baseline as already applied and adds nothing. Reset instead, with the same steps and data-loss warning as 0.6.0 below: `npx prisma migrate reset --force` from `backend/` (**erases all data**; back up first and re-create the admin with `node prisma/createAdmin.js`), or `npm run demo:reset:remote` / `npm run dev:reset:remote` for the demo and dev-test sites. The new baseline was verified identical (columns, indexes, constraints, enums) to the incremental chain it replaces.
+
 ## [0.6.0] - 2026-11-24
 
 ### Added

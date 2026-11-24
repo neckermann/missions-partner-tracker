@@ -7,6 +7,10 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
+const { recordAudit } = require("../utils/auditLog");
+const { latestOf, tripLastUpdated, listFields } = require("../utils/lastUpdated");
+const { withSendingChurch } = require("../utils/sendingChurch");
+
 const {
   requireAuth,
   requireRole,
@@ -226,6 +230,7 @@ router.get("/", allowGuestPartnerList, async (req, res, next) => {
       where.partnerId = query.partnerId;
     }
     if (query.type) where.type = query.type;
+    withSendingChurch(where, req.query.sendingChurch);
     if (query.year) {
       where.startDate = {
         gte: new Date(Date.UTC(query.year, 0, 1)),
@@ -237,7 +242,12 @@ router.get("/", allowGuestPartnerList, async (req, res, next) => {
       include: tripInclude,
       orderBy: { startDate: "desc" },
     });
-    res.json(records.map(annotateTripFlags));
+    // When each trip (or any part of it: team, meetings, requirements, money) was
+    // last changed -- staff only; a guest's list carries no editor names.
+    const updated = req.user.role === "guest" ? null : await tripLastUpdated(records.map((r) => r.id));
+    res.json(
+      records.map((r) => ({ ...annotateTripFlags(r), ...(updated ? listFields(updated.get(r.id)) : {}) }))
+    );
   } catch (err) {
     next(err);
   }
@@ -354,6 +364,15 @@ router.get("/:id", requireTripScope("id"), async (req, res, next) => {
       },
     });
     if (!trip) return res.status(404).json({ error: "Not found" });
+    // "Last edited" on the trip page covers its team, meetings, requirements and money too.
+    const shown = latestOf([
+      { at: trip.lastEditedAt, name: trip.lastEditedByName },
+      (await tripLastUpdated([trip.id])).get(trip.id),
+    ]);
+    if (shown) {
+      trip.lastEditedAt = shown.at;
+      trip.lastEditedByName = shown.name;
+    }
     res.json(trip);
   } catch (err) {
     next(err);
@@ -522,9 +541,20 @@ router.put(
 
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
-    const existing = await prisma.trip.findUnique({ where: { id: req.params.id }, select: { id: true } });
+    const existing = await prisma.trip.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, name: true },
+    });
     if (!existing) return res.status(404).json({ error: "Not found" });
-    await prisma.trip.delete({ where: { id: req.params.id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.trip.delete({ where: { id: req.params.id } });
+      await recordAudit(tx, {
+        action: "trip.deleted",
+        actor: req.user,
+        entity: { type: "trip", id: existing.id, label: existing.name },
+        req,
+      });
+    });
     res.status(204).send();
   } catch (err) {
     next(err);

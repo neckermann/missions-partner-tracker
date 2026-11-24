@@ -4,6 +4,7 @@ import { fetchTrip, fetchTripApplications, fetchTripsSettings } from "../../api/
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import TripStatusBadge from "./TripStatusBadge.jsx";
 import Breadcrumb from "../shared/Breadcrumb.jsx";
+import LastEdited from "../shared/LastEdited.jsx";
 import { useRecordRecentlyViewed } from "../../hooks/useRecentlyViewed.js";
 import useCurrentUser from "../../hooks/useCurrentUser.js";
 
@@ -134,6 +135,9 @@ export default function TripDetailLayout() {
           "No partner linked"
         )}
       </p>
+      {!isGuest && (
+        <LastEdited name={trip.lastEditedByName} at={trip.lastEditedAt} style={{ margin: "0.15rem 0 0" }} />
+      )}
 
       <div
         style={{

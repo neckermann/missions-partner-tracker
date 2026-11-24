@@ -6,7 +6,7 @@ import Table from "../shared/Table.jsx";
 import StatusPill from "./StatusPill.jsx";
 import { formatDateLong } from "../../utils/format.js";
 
-// "Assigned to me" (#288): the partners this login holds a care team seat on,
+// "My partners" (#288): the partners this login holds a care team seat on,
 // longest-quiet first, with what a person looking after them wants at a
 // glance. The server computes everything (GET /api/contact-log/assigned), the
 // same read model the "Partners to reach out to" notification counts, so the

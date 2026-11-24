@@ -4,6 +4,9 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { canReadPartner, deactivateGuestIfNoGrants } = require("../utils/guestAccess");
+const { recordAudit } = require("../utils/auditLog");
+
+const personLabel = (u) => (u ? [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email : null);
 
 // #289: a partner's care team -- one lead plus any number of members, all of
 // them logins. Gated by the `careTeam` feature (404 when off, data kept).
@@ -89,12 +92,30 @@ router.put("/default-lead", requireRole("admin"), async (req, res, next) => {
       const user = await prisma.user.findFirst({ where: { id: userId, active: true }, select: { id: true } });
       if (!user) return res.status(400).json({ error: "The default lead needs an active login" });
     }
+    const previous = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { defaultCareLead: defaultLeadSelect },
+    });
     const settings = await prisma.churchSettings.upsert({
       where: { id: "singleton" },
       update: { defaultCareLeadUserId: userId },
       create: { id: "singleton", defaultCareLeadUserId: userId },
       select: { defaultCareLead: defaultLeadSelect },
     });
+    if ((previous?.defaultCareLead?.id ?? null) !== (settings.defaultCareLead?.id ?? null)) {
+      await recordAudit(null, {
+        action: "settings.updated",
+        actor: req.user,
+        entity: { type: "settings", label: "Default care team lead" },
+        req,
+        details: {
+          defaultCareLead: {
+            from: personLabel(previous?.defaultCareLead),
+            to: personLabel(settings.defaultCareLead),
+          },
+        },
+      });
+    }
     res.json({ defaultLead: defaultLeadView(settings.defaultCareLead) });
   } catch (err) {
     next(err);
@@ -131,7 +152,7 @@ router.put("/:partnerId", requireRole("admin", "editor"), async (req, res, next)
     const { leadUserId, memberUserIds } = setTeamSchema.parse(req.body);
     const partner = await prisma.partner.findUnique({
       where: { id: req.params.partnerId },
-      select: { id: true },
+      select: { id: true, displayName: true },
     });
     if (!partner) return res.status(404).json({ error: "Not found" });
 
@@ -148,7 +169,7 @@ router.put("/:partnerId", requireRole("admin", "editor"), async (req, res, next)
     await prisma.$transaction(async (tx) => {
       const before = await tx.careTeamMember.findMany({
         where: { partnerId: partner.id },
-        select: { userId: true },
+        select: { userId: true, isLead: true },
       });
       const wantedSet = new Set(wanted);
       const removed = before.filter((b) => !wantedSet.has(b.userId)).map((b) => b.userId);
@@ -168,6 +189,30 @@ router.put("/:partnerId", requireRole("admin", "editor"), async (req, res, next)
       for (const userId of removed) {
         const u = await tx.user.findUnique({ where: { id: userId } });
         if (u) await deactivateGuestIfNoGrants(tx, u);
+      }
+
+      // One entry for the whole edit: who joined, who left, and any lead change.
+      const beforeIds = new Set(before.map((b) => b.userId));
+      const added = wanted.filter((id) => !beforeIds.has(id));
+      const leadBefore = before.find((b) => b.isLead)?.userId ?? null;
+      const leadAfter = leadUserId ?? null;
+      if (added.length || removed.length || leadBefore !== leadAfter) {
+        const people = await tx.user.findMany({
+          where: { id: { in: [...new Set([...added, ...removed, leadBefore, leadAfter].filter(Boolean))] } },
+          select: { id: true, email: true, firstName: true, lastName: true },
+        });
+        const label = (id) => personLabel(people.find((p) => p.id === id)) ?? null;
+        await recordAudit(tx, {
+          action: "care_team.updated",
+          actor: req.user,
+          entity: { type: "partner", id: partner.id, label: partner.displayName },
+          req,
+          details: {
+            ...(added.length ? { added: added.map(label) } : {}),
+            ...(removed.length ? { removed: removed.map(label) } : {}),
+            ...(leadBefore !== leadAfter ? { lead: { from: label(leadBefore), to: label(leadAfter) } } : {}),
+          },
+        });
       }
     });
     res.json(await loadTeam(partner.id, req.user.role));

@@ -17,17 +17,17 @@ function buildSections(enabledFeatures) {
       icon: "👥",
       description: "Admin accounts and their roles.",
     },
+    enabledFeatures.auditTrail && {
+      to: "/admin/settings/audit",
+      title: "Audit log",
+      icon: "📜",
+      description: "Who did what and when: sign-ins, access and settings changes, deletes, backups.",
+    },
     {
       to: "/admin/settings/features",
       title: "Enabled Features",
       icon: "🧩",
       description: "Turn features on or off for this church.",
-    },
-    {
-      to: "/admin/settings/system-info",
-      title: "About App",
-      icon: "ℹ️",
-      description: "What's running on this instance, plus database backups.",
     },
     enabledFeatures.trips && {
       to: "/admin/settings/trips",
@@ -70,6 +70,12 @@ function buildSections(enabledFeatures) {
       title: "Integrations",
       icon: "🔌",
       description: "API keys for AI request scanning and Joshua Project stats.",
+    },
+    {
+      to: "/admin/settings/system-info",
+      title: "About App",
+      icon: "ℹ️",
+      description: "What's running on this instance, plus database backups.",
     },
   ].filter(Boolean);
 }

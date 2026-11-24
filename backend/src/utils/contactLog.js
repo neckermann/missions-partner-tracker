@@ -36,7 +36,7 @@ const TOPICS = [
 const values = (list) => list.map((x) => x.value);
 
 // A partner nobody has been in touch with for this long is "quiet". One
-// number for the report's default, the "Assigned to me" tab and the
+// number for the report's default, the "My partners" tab and the
 // notification, so they can't disagree about who is overdue.
 const CONTACT_STALE_DAYS = 90;
 

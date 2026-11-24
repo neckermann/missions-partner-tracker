@@ -2,7 +2,7 @@
 // kept), who may log / fix / delete (anyone who can see the partner logs; a
 // guest only through a care team seat, never through a trip grant alone;
 // admin/editor fix and delete), validation, the references an entry may point
-// at, the Assigned to me read model, the prayer-request auto-log, and the
+// at, the My partners read model, the prayer-request auto-log, and the
 // single primary contact per partner.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -257,7 +257,7 @@ describe("contact log: guests", () => {
   });
 });
 
-describe("contact log: Assigned to me", () => {
+describe("contact log: My partners", () => {
   test("lists the seats a login holds, with the care columns", async () => {
     const m = await member.login();
     const fresh = await makeGuest("assigned");

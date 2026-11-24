@@ -33,6 +33,7 @@ import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
+import useSendingChurchField from "../hooks/useSendingChurchField.js";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 
@@ -46,6 +47,7 @@ const emptyNewFile = {
 };
 
 const emptyFilters = {
+  sendingChurch: "all",
   entityType: "all",
   kind: "all",
   dateRange: "all",
@@ -114,6 +116,7 @@ export default function AdminPartnerFiles() {
     await reload();
   }
 
+  const sendingChurchField = useSendingChurchField();
   const fields = useMemo(
     () => [
       PARTNER_TYPE_FILTER_FIELD,
@@ -132,9 +135,10 @@ export default function AdminPartnerFiles() {
         type: "select",
         options: DATE_RANGE_OPTIONS,
       },
+      ...(sendingChurchField ? [sendingChurchField] : []),
       INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
     ],
-    []
+    [sendingChurchField]
   );
   const {
     values: filters,
@@ -152,6 +156,7 @@ export default function AdminPartnerFiles() {
     setLoading(true);
     const params = {};
     if (filters.entityType !== "all") params.entityType = filters.entityType;
+    if (filters.sendingChurch !== "all") params.sendingChurch = filters.sendingChurch;
     if (filters.kind !== "all") params.kind = filters.kind;
     const { from, to } = resolveQuickRangeDates(filters.dateRange);
     if (from) params.from = from;
@@ -167,7 +172,7 @@ export default function AdminPartnerFiles() {
     reload();
     fetchPartners().then(setPartners).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.entityType, filters.kind, filters.dateRange, filterPartnerId]);
+  }, [filters.entityType, filters.sendingChurch, filters.kind, filters.dateRange, filterPartnerId]);
 
   async function submitAddFile() {
     if (!newFile.partnerId) {

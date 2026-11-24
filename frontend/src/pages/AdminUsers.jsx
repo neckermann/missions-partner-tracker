@@ -277,7 +277,6 @@ export default function AdminUsers() {
         </>
       ),
     },
-    { key: "authProvider", label: "Auth" },
     {
       key: "active",
       label: "Active",

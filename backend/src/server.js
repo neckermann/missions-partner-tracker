@@ -29,6 +29,7 @@ const partnerLanguageRoutes = require("./routes/partnerLanguages");
 const tripTypeRoutes = require("./routes/tripTypes");
 const tripRoutes = require("./routes/trips");
 const careTeamRoutes = require("./routes/careTeams");
+const auditRoutes = require("./routes/audit");
 const contactLogRoutes = require("./routes/contactLog");
 const tripMeetingRoutes = require("./routes/tripMeetings");
 const tripRequirementRoutes = require("./routes/tripRequirements");
@@ -37,6 +38,7 @@ const partnerFileRoutes = require("./routes/partnerFiles");
 const photoRoutes = require("./routes/photos");
 const silhouetteRoutes = require("./routes/silhouette");
 const reportsRoutes = require("./routes/reports");
+const { auditSettingsWrites } = require("./middleware/auditSettings");
 const settingsRoutes = require("./routes/settings");
 const settingsGroupMeRoutes = require("./routes/settingsGroupMe");
 const settingsWhatsAppRoutes = require("./routes/settingsWhatsApp");
@@ -259,6 +261,7 @@ app.use("/api/partner-languages", partnerLanguageRoutes); // protected (admin) �
 app.use("/api/trip-types", tripTypeRoutes); // protected (admin) — session required
 app.use("/api/trips", tripRoutes); // protected (admin) — session required
 app.use("/api/care-team", careTeamRoutes); // protected; flag-gated (careTeam) -- see that file's own comment
+app.use("/api/audit", auditRoutes); // protected (admin); flag-gated (auditTrail) -- the audit log (#341)
 app.use("/api/contact-log", contactLogRoutes); // protected; flag-gated (contactLog) -- see that file's own comment
 // #271 Finding 1: three sibling sub-resource routers, same prefix as
 // tripRoutes above (not a separate API surface) -- split out of a
@@ -272,6 +275,7 @@ app.use("/api/reports", reportsRoutes); // protected — read-only exports, any 
 app.use("/api/partner-files", partnerFileRoutes); // protected (admin) — session required
 app.use("/api/photos", photoRoutes); // open (public — same as when these were S3 public-read objects)
 app.use("/api/silhouette", silhouetteRoutes); // open (public — needs to load with no session cookie, e.g. in an email client)
+app.use("/api/settings", auditSettingsWrites); // audit trail for every settings write (#341)
 app.use("/api/settings", settingsRoutes); // protected (admin for write, any role for read)
 // #271 Finding: five sibling sub-resource routers, same prefix as
 // settingsRoutes above (not a separate API surface) -- split out of a

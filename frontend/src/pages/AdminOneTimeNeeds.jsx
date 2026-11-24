@@ -30,8 +30,10 @@ import FilterBar from "../components/shared/FilterBar.jsx";
 import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import Table from "../components/shared/Table.jsx";
+import LastEdited from "../components/shared/LastEdited.jsx";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import useFilterState from "../hooks/useFilterState.js";
+import useSendingChurchField from "../hooks/useSendingChurchField.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 
 // Thin binding so the call sites below stay unchanged; the formatting
@@ -39,7 +41,7 @@ import useCurrentUser from "../hooks/useCurrentUser.js";
 // convention for "no amount recorded" is documented.
 const formatCurrency = (amount) => formatMoney(amount, { fallback: "—" });
 
-const emptyFilters = { status: "all", dateRange: "all", includeArchived: false };
+const emptyFilters = { status: "all", sendingChurch: "all", dateRange: "all", includeArchived: false };
 
 const emptyNewNeed = {
   partnerId: "",
@@ -72,6 +74,7 @@ export default function AdminOneTimeNeeds() {
   const [needs, setNeeds] = useState([]);
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
+  const sendingChurchField = useSendingChurchField();
   const fields = useMemo(
     () => [
       {
@@ -85,9 +88,10 @@ export default function AdminOneTimeNeeds() {
         ],
       },
       { name: "dateRange", label: "Requested", type: "select", options: DATE_RANGE_OPTIONS },
+      ...(sendingChurchField ? [sendingChurchField] : []),
       INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
     ],
-    []
+    [sendingChurchField]
   );
   const {
     values: filters,
@@ -146,6 +150,7 @@ export default function AdminOneTimeNeeds() {
     setLoading(true);
     const params = {};
     if (filters.status !== "all") params.status = filters.status;
+    if (filters.sendingChurch !== "all") params.sendingChurch = filters.sendingChurch;
     const { from, to } = resolveQuickRangeDates(filters.dateRange);
     if (from) params.from = from;
     if (to) params.to = to;
@@ -160,7 +165,7 @@ export default function AdminOneTimeNeeds() {
     reload();
     fetchReachablePartners().then(setPartners).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.status, filters.dateRange, filterPartnerId]);
+  }, [filters.status, filters.sendingChurch, filters.dateRange, filterPartnerId]);
 
   const filteredNeeds = needs.filter((need) => filters.includeArchived || !need.partner?.archived);
   const {
@@ -220,6 +225,8 @@ export default function AdminOneTimeNeeds() {
   function openNeedDetail(need) {
     setNeedDetail({
       id: need.id,
+      lastEditedByName: need.lastEditedByName,
+      lastEditedAt: need.lastEditedAt,
       form: {
         partnerId: need.partner?.id || "",
         description: need.description,
@@ -461,6 +468,7 @@ export default function AdminOneTimeNeeds() {
             >
               Go to partner →
             </Link>
+            {!isGuest && <LastEdited name={needDetail.lastEditedByName} at={needDetail.lastEditedAt} />}
             <SupportNeedFormFields
               form={needDetail.form}
               setForm={setNeedDetailForm}
@@ -491,6 +499,7 @@ export default function AdminOneTimeNeeds() {
             >
               Go to partner →
             </Link>
+            {!isGuest && <LastEdited name={needDetail.lastEditedByName} at={needDetail.lastEditedAt} />}
             <Field label="Description" value={needDetail.form.description} />
             <Field label="Requested Amount" value={formatCurrency(needDetail.form.requestedAmount)} />
             <Field label="Request Date" value={formatDateLong(needDetail.form.requestDate)} />

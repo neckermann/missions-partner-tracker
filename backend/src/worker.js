@@ -29,6 +29,7 @@ const { startEmailDispatchScheduler, startGroupMeScheduler } = require("./utils/
 const { startTripReminderScheduler } = require("./utils/tripReminderScheduler");
 const { startKeyDateReminderScheduler } = require("./utils/keyDateReminderScheduler");
 const { startReportScheduler } = require("./utils/reportScheduler");
+const { startAuditPruneScheduler } = require("./utils/auditPruneScheduler");
 const whatsappClient = require("./utils/whatsappClient");
 const { isFeatureEnabled } = require("./utils/features");
 const prisma = require("./prismaClient");
@@ -66,6 +67,7 @@ if (require.main === module) {
     startTripReminderScheduler();
     startKeyDateReminderScheduler();
     startReportScheduler();
+    startAuditPruneScheduler();
     console.log("Missionary Tracker worker is running.");
 
     // Open the WhatsApp session now (if the feature is on and a number is
