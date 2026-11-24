@@ -1,6 +1,7 @@
 // Partner relationships and coverage: key dates, languages, where we serve,
 // roster, and how recently we've heard from each partner.
 const { z } = require("zod");
+const { describeAnswer } = require("../../utils/supportOptions");
 const {
   optionalDay,
   flag,
@@ -454,6 +455,118 @@ const careTeamCoverage = {
   },
 };
 
+// #374: what partners have asked the church and their care team for. One row per partner and
+// chosen option, so sorting or filtering by an option answers "which partners want X"; or the
+// partners with nothing recorded, so the care team knows who still needs that conversation.
+// A partner's answers can be sensitive, so a restricted partner's are masked like its other
+// sensitive fields.
+const supportPreferences = {
+  id: "support-preferences",
+  group: "people",
+  label: "Support preferences",
+  question: "What has each partner asked us for, and who has no preferences recorded yet?",
+  requiresFeature: "supportPreferences",
+  params: z.object({
+    show: oneOf(["recorded", "none"], "recorded"),
+    kind: oneOf(KIND_VALUES, "all"),
+    sendingChurch: sendingChurchParam,
+    includeArchived: flag(false),
+  }),
+  fields: [
+    {
+      name: "show",
+      label: "Show",
+      type: "select",
+      options: [
+        { value: "recorded", label: "What partners have chosen" },
+        { value: "none", label: "Partners with nothing recorded" },
+      ],
+    },
+    kindField,
+    archivedField,
+  ],
+  columns: [
+    { key: "partnerName", label: "Partner" },
+    { key: "group", label: "Group" },
+    { key: "option", label: "Option", sensitive: true },
+    { key: "answer", label: "Answer", sensitive: true },
+    { key: "note", label: "Note", sensitive: true },
+  ],
+  fetch: (params, { prisma }) =>
+    prisma.partner.findMany({
+      where: baseWhere(params),
+      select: {
+        displayName: true,
+        isRestricted: true,
+        supportPreferences: {
+          select: {
+            selected: true,
+            choice: true,
+            choices: true,
+            other: true,
+            text: true,
+            note: true,
+            option: { select: { group: true, label: true, kind: true, sortOrder: true } },
+          },
+        },
+      },
+    }),
+  compute(partners, params) {
+    const rows = [];
+    for (const p of partners) {
+      const chosen = p.supportPreferences.filter((r) => r.selected || r.note);
+      if (params.show === "none") {
+        if (chosen.length === 0)
+          rows.push({
+            partnerName: p.displayName,
+            group: "",
+            option: "",
+            answer: "",
+            note: "",
+            _restricted: p.isRestricted,
+          });
+        continue;
+      }
+      for (const r of chosen) {
+        rows.push({
+          partnerName: p.displayName,
+          group: r.option.group,
+          option: r.option.label,
+          answer: describeAnswer(r.option, r),
+          note: r.note || "",
+          _restricted: p.isRestricted,
+          _order: r.option.sortOrder,
+        });
+      }
+    }
+    rows.sort(
+      (a, b) =>
+        a.partnerName.localeCompare(b.partnerName) ||
+        a.group.localeCompare(b.group) ||
+        (a._order ?? 0) - (b._order ?? 0)
+    );
+    return {
+      rows: rows.map(({ _order, ...row }) => row),
+      summary:
+        params.show === "none"
+          ? [{ label: "Partners with nothing recorded", value: rows.length }]
+          : [
+              { label: "Partners with preferences", value: new Set(rows.map((r) => r.partnerName)).size },
+              { label: "Choices recorded", value: rows.length },
+            ],
+      notes: ["Retired options keep their answers and are still listed."],
+    };
+  },
+};
+
 module.exports = {
-  reports: [keyDates, languageCoverage, whereWeServe, partnerRoster, lastHeardFrom, careTeamCoverage],
+  reports: [
+    keyDates,
+    languageCoverage,
+    whereWeServe,
+    partnerRoster,
+    lastHeardFrom,
+    careTeamCoverage,
+    supportPreferences,
+  ],
 };

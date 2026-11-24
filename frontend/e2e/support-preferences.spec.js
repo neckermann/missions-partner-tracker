@@ -1,0 +1,94 @@
+import { test, expect } from "@playwright/test";
+import { login, setFeatures, restoreFeatures } from "./helpers.js";
+
+// Support preferences (#374), as people use it: an admin edits the church's menu in Settings
+// (an example set from an empty menu, or an option of their own), staff record a partner's
+// choices on the partner's page, and the report lists them. The route tests cover the rules one
+// endpoint at a time; this drives the screens. It turns Care teams and Support preferences on,
+// so it is one of the specs that change settings (FEATURE_SPECS in playwright.config.js:
+// serial, restores). Only partner-and-option data this spec created is removed afterwards; an
+// example set is removed only if the menu was empty when the spec started.
+test.describe.configure({ mode: "serial" });
+
+test.describe("Support preferences", () => {
+  let adminContext;
+  let admin;
+  let previousFeatures;
+  let startedEmpty;
+  let partner;
+  const label = `E2E pick-up ${Date.now()}`;
+  const note = `E2E note ${Date.now()}`;
+  const group = "E2E Support";
+
+  test.beforeAll(async ({ browser }) => {
+    adminContext = await browser.newContext();
+    admin = await adminContext.newPage();
+    await login(admin);
+    previousFeatures = await setFeatures(admin.request, { careTeam: true, supportPreferences: true });
+    const options = await (await admin.request.get("/api/support-preferences/options")).json();
+    startedEmpty = options.length === 0;
+    const res = await admin.request.get("/api/partners?restricted=false&archived=false");
+    const partners = await res.json();
+    partner = (Array.isArray(partners) ? partners : partners.partners)[0];
+    expect(partner, "expected a seeded non-restricted, non-archived partner").toBeTruthy();
+  });
+
+  test.afterAll(async () => {
+    const options = await (await admin.request.get("/api/support-preferences/options")).json();
+    for (const o of options) {
+      if (startedEmpty || o.label === label) {
+        await admin.request.delete(`/api/support-preferences/options/${o.id}`);
+      }
+    }
+    await restoreFeatures(admin.request, previousFeatures);
+    await adminContext.close();
+  });
+
+  test("an empty menu offers an example set, which can then be edited", async () => {
+    test.skip(!startedEmpty, "the menu already had options, so there is no empty state to see");
+    await admin.goto("/admin/settings/support-preferences");
+    await admin.getByRole("button", { name: "Add an example set" }).click();
+    await expect(admin.getByText("Airport pick-up")).toBeVisible();
+    await expect(admin.getByRole("button", { name: "Add an example set" })).toHaveCount(0);
+  });
+
+  test("an admin adds an option of their own to the menu", async () => {
+    await admin.goto("/admin/settings/support-preferences");
+    await admin.getByRole("button", { name: "+ Add an option" }).click();
+    await admin.getByLabel("Group").fill(group);
+    await admin.getByLabel("What it says").fill(label);
+    await admin.getByRole("button", { name: "Save" }).click();
+    await expect(admin.getByText(label)).toBeVisible();
+  });
+
+  test("staff record a partner's choices on their page, and they show on the card", async () => {
+    await admin.goto(`/admin/partners/${partner.id}`);
+    const card = admin.locator("#section-support-preferences");
+    await expect(card.getByRole("heading", { name: "Support preferences" })).toBeVisible();
+    await card.getByRole("button", { name: /Record preferences|Edit preferences/ }).click();
+    await admin.getByLabel(label, { exact: true }).check();
+    await admin.getByLabel(`Note for ${label}`).fill(note);
+    await admin.getByRole("button", { name: "Save" }).click();
+    await expect(card.getByText(note)).toBeVisible();
+    // (The edit dialog sits inside the card while it closes, so look in the card's own list.)
+    await expect(card.locator("ul li", { hasText: label })).toBeVisible();
+  });
+
+  test("the report lists the partner and what they chose", async () => {
+    const res = await admin.request.get("/api/reports/support-preferences");
+    expect(res.ok(), await res.text()).toBeTruthy();
+    const body = await res.json();
+    const row = body.rows.find((r) => r.option === label);
+    expect(row, "the report should list the option we just recorded").toBeTruthy();
+    expect(row.note).toBe(note);
+  });
+
+  test("turning the feature off hides the card and keeps the data", async () => {
+    await setFeatures(admin.request, { supportPreferences: false });
+    await admin.goto(`/admin/partners/${partner.id}`);
+    await expect(admin.locator("#section-support-preferences")).toHaveCount(0);
+    await setFeatures(admin.request, { supportPreferences: true });
+    await admin.goto(`/admin/partners/${partner.id}`);
+    await expect(admin.locator("#section-support-preferences").getByText(note)).toBeVisible();
+  });
+});

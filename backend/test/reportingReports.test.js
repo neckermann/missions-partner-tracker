@@ -304,3 +304,48 @@ test("the Data completeness report says who last edited each partner, and when",
     assert.ok(!ks.includes("editedBy") && !ks.includes("editedOn"), `${id} stays compact`);
   }
 });
+
+test("support preferences lists what partners chose, and who has nothing recorded", () => {
+  const pref = (over) => ({
+    selected: true,
+    choice: null,
+    choices: [],
+    other: null,
+    text: null,
+    note: null,
+    ...over,
+  });
+  const partners = [
+    {
+      displayName: "Ann",
+      isRestricted: false,
+      supportPreferences: [
+        pref({ option: { group: "Logistics", label: "Airport pick-up", kind: "offer", sortOrder: 1 } }),
+        pref({
+          choice: "Bank transfer",
+          option: { group: "Gifts", label: "How to send gifts", kind: "single", sortOrder: 1 },
+        }),
+        pref({
+          selected: false,
+          option: { group: "Prayer", label: "Group prayer", kind: "offer", sortOrder: 1 },
+        }),
+      ],
+    },
+    { displayName: "Bob", isRestricted: true, supportPreferences: [] },
+  ];
+  const recorded = run("support-preferences", {}, partners);
+  assert.deepStrictEqual(
+    recorded.rows.map((r) => [r.partnerName, r.group, r.option, r.answer]),
+    [
+      ["Ann", "Gifts", "How to send gifts", "Bank transfer"],
+      ["Ann", "Logistics", "Airport pick-up", "Yes"],
+    ]
+  );
+  assert.strictEqual(recorded.summary[0].value, 1);
+
+  const none = run("support-preferences", { show: "none" }, partners);
+  assert.deepStrictEqual(
+    none.rows.map((r) => r.partnerName),
+    ["Bob"]
+  );
+});

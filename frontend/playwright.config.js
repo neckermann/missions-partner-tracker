@@ -15,6 +15,7 @@ const FEATURE_SPECS = [
   "pending-dispatches",
   "public-subscribe",
   "public-trip-application",
+  "support-preferences",
   "trip-detail-subpages",
   "trip-team-table-modal",
   "two-factor-requirement",

@@ -2577,6 +2577,8 @@ async function seedTripsDemo() {
         trips: true,
         careTeam: true,
         contactLog: true,
+        // #374: support preferences, with an example menu and some recorded choices (seedSupportPreferencesDemo).
+        supportPreferences: true,
         // The audit log is on for a demo, with example entries (seedAuditLogDemo).
         auditTrail: true,
         // Off on a demo: it would email the fake seeded accounts. See
@@ -3240,6 +3242,86 @@ async function seedLastEditedDemo() {
 }
 
 // ---------------------------------------------------------------------
+// Support preferences demo (#374): the example menu, and a handful of partners that have
+// chosen from it, so the card and the report have something to show. Deterministic (by
+// partner order); roughly a third of the partners with a care team have nothing recorded, so
+// "partners with nothing recorded" has rows too. Demo extras only; runs after the care teams.
+// ---------------------------------------------------------------------
+async function seedSupportPreferencesDemo() {
+  console.log("Seeding support preferences...");
+  const { addExampleOptions } = require("../src/utils/supportOptions");
+  await addExampleOptions(prisma);
+  const options = await prisma.supportOption.findMany({
+    where: { active: true },
+    orderBy: [{ group: "asc" }, { sortOrder: "asc" }],
+  });
+  if (!options.length) return;
+  const editor = await prisma.user.findFirst({
+    where: { active: true, role: { in: ["admin", "editor"] } },
+    orderBy: { createdAt: "asc" },
+  });
+  const stamp = editor
+    ? {
+        lastEditedById: editor.id,
+        lastEditedByName: [editor.firstName, editor.lastName].filter(Boolean).join(" ") || editor.email,
+      }
+    : {};
+
+  const partners = await prisma.partner.findMany({
+    where: { archived: false, careTeam: { some: {} } },
+    orderBy: [{ displayName: "asc" }, { id: "asc" }],
+    select: { id: true },
+  });
+  let recorded = 0;
+  for (const [i, partner] of partners.entries()) {
+    if (i % 3 === 2) continue; // nothing recorded yet
+    const rows = [];
+    for (const [j, option] of options.entries()) {
+      const pick = (i * 7 + j * 3) % 5; // spreads which options each partner chose
+      if (option.kind === "offer") {
+        if (pick < 2) {
+          rows.push({
+            optionId: option.id,
+            selected: true,
+            ...(pick === 0 && j % 4 === 0 ? { note: "Mentioned this on our last call." } : {}),
+          });
+        }
+      } else if (option.kind === "single" && option.choices.length) {
+        rows.push({
+          optionId: option.id,
+          selected: true,
+          choice: option.choices[(i + j) % option.choices.length],
+        });
+      } else if (option.kind === "multiple" && option.choices.length) {
+        rows.push({
+          optionId: option.id,
+          selected: true,
+          choices: option.choices.slice(0, 1 + ((i + j) % 2)),
+        });
+      } else if (option.kind === "text" && i % 2 === 0) {
+        rows.push({
+          optionId: option.id,
+          selected: true,
+          text: "Prayer needs can be shared with the care team, but nothing public.",
+        });
+      }
+    }
+    if (!rows.length) continue;
+    await prisma.partnerSupportPreference.createMany({
+      data: rows.map((r) => ({
+        partnerId: partner.id,
+        ...r,
+        ...stamp,
+        ...(editor ? { lastEditedAt: new Date(Date.now() - ((i % 40) + 1) * 86400000) } : {}),
+      })),
+      skipDuplicates: true,
+    });
+    recorded += 1;
+  }
+  console.log(`  recorded support preferences for ${recorded} partners`);
+}
+
+// ---------------------------------------------------------------------
 // Care team updates demo (#292): a decided need and an answered prayer on a
 // partner the published care member looks after, so "Updates to pass on to
 // partners" has something to show on the bell. Relative dates, like the other
@@ -3881,6 +3963,7 @@ async function main() {
     await seedCareTeamsDemo();
     await seedContactLogDemo();
     await seedKeyDatesDemo();
+    await seedSupportPreferencesDemo();
     await seedPartnerUpdatesDemo();
     await seedAuditLogDemo();
     await seedLastEditedDemo();

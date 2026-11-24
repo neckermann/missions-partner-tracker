@@ -101,7 +101,10 @@ name), `TripAccess` (a guest login's grant on one trip, §5.1) and
 `CareTeamMember` (a login's seat on one partner's care team — at most one
 lead per partner, enforced by a hand-added partial unique index as well as
 in `routes/careTeams.js`; §5.1) and `ContactLog` (one touchpoint with a partner,
-§5.3) and `KeyDateReminder` (one key-date email sent to one person, §5.4).
+§5.3) and `KeyDateReminder` (one key-date email sent to one person, §5.4) and
+`SupportOption` (one entry in the church's editable menu of ways to support a partner) and
+`PartnerSupportPreference` (one partner's response to one option — real columns:
+`selected`, `choice`, `choices`, `other`, `text`, `note` — §5.7).
 
 **WhatsApp dispatch** adds `WhatsAppAuthEntry` (the encrypted linked-
 session store — see §6.2a).
@@ -864,6 +867,28 @@ request and one-time need detail dialogs (not to guests), as **Last edited by /
 Last edited** columns in the Data completeness report only
 (`reporting/reports/care.js`; reports are not open to guests; the prayer request
 and one-time need reports stay compact because their dialogs carry it), and **never on the public site** (tested). A new model opts in by declaring the three columns.
+
+### 5.7 Support preferences (#374)
+
+Behind the `supportPreferences` feature (off by default; needs `careTeam`). The church's
+menu is **data, not code**: `SupportOption` rows (`group` is plain text so it can be renamed,
+`kind` is `offer` | `single` | `multiple` | `text`, `choices` a `String[]`, `allowOther`,
+`sortOrder`, `active`), edited by an admin, so a fork never changes application code to change the
+list; `utils/supportOptions.js` holds only the kinds, the answer rules and an example set
+(`addExampleOptions`, which refuses a non-empty menu). A partner's response is one
+`PartnerSupportPreference` row per option, in **real columns** (`selected`, `choice`, `choices`
+`String[]`, `other`, `text`, `note`), not a JSON blob, so a report can filter on them;
+`normalizeResponse` validates an answer against its option and returns the columns (or "empty",
+which deletes the row). One set per partner.
+
+An option is **retired** (`active: false`) rather than deleted so answers survive; a retired
+option is still shown to a partner that answered it and can't be newly answered. Its `kind` can't
+change once answered. Deleting an option cascades to its answers. Access is the contact log's:
+`readableNeedPartnerIds` (staff everywhere; a guest only on partners they hold a care team seat
+on; a trip leader none), and a viewer reads but doesn't write. Nothing here is public, in the
+booklet or in a dispatch. Both tables are in `backup.js`'s `MODELS`; the *Support preferences*
+report (`reporting/reports/partners.js`) lists responses per partner and option, or the
+partners with none recorded, masking a restricted partner's answers like its other sensitive fields.
 
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 
