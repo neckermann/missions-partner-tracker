@@ -96,7 +96,10 @@ and `ReportSchedule` (recurring report emails — weekly/monthly/quarterly
 password" link — single-use, only a hash stored, 72h/7-day expiry) and
 `NotificationSeen` (per-user read/unread state for in-app notices,
 unrelated to the dispatch system's `DispatchRecord` despite the similar
-name) and `TripAccess` (a guest login's grant on one trip, §5.1).
+name), `TripAccess` (a guest login's grant on one trip, §5.1) and
+`CareTeamMember` (a login's seat on one partner's care team — at most one
+lead per partner, enforced by a hand-added partial unique index as well as
+in `routes/careTeams.js`; §5.1).
 
 **WhatsApp dispatch** adds `WhatsAppAuthEntry` (the encrypted linked-
 session store — see §6.2a).
@@ -181,6 +184,7 @@ in-process cron scheduler (§6) is written with that assumption explicit.
 | `/api/trip-types` | `tripTypes.js` | session | per-church trip category CRUD |
 | `/api/trips` | `trips.js`, `tripMeetings.js`, `tripRequirements.js`, `tripParticipants.js` | session, `requireTripScope`/`requirePartnerQueryScope` for `guest` (§5.1) | trip CRUD + lifecycle, roster/participants, meeting invites + RSVPs, document requirements, budget lines, flight segments, contribution ledger |
 | `/api/public/trips` | `publicTrips.js`, `publicTripApplications.js`, `publicTripParticipants.js` | open, gated by `trips` + per-church `allowPrivateApplicationLinks`/`allowPublicSupportRaisingLinks`/public discovery toggles | public Trip Opportunities listing, public application form, participant support-raising/self-service pages |
+| `/api/care-team` | `careTeams.js` | session; `careTeam` feature (404 off); set = admin/editor | a partner's care team: get, replace (lead + members), candidates (§5.1) |
 | `/api/notifications` | `notifications.js` | session | `NotificationSeen` read/unread state for in-app notices |
 | `/api/reports` | `reports.js` | session, `reports` feature (admin-only for users-&-access and schedule management) | report hub catalog (`GET /`), run a report (JSON/CSV), saved views (`GET/POST /views`, `DELETE /views/:id`), scheduled report emails (`POST /views/:id/schedule`, `DELETE /schedules/:id`, admin only) — see `backend/src/reporting/` |
 | `/api/partner-files` | `partnerFiles.js` | session, `partnerFiles` feature | newsletter/document CRUD, download, AI scan |
@@ -568,6 +572,90 @@ outside `TripDetailLayout`'s Outlet, give it this same local
 computation — don't assume `useCurrentUser()`'s `canWrite` is enough
 just because it works for every other role.
 
+### 5.2 Care teams (#289)
+
+Behind the `careTeam` feature (off by default; off = hidden, ignored for
+access, data preserved). A partner's **care team** is one **Lead** plus any
+number of **Members**, each a login (`CareTeamMember`, a seat). Terms are
+fixed ("Care team", "Lead", "Member", "Guest"), not settings. Any role can
+hold a seat; a guest outside the team is how someone without a full account
+joins one. The Lead is a label today: no extra permission or notification
+(everyone on the team is treated the same); the "You're the lead" marker and
+the "Assigned to me" view come with #288.
+
+**One app for everyone.** There is no care-team-only or guest-only app. A
+guest uses the same shell (header with bell and collapse, footer with My
+Account / Log out / theme toggle), the same nav entries in the same order, the
+same list pages and the same partner page as everyone, and the **server**
+limits every list to what they reach. Roles gate what you can change and, for
+a guest, hide what they can't see. The nav is the standard one filtered by
+scope (below).
+
+**Two sizes of guest.** A seat and a trip grant are different scopes:
+
+- *Trip leader* (a `TripAccess` grant): their granted trips (read and write)
+  and those trips' partners, read-only, with prayer requests and Newsletters &
+  Docs for that partner (read). Nav: Trips and Partners. Never one-time needs,
+  never monthly support, never the care-team list pages.
+- *Care team member* (a seat): everything below, for that partner.
+
+**What each can do on a partner** (a care team member is an editor on their own
+partner, with three exceptions: their dispatches are held, they can't decide a
+one-time need, and they never see monthly funding):
+
+| | Editor | Care team member (that partner) | Trip leader (trip grant) |
+|---|---|---|---|
+| Which partners | All | Those whose team they're on | Their trips' partners (read) |
+| See the partner page | Everything | Everything **except monthly funding** | Read-only, no needs, no money |
+| Edit profile, family, location, furlough, visits, links, languages, trip hosting info, photos | Yes | Yes | No |
+| Public / restricted / safe-to-contact flags | Yes | Yes | No |
+| Archive / unarchive | Yes | Yes | No |
+| Create a partner | Yes | **No** | No |
+| Delete anything | Admin only | **No** | No |
+| Prayer requests: add, edit, answer, public/booklet | Yes | Yes | Read only |
+| Mark urgent / "approve now" | Yes | **No** (their dispatch is held) | No |
+| One-time needs: add, edit | Yes | Yes | **No access** |
+| Record a decision on a need | Yes | **No** (committee/board) | No |
+| Monthly support (amounts, "supporting since", entries) | Yes | **Never shown or writable** | Never |
+| Newsletters & Docs: view, upload, edit, AI scan | Yes | Yes (scan only if the feature is on) | View / download |
+| Dispatches from the above | Sent on schedule | **Saved at once, held for staff approval** | n/a |
+| Approve in Pending Dispatches | Yes | No | No |
+| Assign the care team | Yes | No (can view) | No |
+| Trips of the partner | Manage all | **View only** | Manage their granted trips |
+
+Everything a non-staff login does is a request to the same routes an editor
+uses; `requirePartnerWriter` (staff, or on **that partner's** care team) gates
+the writes, and `isOnCareTeamFor` is the single seat check. Moving a record to
+another partner needs a seat on both.
+
+**A seat is a grant.** For a guest a seat reaches that partner, like a trip
+grant reaches a trip's partner, and unlike a trip grant it never expires — an
+admin removes the member when they step down. A guest with no trip grant *and*
+no seat is inactive; removing their last seat deactivates them, like removing
+their last trip.
+
+**Their entries are saved at once but their dispatches are held.**
+`DispatchRecord.reviewRequired` is set on the record created from a care team
+member's prayer request, answer, need or uploaded newsletter. `needsReview()`
+treats it like a restricted partner's content, but for *any* type:
+`isEligibleForChannel`'s Rule 1 blocks it on **every** channel (admin email,
+public email, GroupMe, WhatsApp, the urgent path) until an admin/editor reviews
+it in Pending Dispatches, whether or not the partner is restricted. Staff-made
+records are unaffected; a restricted partner's staff-made newsletter stays
+exempt as before. (Before #289 the review hold applied *only* to restricted
+partners; every other record sent on schedule with no approval.)
+
+**Server-scoped lists.** A guest may list partners, trips, prayer requests,
+one-time needs (care team only) and Newsletters & Docs without naming a partner;
+the server limits the rows to what they reach (`readablePartnerIds`,
+`readableNeedPartnerIds`, the granted/readable trip sets). The partner list
+leaves out `supportEntries`/`supportingSince` for a guest, and the booklet's
+`?include=full` dump stays closed to them. `GET /api/partners/reachable` gives
+pickers the partners a login may read. `/me` returns `careTeamSeats` for every
+role and `guestReadTripIds` for a guest. The coverage view ("which partners have
+no care team or no lead") is the `care-team-coverage` report in the reporting
+hub.
+
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 
 Visual diagram, with the admin-vs-public and GroupMe-vs-WhatsApp
@@ -595,7 +683,9 @@ shared function:
 
 ```
 isEligibleForChannel(row, channel, partner, settings, hasEligibleRecipient)
-  Rule 1 (universal): restricted-and-unreviewed blocks every channel,
+  Rule 1 (universal): restricted-and-unreviewed -- or reviewRequired-and-
+                       unreviewed (a care team member's submission, #289)
+                       -- blocks every channel,
                        for the types REVIEW_GATED_TYPES covers (newsletters
                        are exempt — buildBlurb() already suppresses them
                        to nothing regardless of review state)

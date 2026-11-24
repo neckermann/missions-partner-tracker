@@ -1061,6 +1061,20 @@ group with new and decided needs:
 ![The Prayer Requests group showing new and answered prayer requests](docs/assets/screenshots/whatsapp-prayer-requests-group.png)
 ![The One-Time Needs group showing new and decided one-time needs](docs/assets/screenshots/whatsapp-one-time-needs-group.png)
 
+### Care teams
+
+With **Care teams** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles), every partner can have a **care team**: one **Lead** and any number of **Members**, the people at the church who keep in touch with that partner. An admin or editor sets it from the partner's page (**Care team**, near the top) or from the **Team** tab of one of that partner's trips, and can also add someone to a partner's team while creating their account (**Add User → Care team**). Everyone on a team needs a login; someone who isn't on your staff can be a **Guest**. **Reports → Care team coverage** lists the partners with no team or no lead.
+
+A care team member uses the same app as everyone, and for **their own partner** they can do what an editor can: edit the partner's profile, family, contact details, links and photos; add and edit prayer requests (and record answers) and one-time needs; and upload, edit and scan newsletters and documents. They can also see that partner's trips, read-only. Three things are different:
+
+- **What they enter is saved immediately, but isn't sent to the church** by email, GroupMe or WhatsApp **until an admin or editor approves it** in [Pending Dispatches](#pending-dispatches). They can't mark anything urgent or use "approve now".
+- **They can't approve or decline a one-time need** or record a decision on it. That stays with the committee or board.
+- **They never see monthly support** — its amount, how long it has run, or its history.
+
+They also can't create or delete partners, or delete records. If you're an admin or editor yourself, being on a team doesn't limit you or hold your entries; it just adds the care-team features.
+
+A **trip leader** (a Guest given a trip) has a smaller view: their trips, and those trips' partners read-only. They don't get the care-team list pages or one-time needs.
+
 ### Pending Dispatches
 
 The **Pending Dispatches** page (in the main menu, alongside
@@ -1082,6 +1096,8 @@ go out right away, check **urgent** on it when you create it instead,
 see [Marking something urgent](#marking-something-urgent).
 
 ![The Pending Dispatches page: a regular partner's prayer requests and one-time needs (new and answered/decided), grouped with a restricted partner's already-reviewed items below](docs/assets/screenshots/pending-dispatches.png)
+
+Items a [care team member](#care-teams) enters are held here for review whatever the partner — nothing goes out until an admin or editor approves it, the same way a restricted partner's items are held.
 
 A queued item only clears once every currently-enabled channel has
 actually sent it — if GroupMe is down but email goes out fine, that item
