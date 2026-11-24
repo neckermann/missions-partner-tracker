@@ -18,7 +18,7 @@ and how the pieces fit together, not how to work on it or how to use it.
 
 One Postgres database (`backend/prisma/schema.prisma`), accessed only
 through Prisma. Pre-1.0: every schema change is squashed into a single
-baseline migration (`backend/prisma/migrations/20261106200717_init/`)
+baseline migration (`backend/prisma/migrations/20261122092854_init/`)
 rather than accumulating a migration history.
 
 ### 1.1 Core entity: Partner
