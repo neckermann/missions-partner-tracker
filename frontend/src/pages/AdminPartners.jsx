@@ -106,14 +106,11 @@ export default function AdminPartners() {
   const [searchParams, setSearchParams] = useSearchParams();
   const hasAssignedTab =
     !!enabledFeatures.contactLog && !!enabledFeatures.careTeam && careTeamSeats.length > 0;
-  // Staff land on All; a care team guest lands on My partners, with All hidden when it
-  // would repeat it (see utils/partnersTabs.js).
+  // Staff land on All; a care team guest gets My partners alone (see utils/partnersTabs.js).
   const { showAssigned, showTabs } = partnersTabState({
     hasAssignedTab,
     isGuest,
     assignedParam: searchParams.get("assigned"),
-    reachableIds: allForOptions.map((p) => p.id),
-    seatIds: careTeamSeats.map((s) => s.id),
   });
   const setTab = (assigned) =>
     setSearchParams(isGuest ? (assigned ? {} : { assigned: "0" }) : assigned ? { assigned: "1" } : {}, {
