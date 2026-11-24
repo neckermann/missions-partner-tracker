@@ -19,20 +19,49 @@ const UPSTREAM_REPO = "neckermann/missions-partner-tracker";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 let cache = null; // { currentVersion, latestVersion, updateAvailable, releaseUrl, checkedAt }
 
+// SemVer, including pre-releases (0.1.0-beta.2): the pre-1.0 work ships as betas toward each
+// release (see CONTRIBUTING.md § Versioning), so the running version can be a beta of the very
+// release GitHub calls "latest". A pre-release sorts BELOW its own final release
+// (0.1.0-beta.2 < 0.1.0), and betas sort among themselves identifier by identifier, numbers
+// numerically (beta.2 < beta.10). Build metadata (+abc) is ignored, as SemVer says.
 function parseVersion(v) {
-  return String(v)
-    .replace(/^v/, "")
-    .split(".")
-    .map((n) => parseInt(n, 10) || 0);
+  const [core, ...rest] = String(v).trim().replace(/^v/, "").replace(/\+.*$/, "").split("-");
+  const numbers = core.split(".").map((n) => parseInt(n, 10) || 0);
+  const pre = rest.length ? rest.join("-").split(".") : [];
+  return { numbers, pre };
+}
+
+function comparePreIdentifier(a, b) {
+  const aNum = /^\d+$/.test(a);
+  const bNum = /^\d+$/.test(b);
+  if (aNum && bNum) return Math.sign(Number(a) - Number(b));
+  if (aNum) return -1; // a numeric identifier is lower than an alphanumeric one
+  if (bNum) return 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+// -1, 0 or 1: how version a orders against version b.
+function compareVersions(a, b) {
+  const x = parseVersion(a);
+  const y = parseVersion(b);
+  for (let i = 0; i < 3; i++) {
+    const diff = (x.numbers[i] || 0) - (y.numbers[i] || 0);
+    if (diff !== 0) return Math.sign(diff);
+  }
+  if (x.pre.length === 0 && y.pre.length === 0) return 0;
+  if (x.pre.length === 0) return 1; // a final release is above any of its pre-releases
+  if (y.pre.length === 0) return -1;
+  for (let i = 0; i < Math.max(x.pre.length, y.pre.length); i++) {
+    if (x.pre[i] === undefined) return -1; // fewer identifiers is lower
+    if (y.pre[i] === undefined) return 1;
+    const c = comparePreIdentifier(x.pre[i], y.pre[i]);
+    if (c !== 0) return c;
+  }
+  return 0;
 }
 
 function isNewer(latest, current) {
-  const l = parseVersion(latest);
-  const c = parseVersion(current);
-  for (let i = 0; i < 3; i++) {
-    if ((l[i] || 0) !== (c[i] || 0)) return (l[i] || 0) > (c[i] || 0);
-  }
-  return false;
+  return compareVersions(latest, current) > 0;
 }
 
 // Never throws -- a failed/unreachable check should just mean no banner,
@@ -65,4 +94,4 @@ async function checkForUpdate() {
   }
 }
 
-module.exports = { checkForUpdate, isNewer, APP_VERSION };
+module.exports = { checkForUpdate, isNewer, compareVersions, APP_VERSION };

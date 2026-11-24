@@ -7,6 +7,7 @@
 - [ ] If this adds a new env var, I updated `backend/.env.example` (or `frontend/.env.example`) with a comment explaining it
 - [ ] If this adds/changes a database field, I ran `npx prisma migrate dev --name ...` from `backend/` to generate the migration (never hand-written) and updated `schema.prisma` to match
 - [ ] If this is a breaking change (new required env var, required migration, changed API shape), I added an entry under `## [Unreleased]` in [CHANGELOG.md](../CHANGELOG.md)
+- [ ] If this is a release (`dev` → `main`), I bumped `backend/package.json` **and** `frontend/package.json` to the new version (see [CONTRIBUTING.md § Versioning](../CONTRIBUTING.md#versioning-the-pre-10-beta-track)); the tag and GitHub Release are then created automatically on merge
 - [ ] This doesn't hardcode anything specific to one church (name, colors, terminology) — that belongs in Church Settings or an env var, not application code, so forks stay easy to upgrade (see [UPGRADING.md](../UPGRADING.md))
 
 **Does this affect deployment?**

@@ -247,7 +247,7 @@ git push origin dev
 # bump backend/package.json + frontend/package.json to the release version
 gh pr create --base main --head dev    # CI runs here
 # four checks go green, then merge -> Render deploys
-# then: git tag vX.Y.Z && git push origin vX.Y.Z && gh release create vX.Y.Z --generate-notes
+# merging creates the tag and GitHub Release by itself (.github/workflows/release.yml)
 ```
 
 The version bump happens **in the `dev` → `main` PR itself**, not as a
@@ -268,6 +268,38 @@ pushing and waiting for a run that isn't coming. That single trigger is
 deliberate: see the comment at the top of
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) for why pushes to
 `dev` and `main` used to run too, and what each of those was duplicating.
+
+### Versioning (the pre-1.0 beta track)
+
+Until 1.0 the project is on a **beta track**, so the number moves in small
+steps and means something:
+
+- **`0.MINOR.PATCH`, with betas written `0.MINOR.0-beta.N`.** The version
+  restarted at `0.1.0-beta.1` in November 2026; the numbers in the
+  CHANGELOG's *Earlier releases* section (0.2.0 to 0.7.0) are history, not
+  part of this sequence.
+- **A new beta** (`0.1.0-beta.2`, `beta.3`, …) is a deliberate cut of `dev`
+  into `main` while the batch of work isn't ready for forks. Cut one when you
+  want production (the demo) updated, not on every merge.
+- **A minor release** (`0.1.0`) is a batch that is ready for forks: drop the
+  `-beta.N`. The next batch starts at `0.2.0-beta.1`.
+- **A patch** (`0.1.1`) is a fix after a stable release.
+- **`1.0.0` is a decision, not a counter.** It is the point where the
+  pre-1.0 migration squash ends and an upgrade never needs a database reset
+  (see [SPEC.md § 8.3](SPEC.md#83-migration-strategy-pre-10)). Until then a
+  release that changes the baseline says so under *Upgrading* in the
+  CHANGELOG.
+- **Order** follows SemVer: `0.1.0-beta.2 < 0.1.0-beta.10 < 0.1.0 < 0.1.1 <
+  0.2.0-beta.1`. `versionCheck.js` implements it, so an instance running a
+  beta is told to update once its final release is out, and not before.
+
+Tagging is automatic. When `main` changes,
+[`.github/workflows/release.yml`](.github/workflows/release.yml) reads the
+version from `backend/package.json` and, if there is no release for it yet,
+creates the tag and the GitHub Release (generated notes). A beta is marked
+**pre-release**, so GitHub's "latest release", which the in-app update banner
+compares against, stays on the last stable one. If the version didn't change
+it only warns, since that push wasn't a new release.
 
 ### Feature branches for larger work
 
