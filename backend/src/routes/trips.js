@@ -153,7 +153,7 @@ const tripInclude = {
   // now, for its own "has a pending application" per-row badge (see
   // annotateTripFlags below). An approved/declined application has
   // nothing left to flag.
-  applications: { where: { status: "pending" }, select: { id: true, tripId: true, submittedAt: true } },
+  applications: { where: { status: "pending" }, select: { id: true, tripId: true, createdAt: true } },
   // Added when AdminTripDashboard.jsx (issue #259) folded into
   // AdminTrips.jsx -- that page's own "Raised" column needed this same
   // amount-only projection, previously fetched only by the now-removed
@@ -328,7 +328,7 @@ router.get("/:id", requireTripScope("id"), async (req, res, next) => {
         // `applications` key just below only ever holds *pending* rows).
         participants: {
           ...tripInclude.participants,
-          include: { application: { select: { responses: true, submittedAt: true } } },
+          include: { application: { select: { responses: true, createdAt: true } } },
         },
         applications: { where: { status: "pending" } },
         // rsvps included so the admin Meetings UI can show a tally/

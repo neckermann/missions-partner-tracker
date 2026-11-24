@@ -214,7 +214,7 @@ test("dispatch health and application funnel summarize correctly", () => {
   );
   const a = (status) => ({
     status,
-    submittedAt: day("2026-10-01"),
+    createdAt: day("2026-10-01"),
     reviewedAt: status === "pending" ? null : day("2026-10-03"),
   });
   const f = run("application-funnel", {}, [
