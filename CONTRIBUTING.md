@@ -8,6 +8,9 @@ church's fork, not here.
 
 Please also read the [Code of Conduct](CODE_OF_CONDUCT.md).
 
+Found a security vulnerability? See [SECURITY.md](SECURITY.md) instead of
+opening a public issue.
+
 ## Before you start
 
 For anything beyond a small fix, open an issue first describing what you

@@ -51,3 +51,4 @@ Full local setup: [ADMIN_GUIDE.md § Local development setup](ADMIN_GUIDE.md#loc
 | Environment URLs, env vars, deploy/rollback, common failures | [RUNBOOK.md](RUNBOOK.md) |
 | Contribution process, migrations, dependency policy, screenshot rules | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Operating the live public demo specifically | [demo/README.md](demo/README.md) |
+| Reporting (or being told about) a security vulnerability | [SECURITY.md](SECURITY.md) |
