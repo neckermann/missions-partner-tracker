@@ -166,18 +166,32 @@ function EditCareTeamModal({ partnerId, team, canInviteGuest, onClose, onSaved }
               {candidates
                 .filter((u) => u.id !== leadUserId)
                 .map((u) => (
+                  // .admin-shell label stacks its children in a bold column; a checkbox row
+                  // needs the row layout and normal weight (like .admin-checkbox-row).
                   <label
                     key={u.id}
-                    style={{ display: "flex", gap: "0.5rem", alignItems: "center", padding: "0.2rem 0" }}
+                    style={{
+                      display: "flex",
+                      flexDirection: "row",
+                      gap: "0.6rem",
+                      alignItems: "center",
+                      padding: "0.25rem 0",
+                      fontWeight: "normal",
+                      fontSize: "0.95rem",
+                    }}
                   >
                     <input
                       type="checkbox"
-                      style={{ width: "auto" }}
+                      style={{ width: "auto", flexShrink: 0 }}
                       checked={memberIds.has(u.id)}
                       onChange={() => toggle(u.id)}
                     />
-                    {memberName(u)} <span style={{ color: "var(--muted)" }}>{u.email}</span>
-                    {u.role === "guest" && <span style={{ color: "var(--muted)" }}>· Guest</span>}
+                    <span>
+                      {memberName(u)}
+                      {/* an account with no name already shows as its email */}
+                      {memberName(u) !== u.email && <span style={{ color: "var(--muted)" }}> {u.email}</span>}
+                      {u.role === "guest" && <span style={{ color: "var(--muted)" }}> · Guest</span>}
+                    </span>
                   </label>
                 ))}
             </div>
