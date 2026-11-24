@@ -220,13 +220,19 @@ function SidebarLink({ to, label, end, icon, badgeCount }) {
   );
 }
 
-// A Trip Leader (role: "tripLeader") is a scoped guest -- their own
-// trip, logged out, nothing else. No settings gear, no "My Account"
-// (that guest tier has no self-service password change, see
-// AccountSettings.jsx), no partner/prayer/needs/trips nav items, no
-// collapse toggle (nothing here to need the extra room for).
-function TripLeaderSidebar({ scopedTrip, title }) {
+// A guest (role: "guest") is a scoped login -- the trips and partners its
+// grants reach, "My account" for its own password/MFA (#356), and log out.
+// No settings gear, no partner/prayer/needs/trips nav items, no collapse
+// toggle (nothing here to need the extra room for).
+function GuestSidebar({ guestTrips, title }) {
   const navigate = useNavigate();
+  // One link per partner even when several granted trips share it.
+  const partners = [];
+  for (const t of guestTrips) {
+    if (t.partnerId && !partners.some((p) => p.id === t.partnerId)) {
+      partners.push({ id: t.partnerId, label: t.partnerLabel || "Partner" });
+    }
+  }
   return (
     <aside className="admin-sidebar no-print">
       <div className="admin-sidebar-title">
@@ -239,24 +245,27 @@ function TripLeaderSidebar({ scopedTrip, title }) {
         </h1>
       </div>
       <nav className="admin-sidebar-nav">
-        {scopedTrip && (
+        {guestTrips.map((trip) => (
           <RouterNavLink
-            to={`/admin/trips/${scopedTrip.id}`}
+            key={trip.id}
+            to={`/admin/trips/${trip.id}`}
             className={({ isActive }) => (isActive ? "active" : undefined)}
           >
             <span aria-hidden="true">✈️</span>
-            <span className="sb-label">{scopedTrip.label}</span>
+            <span className="sb-label">{trip.label}</span>
           </RouterNavLink>
-        )}
-        {scopedTrip?.partnerId && (
+        ))}
+        {partners.map((partner) => (
           <RouterNavLink
-            to={`/admin/partners/${scopedTrip.partnerId}`}
+            key={partner.id}
+            to={`/admin/partners/${partner.id}`}
             className={({ isActive }) => (isActive ? "active" : undefined)}
           >
             <span aria-hidden="true">👤</span>
-            <span className="sb-label">{scopedTrip.partnerLabel || "Partner"}</span>
+            <span className="sb-label">{partner.label}</span>
           </RouterNavLink>
-        )}
+        ))}
+        <SidebarLink to="/admin/account" label="My account" icon="🙋" />
       </nav>
       <div className="admin-sidebar-footer">
         <button
@@ -276,7 +285,7 @@ function TripLeaderSidebar({ scopedTrip, title }) {
 }
 
 export default function AdminSidebar() {
-  const { loading: userLoading, isAdmin, isTripLeader, scopedTrip } = useCurrentUser();
+  const { loading: userLoading, isAdmin, isGuest, guestTrips } = useCurrentUser();
   const { categories, totalUnread, markSeen } = useNotifications();
   const categoryByKey = new Map(categories.map((c) => [c.key, c]));
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
@@ -286,8 +295,8 @@ export default function AdminSidebar() {
   const title = churchName ? `${churchName} Admin` : "Missions Team Admin";
 
   // Until the role is known, render neither nav -- showing the full admin
-  // nav by default (useCurrentUser's `user` starts null, so isTripLeader
-  // is briefly false on every load) flashed every item a Trip Leader must
+  // nav by default (useCurrentUser's `user` starts null, so isGuest
+  // is briefly false on every load) flashed every item a guest must
   // never see, for the instant before this resolves.
   if (userLoading) {
     return (
@@ -305,7 +314,7 @@ export default function AdminSidebar() {
     );
   }
 
-  if (isTripLeader) return <TripLeaderSidebar scopedTrip={scopedTrip} title={title} />;
+  if (isGuest) return <GuestSidebar guestTrips={guestTrips} title={title} />;
 
   const navItems = buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures).map((item) => {
     const categoryKeys = NAV_BADGE_CATEGORIES[item.key];

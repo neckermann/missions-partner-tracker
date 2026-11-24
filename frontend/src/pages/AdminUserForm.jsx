@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { createUser, fetchTrips } from "../api/client.js";
 import Wizard from "../components/shared/Wizard.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import TripGrantPicker from "../components/admin/TripGrantPicker.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 
@@ -15,8 +16,8 @@ const initialValues = {
   password: "",
   sendWelcomeEmail: true,
   requireMfa: false,
-  scopedTripId: "",
-  expiresAt: "",
+  // Guests only: [{ tripId, expiresAt }] -- see TripGrantPicker.
+  tripAccess: [],
 };
 
 // Create only -- a dedicated page, same shape as AdminPartnerForm.jsx's
@@ -32,6 +33,13 @@ const initialValues = {
 // resetting a password or changing a role is a single-topic action.
 export default function AdminUserForm() {
   const navigate = useNavigate();
+  // The trip page's "Invite a new guest" link lands here with ?tripId= so
+  // the wizard opens as a guest already given that trip (#356).
+  const [searchParams] = useSearchParams();
+  const presetTripId = searchParams.get("tripId");
+  const startingValues = presetTripId
+    ? { ...initialValues, role: "guest", tripAccess: [{ tripId: presetTripId, expiresAt: null }] }
+    : initialValues;
   const [trips, setTrips] = useState([]);
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -52,11 +60,10 @@ export default function AdminUserForm() {
     setSaving(true);
     setSubmitError("");
     try {
-      const payload = {
-        ...values,
-        scopedTripId: values.role === "tripLeader" ? values.scopedTripId || null : null,
-        expiresAt: values.role === "tripLeader" && values.expiresAt ? values.expiresAt : null,
-      };
+      const payload = { ...values };
+      // Only a guest takes trip access; MFA is always required for one, so
+      // the server ignores requireMfa for that role either way.
+      if (values.role !== "guest") delete payload.tripAccess;
       if (!payload.password) delete payload.password;
 
       const created = await createUser(payload);
@@ -84,8 +91,8 @@ export default function AdminUserForm() {
       label: "Basics",
       validate: (values) => {
         if (!values.email.trim()) return "Email is required.";
-        if (values.role === "tripLeader" && !values.scopedTripId) {
-          return "Choose a trip for this Trip Leader.";
+        if (values.role === "guest" && values.tripAccess.length === 0) {
+          return "Choose at least one trip for this guest.";
         }
         return null;
       },
@@ -115,45 +122,23 @@ export default function AdminUserForm() {
                 <option value="admin">Admin</option>
                 <option value="editor">Editor</option>
                 <option value="viewer">Viewer</option>
-                <option value="tripLeader">Trip Leader (scoped guest)</option>
+                <option value="guest">Guest (only the trips you choose)</option>
               </select>
             </label>
           </div>
 
-          {values.role === "tripLeader" && (
-            <div className="form-grid" style={{ marginTop: "1rem" }}>
-              <label>
-                Trip
-                <select
-                  value={values.scopedTripId}
-                  onChange={(e) => setValue("scopedTripId", e.target.value)}
-                  required
-                >
-                  <option value="">Choose a trip…</option>
-                  {trips.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {[t.partner?.displayName, t.name || t.type, t.startDate?.slice(0, 10)]
-                        .filter(Boolean)
-                        .join(" — ")}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Access expires (optional)
-                <input
-                  type="date"
-                  value={values.expiresAt}
-                  onChange={(e) => setValue("expiresAt", e.target.value)}
-                />
-              </label>
+          {values.role === "guest" && (
+            <div style={{ marginTop: "1rem" }}>
+              <TripGrantPicker
+                trips={trips}
+                value={values.tripAccess}
+                onChange={(next) => setValue("tripAccess", next)}
+              />
+              <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
+                A guest can work on the trips you choose and see those trips' partners, nothing else in the
+                app. They sign in with a password and two-factor authentication.
+              </p>
             </div>
-          )}
-          {values.role === "tripLeader" && (
-            <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
-              A scoped guest login: read/write access to this one trip's own content and a read-only look at
-              its linked partner, nothing else in the app.
-            </p>
           )}
         </>
       ),
@@ -181,10 +166,12 @@ export default function AdminUserForm() {
             <label>
               <input
                 type="checkbox"
-                checked={values.requireMfa}
+                checked={values.role === "guest" || values.requireMfa}
+                disabled={values.role === "guest"}
                 onChange={(e) => setValue("requireMfa", e.target.checked)}
               />
               Require two-factor authentication at first sign-in
+              {values.role === "guest" && " (always required for guests)"}
             </label>
           </div>
           <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
@@ -239,7 +226,7 @@ export default function AdminUserForm() {
         ) : (
           <Wizard
             steps={steps}
-            initialValues={initialValues}
+            initialValues={startingValues}
             onFinish={handleFinish}
             onCancel={() => backToList()}
             finishing={saving}

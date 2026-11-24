@@ -164,3 +164,13 @@ export function isMinorForTrip(dateOfBirth, tripStartDate) {
   if (!hadBirthdayByStart) age--;
   return age < 18;
 }
+
+// A grant's expiry is a UTC instant that stands for "through the end of this
+// calendar day" (see backend utils/tripAccessRules.js), so show its UTC date
+// -- converting to local time would roll it onto the next day east of UTC.
+export function formatUtcDate(value, { fallback = null } = {}) {
+  if (!value) return fallback;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return date.toLocaleDateString(undefined, { timeZone: "UTC" });
+}

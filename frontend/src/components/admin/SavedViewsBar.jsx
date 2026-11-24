@@ -80,7 +80,7 @@ export default function SavedViewsBar({ reportId, queryValues, onApply, isAdmin 
     setRecipientIds([]);
     if (users.length === 0) {
       try {
-        setUsers((await fetchUsers()).filter((u) => u.active && u.role !== "tripLeader"));
+        setUsers((await fetchUsers()).filter((u) => u.active && u.role !== "guest"));
       } catch {
         setError("Couldn't load users.");
       }

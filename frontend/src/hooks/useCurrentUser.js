@@ -31,14 +31,18 @@ export default function useCurrentUser() {
 
   const canWrite = user?.role === "admin" || user?.role === "editor";
   const isAdmin = user?.role === "admin";
-  // Trip Leader guest tier -- a scoped guest with editor-equivalent write
-  // access to exactly their own trip's own content (never reflected in
-  // canWrite above, which is global), read-only elsewhere. Pages inside
-  // that one trip's own subtree (TripDetailLayout.jsx) combine this with
-  // their own scope check rather than trusting canWrite directly.
-  const isTripLeader = user?.role === "tripLeader";
-  const scopedTripId = user?.scopedTripId ?? null;
-  const scopedTrip = user?.scopedTrip ?? null;
+  // Guest tier (#356): a scoped login whose reach is exactly its grants --
+  // editor-equivalent write access to each trip it was granted (never
+  // reflected in canWrite above, which is global), read-only on those
+  // trips' partners, nothing else. Pages inside a trip's subtree
+  // (TripDetailLayout.jsx) combine canAccessTrip with their own check
+  // rather than trusting canWrite directly. guestTrips comes from /me:
+  // [{ id, label, partnerId, partnerLabel, expiresAt }] for each grant
+  // that is active right now.
+  const isGuest = user?.role === "guest";
+  const guestTrips = isGuest ? (user?.guestTrips ?? []) : [];
+  const guestTripIds = guestTrips.map((t) => t.id);
+  const canAccessTrip = (tripId) => isGuest && !!tripId && guestTripIds.includes(tripId);
 
-  return { user, loading, canWrite, isAdmin, isTripLeader, scopedTripId, scopedTrip };
+  return { user, loading, canWrite, isAdmin, isGuest, guestTrips, guestTripIds, canAccessTrip };
 }

@@ -11,21 +11,22 @@ import useCurrentUser from "../../hooks/useCurrentUser.js";
 // across navigation instead of being re-declared per page.
 export default function AdminLayout() {
   const location = useLocation();
-  const { isTripLeader, scopedTripId, loading } = useCurrentUser();
+  const { isGuest, guestTripIds, loading } = useCurrentUser();
 
-  // Trip Leader (role: "tripLeader") is a scoped guest -- their own
-  // trip's own subtree, plus a read-only look at that trip's one linked
-  // Partner (Partner Detail itself still enforces which one, server-
-  // side), nothing else. One check here instead of wrapping every other
+  // Guest (role: "guest") is a scoped login -- the subtree of each trip
+  // it was granted, a read-only look at those trips' partners (Partner
+  // Detail itself still enforces which ones, server-side), and its own
+  // "My account" page (#356), nothing else. One check here instead of wrapping every other
   // route individually -- every /admin/* route renders through this
   // layout, so this is the single place that's guaranteed to see every
   // navigation. The backend's own requireTripScope/requirePartnerQueryScope
   // are still the real boundary (every route 403s on its own); this only
-  // keeps a Trip Leader from seeing a flash of the wrong page first.
-  if (!loading && isTripLeader) {
+  // keeps a guest from seeing a flash of the wrong page first.
+  if (!loading && isGuest) {
     const allowed =
-      (scopedTripId && location.pathname.startsWith(`/admin/trips/${scopedTripId}`)) ||
-      location.pathname.startsWith("/admin/partners/");
+      guestTripIds.some((id) => location.pathname.startsWith(`/admin/trips/${id}`)) ||
+      location.pathname.startsWith("/admin/partners/") ||
+      location.pathname === "/admin/account";
     if (!allowed) {
       // Carries a reason so the landing page can surface a real, visible
       // explanation (TripDetailLayout.jsx reads this) instead of a silent
@@ -33,10 +34,11 @@ export default function AdminLayout() {
       // despite every page deliberately not rendering one to a place this
       // role can't go (see TripDetailLayout.jsx's and
       // AdminTripParticipantDetail.jsx's own trimmed breadcrumbs).
+      const home = guestTripIds[0];
       return (
         <Navigate
-          to={scopedTripId ? `/admin/trips/${scopedTripId}` : "/login"}
-          state={scopedTripId ? { accessDenied: true } : undefined}
+          to={home ? `/admin/trips/${home}` : "/login"}
+          state={home ? { accessDenied: true } : undefined}
           replace
         />
       );

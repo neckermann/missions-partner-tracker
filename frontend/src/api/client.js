@@ -1001,8 +1001,37 @@ export async function updateNotifyByEmail({ cadence, allPartners, partnerIds }) 
   return data.user;
 }
 
-export async function fetchUsers() {
-  const { data } = await api.get("/users");
+// `inactive: true` lists only guest accounts that can't currently sign in
+// (deactivated, all trip access lapsed, or none left) -- see #356.
+export async function fetchUsers({ inactive = false } = {}) {
+  const { data } = await api.get("/users", { params: inactive ? { inactive: true } : undefined });
+  return data;
+}
+
+// --- Guest trip access (#356). Admin only. ---
+// Grants for one guest, and guests for one trip. A grant's `expiresAt` is
+// only an override; `effectiveExpiresAt` is what actually applies (the
+// override, else the trip's end date + 30 days, else null = no expiry).
+export async function fetchUserTripAccess(userId) {
+  const { data } = await api.get(`/users/${userId}/trip-access`);
+  return data;
+}
+export async function fetchTripGuests(tripId) {
+  const { data } = await api.get(`/users/by-trip/${tripId}`);
+  return data;
+}
+export async function addUserTripAccess(userId, { tripId, expiresAt = null }) {
+  const { data } = await api.post(`/users/${userId}/trip-access`, { tripId, expiresAt });
+  return data;
+}
+// expiresAt: a date/timestamp to extend or end early, null to go back to
+// the derived date.
+export async function setUserTripAccessExpiry(userId, tripId, expiresAt) {
+  const { data } = await api.put(`/users/${userId}/trip-access/${tripId}`, { expiresAt });
+  return data;
+}
+export async function removeUserTripAccess(userId, tripId) {
+  const { data } = await api.delete(`/users/${userId}/trip-access/${tripId}`);
   return data;
 }
 

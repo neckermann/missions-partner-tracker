@@ -1,9 +1,9 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AdminTripParticipantDetail from "./AdminTripParticipantDetail.jsx";
-import { fetchTrip, fetchTripsSettings } from "../api/client.js";
+import { fetchTrip, fetchTripsSettings, createUser } from "../api/client.js";
 
 // useParams() only resolves params from an actual matched <Route>; rather
 // than wire up a full <Routes> tree just for that, override it directly and
@@ -16,12 +16,11 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
-// #309: TripParticipant.isLeader (a plain roster flag) used to show as
-// "Trip Leader: Yes/No" right next to "Resend access link" -- easy to misread
-// as portal access, since User.role "tripLeader" is a wholly separate scoped
-// login with no relation to this field. The label is now "Team Leader" (no
-// collision with that role's name) and the read-only value is a StatusPill
-// rather than plain text, matching STYLE-GUIDE.md's status/kind convention.
+// #356: the roster's "Team Leader" checkbox is gone -- who leads a trip is
+// now decided by who holds a guest grant for it, which the trip's Guest
+// access section and this page's "Give guest access" action manage. #309
+// had renamed the flag to avoid confusing it with the old tripLeader login;
+// removing it ends that confusion for good.
 vi.mock("../api/client.js", () => ({
   fetchTrip: vi.fn(),
   fetchTripsSettings: vi.fn(),
@@ -31,13 +30,15 @@ vi.mock("../api/client.js", () => ({
   deleteTripDocument: vi.fn(),
   setTripRequirementComplete: vi.fn(),
   updateTripParticipant: vi.fn(),
+  createUser: vi.fn(),
   tripParticipantPhotoUrl: vi.fn(),
 }));
 vi.mock("../hooks/useConfirmDialog.jsx", () => ({
   default: () => ({ confirm: vi.fn(), confirmElement: null }),
 }));
+let currentUser;
 vi.mock("../hooks/useCurrentUser.js", () => ({
-  default: () => ({ canWrite: true, isTripLeader: false, scopedTripId: null }),
+  default: () => currentUser,
 }));
 
 const PARTICIPANT = {
@@ -78,37 +79,53 @@ function renderPage() {
   );
 }
 
-describe("AdminTripParticipantDetail -- Team Leader field (#309)", () => {
-  it("shows the renamed label and a StatusPill instead of plain Yes/No text", async () => {
-    fetchTrip.mockResolvedValue(TRIP);
-    fetchTripsSettings.mockResolvedValue(SETTINGS);
+beforeEach(() => {
+  currentUser = { canWrite: true, isAdmin: true, isGuest: false, canAccessTrip: () => false };
+  fetchTrip.mockResolvedValue(TRIP);
+  fetchTripsSettings.mockResolvedValue(SETTINGS);
+  createUser.mockReset();
+});
 
+describe("AdminTripParticipantDetail -- guest access (#356)", () => {
+  it("no longer shows a Team Leader field, even for a participant flagged as one in old data", async () => {
     renderPage();
 
-    await waitFor(() => expect(screen.getByText("Team Leader")).toBeInTheDocument());
-
-    // Renamed away from "Trip Leader" -- that name now refers only to the
-    // User.role "tripLeader" scoped guest login, never to this roster flag.
-    expect(screen.queryByText("Trip Leader")).not.toBeInTheDocument();
-
-    // Read-only value renders as a StatusPill (a styled pill span), not bare text.
-    const pill = screen.getByText("Yes");
-    expect(pill.tagName).toBe("SPAN");
-    expect(pill).toHaveStyle({ borderRadius: "999px" });
+    await waitFor(() => expect(screen.getByText("Construction")).toBeInTheDocument());
+    expect(screen.queryByText("Team Leader")).not.toBeInTheDocument();
   });
 
-  it("shows the StatusPill in its 'No' state for a non-leader participant", async () => {
-    fetchTrip.mockResolvedValue({
-      ...TRIP,
-      participants: [{ ...PARTICIPANT, isLeader: false }],
-    });
-    fetchTripsSettings.mockResolvedValue(SETTINGS);
-
+  it("offers Give guest access to an admin, prefilled from the participant", async () => {
     renderPage();
 
-    await waitFor(() => expect(screen.getByText("Team Leader")).toBeInTheDocument());
-    const pill = screen.getByText("No");
-    expect(pill.tagName).toBe("SPAN");
-    expect(pill).toHaveStyle({ borderRadius: "999px" });
+    fireEvent.click(await screen.findByText("Give guest access", { selector: "button" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByLabelText("Email")).toHaveValue("jamie@example.com");
+    expect(within(dialog).getByLabelText("First name")).toHaveValue("Jamie");
+  });
+
+  it("creates a guest login scoped to just this trip", async () => {
+    createUser.mockResolvedValue({ email: "jamie@example.com", welcomeEmail: { sent: true } });
+    renderPage();
+
+    fireEvent.click(await screen.findByText("Give guest access", { selector: "button" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(createUser).toHaveBeenCalledTimes(1));
+    expect(createUser).toHaveBeenCalledWith({
+      email: "jamie@example.com",
+      firstName: "Jamie",
+      lastName: "Rivera",
+      role: "guest",
+      tripAccess: [{ tripId: "trip-1" }],
+      sendWelcomeEmail: true,
+    });
+  });
+
+  it("hides Give guest access from an editor -- only an admin manages logins", async () => {
+    currentUser = { canWrite: true, isAdmin: false, isGuest: false, canAccessTrip: () => false };
+    renderPage();
+
+    await screen.findByText("Resend access link", { selector: "button" });
+    expect(screen.queryByText("Give guest access", { selector: "button" })).not.toBeInTheDocument();
   });
 });

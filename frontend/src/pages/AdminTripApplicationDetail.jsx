@@ -36,11 +36,11 @@ export default function AdminTripApplicationDetail() {
   const { tripId, applicationId } = useParams();
   const navigate = useNavigate();
   const settings = useSettings();
-  const { canWrite: globalCanWrite, isTripLeader, scopedTripId } = useCurrentUser();
+  const { canWrite: globalCanWrite, isGuest, canAccessTrip } = useCurrentUser();
   // Mirrors AdminTripParticipantDetail.jsx's own canWrite -- this page is a
   // sibling route, not nested under TripDetailLayout's Outlet, so it can't
   // inherit its context and has to repeat the same scope check here.
-  const canWrite = globalCanWrite || (isTripLeader && tripId === scopedTripId);
+  const canWrite = globalCanWrite || canAccessTrip(tripId);
 
   const [trip, setTrip] = useState(null);
   const [applications, setApplications] = useState([]);
@@ -254,10 +254,10 @@ export default function AdminTripApplicationDetail() {
   return (
     <div className="admin-shell">
       <Breadcrumb
-        // Same Trip Leader trimming as TripDetailLayout.jsx/
+        // Same guest trimming as TripDetailLayout.jsx/
         // AdminTripParticipantDetail.jsx's own breadcrumbs.
         items={
-          isTripLeader
+          isGuest
             ? [
                 ...(trip.partner?.id
                   ? [

@@ -8,11 +8,11 @@ import { addressByType } from "../../utils/addresses.js";
 import { fileKindLabel } from "../../utils/fileKinds.js";
 import { formatDate, formatDateLong } from "../../utils/format.js";
 
-// A Trip Leader's own view of their one linked Partner -- a separate,
+// A guest's own view of a Partner they hold a grant for -- a separate,
 // deliberately minimal component, not AdminPartnerDetail.jsx's normal
 // admin/editor/viewer layout with sections conditionally hidden. That page
 // is already this app's biggest/most complex (~1,200+ lines) and keeps
-// growing; threading isTripLeader checks through it would make it a
+// growing; threading isGuest checks through it would make it a
 // deny-list a future section could easily forget to also gate. This is an
 // allow-list instead: it only ever renders what's deliberately decided
 // below, read-only, with no edit affordance at all (this role has none on
@@ -21,7 +21,7 @@ import { formatDate, formatDateLong } from "../../utils/format.js";
 // alongside was partly caused by exactly that kind of stray link.
 //
 // Shown: basic identity (name, current photo, field/region, serving
-// location) so a Trip Leader recognizes who they're serving alongside,
+// location) so a guest recognizes who they're serving alongside,
 // plus Prayer Requests and Newsletters & Docs in full detail (per the
 // explicit ask -- this role may read that content, unlike financial
 // support detail, which the backend now blocks outright for them:
@@ -31,7 +31,7 @@ import { formatDate, formatDateLong } from "../../utils/format.js";
 // one trip: Family/Children/Languages/Furloughs/Church Visits/Links,
 // Trip History, Mailing Address, Admin Notes on a prayer request or file.
 // Easy to add later if that turns out wrong.
-export default function TripLeaderPartnerView({ partnerId }) {
+export default function GuestPartnerView({ partnerId }) {
   const { enabledFeatures } = useSettings();
   const [partner, setPartner] = useState(null);
   const [prayerRequests, setPrayerRequests] = useState([]);

@@ -535,19 +535,11 @@ function ExistingTripsTab() {
           {
             key: "size",
             label: "Team",
-            render: (trip) => {
-              const leaders = (trip.participants || [])
-                .filter((p) => p.isLeader)
-                .map((p) => [p.firstName, p.lastName].filter(Boolean).join(" "));
-              return (
-                <>
-                  {trip.size} / {trip.teamSizeMax ?? "?"} filled
-                  {leaders.length > 0 && (
-                    <div style={{ fontSize: "0.75rem", color: "#888" }}>{leaders.join(", ")}</div>
-                  )}
-                </>
-              );
-            },
+            render: (trip) => (
+              <>
+                {trip.size} / {trip.teamSizeMax ?? "?"} filled
+              </>
+            ),
           },
           {
             key: "raised",
