@@ -47,7 +47,13 @@ function readFileAsDataUrl(file) {
 // the same explicit edit -> save/cancel boundary.
 export default function AdminTripParticipantDetail() {
   const { tripId, participantId } = useParams();
-  const { canWrite: globalCanWrite, isGuest, isAdmin, canAccessTrip } = useCurrentUser();
+  const {
+    canWrite: globalCanWrite,
+    isGuest,
+    isAdmin,
+    canAccessTrip,
+    loading: userLoading,
+  } = useCurrentUser();
   // Mirrors TripDetailLayout.jsx's own canWrite -- this page is a sibling
   // route, not nested under that layout's Outlet, so it can't inherit its
   // context and has to repeat the same scope check here.
@@ -75,9 +81,14 @@ export default function AdminTripParticipantDetail() {
 
   useEffect(() => {
     reload();
-    // Closed to a guest (403) and not something they edit.
-    if (!isGuest) fetchTripsSettings().then(setSettings).catch(console.error);
-  }, [reload, isGuest]);
+  }, [reload]);
+
+  // Closed to a guest (403) and not something they edit. Wait for the user to load first, or a
+  // guest fires the request before the page knows they are one.
+  useEffect(() => {
+    if (userLoading || isGuest) return;
+    fetchTripsSettings().then(setSettings).catch(console.error);
+  }, [userLoading, isGuest]);
 
   if (loadError)
     return (

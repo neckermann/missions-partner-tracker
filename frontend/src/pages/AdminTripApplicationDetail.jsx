@@ -38,7 +38,7 @@ export default function AdminTripApplicationDetail() {
   const { tripId, applicationId } = useParams();
   const navigate = useNavigate();
   const settings = useSettings();
-  const { canWrite: globalCanWrite, isGuest, canAccessTrip } = useCurrentUser();
+  const { canWrite: globalCanWrite, isGuest, canAccessTrip, loading: userLoading } = useCurrentUser();
   // Mirrors AdminTripParticipantDetail.jsx's own canWrite -- this page is a
   // sibling route, not nested under TripDetailLayout's Outlet, so it can't
   // inherit its context and has to repeat the same scope check here.
@@ -67,9 +67,14 @@ export default function AdminTripApplicationDetail() {
         else console.error(err);
       });
     fetchTripApplications(tripId).then(setApplications).catch(console.error);
-    // Closed to a guest (403) and not something they edit.
-    if (!isGuest) fetchTripsSettings().then(setTripsSettings).catch(console.error);
-  }, [tripId, isGuest]);
+  }, [tripId]);
+
+  // Closed to a guest (403) and not something they edit. Wait for the user to load first, or a
+  // guest fires the request before the page knows they are one.
+  useEffect(() => {
+    if (userLoading || isGuest) return;
+    fetchTripsSettings().then(setTripsSettings).catch(console.error);
+  }, [userLoading, isGuest]);
 
   useEffect(() => {
     reload();
