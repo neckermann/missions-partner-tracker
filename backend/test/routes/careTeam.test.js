@@ -685,8 +685,13 @@ describe("care team: submitting prayer requests and needs", () => {
       200
     );
     assert.equal((await m(`/api/partner-files/${id}`, { method: "DELETE" })).status, 403);
-    // the AI scan is open to them like an editor (404 here only because the feature is off)
-    assert.equal((await m(`/api/partner-files/${id}/extract`, { method: "POST" })).status, 404);
+    // the AI scan is open to them like an editor: whatever an admin gets back for
+    // this file (it depends on whether the AI feature is on), a member gets the
+    // same -- never a permission refusal.
+    const asAdmin = await admin(`/api/partner-files/${id}/extract`, { method: "POST" });
+    const asMember = await m(`/api/partner-files/${id}/extract`, { method: "POST" });
+    assert.equal(asMember.status, asAdmin.status);
+    assert.notEqual(asMember.status, 403);
     const t = await outsider.login();
     assert.equal((await t(`/api/partner-files/${id}`, { method: "PUT", body: { title: "x" } })).status, 403);
   });
