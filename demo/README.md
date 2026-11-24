@@ -42,7 +42,7 @@ the banner read, so the banner always shows what the seed actually created:
 These are the **only** accounts with two-factor off (`mfaSetupRequired:
 false`): a shared, published account can't enrol an authenticator without
 locking every other visitor out. Every other guest the seed creates (for
-example the lapsed `sam.okafor@example.org`, who exists to populate the
+example the lapsed `sam.okafor@<admin's domain>`, who exists to populate the
 "Inactive accounts only" filter) keeps the normal rule -- two-factor required
 -- and has a password nobody is told. **The published logins also look alike**,
 for simplicity: the guests' emails use the demo admin's email domain (so with

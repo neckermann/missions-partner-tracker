@@ -2818,7 +2818,12 @@ async function seedNotificationQueue() {
 // into, with the fixed fake password the other additional users use.
 // ---------------------------------------------------------------------
 // Defined once in src/utils/demoLogins.js, which the demo banner also reads.
-const { demoCareMemberEmail, demoTripLeaderEmail, demoGuestPassword } = require("../src/utils/demoLogins");
+const {
+  demoCareMemberEmail,
+  demoTripLeaderEmail,
+  demoGuestPassword,
+  demoEmailDomain,
+} = require("../src/utils/demoLogins");
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 async function seedCareTeamsDemo() {
@@ -2850,7 +2855,7 @@ async function seedCareTeamsDemo() {
     });
   const careMember = await makeGuest(demoCareMemberEmail(), "Dana", "Whitfield", { published: true });
   const tripLeader = await makeGuest(demoTripLeaderEmail(), "Chris", "Alvarez", { published: true });
-  const lapsedGuest = await makeGuest("sam.okafor@example.org", "Sam", "Okafor", { lapsed: true });
+  const lapsedGuest = await makeGuest(`sam.okafor@${demoEmailDomain()}`, "Sam", "Okafor", { lapsed: true });
 
   // The editor and viewer seedAdditionalUsers already made: a full role can be
   // on a team too (the marker and view, never extra reach).
