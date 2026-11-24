@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./helpers.js";
+import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
 // Zero prior coverage of this page (flagged in Phase 5 of the UX-rebuild
 // plan). Every prayer request/one-time need/newsletter creation always
@@ -7,7 +7,17 @@ import { login } from "./helpers.js";
 // recording doesn't depend on any channel being enabled, only delivery
 // does), so creating one here is a reliable, deterministic way to get a
 // real row onto this page without seeding or mocking anything.
+let previousFeatures;
+
 test.describe("Pending Dispatches", () => {
+  test.afterAll(async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await login(page);
+    await restoreFeatures(page.request, previousFeatures);
+    await context.close();
+  });
+
   test("a newly created prayer request appears in the queue, grouped under its partner, and can be cleared", async ({
     page,
   }) => {
@@ -15,15 +25,9 @@ test.describe("Pending Dispatches", () => {
 
     // The page itself (RequireAdminFeature in main.jsx) needs at least one
     // of groupme/whatsapp/outboundEmail on, even though recording a
-    // dispatch never depends on any channel being enabled. PUT /api/settings
-    // replaces the whole enabledFeatures JSON column rather than merging it
-    // (backend/src/routes/settings.js) -- fetch-then-merge here so this
-    // doesn't silently disable every other feature flag for the rest of
-    // the run, the way a bare `{ outboundEmail: true }` PUT does.
-    const current = await (await page.request.get("/api/public/settings")).json();
-    await page.request.put("/api/settings", {
-      data: { enabledFeatures: { ...current.enabledFeatures, outboundEmail: true } },
-    });
+    // dispatch never depends on any channel being enabled. setFeatures (helpers.js)
+    // merges into the stored flags instead of replacing them.
+    previousFeatures = await setFeatures(page.request, { outboundEmail: true });
 
     // restricted=false, same reasoning as helpers.js's own
     // firstSelectablePartner -- a restricted partner's real name never

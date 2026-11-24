@@ -38,3 +38,32 @@ export async function firstSelectablePartner(page, { kind = "missionary" } = {})
   }
   return partners[0];
 }
+
+// Feature flags live in one shared JSON column (ChurchSettings.enabledFeatures), and
+// PUT /api/settings replaces the whole column rather than merging. So a spec that turns a
+// flag on must read, merge and write -- a bare `{ enabledFeatures: { trips: true } }` wipes
+// every other flag for the rest of the run -- and must put back what it changed.
+//
+// Even a merging read-then-write loses updates if two workers do it at once, so the specs
+// that call these run together in their own serial Playwright project (see
+// playwright.config.js): never two at a time, and never alongside the specs that read flags.
+//
+// setFeatures returns the previous value of each flag it set (undefined when it was unset),
+// to hand back to restoreFeatures.
+export async function setFeatures(request, patch) {
+  const current = await request.get("/api/settings");
+  const existing = (await current.json()).enabledFeatures || {};
+  await request.put("/api/settings", { data: { enabledFeatures: { ...existing, ...patch } } });
+  return Object.fromEntries(Object.keys(patch).map((key) => [key, existing[key]]));
+}
+
+export async function restoreFeatures(request, previous) {
+  if (!previous) return;
+  const current = await request.get("/api/settings");
+  const next = { ...((await current.json()).enabledFeatures || {}) };
+  for (const [key, value] of Object.entries(previous)) {
+    if (value === undefined) delete next[key];
+    else next[key] = value;
+  }
+  await request.put("/api/settings", { data: { enabledFeatures: next } });
+}

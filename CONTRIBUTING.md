@@ -101,7 +101,7 @@ It prints the `DATABASE_URL` to put in `backend/.env`. Then:
 ```bash
 cd backend  && npm run test:routes                    # route tests
 cd backend  && NODE_ENV=test node src/server.js       # serve, in one terminal
-cd frontend && npx playwright test                    # e2e, in another
+cd frontend && npm run test:e2e                       # e2e, in another
 npm run test:db down                                  # delete it and its data
 ```
 
@@ -130,6 +130,14 @@ the Vite dev server, since these tests exercise the whole app the way a
 real deployment does. If you're adding a new page or admin flow, adding
 e2e coverage for it is welcome, but not required for every PR — use your
 judgment on what's worth the added CI time.
+
+**A spec that changes feature flags or trip settings** (`ChurchSettings.enabledFeatures`
+is one shared column, and `PUT /api/settings` replaces it whole) must go in
+`FEATURE_SPECS` in `frontend/playwright.config.js` and use `setFeatures` /
+`restoreFeatures` from `e2e/helpers.js`, which merge and put back what they changed.
+Those specs run in their own project with one worker, after the rest; two at once
+lose each other's updates. That is why `npm run test:e2e` runs two commands, and why
+a bare `npx playwright test` is not the same thing.
 
 ## Local development data
 

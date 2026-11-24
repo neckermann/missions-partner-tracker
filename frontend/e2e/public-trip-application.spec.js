@@ -1,19 +1,17 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./helpers.js";
+import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
 // Phase 3b of the UX-rebuild plan: PublicTripApplication.jsx had zero prior
 // e2e coverage, and this phase restructured it onto the Wizard shell's 3
 // steps -- real regression test, not thrown away. publicTripDiscovery
 // defaults off and the id-addressed route 404s without it (see
 // backend/src/routes/publicTrips.js's own GET /:id), so it's turned on
-// for this file only, same merge-current-settings pattern as
-// public-subscribe.spec.js (a blind partial PUT wipes other specs'
-// feature toggles, since the backend route replaces the whole column).
-async function mergeFeatures(page, patch) {
-  const current = await page.request.get("/api/settings");
-  const existing = (await current.json()).enabledFeatures || {};
-  await page.request.put("/api/settings", { data: { enabledFeatures: { ...existing, ...patch } } });
-}
+// for this file only, through setFeatures/restoreFeatures (helpers.js), which merge
+// into the stored flags (a blind partial PUT wipes other specs' toggles, since the backend
+// route replaces the whole column) and put back what they changed. This is one of the six
+// specs that change flags; they run together in their own serial Playwright project
+// (playwright.config.js).
+let previousFeatures;
 
 test.describe.configure({ mode: "serial" });
 test.describe("Public trip application wizard", () => {
@@ -23,7 +21,11 @@ test.describe("Public trip application wizard", () => {
     const context = await browser.newContext();
     const page = await context.newPage();
     await login(page);
-    await mergeFeatures(page, { trips: true, publicTripDiscovery: true, publicDirectory: true });
+    previousFeatures = await setFeatures(page.request, {
+      trips: true,
+      publicTripDiscovery: true,
+      publicDirectory: true,
+    });
 
     // restricted=false&archived=false -- a restricted partner's trip is
     // never publicly discoverable regardless of isPublic (see
@@ -60,7 +62,7 @@ test.describe("Public trip application wizard", () => {
     const page = await context.newPage();
     await login(page);
     if (tripId) await page.request.delete(`/api/trips/${tripId}`);
-    await mergeFeatures(page, { publicTripDiscovery: false });
+    await restoreFeatures(page.request, previousFeatures);
     await context.close();
   });
 

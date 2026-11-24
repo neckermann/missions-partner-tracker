@@ -1,29 +1,18 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./helpers.js";
+import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
 // publicPrayerDigest defaults off, and POST /api/public/subscribe also
 // needs outboundEmail configured (see backend/test/routes/
 // publicSubscribe.test.js's own setup) -- turn both on before any test in
-// this file touches /subscribe, and restore the prior state after.
+// this file touches /subscribe, and put them back after.
 // beforeAll/afterAll run once per *worker*, not once globally -- forced
-// serial here so this file's own tests can't race each other toggling
-// the shared ChurchSettings row across parallel workers (confirmed no
-// other spec file *toggles* enabledFeatures mid-run, so this is the only
-// source of that race).
+// serial here so this file's own tests can't race each other.
 //
-// PUT /api/settings replaces the whole enabledFeatures column with
-// whatever object it's given -- it does not merge (same contract every
-// other caller, e.g. backend/test/routes/featureGates.test.js's own
-// setFeatures(), already works around by reading current state first).
-// ci.yml enables "trips" once, globally, before the e2e suite starts --
-// a blind partial PUT here was silently wiping that back off for the
-// rest of the run the moment this file's own hooks fired. Read-merge-
-// write, same as that existing precedent, rather than overwriting.
-async function mergeFeatures(page, patch) {
-  const current = await page.request.get("/api/settings");
-  const existing = (await current.json()).enabledFeatures || {};
-  await page.request.put("/api/settings", { data: { enabledFeatures: { ...existing, ...patch } } });
-}
+// Feature flags are one shared column that PUT /api/settings replaces whole, so this
+// file is one of the six that change them; they run together in their own serial
+// Playwright project, never alongside each other or the specs that read flags
+// (playwright.config.js). setFeatures/restoreFeatures (helpers.js) merge and restore.
+let previousFeatures;
 
 test.describe.configure({ mode: "serial" });
 test.describe("Public subscribe page", () => {
@@ -36,7 +25,7 @@ test.describe("Public subscribe page", () => {
     // outboundEmail has to be turned on via the generic settings PUT
     // first, same two-step order backend/test/routes/publicSubscribe.test.js
     // uses.
-    await mergeFeatures(page, { publicPrayerDigest: true, outboundEmail: true });
+    previousFeatures = await setFeatures(page.request, { publicPrayerDigest: true, outboundEmail: true });
     await page.request.put("/api/settings/email", {
       data: { sendEnabled: true, serverToken: "e2e-test-token", fromAddress: "updates@example.test" },
     });
@@ -47,7 +36,7 @@ test.describe("Public subscribe page", () => {
     const context = await browser.newContext();
     const page = await context.newPage();
     await login(page);
-    await mergeFeatures(page, { publicPrayerDigest: false, outboundEmail: false });
+    await restoreFeatures(page.request, previousFeatures);
     await context.close();
   });
 

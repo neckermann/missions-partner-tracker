@@ -225,12 +225,10 @@ jobs:
       # public-facing surfaces, so "on by default" stopped making sense --
       # see features.js's own comment) -- but the e2e suite still expects
       # it reachable, same as every other admin feature it exercises. Set
-      # once here, for every spec file, rather than having individual spec
-      # files toggle it via PUT /api/settings around their own tests:
-      # public-subscribe.spec.js already relies on being the only spec file
-      # that mutates enabledFeatures to avoid a cross-file race under CI's
-      # parallel workers, and adding more toggling spec files would
-      # reintroduce exactly that race.
+      # once here, for every spec file. The specs that do change flags
+      # (frontend/playwright.config.js's FEATURE_SPECS) run in their own
+      # serial project after the rest, so none races another or a spec
+      # that reads a flag.
       #
       # Must run after "Run backend route tests", not in the seed step
       # above: several route-test files (featureGates.test.js and others)
@@ -299,8 +297,10 @@ jobs:
           done
           exit 1
 
+      # npm run test:e2e runs the specs that only read feature flags on 2 workers, then the
+      # six that change them on 1 (see frontend/playwright.config.js).
       - name: Run e2e suite
-        run: cd frontend && npx playwright test
+        run: cd frontend && npm run test:e2e
 
       - if: failure()
         uses: actions/upload-artifact@v7

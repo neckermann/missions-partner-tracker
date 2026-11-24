@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --project=parallel && playwright test --project=features --workers=1",
     "test": "vitest run",
     "test:watch": "vitest"
   },
