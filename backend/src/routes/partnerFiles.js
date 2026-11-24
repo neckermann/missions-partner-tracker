@@ -3,7 +3,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
-const { matchesFileSignature } = require("../utils/fileSignature");
+const { verifyUpload } = require("../utils/fileSignature");
 const { sendStoredFile } = require("../utils/fileResponse");
 const { extractRequestsFromFile, isEml } = require("../utils/extraction");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
@@ -97,10 +97,15 @@ router.post("/", requireRole("admin", "editor"), upload.single("file"), async (r
   try {
     if (!req.file) return res.status(400).json({ error: "No file provided" });
 
-    // .eml has no reliable magic bytes across mail clients (see
-    // resolveExt above), so it's exempt -- everything else accepted here
-    // does have one and gets verified.
-    if (!isEml(req.file.originalname) && !matchesFileSignature(req.file.buffer, req.file.mimetype)) {
+    // #327 Finding 8: this used to store req.file.mimetype as-is whenever
+    // the filename ended in .eml, skipping the signature check entirely
+    // for that case -- a file named x.eml declared as application/pdf
+    // was stored unverified and later served inline as PDF
+    // (VERIFIED_INLINE_TYPES, utils/fileResponse.js). verifyUpload always
+    // forces message/rfc822 for a real .eml, never the client's own
+    // declared type; everything else still gets signature-checked.
+    const verified = verifyUpload(req.file);
+    if (!verified.ok) {
       return res.status(400).json({ error: "File content doesn't match its declared type" });
     }
 
@@ -110,7 +115,7 @@ router.post("/", requireRole("admin", "editor"), upload.single("file"), async (r
       data: {
         ...meta,
         fileName: req.file.originalname,
-        contentType: req.file.mimetype || "application/octet-stream",
+        contentType: verified.contentType,
         fileSize: req.file.size,
         bytesRow: { create: { bytes: req.file.buffer } },
       },

@@ -51,6 +51,44 @@ const upload = uploadFilteredBy(resolveImageExt, {
   message: "Only JPEG, PNG, or WebP images are allowed",
 });
 
+// #327 Finding 11.4: these three used to accept any string at all, stored
+// verbatim and later dropped straight into a `background-color:${...}` or
+// `border-top:3px solid ${...}` style attribute in every rendered email
+// and confirm page (emailDispatchShell.js, subscriberPage.js, auth.js) --
+// an admin account (or a compromised one) could've broken out of the
+// attribute into arbitrary HTML/CSS, or worse, an inline event handler,
+// in every email sent. The color inputs are native HTML `<input
+// type="color">` pickers (AdminSettingsAbout.jsx), which only ever emit
+// `#rrggbb`, so that's the full legitimate range.
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+function brandColorSchema() {
+  return z
+    .string()
+    .optional()
+    .nullable()
+    .refine((v) => !v || HEX_COLOR_PATTERN.test(v), "Must be a #rrggbb hex color");
+}
+
+// Same vulnerability, same fix, for the font-family value -- except there's
+// no native input to constrain it the way the color picker does, so this
+// is an explicit allowlist instead of a pattern. Mirrors
+// frontend/src/pages/AdminSettingsAbout.jsx's FONT_OPTIONS exactly (its
+// <select> is the only way an admin sets this today) -- keep the two in
+// sync if that list ever changes.
+const BRAND_FONT_OPTIONS = new Set([
+  "",
+  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  'Georgia, "Times New Roman", serif',
+  '"Helvetica Neue", Arial, sans-serif',
+  'Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif',
+  '"Trebuchet MS", Verdana, sans-serif',
+]);
+const brandFontSchema = z
+  .string()
+  .optional()
+  .nullable()
+  .refine((v) => !v || BRAND_FONT_OPTIONS.has(v), "Unsupported font");
+
 const settingsSchema = z.object({
   churchName: z.string().optional().nullable(),
   // #271 Finding 3: flat columns, not a nested address object -- matches
@@ -71,10 +109,10 @@ const settingsSchema = z.object({
   usePartnerTermInAdmin: z.boolean().optional(),
   publicTagline: z.string().optional().nullable(),
   aboutText: z.string().optional().nullable(),
-  primaryColor: z.string().optional().nullable(),
-  headerColor: z.string().optional().nullable(),
-  highlightColor: z.string().optional().nullable(),
-  brandFont: z.string().optional().nullable(),
+  primaryColor: brandColorSchema(),
+  headerColor: brandColorSchema(),
+  highlightColor: brandColorSchema(),
+  brandFont: brandFontSchema,
   // Sets are normally via POST /logo (below), same as missionary/org
   // photos — this is here so PUT can also clear it (form sets logo: null).
   logo: z.any().optional().nullable(),
@@ -106,15 +144,81 @@ const settingsSchema = z.object({
 router.get("/", async (req, res, next) => {
   try {
     const [settings, sentByOurChurchCount] = await Promise.all([
+      // #327 Finding 9: was `omit` (a denylist) -- every column *except*
+      // the 6 listed there went to any signed-in role, Trip Leader
+      // included, so the next secret column added to this model would be
+      // exposed by default until someone remembered to list it here too.
+      // Explicit `select` instead: a field has to be deliberately added
+      // below to ever reach this response. Excludes the 6 original
+      // secrets, the one partial-secret the review specifically flagged
+      // (inboundEmailWebhookUsername -- half of the webhook credential),
+      // every GroupMe/WhatsApp internal id/name/connection-state field
+      // (admin-only integration detail, already served by the dedicated
+      // settingsGroupMe.js/settingsWhatsApp.js routes, not read by this
+      // general endpoint's own consumers), inboundEmailAddress (same
+      // reasoning -- settingsEmail.js's own route serves it), the 5
+      // scheduler bookkeeping timestamps, and updatedById -- confirmed
+      // none of these are read by any of this general endpoint's actual
+      // frontend consumers (useChurchSettings.js's callers).
       prisma.churchSettings.findUnique({
         where: { id: "singleton" },
-        omit: {
-          groupmeAccessToken: true,
-          whatsappPhoneNumber: true,
-          joshuaProjectApiKey: true,
-          anthropicApiKey: true,
-          postmarkServerToken: true,
-          inboundEmailWebhookPassword: true,
+        select: {
+          id: true,
+          churchName: true,
+          aboutText: true,
+          publicTagline: true,
+          partnerTermSingular: true,
+          partnerTermPlural: true,
+          usePartnerTermInAdmin: true,
+          addressLine1: true,
+          addressLine2: true,
+          city: true,
+          stateProvinceRegion: true,
+          postalCode: true,
+          country: true,
+          phone: true,
+          websiteLink: true,
+          contactFirstName: true,
+          contactLastName: true,
+          contactEmail: true,
+          timezone: true,
+          brandFont: true,
+          headerColor: true,
+          highlightColor: true,
+          primaryColor: true,
+          logoContentType: true,
+          enabledFeatures: true,
+          extractionModel: true,
+          allowRestrictedPartnerDispatch: true,
+          backupReminderDisabled: true,
+          onlineGivingUrl: true,
+          onlineGivingInstructions: true,
+          collectDonorContactInfo: true,
+          collectApplicantAddress: true,
+          collectEmergencyContact: true,
+          allowPrivateApplicationLinks: true,
+          allowPublicSupportRaisingLinks: true,
+          enableTripBudgeting: true,
+          tripApplicationTemplate: true,
+          tripQuestionLibrary: true,
+          tripRequirementTemplate: true,
+          tripRequirementLibrary: true,
+          cadenceBiweeklyEnabled: true,
+          cadenceMonthlyEnabled: true,
+          cadenceQuarterlyEnabled: true,
+          emailDispatchDayOfWeek: true,
+          emailDispatchDayOfMonth: true,
+          emailDispatchHour: true,
+          emailDispatchSubjectTemplate: true,
+          emailDispatchSignature: true,
+          emailDispatchLayout: true,
+          emailFromAddress: true,
+          chatDispatchHour: true,
+          chatDispatchPrayerRequests: true,
+          chatDispatchOneTimeNeeds: true,
+          chatDispatchNewsletters: true,
+          createdAt: true,
+          updatedAt: true,
         },
       }),
       // Backs the bulk "Sync from Church Settings" action on the About

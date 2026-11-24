@@ -1190,6 +1190,16 @@ model InboundEmail {
   fileName    String
   createdAt   DateTime           @default(now())
   bytesRow    InboundEmailBytes?
+  // #327 Finding 5: null for the original reason this queue exists (zero
+  // or more than one partner matched the sender address -- nothing to
+  // guess between). Set to a short explanation when a message DID match
+  // exactly one partner by address but still landed here because Postmark's
+  // own SPF/DKIM signals didn't confirm the sender -- see
+  // routes/inboundEmail.js's isSenderVerified(). From is trivially
+  // forgeable on its own; this is the one thing standing between a
+  // forged letter and it being auto-filed and broadcast under a real
+  // partner's name.
+  queueReason String?
 }
 
 model InboundEmailBytes {
@@ -1643,6 +1653,18 @@ model ChurchSettings {
   // should be opted into without deciding to take it on.
   allowRestrictedPartnerDispatch Boolean @default(false)
 
+  // #327 Finding 10 -- a restricted partner's masked display name is
+  // initials of their real name (e.g. "J.R.") everywhere a restricted
+  // partner can surface publicly: the public site, GroupMe/WhatsApp
+  // dispatch messages, and email digests. For a small country, initials
+  // plus country plus household shape can be enough to re-identify who
+  // that is to someone who knows the local mission community. Default
+  // true (today's long-standing behavior, unchanged unless a church
+  // turns it off) -- turning it off falls back to the partner's own
+  // fieldDisplayName (e.g. "Northern Uganda") if set, else a fixed
+  // generic label. See utils/maskData.js's maskedDisplayName().
+  restrictedPartnerInitialsEnabled Boolean @default(true)
+
   // Email dispatch customization (see #182) -- null subject/signature
   // means "use the built-in default" (see DEFAULT_SUBJECT_TEMPLATE in
   // emailDispatchShell.js), same blank-means-default convention every
@@ -1825,6 +1847,22 @@ model User {
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
+
+  // #327 Finding 7: a logged-out-still-valid session token, stolen before
+  // (or during) a password/MFA change, kept working for the rest of its
+  // 8-hour lifespan regardless -- logout only ever cleared the cookie,
+  // never the token itself, and nothing about changing the password or
+  // MFA touched any *other* session already issued. Embedded in the
+  // session JWT at sign time (utils/jwt.js) and compared against this
+  // column on every request (middleware/requireAuth.js) -- a mismatch
+  // means the token predates a change that should have ended it.
+  // Incremented on self-service password change, an admin-set password
+  // reset, MFA enable/disable (self-service or admin-forced), and a role
+  // change -- deliberately NOT on logout itself, which stays scoped to
+  // just the one cookie/browser it actually represents (a user signed in
+  // on two devices who logs out of one shouldn't be silently signed out
+  // of the other).
+  sessionVersion Int     @default(0)
 
   // Trip Leader guest tier only (role: "tripLeader") -- a real login/
   // session account, not a reduction of any existing role's visibility

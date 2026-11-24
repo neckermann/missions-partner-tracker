@@ -114,7 +114,7 @@ async function postToWhatsApp(eligibleRows, partnerById, settings) {
   const sentIds = new Set();
 
   const blurbs = eligibleRows
-    .map((row) => buildBlurb(row, partnerById.get(row.partnerId)))
+    .map((row) => buildBlurb(row, partnerById.get(row.partnerId), settings))
     .filter((blurb) => blurb?.groupmeText); // e.g. a newsletter that never resolved a link has nothing to send
 
   // Group by destination group id, so two types mapped to the same
@@ -174,7 +174,7 @@ async function runWhatsAppPass(settings, now) {
   if (rows.length > 0) {
     const partners = await prisma.partner.findMany({
       where: { id: { in: [...new Set(rows.map((row) => row.partnerId))] } },
-      select: { id: true, displayName: true, isRestricted: true, isPublic: true },
+      select: { id: true, displayName: true, fieldDisplayName: true, isRestricted: true, isPublic: true },
     });
     const partnerById = new Map(partners.map((p) => [p.id, p]));
 

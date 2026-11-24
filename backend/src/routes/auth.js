@@ -14,6 +14,7 @@ const { findValidSetupToken, hashToken } = require("../utils/passwordSetup");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
 const { isFeatureEnabled } = require("../utils/features");
 const { DEFAULT_TRIP_REQUIREMENT_TEMPLATE } = require("../utils/defaultTripRequirementTemplate");
+const { passwordSchema } = require("../utils/password");
 
 const router = express.Router();
 const MFA_PENDING_TTL = "5m";
@@ -88,8 +89,9 @@ router.post("/setup", async (req, res, next) => {
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password are required" });
     }
-    if (password.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    const parsedPassword = passwordSchema.safeParse(password);
+    if (!parsedPassword.success) {
+      return res.status(400).json({ error: parsedPassword.error.issues[0].message });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -238,8 +240,11 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: "Current and new password are required" });
     }
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: "New password must be at least 8 characters" });
+    const parsedNewPassword = passwordSchema.safeParse(newPassword);
+    if (!parsedNewPassword.success) {
+      return res
+        .status(400)
+        .json({ error: `New ${parsedNewPassword.error.issues[0].message.toLowerCase()}` });
     }
 
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
@@ -251,7 +256,15 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
     if (!match) return res.status(401).json({ error: "Current password is incorrect" });
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+    // #327 Finding 7: bumping sessionVersion invalidates every *other*
+    // session this account has open elsewhere -- re-issuing the cookie
+    // here with the updated row keeps this tab's own session working
+    // seamlessly (its next request already carries the new version).
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash, sessionVersion: { increment: 1 } },
+    });
+    setSessionCookie(res, updated);
 
     res.json({ ok: true });
   } catch (err) {
@@ -266,9 +279,14 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
 // message so a caller can't tell a wrong token from an expired or used one.
 const SETUP_LINK_INVALID = "This link is invalid or has expired.";
 
-router.get("/password-setup/validate", async (req, res, next) => {
+// #327 Finding 6: was GET with the token in the query string -- a real,
+// usable credential traveling in a URL that gets written to access logs
+// (see the morgan redaction fix above) and can leak via a Referer header
+// or browser history. POST with the token in the body instead, same
+// pattern /password-setup/complete below already uses.
+router.post("/password-setup/validate", async (req, res, next) => {
   try {
-    const row = await findValidSetupToken(String(req.query.token || ""));
+    const row = await findValidSetupToken(String(req.body?.token || ""));
     if (!row) return res.status(400).json({ error: SETUP_LINK_INVALID });
     res.json({
       email: row.user.email,
@@ -283,8 +301,9 @@ router.get("/password-setup/validate", async (req, res, next) => {
 router.post("/password-setup/complete", async (req, res, next) => {
   try {
     const { token, password } = req.body || {};
-    if (typeof password !== "string" || password.length < 8 || password.length > 128) {
-      return res.status(400).json({ error: "Password must be between 8 and 128 characters" });
+    const parsedPassword = passwordSchema.safeParse(password);
+    if (!parsedPassword.success) {
+      return res.status(400).json({ error: parsedPassword.error.issues[0].message });
     }
     const row = await findValidSetupToken(String(token || ""));
     if (!row) return res.status(400).json({ error: SETUP_LINK_INVALID });
@@ -416,9 +435,18 @@ router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) =
     });
     if (!valid) return res.status(401).json({ error: "Invalid code" });
 
+    // #327 Finding 7: completeLogin below re-issues the session cookie
+    // from this same updated row, so the bump takes effect for this tab
+    // immediately -- only sessions opened before enrollment are the ones
+    // actually invalidated.
     const updated = await prisma.user.update({
       where: { id: user.id },
-      data: { mfaEnabled: true, mfaSetupRequired: false, mfaLastTimeStep: timeStep },
+      data: {
+        mfaEnabled: true,
+        mfaSetupRequired: false,
+        mfaLastTimeStep: timeStep,
+        sessionVersion: { increment: 1 },
+      },
     });
     res.json(await completeLogin(res, updated));
   } catch (err) {
@@ -447,7 +475,14 @@ router.post("/mfa/disable", requireAuth, async (req, res, next) => {
     const match = await bcrypt.compare(password, user.passwordHash);
     if (!match) return res.status(401).json({ error: "Current password is incorrect" });
 
-    await prisma.user.update({ where: { id: user.id }, data: { mfaEnabled: false, mfaSecret: null } });
+    // #327 Finding 7: same reasoning as change-password above -- re-issue
+    // this tab's own cookie from the updated row so only other sessions
+    // are the ones that stop working.
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { mfaEnabled: false, mfaSecret: null, sessionVersion: { increment: 1 } },
+    });
+    setSessionCookie(res, updated);
     res.json({ ok: true });
   } catch (err) {
     next(err);
@@ -547,17 +582,31 @@ router.put("/dispatch-by-email", requireAuth, async (req, res, next) => {
 // this route verifying it directly). Renders a plain HTML confirmation
 // page, not JSON -- this is a link a person clicks in their mail client,
 // not an API call.
-router.get("/unsubscribe", async (req, res) => {
+// Shared by both routes below -- same branding lookup and page shell
+// either way, only the body message and whether a confirm form is shown
+// differ. `message` is a plain string, or a (highlightColor) => string
+// function for a caller that needs the real brand color inline (the
+// confirm button) without a second settings query.
+async function renderUnsubscribePage(message) {
   // Branded to match the digest email's own header-band treatment (see
-  // utils/emailDispatchShell.js) -- same three colors/font, same fallbacks, so
+  // utils/emailDispatchShell.js) -- same colors/font, same fallbacks, so
   // this doesn't look like a different, unbranded app once clicked into
-  // from the email.
+  // from the email. highlightColor matches that same file's own
+  // button/link color convention (typeLabel/button helpers), not
+  // headerColor, which is only ever the header band's background here.
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { churchName: true, headerColor: true, logoContentType: true, brandFont: true },
+    select: {
+      churchName: true,
+      headerColor: true,
+      highlightColor: true,
+      logoContentType: true,
+      brandFont: true,
+    },
   });
   const churchName = settings?.churchName || "Missions Partner Tracker";
   const headerColor = settings?.headerColor || "#2c2a28";
+  const highlightColor = settings?.highlightColor || "#a6540f";
   const fontFamily =
     settings?.brandFont || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   const base = appBaseUrl();
@@ -565,30 +614,66 @@ router.get("/unsubscribe", async (req, res) => {
     settings?.logoContentType && base
       ? `<img src="${base}/api/public/settings/logo/raw" alt="${escapeHtml(churchName)}" style="max-height:40px;width:auto;max-width:240px;margin-bottom:10px;">`
       : "";
+  const body = typeof message === "function" ? message(highlightColor) : message;
 
-  const page = (message) => `<!doctype html>
+  return `<!doctype html>
 <html><head><meta charset="utf-8"><title>Email notifications</title></head>
-<body style="font-family:${fontFamily};background:#f7f5f0;margin:0;padding:40px 16px;">
+<body style="font-family:${escapeHtml(fontFamily)};background:#f7f5f0;margin:0;padding:40px 16px;">
 <div style="max-width:420px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;">
   <div style="background-color:${headerColor};padding:28px 24px;text-align:center;">
     ${logoHtml}
     <h2 style="margin:0;color:#ffffff;font-size:18px;">${escapeHtml(churchName)}</h2>
   </div>
   <div style="padding:32px 24px;text-align:center;color:#222;">
-    <p style="margin:0;font-size:16px;line-height:1.5;">${message}</p>
+    <p style="margin:0;font-size:16px;line-height:1.5;">${body}</p>
   </div>
 </div>
 </body></html>`;
+}
 
+function verifyUnsubscribeToken(token) {
   let decoded;
   try {
-    decoded = jwt.verify(String(req.query.token || ""), process.env.SESSION_SECRET);
+    decoded = jwt.verify(String(token || ""), process.env.SESSION_SECRET);
   } catch {
-    return res.status(400).send(page("This unsubscribe link isn't valid."));
+    return null;
   }
-  if (!decoded?.unsubscribe || !decoded.id) {
-    return res.status(400).send(page("This unsubscribe link isn't valid."));
-  }
+  return decoded?.unsubscribe && decoded.id ? decoded : null;
+}
+
+// #327 Finding 6: this used to unsubscribe the moment the link was
+// *fetched* -- a mail security scanner that pre-fetches every link in an
+// inbox would silently unsubscribe someone who never clicked anything
+// themselves. GET now only verifies the token and renders a page with a
+// real confirm button (a plain <form method="POST">, so it still works
+// with no JavaScript, same constraint that made this a GET in the first
+// place); POST below is what actually unsubscribes. List-Unsubscribe-Post
+// support (RFC 8058) lets a mail client's own native "Unsubscribe" button
+// call the POST route directly without ever rendering this page -- see
+// emailDispatchShell.js's List-Unsubscribe header for where that's wired
+// up.
+router.get("/unsubscribe", async (req, res) => {
+  const decoded = verifyUnsubscribeToken(req.query.token);
+  if (!decoded)
+    return res.status(400).send(await renderUnsubscribePage("This unsubscribe link isn't valid."));
+  const token = escapeHtml(String(req.query.token));
+  res.send(
+    await renderUnsubscribePage(
+      (highlightColor) =>
+        `Click below to unsubscribe from email notifications.<br><br><form method="POST" action="/api/auth/unsubscribe"><input type="hidden" name="token" value="${token}"><button type="submit" style="background:${highlightColor};color:#fff;border:none;border-radius:6px;padding:10px 20px;font-size:15px;cursor:pointer;">Confirm unsubscribe</button></form>`
+    )
+  );
+});
+
+// token in req.body (the confirm-button form above) or req.query (RFC
+// 8058 one-click: a mail client's own native button POSTs straight to
+// the URL List-Unsubscribe named -- token in the URL, not a form field
+// it has no reason to know about -- with a fixed
+// "List-Unsubscribe=One-Click" body per spec).
+router.post("/unsubscribe", express.urlencoded({ extended: false }), async (req, res) => {
+  const decoded = verifyUnsubscribeToken(req.body?.token || req.query?.token);
+  if (!decoded)
+    return res.status(400).send(await renderUnsubscribePage("This unsubscribe link isn't valid."));
 
   // Same "don't leave stale scope data around" reasoning as PUT
   // /dispatch-by-email's own cadence: null handling above.
@@ -596,7 +681,7 @@ router.get("/unsubscribe", async (req, res) => {
     prisma.user.updateMany({ where: { id: decoded.id }, data: { cadence: null } }),
     prisma.userFollowedPartner.deleteMany({ where: { userId: decoded.id } }),
   ]);
-  res.send(page("You've been unsubscribed from email notifications."));
+  res.send(await renderUnsubscribePage("You've been unsubscribed from email notifications."));
 });
 
 router.post("/logout", (req, res) => {

@@ -198,6 +198,44 @@ describe("Trip Leader: trip scope", () => {
     const wrongScope = await leader(`/api/trips?partnerId=${partnerB.id}`);
     assert.equal(wrongScope.status, 403);
   });
+
+  // #327 Finding 2: partnerA having a second trip used to mean a Trip
+  // Leader's own partner-scoped ?partnerId= query returned every one of
+  // that partner's trips, full participant rosters included, not just
+  // their own one.
+  test("a second trip for their own partner is NOT included in their partner-scoped query", async () => {
+    const secondTripForPartnerA = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partnerA.id, status: "planning" },
+    });
+    try {
+      const leader = await leaderClient();
+      const res = await leader(`/api/trips?partnerId=${partnerA.id}`);
+      assert.equal(res.status, 200);
+      const ids = res.body.map((t) => t.id);
+      assert.ok(ids.includes(tripA.id));
+      assert.ok(!ids.includes(secondTripForPartnerA.body.id));
+      assert.equal(ids.length, 1);
+    } finally {
+      await admin(`/api/trips/${secondTripForPartnerA.body.id}`, { method: "DELETE" });
+    }
+  });
+
+  // #327 Finding 2: tripSchema's full field set (including partnerId) was
+  // written straight through on PUT /trips/:id with no per-role filtering
+  // -- a Trip Leader could re-point their own trip at any partner id, then
+  // use that attacker-controlled partnerId to pass requirePartnerQueryScope
+  // and read a partner they were never meant to see.
+  test("403s re-pointing their own trip at a different partner", async () => {
+    const leader = await leaderClient();
+    const res = await leader(`/api/trips/${tripA.id}`, {
+      method: "PUT",
+      body: { partnerId: partnerB.id },
+    });
+    assert.equal(res.status, 403);
+    const check = await admin(`/api/trips/${tripA.id}`);
+    assert.equal(check.body.partnerId, partnerA.id, "partnerId must be unchanged");
+  });
 });
 
 describe("Trip Leader: partner scope", () => {
@@ -263,6 +301,101 @@ describe("Trip Leader: inbound email queue blocked entirely", () => {
 
   test("admin still reads the queue -- only tripLeader is excluded", async () => {
     const res = await admin("/api/inbound-email");
+    assert.equal(res.status, 200);
+  });
+});
+
+// #327 Finding 3: a Trip Leader scoped to tripA could mark ANY
+// participant id complete against one of tripA's own requirements --
+// requireTripScope confirmed the caller's own trip matched the
+// requirement's trip, but :participantId itself was never checked against
+// that same trip, so a participant belonging to a completely different
+// trip (tripB here) worked too.
+describe("Trip Leader: cross-trip IDOR on requirement completion", () => {
+  let requirement;
+  let tripBParticipant;
+
+  before(async () => {
+    const req = await admin(`/api/trips/${tripA.id}/requirements`, {
+      method: "POST",
+      body: { label: "Passport copy", kind: "task" },
+    });
+    requirement = req.body;
+    const participant = await admin(`/api/trips/${tripB.id}/participants`, {
+      method: "POST",
+      body: { firstName: "Other", lastName: "Trip", email: "route-test-tripb-participant@example.test" },
+    });
+    assert.equal(participant.status, 201);
+    tripBParticipant = participant.body;
+  });
+
+  test("404s marking a different trip's participant complete", async () => {
+    const leader = await leaderClient();
+    const res = await leader(
+      `/api/trips/requirements/${requirement.id}/participants/${tripBParticipant.id}/complete`,
+      {
+        method: "PUT",
+        body: { completed: true },
+      }
+    );
+    assert.equal(res.status, 404);
+  });
+
+  test("the Trip Leader can still mark their own trip's participant complete", async () => {
+    const participant = await admin(`/api/trips/${tripA.id}/participants`, {
+      method: "POST",
+      body: { firstName: "Own", lastName: "Trip", email: "route-test-tripa-participant@example.test" },
+    });
+    assert.equal(participant.status, 201);
+    const leader = await leaderClient();
+    const res = await leader(
+      `/api/trips/requirements/${requirement.id}/participants/${participant.body.id}/complete`,
+      {
+        method: "PUT",
+        body: { completed: true },
+      }
+    );
+    assert.equal(res.status, 200);
+  });
+});
+
+// #327 Finding 2 (lower-value gaps): neither route has a legitimate Trip
+// Leader use case -- church-wide trip settings config and a cross-church
+// subscriber-count summary, neither scoped to any one trip.
+describe("Trip Leader: settings/digest-summary reads blocked", () => {
+  test("403s GET /api/settings/trips", async () => {
+    const leader = await leaderClient();
+    const res = await leader("/api/settings/trips");
+    assert.equal(res.status, 403);
+  });
+
+  test("403s GET /api/scoped-digest/summary", async () => {
+    const leader = await leaderClient();
+    const res = await leader("/api/scoped-digest/summary");
+    assert.equal(res.status, 403);
+  });
+
+  test("admin still reads both -- only tripLeader is excluded", async () => {
+    const settings = await admin("/api/settings/trips");
+    assert.equal(settings.status, 200);
+    const digest = await admin("/api/scoped-digest/summary");
+    assert.equal(digest.status, 200);
+  });
+});
+
+// #350: same exclusion pattern as #329's inbound-email fix above -- this
+// queue holds the exact text about to go out churchwide, unfiltered and
+// not attached to any one trip, so there's no sensible trip-scoped
+// version of it.
+describe("Trip Leader: Pending Dispatches queue blocked entirely", () => {
+  test("403s the pending queue", async () => {
+    const leader = await leaderClient();
+    const res = await leader("/api/dispatches/pending");
+    assert.equal(res.status, 403);
+  });
+
+  test("admin still reads the queue -- only tripLeader is excluded", async () => {
+    const res = await admin("/api/dispatches/pending");
     assert.equal(res.status, 200);
   });
 });

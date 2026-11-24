@@ -812,9 +812,11 @@ export async function signTripRequirement(requirementId, payload) {
 // file rather than adding a second one.
 export async function uploadTripRequirementDocument(requirementId, { token, file }) {
   const formData = new FormData();
-  formData.append("token", token);
   formData.append("file", file);
-  const { data } = await api.post(`/public/trips/participants/upload/${requirementId}`, formData);
+  const { data } = await api.post(
+    `/public/trips/participants/upload/${requirementId}?token=${encodeURIComponent(token)}`,
+    formData
+  );
   return data;
 }
 // Self-service story/photo edit -- payload is { token, story?, photo?
@@ -1018,7 +1020,7 @@ export async function sendUserSetupLink(id) {
 
 // --- First-time password setup (public, token from the welcome email) ---
 export async function validatePasswordSetup(token) {
-  const { data } = await api.get("/auth/password-setup/validate", { params: { token } });
+  const { data } = await api.post("/auth/password-setup/validate", { token });
   return data;
 }
 export async function completePasswordSetup(token, password) {

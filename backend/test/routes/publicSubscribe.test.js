@@ -118,11 +118,20 @@ describe("POST /api/public/subscribe", () => {
     assert.equal(postmarkCalls.length, 1, "confirmation should be re-sent while unconfirmed");
   });
 
-  test("re-subscribing an already-confirmed email updates scope but sends no email (no enumeration)", async () => {
+  // #327 Finding 11: re-scoping an already-confirmed subscriber used to
+  // apply immediately with no proof the caller owns that email address.
+  // Now nothing is written until a confirm-change link (sent to the
+  // address itself) is clicked -- the opposite of the old assertions
+  // below, which checked the no-longer-correct "applies immediately,
+  // never emails" behavior.
+  test("re-subscribing an already-confirmed email sends a confirm-change email and does not apply yet", async () => {
     const email = "route-test-sub-confirmed@example.test";
     await anon("/api/public/subscribe", { method: "POST", body: { email } });
     const row = await prisma.publicSubscriber.findUnique({ where: { email } });
-    await prisma.publicSubscriber.update({ where: { id: row.id }, data: { confirmedAt: new Date() } });
+    await prisma.publicSubscriber.update({
+      where: { id: row.id },
+      data: { confirmedAt: new Date(), cadence: "quarterly" },
+    });
     mockPostmark();
 
     const res = await anon("/api/public/subscribe", {
@@ -131,11 +140,20 @@ describe("POST /api/public/subscribe", () => {
     });
     assert.equal(res.status, 200);
     assert.ok(res.body.message, "same generic response shape as the new-subscriber case");
-    assert.equal(postmarkCalls.length, 0, "an already-confirmed subscriber gets no new confirmation email");
+    assert.equal(postmarkCalls.length, 1, "a confirm-change email should be sent");
 
-    const updated = await prisma.publicSubscriber.findUnique({ where: { email } });
-    assert.equal(updated.cadence, "monthly", "scope/cadence still updates");
-    assert.ok(updated.confirmedAt, "stays confirmed");
+    const unchanged = await prisma.publicSubscriber.findUnique({ where: { email } });
+    assert.equal(unchanged.cadence, "quarterly", "nothing applies until the confirm-change link is clicked");
+    assert.ok(unchanged.confirmedAt, "stays confirmed");
+
+    const sentBody = JSON.parse(postmarkCalls[0].options.body);
+    const link = sentBody.TextBody.match(/\/api\/public\/subscribe\/confirm\?token=(\S+)/);
+    assert.ok(link, "confirm-change email should contain a confirm link");
+
+    const confirmRes = await anon(`/api/public/subscribe/confirm?token=${link[1]}`);
+    assert.equal(confirmRes.status, 200);
+    const applied = await prisma.publicSubscriber.findUnique({ where: { email } });
+    assert.equal(applied.cadence, "monthly", "clicking the confirm-change link applies the proposed change");
   });
 
   test("an invalid/non-public/archived partnerId is silently dropped, not an error", async () => {
@@ -262,8 +280,29 @@ describe("GET /api/public/subscribe/confirm", () => {
   });
 });
 
-describe("GET /api/public/unsubscribe", () => {
-  test("a valid unsubscribe token deletes the subscriber row (cascading the join table)", async () => {
+describe("GET/POST /api/public/unsubscribe", () => {
+  // #327 Finding 6: GET only verifies the token and renders a confirm
+  // page now -- it must not mutate anything by itself (a mail security
+  // scanner pre-fetching the link should never unsubscribe anyone).
+  test("GET with a valid token renders a confirm page, without deleting the subscriber yet", async () => {
+    const partner = await createPublicPartner({});
+    const row = await prisma.publicSubscriber.create({
+      data: {
+        email: "route-test-sub-unsub-get@example.test",
+        allPartners: false,
+        scopedPartners: { create: [{ partnerId: partner.id }] },
+      },
+    });
+    const token = jwt.sign({ id: row.id, subscriberUnsubscribe: true }, process.env.SESSION_SECRET);
+    const res = await anon(`/api/public/unsubscribe?token=${encodeURIComponent(token)}`);
+    assert.equal(res.status, 200);
+    assert.match(res.body, /Confirm unsubscribe/);
+
+    const stillThere = await prisma.publicSubscriber.findUnique({ where: { id: row.id } });
+    assert.ok(stillThere, "GET must not delete the row");
+  });
+
+  test("POST with a valid token deletes the subscriber row (cascading the join table)", async () => {
     const partner = await createPublicPartner({});
     const row = await prisma.publicSubscriber.create({
       data: {
@@ -273,7 +312,9 @@ describe("GET /api/public/unsubscribe", () => {
       },
     });
     const token = jwt.sign({ id: row.id, subscriberUnsubscribe: true }, process.env.SESSION_SECRET);
-    const res = await anon(`/api/public/unsubscribe?token=${encodeURIComponent(token)}`);
+    // Token in the query string, same as the RFC 8058 one-click path a
+    // mail client's own "Unsubscribe" button would use.
+    const res = await anon(`/api/public/unsubscribe?token=${encodeURIComponent(token)}`, { method: "POST" });
     assert.equal(res.status, 200);
 
     const after = await prisma.publicSubscriber.findUnique({ where: { id: row.id } });
@@ -282,12 +323,12 @@ describe("GET /api/public/unsubscribe", () => {
     assert.equal(joinRows.length, 0, "join-table rows should cascade");
   });
 
-  test("re-hitting an already-unsubscribed link degrades gracefully, not a 500", async () => {
+  test("re-POSTing an already-unsubscribed link degrades gracefully, not a 500", async () => {
     const token = jwt.sign(
       { id: "00000000-0000-0000-0000-000000000000", subscriberUnsubscribe: true },
       process.env.SESSION_SECRET
     );
-    const res = await anon(`/api/public/unsubscribe?token=${encodeURIComponent(token)}`);
+    const res = await anon(`/api/public/unsubscribe?token=${encodeURIComponent(token)}`, { method: "POST" });
     assert.equal(res.status, 200);
   });
 

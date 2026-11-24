@@ -92,10 +92,29 @@ describe("#327 Finding 1 -- unsubscribe token can never work as a session cookie
 });
 
 describe("#327 defense-in-depth -- the unsubscribe token itself now expires", () => {
-  test("GET /api/auth/unsubscribe accepts a valid, unexpired token and clears the subscription", async () => {
+  test("GET /api/auth/unsubscribe accepts a valid, unexpired token but only renders a confirm page (#327 Finding 6)", async () => {
     const token = buildUnsubscribeToken(targetAdmin.id);
     const base = await startServer();
     const res = await fetch(`${base}/api/auth/unsubscribe?token=${encodeURIComponent(token)}`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /Confirm unsubscribe/i);
+
+    const unchanged = await prisma.user.findUnique({
+      where: { id: targetAdmin.id },
+      select: { cadence: true },
+    });
+    assert.equal(unchanged.cadence, "weekly", "GET must not mutate");
+  });
+
+  test("POST /api/auth/unsubscribe accepts a valid, unexpired token and clears the subscription", async () => {
+    const token = buildUnsubscribeToken(targetAdmin.id);
+    const base = await startServer();
+    // Token in the query string, same as the RFC 8058 one-click path a
+    // mail client's own "Unsubscribe" button would use.
+    const res = await fetch(`${base}/api/auth/unsubscribe?token=${encodeURIComponent(token)}`, {
+      method: "POST",
+    });
     assert.equal(res.status, 200);
     const html = await res.text();
     assert.match(html, /unsubscribed/i);

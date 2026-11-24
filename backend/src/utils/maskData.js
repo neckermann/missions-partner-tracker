@@ -12,6 +12,23 @@ function toInitials(fullName = "") {
     .join("");
 }
 
+// #327 Finding 10 -- shown wherever a restricted partner's name can surface
+// outside the signed-in app: the public site/API, GroupMe/WhatsApp dispatch
+// messages, email digests, and shared report exports. Previously always
+// initials; ChurchSettings.restrictedPartnerInitialsEnabled (default true,
+// unchanged behavior unless a church turns it off) now gates that, falling
+// back to the partner's own fieldDisplayName (e.g. "Northern Uganda") if
+// set, else a fixed generic label -- never the real name either way.
+const GENERIC_RESTRICTED_LABEL = "A restricted-access partner";
+
+function maskedDisplayName(partner, settings) {
+  if (!partner?.isRestricted) return partner?.displayName;
+  if (settings?.restrictedPartnerInitialsEnabled === false) {
+    return partner.fieldDisplayName || GENERIC_RESTRICTED_LABEL;
+  }
+  return toInitials(partner.displayName);
+}
+
 // Country-level fallback pin for restricted missionaries, keyed by the
 // country name resolved on their physical address. Covers every country
 // (source: mledoze/countries, MIT-licensed, github.com/mledoze/countries),
@@ -324,7 +341,7 @@ function missionaryHouseholdCategory(m) {
  * locatable target, so publishing the name while coarsening the map pin
  * gives away more than it withholds. Both kinds now get initials.
  */
-function toPublicPartner(p) {
+function toPublicPartner(p, settings) {
   if (!p || !p.isPublic || p.archived) return null;
 
   const isOrg = p.kind === "organization";
@@ -354,7 +371,12 @@ function toPublicPartner(p) {
       ...base,
       isRestricted: true,
       // Both kinds -- see the note on name masking above.
-      displayName: toInitials(p.displayName),
+      displayName: maskedDisplayName(p, settings),
+      // #327 Finding 10 -- dropped for a restricted record. Combined with
+      // country (kept -- needed for the directory's own filters) and the
+      // masked name, "supported since 2014" narrows a small country's
+      // expat community further than it needs to.
+      supportingSince: null,
       // Coarsen location to a country-level pin only — never the precise
       // serving-location coordinates.
       gpsLat: centroid?.lat ?? null,
@@ -365,9 +387,12 @@ function toPublicPartner(p) {
         : "Serving in a restricted-access location. Specific details are withheld for security.",
       // A generic stand-in, never the real uploaded photo — even a generic
       // *human* photo would undercut the anonymity isRestricted exists for,
-      // so this is a plain shape icon, not a stock photo. Missionaries get a
-      // silhouette matching their real household shape; orgs get a building.
-      photo: silhouetteFor(isOrg ? "organization" : missionaryHouseholdCategory(p)),
+      // so this is a plain shape icon, not a stock photo. #327 Finding 10:
+      // used to match the real household shape (single/couple/family),
+      // which is itself identifying info -- always the plain single-person
+      // shape now, regardless of actual household. Orgs still get a
+      // building icon (that was never household-shape-derived).
+      photo: silhouetteFor(isOrg ? "organization" : "single"),
     };
   }
 
@@ -396,4 +421,4 @@ function toPublicPartner(p) {
   };
 }
 
-module.exports = { toInitials, toPublicPartner, missionaryHouseholdCategory };
+module.exports = { toInitials, toPublicPartner, missionaryHouseholdCategory, maskedDisplayName };

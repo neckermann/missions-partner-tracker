@@ -174,6 +174,56 @@ after(async () => {
   });
 });
 
+// #327 Finding 6: RFC 8058 one-click unsubscribe -- a mail client that
+// supports it can show its own native "Unsubscribe" button that POSTs
+// straight to the unsubscribe URL, no page ever shown. Requires both
+// headers together (some clients won't trust List-Unsubscribe alone).
+describe("sendDigestTier -- List-Unsubscribe headers (#327 Finding 6)", () => {
+  test("an admin digest recipient's message carries both headers, with the real unsubscribe URL", async () => {
+    const partner = await createPartner({});
+    const admin = await createAdminUser({ cadence: "biweekly" });
+    await createRow(partner.id, "prayerRequestCreated", {
+      partnerName: partner.displayName,
+      requestText: "pray",
+    });
+    try {
+      await sendDigestTier("biweekly", await getSettings());
+      assert.equal(postmarkMessages.length, 1);
+      const headers = postmarkMessages[0].Headers;
+      assert.ok(Array.isArray(headers));
+      const listUnsub = headers.find((h) => h.Name === "List-Unsubscribe");
+      const listUnsubPost = headers.find((h) => h.Name === "List-Unsubscribe-Post");
+      assert.ok(listUnsub, "List-Unsubscribe header must be present");
+      assert.match(listUnsub.Value, /^<.*\/api\/auth\/unsubscribe\?token=.+>$/);
+      assert.equal(listUnsubPost?.Value, "List-Unsubscribe=One-Click");
+    } finally {
+      await prisma.user.delete({ where: { id: admin.id } });
+    }
+  });
+
+  test("a public subscriber's message carries both headers, with the subscriber unsubscribe URL", async () => {
+    const partner = await createPartner({ isPublic: true });
+    const subscriber = await createPublicSubscriber({ cadence: "biweekly" });
+    await createRow(partner.id, "prayerRequestCreated", {
+      partnerName: partner.displayName,
+      requestText: "pray",
+    });
+    try {
+      const settings = await getSettings();
+      await sendDigestTier("biweekly", {
+        ...settings,
+        enabledFeatures: { ...settings.enabledFeatures, publicPrayerDigest: true },
+      });
+      assert.equal(postmarkMessages.length, 1);
+      const headers = postmarkMessages[0].Headers;
+      const listUnsub = headers.find((h) => h.Name === "List-Unsubscribe");
+      assert.match(listUnsub.Value, /^<.*\/api\/public\/unsubscribe\?token=.+>$/);
+    } finally {
+      await prisma.publicSubscriber.delete({ where: { id: subscriber.id } });
+    }
+  });
+});
+
 describe("sendDigestTier -- basic gating", () => {
   test("outboundEmail off -- returns empty, sends nothing, touches nothing", async () => {
     const settings = await getSettings();

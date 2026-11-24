@@ -42,6 +42,7 @@ before(async () => {
       chatDispatchOneTimeNeeds: true,
       chatDispatchNewsletters: true,
       allowRestrictedPartnerDispatch: true,
+      restrictedPartnerInitialsEnabled: true,
       emailDispatchSubjectTemplate: true,
       emailDispatchSignature: true,
       emailDispatchLayout: true,
@@ -120,6 +121,10 @@ describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
         chatDispatchOneTimeNeeds: true,
         chatDispatchNewsletters: true,
         allowRestrictedPartnerDispatch: true,
+        // #327 Finding 10 -- same "pin every field explicitly" reasoning
+        // as the rest of this block, since the deepEqual below checks
+        // the response's entire shape.
+        restrictedPartnerInitialsEnabled: true,
         emailDispatchSubjectTemplate: null,
         emailDispatchSignature: null,
         emailDispatchLayout: null,
@@ -143,6 +148,7 @@ describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
       chatDispatchOneTimeNeeds: true,
       chatDispatchNewsletters: true,
       allowRestrictedPartnerDispatch: true,
+      restrictedPartnerInitialsEnabled: true,
       emailDispatchSubjectTemplate: null,
       emailDispatchSignature: null,
       emailDispatchLayout: null,
@@ -252,6 +258,49 @@ describe("GET /api/dispatches/pending -- any logged-in role", () => {
         assert.equal(item.dispatchReviewedAt, null);
       }
     } finally {
+      await prisma.dispatchRecord.deleteMany({ where: { partnerId: restrictedId } });
+      await prisma.partner.delete({ where: { id: restrictedId } }).catch(() => {});
+    }
+  });
+
+  // #327 Finding 10 -- the setting is read fresh on every request (not
+  // cached), so turning it off should immediately change what the
+  // Pending Dispatches queue shows for a restricted partner's rows.
+  test("with restrictedPartnerInitialsEnabled off, shows the field label instead of initials", async () => {
+    const restrictedPartner = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "missionary",
+        displayName: `${FIXTURE_TAG} Jordan Rivera`,
+        fieldDisplayName: "Southeast Asia",
+        isRestricted: true,
+      },
+    });
+    assert.equal(restrictedPartner.status, 201, JSON.stringify(restrictedPartner.body));
+    const restrictedId = restrictedPartner.body.id;
+
+    const requestText = `${FIXTURE_TAG} restricted partner's text, initials off`;
+    const created = await admin("/api/prayer-requests", {
+      method: "POST",
+      body: { partnerId: restrictedId, category: "situational", requestText, dateReceived: "2026-01-01" },
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+
+    await admin("/api/settings/dispatches", {
+      method: "PUT",
+      body: { restrictedPartnerInitialsEnabled: false },
+    });
+    try {
+      const res = await admin("/api/dispatches/pending");
+      const item = res.body.find((i) => i.partnerId === restrictedId);
+      assert.ok(item);
+      assert.equal(item.partnerName, "Southeast Asia");
+      assert.ok(!item.partnerName.includes("J."), "must not fall back to initials while the setting is off");
+    } finally {
+      await admin("/api/settings/dispatches", {
+        method: "PUT",
+        body: { restrictedPartnerInitialsEnabled: true },
+      });
       await prisma.dispatchRecord.deleteMany({ where: { partnerId: restrictedId } });
       await prisma.partner.delete({ where: { id: restrictedId } }).catch(() => {});
     }
@@ -626,7 +675,7 @@ describe("restricted-partner notification review & edit (#187)", () => {
 });
 
 describe("unsubscribe", () => {
-  test("GET /api/auth/unsubscribe with a valid token clears cadence", async () => {
+  test("GET /api/auth/unsubscribe with a valid token renders a confirm page, without clearing cadence yet", async () => {
     await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
       body: { cadence: "biweekly", allPartners: true },
@@ -638,6 +687,28 @@ describe("unsubscribe", () => {
     const token = jwt.sign({ id: me.body.user.id, unsubscribe: true }, process.env.SESSION_SECRET);
     const res = await unauthenticated(`/api/auth/unsubscribe?token=${encodeURIComponent(token)}`);
     assert.equal(res.status, 200);
+    assert.match(res.body, /Confirm unsubscribe/);
+
+    const stillSubscribed = await admin("/api/auth/me");
+    assert.equal(stillSubscribed.body.user.cadence, "biweekly", "#327 Finding 6: GET must not mutate");
+  });
+
+  test("POST /api/auth/unsubscribe with a valid token actually clears cadence", async () => {
+    await admin("/api/auth/dispatch-by-email", {
+      method: "PUT",
+      body: { cadence: "biweekly", allPartners: true },
+    });
+    const me = await admin("/api/auth/me");
+
+    const jwt = require("jsonwebtoken");
+    const token = jwt.sign({ id: me.body.user.id, unsubscribe: true }, process.env.SESSION_SECRET);
+    // Token in the query string, same as the RFC 8058 one-click path a
+    // mail client's own "Unsubscribe" button would use.
+    const res = await unauthenticated(`/api/auth/unsubscribe?token=${encodeURIComponent(token)}`, {
+      method: "POST",
+    });
+    assert.equal(res.status, 200);
+    assert.match(res.body, /unsubscribed/i);
 
     const after = await admin("/api/auth/me");
     assert.equal(after.body.user.cadence, null);

@@ -211,7 +211,19 @@ router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   try {
     const query = tripQuerySchema.parse(req.query);
     const where = {};
-    if (query.partnerId) where.partnerId = query.partnerId;
+    // #327 Finding 2: requirePartnerQueryScope confirms ?partnerId= matches
+    // the caller's own scoped trip's partner, but a partner can have more
+    // than one trip -- filtering by partnerId alone returned every one of
+    // that partner's trips, full participant rosters (DOB, guardian/
+    // emergency contacts) included, not just the Trip Leader's own one.
+    // Scope to their exact trip instead, ignoring whatever partnerId was
+    // passed -- same "their own scoped trip, nothing else" policy every
+    // other Trip Leader route already enforces.
+    if (req.user.role === "tripLeader") {
+      where.id = req.user.scopedTripId;
+    } else if (query.partnerId) {
+      where.partnerId = query.partnerId;
+    }
     if (query.type) where.type = query.type;
     if (query.year) {
       where.startDate = {
@@ -415,6 +427,19 @@ router.put(
         .refine(datesInOrder, DATE_ORDER_ISSUE)
         .refine(albumLinkValid, ALBUM_LINK_ISSUE)
         .parse(req.body);
+
+      // #327 Finding 2: a Trip Leader could re-point their own trip's
+      // partnerId at any partner id, since tripSchema's full field set was
+      // written straight through with no per-role filtering. Everything
+      // downstream that trusts "look up my scoped trip's partnerId" to
+      // authorize a partner-scoped read (requirePartnerQueryScope, the
+      // trip's own linked-Partner read) became attacker-controlled once
+      // that field was writable -- SPEC.md § 5.1 already documents "never
+      // anything on the Partner" as the intended policy for this role; the
+      // code just hadn't enforced it.
+      if (req.user.role === "tripLeader" && data.partnerId !== undefined) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
 
       const existing = await prisma.trip.findUnique({ where: { id: req.params.id } });
       if (!existing) return res.status(404).json({ error: "Not found" });

@@ -257,11 +257,17 @@ describe("Trips: public document-requirement upload", () => {
     return { trip: trip.body, participant, requirement };
   }
 
-  function uploadForm(token, buffer, filename, mimeType) {
+  // #327 Finding 4: token moved to the query string (same convention every
+  // other public trip-participant route already uses) so it can be
+  // verified before multer ever buffers the file -- no longer a form
+  // field, so this helper only builds the file part now.
+  function uploadForm(buffer, filename, mimeType) {
     const form = new FormData();
-    form.set("token", token);
     form.set("file", new Blob([buffer], { type: mimeType }), filename);
     return form;
+  }
+  function uploadUrl(requirementId, token) {
+    return `/api/public/trips/participants/upload/${requirementId}?token=${encodeURIComponent(token)}`;
   }
 
   test("a valid token uploads the file, and it fulfills the requirement", async () => {
@@ -269,9 +275,9 @@ describe("Trips: public document-requirement upload", () => {
     const token = buildTripParticipantAccessToken(participant);
     const pdf = Buffer.from("%PDF-1.4 test passport scan");
 
-    const res = await anon(`/api/public/trips/participants/upload/${requirement.id}`, {
+    const res = await anon(uploadUrl(requirement.id, token), {
       method: "POST",
-      body: uploadForm(token, pdf, "passport.pdf", "application/pdf"),
+      body: uploadForm(pdf, "passport.pdf", "application/pdf"),
     });
     assert.equal(res.status, 201);
 
@@ -289,9 +295,9 @@ describe("Trips: public document-requirement upload", () => {
 
   test("a missing/invalid token is rejected and nothing is stored", async () => {
     const { requirement } = await createTripWithParticipantAndRequirement();
-    const res = await anon(`/api/public/trips/participants/upload/${requirement.id}`, {
+    const res = await anon(uploadUrl(requirement.id, "not-a-real-token"), {
       method: "POST",
-      body: uploadForm("not-a-real-token", Buffer.from("%PDF-1.4"), "x.pdf", "application/pdf"),
+      body: uploadForm(Buffer.from("%PDF-1.4"), "x.pdf", "application/pdf"),
     });
     assert.equal(res.status, 401);
     const count = await prisma.tripDocument.count({ where: { requirementId: requirement.id } });
@@ -301,9 +307,9 @@ describe("Trips: public document-requirement upload", () => {
   test("a requirement that isn't kind 'document' is refused", async () => {
     const { participant, requirement } = await createTripWithParticipantAndRequirement("task");
     const token = buildTripParticipantAccessToken(participant);
-    const res = await anon(`/api/public/trips/participants/upload/${requirement.id}`, {
+    const res = await anon(uploadUrl(requirement.id, token), {
       method: "POST",
-      body: uploadForm(token, Buffer.from("%PDF-1.4"), "x.pdf", "application/pdf"),
+      body: uploadForm(Buffer.from("%PDF-1.4"), "x.pdf", "application/pdf"),
     });
     assert.equal(res.status, 400);
   });
@@ -311,9 +317,9 @@ describe("Trips: public document-requirement upload", () => {
   test("a disallowed file type is rejected by the shared filter", async () => {
     const { participant, requirement } = await createTripWithParticipantAndRequirement();
     const token = buildTripParticipantAccessToken(participant);
-    const res = await anon(`/api/public/trips/participants/upload/${requirement.id}`, {
+    const res = await anon(uploadUrl(requirement.id, token), {
       method: "POST",
-      body: uploadForm(token, Buffer.from("just text"), "notes.txt", "text/plain"),
+      body: uploadForm(Buffer.from("just text"), "notes.txt", "text/plain"),
     });
     assert.equal(res.status, 400);
     assert.match(res.body.error, /JPG, PNG, WEBP, or PDF/);
@@ -329,19 +335,37 @@ describe("Trips: public document-requirement upload", () => {
     assert.equal(res.status, 400);
   });
 
+  // #327 Finding 8: this route used to store req.file.mimetype unverified
+  // -- a file declared application/pdf but containing arbitrary bytes
+  // (not multer's own extension-based filter, which only checks the
+  // declared Content-Type and would let this straight through) was
+  // accepted and later served inline as PDF.
+  test("a file declaring a real type but containing arbitrary bytes is rejected (#327 Finding 8)", async () => {
+    const { participant, requirement } = await createTripWithParticipantAndRequirement();
+    const token = buildTripParticipantAccessToken(participant);
+    const res = await anon(uploadUrl(requirement.id, token), {
+      method: "POST",
+      body: uploadForm(Buffer.from("not actually a pdf"), "fake.pdf", "application/pdf"),
+    });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /doesn't match its declared type/);
+    const count = await prisma.tripDocument.count({ where: { requirementId: requirement.id } });
+    assert.equal(count, 0);
+  });
+
   test("re-uploading via the same link replaces the prior file rather than duplicating it", async () => {
     const { participant, requirement } = await createTripWithParticipantAndRequirement();
     const token = buildTripParticipantAccessToken(participant);
 
-    const first = await anon(`/api/public/trips/participants/upload/${requirement.id}`, {
+    const first = await anon(uploadUrl(requirement.id, token), {
       method: "POST",
-      body: uploadForm(token, Buffer.from("%PDF-1.4 first"), "a.pdf", "application/pdf"),
+      body: uploadForm(Buffer.from("%PDF-1.4 first"), "a.pdf", "application/pdf"),
     });
     assert.equal(first.status, 201);
 
-    const second = await anon(`/api/public/trips/participants/upload/${requirement.id}`, {
+    const second = await anon(uploadUrl(requirement.id, token), {
       method: "POST",
-      body: uploadForm(token, Buffer.from("%PDF-1.4 second"), "b.pdf", "application/pdf"),
+      body: uploadForm(Buffer.from("%PDF-1.4 second"), "b.pdf", "application/pdf"),
     });
     assert.equal(second.status, 201);
 
@@ -373,9 +397,9 @@ describe("Trips: public document-requirement upload", () => {
     const { requirement } = await createTripWithParticipantAndRequirement();
     const { participant: otherParticipant } = await createTripWithParticipantAndRequirement();
     const token = buildTripParticipantAccessToken(otherParticipant);
-    const res = await anon(`/api/public/trips/participants/upload/${requirement.id}`, {
+    const res = await anon(uploadUrl(requirement.id, token), {
       method: "POST",
-      body: uploadForm(token, Buffer.from("%PDF-1.4"), "x.pdf", "application/pdf"),
+      body: uploadForm(Buffer.from("%PDF-1.4"), "x.pdf", "application/pdf"),
     });
     assert.equal(res.status, 404);
   });
@@ -629,12 +653,11 @@ describe("Trips: minors-only requirements (#278)", () => {
     const token = buildTripParticipantAccessToken(adult);
 
     const form = new FormData();
-    form.set("token", token);
     form.set("file", new Blob([Buffer.from("%PDF-1.4")], { type: "application/pdf" }), "x.pdf");
-    const res = await anon(`/api/public/trips/participants/upload/${requirement.id}`, {
-      method: "POST",
-      body: form,
-    });
+    const res = await anon(
+      `/api/public/trips/participants/upload/${requirement.id}?token=${encodeURIComponent(token)}`,
+      { method: "POST", body: form }
+    );
     assert.equal(res.status, 404);
   });
 
@@ -644,12 +667,11 @@ describe("Trips: minors-only requirements (#278)", () => {
     const token = buildTripParticipantAccessToken(minor);
 
     const form = new FormData();
-    form.set("token", token);
     form.set("file", new Blob([Buffer.from("%PDF-1.4")], { type: "application/pdf" }), "x.pdf");
-    const res = await anon(`/api/public/trips/participants/upload/${requirement.id}`, {
-      method: "POST",
-      body: form,
-    });
+    const res = await anon(
+      `/api/public/trips/participants/upload/${requirement.id}?token=${encodeURIComponent(token)}`,
+      { method: "POST", body: form }
+    );
     assert.equal(res.status, 201);
   });
 

@@ -160,7 +160,7 @@ async function sendDigestTier(tier, settings) {
 
   const partners = await prisma.partner.findMany({
     where: { id: { in: [...new Set(rows.map((row) => row.partnerId))] } },
-    select: { id: true, displayName: true, isRestricted: true, isPublic: true },
+    select: { id: true, displayName: true, fieldDisplayName: true, isRestricted: true, isPublic: true },
   });
   const partnerById = new Map(partners.map((p) => [p.id, p]));
 

@@ -5,6 +5,7 @@ const prisma = require("../prismaClient");
 const { requireRole } = require("../middleware/requireAuth");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
 const { isFeatureEnabled } = require("../utils/features");
+const { passwordSchema } = require("../utils/password");
 
 // Narrow-select, same discipline every other route's own getSettings()
 // follows -- this route only ever needs to know if outbound email is on.
@@ -60,7 +61,7 @@ const createUserSchema = z.object({
   // welcome email's one-time link lets the person choose their own (see
   // utils/passwordSetup.js). An admin-typed password is only used when
   // sendWelcomeEmail is false.
-  password: z.string().min(8).optional(),
+  password: passwordSchema.optional(),
   // Default on: email the new person a secure link to set their own
   // password. Off = no email is sent; the account stays pending (it can't
   // sign in) until a password is set or a link is sent from the user list.
@@ -76,7 +77,7 @@ const updateUserSchema = z.object({
   scopedTripId: z.string().optional().nullable(),
   expiresAt: z.coerce.date().optional().nullable(),
   active: z.boolean().optional(),
-  password: z.string().min(8).optional(), // admin resetting someone's password
+  password: passwordSchema.optional(), // admin resetting someone's password
   mfaSetupRequired: z.boolean().optional(), // forces MFA enrollment at next login
 });
 
@@ -275,6 +276,14 @@ router.put("/:id", async (req, res, next) => {
       // An admin-set password supersedes any outstanding setup link.
       await prisma.passwordSetupToken.deleteMany({ where: { userId: req.params.id } });
     }
+    // #327 Finding 7: an admin-set password reset or a role change should
+    // end every session this account already has open -- this is an admin
+    // acting on *another* account here, not re-issuing a cookie for
+    // themselves, so there's no "keep this tab working" concern the way
+    // auth.js's self-service routes have.
+    if (password || (data.role !== undefined && data.role !== existing.role)) {
+      updateData.sessionVersion = { increment: 1 };
+    }
 
     const updated = await prisma.user.update({ where: { id: req.params.id }, data: updateData });
     res.json(sanitize(updated));
@@ -305,9 +314,12 @@ router.post("/:id/mfa/reset", async (req, res, next) => {
     if (req.params.id === req.user.id) {
       return res.status(400).json({ error: "Use Account Settings to disable your own MFA" });
     }
+    // #327 Finding 7: same reasoning as the password-reset bump above --
+    // this account's existing sessions shouldn't survive an admin forcing
+    // MFA off.
     const updated = await prisma.user.update({
       where: { id: req.params.id },
-      data: { mfaEnabled: false, mfaSecret: null },
+      data: { mfaEnabled: false, mfaSecret: null, sessionVersion: { increment: 1 } },
     });
     res.json(sanitize(updated));
   } catch (err) {

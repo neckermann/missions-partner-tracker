@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
 const { renderSubscriberPage } = require("../utils/subscriberPage");
-const { sendConfirmEmail } = require("../utils/publicSubscribeEmails");
+const { sendConfirmEmail, sendConfirmChangeEmail } = require("../utils/publicSubscribeEmails");
 
 const router = express.Router();
 
@@ -127,6 +127,27 @@ router.post("/", subscribeLimiter, requireSubscribeDependencies, async (req, res
     }
 
     const existing = await prisma.publicSubscriber.findUnique({ where: { email } });
+
+    // #327 Finding 11: an already-confirmed subscriber's preferences used
+    // to be applied immediately, with nothing proving the caller actually
+    // owns that email address -- anyone who knew (or guessed) a real
+    // subscriber's address could silently re-scope or re-cadence their
+    // subscription. For that case specifically, nothing is written here
+    // at all -- the proposed change travels inside a confirm-change link
+    // instead (see buildSubscriberConfirmChangeToken), applied only if
+    // that link is clicked. A brand-new or still-unconfirmed subscriber
+    // is unaffected: nothing about their row is "live" yet either way, so
+    // applying their latest requested draft immediately remains harmless,
+    // same as before.
+    if (existing?.confirmedAt) {
+      await sendConfirmChangeEmail(existing, {
+        cadence: parsed.data.cadence,
+        allPartners: parsed.data.allPartners,
+        partnerIds,
+      }).catch((err) => console.error("Confirm-change email failed:", err));
+      return res.json({ message: "Check your email to confirm your subscription." });
+    }
+
     const subscriber = await applySubscription(
       existing,
       email,
@@ -138,9 +159,7 @@ router.post("/", subscribeLimiter, requireSubscribeDependencies, async (req, res
       await defaultCadenceTier()
     );
 
-    if (!existing?.confirmedAt) {
-      await sendConfirmEmail(subscriber).catch((err) => console.error("Confirm email failed:", err));
-    }
+    await sendConfirmEmail(subscriber).catch((err) => console.error("Confirm email failed:", err));
 
     res.json({ message: "Check your email to confirm your subscription." });
   } catch (err) {
@@ -158,9 +177,28 @@ router.get("/confirm", async (req, res) => {
   } catch {
     return res.status(400).send(await renderSubscriberPage("This confirmation link isn't valid."));
   }
-  if (!decoded?.subscriberConfirm || !decoded.id) {
+  if (!decoded?.id || (!decoded.subscriberConfirm && !decoded.subscriberConfirmChange)) {
     return res.status(400).send(await renderSubscriberPage("This confirmation link isn't valid."));
   }
+
+  // #327 Finding 11: a confirm-change link carries the actual proposed
+  // values and is where they're applied -- see POST / above, which never
+  // writes them anywhere else. Degrades gracefully (0 rows affected,
+  // still 200s) if the subscriber was deleted/unsubscribed since this
+  // link was sent.
+  if (decoded.subscriberConfirmChange) {
+    const existing = await prisma.publicSubscriber.findUnique({ where: { id: decoded.id } });
+    if (existing) {
+      await applySubscription(
+        existing,
+        existing.email,
+        { cadence: decoded.cadence, allPartners: decoded.allPartners, partnerIds: decoded.partnerIds || [] },
+        await defaultCadenceTier()
+      );
+    }
+    return res.send(await renderSubscriberPage("Your subscription has been updated."));
+  }
+
   await prisma.publicSubscriber.updateMany({
     where: { id: decoded.id, confirmedAt: null },
     data: { confirmedAt: new Date() },

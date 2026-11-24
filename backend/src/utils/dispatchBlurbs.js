@@ -14,11 +14,12 @@
 // auth boundary (a GroupMe group or WhatsApp group can include
 // non-admins; a dispatch email can get forwarded) -- the same exposure
 // maskData.js's toPublicPartner() guards against for the public website,
-// so a restricted partner gets an initialed name and a generic "details
-// withheld" line here too, and no link to the actual file. isRestricted
-// is read fresh from the partner at build time, not the payload's frozen
-// snapshot -- the flag can change after a dispatch was already recorded.
-const { toInitials } = require("./maskData");
+// so a restricted partner gets a masked name (maskedDisplayName() -- #327
+// Finding 10) and a generic "details withheld" line here too, and no link
+// to the actual file. isRestricted is read fresh from the partner at
+// build time, not the payload's frozen snapshot -- the flag can change
+// after a dispatch was already recorded.
+const { maskedDisplayName } = require("./maskData");
 
 const RESTRICTED_NOTICE =
   "Specific details are withheld for security -- please pray for this partner's safety and ministry.";
@@ -93,11 +94,14 @@ function supportNeedOutcomeLabel(payload) {
 // Whether an un-reviewed restricted row is allowed to *send* yet is a
 // separate question this function has no opinion on -- see
 // dispatchEligibility.js's needsReview().
-function buildBlurb(row, partner) {
+function buildBlurb(row, partner, settings) {
   const { type, payload } = row;
   const restricted = !!partner?.isRestricted;
   const partnerName = restricted
-    ? toInitials(partner.displayName || payload.partnerName || "A partner")
+    ? maskedDisplayName(
+        { ...partner, displayName: partner.displayName || payload.partnerName || "A partner" },
+        settings
+      )
     : payload.partnerName || "A partner";
   // Masked out for a restricted partner regardless of type -- never a
   // working link to the actual file, even though the download routes

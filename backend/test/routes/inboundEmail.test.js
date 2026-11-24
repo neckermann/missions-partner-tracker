@@ -23,13 +23,20 @@ function basicAuthHeader(user, pass) {
   return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
 }
 
+// #327 Finding 5: defaults to a passing SPF header, same shape Postmark's
+// own sample payload uses -- representing the realistic, legitimately-
+// configured case every test not specifically about Finding 5 itself
+// should exercise. Pass `headers: []` (or omit the override and remove
+// via spread) to simulate an unverified sender instead.
 function postmarkPayload(overrides = {}) {
+  const { headers, ...rest } = overrides;
   return {
     FromFull: { Email: overrides.from || `sender@${FROM_DOMAIN}` },
     Subject: "Update from the field",
     RawEmail: "From: sender@example.org\r\nSubject: Update from the field\r\n\r\nHello!",
     MessageID: `msg-${Math.random().toString(36).slice(2, 10)}`,
-    ...overrides,
+    Headers: headers !== undefined ? headers : [{ Name: "Received-SPF", Value: "pass" }],
+    ...rest,
   };
 }
 
@@ -111,6 +118,21 @@ describe("POST /api/inbound-email/postmark -- webhook auth", () => {
       body: postmarkPayload(),
     });
     assert.equal(res.status, 401);
+  });
+
+  // #327 Finding 4: a bad-credentials request used to write a row anyway --
+  // 60 allowed attempts per 15 minutes from a single guesser, no
+  // credential required to trigger a write.
+  test("wrong credentials write no InboundEmailFailure row", async () => {
+    const before = await prisma.inboundEmailFailure.count();
+    const res = await unauthenticated("/api/inbound-email/postmark", {
+      method: "POST",
+      headers: { Authorization: basicAuthHeader(WEBHOOK_USER, "not-the-password") },
+      body: postmarkPayload(),
+    });
+    assert.equal(res.status, 401);
+    const after = await prisma.inboundEmailFailure.count();
+    assert.equal(after, before);
   });
 
   test("right credentials but the feature is off: 404, not 401 -- confirms auth is checked before the feature gate", async () => {
@@ -229,6 +251,93 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
 
     const queued = await prisma.inboundEmail.findMany({ where: { fromAddress: `shared@${FROM_DOMAIN}` } });
     assert.equal(queued.length, 1);
+  });
+
+  // #327 Finding 5: From is trivially forgeable -- a single matching
+  // partner address is no longer enough on its own to auto-file (and
+  // broadcast) a message. SPF/DKIM has to confirm the sender too.
+  test("a single match with no SPF/DKIM signal at all queues for review instead of auto-filing", async () => {
+    const partner = await createPartner({ contactEmail: `unverified@${FROM_DOMAIN}` });
+
+    const res = await unauthenticated("/api/inbound-email/postmark", {
+      method: "POST",
+      headers: { Authorization: basicAuthHeader(WEBHOOK_USER, WEBHOOK_PASS) },
+      body: postmarkPayload({ from: `unverified@${FROM_DOMAIN}`, headers: [] }),
+    });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { matched: false });
+
+    const newsletters = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
+    assert.equal(
+      newsletters.length,
+      0,
+      "must not auto-file an unverified sender, even with exactly one match"
+    );
+
+    const queued = await prisma.inboundEmail.findMany({
+      where: { fromAddress: `unverified@${FROM_DOMAIN}` },
+    });
+    assert.equal(queued.length, 1);
+    assert.match(queued[0].queueReason, /sender address.*SPF\/DKIM/i);
+  });
+
+  test("a single match with a failing Received-SPF also queues for review", async () => {
+    const partner = await createPartner({ contactEmail: `spffail@${FROM_DOMAIN}` });
+
+    const res = await unauthenticated("/api/inbound-email/postmark", {
+      method: "POST",
+      headers: { Authorization: basicAuthHeader(WEBHOOK_USER, WEBHOOK_PASS) },
+      body: postmarkPayload({
+        from: `spffail@${FROM_DOMAIN}`,
+        headers: [{ Name: "Received-SPF", Value: "fail" }],
+      }),
+    });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { matched: false });
+
+    const newsletters = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
+    assert.equal(newsletters.length, 0);
+  });
+
+  test("a single match whose only signal is DKIM_VALID in X-Spam-Tests is still auto-filed", async () => {
+    const partner = await createPartner({ contactEmail: `dkimonly@${FROM_DOMAIN}` });
+
+    const res = await unauthenticated("/api/inbound-email/postmark", {
+      method: "POST",
+      headers: { Authorization: basicAuthHeader(WEBHOOK_USER, WEBHOOK_PASS) },
+      body: postmarkPayload({
+        from: `dkimonly@${FROM_DOMAIN}`,
+        headers: [{ Name: "X-Spam-Tests", Value: "DKIM_SIGNED,DKIM_VALID,DKIM_VALID_AU" }],
+      }),
+    });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { matched: true });
+
+    const newsletters = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
+    assert.equal(newsletters.length, 1);
+  });
+
+  test("the longer prose form of a passing Received-SPF is also recognized", async () => {
+    const partner = await createPartner({ contactEmail: `prosespf@${FROM_DOMAIN}` });
+
+    const res = await unauthenticated("/api/inbound-email/postmark", {
+      method: "POST",
+      headers: { Authorization: basicAuthHeader(WEBHOOK_USER, WEBHOOK_PASS) },
+      body: postmarkPayload({
+        from: `prosespf@${FROM_DOMAIN}`,
+        headers: [
+          {
+            Name: "Received-SPF",
+            Value: "Pass (sender SPF authorized) identity=mailfrom; client-ip=1.2.3.4",
+          },
+        ],
+      }),
+    });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { matched: true });
+
+    const newsletters = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
+    assert.equal(newsletters.length, 1);
   });
 });
 

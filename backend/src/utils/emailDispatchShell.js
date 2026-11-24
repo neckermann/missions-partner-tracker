@@ -54,7 +54,13 @@ function partnerTileDetails(p) {
   if (!p) return null;
   const restricted = !!p.isRestricted;
   const base = appBaseUrl();
-  const category = p.kind === "organization" ? "organization" : missionaryHouseholdCategory(p);
+  // #327 Finding 10 -- a restricted missionary always gets the plain
+  // single-person shape (never the real household shape, itself
+  // identifying info). The real household category is still used for a
+  // non-restricted missionary with no photo uploaded yet -- that's just
+  // placeholder variety, not a security boundary, so it's unaffected.
+  const category =
+    p.kind === "organization" ? "organization" : restricted ? "single" : missionaryHouseholdCategory(p);
   const realPhotoSrc =
     !restricted && base && p.photos?.[0] ? `${base}${withPhotoUrl(p.photos[0]).url}` : null;
   // Never the real photo for a restricted partner -- a generic
@@ -66,7 +72,11 @@ function partnerTileDetails(p) {
   const silhouetteSrc = base ? `${base}/api/silhouette/${category}.svg` : silhouetteFor(category);
   return {
     fieldDisplayName: p.fieldDisplayName || null,
-    supportingSinceYear: p.supportingSince ? new Date(p.supportingSince).getFullYear() : null,
+    // #327 Finding 10 -- dropped for a restricted partner (same
+    // reasoning as maskData.js's toPublicPartner): combined with
+    // country and a masked name, "supported since 2014" narrows a small
+    // country's expat community further than it needs to.
+    supportingSinceYear: restricted || !p.supportingSince ? null : new Date(p.supportingSince).getFullYear(),
     overviewShort: restricted ? "Restricted-access location." : p.overviewShort || null,
     photoSrc: realPhotoSrc || silhouetteSrc,
   };
@@ -107,10 +117,32 @@ function buildSubscriberUnsubscribeToken(subscriberId) {
   return jwt.sign({ id: subscriberId, subscriberUnsubscribe: true }, process.env.SESSION_SECRET);
 }
 
+// #327 Finding 11 -- POST /api/public/subscribe used to apply a change to
+// an already-confirmed subscriber's preferences immediately, with no
+// proof the requester actually owns that email address: anyone who knew
+// (or guessed) a subscriber's address could silently re-scope or
+// re-cadence their subscription. The proposed change travels inside this
+// token itself (not written to the row at all until confirmed) so no
+// schema change is needed -- same shape discriminator pattern as every
+// other token here, plus the actual proposed values as extra claims.
+function buildSubscriberConfirmChangeToken(subscriberId, { cadence, allPartners, partnerIds }) {
+  return jwt.sign(
+    { id: subscriberId, subscriberConfirmChange: true, cadence, allPartners, partnerIds },
+    process.env.SESSION_SECRET
+  );
+}
+
 function buildSubscriberConfirmUrl(subscriberId) {
   const base = appBaseUrl();
   if (!base) return null;
   return `${base}/api/public/subscribe/confirm?token=${encodeURIComponent(buildSubscriberConfirmToken(subscriberId))}`;
+}
+
+function buildSubscriberConfirmChangeUrl(subscriberId, proposed) {
+  const base = appBaseUrl();
+  if (!base) return null;
+  const token = buildSubscriberConfirmChangeToken(subscriberId, proposed);
+  return `${base}/api/public/subscribe/confirm?token=${encodeURIComponent(token)}`;
 }
 
 function buildSubscriberUnsubscribeUrl(subscriberId) {
@@ -230,7 +262,7 @@ function buildEmailDispatchMessage(recipient, content, settings, unsubscribeUrl)
 
   const html = `
     <div style="background-color:#f4f4f5;padding:32px 16px;">
-      <div style="font-family:${fontFamily};max-width:600px;margin:0 auto;color:#222;">
+      <div style="font-family:${escapeHtml(fontFamily)};max-width:600px;margin:0 auto;color:#222;">
         <div style="background-color:${headerColor};padding:32px 24px;border-radius:14px;text-align:center;">
           ${logoHtml}
           <h2 style="margin:0;color:#ffffff;font-size:22px;letter-spacing:0.2px;">${escapeHtml(churchName)}</h2>
@@ -261,6 +293,18 @@ function buildEmailDispatchMessage(recipient, content, settings, unsubscribeUrl)
     ),
     HtmlBody: html,
     TextBody: renderText(content.textLines, unsubscribeUrl, recipient.name, signature, contactLines),
+    // #327 Finding 6: RFC 8058 one-click unsubscribe -- a mail client
+    // (Gmail/Yahoo enforce this) can show its own native "Unsubscribe"
+    // button that POSTs straight to unsubscribeUrl with no page ever
+    // shown, instead of the recipient having to click through to the
+    // confirm-button page routes/auth.js and routes/publicUnsubscribe.js
+    // now render. Both headers are required together -- some clients
+    // won't trust List-Unsubscribe alone without the matching -Post
+    // header confirming the endpoint accepts the one-click POST form.
+    Headers: [
+      { Name: "List-Unsubscribe", Value: `<${unsubscribeUrl}>` },
+      { Name: "List-Unsubscribe-Post", Value: "List-Unsubscribe=One-Click" },
+    ],
   };
 }
 
@@ -304,7 +348,7 @@ function buildTransactionalMessage({
 
   const html = `
     <div style="background-color:#f4f4f5;padding:32px 16px;">
-      <div style="font-family:${fontFamily};max-width:600px;margin:0 auto;color:#222;">
+      <div style="font-family:${escapeHtml(fontFamily)};max-width:600px;margin:0 auto;color:#222;">
         <div style="background-color:${headerColor};padding:32px 24px;border-radius:14px;text-align:center;">
           ${logoHtml}
           <h2 style="margin:0;color:#ffffff;font-size:22px;letter-spacing:0.2px;">${escapeHtml(churchName)}</h2>
@@ -347,8 +391,10 @@ module.exports = {
   buildUnsubscribeToken,
   buildUnsubscribeUrl,
   buildSubscriberConfirmToken,
+  buildSubscriberConfirmChangeToken,
   buildSubscriberUnsubscribeToken,
   buildSubscriberConfirmUrl,
+  buildSubscriberConfirmChangeUrl,
   buildSubscriberUnsubscribeUrl,
   buildEmailDispatchMessage,
 };

@@ -54,7 +54,7 @@ function renderHtml(view, result) {
 async function sendDueReports(now = new Date()) {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { enabledFeatures: true },
+    select: { enabledFeatures: true, restrictedPartnerInitialsEnabled: true },
   });
   if (!isFeatureEnabled(settings?.enabledFeatures, "reports")) return;
   if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) return;
@@ -77,6 +77,7 @@ async function sendDueReports(now = new Date()) {
         prisma,
         today,
         audience: "shared",
+        settings,
       });
       if (schedule.skipIfEmpty && result.rows.length === 0) {
         await prisma.reportSchedule.update({ where: { id: schedule.id }, data: { lastSentAt: now } });
