@@ -17,6 +17,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 ### Fixed
 
 - **A partner's Newsletters & Docs card showed "undefined"** where the file kind belongs (and a custom kind never showed its own text) (#369).
+- **The notification bell's dropdown opened off the screen on a phone** (about 250px past the right edge at 360 to 768px wide). It is now kept fully on screen, never wider than the screen, and closes when the page scrolls or the window resizes instead of floating away from its bell. The first fix from the mobile sweep ([#375](https://github.com/neckermann/missions-partner-tracker/issues/375)).
 - **The Audit log export downloaded as `activity-log-….csv`**, a leftover from before the page was renamed; it is now `audit-log-….csv`. A link in the Admin Guide to the Audit log section was also dead.
 - **A link to a deleted record left the page on "Loading..." forever.** The partner, trip, participant and application pages now say the record wasn't found (or that you don't have access to it) and link back to the list. An old bookmark, or a tab left open across a demo reset, is the usual way to hit this.
 - **A guest's trip page never showed the Financial tab**, even with trip budgeting on, because the page asked for the church-wide trip settings, which are closed to guests. Whether budgeting is on now comes with the trip itself, and the trip pages no longer request the closed settings for a guest (#370).

@@ -319,8 +319,10 @@ a {
   border-radius: var(--radius-sm, 6px);
   box-shadow: var(--shadow);
   padding: 0.5rem;
-  min-width: 320px;
-  max-width: 400px;
+  /* Never wider than the screen: on a phone 320px would not fit beside the 8px edge gap
+     AdminSidebar.jsx keeps (BELL_EDGE). */
+  min-width: min(320px, calc(100vw - 16px));
+  max-width: min(400px, calc(100vw - 16px));
   z-index: 50;
 }
 .admin-sidebar-bell-item {
