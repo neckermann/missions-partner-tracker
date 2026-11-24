@@ -17,6 +17,7 @@ import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import useSendingChurchField from "../hooks/useSendingChurchField.js";
+import { partnersTabState } from "../utils/partnersTabs.js";
 import LastUpdatedCell, { lastUpdatedSortKey } from "../components/shared/LastUpdatedCell.jsx";
 import AssignedPartnersTable from "../components/admin/AssignedPartnersTable.jsx";
 
@@ -99,14 +100,25 @@ export default function AdminPartners() {
   const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const sectionTitle = usePartnerTermInAdmin ? partnerTermPlural : "Partners";
   const { canWrite, isAdmin, isGuest, careTeamSeats } = useCurrentUser();
-  // #288: "Assigned to me" -- only for someone who holds a care team seat,
+  // #288: "My partners" -- only for someone who holds a care team seat,
   // and only while both features are on. The notification's link lands here
   // with ?assigned=1.
   const [searchParams, setSearchParams] = useSearchParams();
   const hasAssignedTab =
     !!enabledFeatures.contactLog && !!enabledFeatures.careTeam && careTeamSeats.length > 0;
-  const showAssigned = hasAssignedTab && searchParams.get("assigned") === "1";
-  const setTab = (assigned) => setSearchParams(assigned ? { assigned: "1" } : {}, { replace: true });
+  // Staff land on All; a care team guest lands on My partners, with All hidden when it
+  // would repeat it (see utils/partnersTabs.js).
+  const { showAssigned, showTabs } = partnersTabState({
+    hasAssignedTab,
+    isGuest,
+    assignedParam: searchParams.get("assigned"),
+    reachableIds: allForOptions.map((p) => p.id),
+    seatIds: careTeamSeats.map((s) => s.id),
+  });
+  const setTab = (assigned) =>
+    setSearchParams(isGuest ? (assigned ? {} : { assigned: "0" }) : assigned ? { assigned: "1" } : {}, {
+      replace: true,
+    });
 
   useEffect(() => {
     fetchPartners().then(setAllForOptions).catch(console.error);
@@ -360,7 +372,7 @@ export default function AdminPartners() {
         )}
       </div>
 
-      {hasAssignedTab && (
+      {showTabs && (
         <div
           role="tablist"
           aria-label="Partner views"
@@ -382,7 +394,7 @@ export default function AdminPartners() {
             className={showAssigned ? "btn small" : "btn secondary small"}
             onClick={() => setTab(true)}
           >
-            Assigned to me
+            My partners
           </button>
         </div>
       )}

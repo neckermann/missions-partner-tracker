@@ -586,7 +586,7 @@ fixed ("Care team", "Lead", "Member", "Guest"), not settings. Any role can
 hold a seat; a guest outside the team is how someone without a full account
 joins one. The Lead is a label today: no extra permission or notification
 (everyone on the team is treated the same); the "You're the lead" marker and
-the "Assigned to me" view come with #288.
+the "My partners" view come with #288.
 
 **One app for everyone.** There is no care-team-only or guest-only app. A
 guest uses the same shell (header with bell and collapse, footer with My
@@ -685,7 +685,7 @@ review (it isn't dispatched anywhere).
 is the one number for "quiet": no logged contact for that long, or never. A
 follow-up date is answered by any later-entered contact dated on or after the
 one that set it; unanswered and past, it is *due*. `utils/contactLogQueries.js`
-`loadAssignedPartners` is the single read model behind the **Assigned to me**
+`loadAssignedPartners` is the single read model behind the **My partners**
 tab (`GET /api/contact-log/assigned`, needs the care team feature too) and the
 `partnersNeedingContact` notification (guest-visible, counts the caller's seats
 that are quiet or due, 0 while either feature is off), so they can't disagree.
@@ -735,7 +735,7 @@ person: one card goes to the family.
 
 **Bell.** The guest-visible `keyDatesComing` category in
 `notifications/categories.js`, computed live for the caller (one partner links
-straight to it, several to Assigned to me).
+straight to it, several to My partners).
 
 **Email.** `utils/keyDateReminderScheduler.js`, registered in `worker.js` (not
 the web process) on a daily 07:00 church-local cron, in the shape of

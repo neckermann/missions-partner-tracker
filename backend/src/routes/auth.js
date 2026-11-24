@@ -732,7 +732,7 @@ async function sanitizeUser(user) {
   let guestTrips = [];
   // The partners this login is on the care team of (#289) -- [{ id, label,
   // isLead }] -- for every role: a full role gets the marker and the
-  // "Assigned to me" view, a guest also reaches the partner through it, and
+  // "My partners" view, a guest also reaches the partner through it, and
   // any non-staff member may submit prayers/needs for it. Empty while the
   // careTeam feature is off, since seats are ignored then.
   let careTeamSeats = [];

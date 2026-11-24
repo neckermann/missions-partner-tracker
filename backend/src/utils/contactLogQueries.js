@@ -1,4 +1,4 @@
-// #288: the "partners I look after" read model, shared by the Assigned to me
+// #288: the "partners I look after" read model, shared by the My partners
 // tab (GET /api/contact-log/assigned) and the partnersNeedingContact
 // notification so the two can never disagree about who is overdue.
 

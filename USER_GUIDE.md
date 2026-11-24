@@ -1095,6 +1095,10 @@ They also can't create or delete partners, or delete records. If you're an admin
 
 ![Pending Dispatches, where an entry from a care team member is held for staff to approve](docs/assets/screenshots/pending-dispatches-care-team.png)
 
+A care team **Guest** lands on **My partners** when they open Partners (there's no All tab when every partner they can see is one they look after), with their partners longest-quiet first. Staff who are on a care team still land on All and switch to the **My partners** tab when they want it.
+
+![A care team guest's Partners page, which opens on My partners](docs/assets/screenshots/care-team-member-partners.png)
+
 A **trip leader** (a Guest given a trip) has a smaller view: their trips, and those trips' partners read-only. They don't get the care-team list pages or one-time needs.
 
 ![A care team member's view of their partner: they can edit what's theirs, and see no monthly support](docs/assets/screenshots/care-team-member-view.png)
@@ -1113,9 +1117,9 @@ With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-togg
 
 ![A partner's Contact Log, newest first](docs/assets/screenshots/contact-log.png)
 - **A prayer request a care team member enters** also logs the contact, so it isn't typed twice.
-- **Assigned to me** (a tab on the Partners page, for anyone on a care team) lists your partners longest-quiet first: days since the last contact, any follow-up that has come due, the next birthday or anniversary, and open prayer requests and needs. A partner counts as **quiet** after 90 days without a logged contact.
+- **My partners** (a tab on the Partners page, for anyone on a care team) lists your partners longest-quiet first: days since the last contact, any follow-up that has come due, the next birthday or anniversary, and open prayer requests and needs. A partner counts as **quiet** after 90 days without a logged contact.
 
-![The Assigned to me tab, listing a care team member's partners longest-quiet first](docs/assets/screenshots/assigned-to-me.png)
+![The My partners tab, listing a care team member's partners longest-quiet first](docs/assets/screenshots/assigned-to-me.png)
 - **Partners to reach out to** on the bell and Home page counts your partners that are quiet or have a follow-up due.
 
 The **Last heard from** report counts a logged contact as hearing from a partner: a partner is only "quiet" when both the latest newsletter and the latest contact are old. Trip leaders don't get the contact log.
@@ -1124,7 +1128,7 @@ The **Last heard from** report counts a logged contact as hearing from a partner
 
 With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **supported-since milestone** (the first year, then every fifth) a week ahead.
 
-- **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **Assigned to me** tab also flags a key date inside the week.
+- **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **My partners** tab also flags a key date inside the week.
 
 ![The bell, with Key dates coming up among a care team member's alerts](docs/assets/screenshots/bell-alerts.png)
 - **By email**, one message a day, only on a day something is due, listing everything coming up for your partners (not one email per partner). It needs Email (Sending) turned on, and it's sent at 7am church time.

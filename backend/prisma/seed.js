@@ -2983,7 +2983,7 @@ async function seedCareTeamsDemo() {
 
 // ---------------------------------------------------------------------
 // Contact log demo (#288): a believable history so the contact card, the log,
-// "Assigned to me" and the "Partners to reach out to" alert all have something
+// "My partners" and the "Partners to reach out to" alert all have something
 // to show. Runs after seedCareTeamsDemo -- it reads the seats that made.
 // Demo extras only, like the other seeders.
 // ---------------------------------------------------------------------

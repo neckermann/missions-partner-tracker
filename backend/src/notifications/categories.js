@@ -58,7 +58,7 @@ async function getSeenAt(userId, category) {
 
 // #288: partners on this login's care team that nobody has been in touch with
 // for CONTACT_STALE_DAYS, or whose follow-up date has come. Counted live from
-// the same read model as the Assigned to me tab, so the two always agree.
+// the same read model as the My partners tab, so the two always agree.
 // Counts nothing while either feature is off. `latest` is when the most
 // recent partner became overdue, so the bell only lights up for NEW ones.
 async function partnersNeedingContact({ userId }) {
