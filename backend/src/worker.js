@@ -27,6 +27,7 @@ require("./config/env").assertValidEnv();
 // ever run.
 const { startEmailDispatchScheduler, startGroupMeScheduler } = require("./utils/emailDispatchScheduler");
 const { startTripReminderScheduler } = require("./utils/tripReminderScheduler");
+const { startKeyDateReminderScheduler } = require("./utils/keyDateReminderScheduler");
 const { startReportScheduler } = require("./utils/reportScheduler");
 const whatsappClient = require("./utils/whatsappClient");
 const { isFeatureEnabled } = require("./utils/features");
@@ -63,6 +64,7 @@ if (require.main === module) {
     startEmailDispatchScheduler();
     startGroupMeScheduler();
     startTripReminderScheduler();
+    startKeyDateReminderScheduler();
     startReportScheduler();
     console.log("Missionary Tracker worker is running.");
 

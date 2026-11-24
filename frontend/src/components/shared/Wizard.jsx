@@ -6,7 +6,10 @@ import React, { useState } from "react";
 // Partner or a Trip is.
 //
 // `steps` is `[{ key, label, render({ values, setValue }), validate?(values)
-// => string|null, optional? }]`, rendered one at a time. `validate`
+// => string|null, optional?, show?(values) => boolean }]`, rendered one at a
+// time. A step whose `show` returns false for the current values is left out
+// entirely (no label, no progress dot, never visited) -- e.g. a step that only
+// applies to one choice made on an earlier step. `validate`
 // returning a non-empty string blocks Next and shows that string as the
 // step's error; returning null/undefined (or omitting `validate`) means
 // the step always passes. `optional: true` adds a Skip control alongside
@@ -19,10 +22,17 @@ import React, { useState } from "react";
 // that call is in flight to disable the last step's button and prevent
 // a double-submit -- this component has no idea whether `onFinish` is
 // sync or async, so it can't infer that state on its own.
-export default function Wizard({ steps, initialValues = {}, onFinish, onCancel, finishing = false }) {
+export default function Wizard({
+  steps: allSteps,
+  initialValues = {},
+  onFinish,
+  onCancel,
+  finishing = false,
+}) {
   const [stepIndex, setStepIndex] = useState(0);
   const [values, setValues] = useState(initialValues);
   const [error, setError] = useState(null);
+  const steps = allSteps.filter((s) => !s.show || s.show(values));
 
   const step = steps[stepIndex];
   const isLast = stepIndex === steps.length - 1;

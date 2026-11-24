@@ -83,6 +83,12 @@ automatically, so this keeps working either way.)
    This only applies migrations that aren't already recorded as run
    against your database, so it's safe to run every time — already-applied
    migrations are skipped automatically.
+
+   **Pre-1.0 exception:** a release can *squash* the history into the one
+   baseline migration (SPEC §8.3). The CHANGELOG says so when it does. A
+   squash can't be applied with `migrate deploy` (it would read the
+   baseline as already run and add nothing); reset the database instead —
+   see the CHANGELOG entry for the steps and what is lost.
 5. Check `backend/.env.example` for any new variables and add them to your
    real `.env` / hosting platform's config.
 6. Build the frontend (`cd frontend && npm run build` — writes into

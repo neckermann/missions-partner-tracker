@@ -2,6 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { readableNeedPartnerIds, isOnCareTeamFor } = require("../utils/guestAccess");
 const { requireFeature } = require("../middleware/requireFeature");
 const { notifySupportNeedCreated, notifySupportNeedDecided } = require("../utils/dispatchRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
@@ -84,10 +85,20 @@ const supportNeedInclude = {
 // Newsletters & Docs) this role is meant to read. An outright role block,
 // not requirePartnerQueryScope (which would have let a matching partnerId
 // through).
-router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
+router.get("/", requireRole("admin", "editor", "viewer", "guest"), async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
+    // Needs are a care team view (#289): a guest reads them only for partners
+    // whose team they're on -- never for a partner they reach only through a
+    // trip grant (the smaller trip leader scope).
+    const reachable = readableNeedPartnerIds(req.user);
+    if (reachable) {
+      if (req.query.partnerId && !reachable.includes(String(req.query.partnerId))) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+      if (!req.query.partnerId) where.partnerId = { in: reachable };
+    }
     if (req.query.status === "pending") where.approvedAmount = null;
     if (req.query.status === "decided") where.approvedAmount = { not: null };
     if (req.query.from || req.query.to) {
@@ -123,17 +134,45 @@ router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next)
   }
 });
 
-// POST /api/support-needs  (create — editor or admin)
-router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
+// A care team member who isn't staff (#289) has what an editor has on their own
+// partner -- every field of the request itself -- except what the committee or
+// board decides: approvedAmount/approvedDate/decisionNote are never theirs to
+// set, and isUrgent/approveNow are dropped (their dispatch is always held for
+// staff review instead). Deleting stays admin-only. Anything else in the body
+// is applied as for an editor.
+const careTeamNeedOmit = {
+  approvedAmount: true,
+  approvedDate: true,
+  decisionNote: true,
+  isUrgent: true,
+  approveNow: true,
+};
+const careTeamNeedCreateSchema = supportNeedSchema.omit(careTeamNeedOmit);
+const careTeamNeedUpdateSchema = supportNeedSchema.omit(careTeamNeedOmit).partial();
+
+const isStaff = (user) => user.role === "admin" || user.role === "editor";
+const FORBIDDEN = { error: "Insufficient permissions" };
+
+// POST /api/support-needs  (create — editor or admin, or a care team member
+// for their own partner, held for staff review)
+router.post("/", requireRole("admin", "editor", "viewer", "guest"), async (req, res, next) => {
   try {
-    const { approveNow, ...data } = supportNeedSchema
-      .refine(approvedPairGiven, APPROVED_PAIR_ISSUE)
-      .parse(req.body);
+    const staff = isStaff(req.user);
+    const { approveNow, ...data } = staff
+      ? supportNeedSchema.refine(approvedPairGiven, APPROVED_PAIR_ISSUE).parse(req.body)
+      : careTeamNeedCreateSchema.parse(req.body);
+    if (!staff && !(await isOnCareTeamFor(req.user, data.partnerId))) {
+      return res.status(403).json(FORBIDDEN);
+    }
     const created = await prisma.supportNeed.create({ data, include: supportNeedInclude });
 
     // Best-effort: notifySupportNeedCreated (utils/dispatchRecording.js)
-    // never throws -- see the same comment in routes/prayerRequests.js.
-    await notifySupportNeedCreated(created, approveNow ? { reviewerId: req.user.id } : null);
+    // never throws -- see the same comment in routes/prayerRequests.js. A
+    // care team member's is always held for staff review and can never be
+    // urgent or pre-approved.
+    await notifySupportNeedCreated(created, approveNow ? { reviewerId: req.user.id } : null, {
+      requireReview: !staff,
+    });
 
     res.status(201).json(created);
   } catch (err) {
@@ -146,9 +185,30 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 // previously-pending request, but allows editing any field — including
 // moving it to a different partner, which is now just a plain column and
 // so needs no special handling.
-router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.put("/:id", requireRole("admin", "editor", "viewer", "guest"), async (req, res, next) => {
   try {
-    const data = supportNeedSchema.partial().refine(approvedPairGiven, APPROVED_PAIR_ISSUE).parse(req.body);
+    const staff = isStaff(req.user);
+    if (!staff) {
+      // A care team member edits their own partner's request (before or after
+      // staff decide it -- the decision fields themselves are never theirs) and
+      // may only move it to another partner whose team they are also on.
+      const existing = await prisma.supportNeed.findUnique({
+        where: { id: req.params.id },
+        select: { partnerId: true },
+      });
+      if (!existing) return res.status(404).json({ error: "Not found" });
+      const partnersInvolved = [existing.partnerId, req.body?.partnerId].filter(
+        (id) => typeof id === "string"
+      );
+      for (const id of partnersInvolved) {
+        if (!(await isOnCareTeamFor(req.user, id))) return res.status(403).json(FORBIDDEN);
+      }
+    }
+    const data = (
+      staff
+        ? supportNeedSchema.partial().refine(approvedPairGiven, APPROVED_PAIR_ISSUE)
+        : careTeamNeedUpdateSchema
+    ).parse(req.body);
 
     // Only notify on a genuine transition into having a decision recorded
     // (see #127) -- approvedPairGiven already guarantees approvedDate is

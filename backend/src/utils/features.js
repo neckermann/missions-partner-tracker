@@ -150,6 +150,39 @@ const FEATURES = {
     group: "admin",
     section: "communications",
   },
+  // #289: a lead plus members per partner, who keep in touch with it.
+  // Terms ("Care team", "Lead", "Member", "Guest") are plain fixed
+  // defaults, not ChurchSettings fields, in v1. Off by default: nothing
+  // changes for a church that doesn't turn it on (one office contact, no
+  // care teams).
+  // #288: a log of every touchpoint with a partner, a contact card on the
+  // partner page, an "Assigned to me" view and a "needs reaching out" alert.
+  // Off by default so nothing changes for a church that doesn't want it.
+  contactLog: {
+    label: "Contact log",
+    description:
+      "Record every call, text, email, visit or card with a partner, show a contact card on each partner page, flag partners nobody has been in touch with lately, and add an Assigned to me view for care team members.",
+    defaultEnabled: false,
+    group: "admin",
+  },
+  // #291: a bell alert and one grouped daily email for the people on a
+  // partner's care team when a birthday, anniversary or supported-since
+  // milestone is coming up. Needs care teams (that is where the recipients
+  // come from); the email also needs email sending.
+  keyDates: {
+    label: "Key-date reminders",
+    description:
+      "Remind each partner's care team about coming birthdays (including children), anniversaries and supported-since milestones: on the bell, and in one grouped email a day that is sent only on days something is due. Needs Care teams; the email also needs Email (Sending).",
+    defaultEnabled: false,
+    group: "admin",
+  },
+  careTeam: {
+    label: "Care teams",
+    description:
+      "Give each partner a care team: one lead plus members from your logins who keep in touch with them. Guests can be given a partner this way. Also adds a coverage report of partners with no care team.",
+    defaultEnabled: false,
+    group: "admin",
+  },
   aiExtraction: {
     label: "AI Features",
     description:

@@ -65,7 +65,7 @@ router.get("/:id/applications", requireTripScope("id"), async (req, res, next) =
 // the trip-dates team invite (§9) once, only for a non-completed trip.
 router.put(
   "/applications/:id",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfApplication),
   async (req, res, next) => {
     try {
@@ -212,7 +212,7 @@ router.put(
 
 router.post(
   "/:id/participants",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope("id"),
   async (req, res, next) => {
     try {
@@ -291,7 +291,7 @@ router.post(
 // hid the button forever once a token existed.
 router.post(
   "/participants/:id/generate-support-raising-link",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfParticipant),
   async (req, res, next) => {
     try {
@@ -319,7 +319,6 @@ const adminParticipantUpdateSchema = z.object({
   email: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   role: z.string().optional().nullable(),
-  isLeader: z.boolean().optional(),
   supportRaisingGoal: z.coerce.number().int().optional().nullable(),
   // Address/emergency contact -- previously write-once (copied from the
   // originating TripApplication on approval, see the approval route
@@ -361,7 +360,7 @@ const adminParticipantUpdateSchema = z.object({
 // token-authenticated).
 router.put(
   "/participants/:id",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfParticipant),
   async (req, res, next) => {
     try {
@@ -392,7 +391,7 @@ router.put(
 // public, self-triggered §4a lost-link flow).
 router.post(
   "/participants/:id/request-access-link",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfParticipant),
   async (req, res, next) => {
     try {

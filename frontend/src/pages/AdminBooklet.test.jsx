@@ -96,6 +96,42 @@ describe("AdminBooklet restricted-access filtering", () => {
   });
 });
 
+// #288: contactSafe was never honored by the booklet -- a partner marked not
+// safe to contact still had their phone and email printed.
+describe("AdminBooklet contact details and contactSafe (#288)", () => {
+  const withAdult = (over) => ({
+    ...OPEN_MISSIONARY,
+    preferredContactMethod: "Phone Call",
+    adults: [
+      { id: "a", firstName: "Dana", lastName: "Reed", phone1: "555-111-2222", email: "dana@example.org" },
+    ],
+    contactInstructions: "Secret staff reason",
+    ...over,
+  });
+
+  it("prints phone, email and preferred method for a partner who is safe to contact", async () => {
+    fetchPartners.mockResolvedValue([withAdult({ contactSafe: true })]);
+    render(<AdminBooklet />);
+    await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
+    expect(getPreviewHtml()).toContain("555-111-2222");
+    expect(getPreviewHtml()).toContain("dana@example.org");
+    expect(getPreviewHtml()).toContain("Phone Call");
+  });
+
+  it("withholds all of it, and the staff instructions, when not safe to contact", async () => {
+    fetchPartners.mockResolvedValue([withAdult({ contactSafe: false })]);
+    render(<AdminBooklet />);
+    await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
+    const html = getPreviewHtml();
+    expect(html).toContain("Dana Reed");
+    expect(html).toContain("Details withheld");
+    expect(html).not.toContain("555-111-2222");
+    expect(html).not.toContain("dana@example.org");
+    expect(html).not.toContain("Phone Call");
+    expect(html).not.toContain("Secret staff reason");
+  });
+});
+
 // #346: the config page was restructured into a two-pane layout
 // (controls left, live preview right, see .booklet-layout in
 // index.css) instead of three stacked cards above a full-width scrolling

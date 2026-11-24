@@ -70,11 +70,18 @@ function renderFamilyBlock(m, fields) {
       rows.push(
         `<p><strong>Anniversary:</strong> ${escapeHtml(formatDateLong(m.anniversary, { fallback: "" }))}</p>`
       );
-    if (m.preferredContactMethod) {
+    // #288: a partner marked NOT safe to contact must not have their phone,
+    // email or preferred method printed in a booklet that's handed out. Names
+    // still print; the details don't, and the staff-only special
+    // instructions (which may say why) are never printed either.
+    const withhold = m.contactSafe === false;
+    if (withhold) {
+      rows.push("<p><strong>Contact:</strong> Details withheld.</p>");
+    } else if (m.preferredContactMethod) {
       rows.push(`<p><strong>Preferred Contact:</strong> ${escapeHtml(m.preferredContactMethod)}</p>`);
     }
     (m.adults || []).forEach((a) => {
-      const parts = [a.phone1, a.email].filter(Boolean).map(escapeHtml);
+      const parts = withhold ? [] : [a.phone1, a.email].filter(Boolean).map(escapeHtml);
       const name = [a.firstName, a.lastName].filter(Boolean).join(" ");
       rows.push(`<p>${escapeHtml(name)}${parts.length ? ` — ${parts.join(" · ")}` : ""}</p>`);
     });

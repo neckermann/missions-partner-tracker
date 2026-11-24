@@ -22,13 +22,13 @@ export default function TripDetailLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
-  const { canWrite: globalCanWrite, isAdmin, isTripLeader, scopedTripId } = useCurrentUser();
-  // A Trip Leader's global canWrite is false (role is neither admin nor
-  // editor) -- but on their own scoped trip they have editor-equivalent
+  const { canWrite: globalCanWrite, isAdmin, isGuest, canAccessTrip } = useCurrentUser();
+  // A guest's global canWrite is false (role is neither admin nor
+  // editor) -- but on a trip they hold a grant for they have editor-equivalent
   // write access (the backend's own requireTripScope already enforces
   // this per route; this just makes the UI match it instead of showing
   // every popup here as read-only for them).
-  const canWrite = globalCanWrite || (isTripLeader && id === scopedTripId);
+  const canWrite = globalCanWrite || canAccessTrip(id);
   const [trip, setTrip] = useState(null);
   const [applications, setApplications] = useState([]);
   const [questionLibrary, setQuestionLibrary] = useState([]);
@@ -82,7 +82,7 @@ export default function TripDetailLayout() {
   // unnoticed way this role could silently bounce back to this exact page
   // with no explanation. Their own linked Partner IS something they can
   // open, so that segment stays.
-  const breadcrumbItems = isTripLeader
+  const breadcrumbItems = isGuest
     ? [
         ...(trip.partner?.id
           ? [{ label: trip.partner.displayName || "Partner", to: `/admin/partners/${trip.partner.id}` }]

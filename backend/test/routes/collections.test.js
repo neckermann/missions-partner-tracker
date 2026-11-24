@@ -461,7 +461,7 @@ describe("trips: participants", () => {
       body: {
         partnerId: partner.id,
         type: "Medical/Dental",
-        participants: [{ firstName: "Alice", isLeader: true }, { firstName: "Bob" }],
+        participants: [{ firstName: "Alice" }, { firstName: "Bob" }],
       },
     });
     assert.equal(created.status, 201);

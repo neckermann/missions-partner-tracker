@@ -36,7 +36,15 @@ function isRestrictedPartnerBlocked(partner, settings) {
 // (routes/dispatches.js) and the clearing check
 // (dispatchOrchestrator.js) ask the exact same question.
 function needsReview(row, partner) {
-  return !!partner?.isRestricted && REVIEW_GATED_TYPES.has(row.type) && !row.dispatchReviewedAt;
+  // Held when it's a restricted partner's real content (#187 -- only the
+  // REVIEW_GATED_TYPES; a restricted partner's newsletter is exempt, see that
+  // constant) OR the record itself says staff must look at it first (#289:
+  // made from a care team member's prayer request, need or uploaded
+  // newsletter -- any type, since nothing a non-staff login enters may go out
+  // unreviewed). Either way the one release is dispatchReviewedAt, set by
+  // Pending Dispatches' review.
+  const held = (!!partner?.isRestricted && REVIEW_GATED_TYPES.has(row.type)) || !!row.reviewRequired;
+  return held && !row.dispatchReviewedAt;
 }
 
 // Called once per (recorded event, channel) pair, every time a channel

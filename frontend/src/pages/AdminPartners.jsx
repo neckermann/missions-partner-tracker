@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { fetchPartners, archivePartner, unarchivePartner, deletePartner } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getContinent } from "../utils/countryContinents.js";
@@ -16,6 +16,7 @@ import useFilterState from "../hooks/useFilterState.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import AssignedPartnersTable from "../components/admin/AssignedPartnersTable.jsx";
 
 // Same field as backend/src/utils/maskData.js's public `country` -- the
 // physical address's country, nothing else. fipsCountryCode is for Joshua
@@ -89,9 +90,17 @@ export default function AdminPartners() {
   // for that without the options shrinking/disappearing as a filter narrows.
   const [allForOptions, setAllForOptions] = useState([]);
   const navigate = useNavigate();
-  const { partnerTermPlural, usePartnerTermInAdmin } = useSettings();
+  const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const sectionTitle = usePartnerTermInAdmin ? partnerTermPlural : "Partners";
-  const { canWrite, isAdmin } = useCurrentUser();
+  const { canWrite, isAdmin, careTeamSeats } = useCurrentUser();
+  // #288: "Assigned to me" -- only for someone who holds a care team seat,
+  // and only while both features are on. The notification's link lands here
+  // with ?assigned=1.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const hasAssignedTab =
+    !!enabledFeatures.contactLog && !!enabledFeatures.careTeam && careTeamSeats.length > 0;
+  const showAssigned = hasAssignedTab && searchParams.get("assigned") === "1";
+  const setTab = (assigned) => setSearchParams(assigned ? { assigned: "1" } : {}, { replace: true });
 
   useEffect(() => {
     fetchPartners().then(setAllForOptions).catch(console.error);
@@ -339,134 +348,167 @@ export default function AdminPartners() {
         )}
       </div>
 
-      <FilterBar
-        fields={fieldsWithCountryOptions}
-        values={filters}
-        onChange={updateFilter}
-        onReset={resetFilters}
-      />
+      {hasAssignedTab && (
+        <div
+          role="tablist"
+          aria-label="Partner views"
+          style={{ display: "flex", gap: "0.4rem", marginTop: "0.75rem" }}
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!showAssigned}
+            className={showAssigned ? "btn secondary small" : "btn small"}
+            onClick={() => setTab(false)}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={showAssigned}
+            className={showAssigned ? "btn small" : "btn secondary small"}
+            onClick={() => setTab(true)}
+          >
+            Assigned to me
+          </button>
+        </div>
+      )}
 
-      <Table
-        className="admin-table"
-        style={{ marginTop: "0.75rem" }}
-        rows={partnersLoadMore.visible}
-        rowKey={(row) => `${row.type}-${row.id}`}
-        onRowClick={(row) => navigate(row.detailLink)}
-        emptyMessage={loading ? "Loading…" : "No partners match these filters."}
-        columns={[
-          {
-            key: "photo",
-            label: "Photo",
-            render: (row) =>
-              row.photo ? (
-                <img
-                  src={row.photo}
-                  alt={row.name}
-                  className="missionary-thumb"
-                  onError={(e) => (e.target.style.display = "none")}
-                />
-              ) : (
-                ""
-              ),
-          },
-          {
-            key: "name",
-            label: "Display Name",
-            render: (row) => (
+      {showAssigned ? (
+        <AssignedPartnersTable />
+      ) : (
+        <>
+          <FilterBar
+            fields={fieldsWithCountryOptions}
+            values={filters}
+            onChange={updateFilter}
+            onReset={resetFilters}
+          />
+
+          <Table
+            className="admin-table"
+            style={{ marginTop: "0.75rem" }}
+            rows={partnersLoadMore.visible}
+            rowKey={(row) => `${row.type}-${row.id}`}
+            onRowClick={(row) => navigate(row.detailLink)}
+            emptyMessage={loading ? "Loading…" : "No partners match these filters."}
+            columns={[
+              {
+                key: "photo",
+                label: "Photo",
+                render: (row) =>
+                  row.photo ? (
+                    <img
+                      src={row.photo}
+                      alt={row.name}
+                      className="missionary-thumb"
+                      onError={(e) => (e.target.style.display = "none")}
+                    />
+                  ) : (
+                    ""
+                  ),
+              },
+              {
+                key: "name",
+                label: "Display Name",
+                render: (row) => (
+                  <>
+                    <span style={{ fontWeight: 600 }}>{row.name}</span>
+                    {row.archived && (
+                      <span style={{ marginLeft: "0.5rem" }}>
+                        <StatusPill label="Archived" color="#a6540f" />
+                      </span>
+                    )}
+                  </>
+                ),
+              },
+              { key: "typeLabel", label: "Type" },
+              { key: "field", label: "Field" },
+              {
+                key: "isPublic",
+                label: "Public",
+                sortable: true,
+                render: (row) =>
+                  row.isPublic ? (
+                    <StatusPill label="Yes" color="#2a5d3c" />
+                  ) : (
+                    <StatusPill label="No" color="#6b6f76" />
+                  ),
+              },
+              {
+                key: "isRestricted",
+                label: "Restricted",
+                sortable: true,
+                render: (row) =>
+                  row.isRestricted ? (
+                    <StatusPill label="Yes" color="#a6540f" />
+                  ) : (
+                    <StatusPill label="No" color="#6b6f76" />
+                  ),
+              },
+              {
+                key: "sentByOurChurch",
+                label: "Sent By Us",
+                sortable: true,
+                // Same bland, muted pill for Yes and No -- unlike Public/
+                // Restricted, this isn't a safety or exposure question, just
+                // bookkeeping, so neither state earns the attention a brighter
+                // color would draw. Still a pill, not plain text, for visual
+                // consistency with the rest of the row.
+                render: (row) =>
+                  row.type !== "missionary" ? (
+                    "—"
+                  ) : (
+                    <StatusPill label={row.sentByOurChurch ? "Yes" : "No"} color="#6b6f76" />
+                  ),
+              },
+              {
+                key: "churchVisits",
+                label: "Last Visit",
+                sortable: true,
+                sortBy: (row) => {
+                  const d = row.churchVisits?.[0]?.visitDate;
+                  return d ? new Date(d).getTime() : null;
+                },
+                render: (row) => lastVisit(row.churchVisits),
+              },
+            ]}
+            renderActions={(row) => (
               <>
-                <span style={{ fontWeight: 600 }}>{row.name}</span>
-                {row.archived && (
-                  <span style={{ marginLeft: "0.5rem" }}>
-                    <StatusPill label="Archived" color="#a6540f" />
-                  </span>
+                <Link to={row.detailLink} className="btn secondary small">
+                  Open
+                </Link>
+                {row.archived ? (
+                  <>
+                    {canWrite && (
+                      <button className="btn secondary small" onClick={() => handleUnarchive(row)}>
+                        Unarchive
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button className="btn danger small" onClick={() => handleDelete(row)}>
+                        Delete
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  canWrite && (
+                    <button className="btn secondary small" onClick={() => handleArchive(row)}>
+                      Archive
+                    </button>
+                  )
                 )}
               </>
-            ),
-          },
-          { key: "typeLabel", label: "Type" },
-          { key: "field", label: "Field" },
-          {
-            key: "isPublic",
-            label: "Public",
-            sortable: true,
-            render: (row) =>
-              row.isPublic ? (
-                <StatusPill label="Yes" color="#2a5d3c" />
-              ) : (
-                <StatusPill label="No" color="#6b6f76" />
-              ),
-          },
-          {
-            key: "isRestricted",
-            label: "Restricted",
-            sortable: true,
-            render: (row) =>
-              row.isRestricted ? (
-                <StatusPill label="Yes" color="#a6540f" />
-              ) : (
-                <StatusPill label="No" color="#6b6f76" />
-              ),
-          },
-          {
-            key: "sentByOurChurch",
-            label: "Sent By Us",
-            sortable: true,
-            // Same bland, muted pill for Yes and No -- unlike Public/
-            // Restricted, this isn't a safety or exposure question, just
-            // bookkeeping, so neither state earns the attention a brighter
-            // color would draw. Still a pill, not plain text, for visual
-            // consistency with the rest of the row.
-            render: (row) =>
-              row.type !== "missionary" ? (
-                "—"
-              ) : (
-                <StatusPill label={row.sentByOurChurch ? "Yes" : "No"} color="#6b6f76" />
-              ),
-          },
-          {
-            key: "churchVisits",
-            label: "Last Visit",
-            sortable: true,
-            sortBy: (row) => {
-              const d = row.churchVisits?.[0]?.visitDate;
-              return d ? new Date(d).getTime() : null;
-            },
-            render: (row) => lastVisit(row.churchVisits),
-          },
-        ]}
-        renderActions={(row) => (
-          <>
-            <Link to={row.detailLink} className="btn secondary small">
-              Open
-            </Link>
-            {row.archived ? (
-              <>
-                {canWrite && (
-                  <button className="btn secondary small" onClick={() => handleUnarchive(row)}>
-                    Unarchive
-                  </button>
-                )}
-                {isAdmin && (
-                  <button className="btn danger small" onClick={() => handleDelete(row)}>
-                    Delete
-                  </button>
-                )}
-              </>
-            ) : (
-              canWrite && (
-                <button className="btn secondary small" onClick={() => handleArchive(row)}>
-                  Archive
-                </button>
-              )
             )}
-          </>
-        )}
-      />
-      <LoadMoreButton
-        hasMore={partnersLoadMore.hasMore}
-        remaining={partnersLoadMore.remaining}
-        onClick={partnersLoadMore.showMore}
-      />
+          />
+          <LoadMoreButton
+            hasMore={partnersLoadMore.hasMore}
+            remaining={partnersLoadMore.remaining}
+            onClick={partnersLoadMore.showMore}
+          />
+        </>
+      )}
       {confirmElement}
     </div>
   );

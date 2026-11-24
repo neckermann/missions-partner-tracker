@@ -18,7 +18,7 @@ and how the pieces fit together, not how to work on it or how to use it.
 
 One Postgres database (`backend/prisma/schema.prisma`), accessed only
 through Prisma. Pre-1.0: every schema change is squashed into a single
-baseline migration (`backend/prisma/migrations/20261106200717_init/`)
+baseline migration (`backend/prisma/migrations/20261122092854_init/`)
 rather than accumulating a migration history.
 
 ### 1.1 Core entity: Partner
@@ -59,6 +59,7 @@ Partner (missionary | organization)
 │                                       see "Trips" below, not just a historical log
 ├── Furlough[]                         missionary-only, time off-field
 ├── ChurchVisit[]                      partner visiting this church (reverse of Trip)
+├── ContactLog[]                       every touchpoint with the partner: call, text, visit, card… (#288, §5.3)
 ├── SendingParty[]                     missionary-only, "church" | "org", who sent them
 ├── PartnerLink[]                      external links (website, social, support page, ...)
 ├── PartnerLanguage[]                  languages spoken on the field
@@ -96,7 +97,11 @@ and `ReportSchedule` (recurring report emails — weekly/monthly/quarterly
 password" link — single-use, only a hash stored, 72h/7-day expiry) and
 `NotificationSeen` (per-user read/unread state for in-app notices,
 unrelated to the dispatch system's `DispatchRecord` despite the similar
-name).
+name), `TripAccess` (a guest login's grant on one trip, §5.1) and
+`CareTeamMember` (a login's seat on one partner's care team — at most one
+lead per partner, enforced by a hand-added partial unique index as well as
+in `routes/careTeams.js`; §5.1) and `ContactLog` (one touchpoint with a partner,
+§5.3) and `KeyDateReminder` (one key-date email sent to one person, §5.4).
 
 **WhatsApp dispatch** adds `WhatsAppAuthEntry` (the encrypted linked-
 session store — see §6.2a).
@@ -167,7 +172,7 @@ in-process cron scheduler (§6) is written with that assumption explicit.
 | `/api/auth` | `auth.js` | mixed (see §5) | setup, login, MFA, password change, digest-email self-service, unsubscribe link, logout |
 | `/api/partners` | `partners.js` | session (any role) | Partner CRUD, photo upload, archive/unarchive/delete, sync-sending-church |
 | `/api/public/partners` | `publicPartners.js` | open | masked public partner list/detail |
-| `/api/users` | `users.js` | admin only | user management |
+| `/api/users` | `users.js` | admin only | user management, plus a guest's trip access grants (`/:id/trip-access`, `/by-trip/:tripId`) and the `?inactive=true` filter (§5.1) |
 | `/api/public/country-info` | `countryInfo.js` | `joshuaProject` feature | Joshua Project proxy |
 | `/api/support-needs` | `supportNeeds.js` | session | one-time need CRUD |
 | `/api/support-entries` | `supportEntries.js` | session | monthly-support ledger |
@@ -179,8 +184,10 @@ in-process cron scheduler (§6) is written with that assumption explicit.
 | `/api/partner-links` | `partnerLinks.js` | session | partner external-link CRUD |
 | `/api/partner-languages` | `partnerLanguages.js` | session | partner language CRUD |
 | `/api/trip-types` | `tripTypes.js` | session | per-church trip category CRUD |
-| `/api/trips` | `trips.js`, `tripMeetings.js`, `tripRequirements.js`, `tripParticipants.js` | session, `requireTripScope`/`requirePartnerQueryScope` for `tripLeader` (§5.1) | trip CRUD + lifecycle, roster/participants, meeting invites + RSVPs, document requirements, budget lines, flight segments, contribution ledger |
+| `/api/trips` | `trips.js`, `tripMeetings.js`, `tripRequirements.js`, `tripParticipants.js` | session, `requireTripScope`/`requirePartnerQueryScope` for `guest` (§5.1) | trip CRUD + lifecycle, roster/participants, meeting invites + RSVPs, document requirements, budget lines, flight segments, contribution ledger |
 | `/api/public/trips` | `publicTrips.js`, `publicTripApplications.js`, `publicTripParticipants.js` | open, gated by `trips` + per-church `allowPrivateApplicationLinks`/`allowPublicSupportRaisingLinks`/public discovery toggles | public Trip Opportunities listing, public application form, participant support-raising/self-service pages |
+| `/api/care-team` | `careTeams.js` | session; `careTeam` feature (404 off); set = admin/editor | a partner's care team: get, replace (lead + members), candidates (§5.1); `default-lead` get (admin/editor) / set (admin) (§5.4) |
+| `/api/contact-log` | `contactLog.js` | session; `contactLog` feature (404 off); fix/delete = admin/editor; guest only via a care team seat | a partner's contact log: list, add, fix, delete; the fixed type/direction/topic lists; `/assigned` (the caller's care team partners with care columns) (§5.3) |
 | `/api/notifications` | `notifications.js` | session | `NotificationSeen` read/unread state for in-app notices |
 | `/api/reports` | `reports.js` | session, `reports` feature (admin-only for users-&-access and schedule management) | report hub catalog (`GET /`), run a report (JSON/CSV), saved views (`GET/POST /views`, `DELETE /views/:id`), scheduled report emails (`POST /views/:id/schedule`, `DELETE /schedules/:id`, admin only) — see `backend/src/reporting/` |
 | `/api/partner-files` | `partnerFiles.js` | session, `partnerFiles` feature | newsletter/document CRUD, download, AI scan |
@@ -233,6 +240,8 @@ Each file owns one narrow responsibility:
 | `versionCheck.js` | Compares the running version against upstream's latest tag. |
 | `email.js` | `sendEmail`/`sendEmailBatch` over Postmark. |
 | `emailTemplate.js` | Shared branded HTML shell reused by welcome emails and trip participant emails (meeting invites, reminders, checklist/date-change notices, team welcome). |
+| `tripAccessRules.js` | Pure grant rules: a trip grant's effective expiry (override, else trip end date + 30 days), what a grant looks like to the UI, and why a guest is inactive. No Prisma import, so the reporting registry can use it. |
+| `guestAccess.js` | What a guest may reach: loads active grants for `requireAuth`, and the single `readablePartnerIds`/`canReadPartner`/`readableTripIds`/`canReadTrip` helpers every scoped route asks (so none re-derives it from a trip). |
 | `welcomeEmails.js` | Sends the new-user "choose your password" welcome email (`PasswordSetupToken`); owns the hardcoded docs-site links used in it (see CONTRIBUTING.md's "Hardcoded links into the docs site" table). |
 | `tripEmails.js` | Trip meeting/requirement participant emails, including `manualFallback()` — the `{ sent: false, manual: [{ name, email, url }] }` shape every manual-send-link notice in the UI renders from when `outboundEmail` is off (§4). |
 | `publicSubscribeEmails.js` | Double opt-in confirm/unsubscribe emails for the public prayer-request Subscribe flow. |
@@ -472,44 +481,80 @@ than by omission"). Roles exist to gate **writes**, not visibility:
   no "editor can only edit their own partners" concept anywhere the 3
   full roles are concerned.
 
-### 5.1 Trip Leader — a scoped guest, not a 4th full role
+### 5.1 Guest — a scoped login, not a 4th full role
 
-`tripLeader` is a deliberately narrow 4th account tier, not a
+`guest` is a deliberately narrow 4th account tier, not a
 reconsideration of "auth is the boundary" above and not a reduction of
 any existing role's visibility — `admin`/`editor`/`viewer` are unchanged.
-It's a real login (`User.role: "tripLeader"`, same session/password
-mechanism as every other account — no bespoke portal), scoped to exactly
-one `Trip` via `User.scopedTripId` (`onDelete: Cascade` — the guest
-account only exists because that trip does), with an optional
-`User.expiresAt` enforced in `requireAuth.js` the same way `!active` is
-(blocks the session once past; never auto-deletes the row).
+It's a real login (`User.role: "guest"`, same session/password
+mechanism as every other account — no bespoke portal) whose reach comes
+only from **grant rows**, never from the role itself: effective access =
+the role's baseline (nothing, for a guest) plus whatever grants exist.
+Today the only grant table is `TripAccess` (#356); #289 adds care team
+seats to the same helpers. Grants never allow deletes, profile edits or
+settings. (Renamed from `tripLeader`, which was scoped by a single
+`User.scopedTripId`; that column and `User.expiresAt` are gone, and the
+migration carries existing logins over.)
+
+`TripAccess` is one row per (guest, trip), `onDelete: Cascade` on both
+sides. **Expiry is derived at check time, not stored:** with a null
+`TripAccess.expiresAt` the grant lapses at the end of the day 30 days
+after `Trip.endDate`, so changing a trip's dates moves every grant's
+expiry with it, and a trip with no end date never lapses on its own. A
+non-null `expiresAt` is only an admin override ("extend" or "end now") and
+wins over the derived date in both directions (`utils/tripAccessRules.js`).
+`requireAuth.js` reads a guest's grants fresh on every request; a guest
+with **no active grant** gets the same 401 as `!active` — the row is kept,
+so extending access moves a date instead of recreating the account. Care
+team seats (#289) will not expire.
+
+Removing a guest's **last** grant deactivates the account (`active:
+false`, sessions ended), never deletes it, and an admin granting access
+afterwards does **not** silently reactivate it. The Users list marks
+"inactive" guests (deactivated, all access expired, or none left —
+computed, not stored) and `GET /api/users?inactive=true` /
+the "Inactive accounts only" filter lists just those so an admin can reach
+out and clean up. Grant changes are **not** audit-logged yet: who granted,
+extended or removed access (and the deactivation) is deferred to the
+admin audit/activity design in #341.
+
+**MFA is required for a guest** (`mfaSetupRequired` is forced on at
+creation and role change, and again by an admin MFA reset). A guest can
+change their own password and enrol MFA from "My account" (reversing
+#329 Finding 2, which had made them fully admin-managed), but cannot
+disable it. "My account" shows a guest password and MFA only — never the
+admin digest subscription.
 
 | Can read | Can write |
 |---|---|
-| Their own scoped trip's own content; that trip's one linked `Partner` (read-only) | Editor-equivalent create/update/delete on their own trip's meetings/requirements/budget lines/flight segments/documents/contributions/participants/applications, matching the editor-delete exceptions above. Never the Trip entity's own delete/clone/generate-application-link (those stay admin-only or admin+editor-only even on their own trip), never anything on the Partner |
+| Each granted trip's own content; the `Partner` of each granted trip (read-only) | Editor-equivalent create/update/delete on a granted trip's meetings/requirements/budget lines/flight segments/documents/contributions/participants/applications, matching the editor-delete exceptions above. Never the Trip entity's own delete/clone/generate-application-link (those stay admin-only or admin+editor-only even on a granted trip), never anything on the Partner |
 
 Everything else in the app — the Partner directory, every other trip,
-Prayer Requests, One-Time Needs, Monthly Support, Reports, Booklet,
-Inbound Email, Pending Dispatches, Settings, Users, Account Settings — is
-a flat 403. Enforced server-side by two middleware added to
-`requireAuth.js`: `requireTripScope(tripIdResolver)` (a no-op for every
-other role; 403s a `tripLeader` whose request resolves to a different
-trip than their own — applied to every trip-scoped route, reads
-included) and `requirePartnerQueryScope` (same no-op/403 shape, for a
-Partner sub-resource's own `?partnerId=` read — prayer requests,
-one-time needs, support entries, family members, furloughs, church
-visits, links, languages, files, trips-by-partner — refusing a query
-with no `partnerId` filter at all, which would otherwise return every
-partner's rows). `AdminLayout.jsx` mirrors this client-side (redirects a
-`tripLeader` away from any path outside their own trip or `/partners/*`)
-purely so they never see a flash of the wrong page before the backend's
-own 403 lands — the frontend check is not the real boundary.
+One-Time Needs, Monthly Support (amounts), Reports, Booklet, Inbound
+Email, Pending Dispatches, Settings, Users — is a flat 403. Enforced
+server-side by two middleware in `requireAuth.js`:
+`requireTripScope(tripIdResolver)` (a no-op for every other role; 403s a
+`guest` whose request resolves to a trip they hold no active grant for —
+applied to every trip-scoped route, reads included) and
+`requirePartnerQueryScope` (same no-op/403 shape, for a Partner
+sub-resource's own `?partnerId=` read — prayer requests, support entries,
+family members, furloughs, church visits, links, languages, files,
+trips-by-partner — refusing a query with no `partnerId` filter at all,
+which would otherwise return every partner's rows). Single-record routes
+(`GET /api/partners/:id`, partner file download) and both middleware ask
+`utils/guestAccess.js` (`canReadPartner`, `canReadTrip`) rather than
+re-deriving reach from a trip; add any new partner- or trip-keyed route
+the same way. `/api/photos/:id/raw` is public by design, so it is not a
+guest leak. `AdminLayout.jsx` mirrors this client-side (redirects a guest
+away from any path outside a granted trip, `/partners/*` or
+`/account`) purely so they never see a flash of the wrong page before the
+backend's own 403 lands — the frontend check is not the real boundary.
 
-**Frontend `canWrite` for a Trip Leader is scope-aware, and that scoping
+**Frontend `canWrite` for a guest is scope-aware, and that scoping
 doesn't propagate for free.** `useCurrentUser()`'s own `canWrite` is
-global (`admin`/`editor` only, always `false` for `tripLeader` — see its
-own comment). `TripDetailLayout.jsx` computes a second, trip-scoped
-`canWrite = globalCanWrite || (isTripLeader && id === scopedTripId)` and
+global (`admin`/`editor` only, always `false` for `guest` — see its own
+comment). `TripDetailLayout.jsx` computes a second, trip-scoped
+`canWrite = globalCanWrite || canAccessTrip(id)` and
 passes it down via `useOutletContext()` to every route nested under its
 Outlet (`AdminTripTeam.jsx`, `AdminTripOverview.jsx`,
 `AdminTripFinancial.jsx`, etc.) — none of those call `useCurrentUser()`
@@ -520,7 +565,7 @@ lives *outside* that Outlet but still operates on one trip's data (e.g.
 `trips/:id`) has no context to inherit and must repeat the exact same
 computation itself. Confirmed as a real, shipped bug, not a
 theoretical one: `AdminTripParticipantDetail.jsx` called the global
-`canWrite` directly and showed a Trip Leader a read-only UI on their
+`canWrite` directly and showed a trip leader a read-only UI on their
 own trip's own participant, despite the backend correctly granting
 them write access there the whole time (middleware above, not this
 page's own code, was always right). Fixed by replicating
@@ -529,6 +574,215 @@ new one. If you add another sibling route under `trips/:tripId/...`
 outside `TripDetailLayout`'s Outlet, give it this same local
 computation — don't assume `useCurrentUser()`'s `canWrite` is enough
 just because it works for every other role.
+
+### 5.2 Care teams (#289)
+
+Behind the `careTeam` feature (off by default; off = hidden, ignored for
+access, data preserved). A partner's **care team** is one **Lead** plus any
+number of **Members**, each a login (`CareTeamMember`, a seat). Terms are
+fixed ("Care team", "Lead", "Member", "Guest"), not settings. Any role can
+hold a seat; a guest outside the team is how someone without a full account
+joins one. The Lead is a label today: no extra permission or notification
+(everyone on the team is treated the same); the "You're the lead" marker and
+the "Assigned to me" view come with #288.
+
+**One app for everyone.** There is no care-team-only or guest-only app. A
+guest uses the same shell (header with bell and collapse, footer with My
+Account / Log out / theme toggle), the same nav entries in the same order, the
+same list pages and the same partner page as everyone, and the **server**
+limits every list to what they reach. Roles gate what you can change and, for
+a guest, hide what they can't see. The nav is the standard one filtered by
+scope (below).
+
+**Two sizes of guest.** A seat and a trip grant are different scopes:
+
+- *Trip leader* (a `TripAccess` grant): their granted trips (read and write)
+  and those trips' partners, read-only, with prayer requests and Newsletters &
+  Docs for that partner (read). Nav: Trips and Partners. Never one-time needs,
+  never monthly support, never the care-team list pages.
+- *Care team member* (a seat): everything below, for that partner.
+
+**What each can do on a partner** (a care team member is an editor on their own
+partner, with three exceptions: their dispatches are held, they can't decide a
+one-time need, and they never see monthly funding):
+
+| | Editor | Care team member (that partner) | Trip leader (trip grant) |
+|---|---|---|---|
+| Which partners | All | Those whose team they're on | Their trips' partners (read) |
+| See the partner page | Everything | Everything **except monthly funding** | Read-only, no needs, no money |
+| Edit profile, family, location, furlough, visits, links, languages, trip hosting info, photos | Yes | Yes | No |
+| Public / restricted / safe-to-contact flags | Yes | Yes | No |
+| Archive / unarchive | Yes | Yes | No |
+| Create a partner | Yes | **No** | No |
+| Delete anything | Admin only | **No** | No |
+| Prayer requests: add, edit, answer, public/booklet | Yes | Yes | Read only |
+| Mark urgent / "approve now" | Yes | **No** (their dispatch is held) | No |
+| One-time needs: add, edit | Yes | Yes | **No access** |
+| Record a decision on a need | Yes | **No** (committee/board) | No |
+| Monthly support (amounts, "supporting since", entries) | Yes | **Never shown or writable** | Never |
+| Newsletters & Docs: view, upload, edit, AI scan | Yes | Yes (scan only if the feature is on) | View / download |
+| Dispatches from the above | Sent on schedule | **Saved at once, held for staff approval** | n/a |
+| Approve in Pending Dispatches | Yes | No | No |
+| Assign the care team | Yes | No (can view) | No |
+| Trips of the partner | Manage all | **View only** | Manage their granted trips |
+| Trip participants' personal details (contact info, notes) on those trips | Yes | **Yes, read only** — the trip is theirs to see, same as the roster an editor sees | Yes, on their granted trips |
+
+Everything a non-staff login does is a request to the same routes an editor
+uses; `requirePartnerWriter` (staff, or on **that partner's** care team) gates
+the writes, and `isOnCareTeamFor` is the single seat check. Moving a record to
+another partner needs a seat on both.
+
+**A seat is a grant.** For a guest a seat reaches that partner, like a trip
+grant reaches a trip's partner, and unlike a trip grant it never expires — an
+admin removes the member when they step down. A guest with no trip grant *and*
+no seat is inactive; removing their last seat deactivates them, like removing
+their last trip.
+
+**Their entries are saved at once but their dispatches are held.**
+`DispatchRecord.reviewRequired` is set on the record created from a care team
+member's prayer request, answer, need or uploaded newsletter. `needsReview()`
+treats it like a restricted partner's content, but for *any* type:
+`isEligibleForChannel`'s Rule 1 blocks it on **every** channel (admin email,
+public email, GroupMe, WhatsApp, the urgent path) until an admin/editor reviews
+it in Pending Dispatches, whether or not the partner is restricted. Staff-made
+records are unaffected; a restricted partner's staff-made newsletter stays
+exempt as before. (Before #289 the review hold applied *only* to restricted
+partners; every other record sent on schedule with no approval.)
+
+**Server-scoped lists.** A guest may list partners, trips, prayer requests,
+one-time needs (care team only) and Newsletters & Docs without naming a partner;
+the server limits the rows to what they reach (`readablePartnerIds`,
+`readableNeedPartnerIds`, the granted/readable trip sets). The partner list
+leaves out `supportEntries`/`supportingSince` for a guest, and the booklet's
+`?include=full` dump stays closed to them. `GET /api/partners/reachable` gives
+pickers the partners a login may read. `/me` returns `careTeamSeats` for every
+role and `guestReadTripIds` for a guest. The coverage view ("which partners have
+no care team or no lead") is the `care-team-coverage` report in the reporting
+hub.
+
+### 5.3 Contact log (#288)
+
+Behind the `contactLog` feature (off by default; off = hidden, data kept). A
+`ContactLog` row is one touchpoint with a partner: `contactType` (call, text,
+email, visit, card, video, prayed, other), `direction` (we reached out / they
+did), `topics[]`, who made it (`contactedById`, default the person logging)
+and who typed it in (`createdById`), a calendar `contactDate`, a note and an
+optional `followUpDate`. The three fixed lists are plain validated Strings in
+`utils/contactLog.js` (SPEC §3: no native enums), served by
+`GET /api/contact-log/options` so the UI keeps no copy. It is purely internal
+— never on a public page or a dispatch channel.
+
+**Who.** Anyone who can see the partner can log a contact: admin, editor,
+viewer, and a guest who holds a **care team seat** on it. A trip leader (a trip
+grant alone) never reaches it — the same line as one-time needs
+(`readableNeedPartnerIds`). Fixing or deleting an entry is admin/editor.
+Everyone's contact counts toward the quiet clock. An entry is never held for
+review (it isn't dispatched anywhere).
+
+**Quiet and follow-ups.** `CONTACT_STALE_DAYS` (90, the report's default too)
+is the one number for "quiet": no logged contact for that long, or never. A
+follow-up date is answered by any later-entered contact dated on or after the
+one that set it; unanswered and past, it is *due*. `utils/contactLogQueries.js`
+`loadAssignedPartners` is the single read model behind the **Assigned to me**
+tab (`GET /api/contact-log/assigned`, needs the care team feature too) and the
+`partnersNeedingContact` notification (guest-visible, counts the caller's seats
+that are quiet or due, 0 while either feature is off), so they can't disagree.
+
+**Wiring.** *Last heard from* reads the log: with the feature on, a partner is
+quiet only when **both** the latest newsletter and the latest logged contact are
+old (off: unchanged, newsletter only). A care team member's new prayer request
+also creates a log entry (`inbound`, topic `prayer`, linked by
+`prayerRequestId`; best-effort, never blocks the save). `prayerRequestId` and
+`supportNeedId` are plain ids with no foreign key, so deleting the request or
+need keeps the history.
+
+**The contact card.** Everyone who can see a partner gets it: the primary
+contact (`Adult.isPrimaryContact`, at most one per partner — a hand-added
+partial unique index plus the route clearing the old one; an organization uses
+its named contact), preferred method, tap-to-call/text/email/WhatsApp, and last
+contact. With `contactSafe` off, `Partner.contactInstructions` ("special
+communication instructions", staff-facing text) replaces the actions and the
+numbers. The **printed booklet** withholds phone, email and preferred method for
+a partner who isn't safe to contact (it previously ignored the flag) and never
+prints the instructions. The public site never exposes adults' details at all.
+
+### 5.4 Key-date reminders (#291)
+
+Behind the `keyDates` feature (off by default; needs `careTeam` — that is where
+recipients come from; the email also needs `outboundEmail`). A reminder is
+raised for a birthday (adults and children), the wedding anniversary, and a
+**supported-since milestone** (the first year, then every fifth — year-only
+start dates are stored as Jan 1, so a yearly nudge would only ever say Jan 1)
+coming up within `KEY_DATE_LEAD_DAYS` (7, a fixed default, not a setting, so
+the bell and the email always agree). `utils/keyDates.js` is the pure rule and
+reuses `reporting/definitions.js` `nextAnnual` (the *Families & key dates*
+report's date math: Feb 29 lands on Feb 28, and the age or years turning come
+with it).
+
+**Who.** The partner's whole care team (lead + members, active logins); if it
+has none, the church's **default lead** (`ChurchSettings.defaultCareLeadUserId`,
+set at `PUT /api/care-team/default-lead`, admin only, cleared if that login is
+deleted); if neither, nobody. `utils/keyDateQueries.js` `loadOpenKeyDates` is
+the one read model: it counts nothing while `keyDates` or `careTeam` is off,
+skips archived partners, and drops anything *handled*.
+
+**What clears one.** A contact log entry for that partner with the topic
+**Key date**, dated within the lead window either side of the occurrence — the
+card was sent, and (§5.3) it resets the quiet clock too. Per partner, not per
+person: one card goes to the family.
+
+**Bell.** The guest-visible `keyDatesComing` category in
+`notifications/categories.js`, computed live for the caller (one partner links
+straight to it, several to Assigned to me).
+
+**Email.** `utils/keyDateReminderScheduler.js`, registered in `worker.js` (not
+the web process) on a daily 07:00 church-local cron, in the shape of
+`tripReminderScheduler.js`. It sends **one grouped email per person**, only on a
+day something is due and not yet mailed to that person — never one per partner.
+`KeyDateReminder` (unique per person, partner, kind, subject and occurrence
+date) is the idempotency record, written after the send: a re-run never repeats
+an occurrence, next year's is a new row, a corrected date re-arms, and a failed
+send leaves no row so tomorrow's tick retries it. The email leaves the app, so a
+restricted partner is named by `maskedDisplayName` and a restricted family's own
+names are omitted; a partner who isn't safe to contact gets a pointer to the
+special instructions on their page, never the instructions themselves.
+`sendEmail` has no `replyTo`, so replies go to the church's From address.
+
+**Never on a public demo.** A demo's care teams are fake seeded addresses, so the
+email would only bounce and spend the email plan. `utils/demoMode.js` lists the
+features a demo keeps off (`keyDates`); the reset script and the seed (which
+rewrites the feature list after the reset script does) both apply it, and
+`checkAndSendKeyDateReminders` returns immediately when `DEMO_RESET_TOKEN` is
+set, as a backstop for the published admin login switching the flag on.
+
+### 5.5 What flows to the care team (#292 Phase 1)
+
+**The app never contacts a partner; a person does.** That settles the missionary
+contact-address gap: the contact card (§5.3) says who and how, and "special
+communication instructions" replace it when a partner isn't safe to contact.
+Prayer updates (new or answered) come *from* the partner: they tell a care team
+member, who enters it (held for staff approval, §5.2), and the church hears it
+through the existing dispatch channels.
+
+- **Entering counts as a contact.** A care team member's new prayer request and
+  their marking one answered each create an inbound `ContactLog` entry (topic
+  `prayer`, linked by `prayerRequestId`). Marking it answered fires only on the
+  transition, so a typo fix doesn't log twice; a staff entry logs nothing.
+- **The team is told about new needs and prayers.** `newOneTimeNeeds` and
+  `newPrayerRequests` are now guest-visible, scoped to the guest's *care team*
+  partners (`careTeamPartnerIds` via the summary route's `scopePartnerIds`; a
+  trip leader has none, so counts zero). Full roles are unchanged.
+- **Updates to pass on.** The guest-visible `updatesToPassOn` category counts, on
+  a partner the login has a seat on, a one-time need **decided** (`approvedDate`)
+  or a prayer request **answered** (`dateAnswered`) in the last 30 days that no
+  one has yet relayed. It is live (no sent-flag column) and cleared only by an
+  **outbound** contact for that partner on or after it: topic `need` for a
+  decision, `encouragement` or `prayer` for an answer — so hearing from them (the
+  inbound auto-log above) never clears its own prompt. It counts nothing while
+  `contactLog` or `careTeam` is off. A decision's outcome and note are already
+  on the need the team can open.
+- **Not built:** the "prayed-for" summary to existing subscribers, and Phase 2
+  (church-member notes through a public form) — both deferred.
 
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 
@@ -557,7 +811,9 @@ shared function:
 
 ```
 isEligibleForChannel(row, channel, partner, settings, hasEligibleRecipient)
-  Rule 1 (universal): restricted-and-unreviewed blocks every channel,
+  Rule 1 (universal): restricted-and-unreviewed -- or reviewRequired-and-
+                       unreviewed (a care team member's submission, #289)
+                       -- blocks every channel,
                        for the types REVIEW_GATED_TYPES covers (newsletters
                        are exempt — buildBlurb() already suppresses them
                        to nothing regardless of review state)

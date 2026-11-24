@@ -81,6 +81,10 @@ model Partner {
   preferredContactMethod String? // e.g. "Email", "Phone Call", "Text/SMS", "WhatsApp", "Mail"
   // Missionary-only: whether it's ok to contact them directly.
   contactSafe            Boolean @default(true)
+  // #288: shown instead of the tap-to-call/text/email actions when
+  // contactSafe is off ("special communication instructions"). Free text,
+  // staff-facing.
+  contactInstructions    String? @db.Text
   // Missionary-only: true when this church (see ChurchSettings) is this
   // missionary's sending church — distinct from the SendingParty relation
   // below, which records details about whichever church actually sends
@@ -137,6 +141,9 @@ model Partner {
   // Scoped-digest follows (#202) -- who's opted into updates for just
   // this partner, rather than every partner. Two sources, same shape.
   followedByUsers          UserFollowedPartner[]
+  careTeam                 CareTeamMember[]
+  contactLogs              ContactLog[]
+  keyDateReminders         KeyDateReminder[]
   publicSubscriberPartners PublicSubscriberPartner[]
   adults                   Adult[]
   children                 Child[]
@@ -179,21 +186,25 @@ model Partner {
 }
 
 model Adult {
-  id        String    @id @default(uuid())
-  partnerId String
-  partner   Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  id               String    @id @default(uuid())
+  partnerId        String
+  partner          Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   // #257/#271 Finding 4: split first/last, same as Child below. firstName
   // is nullable at the DB level (unlike the single `name` column it
   // replaces) purely to let this migration add it to a non-empty table
   // with no default -- app-level validation (routes/partners.js's zod
   // schema) still requires it on every write.
-  firstName String?
-  lastName  String?
-  phone1    String?
-  phone2    String?
-  email     String?
-  birthday  DateTime? @db.Date
-  createdAt DateTime  @default(now())
+  firstName        String?
+  lastName         String?
+  phone1           String?
+  phone2           String?
+  email            String?
+  birthday         DateTime? @db.Date
+  // #288: the adult to reach first. At most one per partner -- enforced by a
+  // partial unique index in the migration (Prisma can't express a WHERE on a
+  // unique), and by the route, which clears the old one when a new one is set.
+  isPrimaryContact Boolean   @default(false)
+  createdAt        DateTime  @default(now())
 
   @@index([partnerId])
 }
@@ -310,11 +321,10 @@ model Trip {
   contributions  TripContribution[]
   budgetLines    TripBudgetLine[]
   flightSegments TripFlightSegment[]
-  // Inverse of User.scopedTripId -- the Trip Leader guest account(s)
-  // scoped to this trip (ordinarily zero or one, never enforced as
-  // @unique since nothing stops an admin creating a second guest login
-  // for the same trip).
-  scopedUsers    User[]
+  // Guest logins granted access to this trip (#356) -- any number, since a
+  // trip often has more than one leader and a guest may lead more than one
+  // trip.
+  tripAccess     TripAccess[]
 
   @@index([partnerId])
   @@index([status])
@@ -342,10 +352,9 @@ model TripParticipant {
   firstName String?
   lastName  String?
 
-  role     String? // e.g. "Medical", "Construction", "Translator"
-  isLeader Boolean @default(false)
-  phone    String?
-  email    String?
+  role  String? // e.g. "Medical", "Construction", "Translator"
+  phone String?
+  email String?
 
   // Null for a backfilled or directly-admin-added participant; set when
   // created via application approval.
@@ -862,6 +871,70 @@ model ChurchVisit {
   @@index([partnerId])
 }
 
+// #288: one touchpoint with a partner -- a call, a text, a visit, a card.
+// The relationship history the rest of the schema doesn't keep: ChurchVisit
+// and PartnerFile record what happened, this records that someone reached
+// out (or heard from them). Purely internal -- never on a public page or a
+// dispatch channel. Fixed-choice fields are plain validated Strings (SPEC §3,
+// no native enums); the allowed values live in utils/contactLog.js.
+model ContactLog {
+  id              String    @id @default(uuid())
+  partnerId       String
+  partner         Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  // call | text | email | visit | card | video | prayed | other
+  contactType     String
+  // outbound (we reached out) | inbound (they reached out)
+  direction       String
+  // Optional topic chips (utils/contactLog.js), e.g. "prayer", "need".
+  topics          String[]
+  // Who made the contact. Defaults to the person logging it; SetNull so a
+  // deleted login doesn't take the history with it.
+  contactedById   String?
+  contactedBy     User?     @relation("ContactLogContactedBy", fields: [contactedById], references: [id], onDelete: SetNull)
+  // Who typed it in (differs from contactedBy when logging for a teammate).
+  createdById     String?
+  createdBy       User?     @relation("ContactLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  // A calendar date, like ChurchVisit.visitDate -- not an instant.
+  contactDate     DateTime  @db.Date
+  notes           String?   @db.Text
+  // Optional "reach out again by". Not a task system (see #289/#292).
+  followUpDate    DateTime? @db.Date
+  // Set when the entry was created from something else, so the link can be
+  // shown. Plain ids with no FK on purpose: deleting the prayer request or
+  // need must not delete (or fail on) the history.
+  prayerRequestId String?
+  supportNeedId   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([partnerId, contactDate])
+  @@index([contactedById])
+  @@index([followUpDate])
+}
+
+// #291: one key-date reminder EMAILED to one person -- the record that stops
+// the daily job sending the same occurrence twice. The bell is computed live
+// and needs no row. Keyed by the occurrence's own date, so next year's
+// birthday is a new row, and correcting a date after a reminder went out
+// re-arms it. `subjectId` is the adult/child the date belongs to ("" for a
+// partner-level date), because Postgres treats NULLs in a unique key as
+// distinct.
+model KeyDateReminder {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partnerId      String
+  partner        Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  // birthday | childBirthday | anniversary | supportingSince
+  kind           String
+  subjectId      String   @default("")
+  occurrenceDate DateTime @db.Date
+  sentAt         DateTime @default(now())
+
+  @@unique([userId, partnerId, kind, subjectId, occurrenceDate])
+  @@index([partnerId])
+}
+
 // A link to somewhere else about this partner -- website, support/donate
 // page, newsletter signup, or a social profile. Replaces the old fixed
 // websiteLink/supportLink/newsletterSignup/facebook/twitter/instagram/
@@ -1293,6 +1366,16 @@ model DispatchRecord {
   dispatchReviewedById String?
   dispatchReviewedText String?   @db.Text
 
+  // #289: held until staff approve it, whether or not the partner is
+  // restricted. Set on a record made from a care team member's (non-staff)
+  // prayer request or need, so nothing a care team member enters is sent
+  // anywhere -- admin email, public email, GroupMe, WhatsApp, or the urgent
+  // path -- until an admin/editor reviews it in Pending Dispatches (the same
+  // review that already holds a restricted partner's content, and the same
+  // dispatchReviewedAt that releases it). false for every staff-made record,
+  // so staff behaviour is unchanged.
+  reviewRequired Boolean @default(false)
+
   // One stamp per email cadence tier, not one per audience -- a single
   // tier's send pass considers every User and PublicSubscriber on that
   // tier at once, so a row only needs one "did this tier's pass get to
@@ -1665,6 +1748,13 @@ model ChurchSettings {
   // generic label. See utils/maskData.js's maskedDisplayName().
   restrictedPartnerInitialsEnabled Boolean @default(true)
 
+  // #291: who key-date reminders go to for a partner with no care team (and,
+  // with the care team feature on, who is "on the hook" until one is set).
+  // Optional; SetNull so deleting the login just clears it. Set from
+  // /api/care-team/default-lead, not the generic settings route.
+  defaultCareLeadUserId String?
+  defaultCareLead       User?   @relation("ChurchDefaultCareLead", fields: [defaultCareLeadUserId], references: [id], onDelete: SetNull)
+
   // Email dispatch customization (see #182) -- null subject/signature
   // means "use the built-in default" (see DEFAULT_SUBJECT_TEMPLATE in
   // emailDispatchShell.js), same blank-means-default convention every
@@ -1843,7 +1933,7 @@ model User {
   lastName     String?
   passwordHash String? // nullable only for historical rows; every account created now is local
   authProvider String    @default("local")
-  role         String    @default("editor") // "admin" | "editor" | "viewer" | "tripLeader"
+  role         String    @default("editor") // "admin" | "editor" | "viewer" | "guest"
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
@@ -1862,24 +1952,17 @@ model User {
   // just the one cookie/browser it actually represents (a user signed in
   // on two devices who logs out of one shouldn't be silently signed out
   // of the other).
-  sessionVersion Int     @default(0)
+  sessionVersion Int @default(0)
 
-  // Trip Leader guest tier only (role: "tripLeader") -- a real login/
-  // session account, not a reduction of any existing role's visibility
-  // (see the "auth is the boundary" model below: every other role still
-  // sees everything). A deliberately narrow new tier instead: a scoped
-  // guest with editor-equivalent write access to exactly one Trip's own
-  // operational content (requireTripScope, requireAuth.js) and read-only
-  // access to that trip's own linked Partner, nothing else in the app.
-  // onDelete: Cascade -- this account only exists because that trip
-  // does; deleting the trip removes the leftover guest login with it.
-  // expiresAt is independent of `active` -- a past expiresAt is treated
-  // the same as !active in requireAuth (blocks the session), but doesn't
-  // auto-delete the row, so an admin extending access just clears/moves
-  // the date rather than recreating the account.
-  scopedTripId String?
-  scopedTrip   Trip?     @relation(fields: [scopedTripId], references: [id], onDelete: Cascade)
-  expiresAt    DateTime?
+  // Guest tier only (role: "guest") -- a real login/session account, not a
+  // reduction of any existing role's visibility (see the "auth is the
+  // boundary" model below: every other role still sees everything). A
+  // deliberately narrow tier instead: reach comes only from grant rows
+  // (TripAccess today; #289 adds care team seats), never from the role
+  // itself, so a guest with no active grant can do nothing and
+  // requireAuth refuses the session outright. Replaces the old single
+  // scopedTripId/expiresAt pair (#356).
+  tripAccess TripAccess[]
 
   // TOTP MFA — opt-in per user, self-service enroll/disable from Account
   // Settings; mfaSecret is only ever set once mfaEnabled flow starts, and
@@ -1921,6 +2004,11 @@ model User {
   // means every partner this user's role can already see.
   allPartners       Boolean               @default(true)
   followedPartners  UserFollowedPartner[]
+  careTeamSeats     CareTeamMember[]
+  contactsMade      ContactLog[]          @relation("ContactLogContactedBy")
+  contactsEntered   ContactLog[]          @relation("ContactLogCreatedBy")
+  keyDateReminders  KeyDateReminder[]
+  defaultLeadFor    ChurchSettings[]      @relation("ChurchDefaultCareLead")
   notificationsSeen NotificationSeen[]
   savedReports      SavedReport[]
 
@@ -1945,6 +2033,30 @@ model PasswordSetupToken {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+// #356: a guest login's access to one trip. Effective access = the
+// guest role's (empty) baseline plus whatever grants exist, so this row
+// IS the permission. Grants never allow deletes, profile edits or
+// settings -- that limit lives in the routes' requireRole lists, not
+// here.
+//
+// Expiry is derived at check time (utils/guestAccess.js), not stored:
+// when expiresAt is null the grant lapses 30 days after Trip.endDate, so
+// changing the trip's dates moves the expiry with it; a trip with no end
+// date never lapses on its own. expiresAt is only an admin override
+// ("extend" or "end now"), and it wins over the derived date either way.
+model TripAccess {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tripId    String
+  trip      Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, tripId])
+  @@index([tripId])
 }
 
 // Per-user, per-category "last looked at this" marker for the in-app
@@ -1975,6 +2087,32 @@ model UserFollowedPartner {
 
   @@id([userId, partnerId])
   @@index([partnerId])
+}
+
+// #289: a login's seat on one partner's care team -- the people at the
+// church who keep in touch with that partner. Any number of members, at
+// most ONE lead per partner (enforced in routes/careTeams.js inside a
+// transaction, and by the partial unique index added to the migration by
+// hand, which Prisma's schema language can't express). Everyone on a care
+// team gets the same notifications (later steps); being on one adds a
+// marker and an "Assigned to me" view, never extra visibility for a full
+// role. For a guest login a seat IS a grant: it reaches that partner (the
+// same way TripAccess reaches a trip's), and unlike a trip grant it never
+// expires -- an admin removes the member when they step down. Every member
+// must have a login (a guest if they're outside the team); there are no
+// account-less members. Gated by the `careTeam` feature; off = hidden and
+// ignored for access, data preserved.
+model CareTeamMember {
+  id        String   @id @default(uuid())
+  partnerId String
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isLead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([partnerId, userId])
+  @@index([userId])
 }
 
 // A public, no-login email subscription to prayer-request updates.

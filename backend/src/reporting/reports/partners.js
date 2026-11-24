@@ -4,6 +4,7 @@ const { z } = require("zod");
 const { optionalDay, flag, oneOf, positiveInt, ymd, KIND_VALUES } = require("../params");
 const { nextAnnual, daysBetween, monthlySupportAsOf } = require("../definitions");
 const { countryOf } = require("./support");
+const { isFeatureEnabled } = require("../../utils/features");
 
 const kindOptions = KIND_VALUES.map((v) => ({ value: v, label: v === "all" ? "All" : v }));
 const baseWhere = (p) => ({
@@ -273,13 +274,24 @@ const lastHeardFrom = {
     { key: "partnerName", label: "Partner" },
     { key: "newsletter", label: "Last newsletter", type: "date" },
     { key: "newsletterDays", label: "Days ago", type: "number" },
+    { key: "contact", label: "Last logged contact", type: "date" },
+    { key: "contactDays", label: "Days ago (contact)", type: "number" },
     { key: "photo", label: "Last photo", type: "date" },
     { key: "prayer", label: "Last prayer request", type: "date" },
     { key: "visit", label: "Last church visit", type: "date" },
     { key: "lastPrayedWithCongregation", label: "Last prayed w/ congregation", type: "date" },
   ],
-  fetch: (params, { prisma }) =>
-    prisma.partner.findMany({
+  // #288: when the contact log is on, a logged contact counts as hearing
+  // from (or being in touch with) a partner just as a newsletter does -- a
+  // partner is only "quiet" when BOTH are old. Settings are read here, the
+  // report's own fetch, because the hub gives fetch/compute no feature state.
+  fetch: async (params, { prisma }) => {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { enabledFeatures: true },
+    });
+    const contactLogOn = isFeatureEnabled(settings?.enabledFeatures, "contactLog");
+    const partners = await prisma.partner.findMany({
       where: baseWhere(params),
       select: {
         displayName: true,
@@ -289,21 +301,34 @@ const lastHeardFrom = {
         photos: { select: { receivedDate: true } },
         prayerRequests: { select: { dateReceived: true } },
         churchVisits: { select: { visitDate: true } },
+        ...(contactLogOn ? { contactLogs: { select: { contactDate: true } } } : {}),
       },
-    }),
-  compute(partners, params, { today }) {
+    });
+    return { partners, contactLogOn };
+  },
+  compute({ partners, contactLogOn }, params, { today }) {
     const asOf = params.asOf || today;
     const latest = (list, key) => list.reduce((m, x) => (!m || x[key] > m ? x[key] : m), null);
     const rows = [];
     for (const p of partners) {
       const newsletter = latest(p.files, "receivedDate");
       const days = newsletter ? daysBetween(asOf, newsletter) : null;
-      const stale = days === null || days >= params.staleDays;
+      const contact = contactLogOn ? latest(p.contactLogs || [], "contactDate") : null;
+      const contactDays = contact ? daysBetween(asOf, contact) : null;
+      // Days since the most recent of the two; null when neither exists.
+      const quietDays = [days, contactDays]
+        .filter((d) => d !== null)
+        .reduce((m, d) => Math.min(m, d), Infinity);
+      const quiet = quietDays === Infinity ? null : quietDays;
+      const stale = quiet === null || quiet >= params.staleDays;
       if (params.onlyStale && !stale) continue;
       rows.push({
         partnerName: p.displayName,
         newsletter: ymd(newsletter),
         newsletterDays: days,
+        contact: ymd(contact),
+        contactDays,
+        _quietDays: quiet,
         photo: ymd(latest(p.photos, "receivedDate")),
         prayer: ymd(latest(p.prayerRequests, "dateReceived")),
         visit: ymd(latest(p.churchVisits, "visitDate")),
@@ -313,21 +338,90 @@ const lastHeardFrom = {
     }
     rows.sort(
       (a, b) =>
-        (b.newsletterDays ?? 99999) - (a.newsletterDays ?? 99999) ||
-        a.partnerName.localeCompare(b.partnerName)
+        (b._quietDays ?? 99999) - (a._quietDays ?? 99999) || a.partnerName.localeCompare(b.partnerName)
     );
     return {
       rows,
       summary: [
         {
           label: "Quiet partners",
-          value: rows.filter((r) => r.newsletterDays === null || r.newsletterDays >= params.staleDays).length,
+          value: rows.filter((r) => r._quietDays === null || r._quietDays >= params.staleDays).length,
         },
         { label: "Never sent a newsletter", value: rows.filter((r) => r.newsletterDays === null).length },
       ],
-      notes: ["'Quiet' is measured by the most recent newsletter file on record."],
+      notes: [
+        contactLogOn
+          ? "'Quiet' is measured from the most recent of a newsletter file or a logged contact."
+          : "'Quiet' is measured by the most recent newsletter file on record.",
+      ],
     };
   },
 };
 
-module.exports = { reports: [keyDates, languageCoverage, whereWeServe, partnerRoster, lastHeardFrom] };
+// #289: which partners have no one at the church assigned to keep in touch.
+// Lives in the reporting hub (AGENTS.md) rather than as a bespoke page, and
+// only exists while the careTeam feature is on.
+const careTeamCoverage = {
+  id: "care-team-coverage",
+  group: "people",
+  label: "Care team coverage",
+  question: "Which partners have nobody assigned to keep in touch?",
+  requiresFeature: "careTeam",
+  params: z.object({
+    onlyGaps: flag(true),
+    kind: oneOf(KIND_VALUES, "all"),
+    includeArchived: flag(false),
+  }),
+  fields: [
+    { name: "onlyGaps", label: "Only partners needing attention", type: "checkbox" },
+    kindField,
+    archivedField,
+  ],
+  columns: [
+    { key: "partnerName", label: "Partner" },
+    { key: "status", label: "Status" },
+    { key: "lead", label: "Lead" },
+    { key: "members", label: "Members", type: "number" },
+  ],
+  fetch: (params, { prisma }) =>
+    prisma.partner.findMany({
+      where: baseWhere(params),
+      select: {
+        displayName: true,
+        isRestricted: true,
+        careTeam: {
+          select: { isLead: true, user: { select: { email: true, firstName: true, lastName: true } } },
+        },
+      },
+    }),
+  compute(partners, params) {
+    const name = (u) => [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email;
+    const rows = [];
+    for (const p of partners) {
+      const lead = p.careTeam.find((m) => m.isLead);
+      const members = p.careTeam.filter((m) => !m.isLead);
+      const status = p.careTeam.length === 0 ? "No care team" : lead ? "Covered" : "No lead";
+      if (params.onlyGaps && status === "Covered") continue;
+      rows.push({
+        partnerName: p.displayName,
+        status,
+        lead: lead ? name(lead.user) : "",
+        members: members.length,
+        _restricted: p.isRestricted,
+      });
+    }
+    rows.sort((a, b) => a.status.localeCompare(b.status) || a.partnerName.localeCompare(b.partnerName));
+    return {
+      rows,
+      summary: [
+        { label: "No care team", value: rows.filter((r) => r.status === "No care team").length },
+        { label: "No lead", value: rows.filter((r) => r.status === "No lead").length },
+      ],
+      notes: ["Counts members as the people on the team other than the lead."],
+    };
+  },
+};
+
+module.exports = {
+  reports: [keyDates, languageCoverage, whereWeServe, partnerRoster, lastHeardFrom, careTeamCoverage],
+};

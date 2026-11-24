@@ -8,7 +8,7 @@ this information survives in version control instead of living only in
 the Render dashboard or a maintainer's own machine.
 
 - **`.env`** (gitignored, real secrets) -- the env vars `backend/scripts/
-  reset-demo-db-remote.js` needs to recover the live demo database
+reset-demo-db-remote.js` needs to recover the live demo database
   directly from a local machine, plus the same integration keys
   (GroupMe, Postmark, Pexels, etc.) `reset-demo-data.js` restores into
   `ChurchSettings` on every reset. Never commit this file -- `.gitignore`
@@ -23,6 +23,46 @@ the Render dashboard or a maintainer's own machine.
   right now -- Render isn't actively syncing from this file; it's what to
   restore from if the demo's services were ever deleted and had to be
   rebuilt.
+
+## Guest logins visitors can try
+
+Besides the admin login (`DEMO_ADMIN_EMAIL`/`DEMO_ADMIN_PASSWORD`), every
+reset seeds two **published guest logins** so a visitor can see what a care
+team member and a trip leader get. They are created by `seedCareTeamsDemo()`
+in `backend/prisma/seed.js`, and **all three logins are listed in the demo
+banner** at the top of the public pages (`DemoBanner.jsx`). The guest accounts
+are defined once in `backend/src/utils/demoLogins.js`, which both the seed and
+the banner read, so the banner always shows what the seed actually created:
+
+| Login                     | Password                                             | What they see                                                                                                                                                                                                                                                                                                               |
+| ------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `care.member@<admin's domain>` | the same as the demo admin's (`DEMO_ADMIN_PASSWORD`) | Four partners they're on the care team for: the same partner page an editor has minus monthly funding, their own prayer requests and one-time needs (no decisions), Newsletters & Docs, and a read-only view of those partners' trips. What they enter is saved but held in Pending Dispatches until the admin approves it. |
+| `trip.leader@<admin's domain>` | same                                                 | One upcoming trip they manage, plus its partner read-only. No needs, no money.                                                                                                                                                                                                                                              |
+
+These are the **only** accounts with two-factor off (`mfaSetupRequired:
+false`): a shared, published account can't enrol an authenticator without
+locking every other visitor out. Every other guest the seed creates (for
+example the lapsed `sam.okafor@example.org`, who exists to populate the
+"Inactive accounts only" filter) keeps the normal rule -- two-factor required
+-- and has a password nobody is told. **The published logins also look alike**,
+for simplicity: the guests' emails use the demo admin's email domain (so with
+`DEMO_ADMIN_EMAIL=demo@missionspartnertracker.com` they are
+`care.member@missionspartnertracker.com` and `trip.leader@missionspartnertracker.com`;
+`example.org` if no admin email is set), and they share one password: the guests
+use `DEMO_ADMIN_PASSWORD`. Set the
+optional `DEMO_GUEST_PASSWORD` only if you want them to differ (the banner then
+shows each one's password); never reuse any of these anywhere real.
+
+## What a demo never does
+
+A demo must not send email to its seeded accounts (they are fake addresses, so
+the mail only bounces and spends the email plan). Anything that emails people
+on its own schedule stays **off** there: the reset script and the seed turn
+every feature on **except** the list in `backend/src/utils/demoMode.js`
+(today: Key-date reminders), and the daily key-date job also skips itself
+whenever `DEMO_RESET_TOKEN` is set, in case a visitor with the published admin
+login switches the flag back on. To keep another scheduled-email feature off a
+demo, add its key to that list.
 
 ## Recovering after a migration squash
 

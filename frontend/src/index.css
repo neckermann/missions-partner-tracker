@@ -465,9 +465,6 @@ a {
     overflow-y: visible;
     position: static;
   }
-  .form-save-bar {
-    left: 0;
-  }
 }
 
 .map-layout {
@@ -1277,6 +1274,17 @@ a {
   padding: 0.85rem 1.5rem;
   box-shadow: var(--shadow);
   z-index: 50;
+}
+/* Must come after the base rule: on mobile the sidebar stacks above the page
+   instead of sitting beside it, so there is nothing to offset past. (When
+   this override sat earlier in the file the base rule won, and the bar was
+   pushed past the right edge with its last buttons unreachable.) */
+@media (max-width: 800px) {
+  .form-save-bar {
+    left: 0;
+    flex-wrap: wrap;
+    padding: 0.75rem 1rem;
+  }
 }
 .admin-section {
   background: var(--surface);

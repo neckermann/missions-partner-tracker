@@ -68,6 +68,10 @@ router.get("/pending", requireRole("admin", "editor", "viewer"), async (req, res
           // edited/confirmed. Urgent is held the same way: it means
           // "don't wait for a schedule," never "skip review."
           needsReview: held,
+          // Why it's held when the partner ISN'T restricted: a care team
+          // member entered it (#289), so staff review it before it goes out.
+          // The page words the badge and the approval dialog from this.
+          reviewRequired: !!row.reviewRequired,
           dispatchReviewedAt: row.dispatchReviewedAt,
           groupmeDispatchedAt: row.groupmeDispatchedAt,
           whatsappDispatchedAt: row.whatsappDispatchedAt,
@@ -144,6 +148,7 @@ router.put("/pending/:id", requireRole("admin", "editor"), async (req, res, next
     res.json({
       ...blurb,
       isRestricted: !!partner?.isRestricted,
+      reviewRequired: !!updated.reviewRequired,
       needsReview: false,
       dispatchReviewedAt: updated.dispatchReviewedAt,
     });

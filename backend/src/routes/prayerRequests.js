@@ -1,10 +1,12 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
+const { requireAuth, requireRole, allowGuestPartnerList } = require("../middleware/requireAuth");
+const { readablePartnerIds, isOnCareTeamFor } = require("../utils/guestAccess");
 const { requireFeature } = require("../middleware/requireFeature");
 const { notifyPrayerRequestCreated, notifyPrayerRequestAnswered } = require("../utils/dispatchRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
+const { logContactForPrayerRequest } = require("../utils/contactLogQueries");
 const { getSeenAt, touchSeen, markCategorySeen } = require("../notifications/categories");
 
 // Distinct from the bell's own "newPrayerRequests" NotificationSeen row --
@@ -90,10 +92,14 @@ const prayerRequestInclude = {
 // from/to mirror reports/prayerRequests.js's own date-range filtering --
 // same Prisma where-clause shape, now also usable from the live list page's
 // FilterBar, not just the read-only Report.
-router.get("/", requirePartnerQueryScope, async (req, res, next) => {
+router.get("/", allowGuestPartnerList, async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
+    // A guest browsing without naming a partner sees only the partners they
+    // reach (#289) -- the server is the boundary, not the page.
+    const reachable = readablePartnerIds(req.user);
+    if (reachable && !req.query.partnerId) where.partnerId = { in: reachable };
     if (req.query.from || req.query.to) {
       where.dateReceived = {};
       if (req.query.from) where.dateReceived.gte = new Date(String(req.query.from));
@@ -132,12 +138,29 @@ router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   }
 });
 
-// POST /api/prayer-requests  (create — editor or admin)
-router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
+// A care team member who isn't staff (#289) has what an editor has on their own
+// partner -- every field, including the public/booklet toggles -- except what
+// would send something out ahead of review: isUrgent and approveNow are
+// dropped (their dispatch is always held for staff review instead), and
+// deleting stays admin-only. Anything else in the body is applied as for an
+// editor.
+const careTeamPrayerCreateSchema = prayerRequestSchema.omit({ isUrgent: true, approveNow: true });
+const careTeamPrayerUpdateSchema = prayerRequestSchema.omit({ isUrgent: true, approveNow: true }).partial();
+
+const isStaff = (user) => user.role === "admin" || user.role === "editor";
+const FORBIDDEN = { error: "Insufficient permissions" };
+
+// POST /api/prayer-requests  (create — editor or admin, or a care team
+// member for their own partner, held for staff review)
+router.post("/", requireRole("admin", "editor", "viewer", "guest"), async (req, res, next) => {
   try {
-    const { approveNow, ...data } = prayerRequestSchema
-      .refine(answeredDateGiven, ANSWERED_DATE_ISSUE)
-      .parse(req.body);
+    const staff = isStaff(req.user);
+    const { approveNow, ...data } = staff
+      ? prayerRequestSchema.refine(answeredDateGiven, ANSWERED_DATE_ISSUE).parse(req.body)
+      : careTeamPrayerCreateSchema.parse(req.body);
+    if (!staff && !(await isOnCareTeamFor(req.user, data.partnerId))) {
+      return res.status(403).json(FORBIDDEN);
+    }
     const created = await prisma.prayerRequest.create({
       data,
       include: prayerRequestInclude,
@@ -145,8 +168,15 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 
     // Best-effort: notifyPrayerRequestCreated (utils/dispatchRecording.js)
     // never throws -- a broken notification channel must never block
-    // saving the request itself.
-    await notifyPrayerRequestCreated(created, approveNow ? { reviewerId: req.user.id } : null);
+    // saving the request itself. A care team member's is always held for
+    // staff review (requireReview) and can never be urgent or pre-approved.
+    await notifyPrayerRequestCreated(created, approveNow ? { reviewerId: req.user.id } : null, {
+      requireReview: !staff,
+    });
+    // #288: what a care team member just heard from the partner is also a
+    // contact. (Staff entering a request on someone's behalf didn't
+    // necessarily speak to them, so they log one themselves if they did.)
+    if (!staff) await logContactForPrayerRequest(created, req.user);
 
     res.status(201).json(created);
   } catch (err) {
@@ -159,9 +189,27 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 // previously-ongoing request, but allows editing any field — including
 // moving it to a different partner, which is now just a plain column and so
 // needs no special handling.
-router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.put("/:id", requireRole("admin", "editor", "viewer", "guest"), async (req, res, next) => {
   try {
-    const data = prayerRequestSchema.partial().refine(answeredDateGiven, ANSWERED_DATE_ISSUE).parse(req.body);
+    const staff = isStaff(req.user);
+    if (!staff) {
+      // A care team member edits their own partner's request -- and may only
+      // move it to another partner whose team they are also on.
+      const existing = await prisma.prayerRequest.findUnique({
+        where: { id: req.params.id },
+        select: { partnerId: true },
+      });
+      if (!existing) return res.status(404).json({ error: "Not found" });
+      const partnersInvolved = [existing.partnerId, req.body?.partnerId].filter(
+        (id) => typeof id === "string"
+      );
+      for (const id of partnersInvolved) {
+        if (!(await isOnCareTeamFor(req.user, id))) return res.status(403).json(FORBIDDEN);
+      }
+    }
+    const data = (staff ? prayerRequestSchema.partial() : careTeamPrayerUpdateSchema)
+      .refine(answeredDateGiven, ANSWERED_DATE_ISSUE)
+      .parse(req.body);
 
     // Only notify on a genuine transition into "answered" (see #127) -- a
     // PUT that doesn't touch status at all never fetches `before`, and one
@@ -181,7 +229,10 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
 
     // Same best-effort reasoning as the POST route above.
     if (data.status === "answered" && before?.status !== "answered") {
-      await notifyPrayerRequestAnswered(updated);
+      await notifyPrayerRequestAnswered(updated, { requireReview: !staff });
+      // #292: the partner telling a care team member a prayer was answered is
+      // a contact too (inbound), same as a new request above.
+      if (!staff) await logContactForPrayerRequest(updated, req.user, { answered: true });
     }
 
     res.json(updated);

@@ -69,6 +69,7 @@ const AdminTripFlights = lazy(() => import("./pages/AdminTripFlights.jsx"));
 const AdminTripParticipantDetail = lazy(() => import("./pages/AdminTripParticipantDetail.jsx"));
 const AdminTripApplicationDetail = lazy(() => import("./pages/AdminTripApplicationDetail.jsx"));
 const AdminSettingsTrips = lazy(() => import("./pages/AdminSettingsTrips.jsx"));
+const AdminSettingsCareTeam = lazy(() => import("./pages/AdminSettingsCareTeam.jsx"));
 const AdminPartnerFiles = lazy(() => import("./pages/AdminPartnerFiles.jsx"));
 
 // Chunks are served same-origin from this app, so the gap is a network hop
@@ -328,6 +329,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     element={
                       <RequireAdminFeature feature="trips">
                         <AdminSettingsTrips />
+                      </RequireAdminFeature>
+                    }
+                  />
+                  <Route
+                    path="care-team"
+                    element={
+                      <RequireAdminFeature feature="careTeam">
+                        <AdminSettingsCareTeam />
                       </RequireAdminFeature>
                     }
                   />

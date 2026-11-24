@@ -1,7 +1,13 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
+const {
+  requireAuth,
+  requireRole,
+  allowGuestPartnerList,
+  requirePartnerWriter,
+} = require("../middleware/requireAuth");
+const { canReadPartner, readablePartnerIds, isOnCareTeamFor } = require("../utils/guestAccess");
 const { requireFeature } = require("../middleware/requireFeature");
 const { verifyUpload } = require("../utils/fileSignature");
 const { sendStoredFile } = require("../utils/fileResponse");
@@ -66,10 +72,14 @@ const metaSchema = metaObjectSchema.refine(
 // own kind -- AdminPartnerFiles.jsx's "Show: Missionaries/Organizations"
 // filter was client-side-only before this; from/to filter receivedDate,
 // same range shape as prayerRequests.js/supportNeeds.js just added above.
-router.get("/", requirePartnerQueryScope, async (req, res, next) => {
+router.get("/", allowGuestPartnerList, async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
+    // A guest browsing without naming a partner sees only the partners they
+    // reach (#289) -- the server is the boundary, not the page.
+    const reachable = readablePartnerIds(req.user);
+    if (reachable && !req.query.partnerId) where.partnerId = { in: reachable };
     if (req.query.kind) where.kind = String(req.query.kind);
     if (req.query.entityType) where.partner = { kind: String(req.query.entityType) };
     if (req.query.from || req.query.to) {
@@ -93,46 +103,60 @@ router.get("/", requirePartnerQueryScope, async (req, res, next) => {
 });
 
 // POST / (upload -- editor or admin)
-router.post("/", requireRole("admin", "editor"), upload.single("file"), async (req, res, next) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: "No file provided" });
+// Admin/editor, or a care team member for their own partner (#289): any
+// non-staff login on that partner's care team may add a document or
+// newsletter. Changing metadata afterwards, deleting, and scanning with AI
+// stay staff-only, and a care team member's newsletter dispatch is held for
+// staff review before it goes anywhere.
+router.post(
+  "/",
+  requireRole("admin", "editor", "viewer", "guest"),
+  upload.single("file"),
+  async (req, res, next) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No file provided" });
+      const staff = req.user.role === "admin" || req.user.role === "editor";
 
-    // #327 Finding 8: this used to store req.file.mimetype as-is whenever
-    // the filename ended in .eml, skipping the signature check entirely
-    // for that case -- a file named x.eml declared as application/pdf
-    // was stored unverified and later served inline as PDF
-    // (VERIFIED_INLINE_TYPES, utils/fileResponse.js). verifyUpload always
-    // forces message/rfc822 for a real .eml, never the client's own
-    // declared type; everything else still gets signature-checked.
-    const verified = verifyUpload(req.file);
-    if (!verified.ok) {
-      return res.status(400).json({ error: "File content doesn't match its declared type" });
+      // #327 Finding 8: this used to store req.file.mimetype as-is whenever
+      // the filename ended in .eml, skipping the signature check entirely
+      // for that case -- a file named x.eml declared as application/pdf
+      // was stored unverified and later served inline as PDF
+      // (VERIFIED_INLINE_TYPES, utils/fileResponse.js). verifyUpload always
+      // forces message/rfc822 for a real .eml, never the client's own
+      // declared type; everything else still gets signature-checked.
+      const verified = verifyUpload(req.file);
+      if (!verified.ok) {
+        return res.status(400).json({ error: "File content doesn't match its declared type" });
+      }
+
+      const meta = metaSchema.parse(req.body);
+      if (!staff && !(await isOnCareTeamFor(req.user, meta.partnerId))) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+
+      const created = await prisma.partnerFile.create({
+        data: {
+          ...meta,
+          fileName: req.file.originalname,
+          contentType: verified.contentType,
+          fileSize: req.file.size,
+          bytesRow: { create: { bytes: req.file.buffer } },
+        },
+        include: fileInclude,
+      });
+
+      if (created.kind === "newsletter") {
+        // Best-effort: notifyNewsletterCreated never throws -- see the same
+        // comment in routes/prayerRequests.js.
+        await notifyNewsletterCreated(created, { requireReview: !staff });
+      }
+
+      res.status(201).json(created);
+    } catch (err) {
+      next(err);
     }
-
-    const meta = metaSchema.parse(req.body);
-
-    const created = await prisma.partnerFile.create({
-      data: {
-        ...meta,
-        fileName: req.file.originalname,
-        contentType: verified.contentType,
-        fileSize: req.file.size,
-        bytesRow: { create: { bytes: req.file.buffer } },
-      },
-      include: fileInclude,
-    });
-
-    if (created.kind === "newsletter") {
-      // Best-effort: notifyNewsletterCreated never throws -- see the same
-      // comment in routes/prayerRequests.js.
-      await notifyNewsletterCreated(created);
-    }
-
-    res.status(201).json(created);
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 // GET /:id/download -- streams the file straight from the database (still
 // requireAuth'd, per router.use above; no separate signed URL to generate
@@ -140,7 +164,7 @@ router.post("/", requireRole("admin", "editor"), upload.single("file"), async (r
 //
 // Unlike GET / above, this single-record route has no requirePartnerQueryScope
 // of its own -- every other role is fine with that (any login already sees
-// every partner's files via the unscoped list route), but a Trip Leader must
+// every partner's files via the unscoped list route), but a guest must
 // not be able to download an arbitrary file id belonging to some other
 // partner just because they know (or guessed) it. Checked here explicitly,
 // same pattern as partners.js's own GET /:id.
@@ -152,14 +176,8 @@ router.get("/:id/download", async (req, res, next) => {
     });
     if (!record?.bytesRow) return res.status(404).json({ error: "Not found" });
 
-    if (req.user.role === "tripLeader") {
-      const trip = await prisma.trip.findUnique({
-        where: { id: req.user.scopedTripId },
-        select: { partnerId: true },
-      });
-      if (!trip?.partnerId || trip.partnerId !== record.partnerId) {
-        return res.status(403).json({ error: "Insufficient permissions" });
-      }
+    if (!canReadPartner(req.user, record.partnerId)) {
+      return res.status(403).json({ error: "Insufficient permissions" });
     }
 
     sendStoredFile(res, { ...record, bytes: record.bytesRow.bytes });
@@ -173,7 +191,7 @@ router.get("/:id/download", async (req, res, next) => {
 // edit -- there's no separate "reclassify" action) and moving it to a
 // different partner. The file's bytes/fileName/contentType/fileSize are
 // immutable (upload a new file and delete this one if the file's wrong).
-router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.put("/:id", requirePartnerWriter({ model: "partnerFile" }), async (req, res, next) => {
   try {
     const data = metaObjectSchema.partial().parse(req.body);
 
@@ -216,7 +234,7 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
 // or Word/Excel file), a more accurate constraint than guessing from kind.
 router.post(
   "/:id/extract",
-  requireRole("admin", "editor"),
+  requirePartnerWriter({ model: "partnerFile" }),
   requireFeature("aiExtraction"),
   async (req, res, next) => {
     try {

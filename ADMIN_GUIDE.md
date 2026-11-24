@@ -210,11 +210,16 @@ prayer digest nested under Email (Sending) since it depends on it), and
 | Reports | On | A question-based hub of read-only reports over existing data (support, prayer requests, one-time needs, data completeness, trips, mailing list, users & access, and more), each with URL-backed filters, summary tiles, CSV download, and a print view. Reports can be saved (private or shared) and, for an admin, scheduled as a recurring email. See [USER_GUIDE.md § Reports](USER_GUIDE.md#reports). |
 | GroupMe dispatch | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Settings → Dispatch Settings, or via manual send from Pending Dispatches. Configured entirely in the UI (Settings → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only). |
 | WhatsApp dispatch | **Off** | The same three dispatch types as GroupMe, posted to their own groups inside one WhatsApp community, on the same daily schedule and content-type mutes as GroupMe (a church can run either or both). Configured entirely in the UI (Settings → WhatsApp): link a **dedicated** phone number by scanning a QR code, pick the community, then a group per dispatch type. Off by default because it's an **unofficial** connection — see [Dispatch: WhatsApp](#dispatch-whatsapp) below before turning it on. See [USER_GUIDE.md § WhatsApp dispatch](USER_GUIDE.md#whatsapp-dispatch-admin-only). |
+| Care teams | **Off** | Give each partner a care team: one Lead plus Members, all logins, who keep in touch with them. A care team member can do what an editor can for their own partner, except that **what they enter is held in Pending Dispatches for you to approve before it's sent anywhere**, they can't record a decision on a one-time need, and they never see monthly support. A Guest can be given a partner this way instead of a trip. See [USER_GUIDE.md § Care teams](USER_GUIDE.md#care-teams). Turning it off hides all of it and ignores the seats for access; nothing is deleted. Adds a *Care team coverage* report. |
+| Key-date reminders | **Off** | Reminds each partner's care team about coming birthdays (including children), wedding anniversaries and supported-since milestones (the first year, then every fifth), a week ahead: on the bell and in **one grouped email a day**, sent at 7am church time only on days something is due. Needs **Care teams**; the email also needs **Email (Sending)** and is sent by the worker. A partner with no care team goes to the **default lead** (Settings → Care Teams); logging a contact with the topic "Key date" clears a reminder. Restricted partners are named by initials only. |
+| Contact log | **Off** | Record every call, text, email, visit or card with a partner, show a contact card (primary contact, preferred method, one-tap call/text/email/WhatsApp) on each partner page, and flag partners nobody has been in touch with for 90 days. Adds an **Assigned to me** tab for care team members, a "Partners to reach out to" alert, and feeds the Last heard from report. A partner marked not safe to contact shows staff's special instructions instead of the buttons, and is left out of the printed booklet's contact details. Entries are internal only. |
 | Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Settings → Integrations, under Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Settings → Integrations, under AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 | Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Settings → Email. Today's only sender is the batched dispatch digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
 | Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Settings → Email page as Sending, independently toggled. Also sets the one informational **Inbound Email Address** field — purely display, not required for the webhook itself. See [§ Email (Postmark)](#email-postmark) below. |
 | Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the public **Subscribe** page (`/subscribe`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on — shown nested under Email (Sending) on this page, and its checkbox can't be turned on until that one is. See [§ Dispatch: GroupMe, the admin digest, and the public digest](#dispatch-groupme-the-admin-digest-and-the-public-digest) below. |
+
+![The Admin Features dialog, with the Contact log, Key-date reminders and Care teams toggles](docs/assets/screenshots/enabled-features-admin.png)
 
 The registry backing this list lives in `backend/src/utils/features.js` —
 adding a new toggle later is a one-line entry there plus a `requireFeature("key")`
@@ -261,17 +266,17 @@ A few things worth knowing operationally:
   WhatsApp) in the database — see
   [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below.
 - MFA (TOTP) is opt-in and self-service for the 3 full roles, or an
-  admin can force it on a specific account. A Trip Leader guest account
-  has no self-service here at all (password included) — fully
-  admin-managed, same as the rest of that account's scope — so forcing
-  MFA on one only ever goes through the required-at-first-sign-in flow;
-  turning it back off goes through Manage Users' own MFA reset, not a
-  self-service disable. See
+  admin can force it on a specific account. A Guest account always has
+  MFA required: it's turned on when the account is created (or an
+  existing account becomes a guest), the guest enrols from My Account
+  and can change their own password there, but cannot switch MFA off. If
+  a guest loses their authenticator, Manage Users' MFA reset clears it
+  and they enrol again at next sign-in. See
   [USER_GUIDE.md § Your account settings](USER_GUIDE.md#your-account-settings)
   for the user-facing flow.
 
 For the app's role model itself (`viewer`/`editor`/`admin`, plus the
-narrow Trip Leader guest tier scoped to a single trip), see
+narrow Guest tier, scoped to the trips an admin grants it), see
 [USER_GUIDE.md § Understanding your role](USER_GUIDE.md#understanding-your-role)
 and [SPEC.md § 5](SPEC.md#5-auth--permissions-model).
 

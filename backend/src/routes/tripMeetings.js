@@ -15,7 +15,7 @@ router.use(requireAuth); // everything below requires a logged-in user
 router.use(requireFeature("trips"));
 
 // requireTripScope needs the owning trip id before it can check it
-// against a Trip Leader's own scopedTripId -- every route here but the
+// against a guest's granted trips -- every route here but the
 // create route is addressed by the meeting's own id, not the trip's.
 async function tripIdOfMeeting(req) {
   const row = await prisma.tripMeeting.findUnique({ where: { id: req.params.id }, select: { tripId: true } });
@@ -41,7 +41,7 @@ const meetingInputSchema = z.object({
 
 router.post(
   "/:id/meetings",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope("id"),
   async (req, res, next) => {
     try {
@@ -69,7 +69,7 @@ router.post(
 // same precedent this already followed for the field it replaced.
 router.put(
   "/meetings/:id",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfMeeting),
   async (req, res, next) => {
     try {
@@ -106,7 +106,7 @@ router.put(
 // never got it) without waiting on, or faking, a reschedule.
 router.post(
   "/meetings/:id/resend",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfMeeting),
   async (req, res, next) => {
     try {
@@ -136,7 +136,7 @@ router.post(
 // the first one) shouldn't be blocked.
 router.post(
   "/meetings/:id/cancel",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfMeeting),
   async (req, res, next) => {
     try {
@@ -177,7 +177,7 @@ router.post(
 // a data-entry error.
 router.delete(
   "/meetings/:id",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfMeeting),
   async (req, res, next) => {
     try {
