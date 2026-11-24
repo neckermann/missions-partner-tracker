@@ -557,7 +557,7 @@ export default function AdminTripParticipantDetail() {
         <div className="admin-section">
           <h3>Application answers</h3>
           <p style={{ fontSize: "0.8rem", color: "#888", marginTop: 0 }}>
-            Submitted {formatDate(participant.application.submittedAt)}
+            Submitted {formatDate(participant.application.createdAt)}
           </p>
           {applicationAnswers.length === 0 ? (
             <p style={{ color: "#888", fontSize: "0.85rem" }}>This trip has no application questions set.</p>

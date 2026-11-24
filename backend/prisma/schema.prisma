@@ -372,6 +372,8 @@ model Trip {
   // signed-in user of the request; left alone by background jobs, the seed and
   // public submissions, which have no signed-in person. The name is a snapshot
   // so it still reads after that account is deleted.
+  // When the trip was added (#383). Shown on the trip page and sortable on the Trips list.
+  createdAt        DateTime @default(now())
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -570,7 +572,7 @@ model TripApplication {
   parentGuardianPhone        String?
   parentGuardianEmail        String?
 
-  submittedAt    DateTime  @default(now())
+  createdAt      DateTime  @default(now())
   reviewedAt     DateTime?
   reviewedById   String?
   // Admin-only, never shown to the applicant -- set only when declining;

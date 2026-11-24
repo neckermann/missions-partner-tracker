@@ -161,7 +161,12 @@ export default function TripDetailLayout() {
         )}
       </p>
       {!isGuest && (
-        <LastEdited name={trip.lastEditedByName} at={trip.lastEditedAt} style={{ margin: "0.15rem 0 0" }} />
+        <LastEdited
+          name={trip.lastEditedByName}
+          at={trip.lastEditedAt}
+          createdAt={trip.createdAt}
+          style={{ margin: "0.15rem 0 0" }}
+        />
       )}
 
       <div
