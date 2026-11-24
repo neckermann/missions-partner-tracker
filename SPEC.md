@@ -476,6 +476,19 @@ than by omission"). Roles exist to gate **writes**, not visibility:
   request re-reads the user row from the DB (not just the JWT claims) so
   a deactivation/role-demotion takes effect on the user's very next
   request, not at token expiry.
+- **Passkeys (#386)**: a second factor next to TOTP, via `@simplewebauthn/server`. `UserPasskey`
+  holds only public material (credential id, public key as base64url, signature counter,
+  transports, a label), up to 5 per user. `User.mfaEnabled` stays the single "second factor
+  enrolled" flag, so sign-in, the church-wide requirement and `requireAuth` are unchanged;
+  `User.mfaSecret` says whether an authenticator app is also set. The relying-party id is the host
+  of `APP_BASE_URL` (falling back to the request host). Challenges are not stored: each is carried
+  in a 5-minute signed token bound to its purpose and user and accepted once (in-memory spent
+  list). Routes under `/api/auth/passkeys`: `register/options|verify` (a session, or the forced
+  enrolment setup token, which then also signs the person in), list, `DELETE /:id` (password
+  required; refused for the last factor while two-factor is required), and `login/options|verify`
+  (second step after the password, using the pending token). Login returns `methods`
+  `{authenticatorApp, passkey}`. Admin MFA reset deletes passkeys. Layer 2 (passwordless) is not
+  built.
 - **MFA**: self-service TOTP, opt-in per user; an admin can force
   enrollment (`mfaSetupRequired`) of one account without knowing the
   secret, or require it of every account with the church-wide

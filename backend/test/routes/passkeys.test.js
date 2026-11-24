@@ -35,7 +35,11 @@ async function makeUser(tag, extra = {}) {
   emails.push(email);
   const passwordHash = await bcrypt.hash(PASSWORD, 4);
   const data = { passwordHash, role: "editor", active: true, authProvider: "local", ...extra };
-  return prisma.user.upsert({ where: { email }, update: { mfaEnabled: false, mfaSecret: null, ...data }, create: { email, ...data } });
+  return prisma.user.upsert({
+    where: { email },
+    update: { mfaEnabled: false, mfaSecret: null, ...data },
+    create: { email, ...data },
+  });
 }
 const login = async (email) => {
   const res = await anon("/api/auth/login", { method: "POST", body: { email, password: PASSWORD } });
@@ -133,13 +137,19 @@ describe("adding a passkey", () => {
     const wrongSite = createAuthenticator({ rpID: RP_ID, origin: "https://evil.example.test" });
     const bad = await who("/api/auth/passkeys/register/verify", {
       method: "POST",
-      body: { challengeToken: opts.body.challengeToken, response: wrongSite.register(opts.body.options.challenge) },
+      body: {
+        challengeToken: opts.body.challengeToken,
+        response: wrongSite.register(opts.body.options.challenge),
+      },
     });
     assert.equal(bad.status, 400, "a response from another origin");
 
     const opts2 = await who("/api/auth/passkeys/register/options", { method: "POST" });
     const a = newAuthenticator();
-    const body = { challengeToken: opts2.body.challengeToken, response: a.register(opts2.body.options.challenge) };
+    const body = {
+      challengeToken: opts2.body.challengeToken,
+      response: a.register(opts2.body.options.challenge),
+    };
     assert.equal((await who("/api/auth/passkeys/register/verify", { method: "POST", body })).status, 200);
     assert.equal(
       (await who("/api/auth/passkeys/register/verify", { method: "POST", body })).status,
@@ -191,7 +201,9 @@ describe("signing in with a passkey", () => {
     assert.equal((await ok.send()).status, 401, "the same assertion twice");
 
     // A fresh challenge but the counter went backwards: a cloned authenticator.
-    const stale = await signInWithPasskey((await login(user.email)).body.pendingToken, a, { counterValue: 1 });
+    const stale = await signInWithPasskey((await login(user.email)).body.pendingToken, a, {
+      counterValue: 1,
+    });
     assert.equal((await stale.send()).status, 401);
 
     const wrongSite = await signInWithPasskey((await login(user.email)).body.pendingToken, a, {
@@ -234,7 +246,8 @@ describe("signing in with a passkey", () => {
     });
     assert.equal(res.status, 401);
     assert.equal(
-      (await anon("/api/auth/passkeys/login/options", { method: "POST", body: { pendingToken: "nope" } })).status,
+      (await anon("/api/auth/passkeys/login/options", { method: "POST", body: { pendingToken: "nope" } }))
+        .status,
       401
     );
   });
@@ -278,7 +291,11 @@ describe("removing a passkey", () => {
       (await who(`/api/auth/passkeys/${one.id}`, { method: "DELETE", body: { password: PASSWORD } })).status,
       200
     );
-    assert.equal((await prisma.user.findUnique({ where: { id: user.id } })).mfaEnabled, true, "one is still left");
+    assert.equal(
+      (await prisma.user.findUnique({ where: { id: user.id } })).mfaEnabled,
+      true,
+      "one is still left"
+    );
 
     assert.equal(
       (await who(`/api/auth/passkeys/${two.id}`, { method: "DELETE", body: { password: PASSWORD } })).status,
@@ -296,7 +313,10 @@ describe("removing a passkey", () => {
     await setRequirement(true);
     try {
       // Signed in before the requirement; their session is already enrolled.
-      const res = await who(`/api/auth/passkeys/${only.id}`, { method: "DELETE", body: { password: PASSWORD } });
+      const res = await who(`/api/auth/passkeys/${only.id}`, {
+        method: "DELETE",
+        body: { password: PASSWORD },
+      });
       assert.equal(res.status, 403);
       assert.equal(await prisma.userPasskey.count({ where: { userId: user.id } }), 1);
     } finally {
@@ -306,7 +326,8 @@ describe("removing a passkey", () => {
     const stranger = await makeUser("stranger");
     const asStranger = as((await login(stranger.email)).cookie);
     assert.equal(
-      (await asStranger(`/api/auth/passkeys/${only.id}`, { method: "DELETE", body: { password: PASSWORD } })).status,
+      (await asStranger(`/api/auth/passkeys/${only.id}`, { method: "DELETE", body: { password: PASSWORD } }))
+        .status,
       404
     );
   });
@@ -321,7 +342,10 @@ describe("removing a passkey", () => {
     });
     // Signed in with a session that predates enrolment, via the admin-free path: add a passkey row directly.
     const a = newAuthenticator();
-    const pre = await prisma.user.update({ where: { id: user.id }, data: { mfaEnabled: false, mfaSecret: null } });
+    const pre = await prisma.user.update({
+      where: { id: user.id },
+      data: { mfaEnabled: false, mfaSecret: null },
+    });
     const { cookie } = await login(pre.email);
     await addPasskey(as(cookie), a);
     await prisma.user.update({ where: { id: user.id }, data: { mfaSecret: encryptField(generateSecret()) } });

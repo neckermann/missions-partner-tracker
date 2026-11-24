@@ -209,8 +209,14 @@ const sensitiveAuthLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 app.use("/api/auth/mfa/verify-setup", sensitiveAuthLimiter);
 app.use("/api/auth/mfa/disable", sensitiveAuthLimiter);
 // #386: passkey sign-in is a guess against a pending token; removing one checks the password.
-app.use("/api/auth/passkeys/login", rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 20 }));
-app.use("/api/auth/passkeys/register", rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 20 }));
+app.use(
+  "/api/auth/passkeys/login",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 20 })
+);
+app.use(
+  "/api/auth/passkeys/register",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 20 })
+);
 app.use("/api/auth/change-password", sensitiveAuthLimiter);
 
 // The public site's own pages (directory, map, tour) legitimately fire many

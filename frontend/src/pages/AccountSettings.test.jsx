@@ -11,6 +11,10 @@ import { fetchCurrentUser, fetchPartners, updateNotifyByEmail } from "../api/cli
 // MFA setup/disable flows and the password-change section are
 // unexercised here -- they're unrelated to this feature.
 vi.mock("../api/client.js", () => ({
+  fetchPasskeys: vi.fn().mockResolvedValue({ passkeys: [], max: 5 }),
+  registerPasskey: vi.fn(),
+  removePasskey: vi.fn(),
+  browserSupportsWebAuthn: () => true,
   fetchCurrentUser: vi.fn(),
   changePassword: vi.fn(),
   setupMfa: vi.fn(),

@@ -137,7 +137,8 @@ module.exports = function passkeyRoutes({ completeLogin }) {
           },
         });
       } catch (err) {
-        if (err.code === "P2002") return res.status(409).json({ error: "That passkey is already registered" });
+        if (err.code === "P2002")
+          return res.status(409).json({ error: "That passkey is already registered" });
         throw err;
       }
       // An abandoned authenticator-app enrolment (secret saved, never confirmed) is cleared so a
@@ -179,12 +180,15 @@ module.exports = function passkeyRoutes({ completeLogin }) {
       });
       if (!passkey) return res.status(404).json({ error: "Not found" });
 
-      const remaining = await prisma.userPasskey.count({ where: { userId: user.id, id: { not: passkey.id } } });
+      const remaining = await prisma.userPasskey.count({
+        where: { userId: user.id, id: { not: passkey.id } },
+      });
       const hasApp = Boolean(user.mfaSecret);
       const lastFactor = remaining === 0 && !hasApp;
       if (lastFactor && (await isTwoFactorRequired())) {
         return res.status(403).json({
-          error: "Your church requires two-factor authentication. Add another passkey or an authenticator app first.",
+          error:
+            "Your church requires two-factor authentication. Add another passkey or an authenticator app first.",
         });
       }
       await prisma.userPasskey.delete({ where: { id: passkey.id } });
