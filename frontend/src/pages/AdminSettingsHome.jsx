@@ -17,6 +17,12 @@ function buildSections(enabledFeatures) {
       icon: "👥",
       description: "Admin accounts and their roles.",
     },
+    enabledFeatures.auditTrail && {
+      to: "/admin/settings/activity",
+      title: "Activity",
+      icon: "📜",
+      description: "Who did what and when: sign-ins, access and settings changes, deletes, backups.",
+    },
     {
       to: "/admin/settings/features",
       title: "Enabled Features",
@@ -40,12 +46,6 @@ function buildSections(enabledFeatures) {
       title: "Care Teams",
       icon: "🤝",
       description: "The default lead for partners without a care team, and key-date reminders.",
-    },
-    enabledFeatures.auditTrail && {
-      to: "/admin/settings/activity",
-      title: "Activity",
-      icon: "📜",
-      description: "Who did what and when: sign-ins, access and settings changes, deletes, backups.",
     },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       to: "/admin/settings/email",

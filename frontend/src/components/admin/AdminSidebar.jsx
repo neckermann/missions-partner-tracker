@@ -160,11 +160,11 @@ function buildSiteAdminLinks(enabledFeatures) {
   return [
     { to: "/admin/settings/about", label: "About & Branding", icon: "🎨" },
     { to: "/admin/settings/users", label: "Manage Users", icon: "👥" },
+    enabledFeatures.auditTrail && { to: "/admin/settings/activity", label: "Activity", icon: "📜" },
     { to: "/admin/settings/features", label: "Enabled Features", icon: "🧩" },
     { to: "/admin/settings/system-info", label: "About App", icon: "ℹ️" },
     enabledFeatures.trips && { to: "/admin/settings/trips", label: "Trips", icon: "✈️" },
     enabledFeatures.careTeam && { to: "/admin/settings/care-team", label: "Care Teams", icon: "🤝" },
-    enabledFeatures.auditTrail && { to: "/admin/settings/activity", label: "Activity", icon: "📜" },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       to: "/admin/settings/email",
       label: "Email",
