@@ -14,6 +14,10 @@ export default function DemoBanner() {
 
   const hasAdmin = demoLoginEmail && demoLoginPassword;
   const guests = demoGuestLogins || [];
+  // When every login has the same password (the default: the guests follow the
+  // admin's), say it once instead of repeating it on each line.
+  const passwords = [hasAdmin ? demoLoginPassword : null, ...guests.map((g) => g.password)].filter(Boolean);
+  const sharedPassword = passwords.length > 1 && new Set(passwords).size === 1 ? passwords[0] : null;
 
   return (
     <div className="demo-banner">
@@ -31,16 +35,34 @@ export default function DemoBanner() {
             </a>
             , signed in as:
           </p>
+          {sharedPassword && (
+            <p>
+              The password is the same for all of them: <code>{sharedPassword}</code>
+            </p>
+          )}
           <ul style={{ margin: "0 0 0.5rem", paddingLeft: "1.25rem" }}>
             {hasAdmin && (
               <li>
-                <strong>Admin</strong> — <code>{demoLoginEmail}</code> / <code>{demoLoginPassword}</code>.
-                Sees and does everything.
+                <strong>Admin</strong> — <code>{demoLoginEmail}</code>
+                {!sharedPassword && (
+                  <>
+                    {" "}
+                    / <code>{demoLoginPassword}</code>
+                  </>
+                )}
+                . Sees and does everything.
               </li>
             )}
             {guests.map((g) => (
               <li key={g.key}>
-                <strong>{g.label}</strong> — <code>{g.email}</code> / <code>{g.password}</code>. {g.summary}
+                <strong>{g.label}</strong> — <code>{g.email}</code>
+                {!sharedPassword && (
+                  <>
+                    {" "}
+                    / <code>{g.password}</code>
+                  </>
+                )}
+                . {g.summary}
               </li>
             ))}
           </ul>

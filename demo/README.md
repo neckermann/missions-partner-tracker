@@ -8,7 +8,7 @@ this information survives in version control instead of living only in
 the Render dashboard or a maintainer's own machine.
 
 - **`.env`** (gitignored, real secrets) -- the env vars `backend/scripts/
-  reset-demo-db-remote.js` needs to recover the live demo database
+reset-demo-db-remote.js` needs to recover the live demo database
   directly from a local machine, plus the same integration keys
   (GroupMe, Postmark, Pexels, etc.) `reset-demo-data.js` restores into
   `ChurchSettings` on every reset. Never commit this file -- `.gitignore`
@@ -34,18 +34,24 @@ banner** at the top of the public pages (`DemoBanner.jsx`). The guest accounts
 are defined once in `backend/src/utils/demoLogins.js`, which both the seed and
 the banner read, so the banner always shows what the seed actually created:
 
-| Login | Password | What they see |
-|---|---|---|
-| `care.member@example.org` | `DEMO_GUEST_PASSWORD` (default `TryTheGuestDemo2026!`) | Four partners they're on the care team for: the same partner page an editor has minus monthly funding, their own prayer requests and one-time needs (no decisions), Newsletters & Docs, and a read-only view of those partners' trips. What they enter is saved but held in Pending Dispatches until the admin approves it. |
-| `trip.leader@example.org` | same | One upcoming trip they manage, plus its partner read-only. No needs, no money. |
+| Login                     | Password                                             | What they see                                                                                                                                                                                                                                                                                                               |
+| ------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `care.member@<admin's domain>` | the same as the demo admin's (`DEMO_ADMIN_PASSWORD`) | Four partners they're on the care team for: the same partner page an editor has minus monthly funding, their own prayer requests and one-time needs (no decisions), Newsletters & Docs, and a read-only view of those partners' trips. What they enter is saved but held in Pending Dispatches until the admin approves it. |
+| `trip.leader@<admin's domain>` | same                                                 | One upcoming trip they manage, plus its partner read-only. No needs, no money.                                                                                                                                                                                                                                              |
 
 These are the **only** accounts with two-factor off (`mfaSetupRequired:
 false`): a shared, published account can't enrol an authenticator without
 locking every other visitor out. Every other guest the seed creates (for
 example the lapsed `sam.okafor@example.org`, who exists to populate the
 "Inactive accounts only" filter) keeps the normal rule -- two-factor required
--- and has a password nobody is told. Set `DEMO_GUEST_PASSWORD` in the demo's
-environment to change the published one; never reuse it anywhere real.
+-- and has a password nobody is told. **The published logins also look alike**,
+for simplicity: the guests' emails use the demo admin's email domain (so with
+`DEMO_ADMIN_EMAIL=demo@missionspartnertracker.com` they are
+`care.member@missionspartnertracker.com` and `trip.leader@missionspartnertracker.com`;
+`example.org` if no admin email is set), and they share one password: the guests
+use `DEMO_ADMIN_PASSWORD`. Set the
+optional `DEMO_GUEST_PASSWORD` only if you want them to differ (the banner then
+shows each one's password); never reuse any of these anywhere real.
 
 ## Recovering after a migration squash
 

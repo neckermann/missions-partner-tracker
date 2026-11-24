@@ -2815,11 +2815,7 @@ async function seedNotificationQueue() {
 // into, with the fixed fake password the other additional users use.
 // ---------------------------------------------------------------------
 // Defined once in src/utils/demoLogins.js, which the demo banner also reads.
-const {
-  DEMO_CARE_MEMBER_EMAIL,
-  DEMO_TRIP_LEADER_EMAIL,
-  demoGuestPassword,
-} = require("../src/utils/demoLogins");
+const { demoCareMemberEmail, demoTripLeaderEmail, demoGuestPassword } = require("../src/utils/demoLogins");
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 async function seedCareTeamsDemo() {
@@ -2849,8 +2845,8 @@ async function seedCareTeamsDemo() {
         lastLoginAt: lapsed ? null : dateBetween(0, 0),
       },
     });
-  const careMember = await makeGuest(DEMO_CARE_MEMBER_EMAIL, "Dana", "Whitfield", { published: true });
-  const tripLeader = await makeGuest(DEMO_TRIP_LEADER_EMAIL, "Chris", "Alvarez", { published: true });
+  const careMember = await makeGuest(demoCareMemberEmail(), "Dana", "Whitfield", { published: true });
+  const tripLeader = await makeGuest(demoTripLeaderEmail(), "Chris", "Alvarez", { published: true });
   const lapsedGuest = await makeGuest("sam.okafor@example.org", "Sam", "Okafor", { lapsed: true });
 
   // The editor and viewer seedAdditionalUsers already made: a full role can be
@@ -2984,7 +2980,7 @@ async function seedCareTeamsDemo() {
 async function seedContactLogDemo() {
   console.log("Seeding the contact log...");
   const daysAgo = (n) => new Date(Date.now() - n * DAY_MS);
-  const careMember = await prisma.user.findUnique({ where: { email: DEMO_CARE_MEMBER_EMAIL } });
+  const careMember = await prisma.user.findUnique({ where: { email: demoCareMemberEmail() } });
   const editor = await prisma.user.findFirst({ where: { firstName: "Pat", lastName: "Reynolds" } });
   const admin = await prisma.user.findFirst({ where: { role: "admin" }, orderBy: { createdAt: "asc" } });
 
@@ -3144,7 +3140,7 @@ async function seedKeyDatesDemo() {
     const d = new Date();
     return new Date(Date.UTC(d.getUTCFullYear() - yearsAgo, d.getUTCMonth(), d.getUTCDate() + n));
   };
-  const careMember = await prisma.user.findUnique({ where: { email: DEMO_CARE_MEMBER_EMAIL } });
+  const careMember = await prisma.user.findUnique({ where: { email: demoCareMemberEmail() } });
   const editor = await prisma.user.findFirst({ where: { firstName: "Pat", lastName: "Reynolds" } });
 
   // A birthday in 3 days on a partner the published care member looks after.
@@ -3195,7 +3191,7 @@ async function seedKeyDatesDemo() {
 // ---------------------------------------------------------------------
 async function seedPartnerUpdatesDemo() {
   console.log("Seeding care team updates...");
-  const careMember = await prisma.user.findUnique({ where: { email: DEMO_CARE_MEMBER_EMAIL } });
+  const careMember = await prisma.user.findUnique({ where: { email: demoCareMemberEmail() } });
   if (!careMember) return;
   const seat = await prisma.careTeamMember.findFirst({
     where: { userId: careMember.id },

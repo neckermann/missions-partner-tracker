@@ -55,6 +55,28 @@ describe("DemoBanner", () => {
     expect(screen.getByText(/Runs one trip/)).toBeTruthy();
   });
 
+  it("says the password once when every login shares it", () => {
+    settings = {
+      ...settings,
+      demoLoginPassword: "one-pw",
+      demoGuestLogins: guests.map((g) => ({ ...g, password: "one-pw" })),
+    };
+    render(<DemoBanner />);
+    expect(screen.getByText(/same for all of them/)).toBeTruthy();
+    expect(screen.getAllByText("one-pw").length).toBe(1);
+    // every email is still listed
+    expect(screen.getByText("admin@x.org")).toBeTruthy();
+    expect(screen.getByText("care@x.org")).toBeTruthy();
+    expect(screen.getByText("trip@x.org")).toBeTruthy();
+  });
+
+  it("shows each password when they differ", () => {
+    render(<DemoBanner />);
+    expect(screen.queryByText(/same for all of them/)).toBeNull();
+    expect(screen.getByText("apw")).toBeTruthy();
+    expect(screen.getAllByText("gpw").length).toBe(2);
+  });
+
   it("still works with no guest logins (an older or minimal demo)", () => {
     settings = { ...settings, demoGuestLogins: [] };
     render(<DemoBanner />);

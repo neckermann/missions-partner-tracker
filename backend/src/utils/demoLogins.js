@@ -9,13 +9,31 @@
 // publicSettings.js hands these out only when DEMO_RESET_TOKEN is set, which
 // is never the case on a real church's deployment.
 
-const DEMO_CARE_MEMBER_EMAIL = "care.member@example.org";
-const DEMO_TRIP_LEADER_EMAIL = "trip.leader@example.org";
+// The guests share the demo admin's email domain (DEMO_ADMIN_EMAIL's), so all
+// three published logins look like they belong together; example.org (reserved,
+// never delivers) when no admin email is set. Read at call time, like the
+// password below.
+function demoEmailDomain() {
+  const admin = process.env.DEMO_ADMIN_EMAIL || "";
+  const at = admin.lastIndexOf("@");
+  return at > 0 && at < admin.length - 1
+    ? admin
+        .slice(at + 1)
+        .trim()
+        .toLowerCase()
+    : "example.org";
+}
+const demoCareMemberEmail = () => `care.member@${demoEmailDomain()}`;
+const demoTripLeaderEmail = () => `trip.leader@${demoEmailDomain()}`;
 
-// Read at call time (not module load) so the seed and the banner always agree
-// on the value the demo's environment currently has.
+// One password for every published login, for simplicity: the guests use the
+// demo admin's (DEMO_ADMIN_PASSWORD) unless DEMO_GUEST_PASSWORD overrides it,
+// and a fixed demo default covers a demo with neither set. Read at call time
+// (not module load) so the seed and the banner always agree on the value the
+// demo's environment currently has.
+const DEFAULT_DEMO_PASSWORD = "TryTheDemo2026!";
 function demoGuestPassword() {
-  return process.env.DEMO_GUEST_PASSWORD || "TryTheGuestDemo2026!";
+  return process.env.DEMO_GUEST_PASSWORD || process.env.DEMO_ADMIN_PASSWORD || DEFAULT_DEMO_PASSWORD;
 }
 
 // For the demo banner. `summary` says what the login gets, in a sentence.
@@ -25,7 +43,7 @@ function demoGuestLogins() {
     {
       key: "careTeamMember",
       label: "Care team member",
-      email: DEMO_CARE_MEMBER_EMAIL,
+      email: demoCareMemberEmail(),
       password,
       summary:
         "Looks after a few partners: updates their profile, logs contacts and prayer requests (staff approve what goes out), and sees what's coming up for them.",
@@ -33,11 +51,17 @@ function demoGuestLogins() {
     {
       key: "tripLeader",
       label: "Trip leader",
-      email: DEMO_TRIP_LEADER_EMAIL,
+      email: demoTripLeaderEmail(),
       password,
       summary: "Runs one upcoming trip and sees that trip's partner, read-only.",
     },
   ];
 }
 
-module.exports = { DEMO_CARE_MEMBER_EMAIL, DEMO_TRIP_LEADER_EMAIL, demoGuestPassword, demoGuestLogins };
+module.exports = {
+  demoEmailDomain,
+  demoCareMemberEmail,
+  demoTripLeaderEmail,
+  demoGuestPassword,
+  demoGuestLogins,
+};
