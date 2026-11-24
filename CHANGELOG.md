@@ -31,7 +31,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Upgrading
 
-- Two new migrations (`audit_log`, `last_edited_by`): run `prisma migrate deploy` as usual. The pre-1.0 convention folds them into the baseline before a release, in which case an existing database needs the reset described under 0.6.0.
+- **Database baseline squashed again: a database that already ran 0.6.0 must be reset too (pre-1.0).** The activity log's `AuditLog` table, `ChurchSettings.auditRetentionDays` and the `lastEditedBy*` columns on 32 models are folded into the single baseline `20261122092854_init` (SPEC §8.3), so `npx prisma migrate deploy` against a 0.6.0 database reads the baseline as already applied and adds nothing. Reset instead, with the same steps and data-loss warning as 0.6.0 below: `npx prisma migrate reset --force` from `backend/` (**erases all data**; back up first and re-create the admin with `node prisma/createAdmin.js`), or `npm run demo:reset:remote` / `npm run dev:reset:remote` for the demo and dev-test sites. The new baseline was verified identical (columns, indexes, constraints, enums) to the incremental chain it replaces.
 
 ## [0.6.0] - 2026-11-24
 

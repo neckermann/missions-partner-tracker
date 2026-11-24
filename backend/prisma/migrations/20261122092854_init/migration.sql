@@ -38,6 +38,9 @@ CREATE TABLE "Partner" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "createdById" TEXT,
     "updatedById" TEXT,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "Partner_pkey" PRIMARY KEY ("id")
 );
@@ -54,6 +57,9 @@ CREATE TABLE "Adult" (
     "birthday" DATE,
     "isPrimaryContact" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "Adult_pkey" PRIMARY KEY ("id")
 );
@@ -66,6 +72,9 @@ CREATE TABLE "Child" (
     "lastName" TEXT,
     "birthday" DATE,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "Child_pkey" PRIMARY KEY ("id")
 );
@@ -85,6 +94,9 @@ CREATE TABLE "Address" (
     "gpsLng" DOUBLE PRECISION,
     "receiveMail" BOOLEAN,
     "receivePackages" BOOLEAN,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "Address_pkey" PRIMARY KEY ("id")
 );
@@ -108,6 +120,9 @@ CREATE TABLE "Trip" (
     "applicationQuestions" JSONB,
     "albumProvider" TEXT,
     "albumUrl" TEXT,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "Trip_pkey" PRIMARY KEY ("id")
 );
@@ -144,6 +159,9 @@ CREATE TABLE "TripParticipant" (
     "story" TEXT,
     "photoContentType" TEXT,
     "accessTokenVersion" INTEGER NOT NULL DEFAULT 0,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "TripParticipant_pkey" PRIMARY KEY ("id")
 );
@@ -186,6 +204,9 @@ CREATE TABLE "TripApplication" (
     "reviewedAt" TIMESTAMP(3),
     "reviewedById" TEXT,
     "declinedReason" TEXT,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "TripApplication_pkey" PRIMARY KEY ("id")
 );
@@ -202,6 +223,9 @@ CREATE TABLE "TripMeeting" (
     "agenda" TEXT,
     "reminderSentAt" TIMESTAMP(3),
     "cancelledAt" TIMESTAMP(3),
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "TripMeeting_pkey" PRIMARY KEY ("id")
 );
@@ -228,6 +252,9 @@ CREATE TABLE "TripRequirement" (
     "dueAt" DATE,
     "reminderLeadDays" INTEGER,
     "minorsOnly" BOOLEAN NOT NULL DEFAULT false,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "TripRequirement_pkey" PRIMARY KEY ("id")
 );
@@ -239,6 +266,9 @@ CREATE TABLE "TripRequirementStatus" (
     "participantId" TEXT NOT NULL,
     "completedAt" TIMESTAMP(3),
     "reminderSentAt" TIMESTAMP(3),
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "TripRequirementStatus_pkey" PRIMARY KEY ("id")
 );
@@ -260,6 +290,9 @@ CREATE TABLE "TripDocument" (
     "ip" TEXT,
     "documentTextSnapshot" TEXT,
     "documentTextHash" TEXT,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "TripDocument_pkey" PRIMARY KEY ("id")
 );
@@ -286,6 +319,9 @@ CREATE TABLE "TripContribution" (
     "reference" TEXT,
     "receivedDate" DATE NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "TripContribution_pkey" PRIMARY KEY ("id")
 );
@@ -296,6 +332,9 @@ CREATE TABLE "TripBudgetLine" (
     "tripId" TEXT NOT NULL,
     "label" TEXT NOT NULL,
     "estimatedAmount" INTEGER NOT NULL,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "TripBudgetLine_pkey" PRIMARY KEY ("id")
 );
@@ -310,6 +349,9 @@ CREATE TABLE "TripFlightSegment" (
     "departureAt" TIMESTAMP(3),
     "arrivalAirport" TEXT,
     "arrivalAt" TIMESTAMP(3),
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "TripFlightSegment_pkey" PRIMARY KEY ("id")
 );
@@ -322,6 +364,9 @@ CREATE TABLE "Furlough" (
     "endDate" DATE,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "Furlough_pkey" PRIMARY KEY ("id")
 );
@@ -333,6 +378,9 @@ CREATE TABLE "ChurchVisit" (
     "visitDate" DATE NOT NULL,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "ChurchVisit_pkey" PRIMARY KEY ("id")
 );
@@ -353,8 +401,31 @@ CREATE TABLE "ContactLog" (
     "supportNeedId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "ContactLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AuditLog" (
+    "id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "action" TEXT NOT NULL,
+    "actorUserId" TEXT,
+    "actorEmail" TEXT,
+    "actorName" TEXT,
+    "targetUserId" TEXT,
+    "targetEmail" TEXT,
+    "targetName" TEXT,
+    "entityType" TEXT,
+    "entityId" TEXT,
+    "entityLabel" TEXT,
+    "ip" TEXT,
+    "details" JSONB,
+
+    CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -377,6 +448,9 @@ CREATE TABLE "PartnerLink" (
     "type" TEXT NOT NULL,
     "url" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "PartnerLink_pkey" PRIMARY KEY ("id")
 );
@@ -388,6 +462,9 @@ CREATE TABLE "PartnerLanguage" (
     "language" TEXT NOT NULL,
     "proficiency" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "PartnerLanguage_pkey" PRIMARY KEY ("id")
 );
@@ -398,6 +475,9 @@ CREATE TABLE "TripType" (
     "partnerId" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "TripType_pkey" PRIMARY KEY ("id")
 );
@@ -419,6 +499,9 @@ CREATE TABLE "SendingParty" (
     "stateProvinceRegion" TEXT,
     "postalCode" TEXT,
     "country" TEXT,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "SendingParty_pkey" PRIMARY KEY ("id")
 );
@@ -431,6 +514,9 @@ CREATE TABLE "SupportEntry" (
     "effectiveDate" DATE NOT NULL,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "SupportEntry_pkey" PRIMARY KEY ("id")
 );
@@ -444,6 +530,9 @@ CREATE TABLE "SavedReport" (
     "shared" BOOLEAN NOT NULL DEFAULT false,
     "ownerId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "SavedReport_pkey" PRIMARY KEY ("id")
 );
@@ -458,6 +547,9 @@ CREATE TABLE "ReportSchedule" (
     "active" BOOLEAN NOT NULL DEFAULT true,
     "lastSentAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "ReportSchedule_pkey" PRIMARY KEY ("id")
 );
@@ -476,6 +568,9 @@ CREATE TABLE "SupportNeed" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "isUrgent" BOOLEAN NOT NULL DEFAULT false,
     "sourceFileId" TEXT,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "SupportNeed_pkey" PRIMARY KEY ("id")
 );
@@ -496,6 +591,9 @@ CREATE TABLE "PrayerRequest" (
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "sourceFileId" TEXT,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "PrayerRequest_pkey" PRIMARY KEY ("id")
 );
@@ -513,6 +611,9 @@ CREATE TABLE "PartnerFile" (
     "fileSize" INTEGER,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "PartnerFile_pkey" PRIMARY KEY ("id")
 );
@@ -575,6 +676,9 @@ CREATE TABLE "DispatchRecord" (
     "groupmeError" TEXT,
     "whatsappError" TEXT,
     "emailError" TEXT,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "DispatchRecord_pkey" PRIMARY KEY ("id")
 );
@@ -587,6 +691,9 @@ CREATE TABLE "Photo" (
     "contentType" TEXT,
     "fileSize" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "Photo_pkey" PRIMARY KEY ("id")
 );
@@ -656,6 +763,7 @@ CREATE TABLE "ChurchSettings" (
     "inboundEmailWebhookPassword" TEXT,
     "enabledFeatures" JSONB NOT NULL DEFAULT '{}',
     "backupReminderDisabled" BOOLEAN NOT NULL DEFAULT false,
+    "auditRetentionDays" INTEGER NOT NULL DEFAULT 90,
     "emailDispatchDayOfWeek" INTEGER,
     "emailDispatchDayOfMonth" INTEGER,
     "emailDispatchHour" INTEGER,
@@ -694,6 +802,9 @@ CREATE TABLE "ChurchSettings" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "updatedById" TEXT,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "ChurchSettings_pkey" PRIMARY KEY ("id")
 );
@@ -725,6 +836,9 @@ CREATE TABLE "User" (
     "mfaSetupRequired" BOOLEAN NOT NULL DEFAULT false,
     "cadence" TEXT,
     "allPartners" BOOLEAN NOT NULL DEFAULT true,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
@@ -776,6 +890,9 @@ CREATE TABLE "CareTeamMember" (
     "userId" TEXT NOT NULL,
     "isLead" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "CareTeamMember_pkey" PRIMARY KEY ("id")
 );
@@ -909,6 +1026,21 @@ CREATE INDEX "ContactLog_contactedById_idx" ON "ContactLog"("contactedById");
 
 -- CreateIndex
 CREATE INDEX "ContactLog_followUpDate_idx" ON "ContactLog"("followUpDate");
+
+-- CreateIndex
+CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuditLog_actorUserId_createdAt_idx" ON "AuditLog"("actorUserId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuditLog_targetUserId_createdAt_idx" ON "AuditLog"("targetUserId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuditLog_action_createdAt_idx" ON "AuditLog"("action", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuditLog_entityType_entityId_idx" ON "AuditLog"("entityType", "entityId");
 
 -- CreateIndex
 CREATE INDEX "KeyDateReminder_partnerId_idx" ON "KeyDateReminder"("partnerId");
@@ -1185,7 +1317,6 @@ ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSeg
 
 -- AddForeignKey
 ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSegmentToTripParticipant_B_fkey" FOREIGN KEY ("B") REFERENCES "TripParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
 
 -- At most one lead per partner. Prisma's schema language can't express a
 -- partial unique index, so it is added by hand here (the route enforces the
