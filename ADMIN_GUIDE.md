@@ -95,6 +95,11 @@ provision) in one step:
    account, right in the browser. No shell access, no
    `DATABASE_URL`/`createAdmin.js` needed — the point of a one-click
    deploy is defeated if the very first login still requires a terminal.
+   A new install **requires two-factor from the start** (see
+   [Authentication setup](#authentication-setup)), so after creating the
+   account you sign in once and set up an authenticator app on your phone
+   (scan a QR code, confirm a code). You can turn the requirement off later
+   in Manage Users, but it's on by default.
 
 Costs about $13/mo on Render's cheapest paid tiers — free tier exists
 but isn't viable for anything long-lived (the web service sleeps after
@@ -278,8 +283,9 @@ A few things worth knowing operationally:
   enrolled: the switch only works for an admin who has set up two-factor
   on their own account, and it shows how many active accounts haven't
   yet. If someone loses their authenticator, Manage Users' **Reset MFA**
-  clears it and they enrol again at next sign-in. It is off by default,
-  can't be turned on for the public demo, and changes to it are in the
+  clears it and they enrol again at next sign-in. It is on by default for
+  a new install (the first-run setup turns it on), off on an install that
+  predates it, can't be turned on for the public demo, and changes to it are in the
   [Audit log](USER_GUIDE.md#audit-log-admin-only). No role is special:
   a Guest is treated like everyone else. See
   [USER_GUIDE.md § Your account settings](USER_GUIDE.md#your-account-settings)
@@ -453,7 +459,9 @@ provider:
 4. Visit your new site and go to `/setup` to create your first admin
    account right in the browser — or, if you'd rather do it from a
    shell with `DATABASE_URL` set, `node prisma/createAdmin.js
-   you@yourchurch.org "SomeStrongPassword!"` does the same thing.
+   you@yourchurch.org "SomeStrongPassword!"` does the same thing. (Only
+   `/setup` turns the church-wide two-factor requirement on for a new
+   install and walks you through enrolling; `createAdmin.js` leaves it off.)
 5. Use HTTPS everywhere in production — required for the session
    cookie's `Secure` flag to actually work, and just generally expected
    for a site handling admin logins.

@@ -99,7 +99,7 @@ router.post("/setup", async (req, res, next) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await prisma.user.create({
+    await prisma.user.create({
       data: {
         email: email.toLowerCase().trim(),
         passwordHash,
@@ -116,13 +116,23 @@ router.post("/setup", async (req, res, next) => {
     // not create, since this route only guarantees zero prior Users, not
     // zero prior ChurchSettings -- never overwrites an existing row's
     // template if one somehow already exists.
+    //
+    // A fresh install also starts with the church-wide two-factor requirement ON (#385): secure
+    // by default, and the first admin is the one person who can then decide to turn it off.
     await prisma.churchSettings.upsert({
       where: { id: "singleton" },
-      update: {},
-      create: { id: "singleton", tripRequirementTemplate: DEFAULT_TRIP_REQUIREMENT_TEMPLATE },
+      update: { requireTwoFactor: true },
+      create: {
+        id: "singleton",
+        tripRequirementTemplate: DEFAULT_TRIP_REQUIREMENT_TEMPLATE,
+        requireTwoFactor: true,
+      },
     });
 
-    res.status(201).json(await completeLogin(res, user, req));
+    // No session is handed out: with the requirement on, an account that hasn't enrolled can't
+    // use one. The first admin signs in with the password they just chose and is taken straight
+    // through enrolment (POST /login).
+    res.status(201).json({ ok: true, mfaSetupRequired: true });
   } catch (err) {
     next(err);
   }
