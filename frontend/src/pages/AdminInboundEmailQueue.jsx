@@ -154,16 +154,30 @@ export default function AdminInboundEmailQueue() {
     { key: "fromAddress", label: "From", sortable: true },
     { key: "subject", label: "Subject", render: (e) => e.subject || "—" },
     { key: "receivedAt", label: "Received", type: "date", sortable: true },
+    {
+      key: "queueReason",
+      label: "Why queued",
+      render: (e) =>
+        e.queueReason ? (
+          <span style={{ color: "var(--warn)" }} title={e.queueReason}>
+            ⚠ Sender not verified
+          </span>
+        ) : (
+          "—"
+        ),
+    },
   ];
 
   return (
     <div className="admin-shell">
       <h2>Unmatched Emails</h2>
       <p style={{ color: "#555" }}>
-        Inbound emails that couldn't be automatically matched to exactly one partner -- either no partner's
-        contact or household-adult email matched the sender, or more than one did. Assign each to the right
-        partner, picking what kind of file it actually is -- or, if trips are on, to a trip participant
-        instead, optionally marking which document requirement it fulfills -- or discard it.
+        Inbound emails that couldn't be automatically filed -- either no partner's contact or household-adult
+        email matched the sender, more than one did, or exactly one matched but the sender's address couldn't
+        be verified (SPF/DKIM) and the sending address is easy to forge, so it's held for a human to confirm
+        rather than auto-filed and broadcast. Assign each to the right partner, picking what kind of file it
+        actually is -- or, if trips are on, to a trip participant instead, optionally marking which document
+        requirement it fulfills -- or discard it.
       </p>
 
       {error && !assigning && (

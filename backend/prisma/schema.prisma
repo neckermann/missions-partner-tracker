@@ -1190,6 +1190,16 @@ model InboundEmail {
   fileName    String
   createdAt   DateTime           @default(now())
   bytesRow    InboundEmailBytes?
+  // #327 Finding 5: null for the original reason this queue exists (zero
+  // or more than one partner matched the sender address -- nothing to
+  // guess between). Set to a short explanation when a message DID match
+  // exactly one partner by address but still landed here because Postmark's
+  // own SPF/DKIM signals didn't confirm the sender -- see
+  // routes/inboundEmail.js's isSenderVerified(). From is trivially
+  // forgeable on its own; this is the one thing standing between a
+  // forged letter and it being auto-filed and broadcast under a real
+  // partner's name.
+  queueReason String?
 }
 
 model InboundEmailBytes {

@@ -47,6 +47,42 @@ async function recordInboundEmailFailure(reason, payload) {
   }
 }
 
+// #327 Finding 5: `From` is trivially forgeable -- anyone who knows the
+// church's inbound address and one partner's email can put a document of
+// their choosing under that partner's name, which auto-files it and
+// broadcasts it to GroupMe/WhatsApp/the digest, unreviewed. This is the
+// one check standing between a forged letter and that happening.
+//
+// Confirmed directly against Postmark's own documented inbound payload
+// (not guessed, and not what the original review assumed): there is no
+// "Authentication-Results" header in Postmark's inbound JSON at all --
+// only `Headers` array entries, and only two are ever documented as
+// carrying an authentication signal:
+//   - "Received-SPF", value either a bare token ("pass"/"neutral"/
+//     "softfail"/"fail", confirmed lowercase in Postmark's own SPF-header
+//     docs) or the longer prose form ("Pass (sender SPF authorized)
+//     identity=...)", confirmed from Postmark's own sample payload) --
+//     handled by just checking whether the value starts with "pass",
+//     case-insensitively, either way.
+//   - "X-Spam-Tests", a comma-separated list of SpamAssassin rule names
+//     that includes "DKIM_VALID" when DKIM verified successfully --
+//     Postmark's own docs are explicit that SpamAssassin headers aren't
+//     guaranteed to be present at all ("there may be instances where our
+//     system is unable to run those SpamAssassin scans... the
+//     SpamAssassin headers will not be present or may be incomplete"),
+//     so this is a best-effort secondary signal, not authoritative.
+// Fails closed: no Headers array, or neither signal found, counts as
+// unverified -- never assume pass when the data needed to check is
+// simply missing.
+function isSenderVerified(headers) {
+  if (!Array.isArray(headers)) return false;
+  const byName = (name) => headers.find((h) => h?.Name?.toLowerCase() === name.toLowerCase())?.Value || "";
+  const spf = byName("Received-SPF").trim().toLowerCase();
+  if (spf.startsWith("pass")) return true;
+  const spamTests = byName("X-Spam-Tests");
+  return spamTests.toUpperCase().includes("DKIM_VALID");
+}
+
 function checkWebhookAuth(req, expectedUsername, expectedPassword) {
   const header = req.headers.authorization || "";
   const [scheme, encoded] = header.split(" ");
@@ -133,7 +169,7 @@ router.post("/postmark", async (req, res, next) => {
       select: { id: true },
     });
 
-    if (matches.length === 1) {
+    if (matches.length === 1 && isSenderVerified(payload.Headers)) {
       const created = await prisma.partnerFile.create({
         data: {
           partnerId: matches[0].id,
@@ -155,9 +191,17 @@ router.post("/postmark", async (req, res, next) => {
       return res.status(200).json({ matched: true });
     }
 
-    // Zero matches or more than one -- don't guess. Queue it.
+    // Zero matches, more than one, or (#327 Finding 5) exactly one match
+    // whose sender didn't verify -- don't guess, and never auto-file (or
+    // notify channels on) anything the sender address alone can't be
+    // trusted for. Queue it either way; queueReason distinguishes why for
+    // the reviewing admin.
+    const queueReason =
+      matches.length === 1
+        ? "Matched a partner by sender address, but SPF/DKIM didn't confirm it -- review before assigning."
+        : null;
     await prisma.inboundEmail.create({
-      data: { fromAddress, subject, fileName, bytesRow: { create: { bytes } } },
+      data: { fromAddress, subject, fileName, queueReason, bytesRow: { create: { bytes } } },
     });
     res.status(200).json({ matched: false });
   } catch (err) {
