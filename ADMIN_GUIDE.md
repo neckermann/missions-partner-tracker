@@ -55,7 +55,7 @@ This repo doesn't run a live deployment itself — it's the open-source
 upstream that your church's own fork deploys from (see
 [Upgrading a fork](#upgrading-a-fork) for how your copy keeps getting
 updates later). The deployment itself goes through
-[Render](https://render.com), via [`render.yaml`](../render.yaml) at the
+[Render](https://render.com), via [`render.yaml`](render.yaml) at the
 repo root — a Blueprint that provisions the web service and Postgres
 database (which also holds every uploaded photo, newsletter, and
 document — see [File storage](#file-storage) below, nothing extra to
@@ -567,12 +567,24 @@ migration or a new required env var.
 **Authentication is the confidentiality boundary. Roles only govern
 writes.**
 
-Any account that can log in can read every partner's full record: exact
+Any **admin, editor or viewer** account that can log in can read every partner's full record: exact
 addresses and GPS coordinates, family members' contact details and
 birthdays, emergency contacts, uploaded documents, and the real name and
 photograph of partners marked restricted-access. `viewer` restricts what
 someone can *change*, not what they can see. There is no reduced read view
-for lower roles, and adding one is a deliberate non-goal.
+for those lower roles, and adding one is a deliberate non-goal.
+
+**The one exception is the Guest role**, which is the way to give someone
+limited access without an account that can see everything. A guest can reach
+only what they are granted: the trips an admin gives them (a trip leader),
+and/or the partners whose [care team](USER_GUIDE.md#care-teams) they are on,
+plus those trips' partners. Everything else, including the rest of the
+partner list, is out of reach, and the server enforces that on every
+request, not just in the menus. A guest signs in under the same rules as
+everyone else (see [Authentication setup](#authentication-setup)), their
+access can expire, and changes to it are recorded in the
+[audit log](USER_GUIDE.md#audit-log-admin-only). Use a guest, not an editor,
+for anyone who only needs one trip or a few partners.
 
 The consequence worth internalising: **controlling who gets an account is
 the entire security model.** There is no second line of defence behind the
@@ -591,9 +603,10 @@ login. In practice that means:
   partners' names, photos and precise locations. They don't need an
   account at all.
 
-If you need staff who can see *some* partners but not others, this app
-can't express that, and pretending otherwise with roles would be worse
-than saying so plainly. The Pending Dispatches page's own held-row
+If you need *staff* (admins, editors, viewers) who can see some partners but
+not others, this app can't express that, and pretending otherwise with
+roles would be worse than saying so plainly. A Guest is the supported way to
+limit someone to particular trips or partners. The Pending Dispatches page's own held-row
 text (see [§ Restricted-partner dispatch
 review](#restricted-partner-dispatch-review)) follows this same
 rule — it's not role-gated, since `GET /api/prayer-requests` and `GET

@@ -208,6 +208,18 @@ the Zod validation in the relevant route, and the admin form together —
 grep for an existing similar field (e.g. `tripSeasonNotes`) to see the
 full path a field takes from database to admin UI to public display.
 
+Two rules for new models and lists (see
+[ARCHITECTURE.md § Cross-cutting pieces](ARCHITECTURE.md#cross-cutting-pieces-you-will-meet)):
+
+- **A new editable model needs the three `lastEditedById`,
+  `lastEditedByName` and `lastEditedAt` columns.** The Prisma extension
+  stamps them for you on every write in a signed-in request; without the
+  columns the record never shows "Last edited by".
+- **A new list about partners, or about things that belong to a partner,
+  takes the `sendingChurch` filter** (`withSendingChurch` in
+  `backend/src/utils/sendingChurch.js`, and the shared `FilterBar` field),
+  so "filter by church" works the same on every page.
+
 ## Database migrations
 
 Update `schema.prisma` first, then run
@@ -481,9 +493,9 @@ algorithm specifically so these `#anchor` fragments resolve the same
 way there as they do on GitHub's own rendered view of the `.md` file —
 see that script's own comment). **Renaming, removing, or demoting a
 linked heading changes its anchor and silently breaks every link
-below** — grep for the anchor text (not just the heading text) before
-touching one of these sections, since nothing else catches this at
-build time.
+below** — run `npm run check:docs` after touching one of these
+sections: it checks every link of this kind in the app's source, plus
+every internal link and `#anchor` in the markdown, and CI runs it too.
 
 Current links, by anchor:
 
