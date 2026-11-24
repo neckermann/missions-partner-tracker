@@ -245,3 +245,32 @@ describe("AdminPartnerDetail: Newsletters & Docs card (#369)", () => {
     features.partnerFiles = false;
   });
 });
+
+describe("AdminPartnerDetail: a partner that can't be loaded", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    features.partnerFiles = false;
+  });
+
+  it("says it wasn't found instead of loading forever when the partner is gone (404)", async () => {
+    const { fetchPartner } = await import("../api/client.js");
+    fetchPartner.mockRejectedValue({ response: { status: 404 } });
+
+    renderDetailPage();
+
+    expect(
+      await screen.findByText("This partner wasn't found. It may have been deleted.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Back to Partners/ })).toBeInTheDocument();
+  });
+
+  it("says there is no access when the partner is out of reach (403)", async () => {
+    const { fetchPartner } = await import("../api/client.js");
+    fetchPartner.mockRejectedValue({ response: { status: 403 } });
+
+    renderDetailPage();
+
+    expect(await screen.findByText("You don't have access to this partner.")).toBeInTheDocument();
+  });
+});

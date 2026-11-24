@@ -20,6 +20,7 @@ import LastEdited from "../components/shared/LastEdited.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import RecordUnavailable, { loadErrorStatus } from "../components/shared/RecordUnavailable.jsx";
 import GiveGuestAccessModal from "../components/admin/GiveGuestAccessModal.jsx";
 
 function readFileAsDataUrl(file) {
@@ -53,6 +54,7 @@ export default function AdminTripParticipantDetail() {
   const canWrite = globalCanWrite || canAccessTrip(tripId);
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [trip, setTrip] = useState(null);
+  const [loadError, setLoadError] = useState(null); // 404/403 when the trip can't be shown
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState("");
   const [manualAccessLink, setManualAccessLink] = useState(null); // { email?, url } | null
@@ -61,7 +63,14 @@ export default function AdminTripParticipantDetail() {
   const [docRequirementChoice, setDocRequirementChoice] = useState("");
 
   const reload = useCallback(() => {
-    fetchTrip(tripId).then(setTrip).catch(console.error);
+    setLoadError(null);
+    fetchTrip(tripId)
+      .then(setTrip)
+      .catch((err) => {
+        const status = loadErrorStatus(err);
+        if (status) setLoadError(status);
+        else console.error(err);
+      });
   }, [tripId]);
 
   useEffect(() => {
@@ -70,6 +79,15 @@ export default function AdminTripParticipantDetail() {
     if (!isGuest) fetchTripsSettings().then(setSettings).catch(console.error);
   }, [reload, isGuest]);
 
+  if (loadError)
+    return (
+      <RecordUnavailable
+        status={loadError}
+        what="participant"
+        backTo="/admin/trips"
+        backLabel="Back to Trips"
+      />
+    );
   if (!trip) return <div className="admin-shell">Loading…</div>;
 
   const participant = (trip.participants || []).find((p) => p.id === participantId);

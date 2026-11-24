@@ -75,3 +75,30 @@ describe("TripDetailLayout: Financial tab (#370)", () => {
     expect(fetchTripsSettings).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("TripDetailLayout: a trip that can't be loaded", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fetchTripApplications.mockResolvedValue([]);
+    fetchTripsSettings.mockResolvedValue({});
+    user.current = { isGuest: false, canWrite: true, isAdmin: true, canAccessTrip: () => true };
+  });
+
+  it("says the trip wasn't found instead of loading forever (404)", async () => {
+    fetchTrip.mockRejectedValue({ response: { status: 404 } });
+
+    renderLayout();
+
+    expect(await screen.findByText("This trip wasn't found. It may have been deleted.")).toBeInTheDocument();
+    expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+  });
+
+  it("says there is no access when the trip isn't one the guest holds (403)", async () => {
+    user.current = { isGuest: true, canWrite: false, isAdmin: false, canAccessTrip: () => false };
+    fetchTrip.mockRejectedValue({ response: { status: 403 } });
+
+    renderLayout();
+
+    expect(await screen.findByText("You don't have access to this trip.")).toBeInTheDocument();
+  });
+});

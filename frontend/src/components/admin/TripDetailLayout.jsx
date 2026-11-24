@@ -5,6 +5,7 @@ import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import TripStatusBadge from "./TripStatusBadge.jsx";
 import Breadcrumb from "../shared/Breadcrumb.jsx";
 import LastEdited from "../shared/LastEdited.jsx";
+import RecordUnavailable, { loadErrorStatus } from "../shared/RecordUnavailable.jsx";
 import { useRecordRecentlyViewed } from "../../hooks/useRecentlyViewed.js";
 import useCurrentUser from "../../hooks/useCurrentUser.js";
 
@@ -36,8 +37,17 @@ export default function TripDetailLayout() {
   const [requirementLibrary, setRequirementLibrary] = useState([]);
   const [applicationTemplate, setApplicationTemplate] = useState([]);
 
+  const [loadError, setLoadError] = useState(null); // 404/403 when the trip can't be shown
+
   const reload = useCallback(() => {
-    fetchTrip(id).then(setTrip).catch(console.error);
+    setLoadError(null);
+    fetchTrip(id)
+      .then(setTrip)
+      .catch((err) => {
+        const status = loadErrorStatus(err);
+        if (status) setLoadError(status);
+        else console.error(err);
+      });
     fetchTripApplications(id).then(setApplications).catch(console.error);
   }, [id]);
 
@@ -67,6 +77,10 @@ export default function TripDetailLayout() {
     }
   );
 
+  if (loadError)
+    return (
+      <RecordUnavailable status={loadError} what="trip" backTo="/admin/trips" backLabel="Back to Trips" />
+    );
   if (!trip) return <div className="admin-shell">Loading…</div>;
 
   const pendingCount = applications.filter((a) => a.status === "pending").length;
