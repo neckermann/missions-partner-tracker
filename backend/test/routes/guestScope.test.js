@@ -4,8 +4,7 @@
 // requirePartnerQueryScope / guestAccess.js, requireAuth.js): read/write on
 // granted trips, read-only on those trips' partners, 403 on everything
 // else, derived and overridden grant expiry, and users.js's grant
-// management (create/update/revoke, orphan deactivation, inactive filter,
-// audit rows).
+// management (create/update/revoke, orphan deactivation, inactive filter).
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -105,7 +104,6 @@ before(async () => {
 
 after(async () => {
   await prisma.user.deleteMany({ where: { email: GUEST_EMAIL } }); // cascades its grants
-  await prisma.auditLog.deleteMany({ where: { targetEmail: { startsWith: "route-test-" } } });
   await removeFixturePartners(); // cascades both fixture trips
   await removeTestUsers();
   await prisma.churchSettings.update({
@@ -804,7 +802,7 @@ describe("users.js: guest accounts and grants", () => {
     assert.equal(res.status, 400);
   });
 
-  test("creates a guest with its grants, requires MFA even when not asked, and audits the grant", async () => {
+  test("creates a guest with its grants, and requires MFA even when not asked", async () => {
     const res = await admin("/api/users", {
       method: "POST",
       body: {
@@ -824,10 +822,6 @@ describe("users.js: guest accounts and grants", () => {
     const override = res.body.tripAccess.find((g) => g.tripId === tripB.id);
     assert.equal(override.expiresIsOverride, true);
     assert.equal(new Date(override.effectiveExpiresAt).toISOString(), "2099-01-31T23:59:59.999Z");
-
-    const rows = await prisma.auditLog.findMany({ where: { targetUserId: res.body.id } });
-    assert.equal(rows.filter((r) => r.action === "trip_access.grant").length, 2);
-    assert.ok(rows.every((r) => r.actorEmail === TEST_USERS.admin.email));
   });
 
   test("changing a guest to a full role clears its grants and keeps the account active", async () => {
@@ -846,14 +840,9 @@ describe("users.js: guest accounts and grants", () => {
     assert.equal(res.status, 200);
     assert.deepEqual(res.body.tripAccess, []);
     assert.equal(res.body.active, true);
-    const revoke = await prisma.auditLog.findFirst({
-      where: { targetUserId: made.body.id, action: "trip_access.revoke" },
-    });
-    assert.deepEqual(revoke.details, { reason: "role_change" });
-    const deactivated = await prisma.auditLog.count({
-      where: { targetUserId: made.body.id, action: "guest.deactivate_no_access" },
-    });
-    assert.equal(deactivated, 0);
+    const row = await prisma.user.findUnique({ where: { id: made.body.id } });
+    assert.equal(row.active, true, "leaving the guest role must not deactivate the account");
+    assert.equal(await prisma.tripAccess.count({ where: { userId: made.body.id } }), 0);
   });
 
   test("changing a full role to guest needs a trip, and stores it when given", async () => {
@@ -992,7 +981,7 @@ describe("users.js: grant lifecycle, orphan deactivation and the inactive filter
     assert.equal(live.body.rows.find((r) => r.name === g.email).status, "Active");
   });
 
-  test("removing the last grant deactivates the guest, ends their session, and is audited", async () => {
+  test("removing the last grant deactivates the guest, and ends their session", async () => {
     const guest = await g.login();
     assert.equal((await guest(`/api/trips/${tripA.id}`)).status, 200);
     const res = await admin(`/api/users/${g.user.id}/trip-access/${tripA.id}`, { method: "DELETE" });
@@ -1002,11 +991,6 @@ describe("users.js: grant lifecycle, orphan deactivation and the inactive filter
 
     const row = await prisma.user.findUnique({ where: { id: g.user.id } });
     assert.equal(row.active, false);
-    const actions = (await prisma.auditLog.findMany({ where: { targetUserId: g.user.id } })).map(
-      (r) => r.action
-    );
-    assert.ok(actions.includes("trip_access.revoke"));
-    assert.ok(actions.includes("guest.deactivate_no_access"));
 
     const inactive = await admin("/api/users?inactive=true");
     const mine = inactive.body.find((u) => u.id === g.user.id);

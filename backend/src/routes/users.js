@@ -11,7 +11,6 @@ const {
   guestInactiveReason,
   parseOverrideExpiry,
 } = require("../utils/guestAccess");
-const { recordAudit } = require("../utils/auditLog");
 
 // Narrow-select, same discipline every other route's own getSettings()
 // follows -- this route only ever needs to know if outbound email is on.
@@ -108,46 +107,27 @@ async function wouldRemoveLastAdmin(targetId, becomingNonAdminOrInactive) {
   return otherActiveAdmins === 0;
 }
 
-// Creates (or updates the override on) one TripAccess row per input and
-// writes the audit rows in the same transaction, so a grant is never
-// recorded without its trail or vice versa. `db` is a transaction handle.
-async function grantTripAccess(db, actor, user, inputs) {
+// Creates (or updates the override on) one TripAccess row per input. `db` is
+// a transaction handle. No audit trail yet: recording who changed whose
+// access is deferred to the admin audit/activity design in #341, which
+// should cover these events (grant, extend/end, revoke, and the
+// deactivation below) along with the rest of the app's sensitive actions.
+async function grantTripAccess(db, user, inputs) {
   for (const input of inputs) {
     const expiresAt = input.expiresAt == null ? null : parseOverrideExpiry(input.expiresAt);
-    const existing = await db.tripAccess.findUnique({
-      where: { userId_tripId: { userId: user.id, tripId: input.tripId } },
-    });
     await db.tripAccess.upsert({
       where: { userId_tripId: { userId: user.id, tripId: input.tripId } },
       update: { expiresAt },
       create: { userId: user.id, tripId: input.tripId, expiresAt },
     });
-    await recordAudit(db, {
-      actor,
-      action: existing ? "trip_access.update" : "trip_access.grant",
-      target: user,
-      tripId: input.tripId,
-      details: { expiresAt },
-    });
   }
 }
 
-// Removes grants and audits each. If that leaves a guest with none at all,
-// deactivates the login (not deletes) so an admin can still find it under
-// the Inactive filter, and ends any open session.
-async function revokeTripAccess(db, actor, user, tripIds, reason) {
-  for (const tripId of tripIds) {
-    const { count } = await db.tripAccess.deleteMany({ where: { userId: user.id, tripId } });
-    if (count) {
-      await recordAudit(db, {
-        actor,
-        action: "trip_access.revoke",
-        target: user,
-        tripId,
-        details: reason ? { reason } : undefined,
-      });
-    }
-  }
+// Removes grants. If that leaves a guest with none at all, deactivates the
+// login (not deletes) so an admin can still find it under the Inactive
+// filter, and ends any open session.
+async function revokeTripAccess(db, user, tripIds) {
+  await db.tripAccess.deleteMany({ where: { userId: user.id, tripId: { in: tripIds } } });
   if (user.role !== "guest") return false;
   const remaining = await db.tripAccess.count({ where: { userId: user.id } });
   if (remaining > 0 || !user.active) return false;
@@ -155,7 +135,6 @@ async function revokeTripAccess(db, actor, user, tripIds, reason) {
     where: { id: user.id },
     data: { active: false, sessionVersion: { increment: 1 } },
   });
-  await recordAudit(db, { actor, action: "guest.deactivate_no_access", target: user });
   return true;
 }
 
@@ -265,7 +244,7 @@ router.post("/", async (req, res, next) => {
         },
       });
       if (isGuest) {
-        await grantTripAccess(tx, req.user, user, grantInputs);
+        await grantTripAccess(tx, user, grantInputs);
       }
       return user;
     });
@@ -386,7 +365,7 @@ router.post("/:id/trip-access", async (req, res, next) => {
     if (!(await allTripsExist([input.tripId]))) {
       return res.status(400).json({ error: "That trip doesn't exist" });
     }
-    await prisma.$transaction((tx) => grantTripAccess(tx, req.user, user, [input]));
+    await prisma.$transaction((tx) => grantTripAccess(tx, user, [input]));
     const rows = await prisma.tripAccess.findMany({
       where: { userId: user.id },
       select: GRANT_SELECT,
@@ -411,16 +390,7 @@ router.put("/:id/trip-access/:tripId", async (req, res, next) => {
     });
     if (!existing) return res.status(404).json({ error: "Not found" });
     const value = expiresAt === null ? null : parseOverrideExpiry(expiresAt);
-    await prisma.$transaction(async (tx) => {
-      await tx.tripAccess.update({ where: { id: existing.id }, data: { expiresAt: value } });
-      await recordAudit(tx, {
-        actor: req.user,
-        action: "trip_access.update",
-        target: user,
-        tripId: existing.tripId,
-        details: { from: existing.expiresAt, to: value },
-      });
-    });
+    await prisma.tripAccess.update({ where: { id: existing.id }, data: { expiresAt: value } });
     const rows = await prisma.tripAccess.findMany({
       where: { userId: user.id },
       select: GRANT_SELECT,
@@ -436,9 +406,7 @@ router.delete("/:id/trip-access/:tripId", async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!user) return res.status(404).json({ error: "Not found" });
-    const deactivated = await prisma.$transaction((tx) =>
-      revokeTripAccess(tx, req.user, user, [req.params.tripId])
-    );
+    const deactivated = await prisma.$transaction((tx) => revokeTripAccess(tx, user, [req.params.tripId]));
     res.json({ deactivated });
   } catch (err) {
     next(err);
@@ -489,7 +457,7 @@ router.put("/:id", async (req, res, next) => {
 
     const updated = await prisma.$transaction(async (tx) => {
       const user = await tx.user.update({ where: { id: req.params.id }, data: updateData });
-      if (becomingGuest) await grantTripAccess(tx, req.user, user, grantInputs);
+      if (becomingGuest) await grantTripAccess(tx, user, grantInputs);
       if (leavingGuest) {
         // Grants mean nothing off the guest role -- clear them so they can't
         // silently revive if this account is ever made a guest again.
@@ -498,10 +466,8 @@ router.put("/:id", async (req, res, next) => {
         // won't treat the now-empty grant list as an orphaned guest.
         await revokeTripAccess(
           tx,
-          req.user,
           user,
-          rows.map((r) => r.tripId),
-          "role_change"
+          rows.map((r) => r.tripId)
         );
       }
       return user;

@@ -18,7 +18,7 @@ import { tripOptionLabel } from "./TripGrantPicker.jsx";
 // rows are reachable two ways -- "what can this guest reach" (the Users
 // page) and "who can reach this trip" (the trip's own page) -- so both
 // panels share one set of actions. Every change goes through the grant
-// endpoints in routes/users.js, which audit it and take effect on the
+// endpoints in routes/users.js, which take effect on the
 // guest's very next request.
 
 function guestName(user) {

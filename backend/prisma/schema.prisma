@@ -1950,28 +1950,6 @@ model TripAccess {
   @@index([tripId])
 }
 
-// #356: append-only record of who changed whose access, and when. Added
-// because nothing in the app recorded who did what; kept deliberately
-// small and generic so later access changes (care team seats, #289) can
-// reuse it. actor/target are plain strings with an email snapshot, NOT
-// foreign keys, so a row survives deleting either account -- the point
-// of an audit trail is that it outlives what it describes.
-model AuditLog {
-  id           String   @id @default(uuid())
-  createdAt    DateTime @default(now())
-  actorUserId  String?
-  actorEmail   String?
-  action       String // validated in code, e.g. "trip_access.grant" -- not a DB enum, per SPEC
-  targetUserId String?
-  targetEmail  String?
-  tripId       String?
-  details      Json?
-
-  @@index([createdAt])
-  @@index([targetUserId])
-  @@index([tripId])
-}
-
 // Per-user, per-category "last looked at this" marker for the in-app
 // notification bell -- not one shared timestamp, because clearing one
 // person's "new" highlight must never clear it for a teammate who hasn't

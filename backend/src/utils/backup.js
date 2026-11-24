@@ -104,7 +104,6 @@ const MODELS = [
 
   "user",
   "tripAccess", // -> user, trip (#356)
-  "auditLog", // standalone: actor/target are plain strings, not FKs (#356)
   "savedReport", // savedReport.ownerId -> user
   "reportSchedule", // reportSchedule.savedReportId -> savedReport
   "passwordSetupToken", // -> user

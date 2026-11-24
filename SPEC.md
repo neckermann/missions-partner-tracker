@@ -96,10 +96,7 @@ and `ReportSchedule` (recurring report emails — weekly/monthly/quarterly
 password" link — single-use, only a hash stored, 72h/7-day expiry) and
 `NotificationSeen` (per-user read/unread state for in-app notices,
 unrelated to the dispatch system's `DispatchRecord` despite the similar
-name), `TripAccess` (a guest login's grant on one trip, §5.1) and
-`AuditLog` (append-only record of who changed whose access; actor/target
-are plain strings with an email snapshot, not foreign keys, so a row
-outlives either account).
+name) and `TripAccess` (a guest login's grant on one trip, §5.1).
 
 **WhatsApp dispatch** adds `WhatsAppAuthEntry` (the encrypted linked-
 session store — see §6.2a).
@@ -238,7 +235,6 @@ Each file owns one narrow responsibility:
 | `emailTemplate.js` | Shared branded HTML shell reused by welcome emails and trip participant emails (meeting invites, reminders, checklist/date-change notices, team welcome). |
 | `tripAccessRules.js` | Pure grant rules: a trip grant's effective expiry (override, else trip end date + 30 days), what a grant looks like to the UI, and why a guest is inactive. No Prisma import, so the reporting registry can use it. |
 | `guestAccess.js` | What a guest may reach: loads active grants for `requireAuth`, and the single `readablePartnerIds`/`canReadPartner`/`readableTripIds`/`canReadTrip` helpers every scoped route asks (so none re-derives it from a trip). |
-| `auditLog.js` | `recordAudit(db, …)` — writes an `AuditLog` row inside the same transaction as the access change it describes. |
 | `welcomeEmails.js` | Sends the new-user "choose your password" welcome email (`PasswordSetupToken`); owns the hardcoded docs-site links used in it (see CONTRIBUTING.md's "Hardcoded links into the docs site" table). |
 | `tripEmails.js` | Trip meeting/requirement participant emails, including `manualFallback()` — the `{ sent: false, manual: [{ name, email, url }] }` shape every manual-send-link notice in the UI renders from when `outboundEmail` is off (§4). |
 | `publicSubscribeEmails.js` | Double opt-in confirm/unsubscribe emails for the public prayer-request Subscribe flow. |
@@ -511,8 +507,9 @@ afterwards does **not** silently reactivate it. The Users list marks
 "inactive" guests (deactivated, all access expired, or none left —
 computed, not stored) and `GET /api/users?inactive=true` /
 the "Inactive accounts only" filter lists just those so an admin can reach
-out and clean up. Every grant, extension/end and revocation (and the
-deactivation) writes an `AuditLog` row in the same transaction.
+out and clean up. Grant changes are **not** audit-logged yet: who granted,
+extended or removed access (and the deactivation) is deferred to the
+admin audit/activity design in #341.
 
 **MFA is required for a guest** (`mfaSetupRequired` is forced on at
 creation and role change, and again by an admin MFA reset). A guest can
