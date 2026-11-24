@@ -53,6 +53,17 @@ use `DEMO_ADMIN_PASSWORD`. Set the
 optional `DEMO_GUEST_PASSWORD` only if you want them to differ (the banner then
 shows each one's password); never reuse any of these anywhere real.
 
+## What a demo never does
+
+A demo must not send email to its seeded accounts (they are fake addresses, so
+the mail only bounces and spends the email plan). Anything that emails people
+on its own schedule stays **off** there: the reset script and the seed turn
+every feature on **except** the list in `backend/src/utils/demoMode.js`
+(today: Key-date reminders), and the daily key-date job also skips itself
+whenever `DEMO_RESET_TOKEN` is set, in case a visitor with the published admin
+login switches the flag back on. To keep another scheduled-email feature off a
+demo, add its key to that list.
+
 ## Recovering after a migration squash
 
 This project's pre-1.0 convention squashes every schema change into one

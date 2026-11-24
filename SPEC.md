@@ -748,6 +748,13 @@ names are omitted; a partner who isn't safe to contact gets a pointer to the
 special instructions on their page, never the instructions themselves.
 `sendEmail` has no `replyTo`, so replies go to the church's From address.
 
+**Never on a public demo.** A demo's care teams are fake seeded addresses, so the
+email would only bounce and spend the email plan. `utils/demoMode.js` lists the
+features a demo keeps off (`keyDates`); the reset script and the seed (which
+rewrites the feature list after the reset script does) both apply it, and
+`checkAndSendKeyDateReminders` returns immediately when `DEMO_RESET_TOKEN` is
+set, as a backstop for the published admin login switching the flag on.
+
 ### 5.5 What flows to the care team (#292 Phase 1)
 
 **The app never contacts a partner; a person does.** That settles the missionary

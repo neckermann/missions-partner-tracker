@@ -12,6 +12,7 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 const prisma = require("../src/prismaClient");
 const { FEATURE_KEYS } = require("../src/utils/features");
+const { demoDisabledFeatureFlags } = require("../src/utils/demoMode");
 const { encryptField } = require("../src/utils/crypto");
 const { listGroups, listTopics } = require("../src/utils/groupmeChannel");
 
@@ -208,6 +209,9 @@ async function resetDemoData() {
     groupme: Boolean(groupmeConfig),
     outboundEmail: outboundEmailReady,
     inboundEmail: inboundEmailReady,
+    // Features a demo never turns on (it must not email its fake seeded
+    // accounts); see utils/demoMode.js.
+    ...demoDisabledFeatureFlags(),
   };
   const integrationKeys = {
     ...(joshuaProjectApiKey ? { joshuaProjectApiKey: encryptField(joshuaProjectApiKey) } : {}),

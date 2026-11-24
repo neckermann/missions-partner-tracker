@@ -15,6 +15,7 @@ const {
   buildingSilhouette,
 } = require("../src/utils/silhouette");
 const { generateShareToken } = require("../src/utils/tripAccessToken");
+const { demoDisabledFeatureFlags } = require("../src/utils/demoMode");
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
@@ -2576,7 +2577,9 @@ async function seedTripsDemo() {
         trips: true,
         careTeam: true,
         contactLog: true,
-        keyDates: true,
+        // Off on a demo: it would email the fake seeded accounts. See
+        // utils/demoMode.js (the reset script applies the same list).
+        ...demoDisabledFeatureFlags(),
         publicTripDiscovery: true,
         booklet: true,
         reports: true,
