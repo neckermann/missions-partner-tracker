@@ -1663,7 +1663,7 @@ export default function AdminPartnerDetail() {
               title="Newsletters & Docs"
               count={collections.files.length}
               items={filesLoadMore.visible.map((f) => ({
-                text: `${f.title || f.fileName} · ${fileKindLabel(f.kind)} · ${formatDate(f.receivedDate)}`,
+                text: `${f.title || f.fileName} · ${fileKindLabel(f)} · ${formatDate(f.receivedDate)}`,
                 onClick: () => openFileDetail(f),
               }))}
               hasMore={filesLoadMore.hasMore}

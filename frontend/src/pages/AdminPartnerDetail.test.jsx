@@ -58,6 +58,9 @@ vi.mock("../api/client.js", () => ({
   deleteTripType: vi.fn(),
 }));
 
+// The Newsletters & Docs card only renders with partnerFiles on; a test flips this.
+const features = vi.hoisted(() => ({ partnerFiles: false }));
+
 vi.mock("../context/SettingsContext.jsx", () => ({
   useSettings: () => ({
     churchName: "Test Church",
@@ -66,7 +69,7 @@ vi.mock("../context/SettingsContext.jsx", () => ({
       oneTimeNeeds: false,
       monthlySupport: false,
       trips: false,
-      partnerFiles: false,
+      partnerFiles: features.partnerFiles,
       groupme: false,
       whatsapp: false,
       outboundEmail: false,
@@ -210,5 +213,35 @@ describe("AdminPartnerDetail: Last Prayed For in a Service (#228)", () => {
       expect(screen.getByRole("heading", { name: "Test Organization" })).toBeInTheDocument()
     );
     expect(screen.queryByRole("button", { name: "Mark Prayed Today" })).not.toBeInTheDocument();
+  });
+});
+
+describe("AdminPartnerDetail: Newsletters & Docs card (#369)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    features.partnerFiles = true;
+  });
+
+  it("names each file's kind, never 'undefined', and shows a custom kind's own text", async () => {
+    const { fetchPartner, fetchPartnerFiles } = await import("../api/client.js");
+    fetchPartner.mockResolvedValue({ ...BASE_PARTNER });
+    fetchPartnerFiles.mockResolvedValue([
+      { id: "f1", title: "Winter 2023", fileName: "w.pdf", kind: "newsletter", receivedDate: "2025-06-19" },
+      {
+        id: "f2",
+        title: "Prayer card",
+        fileName: "c.pdf",
+        kind: "other",
+        customKind: "Prayer card",
+        receivedDate: "2025-06-20",
+      },
+    ]);
+
+    renderDetailPage();
+
+    expect(await screen.findByText(/Winter 2023 · Newsletter ·/)).toBeInTheDocument();
+    expect(screen.getByText(/Prayer card · Prayer card ·/)).toBeInTheDocument();
+    expect(screen.queryByText(/undefined/)).not.toBeInTheDocument();
+    features.partnerFiles = false;
   });
 });
