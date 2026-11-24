@@ -113,6 +113,21 @@ describe("POST /api/inbound-email/postmark -- webhook auth", () => {
     assert.equal(res.status, 401);
   });
 
+  // #327 Finding 4: a bad-credentials request used to write a row anyway --
+  // 60 allowed attempts per 15 minutes from a single guesser, no
+  // credential required to trigger a write.
+  test("wrong credentials write no InboundEmailFailure row", async () => {
+    const before = await prisma.inboundEmailFailure.count();
+    const res = await unauthenticated("/api/inbound-email/postmark", {
+      method: "POST",
+      headers: { Authorization: basicAuthHeader(WEBHOOK_USER, "not-the-password") },
+      body: postmarkPayload(),
+    });
+    assert.equal(res.status, 401);
+    const after = await prisma.inboundEmailFailure.count();
+    assert.equal(after, before);
+  });
+
   test("right credentials but the feature is off: 404, not 401 -- confirms auth is checked before the feature gate", async () => {
     await prisma.churchSettings.update({
       where: { id: "singleton" },

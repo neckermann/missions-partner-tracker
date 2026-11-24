@@ -418,24 +418,41 @@ router.post("/participants/sign/:requirementId", requireFeature("trips"), async 
 // replaces the prior one rather than leaving both around for an admin
 // to sort out -- same reasoning the admin-side upload route now follows
 // too (see that route's own comment).
+// #327 Finding 4: upload.single("file") used to run before the token was
+// even checked, so multer buffered up to 15 MB into memory (utils/
+// upload.js's own fileSize cap) for a caller with no token at all. The
+// token moves to the query string (same convention every other route in
+// this file already uses -- see verifyTripParticipantAccessToken's other
+// two callers above) specifically so it can be read and verified in a
+// middleware ahead of upload.single, instead of needing multer to have
+// already parsed the multipart body first.
+async function requireTripParticipantToken(req, res, next) {
+  try {
+    const payload = verifyTripParticipantAccessToken(String(req.query.token || ""));
+    if (!payload) return res.status(401).json({ error: "Invalid or expired link" });
+
+    const participant = await prisma.tripParticipant.findUnique({
+      where: { id: payload.id },
+      include: { trip: { select: { startDate: true } } },
+    });
+    if (!participant || participant.accessTokenVersion !== payload.v) {
+      return res.status(401).json({ error: "Invalid or expired link" });
+    }
+    req.tripParticipant = participant;
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
 router.post(
   "/participants/upload/:requirementId",
   requireFeature("trips"),
+  requireTripParticipantToken,
   upload.single("file"),
   async (req, res, next) => {
     try {
-      const token = String(req.body.token || "");
-      const payload = verifyTripParticipantAccessToken(token);
-      if (!payload) return res.status(401).json({ error: "Invalid or expired link" });
-
-      const participant = await prisma.tripParticipant.findUnique({
-        where: { id: payload.id },
-        include: { trip: { select: { startDate: true } } },
-      });
-      if (!participant || participant.accessTokenVersion !== payload.v) {
-        return res.status(401).json({ error: "Invalid or expired link" });
-      }
-
+      const participant = req.tripParticipant;
       const requirement = await prisma.tripRequirement.findUnique({
         where: { id: req.params.requirementId },
       });

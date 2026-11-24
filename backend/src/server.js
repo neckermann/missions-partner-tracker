@@ -128,12 +128,22 @@ app.use(
   })
 );
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
-// Default is 100kb -- too small for Postmark's inbound-email webhook (see
-// #72, routes/inboundEmail.js), whose JSON body carries the entire email
-// base64-encoded, attachments included. Every other route's JSON bodies
-// are small form-field-sized payloads, so raising this globally rather
-// than scoping it to one path doesn't meaningfully change their behavior.
-app.use(express.json({ limit: "15mb" }));
+// #327 Finding 4: this used to raise the limit to 15mb globally, for the
+// sake of one webhook -- every other route, including every unauthenticated
+// public one, inherited that same 15mb allowance. POST /api/public/trips/
+// :id/apply has no body-size limiter at all otherwise (just the shared
+// /api/public rate bucket), so that was up to ~1.8 GB/minute per IP into
+// Postgres against any trip accepting applications.
+//
+// Scoped larger parsers for the few routes that genuinely need one, each
+// mounted ahead of the blanket default below -- express.json() skips
+// re-parsing a request whose body a prior instance already consumed (it
+// checks req._body internally), so registration order here is what makes
+// layering these safely possible, not a coincidence.
+app.use("/api/inbound-email/postmark", express.json({ limit: "15mb" })); // entire email, base64, attachments included
+app.use("/api/public/trips/participants/sign", express.json({ limit: "7mb" })); // base64 signature image
+app.use("/api/public/trips/participants/self-service", express.json({ limit: "7mb" })); // base64 participant photo
+app.use(express.json({ limit: "100kb" })); // everything else -- small form-field-sized payloads
 app.use(cookieParser());
 
 // Frontend and backend are one origin — this backend serves the built

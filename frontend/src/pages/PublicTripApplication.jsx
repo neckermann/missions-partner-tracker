@@ -44,6 +44,11 @@ const initialValues = {
   parentGuardianPhone: "",
   parentGuardianEmail: "",
   responses: {},
+  // #327 Finding 4: honeypot -- hidden off-screen, no real applicant ever
+  // fills this in. A scripted submitter that fills every input it finds
+  // does, and the backend (publicTripApplications.js) treats a non-empty
+  // value here as spam.
+  website: "",
 };
 
 function setResponse(values, setValue, questionId, next) {
@@ -126,6 +131,17 @@ export default function PublicTripApplication() {
       },
       render: ({ values, setValue }) => (
         <>
+          {/* Honeypot -- off-screen, unlabeled, excluded from tab order. */}
+          <input
+            type="text"
+            name="website"
+            value={values.website}
+            onChange={(e) => setValue("website", e.target.value)}
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            style={{ position: "absolute", left: "-9999px", width: "1px", height: "1px" }}
+          />
           <div className="form-grid">
             <label>
               First name

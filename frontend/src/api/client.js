@@ -812,9 +812,11 @@ export async function signTripRequirement(requirementId, payload) {
 // file rather than adding a second one.
 export async function uploadTripRequirementDocument(requirementId, { token, file }) {
   const formData = new FormData();
-  formData.append("token", token);
   formData.append("file", file);
-  const { data } = await api.post(`/public/trips/participants/upload/${requirementId}`, formData);
+  const { data } = await api.post(
+    `/public/trips/participants/upload/${requirementId}?token=${encodeURIComponent(token)}`,
+    formData
+  );
   return data;
 }
 // Self-service story/photo edit -- payload is { token, story?, photo?

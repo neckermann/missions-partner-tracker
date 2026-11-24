@@ -86,7 +86,13 @@ router.post("/postmark", async (req, res, next) => {
     }
     const expectedPassword = decryptField(settings.inboundEmailWebhookPassword);
     if (!checkWebhookAuth(req, settings.inboundEmailWebhookUsername, expectedPassword)) {
-      await recordInboundEmailFailure("Unauthorized -- bad webhook credentials", req.body);
+      // #327 Finding 4: this used to call recordInboundEmailFailure here,
+      // writing a DB row for a caller who never actually authenticated --
+      // 60 allowed attempts per 15 minutes (inboundEmailWebhookLimiter,
+      // server.js) from a single guesser, with no credential required to
+      // trigger a write. The rate limiter already throttles the attempt
+      // itself; nothing downstream needs a persisted row for a request
+      // that never got past the door.
       return res.status(401).json({ error: "Unauthorized" });
     }
     // Checked after auth, not before: a wrong-password attempt and a
