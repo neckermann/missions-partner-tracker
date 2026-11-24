@@ -10,6 +10,7 @@ const baseURL = process.env.E2E_BASE_URL || "http://localhost:4000";
 // Specs that change feature flags or trip settings (see the projects below).
 const FEATURE_SPECS = [
   "inbound-email-queue",
+  "mobile-public-nav",
   "pending-dispatches",
   "public-subscribe",
   "public-trip-application",

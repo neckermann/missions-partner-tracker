@@ -1,0 +1,92 @@
+import { test, expect } from "@playwright/test";
+import { login, layoutProblems } from "./helpers.js";
+
+// Phone-width smoke test (#375): the main admin pages must not scroll sideways or push
+// anything past the screen edge, and the notification bell's dropdown must open on screen.
+// Both were real bugs (a bell dropdown ~250px off the edge, a partner page whose Edit and
+// Delete buttons were pushed off by a long link, a table widening the Financial tab), found
+// by walking the app at phone width. The pages that broke are set up with the data that broke
+// them: a long unbreakable URL and a trip contribution.
+test.use({ viewport: { width: 390, height: 800 } });
+
+test.describe("Phone layout (390px)", () => {
+  let partnerId;
+  let linkId;
+  let tripId;
+
+  test.beforeAll(async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await login(page);
+    const partners = await (await page.request.get("/api/partners?restricted=false&archived=false")).json();
+    partnerId = (partners.partners || partners)[0]?.id;
+    expect(partnerId, "expected a seeded non-restricted, non-archived partner").toBeTruthy();
+
+    const link = await page.request.post("/api/partner-links", {
+      data: {
+        partnerId,
+        type: "support",
+        url: `https://give.example.com/${"a-long-unbroken-path-".repeat(6)}`,
+      },
+    });
+    expect(link.ok()).toBeTruthy();
+    linkId = (await link.json()).id;
+
+    const trip = await page.request.post("/api/trips", {
+      data: {
+        partnerId,
+        status: "accepting_applications",
+        isPublic: false,
+        type: "Construction",
+        startDate: "2027-09-01",
+        endDate: "2027-09-10",
+      },
+    });
+    expect(trip.ok()).toBeTruthy();
+    tripId = (await trip.json()).id;
+    const contribution = await page.request.post(`/api/trips/${tripId}/contributions`, {
+      data: { donorName: "Aunt Hannah", amount: 100, method: "check", receivedDate: "2027-01-15" },
+    });
+    expect(contribution.ok()).toBeTruthy();
+    await context.close();
+  });
+
+  test.afterAll(async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await login(page);
+    if (linkId) await page.request.delete(`/api/partner-links/${linkId}`);
+    if (tripId) await page.request.delete(`/api/trips/${tripId}`);
+    await context.close();
+  });
+
+  test("the notification bell's dropdown opens fully on screen", async ({ page }) => {
+    await login(page);
+    await page.locator('[title="Notifications"]').click();
+    const box = await page.locator(".admin-sidebar-bell-dropdown").boundingBox();
+    expect(box, "the dropdown did not open").toBeTruthy();
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
+  });
+
+  const routes = [
+    ["the dashboard", () => "/admin"],
+    ["the Partners list", () => "/admin/partners"],
+    ["a partner page with a long link", () => `/admin/partners/${partnerId}`],
+    ["the Trips list", () => "/admin/trips"],
+    ["a trip's Financial tab", () => `/admin/trips/${tripId}/financial`],
+    ["Settings", () => "/admin/settings"],
+    ["Manage Users", () => "/admin/settings/users"],
+  ];
+  for (const [name, path] of routes) {
+    test(`${name} does not scroll sideways or run off the screen`, async ({ page }) => {
+      await login(page);
+      await page.goto(path());
+      await page.waitForSelector("h1, h2");
+      await page.waitForTimeout(500);
+      const problems = await layoutProblems(page);
+      expect(problems.offenders, "elements past the screen edge").toEqual([]);
+      expect(problems.pageOverflow, "px the page scrolls sideways").toBe(0);
+    });
+  }
+});

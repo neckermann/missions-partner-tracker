@@ -298,7 +298,7 @@ jobs:
           exit 1
 
       # npm run test:e2e runs the specs that only read feature flags on 2 workers, then the
-      # six that change them on 1 (see frontend/playwright.config.js).
+      # ones that change them on 1 (see frontend/playwright.config.js).
       - name: Run e2e suite
         run: cd frontend && npm run test:e2e
 
