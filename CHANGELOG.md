@@ -14,6 +14,8 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-24
+
 ### Added
 
 - **Audit log (#341).** New feature (Settings → Enabled Features → Audit log, **on by default**: it records nothing before it is on, so a church turning it on after something goes wrong would have nothing to look at; turn it off there if you'd rather not keep sign-in IP addresses) that records who did what and when for sensitive actions: sign-ins and failed sign-ins (with the reason and IP address), password and two-factor changes, accounts created/changed/deleted, guest trip-access changes, care team changes, every change to church settings (secrets noted as changed, never stored), partner and trip deletes, backup downloads, a partner's restricted status changing, and each person's first look at a restricted partner each day. Admins get **Settings → Audit log** with search, filters and CSV export. Entries are kept 30, 60 or 90 days (default 90) and pruned nightly. Actor and target are stored as ids plus an email/name snapshot with no foreign keys, so entries stay readable after an account is deleted.
