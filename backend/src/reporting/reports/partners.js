@@ -4,6 +4,7 @@ const { z } = require("zod");
 const { optionalDay, flag, oneOf, positiveInt, ymd, KIND_VALUES } = require("../params");
 const { nextAnnual, daysBetween, monthlySupportAsOf } = require("../definitions");
 const { countryOf } = require("./support");
+const { isFeatureEnabled } = require("../../utils/features");
 
 const kindOptions = KIND_VALUES.map((v) => ({ value: v, label: v === "all" ? "All" : v }));
 const baseWhere = (p) => ({
@@ -273,13 +274,24 @@ const lastHeardFrom = {
     { key: "partnerName", label: "Partner" },
     { key: "newsletter", label: "Last newsletter", type: "date" },
     { key: "newsletterDays", label: "Days ago", type: "number" },
+    { key: "contact", label: "Last logged contact", type: "date" },
+    { key: "contactDays", label: "Days ago (contact)", type: "number" },
     { key: "photo", label: "Last photo", type: "date" },
     { key: "prayer", label: "Last prayer request", type: "date" },
     { key: "visit", label: "Last church visit", type: "date" },
     { key: "lastPrayedWithCongregation", label: "Last prayed w/ congregation", type: "date" },
   ],
-  fetch: (params, { prisma }) =>
-    prisma.partner.findMany({
+  // #288: when the contact log is on, a logged contact counts as hearing
+  // from (or being in touch with) a partner just as a newsletter does -- a
+  // partner is only "quiet" when BOTH are old. Settings are read here, the
+  // report's own fetch, because the hub gives fetch/compute no feature state.
+  fetch: async (params, { prisma }) => {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { enabledFeatures: true },
+    });
+    const contactLogOn = isFeatureEnabled(settings?.enabledFeatures, "contactLog");
+    const partners = await prisma.partner.findMany({
       where: baseWhere(params),
       select: {
         displayName: true,
@@ -289,21 +301,34 @@ const lastHeardFrom = {
         photos: { select: { receivedDate: true } },
         prayerRequests: { select: { dateReceived: true } },
         churchVisits: { select: { visitDate: true } },
+        ...(contactLogOn ? { contactLogs: { select: { contactDate: true } } } : {}),
       },
-    }),
-  compute(partners, params, { today }) {
+    });
+    return { partners, contactLogOn };
+  },
+  compute({ partners, contactLogOn }, params, { today }) {
     const asOf = params.asOf || today;
     const latest = (list, key) => list.reduce((m, x) => (!m || x[key] > m ? x[key] : m), null);
     const rows = [];
     for (const p of partners) {
       const newsletter = latest(p.files, "receivedDate");
       const days = newsletter ? daysBetween(asOf, newsletter) : null;
-      const stale = days === null || days >= params.staleDays;
+      const contact = contactLogOn ? latest(p.contactLogs || [], "contactDate") : null;
+      const contactDays = contact ? daysBetween(asOf, contact) : null;
+      // Days since the most recent of the two; null when neither exists.
+      const quietDays = [days, contactDays]
+        .filter((d) => d !== null)
+        .reduce((m, d) => Math.min(m, d), Infinity);
+      const quiet = quietDays === Infinity ? null : quietDays;
+      const stale = quiet === null || quiet >= params.staleDays;
       if (params.onlyStale && !stale) continue;
       rows.push({
         partnerName: p.displayName,
         newsletter: ymd(newsletter),
         newsletterDays: days,
+        contact: ymd(contact),
+        contactDays,
+        _quietDays: quiet,
         photo: ymd(latest(p.photos, "receivedDate")),
         prayer: ymd(latest(p.prayerRequests, "dateReceived")),
         visit: ymd(latest(p.churchVisits, "visitDate")),
@@ -313,19 +338,22 @@ const lastHeardFrom = {
     }
     rows.sort(
       (a, b) =>
-        (b.newsletterDays ?? 99999) - (a.newsletterDays ?? 99999) ||
-        a.partnerName.localeCompare(b.partnerName)
+        (b._quietDays ?? 99999) - (a._quietDays ?? 99999) || a.partnerName.localeCompare(b.partnerName)
     );
     return {
       rows,
       summary: [
         {
           label: "Quiet partners",
-          value: rows.filter((r) => r.newsletterDays === null || r.newsletterDays >= params.staleDays).length,
+          value: rows.filter((r) => r._quietDays === null || r._quietDays >= params.staleDays).length,
         },
         { label: "Never sent a newsletter", value: rows.filter((r) => r.newsletterDays === null).length },
       ],
-      notes: ["'Quiet' is measured by the most recent newsletter file on record."],
+      notes: [
+        contactLogOn
+          ? "'Quiet' is measured from the most recent of a newsletter file or a logged contact."
+          : "'Quiet' is measured by the most recent newsletter file on record.",
+      ],
     };
   },
 };

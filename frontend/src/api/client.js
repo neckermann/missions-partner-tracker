@@ -490,6 +490,32 @@ export async function deleteFurlough(id) {
   await api.delete(`/furloughs/${id}`);
 }
 
+// Contact log (#288). The fixed type/direction/topic lists come from the
+// server so the UI never keeps its own copy.
+export async function fetchContactLogOptions() {
+  const { data } = await api.get("/contact-log/options");
+  return data;
+}
+export async function fetchContactLog(params = {}) {
+  const { data } = await api.get("/contact-log", { params });
+  return data;
+}
+export async function createContactLogEntry(payload) {
+  const { data } = await api.post("/contact-log", payload);
+  return data;
+}
+export async function updateContactLogEntry(id, payload) {
+  const { data } = await api.put(`/contact-log/${id}`, payload);
+  return data;
+}
+export async function deleteContactLogEntry(id) {
+  await api.delete(`/contact-log/${id}`);
+}
+export async function fetchAssignedPartners() {
+  const { data } = await api.get("/contact-log/assigned");
+  return data;
+}
+
 export async function fetchChurchVisits(params = {}) {
   const { data } = await api.get("/church-visits", { params });
   return data;

@@ -59,6 +59,7 @@ Partner (missionary | organization)
 │                                       see "Trips" below, not just a historical log
 ├── Furlough[]                         missionary-only, time off-field
 ├── ChurchVisit[]                      partner visiting this church (reverse of Trip)
+├── ContactLog[]                       every touchpoint with the partner: call, text, visit, card… (#288, §5.3)
 ├── SendingParty[]                     missionary-only, "church" | "org", who sent them
 ├── PartnerLink[]                      external links (website, social, support page, ...)
 ├── PartnerLanguage[]                  languages spoken on the field
@@ -99,7 +100,8 @@ unrelated to the dispatch system's `DispatchRecord` despite the similar
 name), `TripAccess` (a guest login's grant on one trip, §5.1) and
 `CareTeamMember` (a login's seat on one partner's care team — at most one
 lead per partner, enforced by a hand-added partial unique index as well as
-in `routes/careTeams.js`; §5.1).
+in `routes/careTeams.js`; §5.1) and `ContactLog` (one touchpoint with a partner,
+§5.3).
 
 **WhatsApp dispatch** adds `WhatsAppAuthEntry` (the encrypted linked-
 session store — see §6.2a).
@@ -185,6 +187,7 @@ in-process cron scheduler (§6) is written with that assumption explicit.
 | `/api/trips` | `trips.js`, `tripMeetings.js`, `tripRequirements.js`, `tripParticipants.js` | session, `requireTripScope`/`requirePartnerQueryScope` for `guest` (§5.1) | trip CRUD + lifecycle, roster/participants, meeting invites + RSVPs, document requirements, budget lines, flight segments, contribution ledger |
 | `/api/public/trips` | `publicTrips.js`, `publicTripApplications.js`, `publicTripParticipants.js` | open, gated by `trips` + per-church `allowPrivateApplicationLinks`/`allowPublicSupportRaisingLinks`/public discovery toggles | public Trip Opportunities listing, public application form, participant support-raising/self-service pages |
 | `/api/care-team` | `careTeams.js` | session; `careTeam` feature (404 off); set = admin/editor | a partner's care team: get, replace (lead + members), candidates (§5.1) |
+| `/api/contact-log` | `contactLog.js` | session; `contactLog` feature (404 off); fix/delete = admin/editor; guest only via a care team seat | a partner's contact log: list, add, fix, delete; the fixed type/direction/topic lists; `/assigned` (the caller's care team partners with care columns) (§5.3) |
 | `/api/notifications` | `notifications.js` | session | `NotificationSeen` read/unread state for in-app notices |
 | `/api/reports` | `reports.js` | session, `reports` feature (admin-only for users-&-access and schedule management) | report hub catalog (`GET /`), run a report (JSON/CSV), saved views (`GET/POST /views`, `DELETE /views/:id`), scheduled report emails (`POST /views/:id/schedule`, `DELETE /schedules/:id`, admin only) — see `backend/src/reporting/` |
 | `/api/partner-files` | `partnerFiles.js` | session, `partnerFiles` feature | newsletter/document CRUD, download, AI scan |
@@ -656,6 +659,52 @@ pickers the partners a login may read. `/me` returns `careTeamSeats` for every
 role and `guestReadTripIds` for a guest. The coverage view ("which partners have
 no care team or no lead") is the `care-team-coverage` report in the reporting
 hub.
+
+### 5.3 Contact log (#288)
+
+Behind the `contactLog` feature (off by default; off = hidden, data kept). A
+`ContactLog` row is one touchpoint with a partner: `contactType` (call, text,
+email, visit, card, video, prayed, other), `direction` (we reached out / they
+did), `topics[]`, who made it (`contactedById`, default the person logging)
+and who typed it in (`createdById`), a calendar `contactDate`, a note and an
+optional `followUpDate`. The three fixed lists are plain validated Strings in
+`utils/contactLog.js` (SPEC §3: no native enums), served by
+`GET /api/contact-log/options` so the UI keeps no copy. It is purely internal
+— never on a public page or a dispatch channel.
+
+**Who.** Anyone who can see the partner can log a contact: admin, editor,
+viewer, and a guest who holds a **care team seat** on it. A trip leader (a trip
+grant alone) never reaches it — the same line as one-time needs
+(`readableNeedPartnerIds`). Fixing or deleting an entry is admin/editor.
+Everyone's contact counts toward the quiet clock. An entry is never held for
+review (it isn't dispatched anywhere).
+
+**Quiet and follow-ups.** `CONTACT_STALE_DAYS` (90, the report's default too)
+is the one number for "quiet": no logged contact for that long, or never. A
+follow-up date is answered by any later-entered contact dated on or after the
+one that set it; unanswered and past, it is *due*. `utils/contactLogQueries.js`
+`loadAssignedPartners` is the single read model behind the **Assigned to me**
+tab (`GET /api/contact-log/assigned`, needs the care team feature too) and the
+`partnersNeedingContact` notification (guest-visible, counts the caller's seats
+that are quiet or due, 0 while either feature is off), so they can't disagree.
+
+**Wiring.** *Last heard from* reads the log: with the feature on, a partner is
+quiet only when **both** the latest newsletter and the latest logged contact are
+old (off: unchanged, newsletter only). A care team member's new prayer request
+also creates a log entry (`inbound`, topic `prayer`, linked by
+`prayerRequestId`; best-effort, never blocks the save). `prayerRequestId` and
+`supportNeedId` are plain ids with no foreign key, so deleting the request or
+need keeps the history.
+
+**The contact card.** Everyone who can see a partner gets it: the primary
+contact (`Adult.isPrimaryContact`, at most one per partner — a hand-added
+partial unique index plus the route clearing the old one; an organization uses
+its named contact), preferred method, tap-to-call/text/email/WhatsApp, and last
+contact. With `contactSafe` off, `Partner.contactInstructions` ("special
+communication instructions", staff-facing text) replaces the actions and the
+numbers. The **printed booklet** withholds phone, email and preferred method for
+a partner who isn't safe to contact (it previously ignored the flag) and never
+prints the instructions. The public site never exposes adults' details at all.
 
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 

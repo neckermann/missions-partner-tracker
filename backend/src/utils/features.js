@@ -155,6 +155,16 @@ const FEATURES = {
   // defaults, not ChurchSettings fields, in v1. Off by default: nothing
   // changes for a church that doesn't turn it on (one office contact, no
   // care teams).
+  // #288: a log of every touchpoint with a partner, a contact card on the
+  // partner page, an "Assigned to me" view and a "needs reaching out" alert.
+  // Off by default so nothing changes for a church that doesn't want it.
+  contactLog: {
+    label: "Contact log",
+    description:
+      "Record every call, text, email, visit or card with a partner, show a contact card on each partner page, flag partners nobody has been in touch with lately, and add an Assigned to me view for care team members.",
+    defaultEnabled: false,
+    group: "admin",
+  },
   careTeam: {
     label: "Care teams",
     description:

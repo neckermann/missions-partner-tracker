@@ -81,6 +81,10 @@ model Partner {
   preferredContactMethod String? // e.g. "Email", "Phone Call", "Text/SMS", "WhatsApp", "Mail"
   // Missionary-only: whether it's ok to contact them directly.
   contactSafe            Boolean @default(true)
+  // #288: shown instead of the tap-to-call/text/email actions when
+  // contactSafe is off ("special communication instructions"). Free text,
+  // staff-facing.
+  contactInstructions    String? @db.Text
   // Missionary-only: true when this church (see ChurchSettings) is this
   // missionary's sending church — distinct from the SendingParty relation
   // below, which records details about whichever church actually sends
@@ -138,6 +142,7 @@ model Partner {
   // this partner, rather than every partner. Two sources, same shape.
   followedByUsers          UserFollowedPartner[]
   careTeam                 CareTeamMember[]
+  contactLogs              ContactLog[]
   publicSubscriberPartners PublicSubscriberPartner[]
   adults                   Adult[]
   children                 Child[]
@@ -180,21 +185,25 @@ model Partner {
 }
 
 model Adult {
-  id        String    @id @default(uuid())
-  partnerId String
-  partner   Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  id               String    @id @default(uuid())
+  partnerId        String
+  partner          Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   // #257/#271 Finding 4: split first/last, same as Child below. firstName
   // is nullable at the DB level (unlike the single `name` column it
   // replaces) purely to let this migration add it to a non-empty table
   // with no default -- app-level validation (routes/partners.js's zod
   // schema) still requires it on every write.
-  firstName String?
-  lastName  String?
-  phone1    String?
-  phone2    String?
-  email     String?
-  birthday  DateTime? @db.Date
-  createdAt DateTime  @default(now())
+  firstName        String?
+  lastName         String?
+  phone1           String?
+  phone2           String?
+  email            String?
+  birthday         DateTime? @db.Date
+  // #288: the adult to reach first. At most one per partner -- enforced by a
+  // partial unique index in the migration (Prisma can't express a WHERE on a
+  // unique), and by the route, which clears the old one when a new one is set.
+  isPrimaryContact Boolean   @default(false)
+  createdAt        DateTime  @default(now())
 
   @@index([partnerId])
 }
@@ -859,6 +868,47 @@ model ChurchVisit {
   createdAt DateTime @default(now())
 
   @@index([partnerId])
+}
+
+// #288: one touchpoint with a partner -- a call, a text, a visit, a card.
+// The relationship history the rest of the schema doesn't keep: ChurchVisit
+// and PartnerFile record what happened, this records that someone reached
+// out (or heard from them). Purely internal -- never on a public page or a
+// dispatch channel. Fixed-choice fields are plain validated Strings (SPEC §3,
+// no native enums); the allowed values live in utils/contactLog.js.
+model ContactLog {
+  id              String    @id @default(uuid())
+  partnerId       String
+  partner         Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  // call | text | email | visit | card | video | prayed | other
+  contactType     String
+  // outbound (we reached out) | inbound (they reached out)
+  direction       String
+  // Optional topic chips (utils/contactLog.js), e.g. "prayer", "need".
+  topics          String[]
+  // Who made the contact. Defaults to the person logging it; SetNull so a
+  // deleted login doesn't take the history with it.
+  contactedById   String?
+  contactedBy     User?     @relation("ContactLogContactedBy", fields: [contactedById], references: [id], onDelete: SetNull)
+  // Who typed it in (differs from contactedBy when logging for a teammate).
+  createdById     String?
+  createdBy       User?     @relation("ContactLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  // A calendar date, like ChurchVisit.visitDate -- not an instant.
+  contactDate     DateTime  @db.Date
+  notes           String?   @db.Text
+  // Optional "reach out again by". Not a task system (see #289/#292).
+  followUpDate    DateTime? @db.Date
+  // Set when the entry was created from something else, so the link can be
+  // shown. Plain ids with no FK on purpose: deleting the prayer request or
+  // need must not delete (or fail on) the history.
+  prayerRequestId String?
+  supportNeedId   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([partnerId, contactDate])
+  @@index([contactedById])
+  @@index([followUpDate])
 }
 
 // A link to somewhere else about this partner -- website, support/donate
@@ -1924,6 +1974,8 @@ model User {
   allPartners       Boolean               @default(true)
   followedPartners  UserFollowedPartner[]
   careTeamSeats     CareTeamMember[]
+  contactsMade      ContactLog[]          @relation("ContactLogContactedBy")
+  contactsEntered   ContactLog[]          @relation("ContactLogCreatedBy")
   notificationsSeen NotificationSeen[]
   savedReports      SavedReport[]
 

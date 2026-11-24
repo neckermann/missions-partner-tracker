@@ -6,6 +6,7 @@ const { readablePartnerIds, isOnCareTeamFor } = require("../utils/guestAccess");
 const { requireFeature } = require("../middleware/requireFeature");
 const { notifyPrayerRequestCreated, notifyPrayerRequestAnswered } = require("../utils/dispatchRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
+const { logContactForPrayerRequest } = require("../utils/contactLogQueries");
 const { getSeenAt, touchSeen, markCategorySeen } = require("../notifications/categories");
 
 // Distinct from the bell's own "newPrayerRequests" NotificationSeen row --
@@ -172,6 +173,10 @@ router.post("/", requireRole("admin", "editor", "viewer", "guest"), async (req, 
     await notifyPrayerRequestCreated(created, approveNow ? { reviewerId: req.user.id } : null, {
       requireReview: !staff,
     });
+    // #288: what a care team member just heard from the partner is also a
+    // contact. (Staff entering a request on someone's behalf didn't
+    // necessarily speak to them, so they log one themselves if they did.)
+    if (!staff) await logContactForPrayerRequest(created, req.user);
 
     res.status(201).json(created);
   } catch (err) {

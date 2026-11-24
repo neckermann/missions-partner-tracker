@@ -2575,6 +2575,7 @@ async function seedTripsDemo() {
         monthlySupport: true,
         trips: true,
         careTeam: true,
+        contactLog: true,
         publicTripDiscovery: true,
         booklet: true,
         reports: true,
@@ -2970,6 +2971,162 @@ async function seedCareTeamsDemo() {
   }
 }
 
+// ---------------------------------------------------------------------
+// Contact log demo (#288): a believable history so the contact card, the log,
+// "Assigned to me" and the "Partners to reach out to" alert all have something
+// to show. Runs after seedCareTeamsDemo -- it reads the seats that made.
+// Demo extras only, like the other seeders.
+// ---------------------------------------------------------------------
+async function seedContactLogDemo() {
+  console.log("Seeding the contact log...");
+  const daysAgo = (n) => new Date(Date.now() - n * DAY_MS);
+  const careMember = await prisma.user.findUnique({ where: { email: DEMO_CARE_MEMBER_EMAIL } });
+  const editor = await prisma.user.findFirst({ where: { firstName: "Pat", lastName: "Reynolds" } });
+  const admin = await prisma.user.findFirst({ where: { role: "admin" }, orderBy: { createdAt: "asc" } });
+
+  const seats = await prisma.careTeamMember.findMany({
+    include: { partner: { select: { id: true, displayName: true } } },
+    orderBy: [{ partner: { displayName: "asc" } }, { createdAt: "asc" }],
+  });
+  const byPartner = new Map();
+  for (const seat of seats) {
+    const list = byPartner.get(seat.partnerId) || [];
+    list.push(seat);
+    byPartner.set(seat.partnerId, list);
+  }
+  const teamPartners = [...byPartner.keys()];
+
+  const log = (partnerId, userId, daysBack, over) =>
+    prisma.contactLog.create({
+      data: {
+        partnerId,
+        contactType: "call",
+        direction: "outbound",
+        topics: [],
+        contactedById: userId,
+        createdById: userId,
+        contactDate: daysAgo(daysBack),
+        ...over,
+      },
+    });
+
+  // Spread across the care-team partners so each state appears: recently in
+  // touch, long quiet with a follow-up that has come due, and never contacted.
+  const plans = [
+    // [ index into teamPartners, entries as [daysBack, extra] ]
+    [
+      0,
+      [
+        [
+          4,
+          {
+            contactType: "video",
+            direction: "inbound",
+            topics: ["checkin"],
+            notes: "Caught up on the move; all settled in.",
+          },
+        ],
+        [31, { contactType: "text", topics: ["encouragement"] }],
+      ],
+    ],
+    [
+      1,
+      [
+        [
+          124,
+          {
+            contactType: "call",
+            topics: ["prayer"],
+            notes: "Asked us to pray about the school year.",
+            followUpDays: -20,
+          },
+        ],
+      ],
+    ],
+    [
+      2,
+      [
+        [
+          12,
+          { contactType: "card", topics: ["encouragement"], notes: "Sent a birthday card to the family." },
+        ],
+        [58, { contactType: "email", direction: "inbound", topics: ["update"] }],
+      ],
+    ],
+    // teamPartners[3] is left with no contact at all (never contacted).
+    [
+      4,
+      [[75, { contactType: "visit", topics: ["furlough"], notes: "Had them over for lunch on furlough." }]],
+    ],
+    [5, [[8, { contactType: "prayed", topics: ["prayer"], notes: "Prayed for them in our small group." }]]],
+  ];
+  for (const [idx, entries] of plans) {
+    const seatList = byPartner.get(teamPartners[idx]);
+    if (!seatList) continue;
+    const who = seatList.find((x) => x.isLead) || seatList[0];
+    for (const [daysBack, { followUpDays, ...extra }] of entries) {
+      await log(who.partnerId, who.userId, daysBack, {
+        ...extra,
+        ...(followUpDays !== undefined ? { followUpDate: daysAgo(-followUpDays) } : {}),
+      });
+    }
+  }
+
+  // The published care member has a couple of their own entries, so the
+  // demo opens with history under their name.
+  const mine = seats.find((x) => x.userId === careMember?.id);
+  if (mine) {
+    await log(mine.partnerId, careMember.id, 2, {
+      contactType: "text",
+      direction: "inbound",
+      topics: ["prayer"],
+      notes: "They texted a prayer request.",
+    });
+  }
+  // Staff-logged entries on a couple of partners nobody is assigned to.
+  const others = await prisma.partner.findMany({
+    where: { archived: false, isRestricted: false, id: { notIn: teamPartners } },
+    orderBy: { displayName: "asc" },
+    take: 3,
+    select: { id: true },
+  });
+  for (const [i, partner] of others.entries()) {
+    await log(partner.id, (i % 2 ? admin : editor)?.id || null, 10 + i * 40, { topics: ["checkin"] });
+  }
+
+  // A primary contact on the first adult of a handful of missionary families.
+  const families = await prisma.partner.findMany({
+    where: { kind: "missionary", archived: false, adults: { some: {} } },
+    orderBy: { displayName: "asc" },
+    take: 8,
+    select: { id: true, adults: { orderBy: { createdAt: "asc" }, take: 2, select: { id: true } } },
+  });
+  for (const f of families) {
+    // the second adult when there is one, so it isn't always the first
+    const adult = f.adults[f.adults.length - 1];
+    await prisma.adult.updateMany({ where: { partnerId: f.id }, data: { isPrimaryContact: false } });
+    await prisma.adult.update({ where: { id: adult.id }, data: { isPrimaryContact: true } });
+  }
+
+  // One partner who is not safe to contact, so the card's "special
+  // communication instructions" and the booklet's withholding are visible.
+  const sensitive = await prisma.partner.findFirst({
+    where: { kind: "missionary", archived: false, isRestricted: false, contactSafe: true },
+    orderBy: { displayName: "desc" },
+    select: { id: true },
+  });
+  if (sensitive) {
+    await prisma.partner.update({
+      where: { id: sensitive.id },
+      data: {
+        contactSafe: false,
+        contactInstructions:
+          "Please don't call or text. Email the family's sending organization, who will relay messages.",
+      },
+    });
+  }
+}
+
 async function main() {
   const existingMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });
   const existingOrgs = await prisma.partner.count({ where: { kind: "organization" } });
@@ -3315,6 +3472,7 @@ async function main() {
     // After the queue: its generic pass sends the first few ordinary prayers
     // through unreviewed, and this adds the HELD care-team ones on top.
     await seedCareTeamsDemo();
+    await seedContactLogDemo();
   }
 
   const finalMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });
@@ -3346,4 +3504,5 @@ module.exports = {
   scannableExtras,
   seedTripsDemo,
   seedCareTeamsDemo,
+  seedContactLogDemo,
 };

@@ -25,9 +25,21 @@ const adultSchema = z.object({
   phone2: z.string().optional().nullable(),
   email: z.string().optional().nullable(),
   birthday: z.coerce.date().optional().nullable(),
+  // #288: the adult to reach first -- at most one per partner. Setting it
+  // here clears it from the others in the same write (below).
+  isPrimaryContact: z.boolean().optional(),
 });
 
 const adultInclude = { partner: partnerRefSelect };
+
+// Cleared first so moving the flag never briefly leaves two primaries (the
+// partial unique index would refuse that).
+async function clearPrimary(db, partnerId) {
+  await db.adult.updateMany({
+    where: { partnerId, isPrimaryContact: true },
+    data: { isPrimaryContact: false },
+  });
+}
 
 // GET /api/adults?partnerId=
 router.get("/", requirePartnerQueryScope, async (req, res, next) => {
@@ -50,7 +62,10 @@ router.get("/", requirePartnerQueryScope, async (req, res, next) => {
 router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) => {
   try {
     const data = adultSchema.parse(req.body);
-    const created = await prisma.adult.create({ data, include: adultInclude });
+    const created = await prisma.$transaction(async (tx) => {
+      if (data.isPrimaryContact) await clearPrimary(tx, data.partnerId);
+      return tx.adult.create({ data, include: adultInclude });
+    });
     res.status(201).json(created);
   } catch (err) {
     next(err);
@@ -61,7 +76,16 @@ router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) =>
 router.put("/:id", requirePartnerWriter({ model: "adult" }), async (req, res, next) => {
   try {
     const data = adultSchema.partial().parse(req.body);
-    const updated = await prisma.adult.update({ where: { id: req.params.id }, data, include: adultInclude });
+    const updated = await prisma.$transaction(async (tx) => {
+      if (data.isPrimaryContact) {
+        const current = await tx.adult.findUnique({
+          where: { id: req.params.id },
+          select: { partnerId: true },
+        });
+        if (current) await clearPrimary(tx, data.partnerId || current.partnerId);
+      }
+      return tx.adult.update({ where: { id: req.params.id }, data, include: adultInclude });
+    });
     res.json(updated);
   } catch (err) {
     next(err);

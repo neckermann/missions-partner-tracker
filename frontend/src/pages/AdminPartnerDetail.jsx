@@ -28,6 +28,8 @@ import {
   updateFurlough,
   deleteFurlough,
   fetchChurchVisits,
+  fetchContactLog,
+  fetchCareTeam,
   createChurchVisit,
   updateChurchVisit,
   deleteChurchVisit,
@@ -49,6 +51,8 @@ import StatusPill from "../components/admin/StatusPill.jsx";
 import Field from "../components/admin/Field.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
 import CareTeamPanel from "../components/admin/CareTeamPanel.jsx";
+import ContactCard from "../components/admin/ContactCard.jsx";
+import ContactLogSection from "../components/admin/ContactLogSection.jsx";
 import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
 import RecordList from "../components/admin/RecordList.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
@@ -321,7 +325,33 @@ export default function AdminPartnerDetail() {
     ]);
   }
 
-  const { canWrite, isAdmin, isGuest, isOnCareTeamFor, loading: userLoading } = useCurrentUser();
+  const { user, canWrite, isAdmin, isGuest, isOnCareTeamFor, loading: userLoading } = useCurrentUser();
+
+  // Contact log (#288): shared by the contact card up top and the log
+  // section below. Anyone who can see the partner may use it, except a trip
+  // leader (a guest without a seat here), whose scope is smaller.
+  const [contactEntries, setContactEntries] = useState([]);
+  const [teammates, setTeammates] = useState([]);
+  const contactLogShown = !!enabledFeatures.contactLog && (!isGuest || isOnCareTeamFor(id));
+  const reloadContactLog = () =>
+    fetchContactLog({ partnerId: id }).then(setContactEntries).catch(console.error);
+  useEffect(() => {
+    if (userLoading || !contactLogShown) return;
+    reloadContactLog();
+    if (enabledFeatures.careTeam) {
+      fetchCareTeam(id)
+        .then((t) =>
+          setTeammates(
+            [t.lead, ...t.members].filter(Boolean).map((m) => ({
+              userId: m.userId,
+              name: [m.firstName, m.lastName].filter(Boolean).join(" ") || "Teammate",
+            }))
+          )
+        )
+        .catch(console.error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, userLoading, contactLogShown]);
 
   useEffect(() => {
     // Wait for the role before loading: what to fetch depends on it (a guest
@@ -739,6 +769,8 @@ export default function AdminPartnerDetail() {
         <CareTeamPanel partnerId={p.id} canEdit={canWrite} canInviteGuest={isAdmin} />
       )}
 
+      {contactLogShown && <ContactCard partner={p} adults={collections.adults} entries={contactEntries} />}
+
       <div className="partner-jump-rail">
         {[
           { label: "Overview", href: "#section-overview" },
@@ -770,7 +802,9 @@ export default function AdminPartnerDetail() {
             displayName: p.displayName,
             isPublic: p.isPublic,
             isRestricted: p.isRestricted,
-            ...(!isOrg ? { contactSafe: p.contactSafe } : {}),
+            ...(!isOrg
+              ? { contactSafe: p.contactSafe, contactInstructions: p.contactInstructions || "" }
+              : {}),
           }}
           view={(v) => (
             <>
@@ -780,6 +814,9 @@ export default function AdminPartnerDetail() {
                 <Field label="Restricted-access location" value={v.isRestricted ? "Yes" : "No"} />
                 {!isOrg && <Field label="Safe to Contact" value={v.contactSafe ? "Yes" : "No"} />}
               </div>
+              {!isOrg && !v.contactSafe && v.contactInstructions && (
+                <Field label="Special communication instructions" value={v.contactInstructions} />
+              )}
             </>
           )}
           edit={(d, set) => (
@@ -816,6 +853,17 @@ export default function AdminPartnerDetail() {
                   </label>
                 )}
               </div>
+              {!isOrg && !d.contactSafe && (
+                <label style={{ display: "block", marginTop: "0.75rem" }}>
+                  Special communication instructions
+                  <textarea
+                    rows={3}
+                    value={d.contactInstructions}
+                    onChange={(e) => set("contactInstructions", e.target.value)}
+                    placeholder="How, if at all, should this partner be contacted? Shown instead of the call/text/email buttons."
+                  />
+                </label>
+              )}
             </>
           )}
         />
@@ -906,10 +954,12 @@ export default function AdminPartnerDetail() {
                   <Field label="Phone 1" value={a.phone1} />
                   <Field label="Phone 2" value={a.phone2} />
                   <Field label="Email" value={a.email} />
+                  {a.isPrimaryContact && <Field label="Primary contact" value="Yes" />}
                 </>
               )}
               onAdd={() =>
                 adultCrud.openAdd({
+                  isPrimaryContact: false,
                   firstName: "",
                   lastName: "",
                   phone1: "",
@@ -920,6 +970,7 @@ export default function AdminPartnerDetail() {
               }
               onEdit={(a) =>
                 adultCrud.openEdit(a.id, {
+                  isPrimaryContact: !!a.isPrimaryContact,
                   firstName: a.firstName || "",
                   lastName: a.lastName || "",
                   phone1: a.phone1 || "",
@@ -1674,6 +1725,17 @@ export default function AdminPartnerDetail() {
             />
           )}
 
+          {contactLogShown && (
+            <ContactLogSection
+              partnerId={p.id}
+              entries={contactEntries}
+              onChanged={reloadContactLog}
+              canFix={canWrite}
+              currentUserId={user?.id}
+              teammates={teammates}
+            />
+          )}
+
           <RecordList
             title="Church Visits"
             canEdit={canEdit}
@@ -1994,6 +2056,7 @@ export default function AdminPartnerDetail() {
               phone2: adultCrud.form.phone2.trim() || null,
               email: adultCrud.form.email.trim() || null,
               birthday: adultCrud.form.birthday || null,
+              isPrimaryContact: !!adultCrud.form.isPrimaryContact,
             })
           }
         >
@@ -2043,6 +2106,16 @@ export default function AdminPartnerDetail() {
               />
             </label>
           </div>
+          {enabledFeatures.contactLog && (
+            <label style={{ display: "block", marginTop: "0.75rem" }}>
+              <input
+                type="checkbox"
+                checked={!!adultCrud.form.isPrimaryContact}
+                onChange={(e) => adultCrud.setForm((f) => ({ ...f, isPrimaryContact: e.target.checked }))}
+              />{" "}
+              Primary contact (reach this person first)
+            </label>
+          )}
         </QuickActionModal>
       )}
 

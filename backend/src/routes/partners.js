@@ -222,6 +222,8 @@ const partnerSchema = z.object({
 
   // --- Missionary-only ---
   contactSafe: z.boolean().optional(),
+  // #288: staff-facing note shown instead of tap-to-call actions when contactSafe is off.
+  contactInstructions: z.string().trim().max(2000).optional().nullable(),
   sentByOurChurch: z.boolean().optional(),
   anniversary: z.coerce.date().optional().nullable(),
   emergencyContactName: z.string().optional().nullable(),

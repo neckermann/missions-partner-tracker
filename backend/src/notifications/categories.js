@@ -32,6 +32,8 @@
 
 const prisma = require("../prismaClient");
 const { needsReview } = require("../utils/dispatchEligibility");
+const { isCareTeamEnabled } = require("../utils/guestAccess");
+const { isContactLogEnabled, loadAssignedPartners } = require("../utils/contactLogQueries");
 
 const SOON_DAYS = 30;
 const BACKUP_REMIND_AGAIN_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
@@ -50,6 +52,23 @@ async function getSeenAt(userId, category) {
     where: { userId_category: { userId, category } },
   });
   return row?.seenAt ?? null;
+}
+
+// #288: partners on this login's care team that nobody has been in touch with
+// for CONTACT_STALE_DAYS, or whose follow-up date has come. Counted live from
+// the same read model as the Assigned to me tab, so the two always agree.
+// Counts nothing while either feature is off. `latest` is when the most
+// recent partner became overdue, so the bell only lights up for NEW ones.
+async function partnersNeedingContact({ userId }) {
+  if (!userId || !(await isContactLogEnabled()) || !(await isCareTeamEnabled())) {
+    return { count: 0, latest: null };
+  }
+  const due = (await loadAssignedPartners(userId)).filter((r) => r.quiet || r.followUpDue);
+  const latest = due.reduce((m, r) => {
+    const d = r.overdueSince ? new Date(r.overdueSince) : null;
+    return d && (!m || d > m) ? d : m;
+  }, null);
+  return { count: due.length, latest, linkTo: "/admin/partners?assigned=1" };
 }
 
 // --- All-roles categories --------------------------------------------
@@ -275,6 +294,19 @@ const CATEGORIES = [
     resolve: inboundEmailFailures,
   },
   {
+    key: "partnersNeedingContact",
+    label: "Partners to reach out to",
+    icon: "💬",
+    linkTo: "/admin/partners?assigned=1",
+    adminOnly: false,
+    perUser: false,
+    tripScoped: false,
+    // A care team member's own partners -- the one non-trip category a guest
+    // sees (a trip leader has no seats, so the count is always zero for them).
+    guestVisible: true,
+    resolve: partnersNeedingContact,
+  },
+  {
     key: "tripsDepartingSoon",
     label: "Trips departing soon",
     icon: "✈️",
@@ -381,7 +413,7 @@ const CATEGORIES = [
 async function resolveNotificationSummary({ userId, role, scopeTripIds = null }) {
   const visible = CATEGORIES.filter((c) => {
     if (c.adminOnly) return role === "admin";
-    if (role === "guest") return c.tripScoped;
+    if (role === "guest") return c.tripScoped || c.guestVisible;
     return true;
   });
   const results = await Promise.all(
