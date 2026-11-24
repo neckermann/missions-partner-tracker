@@ -183,6 +183,16 @@ const FEATURES = {
     defaultEnabled: false,
     group: "admin",
   },
+  // #374: a menu of the ways the church and a partner's care team can support the partner,
+  // owned by the church (edited in Settings, never code), and each partner's choices from
+  // it. Needs Care teams (the care team is who records and reads it). Off by default.
+  supportPreferences: {
+    label: "Support preferences",
+    description:
+      "Let each partner choose how the church and their care team can support them (a menu you edit under Settings, such as housing while home, airport pick-up, prayer, care packages), shown as a card on the partner's page and recorded by staff or the care team. Needs Care teams. Never shown publicly, in the booklet or in dispatches.",
+    defaultEnabled: false,
+    group: "admin",
+  },
   auditTrail: {
     label: "Audit log",
     description:

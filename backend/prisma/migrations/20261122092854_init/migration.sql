@@ -899,6 +899,45 @@ CREATE TABLE "CareTeamMember" (
 );
 
 -- CreateTable
+CREATE TABLE "SupportOption" (
+    "id" TEXT NOT NULL,
+    "group" TEXT NOT NULL,
+    "label" TEXT NOT NULL,
+    "kind" TEXT NOT NULL DEFAULT 'offer',
+    "choices" TEXT[],
+    "allowOther" BOOLEAN NOT NULL DEFAULT false,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
+
+    CONSTRAINT "SupportOption_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PartnerSupportPreference" (
+    "id" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "optionId" TEXT NOT NULL,
+    "selected" BOOLEAN NOT NULL DEFAULT false,
+    "choice" TEXT,
+    "choices" TEXT[],
+    "other" TEXT,
+    "text" TEXT,
+    "note" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
+
+    CONSTRAINT "PartnerSupportPreference_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "PublicSubscriber" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
@@ -1128,6 +1167,15 @@ CREATE INDEX "CareTeamMember_userId_idx" ON "CareTeamMember"("userId");
 CREATE UNIQUE INDEX "CareTeamMember_partnerId_userId_key" ON "CareTeamMember"("partnerId", "userId");
 
 -- CreateIndex
+CREATE INDEX "SupportOption_group_sortOrder_idx" ON "SupportOption"("group", "sortOrder");
+
+-- CreateIndex
+CREATE INDEX "PartnerSupportPreference_optionId_idx" ON "PartnerSupportPreference"("optionId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PartnerSupportPreference_partnerId_optionId_key" ON "PartnerSupportPreference"("partnerId", "optionId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "PublicSubscriber_email_key" ON "PublicSubscriber"("email");
 
 -- CreateIndex
@@ -1306,6 +1354,12 @@ ALTER TABLE "CareTeamMember" ADD CONSTRAINT "CareTeamMember_partnerId_fkey" FORE
 
 -- AddForeignKey
 ALTER TABLE "CareTeamMember" ADD CONSTRAINT "CareTeamMember_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PartnerSupportPreference" ADD CONSTRAINT "PartnerSupportPreference_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PartnerSupportPreference" ADD CONSTRAINT "PartnerSupportPreference_optionId_fkey" FOREIGN KEY ("optionId") REFERENCES "SupportOption"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PublicSubscriberPartner" ADD CONSTRAINT "PublicSubscriberPartner_subscriberId_fkey" FOREIGN KEY ("subscriberId") REFERENCES "PublicSubscriber"("id") ON DELETE CASCADE ON UPDATE CASCADE;
