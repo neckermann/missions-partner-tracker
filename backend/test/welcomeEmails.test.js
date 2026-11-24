@@ -45,19 +45,19 @@ test("guide links are role-specific and always point at this project's own docs"
   assert.match(editorLinks[1].url, /^https:\/\/github\.com\/.*\/issues$/);
   assertDocLink(editorLinks[2].url);
 
-  const leaderLinks = guideLinks("tripLeader");
+  const guestLinks = guideLinks("guest");
   assert.deepEqual(
-    leaderLinks.map((l) => l.label),
-    ["Trip Leader guide", "Support and help", "Setting up two-factor authentication"]
+    guestLinks.map((l) => l.label),
+    ["Guest guide", "Support and help", "Setting up two-factor authentication"]
   );
-  assertDocLink(leaderLinks[0].url);
-  assert.match(leaderLinks[1].url, /^https:\/\/github\.com\/.*\/issues$/);
-  assertDocLink(leaderLinks[2].url);
+  assertDocLink(guestLinks[0].url);
+  assert.match(guestLinks[1].url, /^https:\/\/github\.com\/.*\/issues$/);
+  assertDocLink(guestLinks[2].url);
 });
 
-test("trip leaders get a longer fixed expiry than everyone else", () => {
+test("guests get a longer fixed expiry than everyone else", () => {
   assert.equal(setupTtlHours("editor"), 72);
-  assert.equal(setupTtlHours("tripLeader"), 168);
+  assert.equal(setupTtlHours("guest"), 168);
 });
 
 test("tokens are random, url-safe, and hashed deterministically", () => {

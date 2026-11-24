@@ -3,6 +3,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("../utils/features");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
+const { canReadPartner } = require("../utils/guestAccess");
 const { withPhotoUrls } = require("../utils/photoUrls");
 const { geocodeAddress } = require("../utils/geocode");
 const { matchesFileSignature } = require("../utils/fileSignature");
@@ -418,19 +419,13 @@ router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next)
 // see partnerRecordInclude for why the history collections aren't here)
 router.get("/:id", async (req, res, next) => {
   try {
-    // Trip Leader guest tier: read-only, and only the exact Partner tied
-    // to their own scoped trip -- "they can view the partner details page
-    // as part of that," not the directory at large. Looked up fresh each
-    // request (not cached on the token), same revocation-takes-effect-
-    // immediately reasoning as requireAuth's own role re-read.
-    if (req.user.role === "tripLeader") {
-      const trip = await prisma.trip.findUnique({
-        where: { id: req.user.scopedTripId },
-        select: { partnerId: true },
-      });
-      if (!trip?.partnerId || trip.partnerId !== req.params.id) {
-        return res.status(403).json({ error: "Insufficient permissions" });
-      }
+    // Guest tier: read-only, and only partners their active grants reach
+    // (today: the partner of each granted trip) -- "they can view the
+    // partner details page as part of that," not the directory at large.
+    // Resolved fresh each request by requireAuth, same revocation-takes-
+    // effect-immediately reasoning as its role re-read.
+    if (!canReadPartner(req.user, req.params.id)) {
+      return res.status(403).json({ error: "Insufficient permissions" });
     }
     const record = await prisma.partner.findUnique({
       where: { id: req.params.id },

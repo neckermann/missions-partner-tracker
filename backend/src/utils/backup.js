@@ -102,10 +102,9 @@ const MODELS = [
   "churchSettings",
   "churchSettingsLogo",
 
-  // User.scopedTripId is a real (nullable) FK into Trip -- "listed last
-  // for clarity" would be wrong on its own; User has to come after trip
-  // specifically, which it does here since trip is grouped up top.
   "user",
+  "tripAccess", // -> user, trip (#356)
+  "auditLog", // standalone: actor/target are plain strings, not FKs (#356)
   "savedReport", // savedReport.ownerId -> user
   "reportSchedule", // reportSchedule.savedReportId -> savedReport
   "passwordSetupToken", // -> user

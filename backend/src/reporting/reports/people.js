@@ -1,6 +1,7 @@
 // Contacts and access: mailing list, and who can sign in.
 const { z } = require("zod");
 const { flag, oneOf, ymd } = require("../params");
+const { GRANT_SELECT, summarizeGrants, guestInactiveReason } = require("../../utils/tripAccessRules");
 
 const mailingList = {
   id: "mailing-list",
@@ -107,25 +108,40 @@ const usersAccess = {
         lastLoginAt: true,
         mfaEnabled: true,
         mfaSetupRequired: true,
-        expiresAt: true,
         passwordHash: true,
+        // A guest's access comes from its grants (#356), so "expires" and
+        // "Expired" are worked out from those, not from a column on User.
+        tripAccess: { select: GRANT_SELECT },
       },
     }),
-  compute(users, params, { today }) {
-    const rows = users.map((u) => ({
-      name: [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email,
-      role: u.role,
-      status: !u.active
-        ? "Inactive"
-        : u.expiresAt && u.expiresAt < today
-          ? "Expired"
-          : !u.passwordHash
-            ? "Awaiting setup"
-            : "Active",
-      mfa: u.mfaEnabled ? "On" : u.mfaSetupRequired ? "Required, not set up" : "Off",
-      lastLogin: ymd(u.lastLoginAt),
-      expires: ymd(u.expiresAt),
-    }));
+  compute(users) {
+    const rows = users.map((u) => {
+      const grants = u.role === "guest" ? summarizeGrants(u.tripAccess) : [];
+      const reason = guestInactiveReason(u, grants);
+      // When the last of a guest's active grants lapses; blank when any of
+      // them never does (a trip with no end date) or for the full roles.
+      const live = grants.filter((g) => g.active);
+      const expiry =
+        live.length === 0 || live.some((g) => !g.effectiveExpiresAt)
+          ? null
+          : new Date(Math.max(...live.map((g) => g.effectiveExpiresAt.getTime())));
+      return {
+        name: [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email,
+        role: u.role,
+        status: !u.active
+          ? "Inactive"
+          : reason === "expired"
+            ? "Expired"
+            : reason === "no_access"
+              ? "No access"
+              : !u.passwordHash
+                ? "Awaiting setup"
+                : "Active",
+        mfa: u.mfaEnabled ? "On" : u.mfaSetupRequired ? "Required, not set up" : "Off",
+        lastLogin: ymd(u.lastLoginAt),
+        expires: ymd(expiry),
+      };
+    });
     rows.sort((a, b) => a.name.localeCompare(b.name));
     return {
       rows,

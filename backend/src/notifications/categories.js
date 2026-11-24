@@ -26,11 +26,9 @@
 // the seen-comparison itself: new = latest > (that user's NotificationSeen
 // row for this category).seenAt, or everything is new if no row exists yet.
 //
-// `scopeTripId`, accepted by every resolve() but unused by all of them
-// today, is reserved for the Trip Leader guest role (a separate, not-yet-
-// landed plan) -- a no-op for every current role, a hard filter once that
-// role exists. Keeping the parameter here now means that future work is
-// "pass a value," not "add a parameter to every category."
+// `scopeTripIds` is null for every full role (no filter) and a guest's
+// granted trip ids otherwise (#356) -- only the `tripScoped` categories
+// below read it; every other category ignores it.
 
 const prisma = require("../prismaClient");
 const { needsReview } = require("../utils/dispatchEligibility");
@@ -84,13 +82,13 @@ function soonWindow() {
   return { now, soonBy };
 }
 
-async function tripsDepartingSoon(_opts, scopeTripId) {
+async function tripsDepartingSoon(_opts, scopeTripIds) {
   const { now, soonBy } = soonWindow();
   const rows = await prisma.trip.findMany({
     where: {
       status: { not: "completed" },
       startDate: { gt: now, lte: soonBy },
-      ...(scopeTripId ? { id: scopeTripId } : {}),
+      ...(scopeTripIds ? { id: { in: scopeTripIds } } : {}),
     },
     select: { id: true, startDate: true },
   });
@@ -116,13 +114,13 @@ function isRequirementFulfilledForParticipant(requirement, participantId, docume
   return documents.some((d) => d.participantId === participantId);
 }
 
-async function tripsDepartingSoonIncomplete(_opts, scopeTripId) {
+async function tripsDepartingSoonIncomplete(_opts, scopeTripIds) {
   const { now, soonBy } = soonWindow();
   const trips = await prisma.trip.findMany({
     where: {
       status: { not: "completed" },
       startDate: { gt: now, lte: soonBy },
-      ...(scopeTripId ? { id: scopeTripId } : {}),
+      ...(scopeTripIds ? { id: { in: scopeTripIds } } : {}),
     },
     include: {
       participants: { select: { id: true } },
@@ -140,10 +138,10 @@ async function tripsDepartingSoonIncomplete(_opts, scopeTripId) {
   return { count: incomplete.length, latest: latestOf(incomplete, (t) => t.startDate), linkTo };
 }
 
-async function overdueTripRequirements(_opts, scopeTripId) {
+async function overdueTripRequirements(_opts, scopeTripIds) {
   const now = new Date();
   const requirements = await prisma.tripRequirement.findMany({
-    where: { dueAt: { lt: now }, ...(scopeTripId ? { tripId: scopeTripId } : {}) },
+    where: { dueAt: { lt: now }, ...(scopeTripIds ? { tripId: { in: scopeTripIds } } : {}) },
     include: {
       trip: { select: { participants: { select: { id: true } } } },
       requirementStatuses: true,
@@ -165,9 +163,9 @@ async function overdueTripRequirements(_opts, scopeTripId) {
   return { count: overdueItems.length, latest: latestOf(overdueItems, (r) => r.dueAt), linkTo };
 }
 
-async function tripApplicationsPending(_opts, scopeTripId) {
+async function tripApplicationsPending(_opts, scopeTripIds) {
   const rows = await prisma.tripApplication.findMany({
-    where: { status: "pending", ...(scopeTripId ? { tripId: scopeTripId } : {}) },
+    where: { status: "pending", ...(scopeTripIds ? { tripId: { in: scopeTripIds } } : {}) },
     select: { tripId: true, submittedAt: true },
   });
   const distinctTripIds = new Set(rows.map((r) => r.tripId));
@@ -240,11 +238,11 @@ async function whatsappConnectionDrop() {
 }
 
 // `tripScoped: true` marks the only 4 categories that make sense for a
-// Trip Leader (role: "tripLeader") -- a scoped guest with no visibility
-// into anything outside their own one trip. Every other category either
-// isn't trip-shaped at all (dispatches, emails, prayer requests, admin/
-// system health) or spans every trip at once with no per-trip filter --
-// none of that belongs in a Trip Leader's own notification list.
+// guest (role: "guest") -- a scoped login with no visibility into anything
+// outside the trips it was granted. Every other category either isn't
+// trip-shaped at all (dispatches, emails, prayer requests, admin/system
+// health) or spans every trip at once with no per-trip filter -- none of
+// that belongs in a guest's own notification list.
 const CATEGORIES = [
   {
     key: "dispatchesNeedingApproval",
@@ -380,15 +378,15 @@ const CATEGORIES = [
 
 // Resolves every category this role may see, with per-user seen-state
 // already applied -- the one function the route calls.
-async function resolveNotificationSummary({ userId, role, scopeTripId = null }) {
+async function resolveNotificationSummary({ userId, role, scopeTripIds = null }) {
   const visible = CATEGORIES.filter((c) => {
     if (c.adminOnly) return role === "admin";
-    if (role === "tripLeader") return c.tripScoped;
+    if (role === "guest") return c.tripScoped;
     return true;
   });
   const results = await Promise.all(
     visible.map(async (c) => {
-      const { count, latest, linkTo } = await c.resolve({ userId }, scopeTripId);
+      const { count, latest, linkTo } = await c.resolve({ userId }, scopeTripIds);
       let isNew;
       if (c.perUser) {
         // The count itself is already "new since this user looked" --

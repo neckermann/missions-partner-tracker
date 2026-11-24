@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const { SESSION_COOKIE_NAME } = require("../utils/jwt");
 const prisma = require("../prismaClient");
+const { resolveGuestReach, canReadPartner, canReadTrip } = require("../utils/guestAccess");
 
 function extractBearerToken(req) {
   const authHeader = req.headers.authorization || "";
@@ -94,20 +95,25 @@ async function requireAuth(req, res, next) {
         email: true,
         role: true,
         active: true,
-        scopedTripId: true,
-        expiresAt: true,
         sessionVersion: true,
       },
     });
     if (!user || !user.active) {
       return unauthorized(req, res, "Invalid or expired session");
     }
-    // Trip Leader guest accounts only (expiresAt is null for every other
-    // role) -- treated the same as !active: the session stops working the
-    // moment the date passes, not deleted outright, so an admin extending
-    // access just moves the date rather than recreating the account.
-    if (user.expiresAt && user.expiresAt < new Date()) {
-      return unauthorized(req, res, "Invalid or expired session");
+    // #356: a guest's reach is exactly their active grants (TripAccess
+    // today; care team seats join in #289). With none left -- every trip
+    // lapsed 30 days after it ended, or an admin ended them -- the session
+    // stops working the same as !active. The row is kept, not deleted, so
+    // an admin extending access just moves a date rather than recreating
+    // the account. Read fresh each request, like role, so revocation is
+    // immediate.
+    let guestReach = null;
+    if (user.role === "guest") {
+      guestReach = await resolveGuestReach(user.id);
+      if (!guestReach.hasActiveGrant) {
+        return unauthorized(req, res, "Invalid or expired session");
+      }
     }
     // #327 Finding 7: a mismatch means this token predates a
     // password/MFA/role change that should have ended it -- see the
@@ -115,7 +121,14 @@ async function requireAuth(req, res, next) {
     if (user.sessionVersion !== decoded.sessionVersion) {
       return unauthorized(req, res, "Invalid or expired session");
     }
-    req.user = { ...decoded, role: user.role, email: user.email, scopedTripId: user.scopedTripId };
+    req.user = { ...decoded, role: user.role, email: user.email };
+    if (guestReach) {
+      // Only ever set for a guest -- every route's scope check treats an
+      // absent tripIds/partnerIds as "not a guest, no restriction" via
+      // utils/guestAccess.js, never by inspecting these directly.
+      req.user.tripIds = guestReach.tripIds;
+      req.user.partnerIds = guestReach.partnerIds;
+    }
     next();
   } catch (err) {
     next(err);
@@ -195,12 +208,13 @@ async function requireAuthOrMfaSetup(req, res, next) {
   }
 }
 
-// Scopes a route to a Trip Leader's own trip -- a no-op for every other
-// role (admin/editor/viewer already pass through requireRole's own
-// per-route allowlist unaffected), a hard 403 for a tripLeader whose
-// request resolves to a different trip. Applied on top of requireRole,
-// never instead of it, and on reads as well as writes -- a tripLeader
-// must not even be able to GET another trip's data, not just write to it.
+// Scopes a route to the trips a guest has been granted -- a no-op for
+// every other role (admin/editor/viewer already pass through requireRole's
+// own per-route allowlist unaffected), a hard 403 for a guest whose
+// request resolves to a trip they hold no active grant for. Applied on top
+// of requireRole, never instead of it, and on reads as well as writes -- a
+// guest must not even be able to GET another trip's data, not just write
+// to it.
 //
 // `resolveTripId` is either the name of a route param that IS the trip id
 // directly ("id", "tripId" -- most of this router's own trip-level
@@ -210,11 +224,11 @@ async function requireAuthOrMfaSetup(req, res, next) {
 // record's own tripId column, since the URL alone doesn't carry it).
 function requireTripScope(resolveTripId) {
   return async (req, res, next) => {
-    if (req.user.role !== "tripLeader") return next();
+    if (req.user.role !== "guest") return next();
     try {
       const tripId =
         typeof resolveTripId === "function" ? await resolveTripId(req) : req.params[resolveTripId];
-      if (!tripId || tripId !== req.user.scopedTripId) {
+      if (!canReadTrip(req.user, tripId)) {
         return res.status(403).json({ error: "Insufficient permissions" });
       }
       next();
@@ -226,34 +240,23 @@ function requireTripScope(resolveTripId) {
 
 // Scopes a Partner sub-resource's own GET /?partnerId= read (prayer
 // requests, one-time needs, support entries, family members, furloughs,
-// church visits, links, languages, files) to a Trip Leader's own one
-// linked Partner -- a no-op for every other role. Without this, a
-// tripLeader could pass any other partnerId and read that partner's own
-// prayer requests/needs/etc, even though Partner Detail's own GET /:id
-// (partners.js) already refuses to show them any partner but their own.
-// Refuses a query with no partnerId filter at all too -- that shape
-// returns every partner's rows, which is exactly what this role must
-// never see. Read-only concern only: every one of these resources' own
-// write routes already requireRole admin/editor, which already excludes
-// tripLeader, so nothing here needs its own write-side counterpart.
+// church visits, links, languages, files) to the partners a guest may
+// read -- a no-op for every other role. Without this, a guest could pass
+// any other partnerId and read that partner's own prayer requests/needs/
+// etc, even though Partner Detail's own GET /:id (partners.js) already
+// refuses to show them any partner they aren't assigned. Refuses a query
+// with no partnerId filter at all too -- that shape returns every
+// partner's rows, which is exactly what this role must never see.
+// Read-only concern only: every one of these resources' own write routes
+// already requireRole admin/editor, which already excludes guest, so
+// nothing here needs its own write-side counterpart.
 function requirePartnerQueryScope(req, res, next) {
-  if (req.user.role !== "tripLeader") return next();
-  (async () => {
-    try {
-      const partnerId = req.query.partnerId ? String(req.query.partnerId) : null;
-      if (!partnerId) return res.status(403).json({ error: "Insufficient permissions" });
-      const trip = await prisma.trip.findUnique({
-        where: { id: req.user.scopedTripId },
-        select: { partnerId: true },
-      });
-      if (!trip?.partnerId || trip.partnerId !== partnerId) {
-        return res.status(403).json({ error: "Insufficient permissions" });
-      }
-      next();
-    } catch (err) {
-      next(err);
-    }
-  })();
+  if (req.user.role !== "guest") return next();
+  const partnerId = req.query.partnerId ? String(req.query.partnerId) : null;
+  if (!partnerId || !canReadPartner(req.user, partnerId)) {
+    return res.status(403).json({ error: "Insufficient permissions" });
+  }
+  next();
 }
 
 module.exports = {

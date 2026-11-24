@@ -2,6 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
+const { canReadPartner } = require("../utils/guestAccess");
 const { requireFeature } = require("../middleware/requireFeature");
 const { verifyUpload } = require("../utils/fileSignature");
 const { sendStoredFile } = require("../utils/fileResponse");
@@ -140,7 +141,7 @@ router.post("/", requireRole("admin", "editor"), upload.single("file"), async (r
 //
 // Unlike GET / above, this single-record route has no requirePartnerQueryScope
 // of its own -- every other role is fine with that (any login already sees
-// every partner's files via the unscoped list route), but a Trip Leader must
+// every partner's files via the unscoped list route), but a guest must
 // not be able to download an arbitrary file id belonging to some other
 // partner just because they know (or guessed) it. Checked here explicitly,
 // same pattern as partners.js's own GET /:id.
@@ -152,14 +153,8 @@ router.get("/:id/download", async (req, res, next) => {
     });
     if (!record?.bytesRow) return res.status(404).json({ error: "Not found" });
 
-    if (req.user.role === "tripLeader") {
-      const trip = await prisma.trip.findUnique({
-        where: { id: req.user.scopedTripId },
-        select: { partnerId: true },
-      });
-      if (!trip?.partnerId || trip.partnerId !== record.partnerId) {
-        return res.status(403).json({ error: "Insufficient permissions" });
-      }
+    if (!canReadPartner(req.user, record.partnerId)) {
+      return res.status(403).json({ error: "Insufficient permissions" });
     }
 
     sendStoredFile(res, { ...record, bytes: record.bytesRow.bytes });

@@ -28,7 +28,7 @@ const { SOON_DAYS, isRequirementFulfilledForParticipant } = require("../notifica
 
 // Lookups for routes addressed by a child record's own id, not the trip's
 // -- requireTripScope needs the owning trip id before it can check it
-// against a Trip Leader's own scopedTripId.
+// against the trips a guest holds an active grant for.
 async function tripIdOfBudgetLine(req) {
   const row = await prisma.tripBudgetLine.findUnique({
     where: { id: req.params.id },
@@ -215,13 +215,14 @@ router.get("/", requirePartnerQueryScope, async (req, res, next) => {
     // the caller's own scoped trip's partner, but a partner can have more
     // than one trip -- filtering by partnerId alone returned every one of
     // that partner's trips, full participant rosters (DOB, guardian/
-    // emergency contacts) included, not just the Trip Leader's own one.
-    // Scope to their exact trip instead, ignoring whatever partnerId was
-    // passed -- same "their own scoped trip, nothing else" policy every
-    // other Trip Leader route already enforces.
-    if (req.user.role === "tripLeader") {
-      where.id = req.user.scopedTripId;
-    } else if (query.partnerId) {
+    // emergency contacts) included, not just the guest's own ones.
+    // Scope to exactly the trips they hold a grant for (#356: any number,
+    // no longer one), then narrow by partnerId -- "their granted trips,
+    // nothing else" is the policy every other guest route enforces.
+    if (req.user.role === "guest") {
+      where.id = { in: req.user.tripIds };
+    }
+    if (query.partnerId) {
       where.partnerId = query.partnerId;
     }
     if (query.type) where.type = query.type;
@@ -418,7 +419,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 
 router.put(
   "/:id",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope("id"),
   async (req, res, next) => {
     try {
@@ -437,7 +438,7 @@ router.put(
       // that field was writable -- SPEC.md § 5.1 already documents "never
       // anything on the Partner" as the intended policy for this role; the
       // code just hadn't enforced it.
-      if (req.user.role === "tripLeader" && data.partnerId !== undefined) {
+      if (req.user.role === "guest" && data.partnerId !== undefined) {
         return res.status(403).json({ error: "Insufficient permissions" });
       }
 
@@ -610,7 +611,7 @@ const budgetLineSchema = z.object({
 
 router.post(
   "/:id/budget-lines",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope("id"),
   async (req, res, next) => {
     try {
@@ -625,7 +626,7 @@ router.post(
 
 router.put(
   "/budget-lines/:id",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfBudgetLine),
   async (req, res, next) => {
     try {
@@ -640,7 +641,7 @@ router.put(
 
 router.delete(
   "/budget-lines/:id",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfBudgetLine),
   async (req, res, next) => {
     try {
@@ -669,7 +670,7 @@ const flightSegmentSchema = z.object({
 
 router.post(
   "/:id/flight-segments",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope("id"),
   async (req, res, next) => {
     try {
@@ -693,7 +694,7 @@ router.post(
 
 router.put(
   "/flight-segments/:id",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfFlightSegment),
   async (req, res, next) => {
     try {
@@ -718,7 +719,7 @@ router.put(
 
 router.delete(
   "/flight-segments/:id",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfFlightSegment),
   async (req, res, next) => {
     try {
@@ -735,7 +736,7 @@ router.delete(
 
 router.post(
   "/:id/documents",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope("id"),
   upload.single("file"),
   async (req, res, next) => {
@@ -800,7 +801,7 @@ router.get("/documents/:id/download", requireTripScope(tripIdOfDocument), async 
 
 router.delete(
   "/documents/:id",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope(tripIdOfDocument),
   async (req, res, next) => {
     try {
@@ -827,7 +828,7 @@ const contributionSchema = z.object({
 
 router.post(
   "/:id/contributions",
-  requireRole("admin", "editor", "tripLeader"),
+  requireRole("admin", "editor", "guest"),
   requireTripScope("id"),
   async (req, res, next) => {
     try {

@@ -18,16 +18,16 @@ const { buildSetupUrl, setupTtlHours } = require("./passwordSetup");
 
 const DOCS_BASE = "https://missionspartnertracker.com";
 const USER_GUIDE_URL = `${DOCS_BASE}/user-guide.html`;
-const TRIP_LEADER_GUIDE_URL = `${DOCS_BASE}/user-guide.html#understanding-your-role`;
+const GUEST_GUIDE_URL = `${DOCS_BASE}/user-guide.html#understanding-your-role`;
 const MFA_HELP_URL = `${DOCS_BASE}/user-guide.html#your-account-settings`;
 const SUPPORT_URL = "https://github.com/neckermann/missions-partner-tracker/issues";
 
 // { label, url } pairs for the guides relevant to this role.
 function guideLinks(role) {
   const links =
-    role === "tripLeader"
+    role === "guest"
       ? [
-          ["Trip Leader guide", TRIP_LEADER_GUIDE_URL],
+          ["Guest guide", GUEST_GUIDE_URL],
           ["Support and help", SUPPORT_URL],
         ]
       : [
@@ -50,9 +50,9 @@ function describeExpiry(hours) {
 // row (or null). Returns { subject, html, text }.
 function buildWelcomeEmail({ user, setupUrl, expiresInHours, settings, requireMfa }) {
   const church = settings?.churchName || "the missions tracker";
-  const isLeader = user.role === "tripLeader";
-  const intro = isLeader
-    ? `You've been given Trip Leader access to ${church} so you can help manage your trip.`
+  const isGuest = user.role === "guest";
+  const intro = isGuest
+    ? `You've been given guest access to ${church} so you can help with the trips and partners you've been assigned.`
     : `You've been given an account on ${church}'s missions tracker.`;
   const expiry = describeExpiry(expiresInHours);
   const guides = guideLinks(user.role);
@@ -60,7 +60,7 @@ function buildWelcomeEmail({ user, setupUrl, expiresInHours, settings, requireMf
   return renderEmail({
     settings,
     subject: `Set up your ${settings?.churchName ? `${settings.churchName} ` : ""}missions tracker account`,
-    eyebrow: isLeader ? "Trip Leader account" : "Account setup",
+    eyebrow: isGuest ? "Guest account" : "Account setup",
     greetingName: user.firstName,
     blocks: [
       blocks.paragraph(intro),

@@ -310,11 +310,10 @@ model Trip {
   contributions  TripContribution[]
   budgetLines    TripBudgetLine[]
   flightSegments TripFlightSegment[]
-  // Inverse of User.scopedTripId -- the Trip Leader guest account(s)
-  // scoped to this trip (ordinarily zero or one, never enforced as
-  // @unique since nothing stops an admin creating a second guest login
-  // for the same trip).
-  scopedUsers    User[]
+  // Guest logins granted access to this trip (#356) -- any number, since a
+  // trip often has more than one leader and a guest may lead more than one
+  // trip.
+  tripAccess     TripAccess[]
 
   @@index([partnerId])
   @@index([status])
@@ -343,7 +342,11 @@ model TripParticipant {
   lastName  String?
 
   role     String? // e.g. "Medical", "Construction", "Translator"
-  isLeader Boolean @default(false)
+  // #356: no longer set or shown anywhere -- who leads a trip is now whoever
+  // holds a TripAccess grant for it. Kept (not dropped) so the flags already
+  // recorded on past rosters aren't destroyed; safe to drop at the pre-1.0
+  // baseline squash if nobody wants that history.
+  isLeader Boolean @default(false) // tripFieldVisibility: intentionally admin-invisible -- deprecated roster flag, superseded by TripAccess grants
   phone    String?
   email    String?
 
@@ -1831,7 +1834,7 @@ model User {
   lastName     String?
   passwordHash String? // nullable only for historical rows; every account created now is local
   authProvider String    @default("local")
-  role         String    @default("editor") // "admin" | "editor" | "viewer" | "tripLeader"
+  role         String    @default("editor") // "admin" | "editor" | "viewer" | "guest"
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
@@ -1850,24 +1853,17 @@ model User {
   // just the one cookie/browser it actually represents (a user signed in
   // on two devices who logs out of one shouldn't be silently signed out
   // of the other).
-  sessionVersion Int     @default(0)
+  sessionVersion Int @default(0)
 
-  // Trip Leader guest tier only (role: "tripLeader") -- a real login/
-  // session account, not a reduction of any existing role's visibility
-  // (see the "auth is the boundary" model below: every other role still
-  // sees everything). A deliberately narrow new tier instead: a scoped
-  // guest with editor-equivalent write access to exactly one Trip's own
-  // operational content (requireTripScope, requireAuth.js) and read-only
-  // access to that trip's own linked Partner, nothing else in the app.
-  // onDelete: Cascade -- this account only exists because that trip
-  // does; deleting the trip removes the leftover guest login with it.
-  // expiresAt is independent of `active` -- a past expiresAt is treated
-  // the same as !active in requireAuth (blocks the session), but doesn't
-  // auto-delete the row, so an admin extending access just clears/moves
-  // the date rather than recreating the account.
-  scopedTripId String?
-  scopedTrip   Trip?     @relation(fields: [scopedTripId], references: [id], onDelete: Cascade)
-  expiresAt    DateTime?
+  // Guest tier only (role: "guest") -- a real login/session account, not a
+  // reduction of any existing role's visibility (see the "auth is the
+  // boundary" model below: every other role still sees everything). A
+  // deliberately narrow tier instead: reach comes only from grant rows
+  // (TripAccess today; #289 adds care team seats), never from the role
+  // itself, so a guest with no active grant can do nothing and
+  // requireAuth refuses the session outright. Replaces the old single
+  // scopedTripId/expiresAt pair (#356).
+  tripAccess TripAccess[]
 
   // TOTP MFA — opt-in per user, self-service enroll/disable from Account
   // Settings; mfaSecret is only ever set once mfaEnabled flow starts, and
@@ -1933,6 +1929,52 @@ model PasswordSetupToken {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+// #356: a guest login's access to one trip. Effective access = the
+// guest role's (empty) baseline plus whatever grants exist, so this row
+// IS the permission. Grants never allow deletes, profile edits or
+// settings -- that limit lives in the routes' requireRole lists, not
+// here.
+//
+// Expiry is derived at check time (utils/guestAccess.js), not stored:
+// when expiresAt is null the grant lapses 30 days after Trip.endDate, so
+// changing the trip's dates moves the expiry with it; a trip with no end
+// date never lapses on its own. expiresAt is only an admin override
+// ("extend" or "end now"), and it wins over the derived date either way.
+model TripAccess {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tripId    String
+  trip      Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, tripId])
+  @@index([tripId])
+}
+
+// #356: append-only record of who changed whose access, and when. Added
+// because nothing in the app recorded who did what; kept deliberately
+// small and generic so later access changes (care team seats, #289) can
+// reuse it. actor/target are plain strings with an email snapshot, NOT
+// foreign keys, so a row survives deleting either account -- the point
+// of an audit trail is that it outlives what it describes.
+model AuditLog {
+  id           String   @id @default(uuid())
+  createdAt    DateTime @default(now())
+  actorUserId  String?
+  actorEmail   String?
+  action       String // validated in code, e.g. "trip_access.grant" -- not a DB enum, per SPEC
+  targetUserId String?
+  targetEmail  String?
+  tripId       String?
+  details      Json?
+
+  @@index([createdAt])
+  @@index([targetUserId])
+  @@index([tripId])
 }
 
 // Per-user, per-category "last looked at this" marker for the in-app

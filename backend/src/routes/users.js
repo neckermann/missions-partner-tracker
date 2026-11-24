@@ -5,6 +5,13 @@ const prisma = require("../prismaClient");
 const { requireRole } = require("../middleware/requireAuth");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
 const { isFeatureEnabled } = require("../utils/features");
+const {
+  GRANT_SELECT,
+  summarizeGrants,
+  guestInactiveReason,
+  parseOverrideExpiry,
+} = require("../utils/guestAccess");
+const { recordAudit } = require("../utils/auditLog");
 
 // Narrow-select, same discipline every other route's own getSettings()
 // follows -- this route only ever needs to know if outbound email is on.
@@ -18,39 +25,39 @@ async function getSettings() {
 const router = express.Router();
 router.use(requireRole("admin")); // user management is admin-only
 
-// Trip Leader (role: "tripLeader") is a scoped guest account, not one of
-// the 3 full roles -- scopedTripId is required for it and meaningless
-// (cleared, below) for every other role. expiresAt is optional even for
-// a tripLeader -- plenty of trips run long enough that a hard cutoff
-// isn't always wanted.
-const ROLE_ENUM = z.enum(["admin", "editor", "viewer", "tripLeader"]);
+// Guest (role: "guest") is a scoped login, not one of the 3 full roles
+// (#356): it reaches only what its grants allow. Today that means TripAccess
+// rows; #289 adds care team seats, at which point a guest may hold those
+// instead of any trip. Until then a guest needs at least one trip.
+const ROLE_ENUM = z.enum(["admin", "editor", "viewer", "guest"]);
 
-function clearScopeUnlessTripLeader(data) {
-  if (data.role !== undefined && data.role !== "tripLeader") {
-    data.scopedTripId = null;
-    data.expiresAt = null;
-  }
-  return data;
-}
+// expiresAt on a grant is only ever an override of the derived "trip end
+// date + 30 days" (see utils/guestAccess.js): a date or timestamp, or
+// null/omitted to use the derived date.
+const grantInput = z.object({
+  tripId: z.string().min(1),
+  expiresAt: z
+    .string()
+    .optional()
+    .nullable()
+    .refine((v) => v == null || !Number.isNaN(parseOverrideExpiry(v).getTime()), "Invalid date"),
+});
 
-async function tripLeaderScopeValid(data) {
-  if (data.role !== "tripLeader") return true;
-  if (!data.scopedTripId) return false;
-  const trip = await prisma.trip.findUnique({ where: { id: data.scopedTripId }, select: { id: true } });
-  return !!trip;
+const GUEST_NEEDS_TRIP = "A guest account needs at least one trip to give it access to";
+
+async function allTripsExist(tripIds) {
+  const unique = [...new Set(tripIds)];
+  const found = await prisma.trip.count({ where: { id: { in: unique } } });
+  return found === unique.length;
 }
-const TRIP_LEADER_SCOPE_ISSUE = {
-  message: "A Trip Leader account needs a trip to scope it to",
-  path: ["scopedTripId"],
-};
 
 const createUserSchema = z.object({
   email: z.string().email(),
   firstName: z.string().optional().nullable(),
   lastName: z.string().optional().nullable(),
   role: ROLE_ENUM.default("editor"),
-  scopedTripId: z.string().optional().nullable(),
-  expiresAt: z.coerce.date().optional().nullable(),
+  // Required (at least one) when role is "guest"; ignored for the full roles.
+  tripAccess: z.array(grantInput).optional(),
   // Every account is local now. The column stays (see the User model in
   // schema.prisma) because auth.js still refuses to password-authenticate
   // anything that isn't "local" -- cheap insurance against a passwordless
@@ -65,7 +72,8 @@ const createUserSchema = z.object({
   // password. Off = no email is sent; the account stays pending (it can't
   // sign in) until a password is set or a link is sent from the user list.
   sendWelcomeEmail: z.boolean().default(true),
-  // Force two-factor enrollment the first time they sign in.
+  // Force two-factor enrollment the first time they sign in. Always on for
+  // a guest regardless of this value (#356).
   requireMfa: z.boolean().default(false),
 });
 
@@ -73,8 +81,9 @@ const updateUserSchema = z.object({
   firstName: z.string().optional().nullable(),
   lastName: z.string().optional().nullable(),
   role: ROLE_ENUM.optional(),
-  scopedTripId: z.string().optional().nullable(),
-  expiresAt: z.coerce.date().optional().nullable(),
+  // Only read when changing a non-guest into a guest (they need a first
+  // grant); manage grants afterward via /:id/trip-access.
+  tripAccess: z.array(grantInput).optional(),
   active: z.boolean().optional(),
   password: z.string().min(8).optional(), // admin resetting someone's password
   mfaSetupRequired: z.boolean().optional(), // forces MFA enrollment at next login
@@ -99,17 +108,103 @@ async function wouldRemoveLastAdmin(targetId, becomingNonAdminOrInactive) {
   return otherActiveAdmins === 0;
 }
 
-// scopedTrip included so AdminUsers.jsx can show which trip a Trip
-// Leader account is actually scoped to, not just a bare id -- null for
-// every other role.
-const scopedTripInclude = {
-  scopedTrip: { select: { id: true, name: true, type: true, partner: { select: { displayName: true } } } },
-};
+// Creates (or updates the override on) one TripAccess row per input and
+// writes the audit rows in the same transaction, so a grant is never
+// recorded without its trail or vice versa. `db` is a transaction handle.
+async function grantTripAccess(db, actor, user, inputs) {
+  for (const input of inputs) {
+    const expiresAt = input.expiresAt == null ? null : parseOverrideExpiry(input.expiresAt);
+    const existing = await db.tripAccess.findUnique({
+      where: { userId_tripId: { userId: user.id, tripId: input.tripId } },
+    });
+    await db.tripAccess.upsert({
+      where: { userId_tripId: { userId: user.id, tripId: input.tripId } },
+      update: { expiresAt },
+      create: { userId: user.id, tripId: input.tripId, expiresAt },
+    });
+    await recordAudit(db, {
+      actor,
+      action: existing ? "trip_access.update" : "trip_access.grant",
+      target: user,
+      tripId: input.tripId,
+      details: { expiresAt },
+    });
+  }
+}
 
+// Removes grants and audits each. If that leaves a guest with none at all,
+// deactivates the login (not deletes) so an admin can still find it under
+// the Inactive filter, and ends any open session.
+async function revokeTripAccess(db, actor, user, tripIds, reason) {
+  for (const tripId of tripIds) {
+    const { count } = await db.tripAccess.deleteMany({ where: { userId: user.id, tripId } });
+    if (count) {
+      await recordAudit(db, {
+        actor,
+        action: "trip_access.revoke",
+        target: user,
+        tripId,
+        details: reason ? { reason } : undefined,
+      });
+    }
+  }
+  if (user.role !== "guest") return false;
+  const remaining = await db.tripAccess.count({ where: { userId: user.id } });
+  if (remaining > 0 || !user.active) return false;
+  await db.user.update({
+    where: { id: user.id },
+    data: { active: false, sessionVersion: { increment: 1 } },
+  });
+  await recordAudit(db, { actor, action: "guest.deactivate_no_access", target: user });
+  return true;
+}
+
+// Grants are included (with each trip's end date) so the Users list can show
+// what a guest can reach, when it lapses, and whether the account is
+// effectively inactive -- all without a query per user.
+const userInclude = { tripAccess: { select: GRANT_SELECT, orderBy: { createdAt: "asc" } } };
+
+function withAccess(user, now = new Date()) {
+  const { tripAccess, ...rest } = user;
+  const grants = summarizeGrants(tripAccess || [], now);
+  return {
+    ...sanitize(rest),
+    tripAccess: grants,
+    // null for a guest who can currently sign in, and for every other role.
+    inactiveReason: guestInactiveReason(user, grants),
+  };
+}
+
+// ?inactive=true lists the accounts an admin may want to reach out to and
+// clean up: guests that are deactivated, expired, or left with no grants.
 router.get("/", async (req, res, next) => {
   try {
-    const users = await prisma.user.findMany({ orderBy: { email: "asc" }, include: scopedTripInclude });
-    res.json(users.map(sanitize));
+    const users = await prisma.user.findMany({ orderBy: { email: "asc" }, include: userInclude });
+    const now = new Date();
+    let rows = users.map((u) => withAccess(u, now));
+    if (req.query.inactive === "true") rows = rows.filter((u) => u.inactiveReason);
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Guests holding (or once holding) access to one trip -- for the trip
+// page's access panel. Registered before "/:id" so "by-trip" isn't read
+// as a user id.
+router.get("/by-trip/:tripId", async (req, res, next) => {
+  try {
+    const rows = await prisma.tripAccess.findMany({
+      where: { tripId: req.params.tripId },
+      select: {
+        ...GRANT_SELECT,
+        user: { select: { id: true, email: true, firstName: true, lastName: true, active: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    const now = new Date();
+    const grants = summarizeGrants(rows, now);
+    res.json(grants.map((g, i) => ({ ...g, user: rows[i].user })));
   } catch (err) {
     next(err);
   }
@@ -117,9 +212,9 @@ router.get("/", async (req, res, next) => {
 
 router.get("/:id", async (req, res, next) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    const user = await prisma.user.findUnique({ where: { id: req.params.id }, include: userInclude });
     if (!user) return res.status(404).json({ error: "Not found" });
-    res.json(sanitize(user));
+    res.json(withAccess(user));
   } catch (err) {
     next(err);
   }
@@ -127,10 +222,21 @@ router.get("/:id", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
   try {
-    const { sendWelcomeEmail: sendWelcome, requireMfa, password, ...rest } = createUserSchema.parse(req.body);
-    const data = clearScopeUnlessTripLeader(rest);
-    if (!(await tripLeaderScopeValid(data))) {
-      return res.status(400).json({ error: TRIP_LEADER_SCOPE_ISSUE.message });
+    const {
+      sendWelcomeEmail: sendWelcome,
+      requireMfa: requireMfaRequested,
+      password,
+      tripAccess: grantInputs = [],
+      ...data
+    } = createUserSchema.parse(req.body);
+    const isGuest = data.role === "guest";
+    // MFA is required for every guest (#356); for the full roles it stays
+    // the admin's per-account choice.
+    const requireMfa = isGuest ? true : requireMfaRequested;
+    if (isGuest) {
+      if (grantInputs.length === 0 || !(await allTripsExist(grantInputs.map((g) => g.tripId)))) {
+        return res.status(400).json({ error: GUEST_NEEDS_TRIP });
+      }
     }
     // With a welcome email the person chooses their own password, so the
     // account starts with none (it can't sign in until they do). An
@@ -146,18 +252,22 @@ router.post("/", async (req, res, next) => {
     // field existed) got a passwordless account and hung at sign-in.
     const passwordHash = password ? await bcrypt.hash(password, 12) : null;
 
-    const created = await prisma.user.create({
-      data: {
-        email: data.email.toLowerCase().trim(),
-        firstName: data.firstName,
-        lastName: data.lastName,
-        role: data.role,
-        scopedTripId: data.scopedTripId,
-        expiresAt: data.expiresAt,
-        authProvider: data.authProvider,
-        passwordHash,
-        mfaSetupRequired: requireMfa,
-      },
+    const created = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: data.email.toLowerCase().trim(),
+          firstName: data.firstName,
+          lastName: data.lastName,
+          role: data.role,
+          authProvider: data.authProvider,
+          passwordHash,
+          mfaSetupRequired: requireMfa,
+        },
+      });
+      if (isGuest) {
+        await grantTripAccess(tx, req.user, user, grantInputs);
+      }
+      return user;
     });
 
     // A failed send (no APP_BASE_URL, provider error) must never lose the
@@ -183,7 +293,8 @@ router.post("/", async (req, res, next) => {
         welcomeEmail = { sent: false, manualSetupUrl: buildSetupUrl(token) };
       }
     }
-    res.status(201).json({ ...sanitize(created), welcomeEmail });
+    const withGrants = await prisma.user.findUnique({ where: { id: created.id }, include: userInclude });
+    res.status(201).json({ ...withAccess(withGrants), welcomeEmail });
   } catch (err) {
     // The generic P2002 handler in middleware/errors.js says "That value is
     // already in use" -- technically correct, but an admin adding a user
@@ -234,9 +345,109 @@ router.post("/:id/setup-link", async (req, res, next) => {
   }
 });
 
+// --- Trip access grants (#356) ---------------------------------------
+// Admin-only like the rest of this router. Removing the last grant
+// deactivates the guest (see revokeTripAccess); extending or ending a
+// grant just moves its expiresAt override, which requireAuth honours on
+// the guest's very next request.
+
+const grantUpdateSchema = z.object({
+  // A date/timestamp = extend or end early; null = back to the derived
+  // "trip end date + 30 days".
+  expiresAt: z
+    .string()
+    .nullable()
+    .refine((v) => v === null || !Number.isNaN(parseOverrideExpiry(v).getTime()), "Invalid date"),
+});
+
+router.get("/:id/trip-access", async (req, res, next) => {
+  try {
+    const rows = await prisma.tripAccess.findMany({
+      where: { userId: req.params.id },
+      select: GRANT_SELECT,
+      orderBy: { createdAt: "asc" },
+    });
+    res.json(summarizeGrants(rows));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/:id/trip-access", async (req, res, next) => {
+  try {
+    const input = grantInput.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) return res.status(404).json({ error: "Not found" });
+    if (user.role !== "guest") {
+      return res
+        .status(400)
+        .json({ error: "Only guest accounts take trip access -- full roles already see every trip" });
+    }
+    if (!(await allTripsExist([input.tripId]))) {
+      return res.status(400).json({ error: "That trip doesn't exist" });
+    }
+    await prisma.$transaction((tx) => grantTripAccess(tx, req.user, user, [input]));
+    const rows = await prisma.tripAccess.findMany({
+      where: { userId: user.id },
+      select: GRANT_SELECT,
+      orderBy: { createdAt: "asc" },
+    });
+    // `active` is echoed so the UI can say so when an admin grants access
+    // to a login that was deactivated for having none -- reactivating it is
+    // a deliberate separate step, not a side effect of granting.
+    res.status(201).json({ accountActive: user.active, tripAccess: summarizeGrants(rows) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/:id/trip-access/:tripId", async (req, res, next) => {
+  try {
+    const { expiresAt } = grantUpdateSchema.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) return res.status(404).json({ error: "Not found" });
+    const existing = await prisma.tripAccess.findUnique({
+      where: { userId_tripId: { userId: user.id, tripId: req.params.tripId } },
+    });
+    if (!existing) return res.status(404).json({ error: "Not found" });
+    const value = expiresAt === null ? null : parseOverrideExpiry(expiresAt);
+    await prisma.$transaction(async (tx) => {
+      await tx.tripAccess.update({ where: { id: existing.id }, data: { expiresAt: value } });
+      await recordAudit(tx, {
+        actor: req.user,
+        action: "trip_access.update",
+        target: user,
+        tripId: existing.tripId,
+        details: { from: existing.expiresAt, to: value },
+      });
+    });
+    const rows = await prisma.tripAccess.findMany({
+      where: { userId: user.id },
+      select: GRANT_SELECT,
+      orderBy: { createdAt: "asc" },
+    });
+    res.json(summarizeGrants(rows));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/:id/trip-access/:tripId", async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) return res.status(404).json({ error: "Not found" });
+    const deactivated = await prisma.$transaction((tx) =>
+      revokeTripAccess(tx, req.user, user, [req.params.tripId])
+    );
+    res.json({ deactivated });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.put("/:id", async (req, res, next) => {
   try {
-    const { password, ...data } = updateUserSchema.parse(req.body);
+    const { password, tripAccess, ...data } = updateUserSchema.parse(req.body);
 
     const becomingNonAdminOrInactive =
       (data.role !== undefined && data.role !== "admin") || data.active === false;
@@ -247,34 +458,26 @@ router.put("/:id", async (req, res, next) => {
     const existing = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: "Not found" });
 
-    // Effective role/scope once this update applies -- this call's own
-    // value if it's touching that field, otherwise whatever the user
-    // already has. A role change away from "tripLeader" always clears
-    // the scope (never left dangling from a prior role), even if this
-    // call didn't itself mention scopedTripId/expiresAt.
     const effectiveRole = data.role !== undefined ? data.role : existing.role;
-    const effectiveScopedTripId = data.scopedTripId !== undefined ? data.scopedTripId : existing.scopedTripId;
-    if (effectiveRole === "tripLeader" && !effectiveScopedTripId) {
-      return res.status(400).json({ error: TRIP_LEADER_SCOPE_ISSUE.message });
-    }
-    if (effectiveRole === "tripLeader") {
-      const trip = await prisma.trip.findUnique({
-        where: { id: effectiveScopedTripId },
-        select: { id: true },
-      });
-      if (!trip) return res.status(400).json({ error: TRIP_LEADER_SCOPE_ISSUE.message });
+    const becomingGuest = effectiveRole === "guest" && existing.role !== "guest";
+    const leavingGuest = existing.role === "guest" && effectiveRole !== "guest";
+    const grantInputs = tripAccess || [];
+    if (becomingGuest) {
+      // Same rule as create: a guest with no grant can do nothing.
+      if (grantInputs.length === 0 || !(await allTripsExist(grantInputs.map((g) => g.tripId)))) {
+        return res.status(400).json({ error: GUEST_NEEDS_TRIP });
+      }
     }
 
     const updateData = { ...data };
-    if (effectiveRole !== "tripLeader") {
-      updateData.scopedTripId = null;
-      updateData.expiresAt = null;
-    }
     if (password) {
       updateData.passwordHash = await bcrypt.hash(password, 12);
       // An admin-set password supersedes any outstanding setup link.
       await prisma.passwordSetupToken.deleteMany({ where: { userId: req.params.id } });
     }
+    // MFA stays required for a guest (#356): it can't be switched off here,
+    // and becoming a guest queues enrolment at next sign-in.
+    if (effectiveRole === "guest") updateData.mfaSetupRequired = true;
     // #327 Finding 7: an admin-set password reset or a role change should
     // end every session this account already has open -- this is an admin
     // acting on *another* account here, not re-issuing a cookie for
@@ -284,8 +487,27 @@ router.put("/:id", async (req, res, next) => {
       updateData.sessionVersion = { increment: 1 };
     }
 
-    const updated = await prisma.user.update({ where: { id: req.params.id }, data: updateData });
-    res.json(sanitize(updated));
+    const updated = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({ where: { id: req.params.id }, data: updateData });
+      if (becomingGuest) await grantTripAccess(tx, req.user, user, grantInputs);
+      if (leavingGuest) {
+        // Grants mean nothing off the guest role -- clear them so they can't
+        // silently revive if this account is ever made a guest again.
+        const rows = await tx.tripAccess.findMany({ where: { userId: user.id }, select: { tripId: true } });
+        // `user` already has its new, non-guest role, so revokeTripAccess
+        // won't treat the now-empty grant list as an orphaned guest.
+        await revokeTripAccess(
+          tx,
+          req.user,
+          user,
+          rows.map((r) => r.tripId),
+          "role_change"
+        );
+      }
+      return user;
+    });
+    const fresh = await prisma.user.findUnique({ where: { id: updated.id }, include: userInclude });
+    res.json(withAccess(fresh));
   } catch (err) {
     next(err);
   }
@@ -294,10 +516,10 @@ router.put("/:id", async (req, res, next) => {
 // Recovery path for a user who lost their authenticator device — clears
 // MFA so they can log in with just their password and re-enroll from
 // Account Settings. Admins can't see or set the secret itself, only force
-// it off. (Doesn't apply to a tripLeader account: #329 Finding 2 made
-// MFA enrollment/disable fully admin-managed for that role, with no
-// self-service re-enroll -- an admin wanting MFA back on would need to
-// require it again via PUT /:id and let them re-enroll at next login.)
+// it off. (A guest can enrol and re-enrol themselves from "My account" but
+// never switch MFA off -- it's required for the role -- so for a guest this
+// reset is how a lost authenticator is cleared, and they re-enrol at next
+// sign-in.)
 //
 // Refuses to target the caller's own account, same guard as DELETE /:id
 // below. auth.js's self-service /mfa/disable deliberately requires
@@ -316,9 +538,20 @@ router.post("/:id/mfa/reset", async (req, res, next) => {
     // #327 Finding 7: same reasoning as the password-reset bump above --
     // this account's existing sessions shouldn't survive an admin forcing
     // MFA off.
+    const target = await prisma.user.findUnique({ where: { id: req.params.id }, select: { role: true } });
+    if (!target) return res.status(404).json({ error: "Not found" });
     const updated = await prisma.user.update({
       where: { id: req.params.id },
-      data: { mfaEnabled: false, mfaSecret: null, sessionVersion: { increment: 1 } },
+      data: {
+        mfaEnabled: false,
+        mfaSecret: null,
+        sessionVersion: { increment: 1 },
+        // A guest must re-enrol at next sign-in (#356): auth.js's
+        // verify-setup clears this flag on enrolment, so without setting it
+        // again here a reset would leave them able to sign in with a
+        // password alone.
+        ...(target.role === "guest" ? { mfaSetupRequired: true } : {}),
+      },
     });
     res.json(sanitize(updated));
   } catch (err) {
