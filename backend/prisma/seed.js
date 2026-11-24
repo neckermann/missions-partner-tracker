@@ -3184,6 +3184,50 @@ async function seedKeyDatesDemo() {
   }
 }
 
+// ---------------------------------------------------------------------
+// Care team updates demo (#292): a decided need and an answered prayer on a
+// partner the published care member looks after, so "Updates to pass on to
+// partners" has something to show on the bell. Relative dates, like the other
+// demo seeders. Demo extras only; runs after the care teams and contact log.
+// ---------------------------------------------------------------------
+async function seedPartnerUpdatesDemo() {
+  console.log("Seeding care team updates...");
+  const careMember = await prisma.user.findUnique({ where: { email: DEMO_CARE_MEMBER_EMAIL } });
+  if (!careMember) return;
+  const seat = await prisma.careTeamMember.findFirst({
+    where: { userId: careMember.id },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!seat) return;
+  const daysAgo = (n) => {
+    const d = new Date();
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - n));
+  };
+  await prisma.supportNeed.create({
+    data: {
+      partnerId: seat.partnerId,
+      description: "Help covering the cost of the family's annual residency renewal.",
+      requestedAmount: 600,
+      requestDate: daysAgo(14),
+      approvedAmount: 400,
+      approvedDate: daysAgo(2),
+      decisionNote:
+        "Funded in part from the missions committee's fund; the family may want to know the rest is theirs to raise.",
+    },
+  });
+  await prisma.prayerRequest.create({
+    data: {
+      partnerId: seat.partnerId,
+      category: "situational",
+      requestText: "Pray for their daughter's health as she recovers from surgery.",
+      dateReceived: daysAgo(25),
+      status: "answered",
+      dateAnswered: daysAgo(3),
+      answeredNote: "She is home and doing well.",
+    },
+  });
+}
+
 async function main() {
   const existingMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });
   const existingOrgs = await prisma.partner.count({ where: { kind: "organization" } });
@@ -3531,6 +3575,7 @@ async function main() {
     await seedCareTeamsDemo();
     await seedContactLogDemo();
     await seedKeyDatesDemo();
+    await seedPartnerUpdatesDemo();
   }
 
   const finalMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });
@@ -3564,4 +3609,5 @@ module.exports = {
   seedCareTeamsDemo,
   seedContactLogDemo,
   seedKeyDatesDemo,
+  seedPartnerUpdatesDemo,
 };

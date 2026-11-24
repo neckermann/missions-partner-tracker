@@ -230,6 +230,9 @@ router.put("/:id", requireRole("admin", "editor", "viewer", "guest"), async (req
     // Same best-effort reasoning as the POST route above.
     if (data.status === "answered" && before?.status !== "answered") {
       await notifyPrayerRequestAnswered(updated, { requireReview: !staff });
+      // #292: the partner telling a care team member a prayer was answered is
+      // a contact too (inbound), same as a new request above.
+      if (!staff) await logContactForPrayerRequest(updated, req.user, { answered: true });
     }
 
     res.json(updated);

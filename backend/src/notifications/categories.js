@@ -219,21 +219,91 @@ async function tripApplicationsPending(_opts, scopeTripIds) {
 
 // Per-user count: "how many of these has this teammate not looked at yet,"
 // not "how many exist" -- see this file's own header comment.
-async function newRowsSince(model, userId, category) {
+// `partnerIds`: null for every full role (all partners); a guest's care team
+// partners otherwise (#292) -- an empty list counts nothing.
+async function newRowsSince(model, userId, category, partnerIds = null) {
   const seenAt = await getSeenAt(userId, category);
   const rows = await prisma[model].findMany({
-    where: seenAt ? { createdAt: { gt: seenAt } } : {},
+    where: {
+      ...(seenAt ? { createdAt: { gt: seenAt } } : {}),
+      ...(partnerIds ? { partnerId: { in: partnerIds } } : {}),
+    },
     select: { createdAt: true },
   });
   return { count: rows.length, latest: latestOf(rows, (r) => r.createdAt) };
 }
 
-async function newPrayerRequests({ userId }) {
-  return newRowsSince("prayerRequest", userId, "newPrayerRequests");
+async function newPrayerRequests({ userId }, _scopeTripIds, scopePartnerIds) {
+  return newRowsSince("prayerRequest", userId, "newPrayerRequests", scopePartnerIds);
 }
 
-async function newOneTimeNeeds({ userId }) {
-  return newRowsSince("supportNeed", userId, "newOneTimeNeeds");
+async function newOneTimeNeeds({ userId }, _scopeTripIds, scopePartnerIds) {
+  return newRowsSince("supportNeed", userId, "newOneTimeNeeds", scopePartnerIds);
+}
+
+// #292: what the church decided or heard that a care team member should pass on
+// to the partner -- the app never contacts a partner itself, a person does.
+// Two kinds, both in the last UPDATE_WINDOW_DAYS on a partner this login has a
+// care team seat on:
+//   - a one-time need that was DECIDED (approvedDate): the outcome and the
+//     decision note come back to the team to relay;
+//   - a prayer request that was ANSWERED: a thank-you or encouragement back.
+// An item is done once someone logs an OUTBOUND contact for that partner on or
+// after it -- topic "need" for a decision, "encouragement" or "prayer" for an
+// answer. (The automatic log a care team member's own answered-prayer entry
+// makes is inbound -- the partner told us -- so it doesn't clear its own
+// prompt.) Live, so it needs the contact log to be able to clear; counts
+// nothing while contactLog or careTeam is off.
+const UPDATE_WINDOW_DAYS = 30;
+
+async function updatesToPassOn({ userId }) {
+  if (!userId || !(await isContactLogEnabled()) || !(await isCareTeamEnabled())) {
+    return { count: 0, latest: null };
+  }
+  const seats = await prisma.careTeamMember.findMany({
+    where: { userId, partner: { archived: false } },
+    select: { partnerId: true },
+  });
+  const partnerIds = seats.map((s) => s.partnerId);
+  if (partnerIds.length === 0) return { count: 0, latest: null };
+
+  const today = new Date();
+  const since = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) - UPDATE_WINDOW_DAYS * 86400000
+  );
+  const [needs, prayers, logs] = await Promise.all([
+    prisma.supportNeed.findMany({
+      where: { partnerId: { in: partnerIds }, approvedDate: { gte: since } },
+      select: { partnerId: true, approvedDate: true },
+    }),
+    prisma.prayerRequest.findMany({
+      where: { partnerId: { in: partnerIds }, status: "answered", dateAnswered: { gte: since } },
+      select: { partnerId: true, dateAnswered: true },
+    }),
+    prisma.contactLog.findMany({
+      where: { partnerId: { in: partnerIds }, direction: "outbound", contactDate: { gte: since } },
+      select: { partnerId: true, contactDate: true, topics: true },
+    }),
+  ]);
+  const relayed = (partnerId, date, topics) =>
+    logs.some(
+      (l) => l.partnerId === partnerId && l.contactDate >= date && l.topics.some((t) => topics.includes(t))
+    );
+  const open = [
+    ...needs
+      .filter((n) => !relayed(n.partnerId, n.approvedDate, ["need"]))
+      .map((n) => ({ partnerId: n.partnerId, date: n.approvedDate })),
+    ...prayers
+      .filter((p) => !relayed(p.partnerId, p.dateAnswered, ["encouragement", "prayer"]))
+      .map((p) => ({ partnerId: p.partnerId, date: p.dateAnswered })),
+  ];
+  if (open.length === 0) return { count: 0, latest: null };
+  const distinct = [...new Set(open.map((o) => o.partnerId))];
+  return {
+    count: open.length,
+    latest: latestOf(open, (o) => o.date),
+    linkTo: distinct.length === 1 ? `/admin/partners/${distinct[0]}` : "/admin/partners?assigned=1",
+  };
 }
 
 // --- Admin-only categories ---------------------------------------------
@@ -391,6 +461,8 @@ const CATEGORIES = [
     adminOnly: false,
     perUser: true,
     tripScoped: false,
+    // A care team guest sees the ones on their own partners (#292).
+    guestVisible: true,
     resolve: newPrayerRequests,
   },
   {
@@ -401,7 +473,19 @@ const CATEGORIES = [
     adminOnly: false,
     perUser: true,
     tripScoped: false,
+    guestVisible: true,
     resolve: newOneTimeNeeds,
+  },
+  {
+    key: "updatesToPassOn",
+    label: "Updates to pass on to partners",
+    icon: "📣",
+    linkTo: "/admin/partners?assigned=1",
+    adminOnly: false,
+    perUser: false,
+    tripScoped: false,
+    guestVisible: true,
+    resolve: updatesToPassOn,
   },
   {
     key: "adminMfaDisabled",
@@ -447,7 +531,7 @@ const CATEGORIES = [
 
 // Resolves every category this role may see, with per-user seen-state
 // already applied -- the one function the route calls.
-async function resolveNotificationSummary({ userId, role, scopeTripIds = null }) {
+async function resolveNotificationSummary({ userId, role, scopeTripIds = null, scopePartnerIds = null }) {
   const visible = CATEGORIES.filter((c) => {
     if (c.adminOnly) return role === "admin";
     if (role === "guest") return c.tripScoped || c.guestVisible;
@@ -455,7 +539,7 @@ async function resolveNotificationSummary({ userId, role, scopeTripIds = null })
   });
   const results = await Promise.all(
     visible.map(async (c) => {
-      const { count, latest, linkTo } = await c.resolve({ userId }, scopeTripIds);
+      const { count, latest, linkTo } = await c.resolve({ userId }, scopeTripIds, scopePartnerIds);
       let isNew;
       if (c.perUser) {
         // The count itself is already "new since this user looked" --

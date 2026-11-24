@@ -122,10 +122,10 @@ async function isContactLogEnabled() {
 // A care team member's new prayer request is also the contact they just had.
 // Best-effort, like the notifications: a failure here must never block saving
 // the request itself. Returns the entry, or null when off / not applicable.
-async function logContactForPrayerRequest(request, user) {
+async function logContactForPrayerRequest(request, user, options) {
   try {
     if (!(await isContactLogEnabled())) return null;
-    return await prisma.contactLog.create({ data: autoLogForPrayerRequest(request, user.id) });
+    return await prisma.contactLog.create({ data: autoLogForPrayerRequest(request, user.id, options) });
   } catch (err) {
     console.error("Couldn't log the contact for a new prayer request:", err.message);
     return null;

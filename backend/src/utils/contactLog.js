@@ -43,7 +43,7 @@ const CONTACT_STALE_DAYS = 90;
 // The log entry a care team member's new prayer request makes for them:
 // hearing a request from the partner is a contact, and typing it in shouldn't
 // mean typing it twice. Marked with the request's id so the link can be shown.
-function autoLogForPrayerRequest(request, userId) {
+function autoLogForPrayerRequest(request, userId, { answered = false } = {}) {
   return {
     partnerId: request.partnerId,
     contactType: "other",
@@ -51,8 +51,8 @@ function autoLogForPrayerRequest(request, userId) {
     topics: ["prayer"],
     contactedById: userId || null,
     createdById: userId || null,
-    contactDate: request.dateReceived || new Date(),
-    notes: "Prayer request received.",
+    contactDate: (answered ? request.dateAnswered : request.dateReceived) || new Date(),
+    notes: answered ? "Prayer request answered." : "Prayer request received.",
     prayerRequestId: request.id,
   };
 }

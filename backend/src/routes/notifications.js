@@ -15,6 +15,8 @@ router.get("/summary", async (req, res, next) => {
       userId: req.user.id,
       role: req.user.role,
       scopeTripIds: req.user.role === "guest" ? req.user.tripIds : null,
+      // A guest's new-need/prayer counts are limited to their care team partners (#292).
+      scopePartnerIds: req.user.role === "guest" ? req.user.careTeamPartnerIds || [] : null,
     });
     res.json({ categories });
   } catch (err) {

@@ -1098,6 +1098,15 @@ With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the 
 - **To clear a reminder**, send the card or make the call and **log it as a contact with the topic "Key date"**. That stops the reminders for that occasion, and it counts as being in touch.
 - The app never sends the card for you, and a restricted partner appears in the email by initials only. A partner who isn't safe to contact is marked in the email so a reminder to "send a card" isn't read as "call them".
 
+### Passing updates on to partners
+
+The app never contacts a partner on its own — a person always does. If you're on a partner's [care team](#care-teams), it tells you when there's something to pass on:
+
+- **New needs and prayer requests** on your partners show on the bell (as they do for staff), so you know before the church does.
+- **Updates to pass on to partners** (bell and Home page) counts, for your partners, a one-time need the committee **decided** and a prayer request that was **answered** in the last 30 days. Open the partner to see the decision and its note, then tell them yourself.
+- **To clear one**, [log the contact](#contact-log) as something **you** sent or did (we reached out): topic **Need / support** for a decision, **Encouragement** or **Prayer** for an answered prayer — a thank-you card or call counts. An entry made because the partner reached out doesn't clear it.
+- **When a partner tells you a prayer was answered** and you mark it answered, that is logged as a contact for you automatically (it still waits for staff approval before the church is told).
+
 ### Pending Dispatches
 
 The **Pending Dispatches** page (in the main menu, alongside

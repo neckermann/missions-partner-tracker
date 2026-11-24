@@ -748,6 +748,35 @@ names are omitted; a partner who isn't safe to contact gets a pointer to the
 special instructions on their page, never the instructions themselves.
 `sendEmail` has no `replyTo`, so replies go to the church's From address.
 
+### 5.5 What flows to the care team (#292 Phase 1)
+
+**The app never contacts a partner; a person does.** That settles the missionary
+contact-address gap: the contact card (§5.3) says who and how, and "special
+communication instructions" replace it when a partner isn't safe to contact.
+Prayer updates (new or answered) come *from* the partner: they tell a care team
+member, who enters it (held for staff approval, §5.2), and the church hears it
+through the existing dispatch channels.
+
+- **Entering counts as a contact.** A care team member's new prayer request and
+  their marking one answered each create an inbound `ContactLog` entry (topic
+  `prayer`, linked by `prayerRequestId`). Marking it answered fires only on the
+  transition, so a typo fix doesn't log twice; a staff entry logs nothing.
+- **The team is told about new needs and prayers.** `newOneTimeNeeds` and
+  `newPrayerRequests` are now guest-visible, scoped to the guest's *care team*
+  partners (`careTeamPartnerIds` via the summary route's `scopePartnerIds`; a
+  trip leader has none, so counts zero). Full roles are unchanged.
+- **Updates to pass on.** The guest-visible `updatesToPassOn` category counts, on
+  a partner the login has a seat on, a one-time need **decided** (`approvedDate`)
+  or a prayer request **answered** (`dateAnswered`) in the last 30 days that no
+  one has yet relayed. It is live (no sent-flag column) and cleared only by an
+  **outbound** contact for that partner on or after it: topic `need` for a
+  decision, `encouragement` or `prayer` for an answer — so hearing from them (the
+  inbound auto-log above) never clears its own prompt. It counts nothing while
+  `contactLog` or `careTeam` is off. A decision's outcome and note are already
+  on the need the team can open.
+- **Not built:** the "prayed-for" summary to existing subscribers, and Phase 2
+  (church-member notes through a public form) — both deferred.
+
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 
 Visual diagram, with the admin-vs-public and GroupMe-vs-WhatsApp
