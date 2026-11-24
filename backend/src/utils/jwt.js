@@ -23,6 +23,11 @@ function signToken(user) {
       lastName: user.lastName,
       role: user.role,
       authProvider: user.authProvider,
+      // #327 Finding 7 -- compared against the row's own value in
+      // requireAuth.js on every request. A mismatch means this token
+      // predates a password/MFA change or role change that should have
+      // ended it.
+      sessionVersion: user.sessionVersion,
     },
     process.env.SESSION_SECRET,
     { expiresIn: TOKEN_TTL }

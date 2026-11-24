@@ -275,6 +275,14 @@ router.put("/:id", async (req, res, next) => {
       // An admin-set password supersedes any outstanding setup link.
       await prisma.passwordSetupToken.deleteMany({ where: { userId: req.params.id } });
     }
+    // #327 Finding 7: an admin-set password reset or a role change should
+    // end every session this account already has open -- this is an admin
+    // acting on *another* account here, not re-issuing a cookie for
+    // themselves, so there's no "keep this tab working" concern the way
+    // auth.js's self-service routes have.
+    if (password || (data.role !== undefined && data.role !== existing.role)) {
+      updateData.sessionVersion = { increment: 1 };
+    }
 
     const updated = await prisma.user.update({ where: { id: req.params.id }, data: updateData });
     res.json(sanitize(updated));
@@ -305,9 +313,12 @@ router.post("/:id/mfa/reset", async (req, res, next) => {
     if (req.params.id === req.user.id) {
       return res.status(400).json({ error: "Use Account Settings to disable your own MFA" });
     }
+    // #327 Finding 7: same reasoning as the password-reset bump above --
+    // this account's existing sessions shouldn't survive an admin forcing
+    // MFA off.
     const updated = await prisma.user.update({
       where: { id: req.params.id },
-      data: { mfaEnabled: false, mfaSecret: null },
+      data: { mfaEnabled: false, mfaSecret: null, sessionVersion: { increment: 1 } },
     });
     res.json(sanitize(updated));
   } catch (err) {

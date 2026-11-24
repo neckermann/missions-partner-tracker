@@ -89,7 +89,15 @@ async function requireAuth(req, res, next) {
   try {
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, email: true, role: true, active: true, scopedTripId: true, expiresAt: true },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        active: true,
+        scopedTripId: true,
+        expiresAt: true,
+        sessionVersion: true,
+      },
     });
     if (!user || !user.active) {
       return unauthorized(req, res, "Invalid or expired session");
@@ -99,6 +107,12 @@ async function requireAuth(req, res, next) {
     // moment the date passes, not deleted outright, so an admin extending
     // access just moves the date rather than recreating the account.
     if (user.expiresAt && user.expiresAt < new Date()) {
+      return unauthorized(req, res, "Invalid or expired session");
+    }
+    // #327 Finding 7: a mismatch means this token predates a
+    // password/MFA/role change that should have ended it -- see the
+    // schema comment on User.sessionVersion for what bumps it.
+    if (user.sessionVersion !== decoded.sessionVersion) {
       return unauthorized(req, res, "Invalid or expired session");
     }
     req.user = { ...decoded, role: user.role, email: user.email, scopedTripId: user.scopedTripId };
@@ -160,9 +174,18 @@ async function requireAuthOrMfaSetup(req, res, next) {
     // the same.
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, active: true },
+      select: { id: true, active: true, sessionVersion: true },
     });
     if (!user || !user.active) {
+      return res.status(401).json({ error: "Invalid or expired session" });
+    }
+    // #327 Finding 7: only a real session cookie carries a sessionVersion
+    // claim at all (signed by signToken) -- an mfaSetup token (signed by
+    // signMfaSetupToken) never did and never should, it's not a session.
+    // Comparing it unconditionally would reject every forced-enrollment
+    // token outright (decoded.sessionVersion undefined !== the real
+    // column value).
+    if (!decoded.mfaSetup && user.sessionVersion !== decoded.sessionVersion) {
       return res.status(401).json({ error: "Invalid or expired session" });
     }
     req.user = decoded; // full session, or { id, mfaSetup: true }

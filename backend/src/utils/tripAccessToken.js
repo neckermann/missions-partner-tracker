@@ -6,12 +6,41 @@ const crypto = require("crypto");
 const prisma = require("../prismaClient");
 const { sendEmail } = require("./email");
 
+// #327 Finding 6: no expiresIn at all before this -- the token opened a
+// minor's record, donor emails/phone numbers, flights, and documents,
+// and stayed valid years after the trip, revoked only by bumping
+// accessTokenVersion (an explicit admin action nobody has a reason to
+// take once a trip is over). The real lifetime this token needs is
+// bounded by the trip itself: trip end date + 90 days, matching the
+// review's own recommendation, with a 1-year floor as a safety margin
+// for a backfilled historical trip's own dates already being long past
+// (re-issuable through the existing lost-link recovery flow either way,
+// so an overly-short expiry here is a minor inconvenience, not a dead
+// end). Participant.trip isn't loaded at every call site of this
+// function, so the fallback (no trip dates available at all) is simply
+// a flat 1 year -- still a real, finite bound, just not trip-dated.
+const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+const ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
+// The 1-year fallback is NOT a floor under the trip-dated value -- a trip
+// a few months out should get a tokens whose real lifetime is a few
+// months, tighter than a year, which is the whole point. It only
+// substitutes when there's no usable trip-dated value at all: trip dates
+// missing, or a backfilled historical trip whose end date + 90 days has
+// already passed (a negative/zero remaining duration).
+function tripAccessTokenTtlSeconds(participant) {
+  const basis = participant.trip?.endDate || participant.trip?.startDate;
+  if (!basis) return ONE_YEAR_SECONDS;
+  const remaining = Math.floor((new Date(basis).getTime() + NINETY_DAYS_MS - Date.now()) / 1000);
+  return remaining > 0 ? remaining : ONE_YEAR_SECONDS;
+}
+
 // Encodes the participant's id + accessTokenVersion, so bumping that
 // column invalidates every previously-issued link at once.
 function buildTripParticipantAccessToken(participant) {
   return jwt.sign(
     { id: participant.id, v: participant.accessTokenVersion, tripParticipantAccess: true },
-    process.env.SESSION_SECRET
+    process.env.SESSION_SECRET,
+    { expiresIn: tripAccessTokenTtlSeconds(participant) }
   );
 }
 

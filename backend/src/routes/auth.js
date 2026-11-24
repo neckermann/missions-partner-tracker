@@ -251,7 +251,15 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
     if (!match) return res.status(401).json({ error: "Current password is incorrect" });
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+    // #327 Finding 7: bumping sessionVersion invalidates every *other*
+    // session this account has open elsewhere -- re-issuing the cookie
+    // here with the updated row keeps this tab's own session working
+    // seamlessly (its next request already carries the new version).
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash, sessionVersion: { increment: 1 } },
+    });
+    setSessionCookie(res, updated);
 
     res.json({ ok: true });
   } catch (err) {
@@ -416,9 +424,18 @@ router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) =
     });
     if (!valid) return res.status(401).json({ error: "Invalid code" });
 
+    // #327 Finding 7: completeLogin below re-issues the session cookie
+    // from this same updated row, so the bump takes effect for this tab
+    // immediately -- only sessions opened before enrollment are the ones
+    // actually invalidated.
     const updated = await prisma.user.update({
       where: { id: user.id },
-      data: { mfaEnabled: true, mfaSetupRequired: false, mfaLastTimeStep: timeStep },
+      data: {
+        mfaEnabled: true,
+        mfaSetupRequired: false,
+        mfaLastTimeStep: timeStep,
+        sessionVersion: { increment: 1 },
+      },
     });
     res.json(await completeLogin(res, updated));
   } catch (err) {
@@ -447,7 +464,14 @@ router.post("/mfa/disable", requireAuth, async (req, res, next) => {
     const match = await bcrypt.compare(password, user.passwordHash);
     if (!match) return res.status(401).json({ error: "Current password is incorrect" });
 
-    await prisma.user.update({ where: { id: user.id }, data: { mfaEnabled: false, mfaSecret: null } });
+    // #327 Finding 7: same reasoning as change-password above -- re-issue
+    // this tab's own cookie from the updated row so only other sessions
+    // are the ones that stop working.
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { mfaEnabled: false, mfaSecret: null, sessionVersion: { increment: 1 } },
+    });
+    setSessionCookie(res, updated);
     res.json({ ok: true });
   } catch (err) {
     next(err);

@@ -127,6 +127,14 @@ app.use(
     referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   })
 );
+// #327 Finding 6: in production, morgan's "combined" format logs the full
+// request URL -- and a real, usable bearer credential travels in the
+// query string on several routes (the unsubscribe link, password-setup
+// validation, every trip-participant-token route). Overriding morgan's
+// own built-in `:url` token (used by every format string, not just this
+// one) redacts the value of a `token` query param wherever it appears,
+// instead of writing it straight into the access log.
+morgan.token("url", (req) => req.originalUrl.replace(/([?&]token=)[^&]*/gi, "$1[REDACTED]"));
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 // #327 Finding 4: this used to raise the limit to 15mb globally, for the
 // sake of one webhook -- every other route, including every unauthenticated

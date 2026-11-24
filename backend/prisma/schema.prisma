@@ -1826,6 +1826,22 @@ model User {
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
 
+  // #327 Finding 7: a logged-out-still-valid session token, stolen before
+  // (or during) a password/MFA change, kept working for the rest of its
+  // 8-hour lifespan regardless -- logout only ever cleared the cookie,
+  // never the token itself, and nothing about changing the password or
+  // MFA touched any *other* session already issued. Embedded in the
+  // session JWT at sign time (utils/jwt.js) and compared against this
+  // column on every request (middleware/requireAuth.js) -- a mismatch
+  // means the token predates a change that should have ended it.
+  // Incremented on self-service password change, an admin-set password
+  // reset, MFA enable/disable (self-service or admin-forced), and a role
+  // change -- deliberately NOT on logout itself, which stays scoped to
+  // just the one cookie/browser it actually represents (a user signed in
+  // on two devices who logs out of one shouldn't be silently signed out
+  // of the other).
+  sessionVersion Int     @default(0)
+
   // Trip Leader guest tier only (role: "tripLeader") -- a real login/
   // session account, not a reduction of any existing role's visibility
   // (see the "auth is the boundary" model below: every other role still
