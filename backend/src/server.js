@@ -30,6 +30,7 @@ const tripTypeRoutes = require("./routes/tripTypes");
 const tripRoutes = require("./routes/trips");
 const careTeamRoutes = require("./routes/careTeams");
 const auditRoutes = require("./routes/audit");
+const supportPreferencesRoutes = require("./routes/supportPreferences");
 const contactLogRoutes = require("./routes/contactLog");
 const tripMeetingRoutes = require("./routes/tripMeetings");
 const tripRequirementRoutes = require("./routes/tripRequirements");
@@ -263,6 +264,7 @@ app.use("/api/trips", tripRoutes); // protected (admin) — session required
 app.use("/api/care-team", careTeamRoutes); // protected; flag-gated (careTeam) -- see that file's own comment
 app.use("/api/audit", auditRoutes); // protected (admin); flag-gated (auditTrail) -- the audit log (#341)
 app.use("/api/contact-log", contactLogRoutes); // protected; flag-gated (contactLog) -- see that file's own comment
+app.use("/api/support-preferences", supportPreferencesRoutes); // protected; flag-gated (supportPreferences + careTeam) -- see that file's own comment
 // #271 Finding 1: three sibling sub-resource routers, same prefix as
 // tripRoutes above (not a separate API surface) -- split out of a
 // single oversized trips.js. Each still gates independently

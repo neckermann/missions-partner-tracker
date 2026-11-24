@@ -924,6 +924,17 @@ The app never contacts a partner on its own — a person always does. If you're 
 - **To clear one**, [log the contact](#contact-log) as something **you** sent or did (we reached out): topic **Need / support** for a decision, **Encouragement** or **Prayer** for an answered prayer — a thank-you card or call counts. An entry made because the partner reached out doesn't clear it.
 - **When a partner tells you a prayer was answered** and you mark it answered, that is logged as a contact for you automatically (it still waits for staff approval before the church is told).
 
+### Support preferences
+
+With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), each partner's page gets a **Support preferences** card: the ways your church and their care team can support them, and which of them this partner has asked for.
+
+- **The menu is your church's.** An admin edits it under **Settings → Support Preferences**: options are put in groups (rename a group any time), and each is something you **offer** (tick it if wanted), a **pick one** or **pick any** question (with an optional "something else" box), or a **free-text** question. From an empty menu, **Add an example set** gives a starting list (housing, transportation, speaking about the partner, prayer, care packages, how to send gifts and so on) to edit or delete. **Retire** an option to stop offering it while keeping the answers already given, or **Delete** it to remove it and those answers.
+- **Record a partner's choices** with **+ Record preferences** (or **Edit preferences**) on their page, after a conversation: tick what they want, pick their answers, add a note. One set per partner, so a couple or family shares it. Admins, editors and a guest on that partner's care team can record it; a viewer can read it. A trip leader never sees it.
+- **Who can see it:** staff and the partner's care team only, on the partner's page. It never appears on the public site, in the booklet, or in dispatches. How a partner prefers to be contacted is the **Preferred contact** on their Contact card, not here.
+- **Reports → Support preferences** lists what each partner has chosen (sort by an option to see who wants it) or, with **Show: Partners with nothing recorded**, who still needs that conversation.
+
+It records preferences; it doesn't schedule or assign anything, and the app never contacts a partner for you.
+
 ## Settings
 
 ### Church Settings (Admin only)

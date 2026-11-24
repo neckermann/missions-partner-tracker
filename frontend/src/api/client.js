@@ -1155,6 +1155,47 @@ export async function fetchCareTeamCandidates() {
   return data;
 }
 
+// --- Support preferences (#374). Gated by supportPreferences + careTeam (404 when off). ---
+// The church's menu (admin): { id, group, label, kind, choices[], allowOther, sortOrder, active,
+// answerCount }.
+export async function fetchSupportOptions() {
+  const { data } = await api.get("/support-preferences/options");
+  return data;
+}
+export async function createSupportOption(option) {
+  const { data } = await api.post("/support-preferences/options", option);
+  return data;
+}
+export async function updateSupportOption(id, patch) {
+  const { data } = await api.put(`/support-preferences/options/${id}`, patch);
+  return data;
+}
+export async function deleteSupportOption(id) {
+  await api.delete(`/support-preferences/options/${id}`);
+}
+export async function renameSupportGroup(from, to) {
+  const { data } = await api.post("/support-preferences/options/rename-group", { from, to });
+  return data;
+}
+export async function addSupportExampleSet() {
+  const { data } = await api.post("/support-preferences/options/example-set");
+  return data;
+}
+export async function fetchSupportKinds() {
+  const { data } = await api.get("/support-preferences/kinds");
+  return data.kinds;
+}
+// A partner's choices: { options: [menu], preferences: [{ optionId, selected, choice, choices,
+// other, text, note, lastEditedByName, lastEditedAt }], canEdit }.
+export async function fetchPartnerSupportPreferences(partnerId) {
+  const { data } = await api.get(`/support-preferences/partner/${partnerId}`);
+  return data;
+}
+export async function savePartnerSupportPreferences(partnerId, preferences) {
+  const { data } = await api.put(`/support-preferences/partner/${partnerId}`, { preferences });
+  return data;
+}
+
 // The partners this login may read, as { id, kind, displayName, archived } --
 // all of them for a full role, just the ones their grants reach for a guest
 // (#289). What a picker uses when a guest can't list the whole directory.

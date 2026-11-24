@@ -52,6 +52,7 @@ import Field from "../components/admin/Field.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
 import CareTeamPanel from "../components/admin/CareTeamPanel.jsx";
 import ContactCard from "../components/admin/ContactCard.jsx";
+import SupportPreferencesCard from "../components/admin/SupportPreferencesCard.jsx";
 import ContactLogSection from "../components/admin/ContactLogSection.jsx";
 import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
 import RecordList from "../components/admin/RecordList.jsx";
@@ -789,6 +790,10 @@ export default function AdminPartnerDetail() {
       )}
 
       {contactLogShown && <ContactCard partner={p} adults={collections.adults} entries={contactEntries} />}
+
+      {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
+        <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
+      )}
 
       <div className="partner-jump-rail">
         {[

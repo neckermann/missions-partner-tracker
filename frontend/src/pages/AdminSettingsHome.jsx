@@ -41,6 +41,13 @@ function buildSections(enabledFeatures) {
       icon: "🤝",
       description: "The default lead for partners without a care team, and key-date reminders.",
     },
+    enabledFeatures.supportPreferences &&
+      enabledFeatures.careTeam && {
+        to: "/admin/settings/support-preferences",
+        title: "Support Preferences",
+        icon: "💛",
+        description: "The menu of ways your church and a partner's care team can support them.",
+      },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       to: "/admin/settings/email",
       title: "Email",
