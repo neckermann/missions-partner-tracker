@@ -176,6 +176,13 @@ const FEATURES = {
     defaultEnabled: false,
     group: "admin",
   },
+  auditTrail: {
+    label: "Activity log",
+    description:
+      "Record who did what and when for sensitive actions (sign-ins, role and access changes, settings changes, deletes, backups, views of restricted partners), with an admin-only Activity page and CSV export. Events are kept for the retention window set under Activity (30, 60 or 90 days); who last edited a record is kept for good.",
+    defaultEnabled: false,
+    group: "admin",
+  },
   careTeam: {
     label: "Care teams",
     description:

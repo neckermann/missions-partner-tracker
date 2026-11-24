@@ -912,6 +912,43 @@ model ContactLog {
   @@index([followUpDate])
 }
 
+// #341: the admin activity trail -- one row per sensitive event (a sign-in, a
+// role change, a settings change, a delete, a look at a restricted partner).
+// Actor and target are plain ids with an email/name snapshot, NOT foreign
+// keys, so the history stays readable after either account is deleted -- the
+// same reason as ContactLog's prayerRequestId. Retention-bounded (see
+// ChurchSettings.auditRetentionDays); gated by the auditTrail feature. Never
+// holds a secret's value: `details` records that a key changed, not what it
+// was. `action` is a dotted code from utils/auditLog.js's AUDIT_ACTIONS.
+model AuditLog {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  action      String
+  // Who did it (null for an unauthenticated event, e.g. a failed sign-in).
+  actorUserId String?
+  actorEmail  String?
+  actorName   String?
+  // Who it was done to, when the event is about another account.
+  targetUserId String?
+  targetEmail  String?
+  targetName   String?
+  // The record it was about, when it is not an account (a partner, a trip,
+  // the church settings...), with its label at the time.
+  entityType  String?
+  entityId    String?
+  entityLabel String?
+  // Where it came from (sign-in and access events).
+  ip          String?
+  // Old/new values and context. Secrets are noted as changed, never stored.
+  details     Json?
+
+  @@index([createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@index([action, createdAt])
+  @@index([entityType, entityId])
+}
+
 // #291: one key-date reminder EMAILED to one person -- the record that stops
 // the daily job sending the same occurrence twice. The bell is computed live
 // and needs no row. Keyed by the occurrence's own date, so next year's
@@ -1654,6 +1691,11 @@ model ChurchSettings {
   // Default false: the reminder is on until someone deliberately says
   // otherwise, not silently opted out by a missing value.
   backupReminderDisabled Boolean @default(false)
+
+  // #341: how long the audit trail (AuditLog) keeps events, in days -- 30, 60
+  // or 90, pruned daily by the worker. Only the event history expires; the
+  // "last edited by" columns on records are a current-state fact and never do.
+  auditRetentionDays Int @default(90)
 
   // Schedule for the admin/public email dispatch's three cadence tiers --
   // biweekly/monthly/quarterly (weekly was retired along with the old
