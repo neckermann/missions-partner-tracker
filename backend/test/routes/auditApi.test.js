@@ -155,7 +155,7 @@ describe("audit log API", () => {
     const res = await admin("/api/audit/export?category=Settings");
     assert.equal(res.status, 200);
     assert.match(res.headers.get("content-type"), /text\/csv/);
-    assert.match(res.headers.get("content-disposition"), /activity-log/);
+    assert.match(res.headers.get("content-disposition"), /audit-log/);
     assert.ok(res.body.includes("When (UTC),Who,Who (email),What"));
     assert.ok(res.body.includes("Changed church settings"));
     assert.ok(res.body.includes("Postmark server token: changed"));
