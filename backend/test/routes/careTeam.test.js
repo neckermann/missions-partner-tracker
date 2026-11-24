@@ -330,6 +330,31 @@ describe("care team: users created or promoted with seats", () => {
     assert.equal(res.body.careTeamSeats.length, 1);
   });
 
+  test("promoting an editor to guest works with just a seat, and not with nothing", async () => {
+    const made = await admin("/api/users", {
+      method: "POST",
+      body: { email: "route-test-care-promote@example.test", role: "editor", password: "Password123!" },
+    });
+    assert.equal(made.status, 201);
+    extraUsers.push(made.body.id);
+
+    const nothing = await admin(`/api/users/${made.body.id}`, { method: "PUT", body: { role: "guest" } });
+    assert.equal(nothing.status, 400);
+
+    const ok = await admin(`/api/users/${made.body.id}`, {
+      method: "PUT",
+      body: { role: "guest", careTeam: [{ partnerId: partnerA.id }] },
+    });
+    assert.equal(ok.status, 200);
+    assert.equal(ok.body.role, "guest");
+    assert.equal(ok.body.mfaSetupRequired, true);
+    assert.equal(ok.body.inactiveReason, null);
+    assert.deepEqual(
+      ok.body.careTeamSeats.map((s) => s.partner.id),
+      [partnerA.id]
+    );
+  });
+
   test("seats are refused while the feature is off, and for a partner that doesn't exist", async () => {
     const bad = await admin("/api/users", {
       method: "POST",

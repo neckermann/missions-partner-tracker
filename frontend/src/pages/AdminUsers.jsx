@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
+  fetchReachablePartners,
   fetchUsers,
   deleteUser,
   sendUserSetupLink,
@@ -19,6 +20,8 @@ import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import { formatUtcDate } from "../utils/format.js";
 import { GuestGrantsPanel } from "../components/admin/GuestAccessPanels.jsx";
 import TripGrantPicker from "../components/admin/TripGrantPicker.jsx";
+import CareSeatPicker from "../components/admin/CareSeatPicker.jsx";
+import { useSettings } from "../context/SettingsContext.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 
 const emptyForm = {
@@ -39,6 +42,8 @@ const emptyForm = {
   // Only used when an existing non-guest is changed to a guest; a guest's
   // own trips are managed live in GuestGrantsPanel instead.
   tripAccess: [],
+  // Same idea for care team seats: [{ partnerId }], only sent when promoting.
+  careTeam: [],
 };
 
 // Why a guest account currently can't sign in, in an admin's words. Matches
@@ -73,6 +78,9 @@ export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [trips, setTrips] = useState([]);
+  const [partners, setPartners] = useState([]);
+  const { enabledFeatures } = useSettings();
+  const careEnabled = !!enabledFeatures?.careTeam;
   const [error, setError] = useState("");
   const [editingUser, setEditingUser] = useState(null); // { id, form } for edit
   const [formError, setFormError] = useState("");
@@ -95,7 +103,8 @@ export default function AdminUsers() {
     reload();
     fetchCurrentUser().then(setCurrentUser);
     fetchTrips().then(setTrips).catch(console.error);
-  }, []);
+    if (careEnabled) fetchReachablePartners().then(setPartners).catch(console.error);
+  }, [careEnabled]);
 
   async function handleDelete(id, email) {
     const confirmed = await confirmDialog({
@@ -178,6 +187,7 @@ export default function AdminUsers() {
           ...full,
           password: "",
           tripAccess: [],
+          careTeam: [],
         },
       });
     } catch {
@@ -196,10 +206,28 @@ export default function AdminUsers() {
     // First trips are only sent when promoting someone to a guest; an
     // existing guest's trips are changed through GuestGrantsPanel.
     const becomingGuest = form.role === "guest" && originalRole !== "guest";
-    if (!becomingGuest) delete payload.tripAccess;
-    if (becomingGuest && form.tripAccess.length === 0) {
-      throw { response: { data: { error: "Choose at least one trip for this guest" } } };
+    if (!becomingGuest) {
+      delete payload.tripAccess;
+      delete payload.careTeam;
     }
+    // A guest reaches something only through a trip or a care team seat, and
+    // may already hold seats from before they were promoted.
+    const existingSeats = careEnabled ? (form.careTeamSeats || []).length : 0;
+    const newSeats = careEnabled ? form.careTeam.length : 0;
+    if (becomingGuest && form.tripAccess.length + newSeats + existingSeats === 0) {
+      throw {
+        response: {
+          data: {
+            error: careEnabled
+              ? "Choose at least one trip or partner for this guest"
+              : "Choose at least one trip for this guest",
+          },
+        },
+      };
+    }
+    if (becomingGuest && (!careEnabled || newSeats === 0)) delete payload.careTeam;
+    // read-only API extras
+    delete payload.careTeamSeats;
 
     // sendWelcomeEmail/requireMfa only exist on create. The grants array
     // and read-only API extras aren't part of the update schema either.
@@ -402,6 +430,16 @@ export default function AdminUsers() {
                       value={editingUser.form.tripAccess}
                       onChange={(next) => updateForm("tripAccess", next)}
                     />
+                  )}
+                  {careEnabled && editingUser.originalRole !== "guest" && (
+                    <div style={{ marginTop: "1rem" }}>
+                      <h4 style={{ margin: "0 0 0.5rem" }}>Care team</h4>
+                      <CareSeatPicker
+                        partners={partners}
+                        value={editingUser.form.careTeam}
+                        onChange={(next) => updateForm("careTeam", next)}
+                      />
+                    </div>
                   )}
                   <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
                     A guest can work on these trips and see their partners, nothing else in the app. Changes
