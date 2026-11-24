@@ -2,6 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { recordAudit, recordRestrictedView } = require("../utils/auditLog");
+const { latestOf, partnerLastUpdated, listFields } = require("../utils/lastUpdated");
 const { isFeatureEnabled } = require("../utils/features");
 const { requireAuth, requireRole, requirePartnerWriter } = require("../middleware/requireAuth");
 const { canReadPartner, readablePartnerIds } = require("../utils/guestAccess");
@@ -442,7 +443,16 @@ router.get("/", requireRole("admin", "editor", "viewer", "guest"), async (req, r
       select: reachable ? guestSummarySelect : partnerSummarySelect,
       orderBy: { displayName: "asc" },
     });
-    res.json(records.map((r) => ({ ...r, photos: withPhotoUrls(r.photos) })));
+    // When each partner (or any section of it) was last changed -- staff only; a
+    // guest's list carries no editor names.
+    const updated = reachable ? null : await partnerLastUpdated(records.map((r) => r.id));
+    res.json(
+      records.map((r) => ({
+        ...r,
+        photos: withPhotoUrls(r.photos),
+        ...(updated ? listFields(updated.get(r.id)) : {}),
+      }))
+    );
   } catch (err) {
     next(err);
   }
@@ -465,6 +475,16 @@ router.get("/:id", async (req, res, next) => {
       include: partnerRecordInclude,
     });
     if (!record) return res.status(404).json({ error: "Not found" });
+    // The line under the name reads "last edited": the latest change to the
+    // partner or to any section on its page (family, addresses, links...).
+    const shown = latestOf([
+      { at: record.lastEditedAt, name: record.lastEditedByName },
+      (await partnerLastUpdated([record.id])).get(record.id),
+    ]);
+    if (shown) {
+      record.lastEditedAt = shown.at;
+      record.lastEditedByName = shown.name;
+    }
     // A look at a restricted partner is logged (once per person per day); a
     // failure to log must never stop the page loading.
     if (record.isRestricted) {

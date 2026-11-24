@@ -147,7 +147,10 @@ archived records, and **Reset filters** clears everything back to
 defaults.
 
 Click **+ Add Missionary** or **+ Add Organization** to create one; click
-any row to view that partner's detail page.
+any row to view that partner's detail page. The list shows each partner's
+photo beside their name, and a **Flags** column that lists only what is out
+of the ordinary (Restricted, Not public, Sent by us); **Last updated** is the
+last change to the partner or anything on its page, and both columns sort.
 
 ![The Partners list, filterable by type, public/restricted status, continent, and country](docs/assets/screenshots/admin-partners.png)
 
@@ -900,7 +903,7 @@ You can't delete your own account, and the app won't let you demote,
 deactivate, or delete the last active admin — there's always at least
 one way back in.
 
-![The Manage Users page, listing role, auth provider, and MFA status](docs/assets/screenshots/manage-users.png)
+![The Manage Users page, listing role, active status, and MFA status](docs/assets/screenshots/manage-users.png)
 
 ### Database Backups (Admin only)
 
@@ -1145,7 +1148,7 @@ The **Audit log** is on by default (turn it off in [Enabled Features](ADMIN_GUID
 
 ![The Audit log page: who did what, with filters, an export button and the retention setting](docs/assets/screenshots/audit-log.png)
 
-**Who last edited a record** is separate and kept for good. Partner, trip, trip-participant and trip-application pages show "Last edited by Dana Whitfield on 11/24/2026" under the name, and a prayer request or one-time need shows it when you open it (not to Guests, and never on the public site). The **Prayer requests**, **One-time needs** and **Data completeness** reports have **Last edited by** and **Last edited** columns too, so you can sort out who to ask and which records nobody has touched in a while. It is stamped on every record an admin, editor or care team member changes, and not by background jobs or a public form, so a record nobody has edited shows no line. The name is a snapshot, so it still reads after that person's account is deleted.
+**Who last edited a record** is separate and kept for good. Partner, trip, trip-participant and trip-application pages show "Last edited by Dana Whitfield on 11/24/2026" under the name. On a partner or trip that line covers the sections on its page too — a partner's family, addresses, links, visits, support and photos; a trip's team, meetings, requirements, documents and money — so it answers "when did anyone last touch this record?" even when the change was inside a section. The **Partners** and **Trips** lists have a sortable **Last updated** column with the same date and name, so you can sort to find the records nobody has looked after in a while (blank means no signed-in person has changed it). Prayer requests, needs, newsletters and contact-log entries are not folded in; they have their own pages. A prayer request or one-time need shows its own line when you open it, and a prayer request or one-time need shows it when you open it (none of this is shown to Guests or on the public site). The **Data completeness** report has **Last edited by** and **Last edited** columns too, so you can see which partner records nobody has touched in a while and who to ask. It is stamped on every record an admin, editor or care team member changes, and not by background jobs or a public form, so a record nobody has edited shows no line. The name is a snapshot, so it still reads after that person's account is deleted.
 
 ![A partner's page with "Last edited by Alex Hartley" under the name](docs/assets/screenshots/last-edited-by.png)
 

@@ -741,33 +741,30 @@ export default function AdminPartnerDetail() {
         )}
       </div>
 
-      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", margin: "1rem 0" }}>
-        {!isOrg && (
-          <StatusPill
-            label={p.contactSafe ? "Safe to contact" : "Not safe to contact"}
-            color={p.contactSafe ? "#2a5d3c" : "#a6540f"}
-          />
-        )}
-        <StatusPill
-          label={p.isPublic ? "Shown on public site" : "Not public"}
-          color={p.isPublic ? "#2a5d3c" : "#6b6f76"}
-        />
-        {p.isRestricted && <StatusPill label="Restricted-access" color="#a6540f" />}
-        {!isOrg && (
-          <span title="Edit in the Sending Church box below to change this.">
-            <StatusPill
-              label={
-                p.sentByOurChurch
-                  ? `Sent by ${churchName || "our church"}`
-                  : `Not sent by ${churchName || "our church"}`
-              }
-              color="#6b6f76"
-            />
-          </span>
-        )}
-        {activeFurlough && <StatusPill label="On Furlough" color="#a6540f" />}
-        {p.archived && <StatusPill label={`Archived ${formatDateLong(p.archivedAt)}`} color="#a6540f" />}
-      </div>
+      {/* Only what is out of the ordinary: the usual state (safe to contact, shown
+          on the public site, not sent by us) is in the Status & Visibility card
+          below, and repeating it here made every page look the same. */}
+      {(() => {
+        const pills = [
+          !isOrg && !p.contactSafe && <StatusPill key="unsafe" label="Not safe to contact" color="#a6540f" />,
+          !p.isPublic && <StatusPill key="notpublic" label="Not public" color="#6b6f76" />,
+          p.isRestricted && <StatusPill key="restricted" label="Restricted-access" color="#a6540f" />,
+          !isOrg && p.sentByOurChurch && (
+            <span key="sent" title="Edit in the Sending Church box below to change this.">
+              <StatusPill label={`Sent by ${churchName || "our church"}`} color="#6b6f76" />
+            </span>
+          ),
+          activeFurlough && <StatusPill key="furlough" label="On Furlough" color="#a6540f" />,
+          p.archived && (
+            <StatusPill key="archived" label={`Archived ${formatDateLong(p.archivedAt)}`} color="#a6540f" />
+          ),
+        ].filter(Boolean);
+        return pills.length > 0 ? (
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", margin: "1rem 0" }}>{pills}</div>
+        ) : (
+          <div style={{ height: "0.75rem" }} />
+        );
+      })()}
 
       {enabledFeatures.careTeam && (
         <CareTeamPanel partnerId={p.id} canEdit={canWrite} canInviteGuest={isAdmin} />

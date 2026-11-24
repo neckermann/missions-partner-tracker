@@ -18,10 +18,23 @@ const {
 
 let admin;
 let adminRow;
+let originalFeatures;
 const extraUsers = [];
+const cleanupTrips = [];
 
 describe("last edited by", () => {
   before(async () => {
+    // The trip checks below need Trips on, whatever an earlier test file left.
+    const current = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { enabledFeatures: true },
+    });
+    originalFeatures = current?.enabledFeatures ?? {};
+    await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      update: { enabledFeatures: { ...originalFeatures, trips: true } },
+      create: { id: "singleton", enabledFeatures: { ...originalFeatures, trips: true } },
+    });
     await ensureTestUsers();
     await prisma.user.updateMany({
       where: { email: "route-test-admin@example.test" },
@@ -31,6 +44,11 @@ describe("last edited by", () => {
     adminRow = await prisma.user.findUnique({ where: { email: "route-test-admin@example.test" } });
   });
   after(async () => {
+    await prisma.trip.deleteMany({ where: { name: { contains: FIXTURE_TAG } } });
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: originalFeatures },
+    });
     await removeFixturePartners();
     await prisma.user.deleteMany({ where: { id: { in: extraUsers } } });
     await removeTestUsers();
@@ -141,7 +159,7 @@ describe("last edited by", () => {
     }
   });
 
-  test("prayer requests and needs carry who last edited them, and the reports show it", async () => {
+  test("prayer requests and needs carry who last edited them, and the completeness report shows partners'", async () => {
     const partner = await admin("/api/partners", {
       method: "POST",
       body: { kind: "missionary", displayName: `${FIXTURE_TAG} Items` },
@@ -171,10 +189,104 @@ describe("last edited by", () => {
 
     const prayerReport = await admin("/api/reports/prayer-requests?status=all&includeArchived=true");
     assert.equal(prayerReport.status, 200, JSON.stringify(prayerReport.body).slice(0, 200));
-    const row = prayerReport.body.rows.find((r) => String(r.partnerName).includes("Items"));
+    assert.ok(
+      !prayerReport.body.columns.some((c) => c.key === "editedBy"),
+      "the prayer report stays compact"
+    );
+    const completeness = await admin("/api/reports/data-completeness?includeArchived=true");
+    const row = completeness.body.rows.find((r) => String(r.partnerName).includes("Items"));
     assert.equal(row.editedBy, "Ada Admin");
     assert.match(row.editedOn, /^\d{4}-\d{2}-\d{2}$/);
-    const csv = await admin("/api/reports/prayer-requests?status=all&includeArchived=true&format=csv");
+    const csv = await admin("/api/reports/data-completeness?includeArchived=true&format=csv");
     assert.ok(csv.body.includes("Last edited by"));
+  });
+
+  test("a partner's last updated covers its sections, on the page and in the list", async () => {
+    const created = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} Sections`, adults: [{ firstName: "Pat" }] },
+    });
+    const own = await prisma.partner.findUnique({ where: { id: created.body.id } });
+    await new Promise((r) => setTimeout(r, 1100));
+    const adult = await prisma.adult.findFirst({ where: { partnerId: created.body.id } });
+    // Someone else edits a family member (through the section's own route).
+    const editorEmail = "last-updated-editor@example.test";
+    const password = "LastUpdated123!";
+    const editor = await prisma.user.create({
+      data: {
+        email: editorEmail,
+        firstName: "Eddie",
+        lastName: "Editor",
+        passwordHash: await bcrypt.hash(password, 4),
+        role: "editor",
+        authProvider: "local",
+        active: true,
+      },
+    });
+    extraUsers.push(editor.id);
+    const asEditor = await client({ email: editorEmail, password });
+    assert.equal(
+      (await asEditor(`/api/adults/${adult.id}`, { method: "PUT", body: { lastName: "Smith" } })).status,
+      200
+    );
+
+    // The partner's own row is unchanged...
+    const row = await prisma.partner.findUnique({ where: { id: created.body.id } });
+    assert.equal(row.lastEditedAt.getTime(), own.lastEditedAt.getTime());
+    // ...but the page and the list say who last changed anything on it.
+    const detail = await admin(`/api/partners/${created.body.id}`);
+    assert.equal(detail.body.lastEditedByName, "Eddie Editor");
+    assert.ok(new Date(detail.body.lastEditedAt) > own.lastEditedAt);
+    const list = await admin("/api/partners");
+    const listed = list.body.find((p) => p.id === created.body.id);
+    assert.equal(listed.lastUpdatedByName, "Eddie Editor");
+    assert.ok(new Date(listed.lastUpdatedAt) > own.lastEditedAt);
+    // A partner nobody has touched through the app has no date.
+    const untouched = await prisma.partner.create({
+      data: { kind: "missionary", displayName: `${FIXTURE_TAG} Untouched` },
+    });
+    const none = (await admin("/api/partners")).body.find((p) => p.id === untouched.id);
+    assert.equal(none.lastUpdatedAt, null);
+  });
+
+  test("a trip's last updated covers its meetings, and a guest's lists carry no editor names", async () => {
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { name: `${FIXTURE_TAG} Trip dates`, status: "planning" },
+    });
+    assert.equal(trip.status, 201, JSON.stringify(trip.body));
+    const own = await prisma.trip.findUnique({ where: { id: trip.body.id } });
+    await new Promise((r) => setTimeout(r, 1100));
+    const meeting = await admin(`/api/trips/${trip.body.id}/meetings`, {
+      method: "POST",
+      body: { title: "Kickoff", startAt: "2027-01-10T18:00:00.000Z" },
+    });
+    assert.ok([200, 201].includes(meeting.status), JSON.stringify(meeting.body));
+    const detail = await admin(`/api/trips/${trip.body.id}`);
+    assert.equal(detail.body.lastEditedByName, "Ada Admin");
+    assert.ok(new Date(detail.body.lastEditedAt) > own.lastEditedAt, "the meeting moved the trip's date");
+    const listed = (await admin("/api/trips")).body.find((t) => t.id === trip.body.id);
+    assert.equal(listed.lastUpdatedByName, "Ada Admin");
+
+    // A guest on this trip sees the trip but no editor names in the list.
+    const guestEmail = "last-updated-guest@example.test";
+    const guestPassword = "LastUpdatedG123!";
+    const guest = await prisma.user.create({
+      data: {
+        email: guestEmail,
+        passwordHash: await bcrypt.hash(guestPassword, 4),
+        role: "guest",
+        authProvider: "local",
+        active: true,
+        mfaSetupRequired: false,
+      },
+    });
+    extraUsers.push(guest.id);
+    await prisma.tripAccess.create({ data: { userId: guest.id, tripId: trip.body.id } });
+    const asGuest = await client({ email: guestEmail, password: guestPassword });
+    const guestList = await asGuest("/api/trips");
+    assert.equal(guestList.status, 200, JSON.stringify(guestList.body));
+    assert.ok(guestList.body.length >= 1);
+    assert.ok(!JSON.stringify(guestList.body).includes("lastUpdated"), "no last-updated fields for a guest");
   });
 });

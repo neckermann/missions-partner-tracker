@@ -833,12 +833,22 @@ Only the row written directly is stamped, not rows touched by a nested write.
 **Excluded on purpose:** `AuditLog`, every `*Bytes` table, `ChurchSettingsLogo`,
 `TripAccess` (audited instead), `KeyDateReminder`, `PasswordSetupToken`,
 `NotificationSeen`, `UserFollowedPartner`, `PublicSubscriber*`, `InboundEmail*`,
-`TripMeetingRsvp`, `TripParticipantPhoto`, `WhatsAppAuthEntry`. It is shown on the
+`TripMeetingRsvp`, `TripParticipantPhoto`, `WhatsAppAuthEntry`. **Master records read across their sections** (`utils/lastUpdated.js`): the
+partner and trip pages, the Partners and Trips list columns ("Last updated",
+sortable) and the Data completeness report show the latest change to the record
+*or any section on its page* (a partner's adults, children, addresses, furloughs,
+visits, links, languages, sending parties, support entries and photos; a trip's
+participants, applications, meetings, requirements and their statuses, documents,
+contributions, budget lines and flights). Done at read time with one `UNION` query
+over a fixed table list rather than by also stamping the parent on every child
+write, which would run outside the request's transaction and could block on the
+parent row it already holds; deletes are not seen. Lists omit the fields for
+guests. It is shown on the
 partner, trip, trip-participant and trip-application pages and in the prayer
 request and one-time need detail dialogs (not to guests), as **Last edited by /
-Last edited** columns in the Prayer requests, One-time needs and Data
-completeness reports (`reporting/reports/care.js`; reports are not open to
-guests), and **never on the public site** (tested). A new model opts in by declaring the three columns.
+Last edited** columns in the Data completeness report only
+(`reporting/reports/care.js`; reports are not open to guests; the prayer request
+and one-time need reports stay compact because their dialogs carry it), and **never on the public site** (tested). A new model opts in by declaring the three columns.
 
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 

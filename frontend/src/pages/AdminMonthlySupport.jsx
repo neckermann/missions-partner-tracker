@@ -278,7 +278,6 @@ export default function AdminMonthlySupport() {
             label: "Name",
             render: (row) => <span style={{ fontWeight: 600 }}>{row.name}</span>,
           },
-          { key: "type", label: "Type" },
           { key: "field", label: "Field / Region" },
           { key: "amount", label: "Monthly Amount", type: "currency" },
           { key: "effectiveDate", label: "Effective Date", type: "date" },

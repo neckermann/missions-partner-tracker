@@ -16,6 +16,7 @@ import useFilterState from "../hooks/useFilterState.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import LastUpdatedCell, { lastUpdatedSortKey } from "../components/shared/LastUpdatedCell.jsx";
 import AssignedPartnersTable from "../components/admin/AssignedPartnersTable.jsx";
 
 // Same field as backend/src/utils/maskData.js's public `country` -- the
@@ -80,6 +81,9 @@ const emptyFilters = {
 // reason: it reads churchVisits[0] off a row already fetched for the
 // Last Visit column and its sort, so there's no new request to make it
 // server-side for.
+// Sent by our church only applies to missionaries.
+const isSentByUs = (row) => row.type === "missionary" && row.sentByOurChurch;
+
 export default function AdminPartners() {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [partners, setPartners] = useState([]);
@@ -92,7 +96,7 @@ export default function AdminPartners() {
   const navigate = useNavigate();
   const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const sectionTitle = usePartnerTermInAdmin ? partnerTermPlural : "Partners";
-  const { canWrite, isAdmin, careTeamSeats } = useCurrentUser();
+  const { canWrite, isAdmin, isGuest, careTeamSeats } = useCurrentUser();
   // #288: "Assigned to me" -- only for someone who holds a care team seat,
   // and only while both features are on. The notification's link lands here
   // with ?assigned=1.
@@ -217,6 +221,8 @@ export default function AdminPartners() {
           overviewShort: p.overviewShort,
           country: resolveCountry(p),
           detailLink: `/admin/partners/${p.id}`,
+          lastUpdatedAt: p.lastUpdatedAt,
+          lastUpdatedByName: p.lastUpdatedByName,
         }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     [partners]
@@ -395,72 +401,55 @@ export default function AdminPartners() {
             emptyMessage={loading ? "Loading…" : "No partners match these filters."}
             columns={[
               {
-                key: "photo",
-                label: "Photo",
-                render: (row) =>
-                  row.photo ? (
-                    <img
-                      src={row.photo}
-                      alt={row.name}
-                      className="missionary-thumb"
-                      onError={(e) => (e.target.style.display = "none")}
-                    />
-                  ) : (
-                    ""
-                  ),
-              },
-              {
                 key: "name",
                 label: "Display Name",
+                // The photo sits beside the name instead of in a column of its own:
+                // that column was blank for every partner without one. A fixed-size
+                // slot keeps the names aligned whether or not a row has a photo.
                 render: (row) => (
-                  <>
-                    <span style={{ fontWeight: 600 }}>{row.name}</span>
-                    {row.archived && (
-                      <span style={{ marginLeft: "0.5rem" }}>
-                        <StatusPill label="Archived" color="#a6540f" />
-                      </span>
-                    )}
-                  </>
+                  <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                    <span style={{ width: 36, height: 36, flexShrink: 0 }}>
+                      {row.photo && (
+                        <img
+                          src={row.photo}
+                          alt={row.name}
+                          className="missionary-thumb"
+                          style={{ width: 36, height: 36 }}
+                          onError={(e) => (e.target.style.display = "none")}
+                        />
+                      )}
+                    </span>
+                    <span>
+                      <span style={{ fontWeight: 600 }}>{row.name}</span>
+                      {row.archived && (
+                        <span style={{ marginLeft: "0.5rem" }}>
+                          <StatusPill label="Archived" color="#a6540f" />
+                        </span>
+                      )}
+                    </span>
+                  </span>
                 ),
               },
               { key: "typeLabel", label: "Type" },
               { key: "field", label: "Field" },
               {
-                key: "isPublic",
-                label: "Public",
+                key: "flags",
+                label: "Flags",
+                // Only what is out of the ordinary (Restricted, not on the public site,
+                // sent by us), not three yes/no columns where "No" is the usual answer.
+                // Sorts restricted partners together, then non-public, then sent-by-us.
                 sortable: true,
+                sortBy: (row) =>
+                  (row.isRestricted ? 4 : 0) + (row.isPublic ? 0 : 2) + (isSentByUs(row) ? 1 : 0),
                 render: (row) =>
-                  row.isPublic ? (
-                    <StatusPill label="Yes" color="#2a5d3c" />
+                  row.isRestricted || !row.isPublic || isSentByUs(row) ? (
+                    <span style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
+                      {row.isRestricted && <StatusPill label="Restricted" color="#a6540f" />}
+                      {!row.isPublic && <StatusPill label="Not public" color="#6b6f76" />}
+                      {isSentByUs(row) && <StatusPill label="Sent by us" color="#6b6f76" />}
+                    </span>
                   ) : (
-                    <StatusPill label="No" color="#6b6f76" />
-                  ),
-              },
-              {
-                key: "isRestricted",
-                label: "Restricted",
-                sortable: true,
-                render: (row) =>
-                  row.isRestricted ? (
-                    <StatusPill label="Yes" color="#a6540f" />
-                  ) : (
-                    <StatusPill label="No" color="#6b6f76" />
-                  ),
-              },
-              {
-                key: "sentByOurChurch",
-                label: "Sent By Us",
-                sortable: true,
-                // Same bland, muted pill for Yes and No -- unlike Public/
-                // Restricted, this isn't a safety or exposure question, just
-                // bookkeeping, so neither state earns the attention a brighter
-                // color would draw. Still a pill, not plain text, for visual
-                // consistency with the rest of the row.
-                render: (row) =>
-                  row.type !== "missionary" ? (
                     "—"
-                  ) : (
-                    <StatusPill label={row.sentByOurChurch ? "Yes" : "No"} color="#6b6f76" />
                   ),
               },
               {
@@ -473,6 +462,21 @@ export default function AdminPartners() {
                 },
                 render: (row) => lastVisit(row.churchVisits),
               },
+              // When the partner, or anything on its page, was last changed (staff
+              // only: a guest's list carries no editor names).
+              ...(isGuest
+                ? []
+                : [
+                    {
+                      key: "lastUpdatedAt",
+                      label: "Last updated",
+                      sortable: true,
+                      sortBy: (row) => lastUpdatedSortKey(row.lastUpdatedAt),
+                      render: (row) => (
+                        <LastUpdatedCell at={row.lastUpdatedAt} name={row.lastUpdatedByName} />
+                      ),
+                    },
+                  ]),
             ]}
             renderActions={(row) => (
               <>

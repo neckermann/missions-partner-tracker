@@ -20,7 +20,7 @@ import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import Modal from "../components/Modal.jsx";
 import Field from "../components/admin/Field.jsx";
 import { formatDate, toDateInputValue } from "../utils/format.js";
-import { partnerKindLabel, PARTNER_TYPE_FILTER_FIELD } from "../utils/partnerEntity.js";
+import { PARTNER_TYPE_FILTER_FIELD } from "../utils/partnerEntity.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
@@ -34,6 +34,7 @@ import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import LastUpdatedCell, { lastUpdatedSortKey } from "../components/shared/LastUpdatedCell.jsx";
 import AdminTripContributions from "./AdminTripContributions.jsx";
 
 // Merged (design review, post-#252) from two previously separate pages/
@@ -82,7 +83,7 @@ const emptyFilters = {
 
 function ExistingTripsTab() {
   const navigate = useNavigate();
-  const { canWrite, isAdmin } = useCurrentUser();
+  const { canWrite, isAdmin, isGuest } = useCurrentUser();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [records, setRecords] = useState([]);
   const [partners, setPartners] = useState([]);
@@ -491,7 +492,6 @@ function ExistingTripsTab() {
               </>
             ),
           },
-          { key: "entityType", label: "Type", render: (trip) => partnerKindLabel(trip.entityType) },
           {
             key: "status",
             label: "Status",
@@ -515,7 +515,6 @@ function ExistingTripsTab() {
               </>
             ),
           },
-          { key: "type", label: "Trip Type", render: (trip) => trip.type || "—" },
           {
             key: "startDate",
             label: "Dates",
@@ -551,6 +550,19 @@ function ExistingTripsTab() {
               </>
             ),
           },
+          // When the trip, or any part of it (team, meetings, requirements, money),
+          // was last changed (staff only: a guest's list carries no editor names).
+          ...(isGuest
+            ? []
+            : [
+                {
+                  key: "lastUpdatedAt",
+                  label: "Last updated",
+                  sortable: true,
+                  sortBy: (trip) => lastUpdatedSortKey(trip.lastUpdatedAt),
+                  render: (trip) => <LastUpdatedCell at={trip.lastUpdatedAt} name={trip.lastUpdatedByName} />,
+                },
+              ]),
         ]}
         renderActions={(trip) => (
           <>

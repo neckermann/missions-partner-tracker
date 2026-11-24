@@ -8,6 +8,7 @@ const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { recordAudit } = require("../utils/auditLog");
+const { latestOf, tripLastUpdated, listFields } = require("../utils/lastUpdated");
 const {
   requireAuth,
   requireRole,
@@ -238,7 +239,12 @@ router.get("/", allowGuestPartnerList, async (req, res, next) => {
       include: tripInclude,
       orderBy: { startDate: "desc" },
     });
-    res.json(records.map(annotateTripFlags));
+    // When each trip (or any part of it: team, meetings, requirements, money) was
+    // last changed -- staff only; a guest's list carries no editor names.
+    const updated = req.user.role === "guest" ? null : await tripLastUpdated(records.map((r) => r.id));
+    res.json(
+      records.map((r) => ({ ...annotateTripFlags(r), ...(updated ? listFields(updated.get(r.id)) : {}) }))
+    );
   } catch (err) {
     next(err);
   }
@@ -355,6 +361,15 @@ router.get("/:id", requireTripScope("id"), async (req, res, next) => {
       },
     });
     if (!trip) return res.status(404).json({ error: "Not found" });
+    // "Last edited" on the trip page covers its team, meetings, requirements and money too.
+    const shown = latestOf([
+      { at: trip.lastEditedAt, name: trip.lastEditedByName },
+      (await tripLastUpdated([trip.id])).get(trip.id),
+    ]);
+    if (shown) {
+      trip.lastEditedAt = shown.at;
+      trip.lastEditedByName = shown.name;
+    }
     res.json(trip);
   } catch (err) {
     next(err);
