@@ -14,6 +14,8 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-24
+
 ### Added
 
 - **Trip access grants for guests (#356).** A guest login (see Changed) reaches the trips an admin gives it through a new `TripAccess` table, so one guest can lead more than one trip and a trip can have more than one guest. Access ends **30 days after the trip's end date**, worked out when the guest signs in rather than stored, so changing a trip's dates moves the expiry too (a trip with no end date never lapses on its own). An admin can extend a grant to a date, end it now, go back to the automatic date, or remove it, from the guest's row in Manage Users, from a trip's **Team → Guest access** section, or with **Give guest access** on a team member's page. **Add User** has a trip step for guests (and opens preset when you come from a trip).
