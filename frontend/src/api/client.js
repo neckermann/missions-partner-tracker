@@ -8,6 +8,25 @@ export const api = axios.create({
   baseURL: "/api",
 });
 
+// A session that stops working while someone is using the admin app -- it expired, or the church
+// turned on the two-factor requirement (#385) and this account has not enrolled -- sends them to
+// sign in again. Without this every open page just shows load errors until they happen to reload.
+// Only for a 401 on an admin page and not for the sign-in calls themselves (/auth/*: a wrong
+// password is also a 401, and the admin shell checks /auth/me on its own).
+export function signInAgainIfSessionEnded(error, { pathname, search }, redirect) {
+  const url = error?.config?.url || "";
+  if (error?.response?.status === 401 && pathname.startsWith("/admin") && !url.startsWith("/auth/")) {
+    redirect(`/login?next=${encodeURIComponent(pathname + search)}`);
+  }
+}
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    signInAgainIfSessionEnded(error, window.location, (to) => window.location.assign(to));
+    return Promise.reject(error);
+  }
+);
+
 // No token to attach here — the session lives in an httpOnly cookie
 // (set by the backend on login; see backend/src/utils/jwt.js), which the
 // browser sends automatically on every same-origin request. Client-side

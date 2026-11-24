@@ -10,6 +10,7 @@ import {
   fetchUser,
   updateUser,
   fetchTrips,
+  updateChurchSettings,
 } from "../api/client.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
@@ -120,6 +121,37 @@ export default function AdminUsers() {
       reload();
     } catch (err) {
       reportError(err, "Failed to delete user");
+    }
+  }
+
+  // The church-wide two-factor requirement (#385). Turning it on signs out everyone who has not
+  // enrolled (they set it up at their next sign-in), so it asks first; the server refuses unless
+  // the admin doing it has enrolled themselves, and says why.
+  async function handleToggleTwoFactor(notEnrolled) {
+    setError("");
+    const turningOn = !currentUser?.twoFactorRequired;
+    if (turningOn) {
+      const confirmed = await confirmDialog({
+        title: "Require two-factor for everyone?",
+        body: (
+          <ConfirmMessageBody>
+            {notEnrolled > 0
+              ? `${notEnrolled} active account${notEnrolled === 1 ? " hasn't" : "s haven't"} set up two-factor yet. They will be signed out and asked to set it up the next time they sign in.`
+              : "Everyone already has two-factor set up."}{" "}
+            Nobody will be able to turn it off for themselves. If someone loses their authenticator, use Reset
+            MFA on their row.
+          </ConfirmMessageBody>
+        ),
+        confirmLabel: "Require it",
+      });
+      if (!confirmed) return;
+    }
+    try {
+      await updateChurchSettings({ requireTwoFactor: turningOn });
+      setCurrentUser(await fetchCurrentUser());
+      reload();
+    } catch (err) {
+      reportError(err, "Couldn't change the two-factor requirement");
     }
   }
 
@@ -314,6 +346,10 @@ export default function AdminUsers() {
 
   const inactiveCount = users.filter((u) => u.inactiveReason).length;
   const shownUsers = inactiveOnly ? users.filter((u) => u.inactiveReason) : users;
+  // Who still has to set up two-factor: active accounts that sign in with a password.
+  const signingIn = users.filter((u) => u.active && u.authProvider === "local");
+  const notEnrolled = signingIn.filter((u) => !u.mfaEnabled).length;
+  const twoFactorRequired = !!currentUser?.twoFactorRequired;
 
   return (
     <div className="admin-shell">
@@ -334,6 +370,33 @@ export default function AdminUsers() {
       )}
       {notice && <p role="status">{notice}</p>}
       {manualSetupLink && <ManualSendNotice recipients={manualSetupLink} />}
+
+      <div className="admin-section" style={{ marginBottom: "1rem" }}>
+        <h3 style={{ marginTop: 0 }}>Two-factor sign-in</h3>
+        <p style={{ margin: "0.25rem 0 0.75rem" }}>
+          {twoFactorRequired ? (
+            <span className="status-pill good">Required for everyone</span>
+          ) : (
+            <span className="status-pill">Optional</span>
+          )}{" "}
+          {notEnrolled === 0
+            ? "Everyone has set it up."
+            : `${notEnrolled} of ${signingIn.length} active account${signingIn.length === 1 ? "" : "s"} ${notEnrolled === 1 ? "hasn't" : "haven't"} set it up yet.`}
+        </p>
+        <button
+          type="button"
+          className="btn secondary small"
+          onClick={() => handleToggleTwoFactor(notEnrolled)}
+          disabled={!twoFactorRequired && !currentUser?.mfaEnabled}
+        >
+          {twoFactorRequired ? "Stop requiring it" : "Require it for everyone"}
+        </button>
+        {!twoFactorRequired && currentUser && !currentUser.mfaEnabled && (
+          <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: 0 }}>
+            Set up two-factor on your own account first (My Account), so turning this on doesn't lock you out.
+          </p>
+        )}
+      </div>
 
       {(inactiveCount > 0 || inactiveOnly) && (
         <div className="admin-checkbox-row" style={{ marginBottom: "0.5rem" }}>
@@ -459,12 +522,10 @@ export default function AdminUsers() {
                 <label>
                   <input
                     type="checkbox"
-                    checked={editingUser.form.role === "guest" || editingUser.form.mfaSetupRequired}
-                    disabled={editingUser.form.role === "guest"}
+                    checked={editingUser.form.mfaSetupRequired}
                     onChange={(e) => updateForm("mfaSetupRequired", e.target.checked)}
                   />
                   Require Two-Factor Authentication
-                  {editingUser.form.role === "guest" && " (always required for guests)"}
                 </label>
               </div>
               {editingUser.form.mfaEnabled && (
