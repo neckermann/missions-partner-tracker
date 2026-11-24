@@ -192,7 +192,7 @@ async function resetDemoData() {
   // sending needs a From address, receiving needs the inbound webhook's
   // own basic-auth credentials (checked in routes/inboundEmail.js) --
   // Postmark's inbound webhook itself still has to be pointed at this
-  // demo's /api/inbound-email/webhook URL by hand in Postmark's own
+  // demo's /api/inbound-email/postmark URL by hand in Postmark's own
   // dashboard; that's not something stored in ChurchSettings at all.
   const postmarkApiKey = process.env.POSTMARK_API_KEY;
   const fromEmailAddress = process.env.FROM_EMAIL_ADDRESS;

@@ -63,21 +63,29 @@ function validateEnv(env = process.env) {
     );
   }
 
-  // Not fatal: a bad key makes crypto.js throw at first use, so MFA enrollment
-  // fails loudly and nothing is ever written under a weak key. Refusing to boot
-  // over it would take a running deployment offline to protect a feature that
-  // already fails closed.
+  // Not fatal: a bad key makes crypto.js throw at first use, so every
+  // reversibly-encrypted secret (MFA enrollment, plus every integration
+  // credential it protects -- Postmark, GroupMe, Joshua Project, the
+  // WhatsApp session) fails loudly right there, and nothing is ever
+  // written under a weak key. Refusing to boot over it would take a
+  // running deployment offline to protect a feature that already fails
+  // closed. #327 Finding 11.8: this used to say only MFA enrollment would
+  // fail, which stopped being true once this key started protecting
+  // every integration credential too.
   const key = env.FIELD_ENCRYPTION_KEY;
   if (!key || !String(key).trim()) {
     warnings.push(
-      "FIELD_ENCRYPTION_KEY is not set. Enrolling in two-factor authentication " +
-        "will fail until it is. Generate one with `npm run generate-secrets`."
+      "FIELD_ENCRYPTION_KEY is not set. Two-factor authentication and every " +
+        "integration that stores a credential (Postmark, GroupMe, Joshua " +
+        "Project, WhatsApp) will fail until it is. Generate one with " +
+        "`npm run generate-secrets`."
     );
   } else if (isPlaceholder(key) || Buffer.from(String(key), "base64").length !== 32) {
     warnings.push(
       "FIELD_ENCRYPTION_KEY does not decode to exactly 32 bytes, so it is not a " +
-        "usable key. Enrolling in two-factor authentication will fail until it " +
-        "is fixed. Generate one with `npm run generate-secrets`."
+        "usable key. Two-factor authentication and every integration that " +
+        "stores a credential (Postmark, GroupMe, Joshua Project, WhatsApp) " +
+        "will fail until it is fixed. Generate one with `npm run generate-secrets`."
     );
   }
 
