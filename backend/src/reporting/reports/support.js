@@ -74,7 +74,6 @@ const supportSummary = {
     { key: "kind", label: "Type" },
     { key: "country", label: "Country" },
     { key: "monthly", label: "Monthly ($)", type: "currency" },
-    { key: "annual", label: "Annualized ($)", type: "currency" },
     { key: "since", label: "Current amount since", type: "date" },
   ],
   fetch: (params, { prisma }) => prisma.partner.findMany({ where: whereFor(params), select: partnerSelect }),
@@ -90,7 +89,6 @@ const supportSummary = {
         kind: p.kind,
         country: countryOf(p),
         monthly,
-        annual: monthly * 12,
         since: entry ? ymd(entry.effectiveDate) : null,
         _restricted: p.isRestricted,
       });

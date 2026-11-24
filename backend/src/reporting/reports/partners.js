@@ -237,7 +237,6 @@ const partnerRoster = {
     { key: "kind", label: "Type" },
     { key: "country", label: "Country" },
     { key: "since", label: "Supporting since", type: "date" },
-    { key: "years", label: "Years", type: "number" },
     { key: "sentByUs", label: "Sent by us" },
     { key: "monthly", label: "Committed ($/mo)", type: "currency" },
     { key: "status", label: "Status" },
