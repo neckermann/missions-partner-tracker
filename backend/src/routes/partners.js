@@ -3,6 +3,8 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { recordAudit, recordRestrictedView } = require("../utils/auditLog");
 const { latestOf, partnerLastUpdated, listFields } = require("../utils/lastUpdated");
+const { sendingChurchPartnerWhere, listSendingChurches } = require("../utils/sendingChurch");
+
 const { isFeatureEnabled } = require("../utils/features");
 const { requireAuth, requireRole, requirePartnerWriter } = require("../middleware/requireAuth");
 const { canReadPartner, readablePartnerIds } = require("../utils/guestAccess");
@@ -372,6 +374,17 @@ router.get("/reachable", async (req, res, next) => {
 // money (the current monthly support amount, and "supporting since").
 const { supportEntries: _s, supportingSince: _ss, ...guestSummarySelect } = partnerSummarySelect;
 
+// GET /api/partners/sending-churches -- the options for the "Sending church" filter
+// used on every list about partners (ours first, then each other church, with
+// counts). Staff only: a guest has no use for the list of every church.
+router.get("/sending-churches", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
+  try {
+    res.json(await listSendingChurches());
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/", requireRole("admin", "editor", "viewer", "guest"), async (req, res, next) => {
   try {
     const where = {};
@@ -395,6 +408,7 @@ router.get("/", requireRole("admin", "editor", "viewer", "guest"), async (req, r
         { fieldDisplayName: { contains: q, mode: "insensitive" } },
       ];
     }
+    Object.assign(where, sendingChurchPartnerWhere(req.query.sendingChurch) || {});
     if (req.query.country) {
       where.addresses = { some: { type: "physical", country: String(req.query.country) } };
     } else if (req.query.continent) {

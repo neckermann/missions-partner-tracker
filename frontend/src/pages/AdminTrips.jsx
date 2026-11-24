@@ -33,6 +33,7 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
+import useSendingChurchField from "../hooks/useSendingChurchField.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import LastUpdatedCell, { lastUpdatedSortKey } from "../components/shared/LastUpdatedCell.jsx";
 import AdminTripContributions from "./AdminTripContributions.jsx";
@@ -75,6 +76,7 @@ const STATUS_QUICK_FILTERS = [
 const emptyFilters = {
   status: "active",
   entityType: "all",
+  sendingChurch: "all",
   type: "all",
   year: "all",
   minSize: "",
@@ -103,11 +105,12 @@ function ExistingTripsTab() {
   const [tripDetail, setTripDetail] = useState(null);
 
   function reload() {
-    fetchTrips().then(setRecords).catch(console.error);
+    fetchTrips(filters.sendingChurch !== "all" ? { sendingChurch: filters.sendingChurch } : {})
+      .then(setRecords)
+      .catch(console.error);
   }
 
   useEffect(() => {
-    reload();
     fetchPartners().then(setPartners).catch(console.error);
   }, []);
 
@@ -141,12 +144,14 @@ function ExistingTripsTab() {
     [trips]
   );
 
+  const sendingChurchField = useSendingChurchField();
   const fields = useMemo(
     () => [
       // Rendered via `pills` below, not the field grid -- present here so
       // useFilterState knows about it for URL-sync/reset purposes.
       { name: "status" },
       PARTNER_TYPE_FILTER_FIELD,
+      ...(sendingChurchField ? [sendingChurchField] : []),
       {
         name: "type",
         label: "Trip Type",
@@ -165,13 +170,17 @@ function ExistingTripsTab() {
       { name: "minSize", label: "Min Team Size", type: "number" },
       { name: "maxSize", label: "Max Team Size", type: "number" },
     ],
-    [typeOptions, yearOptions]
+    [typeOptions, yearOptions, sendingChurchField]
   );
   const {
     values: filters,
     setValue: updateFilter,
     reset: resetFilters,
   } = useFilterState(fields, emptyFilters);
+
+  // Reload when the sending church changes (it narrows the request itself, unlike
+  // the filters the page applies to what it already has).
+  useEffect(reload, [filters.sendingChurch]);
   const {
     partnerId: filterPartnerId,
     partnerName: filterPartnerName,

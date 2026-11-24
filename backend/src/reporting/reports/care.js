@@ -1,7 +1,16 @@
 // Partner care: prayer requests, one-time needs, data completeness.
 const { z } = require("zod");
 const { latestOf, partnerLastUpdated } = require("../../utils/lastUpdated");
-const { optionalDay, flag, oneOf, ymd, KIND_VALUES } = require("../params");
+const {
+  optionalDay,
+  flag,
+  oneOf,
+  ymd,
+  KIND_VALUES,
+  sendingChurchParam,
+  sendingChurchField,
+} = require("../params");
+const { sendingChurchPartnerWhere } = require("../../utils/sendingChurch");
 const {
   prayerState,
   PRAYER_AGE_BUCKETS,
@@ -25,6 +34,7 @@ const prayerRequests = {
     bucket: oneOf(["all", ...PRAYER_AGE_BUCKETS], "all"),
     urgentOnly: flag(false),
     includeArchived: flag(false),
+    sendingChurch: sendingChurchParam,
   }),
   fields: [
     { name: "asOf", label: "As of", type: "date" },
@@ -56,6 +66,7 @@ const prayerRequests = {
       ],
     },
     { name: "urgentOnly", label: "Urgent only", type: "checkbox" },
+    sendingChurchField,
     { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
   ],
   columns: [
@@ -73,7 +84,10 @@ const prayerRequests = {
       where: {
         ...(params.category !== "all" ? { category: params.category } : {}),
         ...(params.urgentOnly ? { isUrgent: true } : {}),
-        partner: params.includeArchived ? {} : { archived: false },
+        partner: {
+          ...(params.includeArchived ? {} : { archived: false }),
+          ...(sendingChurchPartnerWhere(params.sendingChurch) || {}),
+        },
       },
       select: {
         category: true,
@@ -139,6 +153,7 @@ const needsPipeline = {
     to: optionalDay,
     decision: oneOf(["all", "pending", "approved", "partial", "declined"], "all"),
     includeArchived: flag(false),
+    sendingChurch: sendingChurchParam,
   }),
   fields: [
     { name: "from", label: "Requested from", type: "date" },
@@ -155,6 +170,7 @@ const needsPipeline = {
         { value: "declined", label: "Declined" },
       ],
     },
+    sendingChurchField,
     { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
   ],
   columns: [
@@ -178,7 +194,10 @@ const needsPipeline = {
               },
             }
           : {}),
-        partner: params.includeArchived ? {} : { archived: false },
+        partner: {
+          ...(params.includeArchived ? {} : { archived: false }),
+          ...(sendingChurchPartnerWhere(params.sendingChurch) || {}),
+        },
       },
       select: {
         description: true,
@@ -251,6 +270,7 @@ const dataCompleteness = {
   params: z.object({
     kind: oneOf(KIND_VALUES, "all"),
     includeArchived: flag(false),
+    sendingChurch: sendingChurchParam,
     onlyIncomplete: flag(true),
   }),
   fields: [
@@ -261,6 +281,7 @@ const dataCompleteness = {
       options: KIND_VALUES.map((v) => ({ value: v, label: v === "all" ? "All" : v })),
     },
     { name: "onlyIncomplete", label: "Only partners with gaps", type: "checkbox" },
+    sendingChurchField,
     { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
   ],
   columns: [
@@ -275,6 +296,7 @@ const dataCompleteness = {
       where: {
         ...(params.includeArchived ? {} : { archived: false }),
         ...(params.kind !== "all" ? { kind: params.kind } : {}),
+        ...(sendingChurchPartnerWhere(params.sendingChurch) || {}),
       },
       select: {
         displayName: true,

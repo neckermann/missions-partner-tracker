@@ -135,7 +135,7 @@ the list page itself.
 
 #### The Partners list
 
-Filter by Type (missionary/organization), Public (yes/no), Restricted
+Filter by Type (missionary/organization), **Sending church**, Public (yes/no), Restricted
 (yes/no), Continent, and Country — the continent/country dropdowns only
 show what's actually represented in your data, and picking a continent
 narrows the country list to match. There's also a free-text search box
@@ -149,10 +149,21 @@ defaults.
 Click **+ Add Missionary** or **+ Add Organization** to create one; click
 any row to view that partner's detail page. The list shows each partner's
 photo beside their name, and a **Flags** column that lists only what is out
-of the ordinary (Restricted, Not public, Sent by us); **Last updated** is the
-last change to the partner or anything on its page, and both columns sort.
+of the ordinary (Restricted, Not public, Sent by us). **Last updated** is the
+last change to the partner or anything on its page, and sorts; Flags doesn't, since a
+row can carry several at once. To find, say, everything we sent, use the
+**Sending church** filter instead.
 
-![The Partners list, filterable by type, public/restricted status, continent, and country](docs/assets/screenshots/admin-partners.png)
+**Sending church** is a filter on every list about partners or their records —
+Partners, Newsletters & Docs, Trips, Prayer Requests, One-Time Needs, Monthly Support, and
+the reports that list partners (Data completeness, Partner roster, Support summary, Last
+heard from, Mailing list, Prayer requests, One-time needs, and the rest). Its first option
+is **Sent by us** (our own church); after that it lists each other church that has sent a
+partner, with how many, matched without regard to capitalisation. Guests don't see it.
+
+![The Partners list filtered by Sending church: Sent by us](docs/assets/screenshots/partners-sending-church-filter.png)
+
+![The Partners list, filterable by type, sending church, public/restricted status, continent, and country](docs/assets/screenshots/admin-partners.png)
 
 #### Creating a missionary
 

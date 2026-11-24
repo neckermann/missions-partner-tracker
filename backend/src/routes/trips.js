@@ -9,6 +9,8 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { recordAudit } = require("../utils/auditLog");
 const { latestOf, tripLastUpdated, listFields } = require("../utils/lastUpdated");
+const { withSendingChurch } = require("../utils/sendingChurch");
+
 const {
   requireAuth,
   requireRole,
@@ -228,6 +230,7 @@ router.get("/", allowGuestPartnerList, async (req, res, next) => {
       where.partnerId = query.partnerId;
     }
     if (query.type) where.type = query.type;
+    withSendingChurch(where, req.query.sendingChurch);
     if (query.year) {
       where.startDate = {
         gte: new Date(Date.UTC(query.year, 0, 1)),

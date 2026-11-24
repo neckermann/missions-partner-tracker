@@ -1,6 +1,7 @@
 // Communication and intake: dispatch health and the trip application funnel.
 const { z } = require("zod");
-const { optionalDay, oneOf } = require("../params");
+const { optionalDay, oneOf, sendingChurchParam, sendingChurchField } = require("../params");
+const { withSendingChurch } = require("../../utils/sendingChurch");
 const { hoursBetween, average, daysBetween } = require("../definitions");
 
 const dispatchHealth = {
@@ -89,6 +90,7 @@ const applicationFunnel = {
   requiresFeature: "trips",
   params: z.object({
     status: oneOf(["active", "all", "planning", "accepting_applications", "closed", "completed"], "all"),
+    sendingChurch: sendingChurchParam,
   }),
   fields: [
     {
@@ -104,6 +106,7 @@ const applicationFunnel = {
         { value: "completed", label: "Completed" },
       ],
     },
+    sendingChurchField,
   ],
   columns: [
     { key: "trip", label: "Trip" },
@@ -117,12 +120,14 @@ const applicationFunnel = {
   ],
   fetch: (params, { prisma }) =>
     prisma.trip.findMany({
-      where:
+      where: withSendingChurch(
         params.status === "all"
           ? {}
           : params.status === "active"
             ? { status: { in: ["planning", "accepting_applications", "closed"] } }
             : { status: params.status },
+        params.sendingChurch
+      ),
       select: {
         name: true,
         startDate: true,

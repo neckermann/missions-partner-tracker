@@ -39,6 +39,28 @@ function ymd(value) {
   return new Date(value).toISOString().slice(0, 10);
 }
 
+// "Sending church" scope for any report about partners (or their records): "all",
+// "__ours__" (sent by our church), or a church name. Options for the filter come
+// from GET /api/partners/sending-churches, so the field is flagged to be filled in
+// by the page rather than listed here.
+const sendingChurchParam = z.preprocess(blankToUndefined, z.string().optional());
+const sendingChurchField = {
+  name: "sendingChurch",
+  label: "Sending church",
+  type: "select",
+  options: [{ value: "all", label: "All" }],
+  dynamicOptions: "sendingChurches",
+};
+
 const KIND_VALUES = ["all", "missionary", "organization"];
 
-module.exports = { optionalDay, flag, oneOf, positiveInt, ymd, KIND_VALUES };
+module.exports = {
+  optionalDay,
+  flag,
+  oneOf,
+  positiveInt,
+  ymd,
+  KIND_VALUES,
+  sendingChurchParam,
+  sendingChurchField,
+};

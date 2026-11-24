@@ -1,6 +1,7 @@
 // Trips: fundraising by trip/participant, and requirement readiness.
 const { z } = require("zod");
-const { flag, oneOf, ymd } = require("../params");
+const { flag, oneOf, ymd, sendingChurchParam, sendingChurchField } = require("../params");
+const { withSendingChurch } = require("../../utils/sendingChurch");
 const { fundraising, requirementApplies, requirementDone, sumAmounts } = require("../definitions");
 
 const STATUS_OPTIONS = [
@@ -13,10 +14,15 @@ const STATUS_OPTIONS = [
 ];
 const STATUS_VALUES = STATUS_OPTIONS.map((o) => o.value);
 
-function statusWhere(status) {
-  if (status === "all") return {};
-  if (status === "active") return { status: { in: ["planning", "accepting_applications", "closed"] } };
-  return { status };
+function statusWhere(status, sendingChurch) {
+  const where =
+    status === "all"
+      ? {}
+      : status === "active"
+        ? { status: { in: ["planning", "accepting_applications", "closed"] } }
+        : { status };
+  // A trip belongs to a partner, so the partner's sending church narrows it too.
+  return withSendingChurch(where, sendingChurch);
 }
 
 const personName = (p) => [p.firstName, p.lastName].filter(Boolean).join(" ") || "Unnamed";
@@ -28,9 +34,14 @@ const tripFundraising = {
   label: "Trip fundraising",
   question: "How far along is each trip and each participant toward their goal?",
   requiresFeature: "trips",
-  params: z.object({ status: oneOf(STATUS_VALUES, "active"), byParticipant: flag(false) }),
+  params: z.object({
+    status: oneOf(STATUS_VALUES, "active"),
+    byParticipant: flag(false),
+    sendingChurch: sendingChurchParam,
+  }),
   fields: [
     { name: "status", label: "Trip status", type: "select", options: STATUS_OPTIONS },
+    sendingChurchField,
     { name: "byParticipant", label: "One row per participant", type: "checkbox" },
   ],
   columns: [
@@ -44,7 +55,7 @@ const tripFundraising = {
   ],
   fetch: (params, { prisma }) =>
     prisma.trip.findMany({
-      where: statusWhere(params.status),
+      where: statusWhere(params.status, params.sendingChurch),
       select: {
         name: true,
         startDate: true,
@@ -107,9 +118,14 @@ const tripReadiness = {
   label: "Trip readiness",
   question: "Who is still missing a requirement before departure?",
   requiresFeature: "trips",
-  params: z.object({ status: oneOf(STATUS_VALUES, "active"), onlyOutstanding: flag(true) }),
+  params: z.object({
+    status: oneOf(STATUS_VALUES, "active"),
+    onlyOutstanding: flag(true),
+    sendingChurch: sendingChurchParam,
+  }),
   fields: [
     { name: "status", label: "Trip status", type: "select", options: STATUS_OPTIONS },
+    sendingChurchField,
     { name: "onlyOutstanding", label: "Only participants with open items", type: "checkbox" },
   ],
   columns: [
@@ -122,7 +138,7 @@ const tripReadiness = {
   ],
   fetch: (params, { prisma }) =>
     prisma.trip.findMany({
-      where: statusWhere(params.status),
+      where: statusWhere(params.status, params.sendingChurch),
       select: {
         name: true,
         startDate: true,

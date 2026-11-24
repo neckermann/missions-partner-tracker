@@ -1,7 +1,17 @@
 // Partner relationships and coverage: key dates, languages, where we serve,
 // roster, and how recently we've heard from each partner.
 const { z } = require("zod");
-const { optionalDay, flag, oneOf, positiveInt, ymd, KIND_VALUES } = require("../params");
+const {
+  optionalDay,
+  flag,
+  oneOf,
+  positiveInt,
+  ymd,
+  KIND_VALUES,
+  sendingChurchParam,
+  sendingChurchField,
+} = require("../params");
+const { sendingChurchPartnerWhere } = require("../../utils/sendingChurch");
 const { nextAnnual, daysBetween, monthlySupportAsOf } = require("../definitions");
 const { countryOf } = require("./support");
 const { isFeatureEnabled } = require("../../utils/features");
@@ -10,6 +20,7 @@ const kindOptions = KIND_VALUES.map((v) => ({ value: v, label: v === "all" ? "Al
 const baseWhere = (p) => ({
   ...(p.includeArchived ? {} : { archived: false }),
   ...(p.kind && p.kind !== "all" ? { kind: p.kind } : {}),
+  ...(sendingChurchPartnerWhere(p.sendingChurch) || {}),
 });
 const archivedField = { name: "includeArchived", label: "Include archived partners", type: "checkbox" };
 const kindField = { name: "kind", label: "Partner type", type: "select", options: kindOptions };
@@ -23,9 +34,15 @@ const keyDates = {
   params: z.object({
     days: positiveInt(30, 366),
     kind: oneOf(KIND_VALUES, "all"),
+    sendingChurch: sendingChurchParam,
     includeArchived: flag(false),
   }),
-  fields: [{ name: "days", label: "Look ahead (days)", type: "number" }, kindField, archivedField],
+  fields: [
+    { name: "days", label: "Look ahead (days)", type: "number" },
+    kindField,
+    sendingChurchField,
+    archivedField,
+  ],
   columns: [
     { key: "date", label: "Date", type: "date" },
     { key: "daysUntil", label: "In (days)", type: "number" },
@@ -83,8 +100,12 @@ const languageCoverage = {
   group: "coverage",
   label: "Language coverage",
   question: "Which languages do our partners speak, and who has none recorded?",
-  params: z.object({ kind: oneOf(KIND_VALUES, "all"), includeArchived: flag(false) }),
-  fields: [kindField, archivedField],
+  params: z.object({
+    kind: oneOf(KIND_VALUES, "all"),
+    sendingChurch: sendingChurchParam,
+    includeArchived: flag(false),
+  }),
+  fields: [kindField, sendingChurchField, archivedField],
   chart: { kind: "bar", label: "language", value: "partners", title: "Partners by language", limit: 10 },
   columns: [
     { key: "language", label: "Language" },
@@ -140,8 +161,13 @@ const whereWeServe = {
   label: "Where we serve",
   question: "Which countries are our partners in, and how much support goes where?",
   requiresFeature: null,
-  params: z.object({ asOf: optionalDay, kind: oneOf(KIND_VALUES, "all"), includeArchived: flag(false) }),
-  fields: [{ name: "asOf", label: "As of", type: "date" }, kindField, archivedField],
+  params: z.object({
+    asOf: optionalDay,
+    kind: oneOf(KIND_VALUES, "all"),
+    sendingChurch: sendingChurchParam,
+    includeArchived: flag(false),
+  }),
+  fields: [{ name: "asOf", label: "As of", type: "date" }, kindField, sendingChurchField, archivedField],
   chart: {
     kind: "bar",
     label: "country",
@@ -199,8 +225,13 @@ const partnerRoster = {
   group: "people",
   label: "Partner roster & tenure",
   question: "Who do we support, and for how long?",
-  params: z.object({ asOf: optionalDay, kind: oneOf(KIND_VALUES, "all"), includeArchived: flag(false) }),
-  fields: [{ name: "asOf", label: "As of", type: "date" }, kindField, archivedField],
+  params: z.object({
+    asOf: optionalDay,
+    kind: oneOf(KIND_VALUES, "all"),
+    sendingChurch: sendingChurchParam,
+    includeArchived: flag(false),
+  }),
+  fields: [{ name: "asOf", label: "As of", type: "date" }, kindField, sendingChurchField, archivedField],
   columns: [
     { key: "partnerName", label: "Partner" },
     { key: "kind", label: "Type" },
@@ -261,6 +292,7 @@ const lastHeardFrom = {
     staleDays: positiveInt(90, 3650),
     onlyStale: flag(true),
     kind: oneOf(KIND_VALUES, "all"),
+    sendingChurch: sendingChurchParam,
     includeArchived: flag(false),
   }),
   fields: [
@@ -370,6 +402,7 @@ const careTeamCoverage = {
   params: z.object({
     onlyGaps: flag(true),
     kind: oneOf(KIND_VALUES, "all"),
+    sendingChurch: sendingChurchParam,
     includeArchived: flag(false),
   }),
   fields: [

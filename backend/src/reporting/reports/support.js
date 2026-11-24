@@ -2,7 +2,16 @@
 // pledges (SupportEntry), so every number here is what the church has
 // COMMITTED, not gifts actually sent -- see reporting/definitions.js.
 const { z } = require("zod");
-const { optionalDay, flag, oneOf, ymd, KIND_VALUES } = require("../params");
+const {
+  optionalDay,
+  flag,
+  oneOf,
+  ymd,
+  KIND_VALUES,
+  sendingChurchParam,
+  sendingChurchField,
+} = require("../params");
+const { sendingChurchPartnerWhere } = require("../../utils/sendingChurch");
 const { monthlySupportAsOf, supportEntryAsOf, supportChange, toUtcDay } = require("../definitions");
 
 const partnerSelect = {
@@ -18,6 +27,7 @@ function whereFor(params) {
   const where = {};
   if (!params.includeArchived) where.archived = false;
   if (params.kind !== "all") where.kind = params.kind;
+  Object.assign(where, sendingChurchPartnerWhere(params.sendingChurch) || {});
   return where;
 }
 
@@ -29,6 +39,7 @@ function countryOf(partner) {
 
 const filterFields = [
   { name: "kind", label: "Partner type", type: "select", options: KIND_VALUES },
+  sendingChurchField,
   { name: "includeArchived", label: "Include archived partners", type: "checkbox" },
 ];
 
@@ -41,6 +52,7 @@ const supportSummary = {
   params: z.object({
     asOf: optionalDay,
     kind: oneOf(KIND_VALUES, "all"),
+    sendingChurch: sendingChurchParam,
     includeArchived: flag(false),
     includeZero: flag(false),
   }),
@@ -111,6 +123,7 @@ const supportChanges = {
     from: optionalDay,
     to: optionalDay,
     kind: oneOf(KIND_VALUES, "all"),
+    sendingChurch: sendingChurchParam,
     includeArchived: flag(false),
   }),
   fields: [

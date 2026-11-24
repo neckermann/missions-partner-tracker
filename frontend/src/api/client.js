@@ -54,6 +54,12 @@ export async function fetchPartners(params = {}) {
   return data;
 }
 
+// The options for the "Sending church" filter: ours first, then every other church.
+export async function fetchSendingChurches() {
+  const { data } = await api.get("/partners/sending-churches");
+  return data;
+}
+
 export async function fetchPartner(id) {
   const { data } = await api.get(`/partners/${id}`);
   return data;

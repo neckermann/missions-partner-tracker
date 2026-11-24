@@ -833,7 +833,16 @@ Only the row written directly is stamped, not rows touched by a nested write.
 **Excluded on purpose:** `AuditLog`, every `*Bytes` table, `ChurchSettingsLogo`,
 `TripAccess` (audited instead), `KeyDateReminder`, `PasswordSetupToken`,
 `NotificationSeen`, `UserFollowedPartner`, `PublicSubscriber*`, `InboundEmail*`,
-`TripMeetingRsvp`, `TripParticipantPhoto`, `WhatsAppAuthEntry`. **Master records read across their sections** (`utils/lastUpdated.js`): the
+`TripMeetingRsvp`, `TripParticipantPhoto`, `WhatsAppAuthEntry`. **Sending church filter** (`utils/sendingChurch.js`): one `sendingChurch` query
+parameter on every list about partners or their records (partners, partner files, trips,
+prayer requests, support needs, monthly support) and on every partner-level report
+(`sendingChurchParam`/`sendingChurchField` in `reporting/params.js`; the field is
+flagged `dynamicOptions: "sendingChurches"` and filled from
+`GET /api/partners/sending-churches`). `__ours__` means the `sentByOurChurch` flag;
+anything else matches a `SendingParty` (type `church`) name, case-insensitively; a
+partner sent by us is counted under ours, not under its own name. Staff only.
+
+**Master records read across their sections** (`utils/lastUpdated.js`): the
 partner and trip pages, the Partners and Trips list columns ("Last updated",
 sortable) and the Data completeness report show the latest change to the record
 *or any section on its page* (a partner's adults, children, addresses, furloughs,

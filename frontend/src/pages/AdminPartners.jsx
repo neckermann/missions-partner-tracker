@@ -16,6 +16,7 @@ import useFilterState from "../hooks/useFilterState.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import useSendingChurchField from "../hooks/useSendingChurchField.js";
 import LastUpdatedCell, { lastUpdatedSortKey } from "../components/shared/LastUpdatedCell.jsx";
 import AssignedPartnersTable from "../components/admin/AssignedPartnersTable.jsx";
 
@@ -59,6 +60,7 @@ function matchesLastVisitQuick(row, quick) {
 
 const emptyFilters = {
   entityType: "all",
+  sendingChurch: "all",
   isPublic: "all",
   restricted: "all",
   continent: "all",
@@ -115,9 +117,11 @@ export default function AdminPartners() {
     [allForOptions]
   );
 
+  const sendingChurchField = useSendingChurchField();
   const fields = useMemo(
     () => [
       PARTNER_TYPE_FILTER_FIELD,
+      ...(sendingChurchField ? [sendingChurchField] : []),
       {
         name: "isPublic",
         label: "Public",
@@ -169,7 +173,7 @@ export default function AdminPartners() {
       },
       { name: "search", label: "Search by name, field, focus, or summary" },
     ],
-    [availableContinents]
+    [availableContinents, sendingChurchField]
   );
   const {
     values: filters,
@@ -181,6 +185,7 @@ export default function AdminPartners() {
     setLoading(true);
     const params = {};
     if (filters.entityType !== "all") params.kind = filters.entityType;
+    if (filters.sendingChurch !== "all") params.sendingChurch = filters.sendingChurch;
     if (filters.isPublic !== "all") params.isPublic = filters.isPublic;
     if (filters.restricted !== "all") params.restricted = filters.restricted;
     if (filters.continent !== "all") params.continent = filters.continent;
@@ -195,6 +200,7 @@ export default function AdminPartners() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(reload, [
     filters.entityType,
+    filters.sendingChurch,
     filters.isPublic,
     filters.restricted,
     filters.continent,
@@ -437,10 +443,8 @@ export default function AdminPartners() {
                 label: "Flags",
                 // Only what is out of the ordinary (Restricted, not on the public site,
                 // sent by us), not three yes/no columns where "No" is the usual answer.
-                // Sorts restricted partners together, then non-public, then sent-by-us.
-                sortable: true,
-                sortBy: (row) =>
-                  (row.isRestricted ? 4 : 0) + (row.isPublic ? 0 : 2) + (isSentByUs(row) ? 1 : 0),
+                // Not sortable: a row can carry several flags at once, so a sort could
+                // not isolate one; the filters above do that.
                 render: (row) =>
                   row.isRestricted || !row.isPublic || isSentByUs(row) ? (
                     <span style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>

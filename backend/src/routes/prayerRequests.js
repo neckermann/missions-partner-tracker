@@ -1,4 +1,6 @@
 const express = require("express");
+const { withSendingChurch } = require("../utils/sendingChurch");
+
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole, allowGuestPartnerList } = require("../middleware/requireAuth");
@@ -105,6 +107,7 @@ router.get("/", allowGuestPartnerList, async (req, res, next) => {
       if (req.query.from) where.dateReceived.gte = new Date(String(req.query.from));
       if (req.query.to) where.dateReceived.lte = new Date(String(req.query.to));
     }
+    withSendingChurch(where, req.query.sendingChurch);
 
     const records = await prisma.prayerRequest.findMany({
       where,
