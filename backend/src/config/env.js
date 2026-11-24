@@ -81,6 +81,22 @@ function validateEnv(env = process.env) {
     );
   }
 
+  // Not fatal, same reasoning as FIELD_ENCRYPTION_KEY above -- this is the
+  // one env var every deploy sets automatically (Render, most PaaS
+  // platforms) but a self-hoster running their own server/container could
+  // easily never think to set at all. utils/jwt.js's setSessionCookie only
+  // marks the session cookie `secure` (HTTPS-only) when this is exactly
+  // "production" -- anything else (including unset) means the session
+  // cookie is sent over plain HTTP too, where it can be read by anyone on
+  // the same network path. #327 Finding 11.6.
+  if (env.NODE_ENV !== "production") {
+    warnings.push(
+      `NODE_ENV is "${env.NODE_ENV || "unset"}", not "production". If this is a real deployment ` +
+        "(not local development), set NODE_ENV=production -- otherwise the session cookie is not " +
+        "marked secure/HTTPS-only, and can be sent over plain HTTP."
+    );
+  }
+
   return { fatal, warnings };
 }
 

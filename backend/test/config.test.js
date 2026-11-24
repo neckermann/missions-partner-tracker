@@ -12,6 +12,7 @@ const valid = () => ({
   DATABASE_URL: "postgresql://user:pass@localhost:5432/db",
   SESSION_SECRET: GOOD_SECRET,
   FIELD_ENCRYPTION_KEY: GOOD_KEY,
+  NODE_ENV: "production",
 });
 
 const withSecret = (SESSION_SECRET) => ({ ...valid(), SESSION_SECRET });
@@ -84,6 +85,25 @@ describe("validateEnv", () => {
         assert.match(warnings[0], /two-factor/i, "says what actually breaks");
       });
     }
+  });
+
+  // #327 Finding 11.6 -- the session cookie is only marked secure/HTTPS-only
+  // when NODE_ENV is exactly "production" (utils/jwt.js). Not fatal: a local
+  // dev run is expected to hit this every time.
+  describe("NODE_ENV not production only warns", () => {
+    for (const value of [undefined, "", "development", "Production", "PRODUCTION"]) {
+      test(`"${value}" warns`, () => {
+        const { fatal, warnings } = validateEnv({ ...valid(), NODE_ENV: value });
+        assert.deepEqual(fatal, [], "must never block startup");
+        assert.equal(warnings.length, 1);
+        assert.match(warnings[0], /NODE_ENV/);
+        assert.match(warnings[0], /secure/i, "says what actually breaks");
+      });
+    }
+
+    test('exactly "production" has nothing to report', () => {
+      assert.deepEqual(validateEnv({ ...valid(), NODE_ENV: "production" }).warnings, []);
+    });
   });
 });
 
