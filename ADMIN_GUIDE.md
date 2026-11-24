@@ -55,7 +55,7 @@ This repo doesn't run a live deployment itself — it's the open-source
 upstream that your church's own fork deploys from (see
 [Upgrading a fork](#upgrading-a-fork) for how your copy keeps getting
 updates later). The deployment itself goes through
-[Render](https://render.com), via [`render.yaml`](../render.yaml) at the
+[Render](https://render.com), via [`render.yaml`](render.yaml) at the
 repo root — a Blueprint that provisions the web service and Postgres
 database (which also holds every uploaded photo, newsletter, and
 document — see [File storage](#file-storage) below, nothing extra to

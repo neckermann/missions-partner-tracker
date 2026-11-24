@@ -79,6 +79,9 @@ jobs:
         run: npx eslint . --quiet
       - name: Check formatting
         run: npx prettier --check .
+      # Every internal link and #anchor in the markdown, and the guide anchors the app links to.
+      - name: Check documentation links
+        run: npm run check:docs
 
   backend-tests:
     runs-on: ubuntu-latest

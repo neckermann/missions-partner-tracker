@@ -7,6 +7,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "check:docs": "node scripts/check-doc-links.js",
     "name-instance": "node scripts/name-instance.js",
     "test:db": "node scripts/test-db.js",
     "trigger-remote-reset": "node scripts/trigger-remote-reset.js"

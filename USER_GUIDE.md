@@ -952,7 +952,7 @@ needed:
   - **Highlight Color** — hover, focus, and active/selected states, e.g.
     a button on hover or the current nav item.
 
-  All three also flow into the [email digest](#digest-customization)'s
+  All three also flow into the [email digest](#email-dispatch-customization)'s
   Snapshot layout and its masthead/buttons, so the digest looks like the
   same product as the rest of the site, not a separately-styled email.
   **Reset to Default** clears all three colors and the font back to the
