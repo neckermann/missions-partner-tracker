@@ -208,6 +208,18 @@ the Zod validation in the relevant route, and the admin form together —
 grep for an existing similar field (e.g. `tripSeasonNotes`) to see the
 full path a field takes from database to admin UI to public display.
 
+Two rules for new models and lists (see
+[ARCHITECTURE.md § Cross-cutting pieces](ARCHITECTURE.md#cross-cutting-pieces-you-will-meet)):
+
+- **A new editable model needs the three `lastEditedById`,
+  `lastEditedByName` and `lastEditedAt` columns.** The Prisma extension
+  stamps them for you on every write in a signed-in request; without the
+  columns the record never shows "Last edited by".
+- **A new list about partners, or about things that belong to a partner,
+  takes the `sendingChurch` filter** (`withSendingChurch` in
+  `backend/src/utils/sendingChurch.js`, and the shared `FilterBar` field),
+  so "filter by church" works the same on every page.
+
 ## Database migrations
 
 Update `schema.prisma` first, then run

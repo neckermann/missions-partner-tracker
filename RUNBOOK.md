@@ -74,6 +74,14 @@ WhatsApp pairing itself needs no env var — it's QR-paired through the
 admin UI and stored in the database, same as every other per-instance
 integration (see [CONTRIBUTING.md § The one rule that matters most](CONTRIBUTING.md#the-one-rule-that-matters-most-keep-forks-upgradable)).
 
+## Background jobs
+
+The worker service runs the scheduled jobs, including the nightly **audit log
+prune** (it deletes entries older than the retention setting, 30, 60 or 90
+days). If the worker isn't running, the audit log keeps growing until it is;
+nothing breaks. The audit log is on by default and records sign-in IP
+addresses, which matters if you are asked what personal data the app keeps.
+
 ## Deploy / rollback
 
 See [WORKFLOW.md](WORKFLOW.md) for the normal path (push to

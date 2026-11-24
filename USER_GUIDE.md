@@ -522,7 +522,7 @@ each answering a different question:
 ![The Trips page's Existing Trips tab](docs/assets/screenshots/trip-history.png)
 
 - The **Existing Trips** tab is the filterable log of every trip — filter by status,
-  type, year, team size. It opens showing **Active (not completed)**
+  type, year, team size, and [**Sending church**](#the-partners-list) (the church that sent the trip's partner). A sortable **Last updated** column shows who last edited each trip, see [Who last edited a record](#who-last-edited-a-record). It opens showing **Active (not completed)**
   trips by default (planning, accepting applications, and closed-but-
   not-yet-happened all count as active) rather than every trip ever —
   switch the Status filter to **All statuses** or **Completed** to see
@@ -800,6 +800,8 @@ of report names. **Reports** opens a page of groups — **Money**,
 the reports under it as a plain question ("What monthly support has the
 church committed, and to whom?", "Who is still missing a requirement
 before departure?"). Click a question to open that report.
+
+Reports that list partners take the same **[Sending church](#the-partners-list)** filter as the Partners list, so you can narrow any of them to the partners we sent, or to one other church. Many also show **Last edited by** and **Last edited** columns; see [Who last edited a record](#who-last-edited-a-record).
 
 ![The Reports hub, grouped by question](docs/assets/screenshots/reports-hub.png)
 

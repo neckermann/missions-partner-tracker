@@ -15,6 +15,10 @@ organization partners.
   responses, signed policies, other correspondence, classified by a single
   kind field), a printable partner booklet export, and user management
   with role-based permissions.
+- **Caring for partners**: optional care teams (a lead and members per
+  partner, including church members who get a limited Guest login), a
+  contact log, key-date reminders for birthdays and anniversaries, and an
+  audit log of who did what. All are switched on under Enabled Features.
 - **White-labeling**: Branding and About Church screens control the
   church's name, logo, three independent brand colors plus a font choice,
   and the term it uses for its partners (e.g. "Go Team Partners" instead
@@ -32,8 +36,8 @@ organization partners.
   population, primary religion, percent evangelical, how reached the
   country is. Off by default; add a free API key and turn it on, no code
   changes.
-- **Auth**: email and password, with optional TOTP two-factor that an admin
-  can require per account. Deliberately no single sign-on — see
+- **Auth**: email and password, with TOTP two-factor that an admin can
+  require for everyone at once (a new install starts with it on). Deliberately no single sign-on — see
   [ADMIN_GUIDE.md § Authentication setup](ADMIN_GUIDE.md#authentication-setup)
   for why. Sessions are secured with an `httpOnly` cookie, never exposed to
   client-side JavaScript.
