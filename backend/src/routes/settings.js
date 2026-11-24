@@ -5,6 +5,8 @@ const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { matchesFileSignature } = require("../utils/fileSignature");
 const { FEATURES, FEATURE_KEYS } = require("../utils/features");
 const { encryptField } = require("../utils/crypto");
+const { isTwoFactorRequired } = require("../utils/twoFactor");
+const { isDemoDeployment } = require("../utils/demoMode");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 
 // #271 Finding: general/logo settings only now -- GroupMe, WhatsApp,
@@ -127,6 +129,9 @@ const settingsSchema = z.object({
   // opt-out of BackupReminder.jsx, distinct from that component's own
   // dismiss-for-30-days.
   backupReminderDisabled: z.boolean().optional(),
+  // Require two-factor for every account (#385); see the field's comment in schema.prisma.
+  // Turning it on has guards in PUT / below.
+  requireTwoFactor: z.boolean().optional(),
   // This church's own IANA timezone -- see the field's own comment in
   // schema.prisma for why this exists and what it drives. Validated
   // against the real, current list of valid zone names (the same list
@@ -247,6 +252,23 @@ router.get("/", async (req, res, next) => {
 router.put("/", requireRole("admin"), async (req, res, next) => {
   try {
     const { logo, ...data } = settingsSchema.partial().parse(req.body);
+    // Turning the two-factor requirement ON (#385). A save that merely resends it as already
+    // on is not a change and is left alone.
+    if (data.requireTwoFactor === true && !(await isTwoFactorRequired())) {
+      // A public demo shares its logins and can't enrol an authenticator: requiring it would
+      // lock every visitor out.
+      if (isDemoDeployment()) {
+        return res.status(400).json({ error: "Two-factor can't be required on the public demo" });
+      }
+      // The person turning it on must already have it, or the next request locks them out.
+      const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { mfaEnabled: true } });
+      if (!me?.mfaEnabled) {
+        return res.status(400).json({
+          error:
+            "Set up two-factor on your own account first (My account), so turning this on doesn't lock you out",
+        });
+      }
+    }
     // `logo` isn't a real column (see schema.prisma) — the only thing the
     // frontend ever sends it as is `null`, to clear an existing logo (a
     // set goes through POST /logo below instead). Anything else about it

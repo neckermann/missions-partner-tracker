@@ -95,6 +95,11 @@ provision) in one step:
    account, right in the browser. No shell access, no
    `DATABASE_URL`/`createAdmin.js` needed — the point of a one-click
    deploy is defeated if the very first login still requires a terminal.
+   A new install **requires two-factor from the start** (see
+   [Authentication setup](#authentication-setup)), so after creating the
+   account you sign in once and set up an authenticator app on your phone
+   (scan a QR code, confirm a code). You can turn the requirement off later
+   in Manage Users, but it's on by default.
 
 Costs about $13/mo on Render's cheapest paid tiers — free tier exists
 but isn't viable for anything long-lived (the web service sleeps after
@@ -267,13 +272,22 @@ A few things worth knowing operationally:
   stored integration credential (Postmark, GroupMe, Joshua Project,
   WhatsApp) in the database — see
   [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below.
-- MFA (TOTP) is opt-in and self-service for the 3 full roles, or an
-  admin can force it on a specific account. A Guest account always has
-  MFA required: it's turned on when the account is created (or an
-  existing account becomes a guest), the guest enrols from My Account
-  and can change their own password there, but cannot switch MFA off. If
-  a guest loses their authenticator, Manage Users' MFA reset clears it
-  and they enrol again at next sign-in. See
+- MFA (TOTP) is opt-in and self-service for every role, and an admin can
+  force it on a specific account. **One church-wide switch** requires it
+  of everyone instead: **Settings → Manage Users → Two-factor sign-in →
+  Require it for everyone**. While it's on, an account that hasn't set it
+  up is sent to enrolment at sign-in and gets no session until it does;
+  a session already open when you turn it on stops working at the next
+  request (the person signs in again and enrols); and nobody can switch
+  it off for themselves. Before turning it on, make sure the admins have
+  enrolled: the switch only works for an admin who has set up two-factor
+  on their own account, and it shows how many active accounts haven't
+  yet. If someone loses their authenticator, Manage Users' **Reset MFA**
+  clears it and they enrol again at next sign-in. It is on by default for
+  a new install (the first-run setup turns it on), off on an install that
+  predates it, can't be turned on for the public demo, and changes to it are in the
+  [Audit log](USER_GUIDE.md#audit-log-admin-only). No role is special:
+  a Guest is treated like everyone else. See
   [USER_GUIDE.md § Your account settings](USER_GUIDE.md#your-account-settings)
   for the user-facing flow.
 
@@ -445,7 +459,9 @@ provider:
 4. Visit your new site and go to `/setup` to create your first admin
    account right in the browser — or, if you'd rather do it from a
    shell with `DATABASE_URL` set, `node prisma/createAdmin.js
-   you@yourchurch.org "SomeStrongPassword!"` does the same thing.
+   you@yourchurch.org "SomeStrongPassword!"` does the same thing. (Only
+   `/setup` turns the church-wide two-factor requirement on for a new
+   install and walks you through enrolling; `createAdmin.js` leaves it off.)
 5. Use HTTPS everywhere in production — required for the session
    cookie's `Secure` flag to actually work, and just generally expected
    for a site handling admin logins.
@@ -567,8 +583,9 @@ login. In practice that means:
 - Deactivate promptly when someone leaves. Deactivating or deleting takes
   effect on their next request — sessions are re-checked against the
   database rather than trusted for their full lifetime.
-- Require two-factor for accounts that can write. A password alone is one
-  phishing email away from everything above.
+- Require two-factor, for everyone, with the church-wide switch in
+  Manage Users (see [Authentication setup](#authentication-setup)). A
+  password alone is one phishing email away from everything above.
 - Anyone who only needs what's public should use the public site, which
   runs every record through a masking serializer that hides restricted
   partners' names, photos and precise locations. They don't need an

@@ -17,6 +17,7 @@ const { DEFAULT_TRIP_REQUIREMENT_TEMPLATE } = require("../utils/defaultTripRequi
 const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
 const { recordAuditSafe } = require("../utils/auditLog");
+const { isTwoFactorRequired } = require("../utils/twoFactor");
 
 const router = express.Router();
 const MFA_PENDING_TTL = "5m";
@@ -98,7 +99,7 @@ router.post("/setup", async (req, res, next) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await prisma.user.create({
+    await prisma.user.create({
       data: {
         email: email.toLowerCase().trim(),
         passwordHash,
@@ -115,13 +116,23 @@ router.post("/setup", async (req, res, next) => {
     // not create, since this route only guarantees zero prior Users, not
     // zero prior ChurchSettings -- never overwrites an existing row's
     // template if one somehow already exists.
+    //
+    // A fresh install also starts with the church-wide two-factor requirement ON (#385): secure
+    // by default, and the first admin is the one person who can then decide to turn it off.
     await prisma.churchSettings.upsert({
       where: { id: "singleton" },
-      update: {},
-      create: { id: "singleton", tripRequirementTemplate: DEFAULT_TRIP_REQUIREMENT_TEMPLATE },
+      update: { requireTwoFactor: true },
+      create: {
+        id: "singleton",
+        tripRequirementTemplate: DEFAULT_TRIP_REQUIREMENT_TEMPLATE,
+        requireTwoFactor: true,
+      },
     });
 
-    res.status(201).json(await completeLogin(res, user, req));
+    // No session is handed out: with the requirement on, an account that hasn't enrolled can't
+    // use one. The first admin signs in with the password they just chose and is taken straight
+    // through enrolment (POST /login).
+    res.status(201).json({ ok: true, mfaSetupRequired: true });
   } catch (err) {
     next(err);
   }
@@ -168,7 +179,9 @@ router.post("/login", async (req, res, next) => {
     if (user.mfaEnabled) {
       return res.json({ mfaRequired: true, pendingToken: signMfaPendingToken(user) });
     }
-    if (user.mfaSetupRequired) {
+    // Not enrolled: sent to enrolment, with no session until they finish, when the church
+    // requires two-factor of everyone (#385) or an admin required it of this one account.
+    if (user.mfaSetupRequired || (await isTwoFactorRequired())) {
       return res.json({ mfaSetupRequired: true, setupToken: signMfaSetupToken(user) });
     }
 
@@ -239,7 +252,9 @@ router.get("/me", requireAuth, async (req, res, next) => {
     if (!user || !user.active) {
       return res.status(401).json({ error: "Invalid or expired session" });
     }
-    res.json({ user: await sanitizeUser(user) });
+    // twoFactorRequired: the church-wide requirement (#385), so My account can say it is
+    // required and hide the switch-off, and the admin toggle can show its state.
+    res.json({ user: { ...(await sanitizeUser(user)), twoFactorRequired: await isTwoFactorRequired() } });
   } catch (err) {
     next(err);
   }
@@ -311,7 +326,7 @@ router.post("/password-setup/validate", async (req, res, next) => {
     res.json({
       email: row.user.email,
       firstName: row.user.firstName || null,
-      mfaRequired: row.user.mfaSetupRequired,
+      mfaRequired: row.user.mfaSetupRequired || (await isTwoFactorRequired()),
     });
   } catch (err) {
     next(err);
@@ -344,7 +359,7 @@ router.post("/password-setup/complete", async (req, res, next) => {
     await recordAuditSafe(null, { action: "auth.password_set", actor: row.user, req });
     // Not signed in here on purpose: they sign in normally next, which also
     // runs the forced two-factor enrollment when it's required.
-    res.json({ ok: true, mfaRequired: row.user.mfaSetupRequired });
+    res.json({ ok: true, mfaRequired: row.user.mfaSetupRequired || (await isTwoFactorRequired()) });
   } catch (err) {
     next(err);
   }
@@ -465,16 +480,15 @@ router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) =
 // Requires the current password (not just an active session) so a hijacked
 // browser tab can't silently strip MFA off the account.
 //
-// #356: MFA is required for a guest (their account is created with
-// mfaSetupRequired), so unlike every other role a guest enrols and
-// re-enrols from "My account" but cannot switch it off -- an admin who
-// needs to clear a lost authenticator uses routes/users.js's admin-side
-// MFA reset (POST /api/users/:id/mfa/reset), after which the guest must
-// enrol again at next sign-in.
+// While the church requires two-factor of everyone (#385) nobody, whatever their role, can
+// switch it off here -- an admin who needs to clear a lost authenticator uses
+// routes/users.js's admin-side MFA reset (POST /api/users/:id/mfa/reset), after which the
+// person is taken through enrolment again at next sign-in.
 router.post("/mfa/disable", requireAuth, async (req, res, next) => {
   try {
-    if (req.user.role === "guest") {
-      return res.status(403).json({ error: "Two-factor authentication is required for guest accounts" });
+    // While the church requires two-factor, nobody can turn it off for themselves (#385).
+    if (await isTwoFactorRequired()) {
+      return res.status(403).json({ error: "Your church requires two-factor authentication" });
     }
     const { password } = req.body;
     if (!password) return res.status(400).json({ error: "Current password is required" });

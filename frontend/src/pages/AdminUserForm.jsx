@@ -74,8 +74,7 @@ export default function AdminUserForm() {
     setSubmitError("");
     try {
       const payload = { ...values };
-      // Only a guest takes trip access; MFA is always required for one, so
-      // the server ignores requireMfa for that role either way.
+      // Only a guest takes trip access.
       if (values.role !== "guest") delete payload.tripAccess;
       if (!careEnabled || values.role !== "guest" || values.careTeam.length === 0) delete payload.careTeam;
       if (!payload.password) delete payload.password;
@@ -211,12 +210,10 @@ export default function AdminUserForm() {
             <label>
               <input
                 type="checkbox"
-                checked={values.role === "guest" || values.requireMfa}
-                disabled={values.role === "guest"}
+                checked={values.requireMfa}
                 onChange={(e) => setValue("requireMfa", e.target.checked)}
               />
               Require two-factor authentication at first sign-in
-              {values.role === "guest" && " (always required for guests)"}
             </label>
           </div>
           <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>

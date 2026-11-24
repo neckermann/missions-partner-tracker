@@ -265,7 +265,6 @@ function EmailDispatchSection({ user, onChange }) {
 // view/edit toggle. Keeps its own try/catch-per-action error handling,
 // which already shows a plain-language message per action.
 function MfaSection({ user, onChange }) {
-  const isGuest = user.role === "guest";
   const [setupData, setSetupData] = useState(null); // { secret, qrCode }
   const [code, setCode] = useState("");
   const [disablePassword, setDisablePassword] = useState("");
@@ -334,10 +333,10 @@ function MfaSection({ user, onChange }) {
           <p style={{ color: "var(--muted)" }}>
             Your account requires a code from your authenticator app at login.
           </p>
-          {isGuest ? (
+          {user.twoFactorRequired ? (
             <p style={{ color: "var(--muted)" }}>
-              Two-factor authentication is required for guest accounts, so it can't be turned off here. If you
-              lose your authenticator app, ask an admin to reset it.
+              Your church requires two-factor authentication for everyone, so it can't be turned off here. If
+              you lose your authenticator app, ask an admin to reset it.
             </p>
           ) : (
             <form
@@ -410,9 +409,7 @@ function MfaSection({ user, onChange }) {
             <span className="status-pill">Disabled</span>
           </p>
           <p style={{ color: "var(--muted)" }}>
-            {isGuest
-              ? "Guest accounts need an extra step at login. Set it up with an authenticator app on your phone."
-              : "Add an extra step at login using an authenticator app on your phone."}
+            Add an extra step at login using an authenticator app on your phone.
           </p>
           <button className="btn" onClick={handleStartSetup} disabled={busy}>
             {busy ? "Starting..." : "Enable Two-Factor Authentication"}

@@ -298,7 +298,7 @@ describe("care team: users created or promoted with seats", () => {
     });
     assert.equal(res.status, 201);
     extraUsers.push(res.body.id);
-    assert.equal(res.body.mfaSetupRequired, true);
+    assert.equal(res.body.mfaSetupRequired, false);
     assert.equal(res.body.inactiveReason, null);
     assert.deepEqual(
       res.body.careTeamSeats.map((s) => s.partner.id),
@@ -347,7 +347,7 @@ describe("care team: users created or promoted with seats", () => {
     });
     assert.equal(ok.status, 200);
     assert.equal(ok.body.role, "guest");
-    assert.equal(ok.body.mfaSetupRequired, true);
+    assert.equal(ok.body.mfaSetupRequired, false);
     assert.equal(ok.body.inactiveReason, null);
     assert.deepEqual(
       ok.body.careTeamSeats.map((s) => s.partner.id),

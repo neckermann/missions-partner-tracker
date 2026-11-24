@@ -764,6 +764,7 @@ CREATE TABLE "ChurchSettings" (
     "enabledFeatures" JSONB NOT NULL DEFAULT '{}',
     "backupReminderDisabled" BOOLEAN NOT NULL DEFAULT false,
     "auditRetentionDays" INTEGER NOT NULL DEFAULT 90,
+    "requireTwoFactor" BOOLEAN NOT NULL DEFAULT false,
     "emailDispatchDayOfWeek" INTEGER,
     "emailDispatchDayOfMonth" INTEGER,
     "emailDispatchHour" INTEGER,

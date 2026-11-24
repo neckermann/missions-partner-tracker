@@ -183,6 +183,11 @@ export default function Login() {
   return (
     <div className="admin-shell" style={{ maxWidth: 400 }}>
       <h2>Team Login</h2>
+      {typeof location.state?.notice === "string" && (
+        <p role="status" style={{ color: "#555" }}>
+          {location.state.notice}
+        </p>
+      )}
 
       <form onSubmit={handleLocalLogin} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         <label>

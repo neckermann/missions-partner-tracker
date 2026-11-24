@@ -1987,6 +1987,14 @@ model ChurchSettings {
   // "last edited by" columns on records are a current-state fact and never do.
   auditRetentionDays Int @default(90)
 
+  // #385: require two-factor (TOTP) for every account, whatever its role. One church-wide
+  // switch instead of separate rules per account type. Enforced at sign-in (an account that
+  // hasn't enrolled is sent to enrolment and gets no session) and on every request (a session
+  // opened before the switch was turned on stops working until they enrol), and nobody can
+  // turn it off for themselves while it is on. Off by default: a church turns it on after
+  // its admins have enrolled (the toggle refuses unless the person turning it on has).
+  requireTwoFactor Boolean @default(false)
+
   // Schedule for the admin/public email dispatch's three cadence tiers --
   // biweekly/monthly/quarterly (weekly was retired along with the old
   // church-wide batch mechanism this replaced; see emailDispatchDelivery.js
