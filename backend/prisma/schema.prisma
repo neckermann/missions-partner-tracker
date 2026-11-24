@@ -341,14 +341,9 @@ model TripParticipant {
   firstName String?
   lastName  String?
 
-  role     String? // e.g. "Medical", "Construction", "Translator"
-  // #356: no longer set or shown anywhere -- who leads a trip is now whoever
-  // holds a TripAccess grant for it. Kept (not dropped) so the flags already
-  // recorded on past rosters aren't destroyed; safe to drop at the pre-1.0
-  // baseline squash if nobody wants that history.
-  isLeader Boolean @default(false) // tripFieldVisibility: intentionally admin-invisible -- deprecated roster flag, superseded by TripAccess grants
-  phone    String?
-  email    String?
+  role  String? // e.g. "Medical", "Construction", "Translator"
+  phone String?
+  email String?
 
   // Null for a backfilled or directly-admin-added participant; set when
   // created via application approval.

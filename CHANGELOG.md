@@ -29,7 +29,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 - The welcome email for a guest now says "guest access" and links a "Guest guide".
 
 ### Removed
-- The roster **Team Leader** checkbox on a trip participant (add-participant form and participant detail page) and the leader names under the Trips list's Team column. Who leads a trip is now whoever holds a guest grant for it. The `TripParticipant.isLeader` column is left in place with its data, but nothing in the app sets or reads it any more.
+- The roster **Team Leader** checkbox on a trip participant (add-participant form and participant detail page), the leader names under the Trips list's Team column, and the `TripParticipant.isLeader` column behind it (dropped by the same `prisma migrate deploy`; any flags already recorded on past rosters are discarded). Who leads a trip is now whoever holds a guest grant for it.
 
 ### Security
 - A Trip Leader scoped guest account could still read the full Pending Dispatches queue (`GET /api/dispatches/pending`) — the exact text about to go out for every partner/trip/prayer request/one-time need churchwide, unfiltered and not attached to any one trip. Excluded entirely, same `requireRole("admin", "editor", "viewer")` pattern as #329's inbound-email-queue fix (there's no sensible trip-scoped version of this queue). No database migration. (#350)

@@ -1015,14 +1015,13 @@ function buildTrips(participantNamePool) {
     const start = dateBetween(4, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + randInt(5, 12));
-    const participants = pickN(participantNamePool, randInt(2, 5)).map((name, idx) => {
+    const participants = pickN(participantNamePool, randInt(2, 5)).map((name) => {
       const [firstName, ...rest] = name.split(" ");
       const lastName = rest.join(" ") || null;
       return {
         firstName,
         lastName,
         role: pick(TRIP_ROLES),
-        isLeader: idx === 0,
         // Always populated now, not a coin flip -- a historical,
         // already-completed trip's team is exactly the kind of record
         // a real admin would have on file in full; "sometimes missing"
@@ -1540,7 +1539,6 @@ async function seedTripsDemo() {
       lastName: "Krishnan",
       email: "priya.krishnan@example.org",
       role: "Team Lead",
-      isLeader: true,
       supportRaisingGoal: 1200,
       shareToken: generateShareToken(),
       story: "I'm excited to serve this summer and would love your support!",
@@ -1964,7 +1962,6 @@ async function seedTripsDemo() {
           {
             firstName: "Marcus",
             lastName: "Thibodeaux",
-            isLeader: true,
             email: "marcus.t@example.org",
             supportRaisingGoal: 900,
             shareToken: generateShareToken(),
@@ -2300,7 +2297,6 @@ async function seedTripsDemo() {
       email: "rachel.nguyen@example.org",
       phone: fakePhone(),
       role: "Team Lead",
-      isLeader: true,
       dateOfBirth: dateYearsAgo(34, 10),
       ...fakeUsAddress(),
       ...fakeEmergencyContact("Nguyen"),

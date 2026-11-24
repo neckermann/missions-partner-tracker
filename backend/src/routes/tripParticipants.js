@@ -319,7 +319,6 @@ const adminParticipantUpdateSchema = z.object({
   email: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   role: z.string().optional().nullable(),
-  isLeader: z.boolean().optional(),
   supportRaisingGoal: z.coerce.number().int().optional().nullable(),
   // Address/emergency contact -- previously write-once (copied from the
   // originating TripApplication on approval, see the approval route

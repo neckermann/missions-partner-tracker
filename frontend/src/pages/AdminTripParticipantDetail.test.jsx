@@ -48,7 +48,6 @@ const PARTICIPANT = {
   email: "jamie@example.com",
   phone: "555-0100",
   role: "Construction",
-  isLeader: true,
 };
 
 const TRIP = {
