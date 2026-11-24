@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { createUser, fetchTrips } from "../api/client.js";
+import { createUser, fetchTrips, fetchReachablePartners } from "../api/client.js";
+import { useSettings } from "../context/SettingsContext.jsx";
 import Wizard from "../components/shared/Wizard.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import TripGrantPicker from "../components/admin/TripGrantPicker.jsx";
+import CareSeatPicker from "../components/admin/CareSeatPicker.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 
@@ -18,6 +20,8 @@ const initialValues = {
   requireMfa: false,
   // Guests only: [{ tripId, expiresAt }] -- see TripGrantPicker.
   tripAccess: [],
+  // Any role, when care teams are on: [{ partnerId }] -- see CareSeatPicker.
+  careTeam: [],
 };
 
 // Create only -- a dedicated page, same shape as AdminPartnerForm.jsx's
@@ -37,9 +41,17 @@ export default function AdminUserForm() {
   // the wizard opens as a guest already given that trip (#356).
   const [searchParams] = useSearchParams();
   const presetTripId = searchParams.get("tripId");
+  // ...and a partner's Care team panel links here with ?partnerId= so the
+  // wizard opens as a guest already on that partner's care team (#289).
+  const presetPartnerId = searchParams.get("partnerId");
+  const { enabledFeatures } = useSettings();
+  const careEnabled = !!enabledFeatures.careTeam;
   const startingValues = presetTripId
     ? { ...initialValues, role: "guest", tripAccess: [{ tripId: presetTripId, expiresAt: null }] }
-    : initialValues;
+    : presetPartnerId && careEnabled
+      ? { ...initialValues, role: "guest", careTeam: [{ partnerId: presetPartnerId }] }
+      : initialValues;
+  const [partners, setPartners] = useState([]);
   const [trips, setTrips] = useState([]);
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -50,6 +62,7 @@ export default function AdminUserForm() {
 
   useEffect(() => {
     fetchTrips().then(setTrips).catch(console.error);
+    fetchReachablePartners().then(setPartners).catch(console.error);
   }, []);
 
   function backToList(notice) {
@@ -64,6 +77,7 @@ export default function AdminUserForm() {
       // Only a guest takes trip access; MFA is always required for one, so
       // the server ignores requireMfa for that role either way.
       if (values.role !== "guest") delete payload.tripAccess;
+      if (!careEnabled || values.careTeam.length === 0) delete payload.careTeam;
       if (!payload.password) delete payload.password;
 
       const created = await createUser(payload);
@@ -91,9 +105,6 @@ export default function AdminUserForm() {
       label: "Basics",
       validate: (values) => {
         if (!values.email.trim()) return "Email is required.";
-        if (values.role === "guest" && values.tripAccess.length === 0) {
-          return "Choose at least one trip for this guest.";
-        }
         return null;
       },
       render: ({ values, setValue }) => (
@@ -143,10 +154,40 @@ export default function AdminUserForm() {
         </>
       ),
     },
+    ...(careEnabled
+      ? [
+          {
+            key: "care",
+            label: "Care team",
+            optional: true,
+            render: ({ values, setValue }) => (
+              <>
+                <p style={{ marginTop: 0, color: "#555" }}>
+                  Optional: which partners will this person keep in touch with? They'll join each partner's
+                  care team.
+                </p>
+                <CareSeatPicker
+                  partners={partners}
+                  value={values.careTeam}
+                  onChange={(next) => setValue("careTeam", next)}
+                />
+              </>
+            ),
+          },
+        ]
+      : []),
     {
       key: "access",
       label: "Account Setup",
       validate: (values) => {
+        // Checked on the last step so it sees everything: a guest reaches
+        // something only through a trip or a care team seat (#289).
+        const seats = careEnabled ? values.careTeam.length : 0;
+        if (values.role === "guest" && values.tripAccess.length === 0 && seats === 0) {
+          return careEnabled
+            ? "Choose at least one trip, or a partner whose care team this guest joins."
+            : "Choose at least one trip for this guest.";
+        }
         if (!values.sendWelcomeEmail && values.password && values.password.length < 8) {
           return "Password must be at least 8 characters.";
         }

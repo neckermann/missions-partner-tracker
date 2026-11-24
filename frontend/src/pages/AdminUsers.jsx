@@ -240,6 +240,12 @@ export default function AdminUsers() {
                   ` · ${g.active ? "until" : "ended"} ${formatUtcDate(g.effectiveExpiresAt)}`}
               </div>
             ))}
+          {u.careTeamSeats?.map((seat) => (
+            <div key={seat.id} style={{ fontSize: "0.75rem", color: "#888" }}>
+              Care team: {seat.partner.displayName}
+              {seat.isLead ? " (Lead)" : ""}
+            </div>
+          ))}
         </>
       ),
     },

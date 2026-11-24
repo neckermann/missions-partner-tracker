@@ -16,6 +16,12 @@ import { urgentSendDescription } from "../../utils/urgentSend.js";
 // redo) -- `mode="edit"` (the default) omits them, matching both callers'
 // existing startEdit()/submitEdit() scope boundary comment.
 //
+// `limited` (#289) is a care team member who isn't staff. They have what an
+// editor has for their partner except anything that sends right away: the
+// urgent and "approve now" controls are left out, because their dispatch is
+// always held for staff review instead. (The server ignores both from such a
+// login regardless -- this just doesn't offer them.)
+//
 // `partnerPicker`, when given, renders first -- only the consolidated
 // page's create form needs it (the embedded section already has a fixed
 // partnerId from its own props).
@@ -28,6 +34,7 @@ export default function PrayerRequestFormFields({
   canApproveNow,
   enabledFeatures,
   partnerPicker,
+  limited = false,
 }) {
   return (
     <div className="form-grid">
@@ -97,7 +104,7 @@ export default function PrayerRequestFormFields({
               Not tracking this one for a specific answer
             </label>
           </div>
-          {hasEnabledChannel && (
+          {!limited && hasEnabledChannel && (
             <div style={{ gridColumn: "1 / -1" }}>
               <div className="admin-checkbox-row">
                 <label>
@@ -114,7 +121,7 @@ export default function PrayerRequestFormFields({
               </p>
             </div>
           )}
-          {canApproveNow && (
+          {!limited && canApproveNow && (
             <div style={{ gridColumn: "1 / -1" }}>
               <div className="admin-checkbox-row">
                 <label>

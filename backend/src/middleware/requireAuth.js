@@ -1,7 +1,13 @@
 const jwt = require("jsonwebtoken");
 const { SESSION_COOKIE_NAME } = require("../utils/jwt");
 const prisma = require("../prismaClient");
-const { resolveGuestReach, canReadPartner, canReadTrip } = require("../utils/guestAccess");
+const {
+  resolveGuestReach,
+  canReadPartner,
+  canReadTrip,
+  canWriteTrip,
+  isOnCareTeamFor,
+} = require("../utils/guestAccess");
 
 function extractBearerToken(req) {
   const authHeader = req.headers.authorization || "";
@@ -126,8 +132,10 @@ async function requireAuth(req, res, next) {
       // Only ever set for a guest -- every route's scope check treats an
       // absent tripIds/partnerIds as "not a guest, no restriction" via
       // utils/guestAccess.js, never by inspecting these directly.
-      req.user.tripIds = guestReach.tripIds;
+      req.user.tripIds = guestReach.tripIds; // readable
+      req.user.grantedTripIds = guestReach.grantedTripIds; // writable
       req.user.partnerIds = guestReach.partnerIds;
+      req.user.careTeamPartnerIds = guestReach.careTeamPartnerIds;
     }
     next();
   } catch (err) {
@@ -228,7 +236,11 @@ function requireTripScope(resolveTripId) {
     try {
       const tripId =
         typeof resolveTripId === "function" ? await resolveTripId(req) : req.params[resolveTripId];
-      if (!canReadTrip(req.user, tripId)) {
+      // Reads may use any trip a guest can see; anything else needs an actual
+      // grant (a care team seat only ever gives view access to a trip).
+      const isRead = req.method === "GET" || req.method === "HEAD";
+      const allowed = isRead ? canReadTrip(req.user, tripId) : canWriteTrip(req.user, tripId);
+      if (!allowed) {
         return res.status(403).json({ error: "Insufficient permissions" });
       }
       next();
@@ -259,10 +271,70 @@ function requirePartnerQueryScope(req, res, next) {
   next();
 }
 
+// Like requirePartnerQueryScope, for the two lists a guest may browse across
+// every partner they reach (prayer requests, one-time needs): naming a
+// partner still has to be one they can read, but asking for none is allowed
+// -- the route then limits the rows to readablePartnerIds(req.user) instead
+// of refusing. A no-op for every other role.
+function allowGuestPartnerList(req, res, next) {
+  if (req.user.role !== "guest") return next();
+  const partnerId = req.query.partnerId ? String(req.query.partnerId) : null;
+  if (partnerId && !canReadPartner(req.user, partnerId)) {
+    return res.status(403).json({ error: "Insufficient permissions" });
+  }
+  next();
+}
+
+// A write on one partner's own data (#289): staff (admin/editor) as always, or
+// a login on THAT partner's care team -- whatever their role (a viewer or a
+// guest). It gives a care team member what an editor has for their own
+// partner, no more: it is only ever attached to the routes an editor can
+// already use, never to deletes (admin-only), creating partners, monthly
+// support, or recording a decision on a one-time need. Applied on top of
+// requireAuth, like requireRole.
+//
+// Which partner a request is about: `{ body: true }` reads body.partnerId (a
+// create), `{ param: "id" }` reads that route param as the partner id, and
+// `{ model: "adult" }` looks up the partner the addressed record belongs to.
+// If a non-staff request also names a different partnerId in its body (a
+// move), they must be on THAT team too -- you can't move a record to a
+// partner you don't look after.
+function requirePartnerWriter({ body = false, param = null, model = null } = {}) {
+  return async (req, res, next) => {
+    if (req.user.role === "admin" || req.user.role === "editor") return next();
+    try {
+      let partnerId = null;
+      if (body) partnerId = typeof req.body?.partnerId === "string" ? req.body.partnerId : null;
+      else if (param) partnerId = req.params[param];
+      else if (model) {
+        const row = await prisma[model].findUnique({
+          where: { id: req.params.id },
+          select: { partnerId: true },
+        });
+        if (!row) return res.status(404).json({ error: "Not found" });
+        partnerId = row.partnerId;
+      }
+      const destination = !body && typeof req.body?.partnerId === "string" ? req.body.partnerId : null;
+      const needed = [partnerId, destination].filter(Boolean);
+      if (needed.length === 0) return res.status(403).json({ error: "Insufficient permissions" });
+      for (const id of needed) {
+        if (!(await isOnCareTeamFor(req.user, id))) {
+          return res.status(403).json({ error: "Insufficient permissions" });
+        }
+      }
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
 module.exports = {
   requireAuth,
   requireRole,
   requireAuthOrMfaSetup,
   requireTripScope,
   requirePartnerQueryScope,
+  allowGuestPartnerList,
+  requirePartnerWriter,
 };

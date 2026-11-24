@@ -186,10 +186,15 @@ describe("Guest: trip scope", () => {
     assert.equal(res.status, 403);
   });
 
-  test("403s the cross-trip list, but their own partner-scoped query works", async () => {
+  test("the trips list holds only their granted trips, and planning stays closed", async () => {
     const guest = await guestClient();
     const bare = await guest("/api/trips");
-    assert.equal(bare.status, 403);
+    assert.equal(bare.status, 200);
+    assert.deepEqual(
+      bare.body.map((t) => t.id),
+      [tripA.id],
+      "not tripB, which they hold no grant for"
+    );
     const planning = await guest("/api/trips/planning");
     assert.equal(planning.status, 403);
     const scoped = await guest(`/api/trips?partnerId=${partnerA.id}`);
@@ -246,10 +251,31 @@ describe("Guest: partner scope", () => {
     assert.equal(blocked.status, 403);
   });
 
-  test("403s the partner directory list", async () => {
-    const guest = await guestClient();
-    const res = await guest("/api/partners");
-    assert.equal(res.status, 403);
+  // #289: the same directory as everyone, limited by the server to the
+  // partners they reach, with the one thing a guest never sees -- money --
+  // left out. The booklet's full dump stays closed.
+  test("the partner directory lists only their partners, with no monthly support", async () => {
+    await prisma.supportEntry.create({
+      data: { partnerId: partnerA.id, amount: 4242, effectiveDate: new Date("2026-01-01") },
+    });
+    try {
+      const guest = await guestClient();
+      const res = await guest("/api/partners");
+      assert.equal(res.status, 200);
+      assert.deepEqual(
+        res.body.map((p) => p.id),
+        [partnerA.id]
+      );
+      assert.equal("supportEntries" in res.body[0], false);
+      assert.equal("supportingSince" in res.body[0], false);
+      assert.ok(!JSON.stringify(res.body).includes("4242"));
+      assert.equal((await guest("/api/partners?include=full")).status, 403);
+      // staff still get the amount, unchanged
+      const staff = await admin("/api/partners");
+      assert.equal(staff.body.find((p) => p.id === partnerA.id).supportEntries[0].amount, 4242);
+    } finally {
+      await prisma.supportEntry.deleteMany({ where: { partnerId: partnerA.id } });
+    }
   });
 
   test("403s another partner's prayer requests even via query filter, allows their own", async () => {
@@ -258,8 +284,28 @@ describe("Guest: partner scope", () => {
     assert.equal(blocked.status, 403);
     const ok = await guest(`/api/prayer-requests?partnerId=${partnerA.id}`);
     assert.equal(ok.status, 200);
-    const unfiltered = await guest("/api/prayer-requests");
-    assert.equal(unfiltered.status, 403);
+  });
+
+  // #289: the consolidated list is open to a guest, limited by the server to
+  // the partners they reach -- never everyone's.
+  test("an unfiltered prayer request list holds only their partners' rows", async () => {
+    const mk = (partnerId, text) =>
+      prisma.prayerRequest.create({
+        data: { partnerId, category: "situational", requestText: text, dateReceived: new Date("2026-01-01") },
+      });
+    const mine = await mk(partnerA.id, "guest-list-mine");
+    const theirs = await mk(partnerB.id, "guest-list-theirs");
+    try {
+      const guest = await guestClient();
+      const res = await guest("/api/prayer-requests");
+      assert.equal(res.status, 200);
+      const ids = res.body.map((r) => r.id);
+      assert.ok(ids.includes(mine.id));
+      assert.ok(!ids.includes(theirs.id));
+      assert.ok(res.body.every((r) => r.partnerId === partnerA.id));
+    } finally {
+      await prisma.prayerRequest.deleteMany({ where: { id: { in: [mine.id, theirs.id] } } });
+    }
   });
 });
 
@@ -491,7 +537,7 @@ describe("Guest: password/MFA self-service", () => {
   });
 });
 
-describe("Guest: Monthly Support / One-Time Needs blocked, Newsletters & Docs allowed", () => {
+describe("Guest (trip grant): Monthly Support and One-Time Needs blocked, Newsletters & Docs allowed", () => {
   let fileA;
   let fileB;
 
@@ -543,12 +589,32 @@ describe("Guest: Monthly Support / One-Time Needs blocked, Newsletters & Docs al
     assert.equal(unfiltered.status, 403);
   });
 
-  test("403s One-Time Needs for their own linked partner, not just a mismatched one", async () => {
+  // #289: one-time needs are a care team view -- read in full, notes included,
+  // only for partners whose team the person is on (see careTeam.test.js). A
+  // trip leader's smaller scope (a trip grant) never includes them, and
+  // Monthly Support, above, stays closed entirely.
+  test("a trip leader can't read One-Time Needs, even for their own trip's partner", async () => {
     const guest = await guestClient();
-    const own = await guest(`/api/support-needs?partnerId=${partnerA.id}`);
-    assert.equal(own.status, 403);
-    const unfiltered = await guest("/api/support-needs");
-    assert.equal(unfiltered.status, 403);
+    assert.equal((await guest(`/api/support-needs?partnerId=${partnerA.id}`)).status, 403);
+    assert.equal((await guest(`/api/support-needs?partnerId=${partnerB.id}`)).status, 403);
+    // an unfiltered list is just empty, never someone else's rows
+    const list = await guest("/api/support-needs");
+    assert.equal(list.status, 200);
+    assert.deepEqual(list.body, []);
+  });
+
+  test("a guest holding only a trip grant can't write either", async () => {
+    const guest = await guestClient();
+    const prayer = await guest("/api/prayer-requests", {
+      method: "POST",
+      body: { partnerId: partnerA.id, category: "situational", requestText: "x", dateReceived: "2026-01-01" },
+    });
+    assert.equal(prayer.status, 403);
+    const need = await guest("/api/support-needs", {
+      method: "POST",
+      body: { partnerId: partnerA.id, description: "x", requestedAmount: 1, requestDate: "2026-01-01" },
+    });
+    assert.equal(need.status, 403);
   });
 
   test("reads Newsletters & Docs for their own linked partner, in full", async () => {
@@ -558,6 +624,15 @@ describe("Guest: Monthly Support / One-Time Needs blocked, Newsletters & Docs al
     assert.ok(ok.body.some((f) => f.id === fileA.id));
     const blocked = await guest(`/api/partner-files?partnerId=${partnerB.id}`);
     assert.equal(blocked.status, 403);
+  });
+
+  test("an unfiltered Newsletters & Docs list holds only their partners' files", async () => {
+    const guest = await guestClient();
+    const res = await guest("/api/partner-files");
+    assert.equal(res.status, 200);
+    const ids = res.body.map((f) => f.id);
+    assert.ok(ids.includes(fileA.id));
+    assert.ok(!ids.includes(fileB.id));
   });
 
   test("downloads their own linked partner's file, 403s another partner's by id", async () => {

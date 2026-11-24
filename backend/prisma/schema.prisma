@@ -137,6 +137,7 @@ model Partner {
   // Scoped-digest follows (#202) -- who's opted into updates for just
   // this partner, rather than every partner. Two sources, same shape.
   followedByUsers          UserFollowedPartner[]
+  careTeam                 CareTeamMember[]
   publicSubscriberPartners PublicSubscriberPartner[]
   adults                   Adult[]
   children                 Child[]
@@ -1291,6 +1292,16 @@ model DispatchRecord {
   dispatchReviewedById String?
   dispatchReviewedText String?   @db.Text
 
+  // #289: held until staff approve it, whether or not the partner is
+  // restricted. Set on a record made from a care team member's (non-staff)
+  // prayer request or need, so nothing a care team member enters is sent
+  // anywhere -- admin email, public email, GroupMe, WhatsApp, or the urgent
+  // path -- until an admin/editor reviews it in Pending Dispatches (the same
+  // review that already holds a restricted partner's content, and the same
+  // dispatchReviewedAt that releases it). false for every staff-made record,
+  // so staff behaviour is unchanged.
+  reviewRequired Boolean @default(false)
+
   // One stamp per email cadence tier, not one per audience -- a single
   // tier's send pass considers every User and PublicSubscriber on that
   // tier at once, so a row only needs one "did this tier's pass get to
@@ -1900,6 +1911,7 @@ model User {
   // means every partner this user's role can already see.
   allPartners       Boolean               @default(true)
   followedPartners  UserFollowedPartner[]
+  careTeamSeats     CareTeamMember[]
   notificationsSeen NotificationSeen[]
   savedReports      SavedReport[]
 
@@ -1978,6 +1990,32 @@ model UserFollowedPartner {
 
   @@id([userId, partnerId])
   @@index([partnerId])
+}
+
+// #289: a login's seat on one partner's care team -- the people at the
+// church who keep in touch with that partner. Any number of members, at
+// most ONE lead per partner (enforced in routes/careTeams.js inside a
+// transaction, and by the partial unique index added to the migration by
+// hand, which Prisma's schema language can't express). Everyone on a care
+// team gets the same notifications (later steps); being on one adds a
+// marker and an "Assigned to me" view, never extra visibility for a full
+// role. For a guest login a seat IS a grant: it reaches that partner (the
+// same way TripAccess reaches a trip's), and unlike a trip grant it never
+// expires -- an admin removes the member when they step down. Every member
+// must have a login (a guest if they're outside the team); there are no
+// account-less members. Gated by the `careTeam` feature; off = hidden and
+// ignored for access, data preserved.
+model CareTeamMember {
+  id        String   @id @default(uuid())
+  partnerId String
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isLead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([partnerId, userId])
+  @@index([userId])
 }
 
 // A public, no-login email subscription to prayer-request updates.

@@ -10,6 +10,8 @@ const {
   summarizeGrants,
   guestInactiveReason,
   parseOverrideExpiry,
+  isCareTeamEnabled,
+  deactivateGuestIfNoGrants,
 } = require("../utils/guestAccess");
 
 // Narrow-select, same discipline every other route's own getSettings()
@@ -42,7 +44,26 @@ const grantInput = z.object({
     .refine((v) => v == null || !Number.isNaN(parseOverrideExpiry(v).getTime()), "Invalid date"),
 });
 
-const GUEST_NEEDS_TRIP = "A guest account needs at least one trip to give it access to";
+const GUEST_NEEDS_ACCESS =
+  "A guest account needs at least one trip, or a partner whose care team it joins, to give it access to";
+
+async function allPartnersExist(partnerIds) {
+  const unique = [...new Set(partnerIds)];
+  const found = await prisma.partner.count({ where: { id: { in: unique } } });
+  return found === unique.length;
+}
+
+// Plain-member seats on partners' care teams, for a login created or
+// promoted with `careTeam`. Never touches an existing lead.
+async function addCareSeats(db, user, inputs) {
+  for (const { partnerId } of inputs) {
+    await db.careTeamMember.upsert({
+      where: { partnerId_userId: { partnerId, userId: user.id } },
+      update: {},
+      create: { partnerId, userId: user.id, isLead: false },
+    });
+  }
+}
 
 async function allTripsExist(tripIds) {
   const unique = [...new Set(tripIds)];
@@ -55,8 +76,12 @@ const createUserSchema = z.object({
   firstName: z.string().optional().nullable(),
   lastName: z.string().optional().nullable(),
   role: ROLE_ENUM.default("editor"),
-  // Required (at least one) when role is "guest"; ignored for the full roles.
+  // A guest needs at least one trip OR one care team seat; both are ignored
+  // for the full roles (any login can join a care team later, from the
+  // partner's page). Seats added here are plain members -- the lead is
+  // chosen from the partner's own care team.
   tripAccess: z.array(grantInput).optional(),
+  careTeam: z.array(z.object({ partnerId: z.string().min(1) })).optional(),
   // Every account is local now. The column stays (see the User model in
   // schema.prisma) because auth.js still refuses to password-authenticate
   // anything that isn't "local" -- cheap insurance against a passwordless
@@ -81,8 +106,10 @@ const updateUserSchema = z.object({
   lastName: z.string().optional().nullable(),
   role: ROLE_ENUM.optional(),
   // Only read when changing a non-guest into a guest (they need a first
-  // grant); manage grants afterward via /:id/trip-access.
+  // grant); manage grants afterward via /:id/trip-access, and care team
+  // seats from the partner's own page.
   tripAccess: z.array(grantInput).optional(),
+  careTeam: z.array(z.object({ partnerId: z.string().min(1) })).optional(),
   active: z.boolean().optional(),
   password: z.string().min(8).optional(), // admin resetting someone's password
   mfaSetupRequired: z.boolean().optional(), // forces MFA enrollment at next login
@@ -123,34 +150,38 @@ async function grantTripAccess(db, user, inputs) {
   }
 }
 
-// Removes grants. If that leaves a guest with none at all, deactivates the
-// login (not deletes) so an admin can still find it under the Inactive
-// filter, and ends any open session.
+// Removes trip grants. If that leaves a guest with no grant of any kind (no
+// trip, no care team seat), deactivates the login (not deletes) so an admin
+// can still find it under the Inactive filter, and ends any open session.
 async function revokeTripAccess(db, user, tripIds) {
   await db.tripAccess.deleteMany({ where: { userId: user.id, tripId: { in: tripIds } } });
-  if (user.role !== "guest") return false;
-  const remaining = await db.tripAccess.count({ where: { userId: user.id } });
-  if (remaining > 0 || !user.active) return false;
-  await db.user.update({
-    where: { id: user.id },
-    data: { active: false, sessionVersion: { increment: 1 } },
-  });
-  return true;
+  return deactivateGuestIfNoGrants(db, user);
 }
 
 // Grants are included (with each trip's end date) so the Users list can show
 // what a guest can reach, when it lapses, and whether the account is
 // effectively inactive -- all without a query per user.
-const userInclude = { tripAccess: { select: GRANT_SELECT, orderBy: { createdAt: "asc" } } };
+const userInclude = {
+  tripAccess: { select: GRANT_SELECT, orderBy: { createdAt: "asc" } },
+  careTeamSeats: {
+    select: { id: true, isLead: true, partner: { select: { id: true, displayName: true } } },
+    orderBy: { createdAt: "asc" },
+  },
+};
 
-function withAccess(user, now = new Date()) {
-  const { tripAccess, ...rest } = user;
+// `careEnabled`: seats only count (and are only shown) while the careTeam
+// feature is on -- the data is kept when it's off, but it's hidden and
+// ignored for access, so it must be ignored here too.
+function withAccess(user, now = new Date(), careEnabled = false) {
+  const { tripAccess, careTeamSeats, ...rest } = user;
   const grants = summarizeGrants(tripAccess || [], now);
+  const seats = careEnabled ? careTeamSeats || [] : [];
   return {
     ...sanitize(rest),
     tripAccess: grants,
+    careTeamSeats: seats,
     // null for a guest who can currently sign in, and for every other role.
-    inactiveReason: guestInactiveReason(user, grants),
+    inactiveReason: guestInactiveReason(user, grants, seats.length),
   };
 }
 
@@ -158,9 +189,12 @@ function withAccess(user, now = new Date()) {
 // clean up: guests that are deactivated, expired, or left with no grants.
 router.get("/", async (req, res, next) => {
   try {
-    const users = await prisma.user.findMany({ orderBy: { email: "asc" }, include: userInclude });
+    const [users, careEnabled] = await Promise.all([
+      prisma.user.findMany({ orderBy: { email: "asc" }, include: userInclude }),
+      isCareTeamEnabled(),
+    ]);
     const now = new Date();
-    let rows = users.map((u) => withAccess(u, now));
+    let rows = users.map((u) => withAccess(u, now, careEnabled));
     if (req.query.inactive === "true") rows = rows.filter((u) => u.inactiveReason);
     res.json(rows);
   } catch (err) {
@@ -193,7 +227,7 @@ router.get("/:id", async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.params.id }, include: userInclude });
     if (!user) return res.status(404).json({ error: "Not found" });
-    res.json(withAccess(user));
+    res.json(withAccess(user, new Date(), await isCareTeamEnabled()));
   } catch (err) {
     next(err);
   }
@@ -206,15 +240,28 @@ router.post("/", async (req, res, next) => {
       requireMfa: requireMfaRequested,
       password,
       tripAccess: grantInputs = [],
+      careTeam: careInputs = [],
       ...data
     } = createUserSchema.parse(req.body);
     const isGuest = data.role === "guest";
     // MFA is required for every guest (#356); for the full roles it stays
     // the admin's per-account choice.
     const requireMfa = isGuest ? true : requireMfaRequested;
+    // Seats need the feature on; otherwise they'd be created but ignored.
+    const careEnabled = await isCareTeamEnabled();
+    if (careInputs.length > 0 && !careEnabled) {
+      return res.status(400).json({ error: "Care teams are turned off" });
+    }
+    if (careInputs.length > 0 && !(await allPartnersExist(careInputs.map((c) => c.partnerId)))) {
+      return res.status(400).json({ error: "One or more of those partners couldn't be found" });
+    }
     if (isGuest) {
-      if (grantInputs.length === 0 || !(await allTripsExist(grantInputs.map((g) => g.tripId)))) {
-        return res.status(400).json({ error: GUEST_NEEDS_TRIP });
+      const tripsOk = grantInputs.length > 0 && (await allTripsExist(grantInputs.map((g) => g.tripId)));
+      if (!tripsOk && careInputs.length === 0) {
+        return res.status(400).json({ error: GUEST_NEEDS_ACCESS });
+      }
+      if (grantInputs.length > 0 && !tripsOk) {
+        return res.status(400).json({ error: GUEST_NEEDS_ACCESS });
       }
     }
     // With a welcome email the person chooses their own password, so the
@@ -243,9 +290,10 @@ router.post("/", async (req, res, next) => {
           mfaSetupRequired: requireMfa,
         },
       });
-      if (isGuest) {
-        await grantTripAccess(tx, user, grantInputs);
-      }
+      if (isGuest) await grantTripAccess(tx, user, grantInputs);
+      // Any role can hold a seat (a full role gets the marker and view, a
+      // guest gets reach), so this isn't guest-only.
+      await addCareSeats(tx, user, careInputs);
       return user;
     });
 
@@ -273,7 +321,7 @@ router.post("/", async (req, res, next) => {
       }
     }
     const withGrants = await prisma.user.findUnique({ where: { id: created.id }, include: userInclude });
-    res.status(201).json({ ...withAccess(withGrants), welcomeEmail });
+    res.status(201).json({ ...withAccess(withGrants, new Date(), careEnabled), welcomeEmail });
   } catch (err) {
     // The generic P2002 handler in middleware/errors.js says "That value is
     // already in use" -- technically correct, but an admin adding a user
@@ -415,7 +463,7 @@ router.delete("/:id/trip-access/:tripId", async (req, res, next) => {
 
 router.put("/:id", async (req, res, next) => {
   try {
-    const { password, tripAccess, ...data } = updateUserSchema.parse(req.body);
+    const { password, tripAccess, careTeam: careInputs = [], ...data } = updateUserSchema.parse(req.body);
 
     const becomingNonAdminOrInactive =
       (data.role !== undefined && data.role !== "admin") || data.active === false;
@@ -430,10 +478,23 @@ router.put("/:id", async (req, res, next) => {
     const becomingGuest = effectiveRole === "guest" && existing.role !== "guest";
     const leavingGuest = existing.role === "guest" && effectiveRole !== "guest";
     const grantInputs = tripAccess || [];
+    const careEnabled = await isCareTeamEnabled();
+    if (careInputs.length > 0 && !careEnabled) {
+      return res.status(400).json({ error: "Care teams are turned off" });
+    }
+    if (careInputs.length > 0 && !(await allPartnersExist(careInputs.map((c) => c.partnerId)))) {
+      return res.status(400).json({ error: "One or more of those partners couldn't be found" });
+    }
     if (becomingGuest) {
-      // Same rule as create: a guest with no grant can do nothing.
-      if (grantInputs.length === 0 || !(await allTripsExist(grantInputs.map((g) => g.tripId)))) {
-        return res.status(400).json({ error: GUEST_NEEDS_TRIP });
+      // Same rule as create: a guest with no grant can do nothing. They may
+      // already hold care team seats from before they were made a guest.
+      const existingSeats = await prisma.careTeamMember.count({ where: { userId: existing.id } });
+      const tripsOk = grantInputs.length > 0 && (await allTripsExist(grantInputs.map((g) => g.tripId)));
+      if (
+        (!tripsOk && careInputs.length === 0 && existingSeats === 0) ||
+        (grantInputs.length > 0 && !tripsOk)
+      ) {
+        return res.status(400).json({ error: GUEST_NEEDS_ACCESS });
       }
     }
 
@@ -458,6 +519,7 @@ router.put("/:id", async (req, res, next) => {
     const updated = await prisma.$transaction(async (tx) => {
       const user = await tx.user.update({ where: { id: req.params.id }, data: updateData });
       if (becomingGuest) await grantTripAccess(tx, user, grantInputs);
+      await addCareSeats(tx, user, careInputs);
       if (leavingGuest) {
         // Grants mean nothing off the guest role -- clear them so they can't
         // silently revive if this account is ever made a guest again.
@@ -473,7 +535,7 @@ router.put("/:id", async (req, res, next) => {
       return user;
     });
     const fresh = await prisma.user.findUnique({ where: { id: updated.id }, include: userInclude });
-    res.json(withAccess(fresh));
+    res.json(withAccess(fresh, new Date(), careEnabled));
   } catch (err) {
     next(err);
   }

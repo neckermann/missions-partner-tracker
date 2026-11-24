@@ -79,9 +79,14 @@ function summarizeGrants(rows, now = new Date()) {
 // Why a guest can currently do nothing, or null when they can. Computed,
 // not stored, so it can't go stale as trip dates move. Feeds the Users
 // list's "Inactive accounts" filter so an admin can reach out and clean up.
-function guestInactiveReason(user, grants) {
+// `seatCount` is the number of care team seats that currently count (the
+// caller passes 0 when the careTeam feature is off, since seats are ignored
+// then); a seat is a grant that never expires (#289), so it keeps a guest
+// signed-in-able even when every trip has lapsed.
+function guestInactiveReason(user, grants, seatCount = 0) {
   if (user.role !== "guest") return null;
   if (!user.active) return "deactivated";
+  if (seatCount > 0) return null;
   if (grants.length === 0) return "no_access";
   if (!grants.some((g) => g.active)) return "expired";
   return null;

@@ -220,72 +220,22 @@ function SidebarLink({ to, label, end, icon, badgeCount }) {
   );
 }
 
-// A guest (role: "guest") is a scoped login -- the trips and partners its
-// grants reach, "My account" for its own password/MFA (#356), and log out.
-// No settings gear, no partner/prayer/needs/trips nav items, no collapse
-// toggle (nothing here to need the extra room for).
-function GuestSidebar({ guestTrips, title }) {
-  const navigate = useNavigate();
-  // One link per partner even when several granted trips share it.
-  const partners = [];
-  for (const t of guestTrips) {
-    if (t.partnerId && !partners.some((p) => p.id === t.partnerId)) {
-      partners.push({ id: t.partnerId, label: t.partnerLabel || "Partner" });
-    }
-  }
-  return (
-    <aside className="admin-sidebar no-print">
-      <div className="admin-sidebar-title">
-        <h1
-          className="admin-sidebar-title-text"
-          title={title}
-          style={{ fontSize: "inherit", fontWeight: "inherit", margin: 0 }}
-        >
-          {title}
-        </h1>
-      </div>
-      <nav className="admin-sidebar-nav">
-        {guestTrips.map((trip) => (
-          <RouterNavLink
-            key={trip.id}
-            to={`/admin/trips/${trip.id}`}
-            className={({ isActive }) => (isActive ? "active" : undefined)}
-          >
-            <span aria-hidden="true">✈️</span>
-            <span className="sb-label">{trip.label}</span>
-          </RouterNavLink>
-        ))}
-        {partners.map((partner) => (
-          <RouterNavLink
-            key={partner.id}
-            to={`/admin/partners/${partner.id}`}
-            className={({ isActive }) => (isActive ? "active" : undefined)}
-          >
-            <span aria-hidden="true">👤</span>
-            <span className="sb-label">{partner.label}</span>
-          </RouterNavLink>
-        ))}
-        <SidebarLink to="/admin/account" label="My account" icon="🙋" />
-      </nav>
-      <div className="admin-sidebar-footer">
-        <button
-          type="button"
-          title="Log out"
-          onClick={async () => {
-            await logout();
-            navigate("/login");
-          }}
-        >
-          <span aria-hidden="true">🚪</span>
-          <span className="sb-label">Log out</span>
-        </button>
-      </div>
-    </aside>
-  );
-}
+// A guest (role: "guest") sees the same sidebar as everyone -- same header with
+// the bell and collapse button, same footer with My Account, Log out and the
+// theme toggle, and the same nav entries in the same order (#289). They just
+// get fewer of them: only the pages that are limited server-side to the
+// partners and trips they reach. No Home dashboard, Print Booklet, Reports,
+// Pending Dispatches, Unmatched Email or Settings.
+//
+// Two sizes, because the two kinds of guest have different scopes: a trip
+// leader (a trip grant) gets just Trips and the Partners page, which lists only
+// their trip's partner; a care team member also gets the list pages for the
+// partners they look after.
+const TRIP_GUEST_NAV_KEYS = new Set(["partners", "trips"]);
+const CARE_GUEST_NAV_KEYS = new Set(["partners", "partnerFiles", "prayerRequests", "oneTimeNeeds", "trips"]);
 
 export default function AdminSidebar() {
-  const { loading: userLoading, isAdmin, isGuest, guestTrips } = useCurrentUser();
+  const { loading: userLoading, isAdmin, isGuest, careTeamSeats } = useCurrentUser();
   const { categories, totalUnread, markSeen } = useNotifications();
   const categoryByKey = new Map(categories.map((c) => [c.key, c]));
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
@@ -314,15 +264,18 @@ export default function AdminSidebar() {
     );
   }
 
-  if (isGuest) return <GuestSidebar guestTrips={guestTrips} title={title} />;
-
-  const navItems = buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures).map((item) => {
-    const categoryKeys = NAV_BADGE_CATEGORIES[item.key];
-    const badgeCount = categoryKeys
-      ? categoryKeys.reduce((sum, key) => sum + (categoryByKey.get(key)?.count || 0), 0)
-      : undefined;
-    return badgeCount ? { ...item, badgeCount } : item;
-  });
+  const navItems = buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures)
+    .filter(
+      (item) =>
+        !isGuest || (careTeamSeats.length > 0 ? CARE_GUEST_NAV_KEYS : TRIP_GUEST_NAV_KEYS).has(item.key)
+    )
+    .map((item) => {
+      const categoryKeys = NAV_BADGE_CATEGORIES[item.key];
+      const badgeCount = categoryKeys
+        ? categoryKeys.reduce((sum, key) => sum + (categoryByKey.get(key)?.count || 0), 0)
+        : undefined;
+      return badgeCount ? { ...item, badgeCount } : item;
+    });
   const siteAdminLinks = buildSiteAdminLinks(enabledFeatures);
   const inSiteAdmin = location.pathname.startsWith("/admin/settings");
 
@@ -373,7 +326,7 @@ export default function AdminSidebar() {
         {navItems.map(({ key, ...item }) => (
           <SidebarLink key={key} {...item} />
         ))}
-        {isAdmin && (
+        {isAdmin && !isGuest && (
           <>
             <RouterNavLink
               to="/admin/settings"

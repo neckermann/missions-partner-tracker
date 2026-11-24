@@ -330,4 +330,70 @@ const lastHeardFrom = {
   },
 };
 
-module.exports = { reports: [keyDates, languageCoverage, whereWeServe, partnerRoster, lastHeardFrom] };
+// #289: which partners have no one at the church assigned to keep in touch.
+// Lives in the reporting hub (AGENTS.md) rather than as a bespoke page, and
+// only exists while the careTeam feature is on.
+const careTeamCoverage = {
+  id: "care-team-coverage",
+  group: "people",
+  label: "Care team coverage",
+  question: "Which partners have nobody assigned to keep in touch?",
+  requiresFeature: "careTeam",
+  params: z.object({
+    onlyGaps: flag(true),
+    kind: oneOf(KIND_VALUES, "all"),
+    includeArchived: flag(false),
+  }),
+  fields: [
+    { name: "onlyGaps", label: "Only partners needing attention", type: "checkbox" },
+    kindField,
+    archivedField,
+  ],
+  columns: [
+    { key: "partnerName", label: "Partner" },
+    { key: "status", label: "Status" },
+    { key: "lead", label: "Lead" },
+    { key: "members", label: "Members", type: "number" },
+  ],
+  fetch: (params, { prisma }) =>
+    prisma.partner.findMany({
+      where: baseWhere(params),
+      select: {
+        displayName: true,
+        isRestricted: true,
+        careTeam: {
+          select: { isLead: true, user: { select: { email: true, firstName: true, lastName: true } } },
+        },
+      },
+    }),
+  compute(partners, params) {
+    const name = (u) => [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email;
+    const rows = [];
+    for (const p of partners) {
+      const lead = p.careTeam.find((m) => m.isLead);
+      const members = p.careTeam.filter((m) => !m.isLead);
+      const status = p.careTeam.length === 0 ? "No care team" : lead ? "Covered" : "No lead";
+      if (params.onlyGaps && status === "Covered") continue;
+      rows.push({
+        partnerName: p.displayName,
+        status,
+        lead: lead ? name(lead.user) : "",
+        members: members.length,
+        _restricted: p.isRestricted,
+      });
+    }
+    rows.sort((a, b) => a.status.localeCompare(b.status) || a.partnerName.localeCompare(b.partnerName));
+    return {
+      rows,
+      summary: [
+        { label: "No care team", value: rows.filter((r) => r.status === "No care team").length },
+        { label: "No lead", value: rows.filter((r) => r.status === "No lead").length },
+      ],
+      notes: ["Counts members as the people on the team other than the lead."],
+    };
+  },
+};
+
+module.exports = {
+  reports: [keyDates, languageCoverage, whereWeServe, partnerRoster, lastHeardFrom, careTeamCoverage],
+};

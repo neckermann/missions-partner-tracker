@@ -150,6 +150,18 @@ const FEATURES = {
     group: "admin",
     section: "communications",
   },
+  // #289: a lead plus members per partner, who keep in touch with it.
+  // Terms ("Care team", "Lead", "Member", "Guest") are plain fixed
+  // defaults, not ChurchSettings fields, in v1. Off by default: nothing
+  // changes for a church that doesn't turn it on (one office contact, no
+  // care teams).
+  careTeam: {
+    label: "Care teams",
+    description:
+      "Give each partner a care team: one lead plus members from your logins who keep in touch with them. Guests can be given a partner this way. Also adds a coverage report of partners with no care team.",
+    defaultEnabled: false,
+    group: "admin",
+  },
   aiExtraction: {
     label: "AI Features",
     description:

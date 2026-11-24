@@ -42,7 +42,33 @@ export default function useCurrentUser() {
   const isGuest = user?.role === "guest";
   const guestTrips = isGuest ? (user?.guestTrips ?? []) : [];
   const guestTripIds = guestTrips.map((t) => t.id);
+  // Every trip a guest may open: their granted trips (editable) plus, via a
+  // care team seat, their partner's trips (view only).
+  const guestReadTripIds = isGuest ? (user?.guestReadTripIds ?? guestTripIds) : [];
   const canAccessTrip = (tripId) => isGuest && !!tripId && guestTripIds.includes(tripId);
 
-  return { user, loading, canWrite, isAdmin, isGuest, guestTrips, guestTripIds, canAccessTrip };
+  // Care team seats (#289), for every role: [{ id, label, isLead }] -- empty
+  // while the careTeam feature is off. Being on a partner's care team is what
+  // lets a non-staff login submit and edit that partner's prayer requests and
+  // one-time needs (everything they enter is held for staff review before it
+  // is dispatched) -- never decide a need, delete, or make anything public or
+  // urgent. Staff (canWrite) can do all of that for any partner.
+  const careTeamSeats = user?.careTeamSeats ?? [];
+  const isOnCareTeamFor = (partnerId) => !!partnerId && careTeamSeats.some((s) => s.id === partnerId);
+  const canSubmitFor = (partnerId) => canWrite || isOnCareTeamFor(partnerId);
+
+  return {
+    user,
+    loading,
+    canWrite,
+    isAdmin,
+    isGuest,
+    guestTrips,
+    guestTripIds,
+    guestReadTripIds,
+    canAccessTrip,
+    careTeamSeats,
+    isOnCareTeamFor,
+    canSubmitFor,
+  };
 }

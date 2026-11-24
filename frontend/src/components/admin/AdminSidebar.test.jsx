@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar.jsx";
@@ -23,12 +23,13 @@ vi.mock("../../hooks/useNotifications.js", () => ({
   default: () => ({ categories: [], totalUnread: 0, markSeen: vi.fn() }),
 }));
 
+let enabledFeatures = { trips: true, prayerRequests: true };
 vi.mock("../../context/SettingsContext.jsx", () => ({
   useSettings: () => ({
     churchName: "Test Church",
     partnerTermPlural: "Partners",
     usePartnerTermInAdmin: false,
-    enabledFeatures: { trips: true, prayerRequests: true },
+    enabledFeatures,
   }),
 }));
 
@@ -41,40 +42,71 @@ function renderSidebar() {
 }
 
 describe("AdminSidebar -- guest tier", () => {
-  it("renders a link per granted trip and partner, My account and Log out, but no Settings", () => {
-    currentUser = {
-      loading: false,
-      isAdmin: false,
-      isGuest: true,
-      guestTrips: [
-        { id: "trip-1", label: "Summer Build Trip", partnerId: "partner-1", partnerLabel: "Alpha Partner" },
-        { id: "trip-2", label: "Fall Medical Trip", partnerId: "partner-2", partnerLabel: "Beta Partner" },
-      ],
+  beforeEach(() => {
+    enabledFeatures = {
+      trips: true,
+      prayerRequests: true,
+      oneTimeNeeds: true,
+      partnerFiles: true,
+      booklet: true,
+      reports: true,
+      groupme: true,
     };
-    renderSidebar();
-
-    expect(screen.getByRole("link", { name: /Summer Build Trip/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Fall Medical Trip/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Alpha Partner/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Beta Partner/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /My account/i })).toHaveAttribute("href", "/admin/account");
-    expect(screen.queryByRole("link", { name: /Settings/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Log out/i })).toBeInTheDocument();
   });
 
-  it("shows a partner once even when two granted trips share it", () => {
+  it("a care team member gets the same list pages as everyone, minus the ones they can't use", () => {
     currentUser = {
       loading: false,
       isAdmin: false,
       isGuest: true,
-      guestTrips: [
-        { id: "trip-1", label: "Trip One", partnerId: "partner-1", partnerLabel: "Shared Partner" },
-        { id: "trip-2", label: "Trip Two", partnerId: "partner-1", partnerLabel: "Shared Partner" },
-      ],
+      guestTrips: [],
+      careTeamSeats: [{ id: "p1", label: "P" }],
     };
     renderSidebar();
 
-    expect(screen.getAllByRole("link", { name: /Shared Partner/i })).toHaveLength(1);
+    for (const name of ["Partners", "Newsletters & Docs", "Prayer Requests", "One-Time Needs", "Trips"]) {
+      expect(screen.getByRole("link", { name: new RegExp(name, "i") })).toBeInTheDocument();
+    }
+    for (const name of ["Home", "Print Booklet", "Reports", "Pending Dispatches", "Settings"]) {
+      expect(screen.queryByRole("link", { name: new RegExp(name, "i") })).not.toBeInTheDocument();
+    }
+  });
+
+  it("a trip leader's smaller scope gets just Trips and Partners", () => {
+    currentUser = { loading: false, isAdmin: false, isGuest: true, guestTrips: [], careTeamSeats: [] };
+    renderSidebar();
+
+    expect(screen.getByRole("link", { name: /Partners/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Trips/i })).toBeInTheDocument();
+    for (const name of ["Newsletters & Docs", "Prayer Requests", "One-Time Needs", "Reports", "Home"]) {
+      expect(screen.queryByRole("link", { name: new RegExp(name, "i") })).not.toBeInTheDocument();
+    }
+  });
+
+  it("has the same header and footer as everyone: collapse button, My Account, Log out and the theme toggle", () => {
+    currentUser = { loading: false, isAdmin: false, isGuest: true, guestTrips: [], careTeamSeats: [] };
+    renderSidebar();
+
+    expect(screen.getByTitle("Collapse sidebar")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /My Account/ })).toHaveAttribute("href", "/admin/account");
+    expect(screen.getByRole("button", { name: /Log out/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dark" })).toBeInTheDocument();
+  });
+
+  it("still honours the church's feature flags", () => {
+    enabledFeatures = { prayerRequests: true };
+    currentUser = {
+      loading: false,
+      isAdmin: false,
+      isGuest: true,
+      guestTrips: [],
+      careTeamSeats: [{ id: "p1", label: "P" }],
+    };
+    renderSidebar();
+
+    expect(screen.getByRole("link", { name: /Prayer Requests/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /One-Time Needs/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Trips/i })).not.toBeInTheDocument();
   });
 
   it("still shows My Account for a full role (admin)", () => {
@@ -82,5 +114,6 @@ describe("AdminSidebar -- guest tier", () => {
     renderSidebar();
 
     expect(screen.getByRole("link", { name: /My Account/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Home/i })).toBeInTheDocument();
   });
 });

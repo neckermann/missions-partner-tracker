@@ -9,6 +9,8 @@ import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import { TripGuestsPanel } from "../components/admin/GuestAccessPanels.jsx";
+import CareTeamPanel from "../components/admin/CareTeamPanel.jsx";
+import { useSettings } from "../context/SettingsContext.jsx";
 
 // Confirmed Team + the recruiting pipeline that feeds it (Applications,
 // the private link, and this trip's own application questions) --
@@ -23,6 +25,7 @@ export default function AdminTripTeam() {
   const { trip, setTrip, applications, reload, questionLibrary, confirmDialog, navigate, id, canWrite } =
     useOutletContext();
   const { isGuest, isAdmin } = useCurrentUser();
+  const { enabledFeatures } = useSettings();
   const [error, setError] = useState("");
   const [showDeclined, setShowDeclined] = useState(false);
   const [showAddParticipant, setShowAddParticipant] = useState(false);
@@ -202,6 +205,14 @@ export default function AdminTripTeam() {
           </div>
         )}
       </div>
+
+      {/* The same care team the partner's own page shows, here because the
+          people who keep in touch with this trip's partner are usually the
+          ones planning the trip (#289). Anyone who can see the trip sees it;
+          admin/editor can assign it. */}
+      {enabledFeatures.careTeam && trip.partner?.id && (
+        <CareTeamPanel partnerId={trip.partner.id} canEdit={canWrite && !isGuest} canInviteGuest={isAdmin} />
+      )}
 
       {isAdmin && (
         <div className="admin-section">

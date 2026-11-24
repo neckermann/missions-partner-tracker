@@ -14,7 +14,7 @@ const { findValidSetupToken, hashToken } = require("../utils/passwordSetup");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
 const { isFeatureEnabled } = require("../utils/features");
 const { DEFAULT_TRIP_REQUIREMENT_TEMPLATE } = require("../utils/defaultTripRequirementTemplate");
-const { listTripGrants } = require("../utils/guestAccess");
+const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
 
 const router = express.Router();
 const MFA_PENDING_TTL = "5m";
@@ -688,6 +688,12 @@ async function sanitizeUser(user) {
   // sidebar used to show the field alias while the partner page it links
   // to shows the real name, so the link and its destination disagreed.
   let guestTrips = [];
+  // The partners this login is on the care team of (#289) -- [{ id, label,
+  // isLead }] -- for every role: a full role gets the marker and the
+  // "Assigned to me" view, a guest also reaches the partner through it, and
+  // any non-staff member may submit prayers/needs for it. Empty while the
+  // careTeam feature is off, since seats are ignored then.
+  let careTeamSeats = [];
   if (user.role === "guest") {
     const grants = (await listTripGrants(user.id)).filter((g) => g.active);
     const partners = await prisma.partner.findMany({
@@ -707,6 +713,34 @@ async function sanitizeUser(user) {
       };
     });
   }
+  if (await isCareTeamEnabled()) {
+    const seats = await prisma.careTeamMember.findMany({
+      where: { userId: user.id },
+      select: { isLead: true, partner: { select: { id: true, displayName: true, fieldDisplayName: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+    careTeamSeats = seats.map((s) => ({
+      id: s.partner.id,
+      label: s.partner.displayName || s.partner.fieldDisplayName || "Partner",
+      isLead: s.isLead,
+    }));
+  }
+  // Every trip a guest may OPEN: the ones they hold a grant for (read and
+  // write) plus, through a care team seat, every trip of that partner (read
+  // only, #289). The frontend's route guard uses this so a guest is only ever
+  // sent to pages the server will actually show them.
+  let guestReadTripIds = [];
+  if (user.role === "guest") {
+    const ids = new Set(guestTrips.map((t) => t.id));
+    if (careTeamSeats.length > 0) {
+      const viaSeats = await prisma.trip.findMany({
+        where: { partnerId: { in: careTeamSeats.map((s) => s.id) } },
+        select: { id: true },
+      });
+      viaSeats.forEach((t) => ids.add(t.id));
+    }
+    guestReadTripIds = [...ids];
+  }
   return {
     id: user.id,
     email: user.email,
@@ -719,6 +753,8 @@ async function sanitizeUser(user) {
     allPartners: user.allPartners,
     followedPartnerIds: partnerIds,
     guestTrips,
+    guestReadTripIds,
+    careTeamSeats,
   };
 }
 

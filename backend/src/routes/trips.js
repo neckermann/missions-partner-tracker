@@ -11,7 +11,7 @@ const {
   requireAuth,
   requireRole,
   requireTripScope,
-  requirePartnerQueryScope,
+  allowGuestPartnerList,
 } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { generateShareToken } = require("../utils/tripAccessToken");
@@ -207,7 +207,7 @@ function annotateTripFlags(trip) {
 // partner-scoped check the other Partner sub-resources use, not an
 // outright role block (that would also 403 their one legitimate use of
 // this route).
-router.get("/", requirePartnerQueryScope, async (req, res, next) => {
+router.get("/", allowGuestPartnerList, async (req, res, next) => {
   try {
     const query = tripQuerySchema.parse(req.query);
     const where = {};

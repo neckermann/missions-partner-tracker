@@ -31,6 +31,8 @@ function renderAt(initialPath) {
           { path: "account", element: <div>Account Settings Page</div> },
           { path: "trips/:id", element: <div>Trip Page</div> },
           { path: "partners/:id", element: <div>Partner Page</div> },
+          { path: "partners", element: <div>Partner Page</div> },
+          { path: "prayer-requests", element: <div>Prayer List</div> },
         ],
       },
     ],
@@ -40,7 +42,13 @@ function renderAt(initialPath) {
   return router;
 }
 
-const guest = (tripIds) => ({ isGuest: true, guestTripIds: tripIds, loading: false });
+const guest = (tripIds, { readIds = tripIds, seats = [] } = {}) => ({
+  isGuest: true,
+  guestTripIds: tripIds,
+  guestReadTripIds: readIds,
+  careTeamSeats: seats,
+  loading: false,
+});
 
 describe("AdminLayout -- guest route guard", () => {
   it("allows a guest onto their own My account page", async () => {
@@ -70,6 +78,34 @@ describe("AdminLayout -- guest route guard", () => {
     renderAt("/admin/partners/partner-1");
 
     expect(await screen.findByText("Partner Page")).toBeInTheDocument();
+  });
+
+  it("lets a care team member open (read-only) a trip of their partner they weren't granted", async () => {
+    currentUser = guest([], { readIds: ["trip-7"], seats: [{ id: "p1", label: "P" }] });
+    renderAt("/admin/trips/trip-7");
+
+    expect(await screen.findByText("Trip Page")).toBeInTheDocument();
+  });
+
+  it("sends a seat-only guest who strays to their partners, not to sign in", async () => {
+    currentUser = guest([], { readIds: ["trip-7"], seats: [{ id: "p1", label: "P" }] });
+    const router = renderAt("/admin/trips/trip-9");
+
+    await screen.findByText("Partner Page").catch(() => {});
+    expect(router.state.location.pathname).toBe("/admin/partners");
+  });
+
+  it("lets a care team member open the prayer requests list, but not a trip leader", async () => {
+    currentUser = guest(["trip-1"], { seats: [{ id: "p1", label: "P" }] });
+    renderAt("/admin/prayer-requests");
+    expect(await screen.findByText("Prayer List")).toBeInTheDocument();
+  });
+
+  it("keeps a trip leader off the care-team list pages", async () => {
+    currentUser = guest(["trip-1"]);
+    const router = renderAt("/admin/prayer-requests");
+    await screen.findByText("Trip Page");
+    expect(router.state.location.pathname).toBe("/admin/trips/trip-1");
   });
 
   it("sends a guest with no active trip to the login page", async () => {

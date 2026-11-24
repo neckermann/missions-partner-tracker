@@ -1,7 +1,12 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
-const { requireAuth, requireRole, requirePartnerQueryScope } = require("../middleware/requireAuth");
+const {
+  requireAuth,
+  requireRole,
+  requirePartnerQueryScope,
+  requirePartnerWriter,
+} = require("../middleware/requireAuth");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 const { PROFICIENCY_LEVELS } = require("./proficiencyLevels");
 
@@ -39,7 +44,7 @@ router.get("/", requirePartnerQueryScope, async (req, res, next) => {
 });
 
 // POST /api/partner-languages  (create — editor or admin)
-router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
+router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) => {
   try {
     const data = partnerLanguageSchema.parse(req.body);
     const created = await prisma.partnerLanguage.create({ data, include: partnerLanguageInclude });
@@ -52,7 +57,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
 // PUT /api/partner-languages/:id  (update — editor or admin) -- mainly for
 // updating just the proficiency level as someone's field language
 // improves, without touching the language itself.
-router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
+router.put("/:id", requirePartnerWriter({ model: "partnerLanguage" }), async (req, res, next) => {
   try {
     const data = partnerLanguageSchema.partial().parse(req.body);
     const updated = await prisma.partnerLanguage.update({

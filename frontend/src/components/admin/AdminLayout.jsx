@@ -11,7 +11,7 @@ import useCurrentUser from "../../hooks/useCurrentUser.js";
 // across navigation instead of being re-declared per page.
 export default function AdminLayout() {
   const location = useLocation();
-  const { isGuest, guestTripIds, loading } = useCurrentUser();
+  const { isGuest, guestTripIds, guestReadTripIds, careTeamSeats, loading } = useCurrentUser();
 
   // Guest (role: "guest") is a scoped login -- the subtree of each trip
   // it was granted, a read-only look at those trips' partners (Partner
@@ -24,8 +24,19 @@ export default function AdminLayout() {
   // keeps a guest from seeing a flash of the wrong page first.
   if (!loading && isGuest) {
     const allowed =
-      guestTripIds.some((id) => location.pathname.startsWith(`/admin/trips/${id}`)) ||
+      // Every trip the guest may open: those they were granted, and -- read
+      // only -- their care team partner's trips.
+      guestReadTripIds.some((id) => location.pathname.startsWith(`/admin/trips/${id}`)) ||
       location.pathname.startsWith("/admin/partners/") ||
+      // The Partners and Trips lists every role has, each limited by the server
+      // to what the guest reaches (#289)...
+      ["/admin/partners", "/admin/trips"].includes(location.pathname) ||
+      // ...and the other list pages only for a care team member -- a trip
+      // leader's scope is smaller.
+      (careTeamSeats.length > 0 &&
+        ["/admin/partner-files", "/admin/prayer-requests", "/admin/support/needs"].includes(
+          location.pathname
+        )) ||
       location.pathname === "/admin/account";
     if (!allowed) {
       // Carries a reason so the landing page can surface a real, visible
@@ -34,14 +45,12 @@ export default function AdminLayout() {
       // despite every page deliberately not rendering one to a place this
       // role can't go (see TripDetailLayout.jsx's and
       // AdminTripParticipantDetail.jsx's own trimmed breadcrumbs).
+      // Back to their own first trip (with a visible reason); a guest who
+      // reaches things only through a care team seat goes to their partners;
+      // one with nothing at all goes to sign in.
       const home = guestTripIds[0];
-      return (
-        <Navigate
-          to={home ? `/admin/trips/${home}` : "/login"}
-          state={home ? { accessDenied: true } : undefined}
-          replace
-        />
-      );
+      const to = home ? `/admin/trips/${home}` : careTeamSeats.length > 0 ? "/admin/partners" : "/login";
+      return <Navigate to={to} state={home ? { accessDenied: true } : undefined} replace />;
     }
   }
 

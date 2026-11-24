@@ -1074,3 +1074,30 @@ export async function updateUser(id, payload) {
 export async function deleteUser(id) {
   await api.delete(`/users/${id}`);
 }
+
+// --- Care teams (#289). Gated by the careTeam feature (404 when off). ---
+// A partner's team: { lead: member|null, members: [member] } where member is
+// { userId, isLead, firstName, lastName, role, email? } (no email for a
+// guest viewer).
+export async function fetchCareTeam(partnerId) {
+  const { data } = await api.get(`/care-team/${partnerId}`);
+  return data;
+}
+// Replaces the whole team in one go.
+export async function setCareTeam(partnerId, { leadUserId, memberUserIds }) {
+  const { data } = await api.put(`/care-team/${partnerId}`, { leadUserId, memberUserIds });
+  return data;
+}
+// Active logins a team can be made from (admin/editor).
+export async function fetchCareTeamCandidates() {
+  const { data } = await api.get("/care-team/candidates");
+  return data;
+}
+
+// The partners this login may read, as { id, kind, displayName, archived } --
+// all of them for a full role, just the ones their grants reach for a guest
+// (#289). What a picker uses when a guest can't list the whole directory.
+export async function fetchReachablePartners() {
+  const { data } = await api.get("/partners/reachable");
+  return data;
+}

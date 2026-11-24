@@ -5,7 +5,7 @@ import {
   createSupportNeed,
   updateSupportNeed,
   deleteSupportNeed,
-  fetchPartners,
+  fetchReachablePartners,
 } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
 import SourceLink from "../components/admin/SourceLink.jsx";
@@ -100,8 +100,17 @@ export default function AdminOneTimeNeeds() {
     clearPartnerFilter,
     setPartnerFilter,
   } = usePartnerUrlFilter();
-  const { canWrite, isAdmin } = useCurrentUser();
+  const { canWrite, isAdmin, isGuest, careTeamSeats, isOnCareTeamFor } = useCurrentUser();
+  // Staff do everything. A care team member who isn't staff (#289) has what an
+  // editor has for a partner on their team -- add and edit a need -- except
+  // recording a decision (that's the committee's), deleting, and "send right
+  // away" (their dispatch is held for review).
   const canEdit = canWrite;
+  const limited = !canWrite;
+  const canAdd = canWrite || careTeamSeats.length > 0;
+  const canEditRow = (n) => canWrite || isOnCareTeamFor(n.partnerId);
+  // A member can only add for partners on their own team.
+  const addablePartners = canWrite ? partners : partners.filter((p) => isOnCareTeamFor(p.id));
   const [activeModal, setActiveModal] = useState(null); // "add" | "view" | "decide" | null
   const [newNeed, setNewNeed] = useState(emptyNewNeed);
   const [decidingNeed, setDecidingNeed] = useState(null);
@@ -149,7 +158,7 @@ export default function AdminOneTimeNeeds() {
 
   useEffect(() => {
     reload();
-    fetchPartners().then(setPartners).catch(console.error);
+    fetchReachablePartners().then(setPartners).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.status, filters.dateRange, filterPartnerId]);
 
@@ -261,7 +270,8 @@ export default function AdminOneTimeNeeds() {
       {filterPartnerId && (
         <Breadcrumb
           items={[
-            { label: "Partners", to: "/admin/partners" },
+            // A guest has no Partners directory to go back to.
+            ...(isGuest ? [] : [{ label: "Partners", to: "/admin/partners" }]),
             { label: filterPartnerName || "…", to: `/admin/partners/${filterPartnerId}` },
             { label: "One-Time Needs" },
           ]}
@@ -269,7 +279,7 @@ export default function AdminOneTimeNeeds() {
       )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>One-Time Needs</h2>
-        {canEdit && (
+        {canAdd && (
           <button
             className="btn"
             onClick={() => {
@@ -380,6 +390,7 @@ export default function AdminOneTimeNeeds() {
             setForm={setNewNeed}
             files={sourceFiles}
             mode="create"
+            limited={limited}
             hasEnabledChannel={hasEnabledChannel}
             canApproveNow={canApproveNow}
             enabledFeatures={enabledFeatures}
@@ -387,7 +398,7 @@ export default function AdminOneTimeNeeds() {
               <label style={{ gridColumn: "1 / -1" }}>
                 Partner
                 <PartnerSelect
-                  partners={partners}
+                  partners={addablePartners}
                   value={newNeed.partnerId}
                   onChange={(partnerId) => {
                     setNewNeed((f) => ({ ...f, partnerId, sourceFileId: null }));
@@ -442,7 +453,7 @@ export default function AdminOneTimeNeeds() {
 
       {activeModal === "view" &&
         needDetail &&
-        (canEdit ? (
+        (canEditRow({ partnerId: needDetail.form.partnerId, ...needDetail.form }) ? (
           <QuickActionModal title="One-Time Need" onClose={closeModal} onSubmit={submitNeedDetail}>
             <Link
               to={`/admin/partners/${needDetail.form.partnerId}`}
@@ -455,8 +466,9 @@ export default function AdminOneTimeNeeds() {
               setForm={setNeedDetailForm}
               files={sourceFiles}
               mode="edit"
+              limited={limited}
             />
-            {needDetail.form.approvedAmount == null && (
+            {canEdit && needDetail.form.approvedAmount == null && (
               <button
                 type="button"
                 className="btn secondary small"
