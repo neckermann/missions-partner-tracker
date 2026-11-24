@@ -21,8 +21,6 @@ let viewer;
 let originalSettings;
 let ours; // sent by our church
 let grace; // sent by "Grace Fellowship"
-let graceTwin; // "grace fellowship" -- same church, different case
-let nobody; // no sending church recorded
 let archivedGrace; // archived: not counted in the options
 
 const names = (rows) => rows.map((r) => r.displayName || r.partner?.displayName || r.name).sort();
@@ -56,8 +54,9 @@ describe("sending church filter", () => {
     };
     ours = await make("Ours", { sentByOurChurch: true });
     grace = await make("Grace", { sendingChurch: { name: "Grace Fellowship" } });
-    graceTwin = await make("Grace twin", { sendingChurch: { name: "grace fellowship" } });
-    nobody = await make("Nobody");
+    // "grace fellowship": the same church in a different case; "Nobody": no sending church.
+    await make("Grace twin", { sendingChurch: { name: "grace fellowship" } });
+    await make("Nobody");
     archivedGrace = await make("Archived Grace", { sendingChurch: { name: "Archived Only Church" } });
     await prisma.partner.update({ where: { id: archivedGrace.id }, data: { archived: true } });
 

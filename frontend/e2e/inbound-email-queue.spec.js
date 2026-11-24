@@ -1,19 +1,29 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./helpers.js";
+import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
 // Zero prior coverage of this page (flagged in Phase 5 of the UX-rebuild
 // plan). Drives the real webhook (routes/inboundEmail.js's POST
 // /api/inbound-email/postmark) with a from-address that matches no
 // partner, so it lands in the unmatched queue exactly the way a real
 // inbound email would -- not a direct DB insert standing in for it.
+let previousFeatures;
+
 test.describe("Inbound email queue", () => {
+  test.afterAll(async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await login(page);
+    await restoreFeatures(page.request, previousFeatures);
+    await context.close();
+  });
+
   test("an unmatched inbound email lands in the queue and can be discarded", async ({ page }) => {
     await login(page);
 
     // inboundEmail must be on before /api/settings/email (which sets the
     // webhook credentials) is even reachable -- see that route's own
     // requireFeature(["outboundEmail", "inboundEmail"]) gate.
-    await page.request.put("/api/settings", { data: { enabledFeatures: { inboundEmail: true } } });
+    previousFeatures = await setFeatures(page.request, { inboundEmail: true });
 
     const webhookUsername = "e2e-webhook-user";
     const webhookPassword = `e2e-webhook-pass-${Date.now()}`;

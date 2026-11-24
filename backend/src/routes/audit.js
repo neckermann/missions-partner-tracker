@@ -141,7 +141,7 @@ router.get("/export", async (req, res, next) => {
       ip: r.ip || "",
     }));
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="${csvFilename("activity-log")}"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${csvFilename("audit-log")}"`);
     res.send(
       toCsv(shaped, [
         { key: "when", label: "When (UTC)" },

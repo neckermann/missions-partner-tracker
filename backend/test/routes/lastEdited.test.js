@@ -20,7 +20,6 @@ let admin;
 let adminRow;
 let originalFeatures;
 const extraUsers = [];
-const cleanupTrips = [];
 
 describe("last edited by", () => {
   before(async () => {

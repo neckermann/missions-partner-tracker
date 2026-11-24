@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useLayoutEffect } from "react";
 import { Link, NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
 import { logout } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
@@ -32,11 +32,15 @@ function badgeText(count) {
   return count > 99 ? "99+" : String(count);
 }
 
+// Smallest gap kept between the bell dropdown and the screen edge, in px.
+const BELL_EDGE = 8;
+
 function NotificationBell({ categories, totalUnread, markSeen }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState(null);
   const ref = useRef(null);
   const btnRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     function onClickOutside(e) {
@@ -45,6 +49,33 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
+
+  // The dropdown is position: fixed, so it stays put while the page scrolls under it and
+  // while the window resizes; the bell moves, the dropdown doesn't. Close it instead of
+  // leaving it floating away from its button.
+  useEffect(() => {
+    if (!open) return undefined;
+    function close(e) {
+      if (e.type === "scroll" && e.target instanceof Node && dropdownRef.current?.contains(e.target)) return;
+      setOpen(false);
+    }
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
+
+  // Keep the dropdown fully on screen. Its left edge starts at the bell's, which on a phone
+  // (where the sidebar stacks above the page and the bell sits near the right) would put
+  // most of it past the screen edge. Measure it once rendered and pull it back in.
+  useLayoutEffect(() => {
+    if (!open || !coords || !dropdownRef.current) return;
+    const width = dropdownRef.current.getBoundingClientRect().width;
+    const left = Math.max(BELL_EDGE, Math.min(coords.left, window.innerWidth - width - BELL_EDGE));
+    if (left !== coords.left) setCoords((c) => ({ ...c, left }));
+  }, [open, coords]);
 
   const withCount = categories.filter((c) => c.count > 0);
 
@@ -85,6 +116,7 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
       </button>
       {open && coords && (
         <div
+          ref={dropdownRef}
           className="admin-sidebar-bell-dropdown"
           role="menu"
           style={{ top: coords.top, left: coords.left }}

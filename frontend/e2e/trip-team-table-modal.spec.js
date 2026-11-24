@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./helpers.js";
+import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
 // Regression coverage for the Team tab's migration off hand-rolled tables
 // and a raw inline form onto the shared Table + Modal/QuickActionModal
@@ -8,12 +8,21 @@ import { login } from "./helpers.js";
 // "review a pending application" flow end to end against a real trip.
 test.describe("Trip Team tab: Table + Modal", () => {
   let tripId;
+  let previousFeatures;
+  let previousPrivateLinks;
 
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
     await login(page);
-    await page.request.put("/api/settings", { data: { enabledFeatures: { trips: true } } });
+    previousFeatures = await setFeatures(page.request, { trips: true });
+    // "reviews a pending application" below generates a private application link, which the
+    // trip settings must allow. Nothing else turns that on: CI only passed because the backend
+    // route tests, run first against the same database, happened to leave it on, so on a
+    // freshly seeded database this spec failed. Set it here and put it back after.
+    previousPrivateLinks = (await (await page.request.get("/api/settings/trips")).json())
+      .allowPrivateApplicationLinks;
+    await page.request.put("/api/settings/trips", { data: { allowPrivateApplicationLinks: true } });
 
     const partnersRes = await page.request.get("/api/partners?restricted=false&archived=false");
     const partners = await partnersRes.json();
@@ -36,11 +45,16 @@ test.describe("Trip Team tab: Table + Modal", () => {
   });
 
   test.afterAll(async ({ browser }) => {
-    if (!tripId) return;
     const context = await browser.newContext();
     const page = await context.newPage();
     await login(page);
-    await page.request.delete(`/api/trips/${tripId}`);
+    if (tripId) await page.request.delete(`/api/trips/${tripId}`);
+    if (previousPrivateLinks !== undefined) {
+      await page.request.put("/api/settings/trips", {
+        data: { allowPrivateApplicationLinks: previousPrivateLinks },
+      });
+    }
+    await restoreFeatures(page.request, previousFeatures);
     await context.close();
   });
 
@@ -73,11 +87,9 @@ test.describe("Trip Team tab: Table + Modal", () => {
   test("reviews a pending application via its own detail page", async ({ page }) => {
     await login(page);
     // The plain id-addressed /apply route 404s unless the trip is public
-    // AND the publicTripDiscovery feature is on -- the latter is
-    // public-subscribe.spec.js's own flag to toggle (CI's comment on this:
-    // "already relies on being the only spec file that mutates
-    // enabledFeatures to avoid a cross-file race"). The by-token route
-    // only checks trip status, so it's the one safe to use from here.
+    // AND the publicTripDiscovery feature is on, which is another spec's to
+    // turn on. The by-token route only checks trip status, so it's the one
+    // to use from here.
     const linkRes = await page.request.post(`/api/trips/${tripId}/generate-application-link`);
     expect(linkRes.ok()).toBeTruthy();
     const { applicationShareToken } = await linkRes.json();

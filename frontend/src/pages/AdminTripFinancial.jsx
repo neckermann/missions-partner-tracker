@@ -138,30 +138,35 @@ export default function AdminTripFinancial() {
 
       <div className="admin-section">
         <h3>Contributions ({`$${raised} raised`})</h3>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Donor</th>
-              <th>Participant</th>
-              <th>Amount</th>
-              <th>Method</th>
-              <th>Received</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(trip.contributions || []).map((c) => (
-              <tr key={c.id}>
-                <td>{c.donorName}</td>
-                <td>
-                  {(trip.participants || []).find((p) => p.id === c.participantId)?.firstName || "Trip-wide"}
-                </td>
-                <td>${c.amount}</td>
-                <td>{c.method}</td>
-                <td>{formatDate(c.receivedDate)}</td>
+        {/* table-scroll: on a phone the table scrolls sideways inside its section instead of
+            widening the whole page. */}
+        <div className="table-scroll">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Donor</th>
+                <th>Participant</th>
+                <th>Amount</th>
+                <th>Method</th>
+                <th>Received</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {(trip.contributions || []).map((c) => (
+                <tr key={c.id}>
+                  <td>{c.donorName}</td>
+                  <td>
+                    {(trip.participants || []).find((p) => p.id === c.participantId)?.firstName ||
+                      "Trip-wide"}
+                  </td>
+                  <td>${c.amount}</td>
+                  <td>{c.method}</td>
+                  <td>{formatDate(c.receivedDate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {canWrite && (
           <form onSubmit={handleAddContribution} className="form-grid" style={{ marginTop: "0.75rem" }}>
             <label>

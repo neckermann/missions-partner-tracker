@@ -373,6 +373,13 @@ router.get("/:id", requireTripScope("id"), async (req, res, next) => {
       trip.lastEditedAt = shown.at;
       trip.lastEditedByName = shown.name;
     }
+    // The one trip setting a guest's page needs (it shows the Financial tab). They can't read
+    // GET /api/settings/trips (giving instructions, templates, libraries), so it rides here.
+    const tripSettings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { enableTripBudgeting: true },
+    });
+    trip.enableTripBudgeting = tripSettings?.enableTripBudgeting === true;
     res.json(trip);
   } catch (err) {
     next(err);

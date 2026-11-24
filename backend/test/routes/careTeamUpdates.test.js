@@ -148,7 +148,7 @@ describe("care team: new needs and prayers reach the team", () => {
 
     await needOn(admin, partnerA.id);
     await needOn(admin, partnerB.id); // not theirs
-    let c = await cat(m, "newOneTimeNeeds");
+    const c = await cat(m, "newOneTimeNeeds");
     assert.equal(c.count, 1, "only the partner they look after");
     assert.equal(c.isNew, true);
 

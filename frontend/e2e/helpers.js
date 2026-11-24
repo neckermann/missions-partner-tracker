@@ -38,3 +38,74 @@ export async function firstSelectablePartner(page, { kind = "missionary" } = {})
   }
   return partners[0];
 }
+
+// Feature flags live in one shared JSON column (ChurchSettings.enabledFeatures), and
+// PUT /api/settings replaces the whole column rather than merging. So a spec that turns a
+// flag on must read, merge and write -- a bare `{ enabledFeatures: { trips: true } }` wipes
+// every other flag for the rest of the run -- and must put back what it changed.
+//
+// Even a merging read-then-write loses updates if two workers do it at once, so the specs
+// that call these run together in their own serial Playwright project (see
+// playwright.config.js): never two at a time, and never alongside the specs that read flags.
+//
+// setFeatures returns the previous value of each flag it set (undefined when it was unset),
+// to hand back to restoreFeatures.
+export async function setFeatures(request, patch) {
+  const current = await request.get("/api/settings");
+  const existing = (await current.json()).enabledFeatures || {};
+  await request.put("/api/settings", { data: { enabledFeatures: { ...existing, ...patch } } });
+  return Object.fromEntries(Object.keys(patch).map((key) => [key, existing[key]]));
+}
+
+export async function restoreFeatures(request, previous) {
+  if (!previous) return;
+  const current = await request.get("/api/settings");
+  const next = { ...((await current.json()).enabledFeatures || {}) };
+  for (const [key, value] of Object.entries(previous)) {
+    if (value === undefined) delete next[key];
+    else next[key] = value;
+  }
+  await request.put("/api/settings", { data: { enabledFeatures: next } });
+}
+
+// Phone-layout check, run in the page: whether the page scrolls sideways, and which visible
+// elements run past the screen edge (the outermost only), ignoring anything inside a
+// horizontally scrolling or clipping container that itself fits (a wide table scrolling
+// inside its section is fine). Empty result = nothing off screen.
+export async function layoutProblems(page) {
+  return page.evaluate(() => {
+    const vw = document.documentElement.clientWidth;
+    const flagged = new Set();
+    const offenders = [];
+    for (const el of document.querySelectorAll("body *")) {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      if (r.right <= vw + 1 && r.left >= -1) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === "hidden" || cs.display === "none" || cs.opacity === "0") continue;
+      let clipped = false;
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(p).overflowX)) {
+          const pr = p.getBoundingClientRect();
+          if (pr.right <= vw + 1 && pr.left >= -1) {
+            clipped = true;
+            break;
+          }
+        }
+      }
+      if (clipped) continue;
+      if (el.parentElement && flagged.has(el.parentElement)) {
+        flagged.add(el);
+        continue;
+      }
+      flagged.add(el);
+      offenders.push(
+        `<${el.tagName.toLowerCase()}> "${(el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 40)}" ${Math.round(r.left)}..${Math.round(r.right)} (screen ${vw})`
+      );
+    }
+    return {
+      pageOverflow: Math.max(0, document.documentElement.scrollWidth - vw),
+      offenders: offenders.slice(0, 6),
+    };
+  });
+}

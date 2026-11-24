@@ -51,6 +51,8 @@ export default function ExtractionReviewModal({
   // only -- never blocks adding more suggestions below.
   const [alreadyScannedCount, setAlreadyScannedCount] = useState(0);
 
+  // Runs the scan once, when the modal opens. It is a paid AI call, so it must not re-run if
+  // `scan` or the feature flags change identity while the modal is open.
   useEffect(() => {
     scan()
       .then((result) => {
@@ -82,6 +84,7 @@ export default function ExtractionReviewModal({
         setError(err.response?.data?.error || "Failed to scan this file");
         setStatus("error");
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function updatePrayerRequest(i, field, value) {

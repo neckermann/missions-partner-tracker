@@ -688,7 +688,7 @@ describe("Trips: minors-only requirements (#278)", () => {
   });
 
   test("the due-date reminder scheduler never reminds an adult about a minors-only requirement", async () => {
-    const { trip, requirement } = await createTripWithRequirement("document", {
+    const { trip } = await createTripWithRequirement("document", {
       dueAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       reminderLeadDays: 5,
     });

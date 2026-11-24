@@ -241,7 +241,7 @@ describe("collections: CRUD and partner scoping", () => {
 
     if (c.partnerIdOptional) {
       test(`${c.name}: a create with no partnerId succeeds (standalone trip)`, async () => {
-        const { partnerId, ...withoutPartner } = c.create();
+        const { partnerId: _partnerId, ...withoutPartner } = c.create();
         const res = await admin(c.path, { method: "POST", body: withoutPartner });
         assert.equal(res.status, 201);
         assert.equal(res.body.partnerId, null);
@@ -249,7 +249,7 @@ describe("collections: CRUD and partner scoping", () => {
       });
     } else {
       test(`${c.name}: rejects a create with no partnerId`, async () => {
-        const { partnerId, ...withoutPartner } = c.create();
+        const { partnerId: _partnerId, ...withoutPartner } = c.create();
         const res = await admin(c.path, { method: "POST", body: withoutPartner });
         assert.equal(res.status, 400);
         // A string, not Zod's issues array -- the frontend renders this value

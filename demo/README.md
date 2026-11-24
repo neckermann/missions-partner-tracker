@@ -46,6 +46,11 @@ download, deletes, and views of a restricted partner. They sit inside the defaul
 retention window, so a reset (which reseeds them) always leaves a populated page. Real activity
 by visitors is recorded too, until the next reset.
 
+It also has **last edited by** data (`seedLastEditedDemo`): most partners, trips, prayer
+requests and needs carry a demo editor's name and a date within the last ten weeks, and about one
+in seven is left blank, so the **Last updated** column on Partners and Trips has something to sort
+and a record's "Last edited by" line something to show. The dates are relative to the reset.
+
 These are the **only** accounts with two-factor off (`mfaSetupRequired:
 false`): a shared, published account can't enrol an authenticator without
 locking every other visitor out. Every other guest the seed creates (for

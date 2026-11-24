@@ -3193,6 +3193,52 @@ async function seedKeyDatesDemo() {
   }
 }
 
+// #341: "Last edited by" for the demo. Nothing in the seed is a signed-in person's edit, so
+// every seeded record has no editor, and the Partners and Trips "Last updated" column and the
+// "Last edited by" lines would all be blank until a visitor changed something. Stamp most
+// partners, trips, prayer requests and needs with one of the demo's staff and a date spread
+// over the last ten weeks, so the column has something to sort and the lines something to
+// show, and leave about one in seven blank, as a real install has ("blank means no signed-in
+// person has changed it"). The care team member is the editor on some prayer requests and
+// needs, since care team members can edit those. Deterministic by creation order (trips: start date).
+async function seedLastEditedDemo() {
+  console.log("Stamping last-edited-by on the demo records...");
+  const staff = await prisma.user.findMany({
+    where: { active: true, role: { in: ["admin", "editor"] } },
+    orderBy: { createdAt: "asc" },
+  });
+  if (!staff.length) return;
+  const careMember = await prisma.user.findUnique({ where: { email: demoCareMemberEmail() } });
+  const nameOf = (u) => [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email;
+  const stampFor = (i, editors) => {
+    if (i % 7 === 6) return null; // never edited by a signed-in person
+    const u = editors[i % editors.length];
+    const d = new Date();
+    d.setDate(d.getDate() - ((i * 5) % 70) - (i % 3));
+    d.setHours(8 + ((i * 3) % 10), (i * 11) % 60, 0, 0);
+    return { lastEditedById: u.id, lastEditedByName: nameOf(u), lastEditedAt: d };
+  };
+  // Trip has no createdAt; its start date gives a stable order.
+  const orderFor = (model) =>
+    model === "trip" ? [{ startDate: "asc" }, { id: "asc" }] : [{ createdAt: "asc" }, { id: "asc" }];
+  let stamped = 0;
+  for (const [model, editors] of [
+    ["partner", staff],
+    ["trip", staff],
+    ["prayerRequest", careMember ? [...staff, careMember] : staff],
+    ["supportNeed", careMember ? [...staff, careMember] : staff],
+  ]) {
+    const rows = await prisma[model].findMany({ orderBy: orderFor(model), select: { id: true } });
+    for (const [i, row] of rows.entries()) {
+      const data = stampFor(i, editors);
+      if (!data) continue;
+      await prisma[model].update({ where: { id: row.id }, data });
+      stamped += 1;
+    }
+  }
+  console.log(`  stamped ${stamped} records`);
+}
+
 // ---------------------------------------------------------------------
 // Care team updates demo (#292): a decided need and an answered prayer on a
 // partner the published care member looks after, so "Updates to pass on to
@@ -3837,6 +3883,7 @@ async function main() {
     await seedKeyDatesDemo();
     await seedPartnerUpdatesDemo();
     await seedAuditLogDemo();
+    await seedLastEditedDemo();
   }
 
   const finalMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });

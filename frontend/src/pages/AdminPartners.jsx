@@ -203,7 +203,6 @@ export default function AdminPartners() {
       .finally(() => setLoading(false));
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(reload, [
     filters.entityType,
     filters.sendingChurch,

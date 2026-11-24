@@ -174,7 +174,6 @@ test("nextAnnual handles today, past dates, year rollover and Feb 29", () => {
 
 test("schedule due", () => {
   const { isScheduleDue } = require("../src/reporting/definitions");
-  const day = (s) => new Date(`${s}T00:00:00.000Z`);
   const s = (cadence, last) => ({ active: true, cadence, lastSentAt: last ? new Date(last) : null });
   assert.ok(isScheduleDue(s("weekly", null), new Date("2026-11-22")));
   assert.ok(!isScheduleDue(s("weekly", "2026-11-18T07:00:00Z"), new Date("2026-11-22T07:00:00Z")));

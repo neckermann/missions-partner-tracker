@@ -8,6 +8,7 @@ import {
 } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import RecordUnavailable, { loadErrorStatus } from "../components/shared/RecordUnavailable.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import LastEdited from "../components/shared/LastEdited.jsx";
 import Wizard from "../components/shared/Wizard.jsx";
@@ -44,6 +45,7 @@ export default function AdminTripApplicationDetail() {
   const canWrite = globalCanWrite || canAccessTrip(tripId);
 
   const [trip, setTrip] = useState(null);
+  const [loadError, setLoadError] = useState(null); // 404/403 when the trip can't be shown
   const [applications, setApplications] = useState([]);
   const [tripsSettings, setTripsSettings] = useState(null);
   const [error, setError] = useState("");
@@ -56,10 +58,18 @@ export default function AdminTripApplicationDetail() {
   const [result, setResult] = useState(null); // { kind, name?, email?, url?, participantId? } | null
 
   const reload = useCallback(() => {
-    fetchTrip(tripId).then(setTrip).catch(console.error);
+    setLoadError(null);
+    fetchTrip(tripId)
+      .then(setTrip)
+      .catch((err) => {
+        const status = loadErrorStatus(err);
+        if (status) setLoadError(status);
+        else console.error(err);
+      });
     fetchTripApplications(tripId).then(setApplications).catch(console.error);
-    fetchTripsSettings().then(setTripsSettings).catch(console.error);
-  }, [tripId]);
+    // Closed to a guest (403) and not something they edit.
+    if (!isGuest) fetchTripsSettings().then(setTripsSettings).catch(console.error);
+  }, [tripId, isGuest]);
 
   useEffect(() => {
     reload();
@@ -69,6 +79,15 @@ export default function AdminTripApplicationDetail() {
     navigate(`/admin/trips/${tripId}/team`);
   }
 
+  if (loadError)
+    return (
+      <RecordUnavailable
+        status={loadError}
+        what="application"
+        backTo="/admin/trips"
+        backLabel="Back to Trips"
+      />
+    );
   if (!trip) return <div className="admin-shell">Loading…</div>;
 
   const application = applications.find((a) => a.id === applicationId);
