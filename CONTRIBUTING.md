@@ -493,9 +493,9 @@ algorithm specifically so these `#anchor` fragments resolve the same
 way there as they do on GitHub's own rendered view of the `.md` file —
 see that script's own comment). **Renaming, removing, or demoting a
 linked heading changes its anchor and silently breaks every link
-below** — grep for the anchor text (not just the heading text) before
-touching one of these sections, since nothing else catches this at
-build time.
+below** — run `npm run check:docs` after touching one of these
+sections: it checks every link of this kind in the app's source, plus
+every internal link and `#anchor` in the markdown, and CI runs it too.
 
 Current links, by anchor:
 

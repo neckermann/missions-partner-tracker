@@ -24,6 +24,11 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 - **The demo seeds "last edited by" data.** Most demo partners, trips, prayer requests and needs now carry a demo editor's name and a date within the last ten weeks, so the **Last updated** column on Partners and Trips isn't blank on a fresh demo; about one in seven is left blank, as on a real install.
 
+### Documentation
+
+- **The guides are reorganized ([#380](https://github.com/neckermann/missions-partner-tracker/issues/380)).** The user guide has a **Caring for partners** group (care teams and the Guest role, My partners, the contact log, key-date reminders, passing updates on); the Audit log is under **Settings**; and "Who last edited a record" sits with the partner page, with a duplicated sentence fixed. The architecture, agent, contributor, upgrading and runbook docs now cover care teams, the audit log (on by default, records sign-in IP addresses, pruned nightly by the worker), last-edited stamping and the sending church filter. The admin guide's "Who can see what" no longer says every account reads every partner (a Guest does not), and the README no longer describes two-factor as per account.
+- **`npm run check:docs`** checks every internal link and `#anchor` in the markdown and the guide anchors the app links to, and runs in CI. It found a dead anchor and a wrong path.
+
 ### Fixed
 
 - **On a phone the admin menu no longer fills the first screen ([#384](https://github.com/neckermann/missions-partner-tracker/issues/384)).** At 800px wide and below the sidebar was about 720px of menu above every page, so the page you opened started below the fold. It is now a slim bar (church name, the bell and a **Menu** button) that stays at the top; the menu opens beneath it and closes once you choose a page. Wider screens are unchanged.
