@@ -128,3 +128,35 @@ describe("AdminTripParticipantDetail -- guest access (#356)", () => {
     expect(screen.queryByText("Give guest access", { selector: "button" })).not.toBeInTheDocument();
   });
 });
+
+describe("AdminTripParticipantDetail -- a trip that can't be loaded", () => {
+  it("says the trip wasn't found instead of loading forever (404)", async () => {
+    fetchTrip.mockRejectedValue({ response: { status: 404 } });
+
+    renderPage();
+
+    expect(
+      await screen.findByText("This participant wasn't found. It may have been deleted.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Back to Trips/ })).toHaveAttribute("href", "/admin/trips");
+  });
+
+  it("says there is no access when the trip isn't one the guest holds (403)", async () => {
+    currentUser = { canWrite: false, isAdmin: false, isGuest: true, canAccessTrip: () => false };
+    fetchTrip.mockRejectedValue({ response: { status: 403 } });
+
+    renderPage();
+
+    expect(await screen.findByText("You don't have access to this participant.")).toBeInTheDocument();
+  });
+
+  it("does not ask for the closed trip settings as a guest", async () => {
+    currentUser = { canWrite: false, isAdmin: false, isGuest: true, canAccessTrip: () => true };
+
+    renderPage();
+
+    await waitFor(() => expect(fetchTrip).toHaveBeenCalled());
+    expect(fetchTripsSettings).not.toHaveBeenCalled();
+  });
+});
