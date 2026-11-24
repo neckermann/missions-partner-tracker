@@ -403,8 +403,11 @@ describe("Trips: meeting RSVP", () => {
     assert.match(body, /\/meetings\/.+\/rsvp\?token=.+&response=maybe/);
 
     // The token in the email must actually work -- not just look right.
+    // #327 Finding 6: GET only renders a confirm page now; POST is what
+    // actually records the RSVP (same path a mail client's own one-click
+    // button, or clicking the rendered Confirm button, would take).
     const yesLink = body.match(/(https?:\/\/\S*\/rsvp\?token=\S*&response=yes)/)[1];
-    const res = await anon(yesLink.replace(/^https?:\/\/[^/]*/, ""));
+    const res = await anon(yesLink.replace(/^https?:\/\/[^/]*/, ""), { method: "POST" });
     assert.equal(res.status, 200);
     const rsvp = await prisma.tripMeetingRsvp.findUnique({
       where: {
@@ -434,6 +437,27 @@ describe("Trips: meeting RSVP", () => {
     assert.doesNotMatch(sent[0].TextBody, /\/rsvp\?/);
   });
 
+  // #327 Finding 6: this used to record the RSVP the moment the link was
+  // *fetched* -- a mail security scanner pre-fetching all three yes/no/
+  // maybe links in an inbox would record (and overwrite) whichever one
+  // it requested last, never the recipient's real choice.
+  test("GET renders a confirm page for that one response, without recording anything yet", async () => {
+    const { trip, participant } = await createTripWithParticipant();
+    const meeting = await prisma.tripMeeting.create({
+      data: { tripId: trip.id, startAt: new Date("2026-12-09T12:00:00.000Z") },
+    });
+    const token = buildTripParticipantAccessToken(participant);
+
+    const res = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=yes`);
+    assert.equal(res.status, 200);
+    assert.match(res.body, /Confirm attending/);
+
+    const rsvp = await prisma.tripMeetingRsvp.findUnique({
+      where: { meetingId_participantId: { meetingId: meeting.id, participantId: participant.id } },
+    });
+    assert.equal(rsvp, null, "GET must not record a response");
+  });
+
   test("a valid token+response records it and overwrites on a later, different click", async () => {
     const { trip, participant } = await createTripWithParticipant();
     const meeting = await prisma.tripMeeting.create({
@@ -441,7 +465,11 @@ describe("Trips: meeting RSVP", () => {
     });
     const token = buildTripParticipantAccessToken(participant);
 
-    const yesRes = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=yes`);
+    // #327 Finding 6: GET only renders a confirm page now; POST is what
+    // actually records the RSVP.
+    const yesRes = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=yes`, {
+      method: "POST",
+    });
     assert.equal(yesRes.status, 200);
     assert.match(yesRes.body, /attending/);
     let rsvp = await prisma.tripMeetingRsvp.findUnique({
@@ -449,7 +477,9 @@ describe("Trips: meeting RSVP", () => {
     });
     assert.equal(rsvp.response, "yes");
 
-    const noRes = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=no`);
+    const noRes = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=no`, {
+      method: "POST",
+    });
     assert.equal(noRes.status, 200);
     rsvp = await prisma.tripMeetingRsvp.findUnique({
       where: { meetingId_participantId: { meetingId: meeting.id, participantId: participant.id } },
@@ -546,7 +576,9 @@ describe("Trips: meeting RSVP", () => {
     assert.equal(found.myRsvp, null);
     assert.equal(found.rsvps, undefined);
 
-    await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=maybe`);
+    await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=maybe`, {
+      method: "POST",
+    });
 
     selfService = await anon(`/api/public/trips/participants/access?token=${token}`);
     found = selfService.body.meetings.find((m) => m.id === meeting.id);

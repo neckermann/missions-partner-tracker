@@ -626,7 +626,7 @@ describe("restricted-partner notification review & edit (#187)", () => {
 });
 
 describe("unsubscribe", () => {
-  test("GET /api/auth/unsubscribe with a valid token clears cadence", async () => {
+  test("GET /api/auth/unsubscribe with a valid token renders a confirm page, without clearing cadence yet", async () => {
     await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
       body: { cadence: "biweekly", allPartners: true },
@@ -638,6 +638,28 @@ describe("unsubscribe", () => {
     const token = jwt.sign({ id: me.body.user.id, unsubscribe: true }, process.env.SESSION_SECRET);
     const res = await unauthenticated(`/api/auth/unsubscribe?token=${encodeURIComponent(token)}`);
     assert.equal(res.status, 200);
+    assert.match(res.body, /Confirm unsubscribe/);
+
+    const stillSubscribed = await admin("/api/auth/me");
+    assert.equal(stillSubscribed.body.user.cadence, "biweekly", "#327 Finding 6: GET must not mutate");
+  });
+
+  test("POST /api/auth/unsubscribe with a valid token actually clears cadence", async () => {
+    await admin("/api/auth/dispatch-by-email", {
+      method: "PUT",
+      body: { cadence: "biweekly", allPartners: true },
+    });
+    const me = await admin("/api/auth/me");
+
+    const jwt = require("jsonwebtoken");
+    const token = jwt.sign({ id: me.body.user.id, unsubscribe: true }, process.env.SESSION_SECRET);
+    // Token in the query string, same as the RFC 8058 one-click path a
+    // mail client's own "Unsubscribe" button would use.
+    const res = await unauthenticated(`/api/auth/unsubscribe?token=${encodeURIComponent(token)}`, {
+      method: "POST",
+    });
+    assert.equal(res.status, 200);
+    assert.match(res.body, /unsubscribed/i);
 
     const after = await admin("/api/auth/me");
     assert.equal(after.body.user.cadence, null);

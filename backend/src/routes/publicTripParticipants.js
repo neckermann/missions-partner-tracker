@@ -24,7 +24,7 @@ const {
 } = require("../utils/tripAccessToken");
 const { buildSignedDocumentPdf } = require("../utils/pdfGeneration");
 const { decodePhotoDataUrl } = require("../utils/participantPhoto");
-const { renderSubscriberPage } = require("../utils/subscriberPage");
+const { renderSubscriberPage, escapeHtml } = require("../utils/subscriberPage");
 const { tripDocumentUpload } = require("../utils/upload");
 const { sendStoredFile, safeFilename } = require("../utils/fileResponse");
 const { buildMeetingIcs } = require("../utils/tripEmails");
@@ -558,85 +558,94 @@ router.get("/participants/:id/photo", requireFeature("trips"), async (req, res, 
 const RSVP_RESPONSES = new Set(["yes", "no", "maybe"]);
 const RSVP_PAGE_LABELS = { yes: "attending", no: "not attending", maybe: "a maybe" };
 
-// GET /api/public/trips/meetings/:meetingId/rsvp?token=...&response=yes --
-// issue #267's RSVP design decision: link-based only, no inbound email.
-// GET, not POST, because this has to work from a plain click in a mail
-// client with no JS -- same precedent routes/publicUnsubscribe.js's own
-// GET already follows for a mutating, click-from-email action. Renders
-// an HTML page (renderSubscriberPage, shared with confirm/unsubscribe),
-// never JSON -- a person clicking an email link needs to see a page,
-// not a raw API response.
+// A link back to the self-service page -- without this, clicking
+// Yes/No/Maybe from that page itself (not just from the original email)
+// strands the participant on this static confirmation page with no way
+// back except browser back. Safe to build directly: the token is a
+// signed JWT (base64url + dots), nothing that could break out of an href
+// attribute, but escaped anyway since it's also used as a hidden form
+// value below.
+function tripPageBackLink(token) {
+  return `<a href="${appBaseUrl()}/my-trip?token=${encodeURIComponent(token)}" style="color:#2a5d3c;">Back to your trip page</a>`;
+}
+
+// #327 Finding 6: this used to record the RSVP the moment the link was
+// *fetched* -- a mail security scanner that pre-fetches every link in an
+// inbox would record (and overwrite) a response the recipient never
+// actually chose, and since all three yes/no/maybe links sit in the same
+// email, prefetching could leave whichever one the scanner requested
+// last as the recorded answer. GET now only validates the token/meeting
+// and renders a page with a real confirm button for that one specific
+// response (a plain <form method="POST">, still works with no
+// JavaScript -- issue #267's original reason this was a GET in the
+// first place); POST is what actually records it.
+//
+// validateRsvpRequest is shared by both routes below -- same
+// token/participant/meeting checks either way, only what happens after
+// (render a confirm button vs. actually upsert) differs.
+async function validateRsvpRequest(req, res) {
+  const response = String(req.query.response ?? req.body?.response ?? "");
+  if (!RSVP_RESPONSES.has(response)) {
+    res.status(400).send(await renderSubscriberPage("This RSVP link is invalid.", "", "Meeting RSVP"));
+    return null;
+  }
+
+  const token = String(req.query.token ?? req.body?.token ?? "");
+  const payload = verifyTripParticipantAccessToken(token);
+  if (!payload) {
+    res
+      .status(401)
+      .send(await renderSubscriberPage("This link is invalid or has expired.", "", "Meeting RSVP"));
+    return null;
+  }
+
+  const participant = await prisma.tripParticipant.findUnique({ where: { id: payload.id } });
+  // Same accessTokenVersion check as /participants/access -- a
+  // resend/regenerate bumps this, invalidating every previously-issued
+  // link (RSVP links included, since they reuse the exact same token)
+  // at once.
+  if (!participant || participant.accessTokenVersion !== payload.v) {
+    res
+      .status(401)
+      .send(await renderSubscriberPage("This link is invalid or has expired.", "", "Meeting RSVP"));
+    return null;
+  }
+
+  const meeting = await prisma.tripMeeting.findUnique({ where: { id: req.params.meetingId } });
+  if (!meeting || meeting.tripId !== participant.tripId) {
+    res.status(404).send(await renderSubscriberPage("This meeting couldn't be found.", "", "Meeting RSVP"));
+    return null;
+  }
+  // A cancelled meeting has nothing left to RSVP to -- an already-sent
+  // link (from before the cancellation) should say so plainly rather
+  // than silently recording a response to a meeting that isn't
+  // happening.
+  if (meeting.cancelledAt) {
+    res
+      .status(400)
+      .send(
+        await renderSubscriberPage(
+          "This meeting has been cancelled, so there's nothing left to RSVP to.",
+          "",
+          "Meeting RSVP"
+        )
+      );
+    return null;
+  }
+
+  return { response, token, participant, meeting };
+}
+
 router.get("/meetings/:meetingId/rsvp", requireFeature("trips"), async (req, res, next) => {
   try {
-    const response = String(req.query.response || "");
-    if (!RSVP_RESPONSES.has(response)) {
-      return res
-        .status(400)
-        .send(await renderSubscriberPage("This RSVP link is invalid.", "", "Meeting RSVP"));
-    }
-
-    const payload = verifyTripParticipantAccessToken(String(req.query.token || ""));
-    if (!payload) {
-      return res
-        .status(401)
-        .send(await renderSubscriberPage("This link is invalid or has expired.", "", "Meeting RSVP"));
-    }
-
-    const participant = await prisma.tripParticipant.findUnique({ where: { id: payload.id } });
-    // Same accessTokenVersion check as /participants/access -- a
-    // resend/regenerate bumps this, invalidating every previously-
-    // issued link (RSVP links included, since they reuse the exact
-    // same token) at once.
-    if (!participant || participant.accessTokenVersion !== payload.v) {
-      return res
-        .status(401)
-        .send(await renderSubscriberPage("This link is invalid or has expired.", "", "Meeting RSVP"));
-    }
-
-    const meeting = await prisma.tripMeeting.findUnique({ where: { id: req.params.meetingId } });
-    if (!meeting || meeting.tripId !== participant.tripId) {
-      return res
-        .status(404)
-        .send(await renderSubscriberPage("This meeting couldn't be found.", "", "Meeting RSVP"));
-    }
-    // A cancelled meeting has nothing left to RSVP to -- an already-sent
-    // link (from before the cancellation) should say so plainly rather
-    // than silently recording a response to a meeting that isn't
-    // happening.
-    if (meeting.cancelledAt) {
-      return res
-        .status(400)
-        .send(
-          await renderSubscriberPage(
-            "This meeting has been cancelled, so there's nothing left to RSVP to.",
-            "",
-            "Meeting RSVP"
-          )
-        );
-    }
-
-    // Upsert on (meetingId, participantId) -- clicking a different link
-    // later (changing your mind) just overwrites the earlier response,
-    // same idempotency precedent TripMeeting.cancelledAt's own route
-    // already follows for re-cancelling.
-    await prisma.tripMeetingRsvp.upsert({
-      where: { meetingId_participantId: { meetingId: meeting.id, participantId: participant.id } },
-      create: { meetingId: meeting.id, participantId: participant.id, response, respondedAt: new Date() },
-      update: { response, respondedAt: new Date() },
-    });
-
-    // A link back to the self-service page -- without this, clicking
-    // Yes/No/Maybe from that page itself (not just from the original
-    // email) strands the participant on this static confirmation page
-    // with no way back except browser back. Safe to build directly: the
-    // token already verified above is a signed JWT (base64url + dots),
-    // nothing that could break out of an href attribute.
-    const backLink = `<a href="${appBaseUrl()}/my-trip?token=${encodeURIComponent(
-      req.query.token
-    )}" style="color:#2a5d3c;">Back to your trip page</a>`;
+    const valid = await validateRsvpRequest(req, res);
+    if (!valid) return;
+    const { response, token } = valid;
+    const safeToken = escapeHtml(token);
     res.send(
       await renderSubscriberPage(
-        `Got it — you're marked as <strong>${RSVP_PAGE_LABELS[response]}</strong> for this meeting. You can click a different link in the email anytime to change your response.<br><br>${backLink}`,
+        (highlightColor) =>
+          `Click below to mark yourself as <strong>${RSVP_PAGE_LABELS[response]}</strong> for this meeting.<br><br><form method="POST" action="${req.baseUrl}${req.path}"><input type="hidden" name="token" value="${safeToken}"><input type="hidden" name="response" value="${response}"><button type="submit" style="background:${highlightColor};color:#fff;border:none;border-radius:6px;padding:10px 20px;font-size:15px;cursor:pointer;">Confirm ${RSVP_PAGE_LABELS[response]}</button></form><br>${tripPageBackLink(token)}`,
         "",
         "Meeting RSVP"
       )
@@ -645,6 +654,39 @@ router.get("/meetings/:meetingId/rsvp", requireFeature("trips"), async (req, res
     next(err);
   }
 });
+
+router.post(
+  "/meetings/:meetingId/rsvp",
+  requireFeature("trips"),
+  express.urlencoded({ extended: false }),
+  async (req, res, next) => {
+    try {
+      const valid = await validateRsvpRequest(req, res);
+      if (!valid) return;
+      const { response, token, participant, meeting } = valid;
+
+      // Upsert on (meetingId, participantId) -- clicking a different link
+      // later (changing your mind) just overwrites the earlier response,
+      // same idempotency precedent TripMeeting.cancelledAt's own route
+      // already follows for re-cancelling.
+      await prisma.tripMeetingRsvp.upsert({
+        where: { meetingId_participantId: { meetingId: meeting.id, participantId: participant.id } },
+        create: { meetingId: meeting.id, participantId: participant.id, response, respondedAt: new Date() },
+        update: { response, respondedAt: new Date() },
+      });
+
+      res.send(
+        await renderSubscriberPage(
+          `Got it — you're marked as <strong>${RSVP_PAGE_LABELS[response]}</strong> for this meeting. You can click a different link in the email anytime to change your response.<br><br>${tripPageBackLink(token)}`,
+          "",
+          "Meeting RSVP"
+        )
+      );
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 // GET /api/public/trips/meetings/:meetingId/ics?token=... -- a direct
 // "Add to calendar" download for the self-service page, so a participant

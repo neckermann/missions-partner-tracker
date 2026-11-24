@@ -261,6 +261,18 @@ function buildEmailDispatchMessage(recipient, content, settings, unsubscribeUrl)
     ),
     HtmlBody: html,
     TextBody: renderText(content.textLines, unsubscribeUrl, recipient.name, signature, contactLines),
+    // #327 Finding 6: RFC 8058 one-click unsubscribe -- a mail client
+    // (Gmail/Yahoo enforce this) can show its own native "Unsubscribe"
+    // button that POSTs straight to unsubscribeUrl with no page ever
+    // shown, instead of the recipient having to click through to the
+    // confirm-button page routes/auth.js and routes/publicUnsubscribe.js
+    // now render. Both headers are required together -- some clients
+    // won't trust List-Unsubscribe alone without the matching -Post
+    // header confirming the endpoint accepts the one-click POST form.
+    Headers: [
+      { Name: "List-Unsubscribe", Value: `<${unsubscribeUrl}>` },
+      { Name: "List-Unsubscribe-Post", Value: "List-Unsubscribe=One-Click" },
+    ],
   };
 }
 

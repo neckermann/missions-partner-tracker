@@ -262,8 +262,29 @@ describe("GET /api/public/subscribe/confirm", () => {
   });
 });
 
-describe("GET /api/public/unsubscribe", () => {
-  test("a valid unsubscribe token deletes the subscriber row (cascading the join table)", async () => {
+describe("GET/POST /api/public/unsubscribe", () => {
+  // #327 Finding 6: GET only verifies the token and renders a confirm
+  // page now -- it must not mutate anything by itself (a mail security
+  // scanner pre-fetching the link should never unsubscribe anyone).
+  test("GET with a valid token renders a confirm page, without deleting the subscriber yet", async () => {
+    const partner = await createPublicPartner({});
+    const row = await prisma.publicSubscriber.create({
+      data: {
+        email: "route-test-sub-unsub-get@example.test",
+        allPartners: false,
+        scopedPartners: { create: [{ partnerId: partner.id }] },
+      },
+    });
+    const token = jwt.sign({ id: row.id, subscriberUnsubscribe: true }, process.env.SESSION_SECRET);
+    const res = await anon(`/api/public/unsubscribe?token=${encodeURIComponent(token)}`);
+    assert.equal(res.status, 200);
+    assert.match(res.body, /Confirm unsubscribe/);
+
+    const stillThere = await prisma.publicSubscriber.findUnique({ where: { id: row.id } });
+    assert.ok(stillThere, "GET must not delete the row");
+  });
+
+  test("POST with a valid token deletes the subscriber row (cascading the join table)", async () => {
     const partner = await createPublicPartner({});
     const row = await prisma.publicSubscriber.create({
       data: {
@@ -273,7 +294,9 @@ describe("GET /api/public/unsubscribe", () => {
       },
     });
     const token = jwt.sign({ id: row.id, subscriberUnsubscribe: true }, process.env.SESSION_SECRET);
-    const res = await anon(`/api/public/unsubscribe?token=${encodeURIComponent(token)}`);
+    // Token in the query string, same as the RFC 8058 one-click path a
+    // mail client's own "Unsubscribe" button would use.
+    const res = await anon(`/api/public/unsubscribe?token=${encodeURIComponent(token)}`, { method: "POST" });
     assert.equal(res.status, 200);
 
     const after = await prisma.publicSubscriber.findUnique({ where: { id: row.id } });
@@ -282,12 +305,12 @@ describe("GET /api/public/unsubscribe", () => {
     assert.equal(joinRows.length, 0, "join-table rows should cascade");
   });
 
-  test("re-hitting an already-unsubscribed link degrades gracefully, not a 500", async () => {
+  test("re-POSTing an already-unsubscribed link degrades gracefully, not a 500", async () => {
     const token = jwt.sign(
       { id: "00000000-0000-0000-0000-000000000000", subscriberUnsubscribe: true },
       process.env.SESSION_SECRET
     );
-    const res = await anon(`/api/public/unsubscribe?token=${encodeURIComponent(token)}`);
+    const res = await anon(`/api/public/unsubscribe?token=${encodeURIComponent(token)}`, { method: "POST" });
     assert.equal(res.status, 200);
   });
 

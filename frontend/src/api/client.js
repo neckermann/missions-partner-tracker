@@ -1020,7 +1020,7 @@ export async function sendUserSetupLink(id) {
 
 // --- First-time password setup (public, token from the welcome email) ---
 export async function validatePasswordSetup(token) {
-  const { data } = await api.get("/auth/password-setup/validate", { params: { token } });
+  const { data } = await api.post("/auth/password-setup/validate", { token });
   return data;
 }
 export async function completePasswordSetup(token, password) {
