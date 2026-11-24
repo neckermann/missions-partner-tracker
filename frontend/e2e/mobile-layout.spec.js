@@ -11,7 +11,8 @@ test.use({ viewport: { width: 390, height: 800 } });
 
 test.describe("Phone layout (390px)", () => {
   let partnerId;
-  let linkId;
+  let linkId; // a link this spec created
+  let borrowedLink; // or an existing link whose URL it replaced: { id, url }
   let tripId;
 
   test.beforeAll(async ({ browser }) => {
@@ -22,15 +23,32 @@ test.describe("Phone layout (390px)", () => {
     partnerId = (partners.partners || partners)[0]?.id;
     expect(partnerId, "expected a seeded non-restricted, non-archived partner").toBeTruthy();
 
-    const link = await page.request.post("/api/partner-links", {
-      data: {
-        partnerId,
-        type: "support",
-        url: `https://give.example.com/${"a-long-unbroken-path-".repeat(6)}`,
-      },
-    });
-    expect(link.ok()).toBeTruthy();
-    linkId = (await link.json()).id;
+    // A partner can hold one link per type and the seed may already give this partner some, so
+    // use a type it doesn't have. If every type is taken (unlikely), borrow one: set a long URL
+    // on it now and put its own URL back afterwards.
+    const longUrl = `https://give.example.com/${"a-long-unbroken-path-".repeat(6)}`;
+    const existing = await (await page.request.get(`/api/partner-links?partnerId=${partnerId}`)).json();
+    const taken = new Set(existing.map((l) => l.type));
+    const freeType = [
+      "website",
+      "support",
+      "newsletterSignup",
+      "facebook",
+      "twitter",
+      "instagram",
+      "linkedin",
+    ].find((type) => !taken.has(type));
+    if (freeType) {
+      const link = await page.request.post("/api/partner-links", {
+        data: { partnerId, type: freeType, url: longUrl },
+      });
+      expect(link.ok(), "creating the long link").toBeTruthy();
+      linkId = (await link.json()).id;
+    } else {
+      borrowedLink = { id: existing[0].id, url: existing[0].url };
+      const res = await page.request.put(`/api/partner-links/${borrowedLink.id}`, { data: { url: longUrl } });
+      expect(res.ok(), "setting the long link").toBeTruthy();
+    }
 
     const trip = await page.request.post("/api/trips", {
       data: {
@@ -56,6 +74,9 @@ test.describe("Phone layout (390px)", () => {
     const page = await context.newPage();
     await login(page);
     if (linkId) await page.request.delete(`/api/partner-links/${linkId}`);
+    if (borrowedLink) {
+      await page.request.put(`/api/partner-links/${borrowedLink.id}`, { data: { url: borrowedLink.url } });
+    }
     if (tripId) await page.request.delete(`/api/trips/${tripId}`);
     await context.close();
   });
