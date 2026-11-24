@@ -7,6 +7,7 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
+const { recordAudit } = require("../utils/auditLog");
 const {
   requireAuth,
   requireRole,
@@ -522,9 +523,20 @@ router.put(
 
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
-    const existing = await prisma.trip.findUnique({ where: { id: req.params.id }, select: { id: true } });
+    const existing = await prisma.trip.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, name: true },
+    });
     if (!existing) return res.status(404).json({ error: "Not found" });
-    await prisma.trip.delete({ where: { id: req.params.id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.trip.delete({ where: { id: req.params.id } });
+      await recordAudit(tx, {
+        action: "trip.deleted",
+        actor: req.user,
+        entity: { type: "trip", id: existing.id, label: existing.name },
+        req,
+      });
+    });
     res.status(204).send();
   } catch (err) {
     next(err);

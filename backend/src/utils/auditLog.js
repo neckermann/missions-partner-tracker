@@ -49,7 +49,6 @@ const AUDIT_ACTIONS = {
   "trip.deleted": { label: "Deleted a trip", category: "Deletes" },
 
   "backup.downloaded": { label: "Downloaded a backup", category: "Data" },
-  "backup.restored": { label: "Restored a backup", category: "Data" },
 
   "partner.restricted_changed": { label: "Changed a partner's restricted status", category: "Restricted" },
   "partner.restricted_viewed": { label: "Viewed a restricted partner", category: "Restricted" },
@@ -83,7 +82,22 @@ async function isAuditEnabled(now = Date.now()) {
 
 const nameOf = (u) => [u?.firstName, u?.lastName].filter(Boolean).join(" ") || null;
 
-// A person as stored on a row: id plus the email/name they had right now.
+// A person as stored on a row: id plus the email/name they had right now. A
+// session's req.user carries only id/email/role, so a person given by id with
+// no name fields is looked up -- the snapshot should say "Dana Whitfield", not
+// just an address.
+async function resolvePerson(db, user) {
+  if (!user) return null;
+  if (user.id && user.firstName === undefined && user.lastName === undefined) {
+    const row = await (db || prisma).user.findUnique({
+      where: { id: user.id },
+      select: { email: true, firstName: true, lastName: true },
+    });
+    if (row) return { id: user.id, ...row };
+  }
+  return user;
+}
+
 function personFields(prefix, user) {
   return {
     [`${prefix}UserId`]: user?.id ?? null,
@@ -105,14 +119,17 @@ function ipFromReq(req) {
 //
 //   actor / target: a user-ish { id, email, firstName, lastName }
 //   entity: { type, id, label } for a non-account record
-async function recordAudit(db, { action, actor, target, entity, req, ip, details }) {
+async function recordAudit(db, { action, actor, target, entity, req, ip, details, force = false }) {
   if (!AUDIT_ACTIONS[action]) throw new Error(`Unknown audit action: ${action}`);
-  if (!(await isAuditEnabled())) return null;
+  // `force` is for the one event that must be written while the feature is
+  // being switched off: the switch-off itself.
+  if (!force && !(await isAuditEnabled())) return null;
+  const [actorRow, targetRow] = await Promise.all([resolvePerson(db, actor), resolvePerson(db, target)]);
   return (db || prisma).auditLog.create({
     data: {
       action,
-      ...personFields("actor", actor),
-      ...personFields("target", target),
+      ...personFields("actor", actorRow),
+      ...personFields("target", targetRow),
       entityType: entity?.type ?? null,
       entityId: entity?.id ?? null,
       entityLabel: entity?.label ?? null,

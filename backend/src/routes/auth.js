@@ -16,6 +16,7 @@ const { isFeatureEnabled } = require("../utils/features");
 const { DEFAULT_TRIP_REQUIREMENT_TEMPLATE } = require("../utils/defaultTripRequirementTemplate");
 const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
+const { recordAuditSafe } = require("../utils/auditLog");
 
 const router = express.Router();
 const MFA_PENDING_TTL = "5m";
@@ -49,8 +50,9 @@ function signMfaSetupToken(user) {
 // only once a session is actually granted. Sets the session cookie
 // directly on `res` — the token itself never appears in the JSON body, so
 // there's nothing for frontend JS to read or store.
-async function completeLogin(res, user) {
+async function completeLogin(res, user, req) {
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+  await recordAuditSafe(null, { action: "auth.login_success", actor: user, req });
   setSessionCookie(res, user);
   return { user: await sanitizeUser(user) };
 }
@@ -119,7 +121,7 @@ router.post("/setup", async (req, res, next) => {
       create: { id: "singleton", tripRequirementTemplate: DEFAULT_TRIP_REQUIREMENT_TEMPLATE },
     });
 
-    res.status(201).json(await completeLogin(res, user));
+    res.status(201).json(await completeLogin(res, user, req));
   } catch (err) {
     next(err);
   }
@@ -144,7 +146,24 @@ router.post("/login", async (req, res, next) => {
     // every reply says the same thing.
     const usable = Boolean(user && user.active && user.authProvider === "local" && user.passwordHash);
     const match = await bcrypt.compare(password, usable ? user.passwordHash : DUMMY_PASSWORD_HASH);
-    if (!usable || !match) return res.status(401).json({ error: "Invalid credentials" });
+    if (!usable || !match) {
+      // The reason is for the admin reading the activity log; the caller still
+      // gets the one generic answer.
+      const reason = !user
+        ? "unknown_email"
+        : !user.active
+          ? "inactive"
+          : user.authProvider !== "local" || !user.passwordHash
+            ? "not_a_password_account"
+            : "wrong_password";
+      await recordAuditSafe(null, {
+        action: "auth.login_failed",
+        target: user || { email: email.toLowerCase().trim() },
+        req,
+        details: { reason },
+      });
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
     if (user.mfaEnabled) {
       return res.json({ mfaRequired: true, pendingToken: signMfaPendingToken(user) });
@@ -153,7 +172,7 @@ router.post("/login", async (req, res, next) => {
       return res.json({ mfaSetupRequired: true, setupToken: signMfaSetupToken(user) });
     }
 
-    res.json(await completeLogin(res, user));
+    res.json(await completeLogin(res, user, req));
   } catch (err) {
     next(err);
   }
@@ -191,11 +210,19 @@ router.post("/mfa/login-verify", async (req, res, next) => {
       // replayed by someone else until it expires.
       afterTimeStep: user.mfaLastTimeStep ?? undefined,
     });
-    if (!valid) return res.status(401).json({ error: "Invalid code" });
+    if (!valid) {
+      await recordAuditSafe(null, {
+        action: "auth.login_failed",
+        target: user,
+        req,
+        details: { reason: "wrong_two_factor_code" },
+      });
+      return res.status(401).json({ error: "Invalid code" });
+    }
 
     await prisma.user.update({ where: { id: user.id }, data: { mfaLastTimeStep: timeStep } });
 
-    res.json(await completeLogin(res, user));
+    res.json(await completeLogin(res, user, req));
   } catch (err) {
     next(err);
   }
@@ -257,6 +284,7 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
       data: { passwordHash, sessionVersion: { increment: 1 } },
     });
     setSessionCookie(res, updated);
+    await recordAuditSafe(null, { action: "auth.password_changed", actor: user, req });
 
     res.json({ ok: true });
   } catch (err) {
@@ -313,6 +341,7 @@ router.post("/password-setup/complete", async (req, res, next) => {
       }),
       prisma.passwordSetupToken.update({ where: { id: row.id }, data: { usedAt: new Date() } }),
     ]);
+    await recordAuditSafe(null, { action: "auth.password_set", actor: row.user, req });
     // Not signed in here on purpose: they sign in normally next, which also
     // runs the forced two-factor enrollment when it's required.
     res.json({ ok: true, mfaRequired: row.user.mfaSetupRequired });
@@ -335,6 +364,11 @@ router.post("/password-setup/request", async (req, res) => {
       .trim();
     if (!email) return;
     const user = await prisma.user.findUnique({ where: { email } });
+    await recordAuditSafe(null, {
+      action: "auth.password_reset_requested",
+      target: user || { email },
+      req,
+    });
     if (user && user.active && user.authProvider === "local" && !user.passwordHash) {
       // Explicit check, same as users.js's own sendWelcomeEmail call sites --
       // without it, this would still "work" by accident: sendWelcomeEmail
@@ -421,7 +455,8 @@ router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) =
         sessionVersion: { increment: 1 },
       },
     });
-    res.json(await completeLogin(res, updated));
+    await recordAuditSafe(null, { action: "auth.mfa_enabled", actor: updated, req });
+    res.json(await completeLogin(res, updated, req));
   } catch (err) {
     next(err);
   }
@@ -458,6 +493,7 @@ router.post("/mfa/disable", requireAuth, async (req, res, next) => {
       data: { mfaEnabled: false, mfaSecret: null, sessionVersion: { increment: 1 } },
     });
     setSessionCookie(res, updated);
+    await recordAuditSafe(null, { action: "auth.mfa_disabled", actor: updated, req });
     res.json({ ok: true });
   } catch (err) {
     next(err);

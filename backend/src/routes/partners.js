@@ -1,6 +1,7 @@
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
+const { recordAudit, recordRestrictedView } = require("../utils/auditLog");
 const { isFeatureEnabled } = require("../utils/features");
 const { requireAuth, requireRole, requirePartnerWriter } = require("../middleware/requireAuth");
 const { canReadPartner, readablePartnerIds } = require("../utils/guestAccess");
@@ -464,6 +465,13 @@ router.get("/:id", async (req, res, next) => {
       include: partnerRecordInclude,
     });
     if (!record) return res.status(404).json({ error: "Not found" });
+    // A look at a restricted partner is logged (once per person per day); a
+    // failure to log must never stop the page loading.
+    if (record.isRestricted) {
+      await recordRestrictedView({ viewer: req.user, partner: record, req }).catch((err) =>
+        console.error("Couldn't record a restricted-partner view:", err.message)
+      );
+    }
     res.json(shapePartner(record));
   } catch (err) {
     next(err);
@@ -656,7 +664,7 @@ router.put("/:id", requirePartnerWriter({ param: "id" }), async (req, res, next)
     // scalarData.sentByOurChurch below -- see the comment on that check.
     const before = await prisma.partner.findUnique({
       where: { id: req.params.id },
-      select: { sentByOurChurch: true },
+      select: { sentByOurChurch: true, isRestricted: true, displayName: true },
     });
     if (!before) return res.status(404).json({ error: "Not found" });
 
@@ -695,6 +703,18 @@ router.put("/:id", requirePartnerWriter({ param: "id" }), async (req, res, next)
       // whatever this same save's own sendingChurch payload contained --
       // checking the box means Church Settings' current values win, full
       // stop, not a merge.
+      // Restricting (or un-restricting) a partner changes who can see where they
+      // are, so it is its own entry in the activity trail.
+      if (scalarData.isRestricted !== undefined && scalarData.isRestricted !== before.isRestricted) {
+        await recordAudit(tx, {
+          action: "partner.restricted_changed",
+          actor: req.user,
+          entity: { type: "partner", id: req.params.id, label: result.displayName },
+          req,
+          details: { isRestricted: { from: before.isRestricted, to: scalarData.isRestricted } },
+        });
+      }
+
       if (scalarData.sentByOurChurch === true && !before.sentByOurChurch) {
         await syncSendingChurch(tx, req.params.id);
         return tx.partner.findUnique({ where: { id: req.params.id }, include: partnerRecordInclude });
@@ -792,7 +812,7 @@ router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
     const existing = await prisma.partner.findUnique({
       where: { id: req.params.id },
-      select: { archived: true },
+      select: { archived: true, displayName: true },
     });
     if (!existing) return res.status(404).json({ error: "Not found" });
     if (!existing.archived) {
@@ -801,7 +821,15 @@ router.delete("/:id", requireRole("admin"), async (req, res, next) => {
     // Cascades to partner files/photos/addresses/etc. — their file bytes
     // live in the same row (see the PartnerFile model comment in
     // schema.prisma), so there's no separate external cleanup needed.
-    await prisma.partner.delete({ where: { id: req.params.id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.partner.delete({ where: { id: req.params.id } });
+      await recordAudit(tx, {
+        action: "partner.deleted",
+        actor: req.user,
+        entity: { type: "partner", id: req.params.id, label: existing.displayName },
+        req,
+      });
+    });
 
     res.status(204).send();
   } catch (err) {
