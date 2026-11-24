@@ -474,8 +474,13 @@ than by omission"). Roles exist to gate **writes**, not visibility:
   a deactivation/role-demotion takes effect on the user's very next
   request, not at token expiry.
 - **MFA**: self-service TOTP, opt-in per user; an admin can force
-  enrollment (`mfaSetupRequired`) without knowing the secret. Replay
-  protection via `mfaLastTimeStep`. SSO was removed in 3.1.0 — auto-
+  enrollment (`mfaSetupRequired`) of one account without knowing the
+  secret, or require it of every account with the church-wide
+  `ChurchSettings.requireTwoFactor` (#385): login sends an unenrolled
+  account to enrolment (no session), `requireAuth` ends a session for an
+  unenrolled account on the next request, the self-service disable is
+  refused, and the setting can only be turned on by an enrolled admin and
+  never on a demo deployment. Replay protection via `mfaLastTimeStep`. SSO was removed in 3.1.0 — auto-
   provisioning handed an account to anyone at the configured identity
   provider, which in a "any account reads everything" app was judged too
   wide; `authProvider` stays on the schema so `local`-only password auth
@@ -520,12 +525,13 @@ the "Inactive accounts only" filter lists just those so an admin can reach
 out and clean up. Grant changes are recorded in the audit log (§5.6): who granted,
 extended or removed access, and the deactivation that follows.
 
-**MFA is required for a guest** (`mfaSetupRequired` is forced on at
-creation and role change, and again by an admin MFA reset). A guest can
-change their own password and enrol MFA from "My account" (reversing
-#329 Finding 2, which had made them fully admin-managed), but cannot
-disable it. "My account" shows a guest password and MFA only — never the
-admin digest subscription.
+**No two-factor rule is specific to a guest** (#385; before it, guests were
+forced to enrol in four separate places). A guest is held to the church-wide
+requirement exactly like every other role (§5, MFA). A guest can change their
+own password and enrol MFA from "My account" (reversing #329 Finding 2, which
+had made them fully admin-managed), and can switch it off only while the
+church doesn't require it of everyone. "My account" shows a guest password and
+MFA only — never the admin digest subscription.
 
 | Can read | Can write |
 |---|---|

@@ -30,10 +30,12 @@ for why.
 ![The login page](docs/assets/screenshots/login-page.png)
 
 If your account has two-factor authentication enabled, you'll be prompted
-for a 6-digit code from your authenticator app after your password. If an
-admin has *required* MFA on your account but you haven't set it up yet,
-you'll be walked through enrollment (scan a QR code, confirm a code)
-before you can do anything else.
+for a 6-digit code from your authenticator app after your password. If
+your church requires two-factor for everyone (or an admin required it of
+your account) and you haven't set it up yet, you'll be walked through
+enrollment (scan a QR code, confirm a code) before you can do anything
+else. If your church turns the requirement on while you're signed in, your
+next click takes you back to sign-in, and you set it up then.
 
 ### Understanding your role
 
@@ -70,8 +72,9 @@ requirements/budget/flights, and can view (but not edit) those trips'
 partner pages — nothing else in the app. **Access ends 30 days after
 each trip's end date** unless an admin sets a different date, so a
 guest doesn't keep access forever; an admin can extend it, end it
-early, or remove a trip at any time. Guests sign in with a password and
-two-factor authentication, which is always required for them. Use it
+early, or remove a trip at any time. Guests sign in with a password, and
+with two-factor authentication when the church requires it of everyone
+(see [User management](#user-management-admin-only)). Use it
 for an actual trip leader or chaperone who needs to manage their own
 trip's logistics without a full account on everything else. See
 [SPEC.md § 5.1](SPEC.md#51-guest--a-scoped-login-not-a-4th-full-role)
@@ -872,7 +875,21 @@ needed:
 ### User management (Admin only)
 
 **Manage Users** lists everyone with access — email, role, active status,
-MFA status, last login. **+ Add User** opens its own page: email, name,
+MFA status, last login.
+
+At the top, **Two-factor sign-in** is one switch for the whole church:
+**Require it for everyone** makes every account, whatever its role,
+set up two-factor authentication. It shows how many active accounts
+haven't yet. Turning it on signs out anyone who hasn't set it up (their
+next click takes them back to sign-in, where they're walked through
+enrollment), and while it's on nobody can turn it off for themselves; if
+someone loses their authenticator, **Reset MFA** on their row sends them
+through enrollment again. It only turns on for an admin who has set up
+two-factor on their own account first, so it can't lock you out, and it
+can't be turned on for the public demo. It's off by default. Turning it
+on or off is recorded in the [Audit log](#audit-log-admin-only).
+
+**+ Add User** opens its own page: email, name,
 role (Admin, Editor, Viewer, or Guest — pick at least one trip for a
 Guest), then how they'll get access — **Send a welcome email** (on
 by default) emails them a one-time "Choose your password" link so you
@@ -903,18 +920,20 @@ create their login in one step.
 ![Add User's Care team step, choosing partners for a Guest to look after](docs/assets/screenshots/add-user-care-team.png)
 
 Editing an existing user (from their row in Manage Users) lets you change
-role, deactivate, force MFA enrollment, or reset a password. **Reset MFA**
-clears a locked-out user's two-factor setup so they can log back in with
-just their password and re-enroll — for your own account, use **Disable
-Two-Factor Authentication** on [Your account settings](#your-account-settings)
-instead, which requires your current password; **Reset MFA** on your own
+role, deactivate, require two-factor for just that account, or reset a
+password. **Reset MFA** clears a locked-out user's two-factor setup so
+they can log back in and re-enroll (with just their password, or straight
+into enrollment if the church requires two-factor) — for your own account,
+use **Disable Two-Factor Authentication** on [Your account settings](#your-account-settings)
+instead (not available while the church requires it), which requires your
+current password; **Reset MFA** on your own
 row is blocked here, since skipping that password check is exactly how a
 hijacked session could silently strip your own two-factor protection.
 You can't delete your own account, and the app won't let you demote,
 deactivate, or delete the last active admin — there's always at least
 one way back in.
 
-![The Manage Users page, listing role, active status, and MFA status](docs/assets/screenshots/manage-users.png)
+![The Manage Users page: the Two-factor sign-in panel, then each account with its role, active status and MFA status](docs/assets/screenshots/manage-users.png)
 
 ### Database Backups (Admin only)
 
@@ -1555,11 +1574,11 @@ the Scan for requests button.
 can change your password (current password required) and enable/disable
 two-factor authentication — enabling walks you through scanning a QR code
 and confirming a code; disabling requires your current password. (A Guest
-sees just password and two-factor authentication here, and can't turn
-two-factor authentication off, since it's required for them — see
-[Understanding your role](#understanding-your-role). If a guest loses
-their authenticator app, an admin resets it from Manage Users and they set
-it up again at next sign-in.)
+sees just password and two-factor authentication here. When your church
+requires two-factor for everyone, nobody, whatever their role, can turn it
+off here, and the page says so. If you lose your authenticator app, an
+admin resets it from Manage Users and you set it up again at next
+sign-in.)
 
 If [Email (Sending)](#email-admin-only) is turned on for the church,
 there's also an **Email Dispatch** section here: a cadence (no

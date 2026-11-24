@@ -470,12 +470,10 @@ router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) =
 // Requires the current password (not just an active session) so a hijacked
 // browser tab can't silently strip MFA off the account.
 //
-// #356: MFA is required for a guest (their account is created with
-// mfaSetupRequired), so unlike every other role a guest enrols and
-// re-enrols from "My account" but cannot switch it off -- an admin who
-// needs to clear a lost authenticator uses routes/users.js's admin-side
-// MFA reset (POST /api/users/:id/mfa/reset), after which the guest must
-// enrol again at next sign-in.
+// While the church requires two-factor of everyone (#385) nobody, whatever their role, can
+// switch it off here -- an admin who needs to clear a lost authenticator uses
+// routes/users.js's admin-side MFA reset (POST /api/users/:id/mfa/reset), after which the
+// person is taken through enrolment again at next sign-in.
 router.post("/mfa/disable", requireAuth, async (req, res, next) => {
   try {
     // While the church requires two-factor, nobody can turn it off for themselves (#385).

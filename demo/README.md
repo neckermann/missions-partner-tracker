@@ -51,12 +51,13 @@ requests and needs carry a demo editor's name and a date within the last ten wee
 in seven is left blank, so the **Last updated** column on Partners and Trips has something to sort
 and a record's "Last edited by" line something to show. The dates are relative to the reset.
 
-These are the **only** accounts with two-factor off (`mfaSetupRequired:
-false`): a shared, published account can't enrol an authenticator without
-locking every other visitor out. Every other guest the seed creates (for
-example the lapsed `sam.okafor@<admin's domain>`, who exists to populate the
-"Inactive accounts only" filter) keeps the normal rule -- two-factor required
--- and has a password nobody is told. **The published logins also look alike**,
+The demo never requires two-factor: a shared, published account can't enrol an
+authenticator without locking every other visitor out, so the church-wide
+**Two-factor sign-in** switch (Manage Users, #385) is off on a demo and the app
+refuses to turn it on while `DEMO_RESET_TOKEN` is set. The other guests the
+seed creates (for example the lapsed `sam.okafor@<admin's domain>`, who exists
+to populate the "Inactive accounts only" filter) have a password nobody is
+told. **The published logins also look alike**,
 for simplicity: the guests' emails use the demo admin's email domain (so with
 `DEMO_ADMIN_EMAIL=demo@missionspartnertracker.com` they are
 `care.member@missionspartnertracker.com` and `trip.leader@missionspartnertracker.com`;

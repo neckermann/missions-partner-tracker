@@ -14,7 +14,13 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Added
+
+- **One church-wide two-factor requirement ([#385](https://github.com/neckermann/missions-partner-tracker/issues/385)).** Manage Users has a **Two-factor sign-in** panel: **Require it for everyone** makes every account, whatever its role, set up two-factor. It shows how many active accounts haven't yet. While it's on, an account that hasn't set it up is sent to enrolment at sign-in and gets no session until it does; a session open when you turn it on stops working at the next request (the person is taken back to sign-in, where they enrol); and nobody can switch it off for themselves. Turning it on needs the admin doing it to have enrolled first (so it can't lock them out) and is refused on the public demo. Off by default; changes are in the Audit log. A 401 on an admin page now sends the person to sign in (their place remembered) instead of leaving the page showing errors, which also covers an expired session.
+
 ### Changed
+
+- **No two-factor rule is specific to a guest any more.** A guest used to be forced to enrol in four separate places (when created, when promoted, after an admin reset, and could never switch it off). They are now treated like every other role: the church-wide setting above is the one way to require it of everyone, and an admin can still require it of one account. Add User's "Require two-factor" box is no longer locked on for a guest, and My account no longer has guest-only wording.
 
 - **The demo seeds "last edited by" data.** Most demo partners, trips, prayer requests and needs now carry a demo editor's name and a date within the last ten weeks, so the **Last updated** column on Partners and Trips isn't blank on a fresh demo; about one in seven is left blank, as on a real install.
 
@@ -26,6 +32,11 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 - **The Audit log export downloaded as `activity-log-….csv`**, a leftover from before the page was renamed; it is now `audit-log-….csv`. A link in the Admin Guide to the Audit log section was also dead.
 - **A link to a deleted record left the page on "Loading..." forever.** The partner, trip, participant and application pages now say the record wasn't found (or that you don't have access to it) and link back to the list. An old bookmark, or a tab left open across a demo reset, is the usual way to hit this.
 - **A guest's trip page never showed the Financial tab**, even with trip budgeting on, because the page asked for the church-wide trip settings, which are closed to guests. Whether budgeting is on now comes with the trip itself, and the trip pages no longer request the closed settings for a guest (#370).
+
+### Upgrading
+
+- **Database baseline changed again: a database that already ran 0.7.0 must be reset too (pre-1.0).** `ChurchSettings.requireTwoFactor` is folded into the single baseline `20261122092854_init` (SPEC §8.3), so `npx prisma migrate deploy` against a 0.7.0 database reads the baseline as already applied and adds nothing. Reset with the same steps and data-loss warning as before: `npx prisma migrate reset --force` from `backend/` (**erases all data**; back up first and re-create the admin with `node prisma/createAdmin.js`), or `npm run demo:reset:remote` / `npm run dev:reset:remote` for the demo and dev-test sites. The new baseline was regenerated from the schema and differs from the old one by that one column only.
+- **Guests are no longer forced to set up two-factor by default.** Turn on the church-wide **Two-factor sign-in** switch in Manage Users (after the admins have enrolled) to require it of everyone, guests included.
 
 ## [0.7.0] - 2026-11-24
 
