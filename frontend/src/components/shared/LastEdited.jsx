@@ -7,15 +7,19 @@ import { formatDate } from "../../utils/format.js";
 // Audit log's event history, it never expires. Renders nothing for a record
 // no signed-in person has changed (created by a job, the seed or a public
 // form), so there is no empty "last edited by" line. Takes the two fields
-// explicitly (name, at) -- a page passes lastEditedByName / lastEditedAt.
-export default function LastEdited({ name, at, style }) {
-  if (!name || !at) return null;
+// explicitly (name, at) -- a page passes lastEditedByName / lastEditedAt -- and,
+// optionally, createdAt, so a trip's page can also say when it was added.
+export default function LastEdited({ name, at, createdAt, style }) {
+  const edited = name && at ? `Last edited by ${name} on ${formatDate(at)}` : null;
+  // When the record was added (#383), where the page has one: "Added 11/10/2026 · Last edited by ...".
+  const added = createdAt ? `Added ${formatDate(createdAt)}` : null;
+  if (!edited && !added) return null;
   return (
     <p
       className="last-edited"
       style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0.25rem 0", ...style }}
     >
-      Last edited by {name} on {formatDate(at)}
+      {[added, edited].filter(Boolean).join(" · ")}
     </p>
   );
 }

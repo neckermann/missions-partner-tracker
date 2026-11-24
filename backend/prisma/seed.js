@@ -3202,7 +3202,7 @@ async function seedKeyDatesDemo() {
 // over the last ten weeks, so the column has something to sort and the lines something to
 // show, and leave about one in seven blank, as a real install has ("blank means no signed-in
 // person has changed it"). The care team member is the editor on some prayer requests and
-// needs, since care team members can edit those. Deterministic by creation order (trips: start date).
+// needs, since care team members can edit those. Deterministic by creation order.
 async function seedLastEditedDemo() {
   console.log("Stamping last-edited-by on the demo records...");
   const staff = await prisma.user.findMany({
@@ -3220,9 +3220,20 @@ async function seedLastEditedDemo() {
     d.setHours(8 + ((i * 3) % 10), (i * 11) % 60, 0, 0);
     return { lastEditedById: u.id, lastEditedByName: nameOf(u), lastEditedAt: d };
   };
-  // Trip has no createdAt; its start date gives a stable order.
-  const orderFor = (model) =>
-    model === "trip" ? [{ startDate: "asc" }, { id: "asc" }] : [{ createdAt: "asc" }, { id: "asc" }];
+  // Give each trip an "Added" date (#383): some weeks before it starts, never in the future,
+  // in start-date order so the result is stable. (Every trip would otherwise be added "now",
+  // the moment the seed ran.)
+  const trips = await prisma.trip.findMany({
+    orderBy: [{ startDate: "asc" }, { id: "asc" }],
+    select: { id: true, startDate: true },
+  });
+  for (const [i, trip] of trips.entries()) {
+    const start = (trip.startDate ?? new Date()).getTime();
+    const added = new Date(Math.min(start - (45 + ((i * 11) % 75)) * 86400000, Date.now() - 86400000));
+    added.setHours(9 + (i % 8), (i * 17) % 60, 0, 0);
+    await prisma.trip.update({ where: { id: trip.id }, data: { createdAt: added } });
+  }
+  const orderFor = () => [{ createdAt: "asc" }, { id: "asc" }];
   let stamped = 0;
   for (const [model, editors] of [
     ["partner", staff],
@@ -3230,7 +3241,7 @@ async function seedLastEditedDemo() {
     ["prayerRequest", careMember ? [...staff, careMember] : staff],
     ["supportNeed", careMember ? [...staff, careMember] : staff],
   ]) {
-    const rows = await prisma[model].findMany({ orderBy: orderFor(model), select: { id: true } });
+    const rows = await prisma[model].findMany({ orderBy: orderFor(), select: { id: true } });
     for (const [i, row] of rows.entries()) {
       const data = stampFor(i, editors);
       if (!data) continue;

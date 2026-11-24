@@ -131,7 +131,7 @@ const applicationFunnel = {
       select: {
         name: true,
         startDate: true,
-        applications: { select: { status: true, submittedAt: true, reviewedAt: true } },
+        applications: { select: { status: true, createdAt: true, reviewedAt: true } },
       },
     }),
   compute(trips) {
@@ -143,7 +143,7 @@ const applicationFunnel = {
         const declined = count("declined");
         const days = t.applications
           .filter((a) => a.reviewedAt)
-          .map((a) => daysBetween(a.reviewedAt, a.submittedAt));
+          .map((a) => daysBetween(a.reviewedAt, a.createdAt));
         return {
           trip: t.name || "Untitled trip",
           submitted: t.applications.length,
