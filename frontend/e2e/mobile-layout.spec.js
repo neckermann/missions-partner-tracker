@@ -90,6 +90,28 @@ test.describe("Phone layout (390px)", () => {
     expect(box.x + box.width).toBeLessThanOrEqual(390);
   });
 
+  test("the menu starts closed so the page is on the first screen, and closes after choosing a page", async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto("/admin/partners");
+    const heading = page.getByRole("heading", { name: /Partners/ }).first();
+    await expect(heading).toBeVisible();
+    const box = await heading.boundingBox();
+    expect(box.y + box.height, "the page heading is below the first screen").toBeLessThan(800);
+
+    const menu = page.getByRole("button", { name: /Menu/ });
+    await expect(menu).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator(".admin-sidebar-nav")).toBeHidden();
+
+    await menu.click();
+    await expect(page.locator(".admin-sidebar-nav")).toBeVisible();
+    await page.locator(".admin-sidebar-nav").getByRole("link", { name: /Home/ }).click();
+    await page.waitForURL(/\/admin$/);
+    await expect(menu).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator(".admin-sidebar-nav")).toBeHidden();
+  });
+
   const routes = [
     ["the dashboard", () => "/admin"],
     ["the Partners list", () => "/admin/partners"],
