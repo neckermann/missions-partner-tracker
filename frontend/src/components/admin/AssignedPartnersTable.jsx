@@ -12,6 +12,9 @@ import { formatDateLong } from "../../utils/format.js";
 // same read model the "Partners to reach out to" notification counts, so the
 // two never disagree about who is overdue.
 
+// Mirrors the server's KEY_DATE_LEAD_DAYS (utils/keyDates.js).
+const KEY_DATE_SOON_DAYS = 7;
+
 const sinceLabel = (days) =>
   days === null ? "Never" : days === 0 ? "Today" : days === 1 ? "Yesterday" : `${days} days ago`;
 
@@ -63,9 +66,17 @@ export default function AssignedPartnersTable() {
       key: "nextKeyDate",
       label: "Next key date",
       render: (r) =>
-        r.nextKeyDate
-          ? `${r.nextKeyDate.occasion}${r.nextKeyDate.who ? ` (${r.nextKeyDate.who})` : ""} · ${formatDateLong(r.nextKeyDate.date)}`
-          : "—",
+        r.nextKeyDate ? (
+          <span>
+            {`${r.nextKeyDate.occasion}${r.nextKeyDate.who ? ` (${r.nextKeyDate.who})` : ""} · ${formatDateLong(r.nextKeyDate.date)}`}
+            {/* #291: inside the reminder window -- the same 7 days the bell and email use */}
+            {enabledFeatures.keyDates && r.nextKeyDate.daysUntil <= KEY_DATE_SOON_DAYS && (
+              <StatusPill label={r.nextKeyDate.daysUntil === 0 ? "Today" : "Soon"} color="#a6540f" />
+            )}
+          </span>
+        ) : (
+          "—"
+        ),
     },
     ...(enabledFeatures.prayerRequests
       ? [{ key: "openPrayers", label: "Open prayers", sortable: true, render: (r) => r.openPrayers }]

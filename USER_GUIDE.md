@@ -1088,6 +1088,16 @@ With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-togg
 
 The **Last heard from** report counts a logged contact as hearing from a partner: a partner is only "quiet" when both the latest newsletter and the latest contact are old. Trip leaders don't get the contact log.
 
+### Key-date reminders
+
+With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **supported-since milestone** (the first year, then every fifth) a week ahead.
+
+- **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **Assigned to me** tab also flags a key date inside the week.
+- **By email**, one message a day, only on a day something is due, listing everything coming up for your partners (not one email per partner). It needs Email (Sending) turned on, and it's sent at 7am church time.
+- **Who gets it:** the whole care team, lead and members. A partner with no care team goes to the **default lead** an admin picks under Settings → Care Teams; with neither, nobody hears about it.
+- **To clear a reminder**, send the card or make the call and **log it as a contact with the topic "Key date"**. That stops the reminders for that occasion, and it counts as being in touch.
+- The app never sends the card for you, and a restricted partner appears in the email by initials only. A partner who isn't safe to contact is marked in the email so a reminder to "send a card" isn't read as "call them".
+
 ### Pending Dispatches
 
 The **Pending Dispatches** page (in the main menu, alongside

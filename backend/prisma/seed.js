@@ -2576,6 +2576,7 @@ async function seedTripsDemo() {
         trips: true,
         careTeam: true,
         contactLog: true,
+        keyDates: true,
         publicTripDiscovery: true,
         booklet: true,
         reports: true,
@@ -3127,6 +3128,62 @@ async function seedContactLogDemo() {
   }
 }
 
+// ---------------------------------------------------------------------
+// Key-date reminders demo (#291): birthdays landing inside the 7-day window so
+// the bell shows something the day a demo is reset, and a default lead so a
+// partner with no care team still has someone to tell. Dates are relative to
+// "now" (a fixed date would be stale by the next reset). Runs after the care
+// teams and contact log. Demo extras only.
+// ---------------------------------------------------------------------
+async function seedKeyDatesDemo() {
+  console.log("Seeding key-date reminders...");
+  const inDays = (n, yearsAgo) => {
+    const d = new Date();
+    return new Date(Date.UTC(d.getUTCFullYear() - yearsAgo, d.getUTCMonth(), d.getUTCDate() + n));
+  };
+  const careMember = await prisma.user.findUnique({ where: { email: DEMO_CARE_MEMBER_EMAIL } });
+  const editor = await prisma.user.findFirst({ where: { firstName: "Pat", lastName: "Reynolds" } });
+
+  // A birthday in 3 days on a partner the published care member looks after.
+  const seat = careMember
+    ? await prisma.careTeamMember.findFirst({
+        where: { userId: careMember.id },
+        orderBy: { createdAt: "asc" },
+      })
+    : null;
+  if (seat) {
+    const adult = await prisma.adult.findFirst({
+      where: { partnerId: seat.partnerId },
+      orderBy: { createdAt: "asc" },
+    });
+    if (adult) await prisma.adult.update({ where: { id: adult.id }, data: { birthday: inDays(3, 41) } });
+  }
+
+  // A team-less partner with a birthday in 5 days: it goes to the default lead.
+  const teamed = await prisma.careTeamMember.findMany({ select: { partnerId: true } });
+  const teamless = await prisma.partner.findFirst({
+    where: {
+      kind: "missionary",
+      archived: false,
+      isRestricted: false,
+      id: { notIn: teamed.map((t) => t.partnerId) },
+      adults: { some: {} },
+    },
+    orderBy: { displayName: "asc" },
+    select: { id: true, adults: { take: 1, orderBy: { createdAt: "asc" }, select: { id: true } } },
+  });
+  if (teamless) {
+    await prisma.adult.update({ where: { id: teamless.adults[0].id }, data: { birthday: inDays(5, 36) } });
+  }
+
+  if (editor) {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { defaultCareLeadUserId: editor.id },
+    });
+  }
+}
+
 async function main() {
   const existingMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });
   const existingOrgs = await prisma.partner.count({ where: { kind: "organization" } });
@@ -3473,6 +3530,7 @@ async function main() {
     // through unreviewed, and this adds the HELD care-team ones on top.
     await seedCareTeamsDemo();
     await seedContactLogDemo();
+    await seedKeyDatesDemo();
   }
 
   const finalMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });
@@ -3505,4 +3563,5 @@ module.exports = {
   seedTripsDemo,
   seedCareTeamsDemo,
   seedContactLogDemo,
+  seedKeyDatesDemo,
 };

@@ -1,13 +1,14 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AssignedPartnersTable from "./AssignedPartnersTable.jsx";
 import { fetchAssignedPartners } from "../../api/client.js";
 
 vi.mock("../../api/client.js", () => ({ fetchAssignedPartners: vi.fn() }));
+let features = { prayerRequests: true, oneTimeNeeds: false };
 vi.mock("../../context/SettingsContext.jsx", () => ({
-  useSettings: () => ({ enabledFeatures: { prayerRequests: true, oneTimeNeeds: false } }),
+  useSettings: () => ({ enabledFeatures: features }),
 }));
 
 const rows = [
@@ -37,7 +38,10 @@ const rows = [
   },
 ];
 
-beforeEach(() => fetchAssignedPartners.mockResolvedValue(rows));
+beforeEach(() => {
+  features = { prayerRequests: true, oneTimeNeeds: false };
+  fetchAssignedPartners.mockResolvedValue(rows);
+});
 
 const renderIt = () =>
   render(
@@ -69,5 +73,34 @@ describe("AssignedPartnersTable (#288)", () => {
     fetchAssignedPartners.mockResolvedValue([]);
     renderIt();
     expect(await screen.findByText(/aren't on any partner's care team/)).toBeTruthy();
+  });
+});
+
+// #291: a key date inside the reminder window is flagged, only with the feature on.
+describe("AssignedPartnersTable: key-date flag (#291)", () => {
+  const soon = (daysUntil) => [{ ...rows[0], nextKeyDate: { ...rows[0].nextKeyDate, daysUntil } }];
+
+  it("flags a key date within 7 days, and says Today for today", async () => {
+    features = { keyDates: true };
+    fetchAssignedPartners.mockResolvedValue(soon(3));
+    renderIt();
+    expect(await screen.findByText("Soon")).toBeTruthy();
+    fetchAssignedPartners.mockResolvedValue(soon(0));
+    renderIt();
+    expect(await screen.findByText("Today")).toBeTruthy();
+  });
+
+  it("doesn't flag one that is further off, or when the feature is off", async () => {
+    features = { keyDates: true };
+    fetchAssignedPartners.mockResolvedValue(soon(8));
+    renderIt();
+    await screen.findByText("The Reeds");
+    expect(screen.queryByText("Soon")).toBeNull();
+
+    features = { keyDates: false };
+    fetchAssignedPartners.mockResolvedValue(soon(2));
+    renderIt();
+    await waitFor(() => expect(screen.getAllByText("The Reeds").length).toBe(2));
+    expect(screen.queryByText("Soon")).toBeNull();
   });
 });

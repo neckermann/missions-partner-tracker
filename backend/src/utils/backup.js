@@ -106,6 +106,7 @@ const MODELS = [
   "tripAccess", // -> user, trip (#356)
   "careTeamMember", // -> partner, user (#289)
   "contactLog", // -> partner, user (#288)
+  "keyDateReminder", // -> partner, user (#291)
   "savedReport", // savedReport.ownerId -> user
   "reportSchedule", // reportSchedule.savedReportId -> savedReport
   "passwordSetupToken", // -> user

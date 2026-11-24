@@ -1115,6 +1115,16 @@ export async function setCareTeam(partnerId, { leadUserId, memberUserIds }) {
   return data;
 }
 // Active logins a team can be made from (admin/editor).
+// The church's default lead (#291): who key-date reminders go to for a partner
+// with no care team. Admin sets it; admin/editor read it.
+export async function fetchDefaultCareLead() {
+  const { data } = await api.get("/care-team/default-lead");
+  return data.defaultLead;
+}
+export async function setDefaultCareLead(userId) {
+  const { data } = await api.put("/care-team/default-lead", { userId });
+  return data.defaultLead;
+}
 export async function fetchCareTeamCandidates() {
   const { data } = await api.get("/care-team/candidates");
   return data;

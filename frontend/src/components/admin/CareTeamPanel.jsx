@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchCareTeam, setCareTeam, fetchCareTeamCandidates } from "../../api/client.js";
+import {
+  fetchCareTeam,
+  setCareTeam,
+  fetchCareTeamCandidates,
+  fetchDefaultCareLead,
+} from "../../api/client.js";
+import { useSettings } from "../../context/SettingsContext.jsx";
 import QuickActionModal from "../shared/QuickActionModal.jsx";
 import StatusPill from "./StatusPill.jsx";
 
@@ -21,6 +27,18 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
   const [team, setTeam] = useState(null);
   const [failed, setFailed] = useState(false);
   const [editing, setEditing] = useState(false);
+  // #291: with nobody assigned, key-date reminders go to the default lead --
+  // say so to staff, who are the ones who can fix it. (The endpoint is
+  // admin/editor only, so this is skipped for everyone else.)
+  const { enabledFeatures } = useSettings();
+  const [defaultLead, setDefaultLead] = useState(null);
+  const teamIsEmpty = !!team && !team.lead && team.members.length === 0;
+  useEffect(() => {
+    if (!canEdit || !enabledFeatures?.keyDates || !teamIsEmpty) return;
+    fetchDefaultCareLead()
+      .then(setDefaultLead)
+      .catch(() => setDefaultLead(null));
+  }, [canEdit, enabledFeatures?.keyDates, teamIsEmpty]);
 
   const reload = useCallback(
     () =>
@@ -50,6 +68,14 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
       {team && !team.lead && team.members.length === 0 && (
         <p style={{ margin: "0.5rem 0 0", color: "#555" }}>
           Nobody is assigned to keep in touch with this partner yet.
+          {canEdit && enabledFeatures?.keyDates && (
+            <>
+              {" "}
+              {defaultLead
+                ? `Key-date reminders go to the default lead, ${defaultLead.name}, until a team is set.`
+                : "Key-date reminders have nobody to go to until a team (or a default lead) is set."}
+            </>
+          )}
         </p>
       )}
       {team && (team.lead || team.members.length > 0) && (

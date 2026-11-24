@@ -62,6 +62,45 @@ router.get("/candidates", requireRole("admin", "editor"), async (req, res, next)
   }
 });
 
+// #291: the church's default lead -- who key-date reminders go to for a partner
+// with no care team. Read by admin/editor (they manage teams); set by admin.
+// Lives here rather than in the generic settings route so it only exists while
+// care teams do. Registered before "/:partnerId" so it isn't read as an id.
+const defaultLeadView = (u) =>
+  u ? { userId: u.id, name: [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email } : null;
+const defaultLeadSelect = { select: { id: true, email: true, firstName: true, lastName: true } };
+
+router.get("/default-lead", requireRole("admin", "editor"), async (req, res, next) => {
+  try {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { defaultCareLead: defaultLeadSelect },
+    });
+    res.json({ defaultLead: defaultLeadView(settings?.defaultCareLead) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/default-lead", requireRole("admin"), async (req, res, next) => {
+  try {
+    const { userId } = z.object({ userId: z.string().min(1).nullable() }).parse(req.body);
+    if (userId) {
+      const user = await prisma.user.findFirst({ where: { id: userId, active: true }, select: { id: true } });
+      if (!user) return res.status(400).json({ error: "The default lead needs an active login" });
+    }
+    const settings = await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      update: { defaultCareLeadUserId: userId },
+      create: { id: "singleton", defaultCareLeadUserId: userId },
+      select: { defaultCareLead: defaultLeadSelect },
+    });
+    res.json({ defaultLead: defaultLeadView(settings.defaultCareLead) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/:partnerId", async (req, res, next) => {
   try {
     if (!canReadPartner(req.user, req.params.partnerId)) {

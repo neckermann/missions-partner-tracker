@@ -34,6 +34,8 @@ const prisma = require("../prismaClient");
 const { needsReview } = require("../utils/dispatchEligibility");
 const { isCareTeamEnabled } = require("../utils/guestAccess");
 const { isContactLogEnabled, loadAssignedPartners } = require("../utils/contactLogQueries");
+const { loadOpenKeyDatesFor } = require("../utils/keyDateQueries");
+const { KEY_DATE_LEAD_DAYS } = require("../utils/keyDates");
 
 const SOON_DAYS = 30;
 const BACKUP_REMIND_AGAIN_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
@@ -69,6 +71,29 @@ async function partnersNeedingContact({ userId }) {
     return d && (!m || d > m) ? d : m;
   }, null);
   return { count: due.length, latest, linkTo: "/admin/partners?assigned=1" };
+}
+
+// #291: birthdays, anniversaries and supported-since milestones coming up for
+// the partners this login looks after (its care team seats, or -- for a
+// partner with no team -- the church's default lead). Live, from the same
+// read model as the daily email; one logged "key date" contact clears an item.
+// Counts nothing while keyDates or careTeam is off. `latest` is when the most
+// recent item became due, so the bell only lights up for NEW ones.
+async function keyDatesComing({ userId }) {
+  if (!userId) return { count: 0, latest: null };
+  const items = await loadOpenKeyDatesFor(userId);
+  if (items.length === 0) return { count: 0, latest: null };
+  const latest = items.reduce((m, i) => {
+    const due = new Date(new Date(`${i.date}T00:00:00Z`).getTime() - KEY_DATE_LEAD_DAYS * 86400000);
+    return !m || due > m ? due : m;
+  }, null);
+  // One partner: go straight to it; several: the list of my partners.
+  const partnerIds = [...new Set(items.map((i) => i.partnerId))];
+  return {
+    count: items.length,
+    latest,
+    linkTo: partnerIds.length === 1 ? `/admin/partners/${partnerIds[0]}` : "/admin/partners?assigned=1",
+  };
 }
 
 // --- All-roles categories --------------------------------------------
@@ -305,6 +330,18 @@ const CATEGORIES = [
     // sees (a trip leader has no seats, so the count is always zero for them).
     guestVisible: true,
     resolve: partnersNeedingContact,
+  },
+  {
+    key: "keyDatesComing",
+    label: "Key dates coming up",
+    icon: "🎂",
+    linkTo: "/admin/partners?assigned=1",
+    adminOnly: false,
+    perUser: false,
+    tripScoped: false,
+    // Visible to a care team guest, like partnersNeedingContact above.
+    guestVisible: true,
+    resolve: keyDatesComing,
   },
   {
     key: "tripsDepartingSoon",

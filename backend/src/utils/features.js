@@ -165,6 +165,17 @@ const FEATURES = {
     defaultEnabled: false,
     group: "admin",
   },
+  // #291: a bell alert and one grouped daily email for the people on a
+  // partner's care team when a birthday, anniversary or supported-since
+  // milestone is coming up. Needs care teams (that is where the recipients
+  // come from); the email also needs email sending.
+  keyDates: {
+    label: "Key-date reminders",
+    description:
+      "Remind each partner's care team about coming birthdays (including children), anniversaries and supported-since milestones: on the bell, and in one grouped email a day that is sent only on days something is due. Needs Care teams; the email also needs Email (Sending).",
+    defaultEnabled: false,
+    group: "admin",
+  },
   careTeam: {
     label: "Care teams",
     description:

@@ -101,7 +101,7 @@ name), `TripAccess` (a guest login's grant on one trip, §5.1) and
 `CareTeamMember` (a login's seat on one partner's care team — at most one
 lead per partner, enforced by a hand-added partial unique index as well as
 in `routes/careTeams.js`; §5.1) and `ContactLog` (one touchpoint with a partner,
-§5.3).
+§5.3) and `KeyDateReminder` (one key-date email sent to one person, §5.4).
 
 **WhatsApp dispatch** adds `WhatsAppAuthEntry` (the encrypted linked-
 session store — see §6.2a).
@@ -186,7 +186,7 @@ in-process cron scheduler (§6) is written with that assumption explicit.
 | `/api/trip-types` | `tripTypes.js` | session | per-church trip category CRUD |
 | `/api/trips` | `trips.js`, `tripMeetings.js`, `tripRequirements.js`, `tripParticipants.js` | session, `requireTripScope`/`requirePartnerQueryScope` for `guest` (§5.1) | trip CRUD + lifecycle, roster/participants, meeting invites + RSVPs, document requirements, budget lines, flight segments, contribution ledger |
 | `/api/public/trips` | `publicTrips.js`, `publicTripApplications.js`, `publicTripParticipants.js` | open, gated by `trips` + per-church `allowPrivateApplicationLinks`/`allowPublicSupportRaisingLinks`/public discovery toggles | public Trip Opportunities listing, public application form, participant support-raising/self-service pages |
-| `/api/care-team` | `careTeams.js` | session; `careTeam` feature (404 off); set = admin/editor | a partner's care team: get, replace (lead + members), candidates (§5.1) |
+| `/api/care-team` | `careTeams.js` | session; `careTeam` feature (404 off); set = admin/editor | a partner's care team: get, replace (lead + members), candidates (§5.1); `default-lead` get (admin/editor) / set (admin) (§5.4) |
 | `/api/contact-log` | `contactLog.js` | session; `contactLog` feature (404 off); fix/delete = admin/editor; guest only via a care team seat | a partner's contact log: list, add, fix, delete; the fixed type/direction/topic lists; `/assigned` (the caller's care team partners with care columns) (§5.3) |
 | `/api/notifications` | `notifications.js` | session | `NotificationSeen` read/unread state for in-app notices |
 | `/api/reports` | `reports.js` | session, `reports` feature (admin-only for users-&-access and schedule management) | report hub catalog (`GET /`), run a report (JSON/CSV), saved views (`GET/POST /views`, `DELETE /views/:id`), scheduled report emails (`POST /views/:id/schedule`, `DELETE /schedules/:id`, admin only) — see `backend/src/reporting/` |
@@ -705,6 +705,48 @@ communication instructions", staff-facing text) replaces the actions and the
 numbers. The **printed booklet** withholds phone, email and preferred method for
 a partner who isn't safe to contact (it previously ignored the flag) and never
 prints the instructions. The public site never exposes adults' details at all.
+
+### 5.4 Key-date reminders (#291)
+
+Behind the `keyDates` feature (off by default; needs `careTeam` — that is where
+recipients come from; the email also needs `outboundEmail`). A reminder is
+raised for a birthday (adults and children), the wedding anniversary, and a
+**supported-since milestone** (the first year, then every fifth — year-only
+start dates are stored as Jan 1, so a yearly nudge would only ever say Jan 1)
+coming up within `KEY_DATE_LEAD_DAYS` (7, a fixed default, not a setting, so
+the bell and the email always agree). `utils/keyDates.js` is the pure rule and
+reuses `reporting/definitions.js` `nextAnnual` (the *Families & key dates*
+report's date math: Feb 29 lands on Feb 28, and the age or years turning come
+with it).
+
+**Who.** The partner's whole care team (lead + members, active logins); if it
+has none, the church's **default lead** (`ChurchSettings.defaultCareLeadUserId`,
+set at `PUT /api/care-team/default-lead`, admin only, cleared if that login is
+deleted); if neither, nobody. `utils/keyDateQueries.js` `loadOpenKeyDates` is
+the one read model: it counts nothing while `keyDates` or `careTeam` is off,
+skips archived partners, and drops anything *handled*.
+
+**What clears one.** A contact log entry for that partner with the topic
+**Key date**, dated within the lead window either side of the occurrence — the
+card was sent, and (§5.3) it resets the quiet clock too. Per partner, not per
+person: one card goes to the family.
+
+**Bell.** The guest-visible `keyDatesComing` category in
+`notifications/categories.js`, computed live for the caller (one partner links
+straight to it, several to Assigned to me).
+
+**Email.** `utils/keyDateReminderScheduler.js`, registered in `worker.js` (not
+the web process) on a daily 07:00 church-local cron, in the shape of
+`tripReminderScheduler.js`. It sends **one grouped email per person**, only on a
+day something is due and not yet mailed to that person — never one per partner.
+`KeyDateReminder` (unique per person, partner, kind, subject and occurrence
+date) is the idempotency record, written after the send: a re-run never repeats
+an occurrence, next year's is a new row, a corrected date re-arms, and a failed
+send leaves no row so tomorrow's tick retries it. The email leaves the app, so a
+restricted partner is named by `maskedDisplayName` and a restricted family's own
+names are omitted; a partner who isn't safe to contact gets a pointer to the
+special instructions on their page, never the instructions themselves.
+`sendEmail` has no `replyTo`, so replies go to the church's From address.
 
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 

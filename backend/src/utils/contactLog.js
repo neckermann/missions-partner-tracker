@@ -28,6 +28,9 @@ const TOPICS = [
   { value: "update", label: "Ministry update" },
   { value: "trip", label: "Trip" },
   { value: "furlough", label: "Furlough / visit" },
+  // #291: logging a card/call for an upcoming birthday or anniversary with
+  // this topic is what clears that key-date reminder.
+  { value: "keydate", label: "Key date" },
 ];
 
 const values = (list) => list.map((x) => x.value);

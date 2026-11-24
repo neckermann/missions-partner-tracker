@@ -143,6 +143,7 @@ model Partner {
   followedByUsers          UserFollowedPartner[]
   careTeam                 CareTeamMember[]
   contactLogs              ContactLog[]
+  keyDateReminders         KeyDateReminder[]
   publicSubscriberPartners PublicSubscriberPartner[]
   adults                   Adult[]
   children                 Child[]
@@ -909,6 +910,29 @@ model ContactLog {
   @@index([partnerId, contactDate])
   @@index([contactedById])
   @@index([followUpDate])
+}
+
+// #291: one key-date reminder EMAILED to one person -- the record that stops
+// the daily job sending the same occurrence twice. The bell is computed live
+// and needs no row. Keyed by the occurrence's own date, so next year's
+// birthday is a new row, and correcting a date after a reminder went out
+// re-arms it. `subjectId` is the adult/child the date belongs to ("" for a
+// partner-level date), because Postgres treats NULLs in a unique key as
+// distinct.
+model KeyDateReminder {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partnerId      String
+  partner        Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  // birthday | childBirthday | anniversary | supportingSince
+  kind           String
+  subjectId      String   @default("")
+  occurrenceDate DateTime @db.Date
+  sentAt         DateTime @default(now())
+
+  @@unique([userId, partnerId, kind, subjectId, occurrenceDate])
+  @@index([partnerId])
 }
 
 // A link to somewhere else about this partner -- website, support/donate
@@ -1724,6 +1748,13 @@ model ChurchSettings {
   // generic label. See utils/maskData.js's maskedDisplayName().
   restrictedPartnerInitialsEnabled Boolean @default(true)
 
+  // #291: who key-date reminders go to for a partner with no care team (and,
+  // with the care team feature on, who is "on the hook" until one is set).
+  // Optional; SetNull so deleting the login just clears it. Set from
+  // /api/care-team/default-lead, not the generic settings route.
+  defaultCareLeadUserId String?
+  defaultCareLead       User?   @relation("ChurchDefaultCareLead", fields: [defaultCareLeadUserId], references: [id], onDelete: SetNull)
+
   // Email dispatch customization (see #182) -- null subject/signature
   // means "use the built-in default" (see DEFAULT_SUBJECT_TEMPLATE in
   // emailDispatchShell.js), same blank-means-default convention every
@@ -1976,6 +2007,8 @@ model User {
   careTeamSeats     CareTeamMember[]
   contactsMade      ContactLog[]          @relation("ContactLogContactedBy")
   contactsEntered   ContactLog[]          @relation("ContactLogCreatedBy")
+  keyDateReminders  KeyDateReminder[]
+  defaultLeadFor    ChurchSettings[]      @relation("ChurchDefaultCareLead")
   notificationsSeen NotificationSeen[]
   savedReports      SavedReport[]
 

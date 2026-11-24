@@ -163,6 +163,7 @@ function buildSiteAdminLinks(enabledFeatures) {
     { to: "/admin/settings/features", label: "Enabled Features", icon: "🧩" },
     { to: "/admin/settings/system-info", label: "About App", icon: "ℹ️" },
     enabledFeatures.trips && { to: "/admin/settings/trips", label: "Trips", icon: "✈️" },
+    enabledFeatures.careTeam && { to: "/admin/settings/care-team", label: "Care Teams", icon: "🤝" },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       to: "/admin/settings/email",
       label: "Email",
