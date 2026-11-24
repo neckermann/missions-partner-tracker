@@ -7,7 +7,9 @@ and this project uses [Semantic Versioning](https://semver.org/): given a
 version `MAJOR.MINOR.PATCH`, `MAJOR` marks breaking changes (a data
 migration you must run, an env var that's now required, etc.), `MINOR`
 marks new features that are safe to pull in without extra steps, and
-`PATCH` marks fixes.
+`PATCH` marks fixes. Until 1.0 the project is on a beta track
+(`0.1.0-beta.1`, `0.1.0-beta.2`, … toward each `0.MINOR.0`), described in
+[CONTRIBUTING.md § Versioning](CONTRIBUTING.md#versioning-the-pre-10-beta-track).
 
 If you maintain a fork, check this file when you pull in a new release —
 see [UPGRADING.md](UPGRADING.md) for the actual update steps.
@@ -24,6 +26,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 - **No two-factor rule is specific to a guest any more.** A guest used to be forced to enrol in four separate places (when created, when promoted, after an admin reset, and could never switch it off). They are now treated like every other role: the church-wide setting above is the one way to require it of everyone, and an admin can still require it of one account. Add User's "Require two-factor" box is no longer locked on for a guest, and My account no longer has guest-only wording.
 
 - **The demo seeds "last edited by" data.** Most demo partners, trips, prayer requests and needs now carry a demo editor's name and a date within the last ten weeks, so the **Last updated** column on Partners and Trips isn't blank on a fresh demo; about one in seven is left blank, as on a real install.
+- **The version restarts at `0.1.0-beta.1`, on a beta track ([#378](https://github.com/neckermann/missions-partner-tracker/issues/378)).** The number had climbed from 0.5.0 to 0.7.0 in a day, faster than the product was approaching 1.0. Releases toward each minor are now betas (`0.1.0-beta.1`, `beta.2`, …), the minor moves once per batch that is ready for forks, and `1.0.0` is the point where upgrades stop needing a database reset. The update banner understands pre-releases (a beta is older than its own final release), and the tag and GitHub Release are now created automatically when `main` changes, so they can't be skipped again (`0.6.0` and `0.7.0` had none). The 0.2.0 to 0.7.0 entries below are kept as history.
 
 ### Documentation
 
@@ -42,8 +45,15 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Upgrading
 
+- **The version number went back to `0.1.0-beta.1`.** A fork that synced from an earlier release will see its version drop, and its **"update available" banner stays quiet until a release numbered above the one it runs** (the banner only compares numbers). Pull updates with Sync fork as usual; see [UPGRADING.md](UPGRADING.md). `0.1.0` onward is the sequence to follow.
 - **Database baseline changed again: a database that already ran 0.7.0 must be reset too (pre-1.0).** `ChurchSettings.requireTwoFactor`, `Trip.createdAt` and the rename of `TripApplication.submittedAt` to `createdAt` are folded into the single baseline `20261122092854_init` (SPEC §8.3), so `npx prisma migrate deploy` against a 0.7.0 database reads the baseline as already applied and adds nothing. Reset with the same steps and data-loss warning as before: `npx prisma migrate reset --force` from `backend/` (**erases all data**; back up first and re-create the admin with `node prisma/createAdmin.js`), or `npm run demo:reset:remote` / `npm run dev:reset:remote` for the demo and dev-test sites. The new baseline was regenerated from the schema and differs from the old one only by those changes.
 - **Guests are no longer forced to set up two-factor by default on an existing install.** Turn on the church-wide **Two-factor sign-in** switch in Manage Users (after the admins have enrolled) to require it of everyone, guests included. A new install has it on from the first-run setup.
+
+## Earlier releases (old numbering)
+
+The version restarted at `0.1.0-beta.1` in November 2026 (see
+[CONTRIBUTING.md § Versioning](CONTRIBUTING.md#versioning-the-pre-10-beta-track)).
+The entries below were numbered before that restart and are kept as history.
 
 ## [0.7.0] - 2026-11-24
 
