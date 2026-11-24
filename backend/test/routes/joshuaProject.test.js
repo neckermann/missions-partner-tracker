@@ -150,6 +150,33 @@ describe("GET /api/public/country-info/:countryCode -- feature gate", () => {
     }
   });
 
+  test("#327 Finding 11.3: an empty-array (shape-valid, nonexistent) country code is negatively cached", async () => {
+    // A distinct code from every other test in this file -- same shared-
+    // cache-Map reasoning as the malformed-response test below.
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { joshuaProject: true } },
+    });
+
+    let calls = 0;
+    mockJoshuaProject(async () => {
+      calls++;
+      return jpJson(200, []);
+    });
+    try {
+      const first = await unauthenticated("/api/public/country-info/XY");
+      assert.equal(first.status, 404);
+      assert.equal(calls, 1);
+
+      // If the empty result weren't cached, this would hit the mock again.
+      const second = await unauthenticated("/api/public/country-info/XY");
+      assert.equal(second.status, 404);
+      assert.equal(calls, 1, "the negative result should be served from cache, not re-fetched");
+    } finally {
+      unmockJoshuaProject();
+    }
+  });
+
   test("a malformed 200 response (e.g. a misconfigured key) 404s and is never cached", async () => {
     // A different country code than the other tests in this file use --
     // the cache is a module-level Map, shared across every test in this

@@ -170,9 +170,9 @@ full file with inline comments):
 |---|---|---|
 | `DATABASE_URL` | Yes | Any Postgres connection string |
 | `PORT` | No | Defaults to 4000 |
-| `NODE_ENV` | No | `development` or `production` |
+| `NODE_ENV` | No | `development` or `production` — must be exactly `production` on a real deployment, or the session cookie isn't marked secure/HTTPS-only. Render and most PaaS platforms set this for you; a self-hosted server/container needs it set by hand. |
 | `SESSION_SECRET` | Yes | Signs the session cookie (see [Authentication setup](#authentication-setup)). Generate a long random value, e.g. `openssl rand -base64 48`. See [Rotating SESSION_SECRET](#rotating-session_secret) below |
-| `FIELD_ENCRYPTION_KEY` | Recommended | Encrypts two-factor (MFA) secrets at rest. Generate with `npm run generate-secrets`. Without it the app still runs, but MFA enrollment fails. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
+| `FIELD_ENCRYPTION_KEY` | Recommended | Encrypts every reversibly-stored secret at rest: two-factor (MFA) secrets, plus the Postmark server token, GroupMe access token, Joshua Project API key, and WhatsApp session. Generate with `npm run generate-secrets`. Without it the app still runs, but MFA enrollment and any of those integrations fail. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
 | `APP_BASE_URL` | No | This app's own public URL, no trailing slash — needed for the dispatch queue's own links: the GroupMe newsletter dispatch's link, the email digest's "read the source" / "read the full newsletter" links, and the digest's own unsubscribe link (see [GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only) and [Pending Dispatches](USER_GUIDE.md#pending-dispatches)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`; set it explicitly elsewhere. Leave unset and those links just don't appear. |
@@ -257,8 +257,9 @@ A few things worth knowing operationally:
 - `SESSION_SECRET` is what signs the session cookie — see
   [Rotating SESSION_SECRET](#rotating-session_secret) below before you
   ever need to do this in a hurry.
-- `FIELD_ENCRYPTION_KEY` encrypts two-factor (MFA) secrets in
-  the database — see
+- `FIELD_ENCRYPTION_KEY` encrypts two-factor (MFA) secrets and every
+  stored integration credential (Postmark, GroupMe, Joshua Project,
+  WhatsApp) in the database — see
   [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below.
 - MFA (TOTP) is opt-in and self-service for the 3 full roles, or an
   admin can force it on a specific account. A Guest account always has
@@ -588,16 +589,19 @@ There's no partial/soft rotation; it's all-or-nothing by design.
 
 ### Rotating FIELD_ENCRYPTION_KEY
 
-This encrypts two-factor (MFA) secrets at rest
-(`backend/src/utils/crypto.js`). Unlike `SESSION_SECRET`, rotating it is
-**not** a drop-in swap — every value already encrypted with the old key
-becomes unreadable the moment you change it, which breaks two-factor
-logins until re-enrolled. If you need to rotate it: decrypt and
-re-encrypt every affected row under the old key before switching (there's
-no built-in script for this since it's rare enough not to warrant one —
-MFA-enabled users can instead have their MFA reset from Manage Users and
-re-enroll). Only rotate this if you suspect it's actually leaked;
-otherwise leave it alone indefinitely.
+This encrypts two-factor (MFA) secrets **and** every stored integration
+credential — Postmark server token, GroupMe access token, Joshua Project
+API key, WhatsApp session — at rest (`backend/src/utils/crypto.js`).
+Unlike `SESSION_SECRET`, rotating it is **not** a drop-in swap — every
+value already encrypted with the old key becomes unreadable the moment
+you change it, which breaks two-factor logins **and every one of those
+integrations** until each is redone. If you need to rotate it: decrypt
+and re-encrypt every affected row under the old key before switching
+(there's no built-in script for this since it's rare enough not to
+warrant one — MFA-enabled users can instead have their MFA reset from
+Manage Users and re-enroll; the integrations each need their credential
+re-entered from their own settings page). Only rotate this if you
+suspect it's actually leaked; otherwise leave it alone indefinitely.
 
 ### Restricted-country masking policy
 

@@ -16,6 +16,14 @@
 const { toInitials } = require("../utils/maskData");
 
 const PARTNER_NAME_KEY = "partnerName";
+// #327 Finding 10 -- same generic fallback maskedDisplayName() uses when
+// initials are turned off and there's no fieldDisplayName to fall back
+// to. A flattened report row only ever carries the one partnerName
+// string column, with no separate fieldDisplayName column available the
+// way a real Partner record has one, so this path can't offer that
+// fallback the way every other masking site in the app does -- it's
+// initials-or-this-fixed-label, not initials-or-fieldDisplayName-or-this.
+const GENERIC_RESTRICTED_LABEL = "A restricted-access partner";
 
 function stripInternal(row) {
   const out = {};
@@ -25,20 +33,25 @@ function stripInternal(row) {
   return out;
 }
 
-function maskRow(row, sensitiveKeys) {
+function maskRow(row, sensitiveKeys, settings) {
   const out = stripInternal(row);
   if (!row._restricted) return out;
-  if (PARTNER_NAME_KEY in out) out[PARTNER_NAME_KEY] = toInitials(String(out[PARTNER_NAME_KEY] || ""));
+  if (PARTNER_NAME_KEY in out) {
+    out[PARTNER_NAME_KEY] =
+      settings?.restrictedPartnerInitialsEnabled === false
+        ? GENERIC_RESTRICTED_LABEL
+        : toInitials(String(out[PARTNER_NAME_KEY] || ""));
+  }
   for (const key of sensitiveKeys) {
     if (key in out) out[key] = null;
   }
   return out;
 }
 
-function applyMasking(rows, columns, audience = "admin") {
+function applyMasking(rows, columns, audience = "admin", settings) {
   if (audience !== "shared") return rows.map(stripInternal);
   const sensitiveKeys = columns.filter((c) => c.sensitive).map((c) => c.key);
-  return rows.map((r) => maskRow(r, sensitiveKeys));
+  return rows.map((r) => maskRow(r, sensitiveKeys, settings));
 }
 
 module.exports = { applyMasking, PARTNER_NAME_KEY };

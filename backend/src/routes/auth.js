@@ -15,6 +15,7 @@ const { sendWelcomeEmail } = require("../utils/welcomeEmails");
 const { isFeatureEnabled } = require("../utils/features");
 const { DEFAULT_TRIP_REQUIREMENT_TEMPLATE } = require("../utils/defaultTripRequirementTemplate");
 const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
+const { passwordSchema } = require("../utils/password");
 
 const router = express.Router();
 const MFA_PENDING_TTL = "5m";
@@ -89,8 +90,9 @@ router.post("/setup", async (req, res, next) => {
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password are required" });
     }
-    if (password.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    const parsedPassword = passwordSchema.safeParse(password);
+    if (!parsedPassword.success) {
+      return res.status(400).json({ error: parsedPassword.error.issues[0].message });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -230,8 +232,11 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: "Current and new password are required" });
     }
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: "New password must be at least 8 characters" });
+    const parsedNewPassword = passwordSchema.safeParse(newPassword);
+    if (!parsedNewPassword.success) {
+      return res
+        .status(400)
+        .json({ error: `New ${parsedNewPassword.error.issues[0].message.toLowerCase()}` });
     }
 
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
@@ -288,8 +293,9 @@ router.post("/password-setup/validate", async (req, res, next) => {
 router.post("/password-setup/complete", async (req, res, next) => {
   try {
     const { token, password } = req.body || {};
-    if (typeof password !== "string" || password.length < 8 || password.length > 128) {
-      return res.status(400).json({ error: "Password must be between 8 and 128 characters" });
+    const parsedPassword = passwordSchema.safeParse(password);
+    if (!parsedPassword.success) {
+      return res.status(400).json({ error: parsedPassword.error.issues[0].message });
     }
     const row = await findValidSetupToken(String(token || ""));
     if (!row) return res.status(400).json({ error: SETUP_LINK_INVALID });
@@ -587,7 +593,7 @@ async function renderUnsubscribePage(message) {
 
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>Email notifications</title></head>
-<body style="font-family:${fontFamily};background:#f7f5f0;margin:0;padding:40px 16px;">
+<body style="font-family:${escapeHtml(fontFamily)};background:#f7f5f0;margin:0;padding:40px 16px;">
 <div style="max-width:420px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;">
   <div style="background-color:${headerColor};padding:28px 24px;text-align:center;">
     ${logoHtml}

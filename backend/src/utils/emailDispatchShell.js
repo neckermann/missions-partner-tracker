@@ -54,7 +54,13 @@ function partnerTileDetails(p) {
   if (!p) return null;
   const restricted = !!p.isRestricted;
   const base = appBaseUrl();
-  const category = p.kind === "organization" ? "organization" : missionaryHouseholdCategory(p);
+  // #327 Finding 10 -- a restricted missionary always gets the plain
+  // single-person shape (never the real household shape, itself
+  // identifying info). The real household category is still used for a
+  // non-restricted missionary with no photo uploaded yet -- that's just
+  // placeholder variety, not a security boundary, so it's unaffected.
+  const category =
+    p.kind === "organization" ? "organization" : restricted ? "single" : missionaryHouseholdCategory(p);
   const realPhotoSrc =
     !restricted && base && p.photos?.[0] ? `${base}${withPhotoUrl(p.photos[0]).url}` : null;
   // Never the real photo for a restricted partner -- a generic
@@ -66,7 +72,11 @@ function partnerTileDetails(p) {
   const silhouetteSrc = base ? `${base}/api/silhouette/${category}.svg` : silhouetteFor(category);
   return {
     fieldDisplayName: p.fieldDisplayName || null,
-    supportingSinceYear: p.supportingSince ? new Date(p.supportingSince).getFullYear() : null,
+    // #327 Finding 10 -- dropped for a restricted partner (same
+    // reasoning as maskData.js's toPublicPartner): combined with
+    // country and a masked name, "supported since 2014" narrows a small
+    // country's expat community further than it needs to.
+    supportingSinceYear: restricted || !p.supportingSince ? null : new Date(p.supportingSince).getFullYear(),
     overviewShort: restricted ? "Restricted-access location." : p.overviewShort || null,
     photoSrc: realPhotoSrc || silhouetteSrc,
   };
@@ -252,7 +262,7 @@ function buildEmailDispatchMessage(recipient, content, settings, unsubscribeUrl)
 
   const html = `
     <div style="background-color:#f4f4f5;padding:32px 16px;">
-      <div style="font-family:${fontFamily};max-width:600px;margin:0 auto;color:#222;">
+      <div style="font-family:${escapeHtml(fontFamily)};max-width:600px;margin:0 auto;color:#222;">
         <div style="background-color:${headerColor};padding:32px 24px;border-radius:14px;text-align:center;">
           ${logoHtml}
           <h2 style="margin:0;color:#ffffff;font-size:22px;letter-spacing:0.2px;">${escapeHtml(churchName)}</h2>
@@ -338,7 +348,7 @@ function buildTransactionalMessage({
 
   const html = `
     <div style="background-color:#f4f4f5;padding:32px 16px;">
-      <div style="font-family:${fontFamily};max-width:600px;margin:0 auto;color:#222;">
+      <div style="font-family:${escapeHtml(fontFamily)};max-width:600px;margin:0 auto;color:#222;">
         <div style="background-color:${headerColor};padding:32px 24px;border-radius:14px;text-align:center;">
           ${logoHtml}
           <h2 style="margin:0;color:#ffffff;font-size:22px;letter-spacing:0.2px;">${escapeHtml(churchName)}</h2>

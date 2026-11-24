@@ -13,6 +13,13 @@ const DOMAIN = "https://api.joshuaproject.net";
 // with arbitrary junk values can't grow it unbounded for a full 24h TTL.
 const cache = new Map(); // countryCode -> { data, expiresAt }
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+// #327 Finding 11.3: a shape-valid but nonexistent country code (a typo on
+// a partner record, say) used to re-hit the upstream API on every single
+// request that rendered it, forever -- nothing ever got cached for a
+// lookup that came back empty. Cached now too, just with a shorter TTL
+// than a real hit, so a since-corrected code or a JP catalog update isn't
+// masked for a full day.
+const NEGATIVE_CACHE_TTL_MS = 60 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 500; // generous multiple of realistic country-code count
 // FIPS/ISO country codes are short alphanumeric strings — this also rejects
 // obvious junk before it ever reaches the cache or the upstream API.
@@ -44,6 +51,14 @@ async function getCountryInfo(countryCode) {
     );
     if (!res.ok) return null;
     const results = await res.json();
+    // A shape-valid country code that isn't in JP's catalog comes back as
+    // a genuine empty array (not an error) -- cache that negative result
+    // (see NEGATIVE_CACHE_TTL_MS above) rather than returning null every
+    // time with nothing recorded.
+    if (Array.isArray(results) && results.length === 0) {
+      cache.set(countryCode, { data: null, expiresAt: Date.now() + NEGATIVE_CACHE_TTL_MS });
+      return null;
+    }
     // The API returns an array (e.g. [{ Ctry, Population, ... }]), not a
     // bare object — grab the single country record out of it.
     const data = Array.isArray(results) ? results[0] || null : results;
@@ -51,7 +66,9 @@ async function getCountryInfo(countryCode) {
     // error body (e.g. {"error": "Invalid API key"}) rather than a real
     // HTTP failure -- caching that as if it were country data would mask
     // the misconfiguration for a full 24h instead of surfacing it. Every
-    // genuine country record has at least a country name.
+    // genuine country record has at least a country name. Deliberately
+    // NOT cached at all (not even negatively) -- an admin fixing a bad key
+    // should see it start working on the very next request.
     if (!data || typeof data.Ctry !== "string") return null;
     cache.set(countryCode, { data, expiresAt: Date.now() + CACHE_TTL_MS });
     return data;

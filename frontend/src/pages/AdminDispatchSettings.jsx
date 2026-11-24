@@ -133,11 +133,21 @@ export default function AdminDispatchSettings() {
       <div style={{ marginTop: "1rem" }}>
         <EditableSection
           title="Restricted Partners"
-          value={{ allowRestrictedPartnerDispatch: settings.allowRestrictedPartnerDispatch }}
+          value={{
+            allowRestrictedPartnerDispatch: settings.allowRestrictedPartnerDispatch,
+            restrictedPartnerInitialsEnabled: settings.restrictedPartnerInitialsEnabled,
+          }}
           onSave={savePartial}
           onSaved={reload}
           view={(v) => (
-            <p>{v.allowRestrictedPartnerDispatch ? "Recorded, subject to review" : "Never recorded"}</p>
+            <>
+              <p>{v.allowRestrictedPartnerDispatch ? "Recorded, subject to review" : "Never recorded"}</p>
+              <p>
+                {v.restrictedPartnerInitialsEnabled === false
+                  ? "Initials off -- shown with a generic label instead"
+                  : "Initials shown (e.g. “J.R.”)"}
+              </p>
+            </>
           )}
           edit={(d, set) => (
             <>
@@ -157,6 +167,24 @@ export default function AdminDispatchSettings() {
                     onChange={(e) => set("allowRestrictedPartnerDispatch", e.target.checked)}
                   />
                   Restricted partners
+                </label>
+              </div>
+              <p style={{ color: "#555", fontSize: "0.9rem", marginTop: "0.75rem" }}>
+                A restricted partner's masked public name is their initials (e.g. "J.R.") everywhere one can
+                surface -- the public site, GroupMe/WhatsApp messages, and email digests. For a small country,
+                initials plus country can be enough to re-identify who that is to someone who knows the local
+                mission community. On (default) keeps today's behavior. Off shows a generic field label (e.g.
+                "Southeast Asia") instead, if one is set on the partner's record, or a fixed generic label
+                otherwise.
+              </p>
+              <div className="admin-checkbox-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={d.restrictedPartnerInitialsEnabled !== false}
+                    onChange={(e) => set("restrictedPartnerInitialsEnabled", e.target.checked)}
+                  />
+                  Show initials for restricted partners
                 </label>
               </div>
             </>

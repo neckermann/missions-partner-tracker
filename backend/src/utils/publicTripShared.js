@@ -5,7 +5,7 @@
 // settings and the same restricted-partner field-label masking, so those
 // two pieces live here once instead of three separate copies.
 const prisma = require("../prismaClient");
-const { toInitials } = require("./maskData");
+const { maskedDisplayName } = require("./maskData");
 
 async function getSettings() {
   return prisma.churchSettings.findUnique({
@@ -20,6 +20,7 @@ async function getSettings() {
       allowPublicSupportRaisingLinks: true,
       allowPrivateApplicationLinks: true,
       tripApplicationTemplate: true,
+      restrictedPartnerInitialsEnabled: true,
     },
   });
 }
@@ -29,9 +30,9 @@ async function getSettings() {
 // requires partner.isPublic to be true (many trip partners aren't in
 // the public directory at all), which would make it return null for
 // most restricted trip partners rather than a masked label.
-function partnerFieldLabel(partner) {
+function partnerFieldLabel(partner, settings) {
   if (!partner) return null;
-  if (partner.isRestricted) return toInitials(partner.displayName);
+  if (partner.isRestricted) return maskedDisplayName(partner, settings);
   return partner.fieldDisplayName || partner.displayName;
 }
 

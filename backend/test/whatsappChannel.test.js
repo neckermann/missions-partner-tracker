@@ -339,4 +339,19 @@ describe("postToWhatsApp", () => {
     assert.doesNotMatch(sent[0], /Secret location details/);
     assert.doesNotMatch(sent[0], /Jane Doe/);
   });
+
+  // #327 Finding 10 -- proves the setting actually threads through to this
+  // channel, not just maskData.js's own unit tests.
+  test("a restricted partner's masked name respects restrictedPartnerInitialsEnabled: false", async () => {
+    const sent = [];
+    mock.method(whatsappClient, "sendText", async (jid, text) => sent.push(text));
+    const restricted = new Map([
+      ["p1", { id: "p1", displayName: "Jane Doe", fieldDisplayName: "Southeast Asia", isRestricted: true }],
+    ]);
+    const row = { ...prayer("a", "Secret location details"), dispatchReviewedAt: null };
+    await postToWhatsApp([row], restricted, { ...settings, restrictedPartnerInitialsEnabled: false });
+    assert.equal(sent.length, 1);
+    assert.match(sent[0], /Southeast Asia/);
+    assert.doesNotMatch(sent[0], /J\.D\./, "must not fall back to initials while the setting is off");
+  });
 });

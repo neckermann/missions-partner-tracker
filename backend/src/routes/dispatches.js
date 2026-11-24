@@ -32,10 +32,16 @@ router.use(requireAuth);
 // dispatch still shows), since this page was never scoped to one channel.
 router.get("/pending", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
-    const rows = await prisma.dispatchRecord.findMany({ orderBy: { createdAt: "asc" } });
+    const [rows, settings] = await Promise.all([
+      prisma.dispatchRecord.findMany({ orderBy: { createdAt: "asc" } }),
+      prisma.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: { restrictedPartnerInitialsEnabled: true },
+      }),
+    ]);
     const partners = await prisma.partner.findMany({
       where: { id: { in: [...new Set(rows.map((row) => row.partnerId))] } },
-      select: { id: true, displayName: true, isRestricted: true },
+      select: { id: true, displayName: true, fieldDisplayName: true, isRestricted: true },
     });
     const partnerById = new Map(partners.map((p) => [p.id, p]));
     // Not role-gated: GET /api/prayer-requests and GET /api/support-needs
@@ -45,12 +51,12 @@ router.get("/pending", requireRole("admin", "editor", "viewer"), async (req, res
     // just make this list inconsistent for no real protection.
     const items = rows
       .map((row) => {
-        const blurb = buildBlurb(row, partnerById.get(row.partnerId));
+        const blurb = buildBlurb(row, partnerById.get(row.partnerId), settings);
         if (!blurb) return null;
         const held = needsReview(row, partnerById.get(row.partnerId));
         const bodyText = held
-          ? (buildBlurb(row, { ...partnerById.get(row.partnerId), isRestricted: false })?.bodyText ??
-            blurb.bodyText)
+          ? (buildBlurb(row, { ...partnerById.get(row.partnerId), isRestricted: false }, settings)
+              ?.bodyText ?? blurb.bodyText)
           : blurb.bodyText;
         return {
           ...blurb,
@@ -93,6 +99,9 @@ router.get("/pending/:id", requireRole("admin", "editor"), async (req, res, next
       where: { id: row.partnerId },
       select: { displayName: true, isRestricted: true },
     });
+    // isRestricted forced false -- this route always returns the real
+    // unmasked body text (see the comment above), so no masking settings
+    // are needed for this call.
     const unmasked = buildBlurb(row, partner ? { ...partner, isRestricted: false } : null);
     res.json({ rawText: row.dispatchReviewedAt ? row.dispatchReviewedText : (unmasked?.bodyText ?? null) });
   } catch (err) {
@@ -121,11 +130,17 @@ router.put("/pending/:id", requireRole("admin", "editor"), async (req, res, next
         dispatchReviewedText: text,
       },
     });
-    const partner = await prisma.partner.findUnique({
-      where: { id: updated.partnerId },
-      select: { displayName: true, isRestricted: true },
-    });
-    const blurb = buildBlurb(updated, partner);
+    const [partner, settings] = await Promise.all([
+      prisma.partner.findUnique({
+        where: { id: updated.partnerId },
+        select: { displayName: true, fieldDisplayName: true, isRestricted: true },
+      }),
+      prisma.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: { restrictedPartnerInitialsEnabled: true },
+      }),
+    ]);
+    const blurb = buildBlurb(updated, partner, settings);
     res.json({
       ...blurb,
       isRestricted: !!partner?.isRestricted,

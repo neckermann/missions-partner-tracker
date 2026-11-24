@@ -1662,6 +1662,18 @@ model ChurchSettings {
   // should be opted into without deciding to take it on.
   allowRestrictedPartnerDispatch Boolean @default(false)
 
+  // #327 Finding 10 -- a restricted partner's masked display name is
+  // initials of their real name (e.g. "J.R.") everywhere a restricted
+  // partner can surface publicly: the public site, GroupMe/WhatsApp
+  // dispatch messages, and email digests. For a small country, initials
+  // plus country plus household shape can be enough to re-identify who
+  // that is to someone who knows the local mission community. Default
+  // true (today's long-standing behavior, unchanged unless a church
+  // turns it off) -- turning it off falls back to the partner's own
+  // fieldDisplayName (e.g. "Northern Uganda") if set, else a fixed
+  // generic label. See utils/maskData.js's maskedDisplayName().
+  restrictedPartnerInitialsEnabled Boolean @default(true)
+
   // Email dispatch customization (see #182) -- null subject/signature
   // means "use the built-in default" (see DEFAULT_SUBJECT_TEMPLATE in
   // emailDispatchShell.js), same blank-means-default convention every

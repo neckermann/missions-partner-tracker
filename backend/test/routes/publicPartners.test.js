@@ -131,4 +131,36 @@ describe("public partners: masking is applied by the route, not just available",
     assert.ok(!("needRequests" in body), "one-time needs are admin-only");
     assert.ok(!("prayerRequests" in body), "prayer requests are admin-only on the public site");
   });
+
+  // #327 Finding 10
+  test("a restricted partner never exposes supportingSince", async () => {
+    const p = await createPartner({
+      isPublic: true,
+      isRestricted: true,
+      supportingSince: "2014-01-01",
+    });
+    const { body } = await anon(`/api/public/partners/${p.id}`);
+    assert.equal(body.supportingSince, null);
+  });
+
+  test("with restrictedPartnerInitialsEnabled off, shows the field label instead of initials", async () => {
+    const p = await createPartner({
+      isPublic: true,
+      isRestricted: true,
+      fieldDisplayName: "Southeast Asia",
+    });
+    await admin("/api/settings/dispatches", {
+      method: "PUT",
+      body: { restrictedPartnerInitialsEnabled: false },
+    });
+    try {
+      const { body } = await anon(`/api/public/partners/${p.id}`);
+      assert.equal(body.displayName, "Southeast Asia");
+    } finally {
+      await admin("/api/settings/dispatches", {
+        method: "PUT",
+        body: { restrictedPartnerInitialsEnabled: true },
+      });
+    }
+  });
 });
