@@ -1,3 +1,5 @@
+import { generate as generateTotp } from "otplib";
+
 // Shared helpers for the e2e suite. Credentials come from env vars rather
 // than being hardcoded, so CI can point this at a throwaway account
 // created fresh for that run (see .github/workflows/ci.yml) while local
@@ -108,4 +110,50 @@ export async function layoutProblems(page) {
       offenders: offenders.slice(0, 6),
     };
   });
+}
+
+// A guest login with care team seats and/or trip grants, signed in and ready to use.
+//
+// A guest's account is always created needing two-factor enrolment on first sign-in, and an
+// admin cannot clear that (a guest cannot turn it off either). So this does what a person
+// would: sign in with the password, enrol an authenticator over the API with a code from
+// otplib, and keep the session the enrolment hands back. Returns the user and a
+// Playwright storage state; open a page as the guest with
+// `browser.newContext({ storageState })`. Delete the user afterwards (its seats and grants
+// go with it): DELETE /api/users/:id as an admin.
+export async function createGuest(browser, adminPage, { suffix, careTeam = [], tripAccess = [] }) {
+  const email = `e2e-guest-${suffix}-${Date.now()}@example.test`;
+  const password = "GuestE2ePassword123!";
+  const created = await adminPage.request.post("/api/users", {
+    data: {
+      email,
+      firstName: "E2E",
+      lastName: `Guest ${suffix}`,
+      role: "guest",
+      password,
+      sendWelcomeEmail: false,
+      careTeam,
+      tripAccess,
+    },
+  });
+  if (!created.ok())
+    throw new Error(`creating the guest failed: ${created.status()} ${await created.text()}`);
+  const user = await created.json();
+
+  const context = await browser.newContext();
+  try {
+    const login = await context.request.post("/api/auth/login", { data: { email, password } });
+    const { setupToken } = await login.json();
+    if (!setupToken) throw new Error("expected the guest's first sign-in to ask for two-factor enrolment");
+    const bearer = { Authorization: `Bearer ${setupToken}` };
+    const { secret } = await (await context.request.post("/api/auth/mfa/setup", { headers: bearer })).json();
+    const verified = await context.request.post("/api/auth/mfa/verify-setup", {
+      headers: bearer,
+      data: { token: await generateTotp({ secret }) },
+    });
+    if (!verified.ok()) throw new Error(`enrolling the guest's two-factor failed: ${verified.status()}`);
+    return { user, email, password, storageState: await context.storageState() };
+  } finally {
+    await context.close();
+  }
 }
