@@ -27,6 +27,7 @@ const { decodePhotoDataUrl } = require("../utils/participantPhoto");
 const { renderSubscriberPage, escapeHtml } = require("../utils/subscriberPage");
 const { tripDocumentUpload } = require("../utils/upload");
 const { sendStoredFile, safeFilename } = require("../utils/fileResponse");
+const { verifyUpload } = require("../utils/fileSignature");
 const { buildMeetingIcs } = require("../utils/tripEmails");
 const { isMinorForTrip } = require("../utils/tripParticipantSchema");
 const { getSettings, partnerFieldLabel, tripPartnerSelect } = require("../utils/publicTripShared");
@@ -469,6 +470,14 @@ router.post(
       }
       if (!req.file) return res.status(400).json({ error: "No file provided" });
 
+      // #327 Finding 8: stored the client's declared mimetype unverified
+      // -- only jpg/png/webp/pdf are accepted here (upload.js's own
+      // multer filter), all of which have a real signature to check.
+      const verified = verifyUpload(req.file);
+      if (!verified.ok) {
+        return res.status(400).json({ error: "File content doesn't match its declared type" });
+      }
+
       const bytes = req.file.buffer;
       const meta = {
         tripId: participant.tripId,
@@ -476,7 +485,7 @@ router.post(
         requirementId: requirement.id,
         title: requirement.label,
         fileName: req.file.originalname,
-        contentType: req.file.mimetype || "application/octet-stream",
+        contentType: verified.contentType,
         fileSize: req.file.size,
       };
       await prisma.tripDocument.upsert({

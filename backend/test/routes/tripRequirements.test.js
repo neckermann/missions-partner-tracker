@@ -335,6 +335,24 @@ describe("Trips: public document-requirement upload", () => {
     assert.equal(res.status, 400);
   });
 
+  // #327 Finding 8: this route used to store req.file.mimetype unverified
+  // -- a file declared application/pdf but containing arbitrary bytes
+  // (not multer's own extension-based filter, which only checks the
+  // declared Content-Type and would let this straight through) was
+  // accepted and later served inline as PDF.
+  test("a file declaring a real type but containing arbitrary bytes is rejected (#327 Finding 8)", async () => {
+    const { participant, requirement } = await createTripWithParticipantAndRequirement();
+    const token = buildTripParticipantAccessToken(participant);
+    const res = await anon(uploadUrl(requirement.id, token), {
+      method: "POST",
+      body: uploadForm(Buffer.from("not actually a pdf"), "fake.pdf", "application/pdf"),
+    });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /doesn't match its declared type/);
+    const count = await prisma.tripDocument.count({ where: { requirementId: requirement.id } });
+    assert.equal(count, 0);
+  });
+
   test("re-uploading via the same link replaces the prior file rather than duplicating it", async () => {
     const { participant, requirement } = await createTripWithParticipantAndRequirement();
     const token = buildTripParticipantAccessToken(participant);

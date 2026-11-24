@@ -77,4 +77,38 @@ function matchesFileSignature(buffer, declaredMime) {
   return Boolean(check && buffer && check(buffer));
 }
 
-module.exports = { matchesFileSignature };
+// #327 Finding 8: .eml's browser-reported Content-Type is unreliable
+// (often application/octet-stream or blank), and it has no reliable
+// magic bytes of its own across mail clients -- recognized by filename
+// extension instead, same reasoning utils/extraction.js's own isEml has
+// (duplicated rather than imported: that's a higher-level feature
+// module, this is a generic low-level one, and it's one line unlikely to
+// drift).
+function isEmlFilename(fileName) {
+  return /\.eml$/i.test(fileName || "");
+}
+
+// The one place a multer-uploaded file's real type gets decided --
+// every upload route should call this rather than trusting
+// file.mimetype directly, so none of them can skip the check by
+// accident (the original bug this fixes: three call sites stored the
+// client's declared type unverified). Returns { ok: true, contentType }
+// with the type to actually store, or { ok: false } when the bytes
+// don't match what was declared. A .eml is never signature-checked --
+// there's nothing reliable to check -- and always stored as the
+// canonical message/rfc822, regardless of what the client declared.
+// `signatureMimeOverride` lets a caller resolve a browser-unreliable
+// Content-Type to what it's actually supposed to be first (HEIC/webp,
+// see routes/partners.js's resolveImageExt) before checking.
+function verifyUpload(file, { signatureMimeOverride } = {}) {
+  if (isEmlFilename(file.originalname)) {
+    return { ok: true, contentType: "message/rfc822" };
+  }
+  const contentType = signatureMimeOverride || file.mimetype;
+  if (!matchesFileSignature(file.buffer, contentType)) {
+    return { ok: false };
+  }
+  return { ok: true, contentType };
+}
+
+module.exports = { matchesFileSignature, isEmlFilename, verifyUpload };
