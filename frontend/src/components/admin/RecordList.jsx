@@ -99,7 +99,19 @@ export default function RecordList({
                 gap: "1rem",
               }}
             >
-              <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>{renderItem(item)}</div>
+              {/* minWidth: 0 and overflowWrap let a long unbreakable value (a URL) wrap instead of
+                  pushing the Edit/Delete buttons off the screen on a phone. */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: "1.5rem",
+                  flexWrap: "wrap",
+                  minWidth: 0,
+                  overflowWrap: "anywhere",
+                }}
+              >
+                {renderItem(item)}
+              </div>
               {(canEdit || canDelete) && (
                 // Not itself interactive -- just stops clicks/keydowns on the
                 // real buttons inside from bubbling into the row's own

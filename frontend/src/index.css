@@ -185,6 +185,16 @@ a {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  /* The title block and the nav links wrap onto separate lines on a phone instead of the
+     nav running off the right edge. */
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+}
+.app-header-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
 }
 .app-header h1 {
   font-size: 1.15rem;

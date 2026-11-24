@@ -33,7 +33,7 @@ export default function PublicSiteHeader({ title, subtitle, children }) {
           {subtitle && <p className="header-tagline">{subtitle}</p>}
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+      <div className="app-header-nav">
         {NAV_LINKS.filter((l) => l.to !== pathname && enabledFeatures[l.feature]).map((l) => (
           <Link key={l.to} to={l.to} style={{ color: "white" }}>
             {typeof l.label === "function" ? l.label(partnerTermPlural) : l.label}
