@@ -106,15 +106,81 @@ const settingsSchema = z.object({
 router.get("/", async (req, res, next) => {
   try {
     const [settings, sentByOurChurchCount] = await Promise.all([
+      // #327 Finding 9: was `omit` (a denylist) -- every column *except*
+      // the 6 listed there went to any signed-in role, Trip Leader
+      // included, so the next secret column added to this model would be
+      // exposed by default until someone remembered to list it here too.
+      // Explicit `select` instead: a field has to be deliberately added
+      // below to ever reach this response. Excludes the 6 original
+      // secrets, the one partial-secret the review specifically flagged
+      // (inboundEmailWebhookUsername -- half of the webhook credential),
+      // every GroupMe/WhatsApp internal id/name/connection-state field
+      // (admin-only integration detail, already served by the dedicated
+      // settingsGroupMe.js/settingsWhatsApp.js routes, not read by this
+      // general endpoint's own consumers), inboundEmailAddress (same
+      // reasoning -- settingsEmail.js's own route serves it), the 5
+      // scheduler bookkeeping timestamps, and updatedById -- confirmed
+      // none of these are read by any of this general endpoint's actual
+      // frontend consumers (useChurchSettings.js's callers).
       prisma.churchSettings.findUnique({
         where: { id: "singleton" },
-        omit: {
-          groupmeAccessToken: true,
-          whatsappPhoneNumber: true,
-          joshuaProjectApiKey: true,
-          anthropicApiKey: true,
-          postmarkServerToken: true,
-          inboundEmailWebhookPassword: true,
+        select: {
+          id: true,
+          churchName: true,
+          aboutText: true,
+          publicTagline: true,
+          partnerTermSingular: true,
+          partnerTermPlural: true,
+          usePartnerTermInAdmin: true,
+          addressLine1: true,
+          addressLine2: true,
+          city: true,
+          stateProvinceRegion: true,
+          postalCode: true,
+          country: true,
+          phone: true,
+          websiteLink: true,
+          contactFirstName: true,
+          contactLastName: true,
+          contactEmail: true,
+          timezone: true,
+          brandFont: true,
+          headerColor: true,
+          highlightColor: true,
+          primaryColor: true,
+          logoContentType: true,
+          enabledFeatures: true,
+          extractionModel: true,
+          allowRestrictedPartnerDispatch: true,
+          backupReminderDisabled: true,
+          onlineGivingUrl: true,
+          onlineGivingInstructions: true,
+          collectDonorContactInfo: true,
+          collectApplicantAddress: true,
+          collectEmergencyContact: true,
+          allowPrivateApplicationLinks: true,
+          allowPublicSupportRaisingLinks: true,
+          enableTripBudgeting: true,
+          tripApplicationTemplate: true,
+          tripQuestionLibrary: true,
+          tripRequirementTemplate: true,
+          tripRequirementLibrary: true,
+          cadenceBiweeklyEnabled: true,
+          cadenceMonthlyEnabled: true,
+          cadenceQuarterlyEnabled: true,
+          emailDispatchDayOfWeek: true,
+          emailDispatchDayOfMonth: true,
+          emailDispatchHour: true,
+          emailDispatchSubjectTemplate: true,
+          emailDispatchSignature: true,
+          emailDispatchLayout: true,
+          emailFromAddress: true,
+          chatDispatchHour: true,
+          chatDispatchPrayerRequests: true,
+          chatDispatchOneTimeNeeds: true,
+          chatDispatchNewsletters: true,
+          createdAt: true,
+          updatedAt: true,
         },
       }),
       // Backs the bulk "Sync from Church Settings" action on the About
