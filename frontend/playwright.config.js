@@ -9,6 +9,7 @@ const baseURL = process.env.E2E_BASE_URL || "http://localhost:4000";
 
 // Specs that change feature flags or trip settings (see the projects below).
 const FEATURE_SPECS = [
+  "guest-access",
   "inbound-email-queue",
   "mobile-public-nav",
   "pending-dispatches",
@@ -16,6 +17,7 @@ const FEATURE_SPECS = [
   "public-trip-application",
   "trip-detail-subpages",
   "trip-team-table-modal",
+  "two-factor-requirement",
 ].map((name) => new RegExp(`${name}\\.spec\\.js$`));
 
 export default defineConfig({
