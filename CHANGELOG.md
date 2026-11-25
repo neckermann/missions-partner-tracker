@@ -16,6 +16,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Added
+
+- **Visitors can choose Light or Dark on the public site** with a small switch in the header; it follows their device unless they pick one.
+
 ### Fixed
 
 - **Dark mode is readable on every page ([#418](https://github.com/neckermann/missions-partner-tracker/issues/418)).** Many pages used hardcoded greys and whites that ignored the theme, so headings, help text, table cells and tabs were nearly invisible in dark mode. They now use the theme colours, and a new check (`frontend/e2e/contrast.spec.js`) fails the build if text on a public or admin page drops below a readable contrast in either theme.
@@ -23,6 +27,11 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 - **Action buttons in tables no longer wrap onto two lines** and come out different sizes; Delete, Retire and the like stay the same height as their neighbours.
 - **One tab bar for Trips, a trip's own pages and Partners**, with the same look in both themes. The active Trips tab was nearly invisible in dark mode.
 - **Cards placed one after another on a page (Reports, Care Team Settings, GroupMe, WhatsApp, the top of a partner page) now have space between them.**
+- **Counts look the same everywhere.** The Trips list and the email subscriber summary now use the same count tiles as the reports.
+- **The Audit log uses the same filter bar as the other lists** (search, plus What / From / To under "+ Add filter"), and its filters stay in the address.
+- **Enabled Features lists what is in each group**, with each feature's on or off state, instead of only "All on".
+- **Log Contributions is a popup**, like other forms, with **Save** and **Save and add another** (which keeps the trip, team member, method and date for the next check).
+- **Support Preferences:** Delete is red, and every group's table lines up. **WhatsApp's warning is a proper box.**
 
 ## [0.1.0-beta.2] - 2026-11-25
 

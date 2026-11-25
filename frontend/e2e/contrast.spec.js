@@ -76,3 +76,18 @@ test.describe("Dark mode survives visiting the booklet", () => {
     expect(problems, describe(problems)).toEqual([]);
   });
 });
+
+// A visitor on a light device can switch the public site to dark (and back), and it stays readable.
+test.describe("Public site theme switch", () => {
+  test.use({ colorScheme: "light" });
+
+  test("choosing Dark turns the public site dark and it stays readable", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "Dark" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    const problems = await lowContrastText(page);
+    expect(problems, describe(problems)).toEqual([]);
+    await page.getByRole("button", { name: "System" }).click();
+  });
+});

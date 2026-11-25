@@ -36,9 +36,9 @@ const meta = {
   total: 3,
   oldest: null,
 };
-const renderIt = () =>
+const renderIt = (url = "/") =>
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[url]}>
       <AdminSettingsAudit />
     </MemoryRouter>
   );
@@ -68,17 +68,13 @@ describe("AdminSettingsAudit", () => {
     fetchAuditLog.mockResolvedValue({ rows: [], nextCursor: null });
     renderIt();
     expect(await screen.findByText("Nothing has been recorded yet.")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "zzz" } });
-    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+    fireEvent.change(screen.getByPlaceholderText(/^Search/), { target: { value: "zzz" } });
     expect(await screen.findByText("Nothing matches those filters.")).toBeInTheDocument();
   });
 
   it("sends the filters it was given, and the export link carries the same ones", async () => {
-    renderIt();
-    await screen.findByText("Changed an account");
-    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "dana" } });
-    fireEvent.change(screen.getByLabelText("What"), { target: { value: "Sign-in" } });
-    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+    // The filter bar keeps its filters in the URL, so open the page with them set.
+    renderIt("/?search=dana&category=Sign-in");
     await waitFor(() =>
       expect(fetchAuditLog).toHaveBeenLastCalledWith({ q: "dana", category: "Sign-in", from: "", to: "" })
     );
