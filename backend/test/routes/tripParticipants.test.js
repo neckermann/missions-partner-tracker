@@ -232,6 +232,43 @@ describe("Trips: adding a participant late catches up on existing meetings", () 
       await setFeatures({ outboundEmail: true });
     }
   });
+
+  test("outboundEmail off hands the admin the new participant's access link to send themselves", async () => {
+    await setFeatures({ outboundEmail: false });
+    try {
+      const partner = await createPartner();
+      const dated = await admin("/api/trips", {
+        method: "POST",
+        body: {
+          partnerId: partner.id,
+          type: "Construction",
+          status: "planning",
+          startDate: "2027-03-01",
+          endDate: "2027-03-10",
+        },
+      });
+      const added = await admin(`/api/trips/${dated.body.id}/participants`, {
+        method: "POST",
+        body: { firstName: "Link", lastName: "Needed", email: "link-needed@example.test" },
+      });
+      assert.equal(added.status, 201);
+      assert.equal(added.body.teamWelcomeEmail.sent, false);
+      assert.match(added.body.teamWelcomeEmail.manualUrl, /^https?:\/\//);
+      assert.equal(added.body.firstName, "Link", "the participant itself is still the response");
+
+      const undated = await admin("/api/trips", {
+        method: "POST",
+        body: { partnerId: partner.id, type: "Construction", status: "planning" },
+      });
+      const second = await admin(`/api/trips/${undated.body.id}/participants`, {
+        method: "POST",
+        body: { firstName: "No", lastName: "Dates", email: "no-dates@example.test" },
+      });
+      assert.equal(second.body.teamWelcomeEmail, null, "no welcome email applies without trip dates");
+    } finally {
+      await setFeatures({ outboundEmail: true });
+    }
+  });
 });
 
 // The document/esignature-requirement counterpart to the late-joiner meeting-invite coverage

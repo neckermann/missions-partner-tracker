@@ -4,6 +4,7 @@ import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import Field from "../components/admin/Field.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
+import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
 
 // The audit log: who did what, when, for sensitive actions (sign-ins, role and access
@@ -177,45 +178,39 @@ export default function AdminSettingsAudit() {
           </p>
         )}
         {rows && rows.length > 0 && (
-          <div style={{ overflowX: "auto" }}>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>When</th>
-                  <th>Who</th>
-                  <th>What</th>
-                  <th>About</th>
-                  <th>Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id}>
-                    <td style={{ whiteSpace: "nowrap", verticalAlign: "top" }}>
-                      <When iso={r.createdAt} />
-                    </td>
-                    <td>
-                      <Person p={r.actor} />
-                    </td>
-                    <td>{r.label}</td>
-                    <td>
-                      {r.target ? <Person p={r.target} /> : null}
-                      {r.entity && (
-                        <div style={r.target ? { color: "var(--muted)", fontSize: "0.8rem" } : undefined}>
-                          {r.entity.label || r.entity.type}
-                        </div>
-                      )}
-                      {!r.target && !r.entity && <span style={{ color: "var(--muted)" }}>—</span>}
-                    </td>
-                    <td style={{ minWidth: "13rem" }}>
-                      {r.summary}
-                      {r.ip && <div style={{ color: "var(--muted)", fontSize: "0.8rem" }}>from {r.ip}</div>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table
+            rows={rows}
+            columns={[
+              { key: "createdAt", label: "When", render: (r) => <When iso={r.createdAt} /> },
+              { key: "actor", label: "Who", render: (r) => <Person p={r.actor} /> },
+              { key: "label", label: "What" },
+              {
+                key: "about",
+                label: "About",
+                render: (r) => (
+                  <>
+                    {r.target ? <Person p={r.target} /> : null}
+                    {r.entity && (
+                      <div style={r.target ? { color: "var(--muted)", fontSize: "0.8rem" } : undefined}>
+                        {r.entity.label || r.entity.type}
+                      </div>
+                    )}
+                    {!r.target && !r.entity && <span style={{ color: "var(--muted)" }}>—</span>}
+                  </>
+                ),
+              },
+              {
+                key: "summary",
+                label: "Details",
+                render: (r) => (
+                  <div style={{ minWidth: "13rem" }}>
+                    {r.summary}
+                    {r.ip && <div style={{ color: "var(--muted)", fontSize: "0.8rem" }}>from {r.ip}</div>}
+                  </div>
+                ),
+              },
+            ]}
+          />
         )}
         {cursor && (
           <p>

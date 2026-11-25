@@ -13,6 +13,7 @@ import {
   requestSignInLink,
 } from "../api/client.js";
 import MfaAppGuide from "../components/MfaAppGuide.jsx";
+import CopyButton from "../components/shared/CopyButton.jsx";
 
 // Where to land after login. `next` (from requireAuth's redirect, an /api path) and `from` (from
 // RequireAdminAuth, an SPA route) round-trip through the URL/state, so both are validated here
@@ -196,7 +197,8 @@ export default function Login() {
           >
             <img src={setupData.qrCode} alt="MFA QR code" style={{ width: 200, height: 200 }} />
             <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-              Can't scan it? Enter this code manually: <code>{setupData.secret}</code>
+              Can't scan it? Enter this code manually: <code>{setupData.secret}</code>{" "}
+              <CopyButton text={setupData.secret} label="Copy the setup key" />
             </p>
             <label>
               Code

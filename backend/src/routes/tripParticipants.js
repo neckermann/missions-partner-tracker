@@ -221,6 +221,7 @@ router.post(
         },
       });
 
+      let teamWelcomeEmail = null;
       if (trip.status !== "completed" && trip.startDate && trip.endDate) {
         if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
           await sendParticipantEmail(
@@ -237,6 +238,10 @@ router.post(
               ],
             }
           );
+        } else {
+          // Outbound email off: the welcome email is where a newly added participant gets their access
+          // link, so hand the admin the link to send themselves (same shape as approving an application).
+          teamWelcomeEmail = { sent: false, manualUrl: buildTripParticipantAccessUrl(participant) };
         }
       }
 
@@ -244,7 +249,7 @@ router.post(
       // covers only trip dates). Shared with PUT /applications/:id.
       await sendLateJoinerCatchUpEmails(trip, participant);
 
-      res.status(201).json(participant);
+      res.status(201).json({ ...participant, teamWelcomeEmail });
     } catch (err) {
       next(err);
     }

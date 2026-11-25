@@ -23,6 +23,7 @@ import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import RecordUnavailable, { loadErrorStatus } from "../components/shared/RecordUnavailable.jsx";
 import GiveGuestAccessModal from "../components/admin/GiveGuestAccessModal.jsx";
+import CopyButton from "../components/shared/CopyButton.jsx";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -583,6 +584,10 @@ export default function AdminTripParticipantDetail() {
               <>
                 <p style={{ fontSize: "0.75rem", marginTop: "0.4rem" }}>
                   <code>{`${window.location.origin}/trip-support-raising/${participant.shareToken}`}</code>{" "}
+                  <CopyButton
+                    text={`${window.location.origin}/trip-support-raising/${participant.shareToken}`}
+                    label="Copy support-raising link"
+                  />{" "}
                   <a
                     href={`${window.location.origin}/trip-support-raising/${participant.shareToken}`}
                     target="_blank"
