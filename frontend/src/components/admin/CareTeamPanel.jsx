@@ -84,11 +84,13 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
             </button>
           )}
         </div>
-        {team && people.length === 0 && canEdit && enabledFeatures?.keyDates && (
+        {team && people.length === 0 && enabledFeatures?.keyDates && (
           <div style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.2rem" }}>
-            {defaultLead
-              ? `Key-date reminders go to the default lead, ${defaultLead.name}, until a team is set.`
-              : "Key-date reminders have nobody to go to until a team (or a default lead) is set."}
+            {!canEdit
+              ? "Key-date reminders go to the church's default lead until a team is set."
+              : defaultLead
+                ? `Key-date reminders go to the default lead, ${defaultLead.name}, until a team is set.`
+                : "Key-date reminders have nobody to go to until a team (or a default lead) is set."}
           </div>
         )}
         {editing && (

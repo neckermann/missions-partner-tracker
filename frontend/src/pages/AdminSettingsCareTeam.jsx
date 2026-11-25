@@ -66,6 +66,12 @@ export default function AdminSettingsCareTeam() {
           onSaved={reload}
           view={() => (
             <>
+              {lead === null && (
+                <p className="field-warning" role="note">
+                  No default lead is set, so reminders for partners without a care team go to nobody. Pick
+                  someone below.
+                </p>
+              )}
               <Field
                 label="Default lead"
                 value={lead === undefined ? "Loading…" : lead ? lead.name : "None"}
