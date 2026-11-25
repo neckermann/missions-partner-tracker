@@ -16,6 +16,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Changed
+
+- **A public demo lets visitors try passkeys and an authenticator app ([#386](https://github.com/neckermann/missions-partner-tracker/issues/386)).** Adding or removing one works, but the demo never asks for a second factor at sign-in and doesn't end other visitors' sessions, so the shared logins keep working.
+
 ### Fixed
 
 - **Dark mode is readable on every page ([#418](https://github.com/neckermann/missions-partner-tracker/issues/418)).** Many pages used hardcoded greys and whites that ignored the theme, so headings, help text, table cells and tabs were nearly invisible in dark mode. They now use the theme colours, and a new check (`frontend/e2e/contrast.spec.js`) fails the build if text on a public or admin page drops below a readable contrast in either theme.
