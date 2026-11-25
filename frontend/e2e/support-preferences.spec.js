@@ -76,6 +76,14 @@ test.describe("Support preferences", () => {
     await expect(details.locator("ul li", { hasText: label })).toBeVisible();
   });
 
+  test("the printable menu lists the active options", async () => {
+    await admin.goto("/admin/settings/support-preferences");
+    await admin.getByRole("link", { name: "Print menu" }).click();
+    await expect(admin.getByRole("heading", { name: "Printable menu" })).toBeVisible();
+    await expect(admin.locator(".support-menu-sheet").getByText(label)).toBeVisible();
+    await expect(admin.getByRole("button", { name: "Print" })).toBeVisible();
+  });
+
   test("the report lists the partner and what they chose", async () => {
     const res = await admin.request.get("/api/reports/support-preferences");
     expect(res.ok(), await res.text()).toBeTruthy();

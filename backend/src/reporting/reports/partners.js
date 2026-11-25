@@ -318,9 +318,9 @@ const lastHeardFrom = {
     { key: "visit", label: "Last church visit", type: "date" },
     { key: "lastPrayedWithCongregation", label: "Last prayed w/ congregation", type: "date" },
   ],
-  // When the contact log is on, a logged contact or a church visit counts as hearing
-  // from a partner like a newsletter does (hearing in person is hearing); a partner is
-  // "quiet" only when ALL are old. Settings are read here because the hub gives
+  // A newsletter, a received prayer request, a church visit and (when the contact log is on) a
+  // logged contact all count as hearing from a partner (hearing in person is hearing); a partner
+  // is "quiet" only when ALL are old. Settings are read here because the hub gives
   // fetch/compute no feature state.
   fetch: async (params, { prisma }) => {
     const settings = await prisma.churchSettings.findUnique({
@@ -357,8 +357,11 @@ const lastHeardFrom = {
       const visit = latest(p.churchVisits, "visitDate");
       // A visit in the future isn't something we have "heard"; only visits up to the as-of day.
       const visitDays = visit && visit <= asOf ? daysBetween(asOf, visit) : null;
-      // Days since the most recent of the three; null when none exists.
-      const quietDays = [days, contactDays, visitDays]
+      // A prayer request received from them is hearing from them too (not one dated after the day).
+      const prayerDate = latest(p.prayerRequests, "dateReceived");
+      const prayerDays = prayerDate && prayerDate <= asOf ? daysBetween(asOf, prayerDate) : null;
+      // Days since the most recent of these; null when none exists.
+      const quietDays = [days, contactDays, visitDays, prayerDays]
         .filter((d) => d !== null)
         .reduce((m, d) => Math.min(m, d), Infinity);
       const quiet = quietDays === Infinity ? null : quietDays;
@@ -393,8 +396,8 @@ const lastHeardFrom = {
       ],
       notes: [
         contactLogOn
-          ? "'Quiet' is measured from the most recent of a newsletter file, a logged contact or a church visit."
-          : "'Quiet' is measured from the most recent of a newsletter file or a church visit.",
+          ? "'Quiet' is measured from the most recent of a newsletter file, a prayer request, a logged contact or a church visit."
+          : "'Quiet' is measured from the most recent of a newsletter file, a prayer request or a church visit.",
       ],
     };
   },

@@ -422,3 +422,35 @@ test("survey responses lists who is waiting, who answered and who has not been s
     "a closed survey isn't offered for sending"
   );
 });
+
+test("last heard from: a prayer request received counts as hearing from a partner", () => {
+  const partner = (name, dateReceived) => ({
+    displayName: name,
+    isRestricted: false,
+    files: [],
+    photos: [],
+    prayerRequests: dateReceived ? [{ dateReceived }] : [],
+    churchVisits: [],
+    contactLogs: [],
+  });
+  const out = run(
+    "last-heard-from",
+    {},
+    {
+      contactLogOn: false,
+      defaultStaleDays: 90,
+      partners: [
+        partner("Recent prayer request", day("2026-11-10")),
+        partner("Old prayer request", day("2026-01-10")),
+        partner("Future prayer request", day("2026-12-25")),
+        partner("Nothing", null),
+      ],
+    }
+  );
+  assert.deepStrictEqual(
+    out.rows.map((r) => r.partnerName).sort(),
+    ["Future prayer request", "Nothing", "Old prayer request"],
+    "a recent request means not quiet; one dated after the as-of day doesn't count"
+  );
+  assert.match(out.notes[0], /prayer request/);
+});

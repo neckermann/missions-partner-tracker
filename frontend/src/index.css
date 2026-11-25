@@ -2524,3 +2524,50 @@ button.report-summary-item[aria-pressed="true"] {
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
 }
+
+/* The printable support-preferences menu. */
+.support-menu-title {
+  margin: 0 0 0.25rem;
+}
+.support-menu-lead {
+  margin: 0 0 1rem;
+  color: var(--muted);
+}
+.support-menu-group {
+  margin: 0 0 1rem;
+  break-inside: avoid;
+}
+.support-menu-group h4 {
+  margin: 0 0 0.4rem;
+  color: var(--brand-color, var(--accent));
+}
+.support-menu-option {
+  padding: 0.25rem 0;
+}
+.support-menu-hint {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+.support-menu-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  margin: 0.2rem 0 0 1.25rem;
+}
+.support-menu-line {
+  border-bottom: 1px solid var(--muted);
+  height: 1.6rem;
+  margin: 0 0 0 0;
+}
+.support-menu-footer {
+  margin-top: 1.5rem;
+}
+@media print {
+  .support-menu-title,
+  .support-menu-lead {
+    display: none;
+  }
+  .support-menu-line {
+    border-bottom-color: #555;
+  }
+}
