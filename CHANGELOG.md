@@ -18,6 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Changed
 
+- **Check-all-that-apply questions line up.** On a trip application (and two trip requirement checkboxes) each switch now sits beside its text, left-aligned, instead of stacked and centered in the middle of the form.
 - **App users can have a phone number and a short profile.** Add them in the Add User wizard or the Users edit popup, or people add their own under **My account → Your details**. A partner's care team list shows each member's phone, email and note to staff roles, so you know how to reach them for an update; a Guest never sees them. A trip's Team page also lists each confirmed member's phone and email, and shows a trip guest's phone. The demo's logins have a phone and a note. Migration: new `User.phone` and `User.profile` columns (baseline squashed).
 - **Close works on the Care team popup (and any popup opened from a clickable row).** Clicking Close reopened it, because the click reached the row behind it; only clicking outside worked. Fixed once in the shared popup, so it holds everywhere.
 - **The owner's test demo can try passwordless sign-in.** Setting `DEMO_ALLOW_PASSWORDLESS=true` on a demo's web service lets an admin switch it on there; every other demo still refuses it. See demo/README.md.
