@@ -30,6 +30,8 @@ const tripRoutes = require("./routes/trips");
 const careTeamRoutes = require("./routes/careTeams");
 const auditRoutes = require("./routes/audit");
 const supportPreferencesRoutes = require("./routes/supportPreferences");
+const surveyRoutes = require("./routes/surveys");
+const publicSurveyRoutes = require("./routes/publicSurveys");
 const contactLogRoutes = require("./routes/contactLog");
 const tripMeetingRoutes = require("./routes/tripMeetings");
 const tripRequirementRoutes = require("./routes/tripRequirements");
@@ -199,6 +201,8 @@ app.use("/api/trips", tripRoutes); // protected (admin) — session required
 app.use("/api/care-team", careTeamRoutes); // protected; flag-gated (careTeam) -- see that file's own comment
 app.use("/api/audit", auditRoutes); // protected (admin); flag-gated (auditTrail)
 app.use("/api/contact-log", contactLogRoutes); // protected; flag-gated (contactLog) -- see that file's own comment
+app.use("/api/surveys", surveyRoutes); // protected; flag-gated (surveys + careTeam) -- see that file's own comment
+app.use("/api/public/surveys", publicSurveyRoutes); // no login: the personal link token is the credential
 app.use("/api/support-preferences", supportPreferencesRoutes); // protected; flag-gated (supportPreferences + careTeam) -- see that file's own comment
 // Sibling sub-resource routers under the same prefix; each gates itself, so mount order doesn't matter.
 app.use("/api/trips", tripMeetingRoutes);

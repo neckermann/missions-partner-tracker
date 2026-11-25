@@ -44,29 +44,29 @@ model Partner {
   //   "caution"   -- reachable, but follow contactInstructions (and only the ticked contactChannels, when any);
   //   "no_direct" -- don't contact them directly: the Contact card hides their number and email and
   //                  shows contactVia* and contactInstructions instead.
-  contactLevel           String   @default("normal")
+  contactLevel        String   @default("normal")
   // "caution" only: the ways it is ok to reach them ("call", "text", "email", "whatsapp",
   // "signal", "messenger", "other"). Empty means any.
-  contactChannels        String[] @default([])
+  contactChannels     String[] @default([])
   // Shown for "caution" and "no_direct". Free text, staff-facing.
-  contactInstructions    String?  @db.Text
+  contactInstructions String?  @db.Text
   // "no_direct" only: the person to go through instead.
-  contactViaName         String?
-  contactViaRole         String?
-  contactViaPhone        String?
-  contactViaEmail        String?
+  contactViaName      String?
+  contactViaRole      String?
+  contactViaPhone     String?
+  contactViaEmail     String?
   // Missionary-only: this church is the sending church. Distinct from SendingParty, which
   // describes whichever church sends them.
-  sentByOurChurch        Boolean @default(false)
+  sentByOurChurch     Boolean  @default(false)
   // Organization-only: the person to reach at the organization (a missionary is their own
   // contact, so null for that kind).
-  contactFirstName       String?
-  contactLastName        String?
-  contactPhone           String?
-  contactEmail           String?
+  contactFirstName    String?
+  contactLastName     String?
+  contactPhone        String?
+  contactEmail        String?
   // Organization-only: how that person likes to be reached (see Adult.contactMethod for a family).
-  contactMethod          String?
-  contactMethodNote      String?
+  contactMethod       String?
+  contactMethodNote   String?
 
   orgType               String? // organization-only: "Local" | "National"
   anniversary           DateTime? @db.Date // missionary-only
@@ -96,6 +96,8 @@ model Partner {
   careTeam                 CareTeamMember[]
   contactLogs              ContactLog[]
   supportPreferences       PartnerSupportPreference[]
+  surveyInvites            SurveyInvite[]
+  surveyResponses          SurveyResponse[]
   keyDateReminders         KeyDateReminder[]
   publicSubscriberPartners PublicSubscriberPartner[]
   adults                   Adult[]
@@ -131,24 +133,24 @@ model Partner {
 }
 
 model Adult {
-  id               String    @id @default(uuid())
-  partnerId        String
-  partner          Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  id                String    @id @default(uuid())
+  partnerId         String
+  partner           Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   // Nullable in the DB only; routes/partners.js's zod schema requires it on every write.
-  firstName        String?
-  lastName         String?
-  phone1           String?
-  phone2           String?
-  email            String?
-  birthday         DateTime? @db.Date
+  firstName         String?
+  lastName          String?
+  phone1            String?
+  phone2            String?
+  email             String?
+  birthday          DateTime? @db.Date
   // The adult to reach first. At most one per partner: a partial unique index in the migration
   // (Prisma can't express a WHERE on a unique) and the route, which clears the old one.
-  isPrimaryContact Boolean   @default(false)
+  isPrimaryContact  Boolean   @default(false)
   // How this person likes to be reached: "call", "text", "email", "whatsapp", "signal",
   // "messenger" or "other" (with contactMethodNote saying how). Shown on the Contact card.
   contactMethod     String?
   contactMethodNote String?
-  createdAt        DateTime  @default(now())
+  createdAt         DateTime  @default(now())
 
   lastEditedById   String?
   lastEditedByName String?
@@ -192,7 +194,7 @@ model Address {
   receiveMail         Boolean?
   receivePackages     Boolean?
 
-  createdAt DateTime @default(now())
+  createdAt        DateTime  @default(now())
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -613,7 +615,7 @@ model TripBudgetLine {
   label           String
   estimatedAmount Int
 
-  createdAt DateTime @default(now())
+  createdAt        DateTime  @default(now())
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -637,7 +639,7 @@ model TripFlightSegment {
 
   participants TripParticipant[]
 
-  createdAt DateTime @default(now())
+  createdAt        DateTime  @default(now())
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -841,7 +843,7 @@ model SendingParty {
   postalCode          String?
   country             String?
 
-  createdAt DateTime @default(now())
+  createdAt        DateTime  @default(now())
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1667,6 +1669,7 @@ model ApplicationQuestion {
   answers TripApplicationAnswer[]
 
   createdAt DateTime @default(now())
+
   @@index([tripId])
   @@index([scope, position])
 }
@@ -1794,4 +1797,113 @@ model WhatsAppAuthEntry {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// Partner surveys (#419), gated by the `surveys` feature. A church builds a survey (title, intro,
+// ordered questions), opens it, and a person sends each chosen partner a personal link. Answers
+// are one SurveyResponse per partner per survey, entered by the partner through the link or by a
+// staff member on their behalf. Never public, never in the booklet or a dispatch.
+model Survey {
+  id       String    @id @default(uuid())
+  title    String
+  intro    String?   @db.Text
+  status   String    @default("draft") // "draft" | "open" | "closed"
+  closesAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questions SurveyQuestion[]
+  invites   SurveyInvite[]
+  responses SurveyResponse[]
+
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+}
+
+// `kind`: "single" | "multiple" (pick from `choices`, optionally with an "other" box), "text" or
+// "yesno". Deleting a question keeps its answers readable: each answer carries the label as it
+// was worded when given.
+model SurveyQuestion {
+  id         String   @id @default(uuid())
+  surveyId   String
+  survey     Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  position   Int      @default(0)
+  kind       String   @default("text")
+  label      String
+  choices    String[]
+  allowOther Boolean  @default(false)
+  required   Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  answers SurveyAnswer[]
+
+  @@index([surveyId, position])
+}
+
+// One personal link for one partner. The link's token is stored only as a hash, so a database
+// read can't be turned back into a working link. `sentAt` is when a person last sent it.
+model SurveyInvite {
+  id         String    @id @default(uuid())
+  surveyId   String
+  survey     Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  partnerId  String
+  partner    Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  sentAt     DateTime?
+  sentById   String?
+  sentByName String?
+  openedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([surveyId, partnerId])
+  @@index([partnerId])
+}
+
+// A partner's answers to one survey: "draft" until submitted. `enteredByName` is the staff member
+// who filled it in, null when the partner answered through their link.
+model SurveyResponse {
+  id            String    @id @default(uuid())
+  surveyId      String
+  survey        Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  partnerId     String
+  partner       Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  submittedAt   DateTime?
+  enteredById   String?
+  enteredByName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  answers SurveyAnswer[]
+
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
+  @@unique([surveyId, partnerId])
+  @@index([partnerId])
+}
+
+// `value` holds a text, yes/no ("yes"/"no") or single-choice answer; `values` a multiple-choice
+// one; `other` their own words where a choice question allows it. `label` and `kind` are the
+// question as it was when answered; `questionId` is cleared if the question is later deleted.
+model SurveyAnswer {
+  id         String          @id @default(uuid())
+  responseId String
+  response   SurveyResponse  @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  questionId String?
+  question   SurveyQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  position   Int             @default(0)
+  label      String
+  kind       String
+  value      String?         @db.Text
+  values     String[]
+  other      String?
+
+  @@index([responseId])
 }

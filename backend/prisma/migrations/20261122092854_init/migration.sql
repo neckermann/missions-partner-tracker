@@ -1060,6 +1060,85 @@ CREATE TABLE "WhatsAppAuthEntry" (
 );
 
 -- CreateTable
+CREATE TABLE "Survey" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "intro" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'draft',
+    "closesAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
+
+    CONSTRAINT "Survey_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SurveyQuestion" (
+    "id" TEXT NOT NULL,
+    "surveyId" TEXT NOT NULL,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "kind" TEXT NOT NULL DEFAULT 'text',
+    "label" TEXT NOT NULL,
+    "choices" TEXT[],
+    "allowOther" BOOLEAN NOT NULL DEFAULT false,
+    "required" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SurveyQuestion_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SurveyInvite" (
+    "id" TEXT NOT NULL,
+    "surveyId" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "sentAt" TIMESTAMP(3),
+    "sentById" TEXT,
+    "sentByName" TEXT,
+    "openedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SurveyInvite_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SurveyResponse" (
+    "id" TEXT NOT NULL,
+    "surveyId" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "submittedAt" TIMESTAMP(3),
+    "enteredById" TEXT,
+    "enteredByName" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
+
+    CONSTRAINT "SurveyResponse_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SurveyAnswer" (
+    "id" TEXT NOT NULL,
+    "responseId" TEXT NOT NULL,
+    "questionId" TEXT,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "label" TEXT NOT NULL,
+    "kind" TEXT NOT NULL,
+    "value" TEXT,
+    "values" TEXT[],
+    "other" TEXT,
+
+    CONSTRAINT "SurveyAnswer_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "_TripFlightSegmentToTripParticipant" (
     "A" TEXT NOT NULL,
     "B" TEXT NOT NULL,
@@ -1311,6 +1390,27 @@ CREATE INDEX "PublicSubscriber_confirmedAt_idx" ON "PublicSubscriber"("confirmed
 CREATE INDEX "PublicSubscriberPartner_partnerId_idx" ON "PublicSubscriberPartner"("partnerId");
 
 -- CreateIndex
+CREATE INDEX "SurveyQuestion_surveyId_position_idx" ON "SurveyQuestion"("surveyId", "position");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SurveyInvite_tokenHash_key" ON "SurveyInvite"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "SurveyInvite_partnerId_idx" ON "SurveyInvite"("partnerId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SurveyInvite_surveyId_partnerId_key" ON "SurveyInvite"("surveyId", "partnerId");
+
+-- CreateIndex
+CREATE INDEX "SurveyResponse_partnerId_idx" ON "SurveyResponse"("partnerId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SurveyResponse_surveyId_partnerId_key" ON "SurveyResponse"("surveyId", "partnerId");
+
+-- CreateIndex
+CREATE INDEX "SurveyAnswer_responseId_idx" ON "SurveyAnswer"("responseId");
+
+-- CreateIndex
 CREATE INDEX "_TripFlightSegmentToTripParticipant_B_index" ON "_TripFlightSegmentToTripParticipant"("B");
 
 -- AddForeignKey
@@ -1507,6 +1607,27 @@ ALTER TABLE "PublicSubscriberPartner" ADD CONSTRAINT "PublicSubscriberPartner_su
 
 -- AddForeignKey
 ALTER TABLE "PublicSubscriberPartner" ADD CONSTRAINT "PublicSubscriberPartner_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyQuestion" ADD CONSTRAINT "SurveyQuestion_surveyId_fkey" FOREIGN KEY ("surveyId") REFERENCES "Survey"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyInvite" ADD CONSTRAINT "SurveyInvite_surveyId_fkey" FOREIGN KEY ("surveyId") REFERENCES "Survey"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyInvite" ADD CONSTRAINT "SurveyInvite_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyResponse" ADD CONSTRAINT "SurveyResponse_surveyId_fkey" FOREIGN KEY ("surveyId") REFERENCES "Survey"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyResponse" ADD CONSTRAINT "SurveyResponse_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyAnswer" ADD CONSTRAINT "SurveyAnswer_responseId_fkey" FOREIGN KEY ("responseId") REFERENCES "SurveyResponse"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyAnswer" ADD CONSTRAINT "SurveyAnswer_questionId_fkey" FOREIGN KEY ("questionId") REFERENCES "SurveyQuestion"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSegmentToTripParticipant_A_fkey" FOREIGN KEY ("A") REFERENCES "TripFlightSegment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
