@@ -4,15 +4,9 @@ import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestions
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 
-// New (#252) -- church-wide settings for the whole Trips feature area.
-// Not per-trip (so it doesn't belong on any single trip's own pages --
-// AdminTripOverview.jsx etc.) and not general church info (so it doesn't
-// belong on the About Church page either). Each concern below is its own
-// EditableSection card -- same click-card -> popup -> edit -> save
-// boundary every other editable page in this app uses, grouped under
-// .admin-section-group/.admin-group-heading the same way
-// AdminPartnerDetail.jsx groups its own cards, with that same page's
-// jump-rail pattern reused here for the 4 groups.
+// Church-wide settings for the Trips feature area (not per-trip, not general church info).
+// Each concern is its own EditableSection card, grouped under .admin-section-group like
+// AdminPartnerDetail.jsx, with the same jump-rail for the 4 groups.
 const emptyForm = {
   onlineGivingUrl: "",
   onlineGivingInstructions: "",
@@ -28,14 +22,9 @@ const emptyForm = {
   tripRequirementLibrary: [],
 };
 
-// Inline, not a shared component -- ApplicationQuestionsEditor.jsx's
-// fields (required/options) don't fit a requirement (kind/bodyText/
-// reminderLeadDays instead). Two call sites on this same page now
-// (tripRequirementTemplate below, and tripRequirementLibrary further
-// down) -- both just want the same {items, onChange} controlled list,
-// no library-picker prop needed here the way the question editor has
-// one, since neither of this component's own two consumers is itself
-// a library being picked *from*.
+// Inline rather than shared: ApplicationQuestionsEditor.jsx's fields (required/options) don't
+// fit a requirement (kind/bodyText/reminderLeadDays). Both consumers on this page just want a
+// controlled {items, onChange} list.
 function RequirementTemplateEditor({ items, onChange }) {
   const [draft, setDraft] = useState({
     label: "",
@@ -51,13 +40,8 @@ function RequirementTemplateEditor({ items, onChange }) {
   function remove(index) {
     onChange(items.filter((_, i) => i !== index));
   }
-  // Move-up/move-down, not drag-and-drop -- matches
-  // ApplicationQuestionsEditor.jsx's own reasoning (no drag-and-drop
-  // precedent anywhere in this app, not worth a new dependency for a
-  // realistically-short list). This editor never had reorder at all
-  // before; order matters here (it's the literal sequence a participant
-  // sees requirements in), so it gets the same move buttons the question
-  // editor already has, not a new pattern.
+  // Move-up/move-down, not drag-and-drop (no drag precedent in the app, like
+  // ApplicationQuestionsEditor.jsx). Order matters: it's the sequence a participant sees.
   function move(index, delta) {
     const target = index + delta;
     if (target < 0 || target >= items.length) return;
@@ -222,9 +206,7 @@ export default function AdminSettingsTrips() {
     setSettings({ ...emptyForm, ...s });
   }
 
-  // Each card's onSave sends only the fields it owns -- PUT /settings/trips
-  // is a partial update (every field on the schema is optional), so one
-  // card's save never touches another card's own data.
+  // Each card's onSave sends only the fields it owns; PUT /settings/trips is a partial update.
   async function savePartial(patch) {
     await updateTripsSettings(patch);
   }

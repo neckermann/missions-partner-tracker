@@ -36,9 +36,7 @@ import useFilterState from "../hooks/useFilterState.js";
 import useSendingChurchField from "../hooks/useSendingChurchField.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 
-// Thin binding so the call sites below stay unchanged; the formatting
-// itself lives in utils/format.js, which is also where the em-dash
-// convention for "no amount recorded" is documented.
+// Formatting lives in utils/format.js, which also documents the em-dash for "no amount recorded".
 const formatCurrency = (amount) => formatMoney(amount, { fallback: "—" });
 
 const emptyFilters = { status: "all", sendingChurch: "all", dateRange: "all", includeArchived: false };
@@ -54,21 +52,13 @@ const emptyNewNeed = {
   sourceFileId: null,
 };
 
-// Phase 2 of the UX-rebuild plan: filters (status/date-range/archived) are
-// now FilterBar, with status and date-range now real backend query params
-// (GET /api/support-needs) -- same reuse as reports/oneTimeNeeds.js's
-// existing where-clause logic (status derived from approvedAmount,
-// nothing new invented). Kept as a card list rather than moving onto
-// <Table>, same reasoning as AdminPrayerRequests.jsx: each row has a
-// variable-length description plus two independent inline forms (edit,
-// record decision) that don't reduce to table cells without either
-// cramming or truncating real content.
+// A card list rather than <Table> (as in AdminPrayerRequests.jsx): each row has a long
+// description plus two inline forms (edit, record decision) that don't fit table cells.
+// Status and date-range filters are backend params (GET /api/support-needs).
 export default function AdminOneTimeNeeds() {
   const { enabledFeatures } = useSettings();
-  // Whether any channel exists at all to ever deliver a recorded event --
-  // see PrayerRequestSection.jsx's own hasEnabledChannel for the full
-  // reasoning (shared precondition for "Mark as urgent" and
-  // canApproveNow below).
+  // Whether any channel exists to deliver a recorded event; see hasEnabledChannel in
+  // PrayerRequestSection.jsx. Shared precondition for "Mark as urgent" and canApproveNow.
   const hasEnabledChannel =
     enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
   const [needs, setNeeds] = useState([]);
@@ -105,9 +95,8 @@ export default function AdminOneTimeNeeds() {
     setPartnerFilter,
   } = usePartnerUrlFilter();
   const { canWrite, isAdmin, isGuest, careTeamSeats, isOnCareTeamFor } = useCurrentUser();
-  // Staff do everything. A care team member who isn't staff (#289) has what an
-  // editor has for a partner on their team -- add and edit a need -- except
-  // recording a decision (that's the committee's), deleting, and "send right
+  // Staff do everything. A care team member who isn't staff can add and edit a need for a
+  // partner on their team, but not record a decision (committee's), delete, or "send right
   // away" (their dispatch is held for review).
   const canEdit = canWrite;
   const limited = !canWrite;
@@ -120,23 +109,17 @@ export default function AdminOneTimeNeeds() {
   const [decidingNeed, setDecidingNeed] = useState(null);
   const [decision, setDecision] = useState({ approvedAmount: "", approvedDate: "", decisionNote: "" });
   const [needDetail, setNeedDetail] = useState(null); // { id, form }
-  // Scoped to whichever partner is selected in the add form, or whichever
-  // need is being edited -- see the same hook used in AdminPrayerRequests.jsx.
+  // Scoped to the partner selected in the add form, or the need being edited.
   const { sourceFiles, loadSourceFiles } = useSourceFiles();
-  // No single partnerId prop here -- looked up from whichever partner is
-  // currently selected in the add form, same list PartnerSelect renders.
+  // Looked up from the partner selected in the add form, same list PartnerSelect renders.
   const selectedPartner = partners.find((p) => p.id === newNeed.partnerId);
-  // Also requires allowRestrictedPartnerDispatch, defaulting to true
-  // while loading -- a UI convenience gate only, the real check is still
-  // enforced server-side regardless.
+  // Also requires allowRestrictedPartnerDispatch (true while loading). UI convenience only;
+  // the real check is server-side.
   const { settings } = useChurchSettings();
   const allowRestrictedPartnerDispatch = settings?.allowRestrictedPartnerDispatch !== false;
   const canApproveNow =
     !!selectedPartner?.isRestricted && hasEnabledChannel && allowRestrictedPartnerDispatch;
-  // Named confirmDialog, not confirm -- this page's only confirmation
-  // surface now (approve-now, urgent-send, and delete all route through
-  // it), and `confirm` would read as a reference to the native global
-  // this hook replaces.
+  // Named confirmDialog, not confirm, so it isn't read as the native global it replaces.
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const confirmBeforeCreate = useUrgentApprovalGate({ confirmDialog, enabledFeatures });
 
@@ -219,9 +202,7 @@ export default function AdminOneTimeNeeds() {
     await reload();
   }
 
-  // Deliberately doesn't touch approvedAmount/approvedDate -- that stays
-  // the Record Decision flow's job, same reasoning as
-  // AdminPrayerRequests.jsx's view/edit popup.
+  // Deliberately doesn't touch approvedAmount/approvedDate; that stays the Record Decision flow's job.
   function openNeedDetail(need) {
     setNeedDetail({
       id: need.id,
@@ -329,9 +310,8 @@ export default function AdminOneTimeNeeds() {
             render: (need) => (
               <>
                 <span style={{ fontWeight: 600 }}>{entityFor(need).name}</span>
-                {/* "New since your last visit to this list" -- see
-                    supportNeeds.js's own comment; a separate, per-user
-                    timestamp from the bell's "newOneTimeNeeds" seen-state. */}
+                {/* "New since your last visit to this list": a per-user timestamp, separate
+                    from the bell's "newOneTimeNeeds" seen-state (see supportNeeds.js). */}
                 {need.isNew && (
                   <span className="status-pill good" style={{ marginLeft: "0.5rem", fontSize: "0.65rem" }}>
                     New

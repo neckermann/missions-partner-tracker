@@ -21,10 +21,8 @@ import ThemeToggle from "../components/shared/ThemeToggle.jsx";
 
 const emptyPasswordDraft = { currentPassword: "", newPassword: "", confirmPassword: "" };
 
-// A client-side validation failure (mismatch/too-short) is thrown in the
-// same { response: { data: { error } } } shape EditableSection's catch
-// block already expects from a real API error, so it renders through the
-// same friendly-error path instead of a second, parallel error UI.
+// Client-side validation failures are thrown in the API-error shape so
+// EditableSection renders them through its normal error path.
 function validationError(message) {
   return { response: { data: { error: message } } };
 }
@@ -106,12 +104,11 @@ export default function AccountSettings() {
 
       {user?.authProvider === "local" && <MfaSection user={user} onChange={reloadUser} />}
       {user?.authProvider === "local" && <PasskeysSection onChange={reloadUser} />}
-      {/* A guest sees password and MFA only (#356). The admin digest is
-          church-wide content, not something a scoped login subscribes to. */}
+      {/* A guest sees password and MFA only: the admin digest is church-wide content. */}
       {user && !isGuest && enabledFeatures.outboundEmail && (
         <EmailDispatchSection user={user} onChange={reloadUser} />
       )}
-      {/* Everyone on a care team may get the daily key-date email, a guest included (#365). */}
+      {/* Everyone on a care team may get the daily key-date email, a guest included. */}
       {user &&
         enabledFeatures.careTeam &&
         enabledFeatures.keyDates &&
@@ -130,8 +127,8 @@ export default function AccountSettings() {
   );
 }
 
-// The daily key-date email (#365): one message on a day a birthday, anniversary or milestone is due
-// for a partner you look after. Turning it off here stops the email only; the bell alert stays.
+// The daily key-date email: one message on a day a birthday, anniversary or milestone is due
+// for a partner you look after. Turning it off stops the email only; the bell alert stays.
 function KeyDateEmailSection({ user, onChange }) {
   const optedOut = user.keyDateEmailOptOut === true;
   return (
@@ -166,14 +163,9 @@ function KeyDateEmailSection({ user, onChange }) {
   );
 }
 
-// Self-service opt-in for the admin digest email -- same self-service-
-// from-Account-Settings pattern as MFA above. Turning the cadence to
-// "No automatic digest" here does the same thing clicking "Unsubscribe"
-// in a digest email's own footer does -- this is just the in-app
-// equivalent for someone who's already logged in. Besides whatever
-// cadence is picked below, this account may also receive an urgent
-// dispatch immediately, bypassing this schedule entirely -- see the
-// "Marking something urgent" note in USER_GUIDE.md.
+// Self-service opt-in for the admin digest email. "No automatic digest" matches the
+// "Unsubscribe" link in the email footer. An urgent dispatch can still arrive immediately,
+// regardless of this schedule (see USER_GUIDE.md, "Marking something urgent").
 const CADENCE_LABELS = {
   "": "No automatic digest",
   biweekly: "Biweekly",
@@ -190,11 +182,8 @@ function EmailDispatchSection({ user, onChange }) {
     partnerIds: user.followedPartnerIds || [],
   };
 
-  // "" (no automatic digest) is always offered, and so is this admin's
-  // own already-saved cadence even if it's since been disabled (#209) --
-  // don't silently hide someone's current choice from them, same
-  // reasoning PublicSubscribeForm.jsx's own comment gives for why *it*
-  // needs no such exception (new-subscriber-only, nothing saved yet).
+  // "" (no automatic digest) is always offered, plus this admin's own saved cadence even if
+  // it has since been disabled, so their current choice is never hidden.
   const cadenceLabelEntries = Object.entries(CADENCE_LABELS).filter(
     ([tierValue]) => tierValue === "" || tierValue === value.cadence || cadenceTiersEnabled[tierValue]
   );
@@ -306,14 +295,8 @@ function EmailDispatchSection({ user, onChange }) {
   );
 }
 
-// Deliberately not an EditableSection: this isn't "edit a field, save" --
-// it's a multi-step security flow with three distinct shapes (enabled with
-// a disable-confirmation form, mid-setup with a QR code and a confirm
-// step, or disabled with a start button) that doesn't reduce to a single
-// view/edit toggle. Keeps its own try/catch-per-action error handling,
-// which already shows a plain-language message per action.
-// #386: passkeys, the other second factor. Listed with when each was added and last used, added
-// from this device (the browser asks for the fingerprint or screen lock), removed with the password.
+// Passkeys, the other second factor: added from this device, removed with the password.
+// Deliberately not an EditableSection: a multi-step flow with its own per-action error handling.
 function PasskeysSection({ onChange }) {
   const [list, setList] = useState(null); // { passkeys, max }
   const [label, setLabel] = useState("");

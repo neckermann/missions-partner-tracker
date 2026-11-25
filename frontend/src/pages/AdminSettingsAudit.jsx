@@ -6,11 +6,10 @@ import Field from "../components/admin/Field.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
 import useFilterState from "../hooks/useFilterState.js";
 
-// The audit log (#341): who did what, when, for the sensitive actions --
-// sign-ins, role and access changes, settings changes, deletes, backups, views
-// of restricted partners. Admin only. Events are kept for the retention window
-// below and then pruned; who last edited a record is kept separately, on the
-// record itself, and never expires.
+// The audit log: who did what, when, for sensitive actions (sign-ins, role and access
+// changes, settings changes, deletes, backups, views of restricted partners). Admin only.
+// Events are pruned after the retention window; who last edited a record is kept on the
+// record itself and never expires.
 const EMPTY = { search: "", category: "all", from: "", to: "" };
 
 // Date over time, so the column stays narrow and the details have room.

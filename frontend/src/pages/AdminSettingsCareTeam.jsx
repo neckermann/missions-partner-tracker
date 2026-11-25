@@ -11,15 +11,13 @@ import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import Field from "../components/admin/Field.jsx";
 
-// Church-wide care team settings (#291). Today that is one thing: the default
-// lead -- who key-date reminders go to for a partner with no care team, so a
-// birthday never falls on nobody. Optional; with none set, a partner with no
-// team simply gets no reminder. Admin only (the route is admin-gated).
+// Church-wide care team settings. The default lead is who key-date reminders go to for a
+// partner with no care team; with none set, such a partner gets no reminder. Admin only.
 export default function AdminSettingsCareTeam() {
   const { enabledFeatures } = useSettings();
   const [lead, setLead] = useState(undefined); // undefined = loading, null = none
   const [candidates, setCandidates] = useState([]);
-  // How far ahead a key date is raised, and how long without contact makes a partner quiet (#365).
+  // How far ahead a key date is raised, and how long without contact makes a partner quiet.
   const [timings, setTimings] = useState(null); // { keyDateLeadDays, contactStaleDays }
   const [loadError, setLoadError] = useState("");
 

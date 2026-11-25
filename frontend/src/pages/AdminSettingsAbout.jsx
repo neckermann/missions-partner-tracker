@@ -144,9 +144,7 @@ export default function AdminSettingsAbout() {
             <p style={{ color: "var(--muted)" }}>{v.websiteLink || "No website set"}</p>
             <p style={{ color: "var(--muted)" }}>Timezone: {v.timezone}</p>
             {showSyncPrompt && sentByOurChurchCount > 0 && (
-              // Not itself interactive -- just stops clicks/keydowns on the
-              // real button inside from bubbling into the card's own
-              // open-on-activate handler above.
+              // Not interactive: stops clicks/keydowns on the inner button bubbling to the card's open handler.
               // eslint-disable-next-line jsx-a11y/no-static-element-interactions
               <div
                 className="table-actions"

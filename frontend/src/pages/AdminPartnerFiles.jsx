@@ -54,12 +54,8 @@ const emptyFilters = {
   includeArchived: false,
 };
 
-// Phase 2 of the UX-rebuild plan: entityType/kind/date-range are now real
-// backend query params (GET /api/partner-files -- kind already existed,
-// entityType and from/to are new), same reuse argument the plan made for
-// Prayer Requests/One-Time Needs: the exact filter logic already existed
-// for this dataset's Report version. includeArchived stays client-side --
-// this route has no archived passthrough and adding one wasn't asked for.
+// kind, entityType and date-range are backend query params (GET /api/partner-files);
+// includeArchived stays client-side because the route has no archived passthrough.
 export default function AdminPartnerFiles() {
   const { enabledFeatures } = useSettings();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
@@ -200,9 +196,7 @@ export default function AdminPartnerFiles() {
   }
 
   function handleDownload(f) {
-    // A direct, same-origin, cookie-authenticated download — no async
-    // lookup needed, the file is served straight from the database (see
-    // backend/src/routes/partnerFiles.js).
+    // Same-origin download; the file is served straight from the database (routes/partnerFiles.js).
     window.open(`/api/partner-files/${f.id}/download`, "_blank");
   }
 

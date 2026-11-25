@@ -13,11 +13,10 @@ import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import { groupOptions } from "../components/admin/SupportPreferencesCard.jsx";
 
-// The church's menu of ways to support a partner (#374). It is data the church owns, edited
-// here, never code: each option has a group (plain text, so it can be renamed), a label, and a
-// kind (something we offer, pick one, pick any, free text). An option no longer wanted is
-// retired, which stops it being offered and keeps the answers already given; deleting it
-// removes those answers too. Admin only.
+// The church's menu of ways to support a partner: data the church owns, never code. Each
+// option has a group (plain text, renamable), a label, and a kind (offer, pick one, pick any,
+// free text). Retiring an option stops it being offered but keeps answers already given;
+// deleting it removes those answers too. Admin only.
 export default function AdminSettingsSupportPreferences() {
   const [options, setOptions] = useState(null);
   const [kinds, setKinds] = useState([]);

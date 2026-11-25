@@ -12,24 +12,16 @@ import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
-// Posts as a dedicated WhatsApp number linked to this app as a "linked
-// device" (the same mechanism as WhatsApp Web) -- see
-// backend/src/utils/whatsappClient.js. It's an UNOFFICIAL connection:
-// WhatsApp can ban numbers used this way, so the page insists on a
-// dedicated number and the Admin Guide spells out the risks.
+// Posts as a dedicated WhatsApp number linked as a "linked device" (like WhatsApp Web; see
+// backend/src/utils/whatsappClient.js). This is an UNOFFICIAL connection and WhatsApp can ban
+// numbers used this way, so the page insists on a dedicated number (see the Admin Guide).
 //
-// There is no token to paste. Linking works by pairing: a QR code scanned
-// from WhatsApp (Linked Devices > Link a Device). The linked session is
-// stored encrypted on the server and never sent back here -- the page only
-// ever sees a status. The community and each group are picked from live
-// lists, never hand-typed.
+// Linking is by QR pairing, not a token. The linked session is stored encrypted on the server
+// and never sent back here; the page only sees a status. The community and groups are picked
+// from live lists, never hand-typed.
 //
-// One WhatsApp community holds several groups, so the three notification
-// types each get their own group, mirroring GroupMe's three Topics. Same
-// idea as GroupMe's main-group fallback: a type with no group of its own
-// picked posts to the community's built-in Announcements group instead
-// (detected automatically, never hand-picked -- see the Community
-// section below). Only with neither set is it not sent over WhatsApp.
+// Each notification type gets its own group in the one community; a type with none posts to
+// the community's built-in Announcements group (auto-detected). With neither, it isn't sent.
 const GROUP_TYPES = [
   {
     number: 4,
@@ -158,8 +150,7 @@ export default function AdminSettingsWhatsApp() {
     };
   }, []);
 
-  // While a pairing is in progress, poll the server for the code/QR and
-  // for the moment WhatsApp confirms the link.
+  // While pairing, poll the server for the code/QR and for WhatsApp confirming the link.
   useEffect(() => {
     if (!pairing) return undefined;
     const timer = setInterval(async () => {

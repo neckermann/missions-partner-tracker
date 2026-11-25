@@ -4,14 +4,9 @@ import { useSettings } from "../context/SettingsContext.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 
-// Sending (#71) and receiving (#72) email both go through Postmark -- one
-// account, one settings page -- but are gated by two independent Enabled
-// Features flags ("outboundEmail" / "inboundEmail"), not one. A church
-// can run just one direction, so each is its own EditableSection card,
-// saved as an independent partial update against the same PUT endpoint --
-// saving one card never touches the other's fields. See ADMIN_GUIDE.md §
-// Email (Postmark) for why Postmark over SMTP/direct-send, and for the
-// full setup walkthrough.
+// Sending and receiving both go through Postmark but are gated by two independent flags
+// ("outboundEmail" / "inboundEmail"), so each is its own EditableSection card saved as an
+// independent partial update. See ADMIN_GUIDE.md § Email (Postmark).
 export default function AdminSettingsEmail() {
   const { refreshSettings } = useSettings();
   const [settings, setSettings] = useState(null);
@@ -35,8 +30,7 @@ export default function AdminSettingsEmail() {
       fromAddress: draft.fromAddress?.trim() || null,
     });
     setSettings(updated);
-    // See SettingsContext.jsx's refreshSettings comment -- the sidebar's
-    // Email link visibility depends on this same sendEnabled flag.
+    // The sidebar's Email link visibility depends on sendEnabled (see refreshSettings in SettingsContext.jsx).
     refreshSettings();
   }
 
@@ -48,9 +42,7 @@ export default function AdminSettingsEmail() {
       inboundEmailAddress: draft.inboundEmailAddress?.trim() || null,
     });
     setSettings(updated);
-    // See SettingsContext.jsx's refreshSettings comment -- both the
-    // sidebar's Email link and the "Unmatched Emails" nav/tile depend on
-    // this same receiveEnabled flag.
+    // The sidebar's Email link and the "Unmatched Emails" nav depend on receiveEnabled (see refreshSettings).
     refreshSettings();
   }
 

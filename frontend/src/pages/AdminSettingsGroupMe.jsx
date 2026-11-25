@@ -7,25 +7,16 @@ import {
 } from "../api/client.js";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 
-// Posts as the admin's own GroupMe identity (the Messages API, not a bot
-// -- GroupMe's Bots API has no awareness of Topics at all). Topics are
-// undocumented in GroupMe's public API but real: each one is a
-// "subgroup" with its own id, and the ordinary messages endpoint posts
-// into it when pointed at that id instead of the parent group's -- see
-// backend/src/utils/groupmeChannel.js for the detail.
+// Posts as the admin's own GroupMe identity (Messages API, not a bot: the Bots API has no
+// notion of Topics). Topics are undocumented but real: each is a "subgroup" with its own id
+// that the ordinary messages endpoint posts into (see backend/src/utils/groupmeChannel.js).
 //
-// The access token is write-only by design, same as a password field:
-// the backend never returns a stored value, only whether one exists
-// (`configured`). Pasting a new one and saving replaces it; leaving the
-// field blank on save leaves the existing token untouched. The group and
-// each topic are never hand-typed -- both come from live GroupMe API
-// calls, picked from a dropdown.
+// The access token is write-only, like a password: the backend returns only whether one
+// exists (`configured`); a blank field on save leaves the stored token untouched. The group
+// and topics are picked from live GroupMe API calls, never hand-typed.
 //
-// Three notification types, three topics, but one group and one topic
-// list -- GroupMe's own API has no notion of "list topics for this
-// notification type," only "list a group's topics," so Load Topics is
-// shared and each section below just has its own picker + save button
-// against that same list.
+// Three notification types share one group and one topic list (GroupMe can only list a
+// group's topics), so Load Topics is shared and each section has its own picker.
 const TOPIC_TYPES = [
   {
     number: 3,
