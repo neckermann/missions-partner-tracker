@@ -1303,7 +1303,8 @@ a {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  scroll-margin-top: 1rem;
+  /* Clear of the sticky jump bar when a jump link scrolls here. */
+  scroll-margin-top: 4.5rem;
 }
 /* Cards and groups placed straight in a page (not inside .admin-form, which spaces its own
    children) get the same breathing room between them. Without it they stack edge to edge. */
@@ -2465,4 +2466,11 @@ button.report-summary-item[aria-pressed="true"] {
 /* Read-only label/value pairs stacked in a card (Field.jsx) get a little room between them. */
 .field-view:not(:last-child) {
   margin-bottom: 0.65rem;
+}
+
+/* The care team's one-liner on the contact card, set off from the contact details below it. */
+.contact-care-team {
+  margin-top: 0.6rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
 }

@@ -38,7 +38,7 @@ const rowLabel = {
   fontSize: "0.95rem",
 };
 
-export default function SupportPreferencesCard({ partnerId, isAdmin = false }) {
+export default function SupportPreferencesCard({ partnerId, isAdmin = false, inGroup = false }) {
   const [data, setData] = useState(null);
   const [hidden, setHidden] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -72,7 +72,7 @@ export default function SupportPreferencesCard({ partnerId, isAdmin = false }) {
   const groups = groupOptions(answered);
   const hasMenu = (data?.options || []).some((o) => o.active);
 
-  return (
+  const card = (
     <div className="admin-section" id="section-support-preferences" style={{ scrollMarginTop: "1rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
         <h3 style={{ margin: 0 }}>Support preferences</h3>
@@ -137,6 +137,15 @@ export default function SupportPreferencesCard({ partnerId, isAdmin = false }) {
           onSaved={reload}
         />
       )}
+    </div>
+  );
+  // On the partner page it sits under its own "Caring for them" heading, which only shows when
+  // the card does (it renders nothing for someone who can't reach it).
+  if (!inGroup) return card;
+  return (
+    <div className="admin-section-group" id="section-caring">
+      <h2 className="admin-group-heading">Caring for them</h2>
+      {card}
     </div>
   );
 }

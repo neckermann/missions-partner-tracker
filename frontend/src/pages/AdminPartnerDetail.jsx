@@ -746,11 +746,12 @@ export default function AdminPartnerDetail() {
         );
       })()}
 
-      {enabledFeatures.careTeam && (
-        <CareTeamPanel partnerId={p.id} canEdit={canWrite} canInviteGuest={isAdmin} />
-      )}
-
       <ContactCard
+        careTeam={
+          enabledFeatures.careTeam && (
+            <CareTeamPanel compact partnerId={p.id} canEdit={canWrite} canInviteGuest={isAdmin} />
+          )
+        }
         partner={p}
         adults={collections.adults}
         entries={contactEntries}
@@ -760,14 +761,12 @@ export default function AdminPartnerDetail() {
         onChanged={reload}
       />
 
-      {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
-        <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
-      )}
-
       <div className="partner-jump-rail">
         {[
           { label: "Overview", href: "#section-overview" },
           !isOrg && { label: "Family & Personal", href: "#section-family" },
+          enabledFeatures.supportPreferences &&
+            enabledFeatures.careTeam && { label: "Caring for them", href: "#section-caring" },
           { label: "Location & Contact", href: "#section-location" },
           ((!isGuest && enabledFeatures.monthlySupport) ||
             (enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)))) && {
@@ -1049,6 +1048,10 @@ export default function AdminPartnerDetail() {
             />
           )}
         </div>
+
+        {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
+          <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} inGroup />
+        )}
 
         <div className="admin-section-group" id="section-location">
           <h2 className="admin-group-heading">Location &amp; Contact</h2>
