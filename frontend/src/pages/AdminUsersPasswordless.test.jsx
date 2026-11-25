@@ -121,9 +121,7 @@ describe("Manage Users: passwordless sign-in", () => {
     fetchCurrentUser.mockResolvedValue(me({ passwordlessBlockedByDemo: true }));
     renderPage();
     expect(await button("Turn on passwordless sign-in")).toBeDisabled();
-    expect(
-      screen.getByText(/lock every visitor out until the next reset/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/lock every visitor out until the next reset/)).toBeInTheDocument();
   });
 
   it("when on, says so and turns off without a confirmation", async () => {
