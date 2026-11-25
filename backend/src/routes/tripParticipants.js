@@ -1,10 +1,6 @@
-// #271 Finding 1: split out of trips.js -- see tripMeetings.js's own
-// header comment for the full reasoning. Covers Applications (pending
-// participants) and Participants (direct team add + admin edit) -- kept
-// in one file rather than two, since approving an application *becomes*
-// a participant through the same tx.tripParticipant.create path the
-// direct-add route uses, and splitting them further would duplicate the
-// shared schema/helpers without buying any real separation.
+// Applications (pending participants) and Participants (direct add + admin edit), in one file because
+// approving an application becomes a participant through the same tx.tripParticipant.create path as
+// the direct-add route.
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
@@ -39,7 +35,7 @@ const { decodePhotoDataUrl } = require("../utils/participantPhoto");
 const { participantSchema, defaultParticipantGoal } = require("../utils/tripParticipantSchema");
 
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireAuth);
 router.use(requireFeature("trips"));
 
 async function getSettings() {
@@ -48,8 +44,6 @@ async function getSettings() {
     select: { enabledFeatures: true, allowPublicSupportRaisingLinks: true },
   });
 }
-
-// ---- Applications ----
 
 router.get("/:id/applications", requireTripScope("id"), async (req, res, next) => {
   try {
@@ -84,18 +78,15 @@ router.put(
           declinedReason: z.string().optional().nullable(),
         })
         .parse(req.body);
-      // meetings/requirements included alongside trip -- needed for
-      // sendLateJoinerCatchUpEmails below, same shape POST /:id/participants
-      // already loads its own trip with.
+      // meetings/requirements included for sendLateJoinerCatchUpEmails below.
       const application = await prisma.tripApplication.findUnique({
         where: { id: req.params.id },
         include: { trip: { include: { meetings: true, requirements: true } } },
       });
       if (!application) return res.status(404).json({ error: "Not found" });
 
-      // Fetched once, before the transaction -- decides both whether this
-      // new participant gets a support-raising shareToken at all (below)
-      // and whether the team-invite email fires (after the transaction).
+      // Fetched once, before the transaction: decides whether this participant gets a support-raising
+      // shareToken and whether the team invite fires afterwards.
       const settings = await getSettings();
 
       const updated = await prisma.$transaction(async (tx) => {
@@ -105,10 +96,8 @@ router.put(
             status,
             reviewedAt: new Date(),
             reviewedById: req.user.id,
-            // Admin-only context for a decline, never shown to the
-            // applicant. Reconsidering back to "pending" (the undo path)
-            // clears it -- a reopened application has no reason attached
-            // to it anymore, since the prior decline no longer stands.
+            // Admin-only context for a decline, never shown to the applicant; reconsidering back to "pending"
+            // clears it.
             declinedReason: status === "declined" ? declinedReason?.trim() || null : null,
           },
         });
@@ -137,17 +126,11 @@ router.put(
               parentGuardianRelationship: application.parentGuardianRelationship,
               parentGuardianPhone: application.parentGuardianPhone,
               parentGuardianEmail: application.parentGuardianEmail,
-              // Defaulted to the trip's own goal -- same reasoning as the
-              // direct-add route (defaultParticipantGoal), just inlined
-              // since there's no per-participant override to weigh against
-              // here (approval carries no participant-shaped input of its
-              // own to read one from).
+              // Defaults to the trip's goal, as in the direct-add route (defaultParticipantGoal); no
+              // per-participant override applies here.
               supportRaisingGoal: application.trip.supportRaisingGoal,
-              // Auto-generated here, not left for a later manual admin
-              // click -- the church-wide setting already answers "do we do
-              // this at all," so a second per-participant step is pure
-              // friction. See the team-invite email below, which is the
-              // one place this new link actually reaches the participant.
+              // Auto-generated: the church-wide setting already answers "do we do this", so a manual
+              // per-participant step is friction. The team-invite email below is where the link reaches them.
               shareToken: settings?.allowPublicSupportRaisingLinks ? generateShareToken() : null,
             },
           });
@@ -156,12 +139,8 @@ router.put(
         return { app, participant: null };
       });
 
-      // Trip-dates team invite (§9) -- fires once, outside the
-      // transaction (an email failure shouldn't roll back the approval).
-      // Previously carried zero links at all -- a participant had no way to
-      // ever receive their own access link or support-raising link
-      // automatically. Now carries both, in one email, rather than a
-      // second dedicated send for the support-raising link.
+      // Trip-dates team invite (§9) -- fires once, outside the transaction (an email failure should not
+      // roll back the approval). Carries both the access link and the support-raising link.
       let teamWelcomeEmail = null;
       if (
         updated.participant &&
@@ -185,39 +164,27 @@ router.put(
             }
           );
         } else {
-          // Outbound email off -- this is the only place a newly-approved
-          // participant would otherwise ever get their own trip-access
-          // link automatically. Same manualUrl shape as the dedicated
-          // /participants/:id/request-access-link route below, so the
-          // frontend can hand it to the same ManualSendNotice either way.
+          // Outbound email off: the only place a newly-approved participant would otherwise get their access
+          // link automatically. Same manualUrl shape as /participants/:id/request-access-link below, for the
+          // frontend's ManualSendNotice.
           teamWelcomeEmail = { sent: false, manualUrl: buildTripParticipantAccessUrl(updated.participant) };
         }
       }
 
-      // Same late-joiner catch-up as the direct-add route below -- approving
-      // an application is a separate creation path (its own tx.create above)
-      // that previously got none of this. Not gated on startDate/endDate
-      // existing (unlike the welcome email above, which needs them for its
-      // .ics) -- sendLateJoinerCatchUpEmails only needs trip.status itself.
+      // Same late-joiner catch-up as the direct-add route below. Not gated on startDate/endDate existing
+      // (unlike the welcome email, which needs them for its .ics); sendLateJoinerCatchUpEmails needs
+      // only trip.status.
       if (updated.participant) {
         await sendLateJoinerCatchUpEmails(application.trip, updated.participant);
       }
 
-      // The frontend navigates straight to the new participant's own
-      // detail page on a successful approval (AdminTripTeam.jsx's
-      // handleReview checks result?.participant) -- this was silently
-      // never possible before, since only the application itself was
-      // returned here. Never caught: no existing test asserted on the
-      // response shape, only status 200 (found via e2e/trip-team-table-
-      // modal.spec.js, the first real coverage of this page).
+      // AdminTripTeam.jsx's handleReview navigates to the new participant using result?.participant.
       res.json({ ...updated.app, participant: updated.participant, teamWelcomeEmail });
     } catch (err) {
       next(err);
     }
   }
 );
-
-// ---- Team: direct admin add ----
 
 router.post(
   "/:id/participants",
@@ -234,12 +201,9 @@ router.post(
       });
       if (!trip) return res.status(404).json({ error: "Not found" });
 
-      // A participant on a completed trip is a backfill by construction
-      // (recruiting never happens for an already-finished trip) and
-      // legitimately has none of this on file; a participant added to any
-      // other trip status is being asserted as a real, reachable team
-      // member the moment they're added -- application approval already
-      // enforces this, this route previously didn't.
+      // A participant on a completed trip is a backfill (recruiting never happens for a finished trip)
+      // and legitimately has none of this on file; on any other status they are a real, reachable team
+      // member, as application approval already enforces.
       if (trip.status !== "completed" && (!data.firstName || !data.lastName || !data.email)) {
         return res.status(400).json({
           error: "First name, last name, and email are required for a participant on an active trip.",
@@ -252,9 +216,7 @@ router.post(
           ...data,
           tripId: trip.id,
           supportRaisingGoal: defaultParticipantGoal(data, trip.supportRaisingGoal),
-          // Same auto-generation as the application-approval path -- see
-          // that route's own comment for why this isn't left as a manual
-          // admin step.
+          // Same auto-generation as the application-approval path.
           shareToken: settings?.allowPublicSupportRaisingLinks ? generateShareToken() : null,
         },
       });
@@ -278,11 +240,8 @@ router.post(
         }
       }
 
-      // A participant added after meetings or document requirements already
-      // exist would otherwise never learn about them -- the welcome email
-      // above only covers the trip dates. Shared with the application-
-      // approval route (PUT /applications/:id), which needs the exact same
-      // backfill through a different creation path.
+      // Catches up a participant added after meetings or document requirements exist (the welcome email
+      // covers only trip dates). Shared with PUT /applications/:id.
       await sendLateJoinerCatchUpEmails(trip, participant);
 
       res.status(201).json(participant);
@@ -292,12 +251,8 @@ router.post(
   }
 );
 
-// POST /api/trips/participants/:id/generate-support-raising-link --
-// "Regenerate" on the frontend once a token already exists (overwrite-
-// as-revocation, same precedent Trip.applicationShareToken's own
-// regenerate already uses) -- this route itself needed no change for
-// that, only the frontend's own !shareToken gating, which previously
-// hid the button forever once a token existed.
+// POST /api/trips/participants/:id/generate-support-raising-link -- also "Regenerate" once a token
+// exists (overwrite-as-revocation, like Trip.applicationShareToken).
 router.post(
   "/participants/:id/generate-support-raising-link",
   requireRole("admin", "editor", "guest"),
@@ -329,12 +284,7 @@ const adminParticipantUpdateSchema = z.object({
   phone: z.string().optional().nullable(),
   role: z.string().optional().nullable(),
   supportRaisingGoal: z.coerce.number().int().optional().nullable(),
-  // Address/emergency contact -- previously write-once (copied from the
-  // originating TripApplication on approval, see the approval route
-  // above) with no admin edit path afterward, and no way at all for a
-  // directly-added participant (no application) to ever get these set.
-  // Now plain editable record-keeping, same trust level as
-  // firstName/phone/etc. above.
+  // Address/emergency contact: plain editable record-keeping, same trust level as firstName/phone above.
   addressLine1: z.string().optional().nullable(),
   addressLine2: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
@@ -359,14 +309,9 @@ const adminParticipantUpdateSchema = z.object({
   photoContentType: z.string().optional().nullable(),
 });
 
-// PUT /api/trips/participants/:id -- one combined admin route for
-// everything an admin can edit on a participant's behalf: basic contact
-// details (never gated -- this is plain record-keeping, independent of
-// whether the church uses public support-raising pages at all) and
-// story/photo (editing on their behalf what a participant could also
-// edit themselves via the self-service route -- same fields, different
-// trust boundary: this one is admin-authenticated, not signed-access-
-// token-authenticated).
+// PUT /api/trips/participants/:id -- one admin route for everything an admin edits on a participant's
+// behalf: contact details (never gated; plain record-keeping) and story/photo (also editable by the
+// participant via the self-service route, but admin-authenticated rather than signed-token).
 router.put(
   "/participants/:id",
   requireRole("admin", "editor", "guest"),
@@ -381,8 +326,6 @@ router.put(
       }
       if (photo && photoContentType) data.photoContentType = photoContentType;
 
-      // No omit needed -- the raw photo bytes live in their own table now,
-      // never selected here at all.
       const participant = await prisma.tripParticipant.update({
         where: { id: req.params.id },
         data,

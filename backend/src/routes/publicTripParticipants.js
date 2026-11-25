@@ -1,17 +1,11 @@
-// Public, unauthenticated participant surfaces for Trips (#252): a
-// participant's public support-raising page (shareToken), self-service
-// page (signed access token), e-signature/document-upload actions,
-// photo, meeting RSVP/ICS, and lost-link recovery. Split out of the
-// former publicTrips.js (#271 Finding) -- mounted at the same
-// /api/public/trip-participants (and /api/public/trips/meetings)
-// prefixes as publicTrips.js (discovery) and publicTripApplications.js
-// from server.js, not a separate API surface.
+// Public, unauthenticated participant surfaces for Trips (#252): support-raising page
+// (shareToken), self-service page (signed access token), e-signature/document upload, photo,
+// meeting RSVP/ICS and lost-link recovery. Mounted at /api/public/trip-participants and
+// /api/public/trips/meetings from server.js.
 //
-// The signed-access-token self-service routes below are never blocked
-// or masked for a restricted partner -- the person reading them is the
-// one actually going. GET /participants/by-token/:shareToken MASKS a
-// restricted partner instead (toInitials-style generic label) since
-// reaching it already requires a secret only staff chose to share.
+// The signed-token self-service routes are never blocked or masked for a restricted partner (the
+// reader is the one going). GET /participants/by-token/:shareToken MASKS a restricted partner
+// instead, since reaching it requires a secret only staff chose to share.
 const express = require("express");
 const { z } = require("zod");
 const rateLimit = require("express-rate-limit");
@@ -33,8 +27,7 @@ const { isMinorForTrip } = require("../utils/tripParticipantSchema");
 const { getSettings, partnerFieldLabel, tripPartnerSelect } = require("../utils/publicTripShared");
 const crypto = require("crypto");
 
-// Shared with the admin TripDocument upload route (trips.js) -- same
-// allowlist/size cap for both, see that helper's own comment.
+// Shared with the admin TripDocument upload route (trips.js): same allowlist and size cap.
 const upload = tripDocumentUpload();
 
 const router = express.Router();
@@ -81,10 +74,7 @@ router.get("/participants/by-token/:shareToken", requireFeature("trips"), async 
       trip: {
         name: participant.trip.name,
         type: participant.trip.type,
-        // Unmasked here same as name/dates already are on this route --
-        // this file's own header comment: masking on this route applies
-        // to partner identity, not trip-level free text. No restricted-
-        // partner branch needed.
+        // Unmasked like name/dates: masking on this route covers partner identity, not trip-level free text.
         description: participant.trip.description,
         startDate: participant.trip.startDate,
         endDate: participant.trip.endDate,
@@ -101,9 +91,7 @@ router.get("/participants/by-token/:shareToken", requireFeature("trips"), async 
   }
 });
 
-// GET /api/public/trip-participants/access?token=... -- the self-service
-// page. Never blocked by anything above -- the one surface with neither
-// masking nor exclusion at all.
+// GET /api/public/trip-participants/access?token=... -- the self-service page. Never blocked or masked.
 router.get("/participants/access", requireFeature("trips"), async (req, res, next) => {
   try {
     const payload = verifyTripParticipantAccessToken(String(req.query.token || ""));
@@ -123,20 +111,12 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
               orderBy: { departureAt: "asc" },
               include: { participants: { select: { id: true } } },
             },
-            // rsvps filtered to just this participant -- at most one row
-            // (unique on meetingId+participantId), so the self-service
-            // page can show "you already said X" instead of always just
-            // bare Yes/No/Maybe links with no memory of a prior answer.
+            // rsvps filtered to this participant (at most one row, unique on meetingId+participantId) so the
+            // page can show a prior answer.
             meetings: { include: { rsvps: { where: { participantId: payload.id } } } },
-            // Explicit select, not a bare `where` -- same latent issue the
-            // admin trip-detail route actually hit in production (commit
-            // 4aa3534): an un-selected include here still pulls every
-            // document's raw `bytes`/`signatureImage` into server memory
-            // on every self-service page load, even though neither field
-            // is ever used below (the fulfilled check only needs
-            // requirementId/participantId, and tripWideDocuments below is
-            // metadata-only). Never serialized to the client either way,
-            // but no reason to carry multi-MB blobs through Prisma at all.
+            // Explicit select: an un-selected include would load every document's raw bytes/signatureImage
+            // into memory on each page load (it bit the admin trip-detail route in production, commit
+            // 4aa3534), though neither is used here.
             documents: {
               where: { OR: [{ participantId: payload.id }, { participantId: null }] },
               select: {
@@ -162,17 +142,10 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
 
     const settings = await getSettings();
     const raised = participant.contributions.reduce((sum, c) => sum + c.amount, 0);
-    // Generalized (#252 follow-on) -- every requirement, not just
-    // missing ones, so the self-service page can show a due date and a
-    // done/needed state per item rather than only ever a flat "still
-    // needed" list. Fulfillment: a "document" row is the existing
-    // anti-join against TripDocument; a "task" row is this participant's
-    // own TripRequirementStatus.completedAt (already scoped to just this
-    // participant by the `where` on requirementStatuses above).
-    // #278 -- a minors-only requirement is excluded entirely for a
-    // non-minor participant, not just hidden/disabled: there's nothing
-    // for them to fulfill, so it shouldn't appear on their own list at
-    // all.
+    // Every requirement, not just missing ones, so the page can show a due date and done/needed
+    // state. A "document" row is fulfilled per the anti-join against TripDocument; a "task" row by
+    // this participant's TripRequirementStatus.completedAt.
+    // #278: a minors-only requirement is excluded entirely for a non-minor participant.
     const requirements = participant.trip.requirements
       .filter((req) => !req.minorsOnly || isMinorForTrip(participant.dateOfBirth, participant.trip.startDate))
       .map((req) => ({
@@ -180,9 +153,7 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
         label: req.label,
         kind: req.kind,
         dueAt: req.dueAt,
-        // Only meaningful for kind: "esignature" -- the agreement text to
-        // show before signing. Harmless to always include; null for the
-        // other two kinds.
+        // Only meaningful for kind "esignature": the agreement text shown before signing; null otherwise.
         bodyText: req.bodyText,
         fulfilled:
           req.kind === "task"
@@ -198,8 +169,6 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
       lastName: participant.lastName,
       story: participant.story,
       hasPhoto: !!participant.photoContentType,
-      // Previously omitted entirely -- the self-service page had no way
-      // to show (or even know about) the participant's own public link.
       shareToken: participant.shareToken,
       supportRaisingGoal: participant.supportRaisingGoal,
       raised,
@@ -212,10 +181,8 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
         description: participant.trip.description,
         startDate: participant.trip.startDate,
         endDate: participant.trip.endDate,
-        // A segment with nobody selected applies to the whole team; one
-        // with people selected only applies to the ones among them --
-        // filtered server-side (issue #265) so this participant's own
-        // page can't be used to enumerate who else is on a segment.
+        // A segment with nobody selected applies to the whole team; otherwise only to those selected.
+        // Filtered server-side (#265) so this page cannot be used to enumerate who else is on a segment.
         flightSegments: participant.trip.flightSegments
           .filter(
             (seg) => seg.participants.length === 0 || seg.participants.some((p) => p.id === participant.id)
@@ -224,27 +191,16 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
         fieldDisplayName:
           participant.trip.partner?.fieldDisplayName || participant.trip.partner?.displayName || null,
       },
-      // Cancelled meetings are dropped here, not just marked -- a
-      // participant already got an emailed cancellation notice; leaving
-      // a cancelled entry sitting in their itinerary (even labeled) is
-      // more likely to read as "is this still happening?" than as
-      // useful record-keeping, which is what the admin side's own
-      // (unfiltered) view is for instead.
+      // Cancelled meetings are dropped, not marked: the participant already got a cancellation notice,
+      // and a cancelled entry in their itinerary reads as "still happening?". Admins see the unfiltered view.
       meetings: participant.trip.meetings
         .filter((m) => !m.cancelledAt)
-        // rsvps -> myRsvp: this participant's own prior response (or null),
-        // not the raw per-participant-filtered array -- the frontend only
-        // ever needs its own answer, never the shape of how that's queried.
+        // rsvps -> myRsvp: only this participant's own answer (or null).
         .map(({ rsvps, ...m }) => ({ ...m, myRsvp: rsvps[0]?.response || null })),
       requirements,
-      // Trip-wide documents only (participantId: null) -- this
-      // participant's OWN documents (passport photo, signed waiver) are
-      // never exposed here; they're tracked via `requirements[].fulfilled`
-      // above instead, not re-listed as files to avoid this page reading
-      // like it's handing back someone's own uploaded ID photo as a
-      // generic "document." Metadata only, consistent with the query
-      // above -- actual bytes are fetched on demand via the GET
-      // /participants/documents/:id/download route below.
+      // Trip-wide documents only (participantId: null), metadata only; bytes come from GET
+      // /participants/documents/:id/download. A participant's OWN documents (passport photo, signed
+      // waiver) are never listed; they show as requirements[].fulfilled.
       tripWideDocuments: participant.trip.documents
         .filter((d) => !d.participantId)
         .map(({ id: docId, title, fileName, fileSize, createdAt }) => ({
@@ -264,13 +220,9 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
   }
 });
 
-// GET /participants/documents/:id/download -- the token-gated counterpart
-// to trips.js's admin-only GET /documents/:id/download (that one sits
-// behind router.use(requireAuth), which a self-service page with no login
-// session can't use at all). Scoped strictly to trip-wide documents
-// (participantId: null) on the token's OWN trip -- never a document
-// belonging to another participant, even another participant on the same
-// trip. Same token verification as every other self-service route here.
+// GET /participants/documents/:id/download -- token-gated counterpart to trips.js's admin
+// download (behind requireAuth, unusable by a no-login page). Scoped to trip-wide documents
+// (participantId: null) on the token's OWN trip, never another participant's.
 router.get("/participants/documents/:id/download", requireFeature("trips"), async (req, res, next) => {
   try {
     const payload = verifyTripParticipantAccessToken(String(req.query.token || ""));
@@ -297,23 +249,16 @@ router.get("/participants/documents/:id/download", requireFeature("trips"), asyn
 const signSchema = z.object({
   token: z.string(),
   signerName: z.string().min(1),
-  // "self" | "parent/guardian" -- recordkeeping only, see
-  // TripDocument.signerRelationship's own schema comment for why this
-  // is never verified against anything.
+  // "self" | "parent/guardian" -- recordkeeping only, never verified (see
+  // TripDocument.signerRelationship in schema.prisma).
   signerRelationship: z.string().optional().nullable(),
-  // Base64 data URL from the self-service page's canvas, e.g.
-  // "data:image/png;base64,...." -- optional, since a participant may
-  // choose to just type their name instead of drawing. Stripped to raw
-  // bytes below; never trusted as anything but opaque image bytes.
+  // Base64 data URL from the canvas, e.g. "data:image/png;base64,..."; optional (a participant may
+  // just type a name). Stripped to raw bytes below; never trusted as anything but opaque image bytes.
   signatureImage: z.string().optional().nullable(),
 });
 
-// POST /api/public/trips/participants/sign/:requirementId -- the one
-// write action this otherwise read-only self-service surface has. Same
-// signed-access-token authentication as GET /participants/access above
-// (token in the body here, since this is a POST, not a query string) --
-// no admin login involved, matching how a participant reaches every
-// other self-service view.
+// POST /api/public/trips/participants/sign/:requirementId -- the one write action on this
+// otherwise read-only surface. Authenticated by the signed access token (in the body, as a POST).
 router.post("/participants/sign/:requirementId", requireFeature("trips"), async (req, res, next) => {
   try {
     const { token, signerName, signerRelationship, signatureImage } = signSchema.parse(req.body);
@@ -336,8 +281,7 @@ router.post("/participants/sign/:requirementId", requireFeature("trips"), async 
     if (requirement.kind !== "esignature") {
       return res.status(400).json({ error: "This requirement doesn't accept a signature" });
     }
-    // #278 -- a minors-only requirement never applies to a non-minor
-    // participant, so there's nothing for them to sign.
+    // #278: a minors-only requirement never applies to a non-minor: nothing to sign.
     if (requirement.minorsOnly && !isMinorForTrip(participant.dateOfBirth, participant.trip.startDate)) {
       return res.status(404).json({ error: "Not found" });
     }
@@ -350,10 +294,8 @@ router.post("/participants/sign/:requirementId", requireFeature("trips"), async 
     }
 
     const documentText = requirement.bodyText || "";
-    // Computed server-side, never trusted from the client -- the whole
-    // point of the hash is to detect a later edit to the requirement's
-    // own bodyText, which only matters if the server is the one who
-    // decided what was signed.
+    // Computed server-side, never trusted from the client: the hash detects a later edit to
+    // bodyText, which only works if the server decided what was signed.
     const documentTextHash = crypto.createHash("sha256").update(documentText, "utf8").digest("hex");
     const attestedAt = new Date();
 
@@ -363,11 +305,7 @@ router.post("/participants/sign/:requirementId", requireFeature("trips"), async 
       signatureImageBuffer = Buffer.from(base64, "base64");
     }
 
-    // The audit trail lives directly on the generated TripDocument now
-    // (merged from the former, separate TripSignature side table) --
-    // it's the one artifact anyone (an admin, or the signer) ever
-    // actually looks at, so the audit fields belong on it directly
-    // rather than in a second row nobody browses independently.
+    // The audit trail lives on the generated TripDocument itself, the one artifact anyone looks at.
     const ip = req.ip || req.socket?.remoteAddress || null;
 
     const pdfBytes = await buildSignedDocumentPdf({
@@ -407,26 +345,12 @@ router.post("/participants/sign/:requirementId", requireFeature("trips"), async 
   }
 });
 
-// POST /api/public/trips/participants/upload/:requirementId -- the
-// document-kind counterpart to the sign route above. Same signed-
-// access-token authentication (token travels as a multipart field here,
-// since the request body is multipart/form-data, not JSON -- multer
-// parses both the file and the other fields before this handler runs).
-// participantId is taken ONLY from the verified token, never from the
-// request, so a caller can only ever upload against their own
-// participant row. Upsert (TripDocument's @@unique([requirementId,
-// participantId])): re-using the same link to upload a corrected file
-// replaces the prior one rather than leaving both around for an admin
-// to sort out -- same reasoning the admin-side upload route now follows
-// too (see that route's own comment).
-// #327 Finding 4: upload.single("file") used to run before the token was
-// even checked, so multer buffered up to 15 MB into memory (utils/
-// upload.js's own fileSize cap) for a caller with no token at all. The
-// token moves to the query string (same convention every other route in
-// this file already uses -- see verifyTripParticipantAccessToken's other
-// two callers above) specifically so it can be read and verified in a
-// middleware ahead of upload.single, instead of needing multer to have
-// already parsed the multipart body first.
+// POST /api/public/trips/participants/upload/:requirementId -- document-kind counterpart to sign.
+// participantId comes ONLY from the verified token, so a caller can only upload against their own
+// row. Upsert (TripDocument @@unique([requirementId, participantId])): re-uploading replaces the
+// prior file.
+// #327 Finding 4: the token is a query parameter verified in middleware ahead of upload.single, so
+// multer never buffers up to 15 MB (utils/upload.js) for a caller with no valid token.
 async function requireTripParticipantToken(req, res, next) {
   try {
     const payload = verifyTripParticipantAccessToken(String(req.query.token || ""));
@@ -463,16 +387,14 @@ router.post(
       if (requirement.kind !== "document") {
         return res.status(400).json({ error: "This requirement doesn't accept an upload" });
       }
-      // #278 -- a minors-only requirement never applies to a non-minor
-      // participant, so there's nothing for them to upload against.
+      // #278: a minors-only requirement never applies to a non-minor: nothing to upload against.
       if (requirement.minorsOnly && !isMinorForTrip(participant.dateOfBirth, participant.trip.startDate)) {
         return res.status(404).json({ error: "Not found" });
       }
       if (!req.file) return res.status(400).json({ error: "No file provided" });
 
-      // #327 Finding 8: stored the client's declared mimetype unverified
-      // -- only jpg/png/webp/pdf are accepted here (upload.js's own
-      // multer filter), all of which have a real signature to check.
+      // #327 Finding 8: only jpg/png/webp/pdf are accepted (upload.js filter), all of which have a real
+      // signature to verify.
       const verified = verifyUpload(req.file);
       if (!verified.ok) {
         return res.status(400).json({ error: "File content doesn't match its declared type" });
@@ -510,12 +432,9 @@ const selfServiceUpdateSchema = z.object({
   photoContentType: z.string().optional().nullable(),
 });
 
-// PUT /api/public/trip-participants/self-service -- the one other write
-// action this surface has, alongside signing. One combined route for
-// both story and photo edits (one actor, one trust boundary, same
-// reasoning as the sign route above not being split further) -- no
-// review step, confirmed acceptable: a participant already self-reports
-// address/emergency-contact/application answers today with no review.
+// PUT /api/public/trip-participants/self-service -- the other write action, alongside signing.
+// One route for story and photo edits (one actor, one trust boundary). No review step: participants
+// already self-report address/emergency-contact/application answers unreviewed.
 router.put("/participants/self-service", requireFeature("trips"), async (req, res, next) => {
   try {
     const { token, story, photo, photoContentType } = selfServiceUpdateSchema.parse(req.body);
@@ -567,31 +486,18 @@ router.get("/participants/:id/photo", requireFeature("trips"), async (req, res, 
 const RSVP_RESPONSES = new Set(["yes", "no", "maybe"]);
 const RSVP_PAGE_LABELS = { yes: "attending", no: "not attending", maybe: "a maybe" };
 
-// A link back to the self-service page -- without this, clicking
-// Yes/No/Maybe from that page itself (not just from the original email)
-// strands the participant on this static confirmation page with no way
-// back except browser back. Safe to build directly: the token is a
-// signed JWT (base64url + dots), nothing that could break out of an href
-// attribute, but escaped anyway since it's also used as a hidden form
-// value below.
+// Link back to the self-service page so Yes/No/Maybe clicked from there does not strand the
+// participant. The token is a signed JWT (base64url + dots), safe in an href, but escaped anyway
+// since it is also a hidden form value.
 function tripPageBackLink(token) {
   return `<a href="${appBaseUrl()}/my-trip?token=${encodeURIComponent(token)}" style="color:#2a5d3c;">Back to your trip page</a>`;
 }
 
-// #327 Finding 6: this used to record the RSVP the moment the link was
-// *fetched* -- a mail security scanner that pre-fetches every link in an
-// inbox would record (and overwrite) a response the recipient never
-// actually chose, and since all three yes/no/maybe links sit in the same
-// email, prefetching could leave whichever one the scanner requested
-// last as the recorded answer. GET now only validates the token/meeting
-// and renders a page with a real confirm button for that one specific
-// response (a plain <form method="POST">, still works with no
-// JavaScript -- issue #267's original reason this was a GET in the
-// first place); POST is what actually records it.
+// #327 Finding 6: GET only validates and renders a confirm button (a plain <form method="POST">,
+// works without JavaScript); POST records the RSVP. Recording on fetch would let a mail scanner
+// that prefetches all three links overwrite the recipient's answer.
 //
-// validateRsvpRequest is shared by both routes below -- same
-// token/participant/meeting checks either way, only what happens after
-// (render a confirm button vs. actually upsert) differs.
+// validateRsvpRequest is shared by both routes: same checks, only the follow-up differs.
 async function validateRsvpRequest(req, res) {
   const response = String(req.query.response ?? req.body?.response ?? "");
   if (!RSVP_RESPONSES.has(response)) {
@@ -609,10 +515,8 @@ async function validateRsvpRequest(req, res) {
   }
 
   const participant = await prisma.tripParticipant.findUnique({ where: { id: payload.id } });
-  // Same accessTokenVersion check as /participants/access -- a
-  // resend/regenerate bumps this, invalidating every previously-issued
-  // link (RSVP links included, since they reuse the exact same token)
-  // at once.
+  // Same accessTokenVersion check as /participants/access: a resend/regenerate bumps it, invalidating
+  // every previously-issued link, RSVP links included.
   if (!participant || participant.accessTokenVersion !== payload.v) {
     res
       .status(401)
@@ -625,10 +529,7 @@ async function validateRsvpRequest(req, res) {
     res.status(404).send(await renderSubscriberPage("This meeting couldn't be found.", "", "Meeting RSVP"));
     return null;
   }
-  // A cancelled meeting has nothing left to RSVP to -- an already-sent
-  // link (from before the cancellation) should say so plainly rather
-  // than silently recording a response to a meeting that isn't
-  // happening.
+  // A cancelled meeting has nothing to RSVP to: say so rather than record a response.
   if (meeting.cancelledAt) {
     res
       .status(400)
@@ -674,10 +575,7 @@ router.post(
       if (!valid) return;
       const { response, token, participant, meeting } = valid;
 
-      // Upsert on (meetingId, participantId) -- clicking a different link
-      // later (changing your mind) just overwrites the earlier response,
-      // same idempotency precedent TripMeeting.cancelledAt's own route
-      // already follows for re-cancelling.
+      // Upsert on (meetingId, participantId): changing your mind overwrites the earlier response.
       await prisma.tripMeetingRsvp.upsert({
         where: { meetingId_participantId: { meetingId: meeting.id, participantId: participant.id } },
         create: { meetingId: meeting.id, participantId: participant.id, response, respondedAt: new Date() },
@@ -697,13 +595,9 @@ router.post(
   }
 );
 
-// GET /api/public/trips/meetings/:meetingId/ics?token=... -- a direct
-// "Add to calendar" download for the self-service page, so a participant
-// doesn't have to dig up the original invite email's attachment to get a
-// meeting onto their own calendar. Same token/ownership checks as the
-// RSVP route just above (participant token valid, meeting belongs to
-// their trip) -- GET, not POST, since this is just a file fetch a
-// calendar app or browser link-click triggers, nothing mutates.
+// GET /api/public/trips/meetings/:meetingId/ics?token=... -- "Add to calendar" download for the
+// self-service page. Same token/ownership checks as the RSVP route; GET since it is a file fetch
+// that mutates nothing.
 router.get("/meetings/:meetingId/ics", requireFeature("trips"), async (req, res, next) => {
   try {
     const payload = verifyTripParticipantAccessToken(String(req.query.token || ""));

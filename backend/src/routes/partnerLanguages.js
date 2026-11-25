@@ -11,13 +11,10 @@ const { partnerRefSelect } = require("../utils/prismaIncludes");
 const { PROFICIENCY_LEVELS } = require("./proficiencyLevels");
 
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireAuth);
 
-// The only writer for PartnerLanguage -- see routes/adults.js for the full
-// reasoning, same shape, no consolidated cross-partner list. `language`
-// stays freeform (datalist-suggested in the admin UI, see
-// frontend/src/utils/languageNames.js) since the real-world set is open-
-// ended, unlike `proficiency`, a fixed ILR scale (see proficiencyLevels.js).
+// The only writer for PartnerLanguage; see routes/adults.js for the shared shape. `language` is
+// freeform (the set is open-ended); `proficiency` is a fixed ILR scale (proficiencyLevels.js).
 const partnerLanguageSchema = z.object({
   partnerId: z.string(),
   language: z.string().min(1),
@@ -54,9 +51,7 @@ router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) =>
   }
 });
 
-// PUT /api/partner-languages/:id  (update — editor or admin) -- mainly for
-// updating just the proficiency level as someone's field language
-// improves, without touching the language itself.
+// PUT /api/partner-languages/:id  (update — editor or admin)
 router.put("/:id", requirePartnerWriter({ model: "partnerLanguage" }), async (req, res, next) => {
   try {
     const data = partnerLanguageSchema.partial().parse(req.body);

@@ -10,12 +10,10 @@ const {
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireAuth);
 
-// The only writer for TripType -- see routes/adults.js for the full
-// reasoning, same shape, no consolidated cross-partner list. `type` stays
-// freeform (preset-or-custom in the admin UI) since a church can support a
-// trip type this app doesn't already know about.
+// The only writer for TripType; see routes/adults.js for the shared shape. `type` is freeform
+// (preset-or-custom in the admin UI) since a church can support a trip type the app does not know.
 const tripTypeSchema = z.object({
   partnerId: z.string(),
   type: z.string().min(1),

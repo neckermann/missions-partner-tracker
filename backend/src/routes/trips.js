@@ -1,9 +1,6 @@
-// #271 Finding 1: Requirements (tripRequirements.js), Applications/
-// Participants (tripParticipants.js), and Meetings (tripMeetings.js)
-// split out into their own sub-resource routers, all mounted at the
-// same /api/trips prefix (server.js). This file keeps trip-level CRUD
-// plus the smaller sub-resources that don't yet justify their own file
-// (budget lines, flight segments, documents, contributions).
+// Trip-level CRUD plus the small sub-resources (budget lines, flight segments, documents,
+// contributions). Requirements, applications/participants and meetings live in tripRequirements.js,
+// tripParticipants.js and tripMeetings.js, mounted at the same /api/trips prefix.
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
@@ -66,18 +63,16 @@ async function tripIdOfDocument(req) {
 }
 
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
-// Gates the whole resource -- this router is the only writer for
-// Trip/TripParticipant and every sibling model below.
+router.use(requireAuth);
+// Gates the whole resource: this router is the only writer for Trip/TripParticipant and the sibling
+// models below.
 router.use(requireFeature("trips"));
 
 // Shared with the public self-service upload route (publicTrips.js) --
 // same allowlist/size cap, one place to change either (backend/src/utils/upload.js).
 const upload = tripDocumentUpload();
 
-// Only ever needed by POST /:id/generate-application-link below --
-// narrower than a full settings fetch, same narrow-select discipline
-// the rest of this app already follows.
+// Only needed by POST /:id/generate-application-link below: a narrow select, not a full settings fetch.
 async function getSettings() {
   return prisma.churchSettings.findUnique({
     where: { id: "singleton" },
@@ -137,39 +132,21 @@ const tripPartnerInclude = {
 
 const tripInclude = {
   partner: tripPartnerInclude,
-  // No omit needed -- the participant photo's raw bytes live in their own
-  // table now, never selected by a plain `participants: true`-style
-  // include. The admin UI uses the dedicated GET
-  // /public/trips/participants/:id/photo route to render one, same as
-  // the public/self-service pages do.
+  // Participant photo bytes live in their own table; the admin UI renders one via
+  // GET /public/trips/participants/:id/photo.
   participants: true,
-  // Needed on the plain list endpoint too (not just GET /:id, which
-  // already spread this in separately below) -- the Unmatched Emails
-  // queue flattens every trip's participants into one picker and needs
-  // each trip's own requirement list on hand to populate the document-
-  // requirement picker without a second round-trip per trip.
-  // requirementStatuses carries each requirement's per-participant
-  // completedAt/reminderSentAt (#252 generalization) -- needed wherever
-  // a task's fulfillment is shown, which a document-only anti-join can't
-  // answer.
-  // documents:true added alongside requirementStatuses so the list route
-  // (GET /) can reuse the exact same isRequirementFulfilledForParticipant
-  // check the notification registry uses, instead of a second
-  // reimplementation of "is this requirement actually done" drifting out
-  // of sync with it.
+  // Also on the plain list route: the Unmatched Emails queue flattens every trip's participants into one
+  // picker and needs each trip's requirements. requirementStatuses carries per-participant
+  // completedAt/reminderSentAt, needed wherever a task's fulfillment is shown; documents lets the list
+  // reuse the notification registry's isRequirementFulfilledForParticipant instead of a second
+  // reimplementation that could drift.
   requirements: { include: { requirementStatuses: true, documents: true } },
-  // #394: this trip's own application questions, in the admin's order.
+  // This trip's own application questions, in the admin's order.
   applicationQuestions: QUESTION_ORDER,
-  // Pending-only, same filter the detail route (GET /:id) already
-  // applies to this same relation -- needed on the plain list route too
-  // now, for its own "has a pending application" per-row badge (see
-  // annotateTripFlags below). An approved/declined application has
-  // nothing left to flag.
+  // Pending-only, as GET /:id applies to this relation; the list route needs it for the per-row "has a
+  // pending application" badge (annotateTripFlags).
   applications: { where: { status: "pending" }, select: { id: true, tripId: true, createdAt: true } },
-  // Added when AdminTripDashboard.jsx (issue #259) folded into
-  // AdminTrips.jsx -- that page's own "Raised" column needed this same
-  // amount-only projection, previously fetched only by the now-removed
-  // GET /dashboard route.
+  // The amount-only projection the "Raised" column in AdminTrips.jsx needs.
   contributions: { select: { amount: true } },
   budgetLines: true,
   flightSegments: {
@@ -178,14 +155,10 @@ const tripInclude = {
   },
 };
 
-// Per-row indicators for the plain trip list (AdminTrips.jsx) -- reuses
-// the exact same rules the in-app notification registry uses (never a
-// second reimplementation of "is this requirement actually done"), so a
-// trip flagged here is always the same trip that category would surface.
-// Exists because a notification category's own linkTo can only point at
-// one specific trip when exactly one is responsible (see categories.js);
-// when several are, it falls back to this plain list, which then needs
-// its own way to show which rows those are.
+// Per-row indicators for the plain trip list (AdminTrips.jsx), reusing the notification registry's
+// rules so a flagged trip is the one that category would surface. Needed because a category's linkTo
+// can point at one trip only when exactly one is responsible (categories.js); otherwise it falls
+// back to this list.
 function annotateTripFlags(trip) {
   const now = new Date();
   const soonBy = new Date(now.getTime() + SOON_DAYS * 24 * 60 * 60 * 1000);
@@ -215,26 +188,17 @@ function annotateTripFlags(trip) {
   };
 }
 
-// GET /api/trips?partnerId=&type=&year= -- admin/editor/viewer read the
-// full cross-trip list unfiltered, same as always. A Trip Leader has no
-// business with that, but Partner Detail's own "Mission Trips" section
-// (AdminPartnerDetail.jsx) calls this same route with ?partnerId= for
-// the one Partner they ARE allowed to view -- so this needs the same
-// partner-scoped check the other Partner sub-resources use, not an
-// outright role block (that would also 403 their one legitimate use of
-// this route).
+// GET /api/trips?partnerId=&type=&year= -- admin/editor/viewer read the full cross-trip list. A Trip
+// Leader calls it with ?partnerId= from Partner Detail's "Mission Trips" section for their one
+// partner, so it uses the partner-scoped check, not an outright role block (which would 403 that).
 router.get("/", allowGuestPartnerList, async (req, res, next) => {
   try {
     const query = tripQuerySchema.parse(req.query);
     const where = {};
-    // #327 Finding 2: requirePartnerQueryScope confirms ?partnerId= matches
-    // the caller's own scoped trip's partner, but a partner can have more
-    // than one trip -- filtering by partnerId alone returned every one of
-    // that partner's trips, full participant rosters (DOB, guardian/
-    // emergency contacts) included, not just the guest's own ones.
-    // Scope to exactly the trips they hold a grant for (#356: any number,
-    // no longer one), then narrow by partnerId -- "their granted trips,
-    // nothing else" is the policy every other guest route enforces.
+    // #327 Finding 2: requirePartnerQueryScope only confirms ?partnerId= matches the caller's trip's
+    // partner, but a partner can have several trips, and their full rosters (DOB, guardian/emergency
+    // contacts) would leak. Scope to exactly the trips they hold a grant for (#356), then narrow by
+    // partnerId.
     if (req.user.role === "guest") {
       where.id = { in: req.user.tripIds };
     }
@@ -268,10 +232,8 @@ router.get("/", allowGuestPartnerList, async (req, res, next) => {
   }
 });
 
-// GET /api/trips/planning -- §3. Blends open/committed/fallback rows per
-// partner with trip capacity fields set. Same admin/editor/viewer-only
-// reasoning as GET / above -- a Trip Leader has no use for "what else
-// could we schedule."
+// GET /api/trips/planning -- §3. Blends open/committed/fallback rows per partner with trip capacity
+// fields. Admin/editor/viewer only, as GET / above.
 router.get("/planning", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const partners = await prisma.partner.findMany({
@@ -336,29 +298,20 @@ router.get("/:id", requireTripScope("id"), async (req, res, next) => {
       where: { id: req.params.id },
       include: {
         ...tripInclude,
-        // Only on this single-trip detail route, not the plain list route
-        // tripInclude is also shared with -- the approved applicant's own
-        // custom-question answers are otherwise permanently stranded once
-        // approval turns a TripApplication into a TripParticipant (the
-        // `applications` key just below only ever holds *pending* rows).
+        // Only on this single-trip route, not the list route that shares tripInclude: the approved applicant's
+        // custom-question answers would otherwise be stranded once approval turns a TripApplication into a
+        // TripParticipant (`applications` below holds only pending rows).
         participants: {
           ...tripInclude.participants,
           include: { application: { select: { answers: ANSWERS_INCLUDE, createdAt: true } } },
         },
         applications: { where: { status: "pending" } },
-        // rsvps included so the admin Meetings UI can show a tally/
-        // per-participant breakdown without a second round-trip.
+        // rsvps included for the Meetings tally and per-participant breakdown.
         meetings: { include: { rsvps: true } },
-        // Explicit select, not `documents: true` -- that pulled every
-        // document's raw `bytes` (and `signatureImage`) inline into this
-        // response. Harmless with seed data's small PDFs, but a real
-        // uploaded photo (a few MB, base64-inflated ~33% larger in JSON)
-        // made this route slow enough to intermittently time out --
-        // reproduced directly against dev-demo. The admin UI only ever
-        // reads id/title/fileName/participantId/requirementId from this
-        // list (AdminTripRequirements.jsx/AdminTripTeam.jsx) and fetches actual bytes on demand
-        // via the separate GET /documents/:id/download route -- nothing
-        // here needs the content inline.
+        // Explicit select, not `documents: true`, which pulled every document's raw `bytes`/`signatureImage`
+        // into this response; a real uploaded photo (a few MB, base64-inflated) made the route time out.
+        // The admin UI reads only id/title/fileName/participantId/requirementId and fetches bytes via
+        // GET /documents/:id/download.
         documents: {
           select: {
             id: true,
@@ -404,11 +357,9 @@ router.get("/:id", requireTripScope("id"), async (req, res, next) => {
 
 // POST /api/trips  (create — editor or admin)
 //
-// Auto-populates ChurchSettings.tripRequirementTemplate onto any newly-
-// created trip that isn't a purely historical backfill (status !==
-// "completed" -- a backfill already happened, there's nothing left to
-// sign/fulfill). A one-time snapshot copy, not a live link to the
-// template -- see tripRequirementTemplate's own schema comment for why.
+// Copies ChurchSettings.tripRequirementTemplate onto a new trip unless it is a historical backfill
+// (status === "completed": nothing left to fulfill). A one-time snapshot, not a live link (see
+// tripRequirementTemplate in schema.prisma).
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const { participants, applicationQuestions, ...data } = tripSchema
@@ -417,9 +368,8 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
       .parse(req.body);
 
     let requirementTemplate = [];
-    // Guards against the Trip model's own `status` default ("completed")
-    // applying when the caller omits it -- that case must NOT get the
-    // template either, same as an explicit "completed" backfill.
+    // The Trip model's `status` default is "completed", so an omitted status must not get the template
+    // either.
     if (data.status && data.status !== "completed") {
       requirementTemplate = await loadRequirementItems("template");
     }
@@ -449,7 +399,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
       },
       include: tripInclude,
     });
-    // #394: the trip's own application questions are rows of their own.
+    // The trip's application questions are rows of their own.
     if (applicationQuestions?.length) await replaceQuestions(prisma, "trip", made.id, applicationQuestions);
     const created = applicationQuestions?.length
       ? await prisma.trip.findUnique({ where: { id: made.id }, include: tripInclude })
@@ -473,15 +423,9 @@ router.put(
         .refine(albumLinkValid, ALBUM_LINK_ISSUE)
         .parse(req.body);
 
-      // #327 Finding 2: a Trip Leader could re-point their own trip's
-      // partnerId at any partner id, since tripSchema's full field set was
-      // written straight through with no per-role filtering. Everything
-      // downstream that trusts "look up my scoped trip's partnerId" to
-      // authorize a partner-scoped read (requirePartnerQueryScope, the
-      // trip's own linked-Partner read) became attacker-controlled once
-      // that field was writable -- SPEC.md § 5.1 already documents "never
-      // anything on the Partner" as the intended policy for this role; the
-      // code just hadn't enforced it.
+      // #327 Finding 2: a Trip Leader must not re-point their trip's partnerId: requirePartnerQueryScope and
+      // the trip's linked-Partner read trust it to authorize partner-scoped reads, and SPEC.md § 5.1 says
+      // this role never touches the Partner.
       if (req.user.role === "guest" && data.partnerId !== undefined) {
         return res.status(403).json({ error: "Insufficient permissions" });
       }
@@ -489,18 +433,12 @@ router.put(
       const existing = await prisma.trip.findUnique({ where: { id: req.params.id } });
       if (!existing) return res.status(404).json({ error: "Not found" });
 
-      // The goal actually in effect once this update applies -- this call's
-      // own value if it's touching supportRaisingGoal, otherwise whatever
-      // the trip already had.
+      // The goal in effect after this update: this call's value, else the trip's existing one.
       const effectiveGoal =
         data.supportRaisingGoal !== undefined ? data.supportRaisingGoal : existing.supportRaisingGoal;
 
-      // Same "did this actually change" shape PUT /meetings/:id already uses
-      // for its own reschedule-resend check -- only startDate/endDate count
-      // (not every field this route can touch), and only when the incoming
-      // value actually differs from what's stored (datesChanged helper
-      // treats a present-but-unchanged field, or a field left out of this
-      // request entirely, the same way: no resend).
+      // "Did this change" check, as PUT /meetings/:id's reschedule-resend: only startDate/endDate count,
+      // and only when the incoming value differs (datesChanged treats unchanged or absent alike: no resend).
       function dateChanged(incoming, current) {
         if (incoming === undefined) return false;
         const incomingTime = incoming ? new Date(incoming).getTime() : null;
@@ -539,17 +477,10 @@ router.put(
       if (datesChanged) {
         datesUpdateEmail = await sendTripDatesUpdateEmail(updated);
 
-        // #310: setting dates (including for the first time) is also the
-        // first moment it's worth re-checking whether anyone currently on
-        // the roster is still owed a catch-up for a meeting/requirement
-        // that didn't exist yet when they originally joined -- a direct
-        // add or an approved application only ever runs catch-up once, at
-        // join time. `since: participant.createdAt` keeps this from
-        // re-sending for anything that already existed back then (which
-        // already went out via that original join-time call) -- only
-        // genuinely new-to-them content is in scope. tripInclude doesn't
-        // carry meetings (no other PUT /:id consumer needs them), so
-        // fetched narrowly here, only when this path actually runs.
+        // #310: setting dates (even the first time) is the first moment to re-check whether anyone on the
+        // roster is owed a catch-up for a meeting/requirement that did not exist when they joined (join-time
+        // catch-up runs once). `since: participant.createdAt` keeps already-sent content from being re-sent.
+        // tripInclude carries no meetings, so they are fetched narrowly here.
         if (!isTripHistorical(updated) && (updated.participants || []).length > 0) {
           const meetings = await prisma.tripMeeting.findMany({ where: { tripId: req.params.id } });
           for (const participant of updated.participants) {
@@ -567,12 +498,11 @@ router.put(
   }
 );
 
-// The Wrap up trip wizard (#358): finishes a trip in one step -- the actual dates, a short debrief
-// (a plain-text answer under each fixed prompt, all optional), the album link, and, when the
-// contact log is on and the person may use it, a contact for the partner with an optional
-// follow-up date -- and sets the trip to "completed". Open to admin, editor and a trip leader for
-// their own trip (requireTripScope), the same reach as editing the trip. Nothing is emailed: the
-// trip is over. Running it again just edits the debrief; the first wrap-up time is kept.
+// The Wrap up trip wizard (#358): finishes a trip in one step (actual dates, optional plain-text
+// debrief answers, album link and, when the contact log is on and the person may use it, a partner
+// contact with an optional follow-up date) and sets it to "completed". Open to admin, editor and a
+// trip leader for their own trip (requireTripScope). Nothing is emailed. Re-running edits the debrief;
+// the first wrap-up time is kept.
 const wrapUpText = z.string().trim().max(5000).optional().nullable();
 const wrapUpSchema = z
   .object({
@@ -696,10 +626,8 @@ router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   }
 });
 
-// POST /api/trips/:id/clone -- §11. Copies reusable shape only, never
-// participants/applications/meetings/documents/contributions. Gated by
-// requireFeature("trips")+requireRole only -- not additionally gated,
-// since cloning is a basic convenience over the Trip record itself.
+// POST /api/trips/:id/clone -- §11. Copies reusable shape only, never participants/applications/
+// meetings/documents/contributions. Not gated beyond requireFeature("trips") + requireRole.
 router.post("/:id/clone", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const source = await prisma.trip.findUnique({
@@ -718,12 +646,9 @@ router.post("/:id/clone", requireRole("admin", "editor"), async (req, res, next)
         description: source.description,
         supportRaisingGoal: source.supportRaisingGoal,
         status: "planning",
-        // label/kind/bodyText/reminderLeadDays copy forward (a repeat
-        // trip almost always wants the same checklist, including the
-        // same agreement text for an esignature-kind row); dueAt does
-        // NOT -- a specific calendar date from the prior run is never
-        // right for the new one, same reasoning Trip's own startDate/
-        // endDate aren't copied.
+        // label/kind/bodyText/reminderLeadDays copy forward (a repeat trip wants the same checklist and
+        // agreement text); dueAt does NOT, since a prior run's calendar date is never right (like startDate/
+        // endDate).
         requirements: {
           create: source.requirements.map((r) => ({
             label: r.label,
@@ -766,8 +691,7 @@ router.post("/:id/generate-application-link", requireRole("admin", "editor"), as
   }
 });
 
-// ---- Budget lines (planned-expense tracking, trip-wide, estimate-only
-// for v1 -- no actualAmount, see TripBudgetLine's own schema comment) ----
+// Budget lines: planned, trip-wide, estimate-only (no actualAmount; see TripBudgetLine in schema.prisma).
 
 const budgetLineSchema = z.object({
   label: z.string().min(1),
@@ -818,11 +742,9 @@ router.delete(
   }
 );
 
-// Flight segments -- replaces the former Trip.flightDetails free-text
-// field. Same CRUD shape as budget lines above, except participantIds
-// (issue #265) -- a real relation, not a free-text label of who's on
-// it. Omitted or empty means the whole team; the self-service page
-// (publicTrips.js) filters on this, the admin view never does.
+// Flight segments: same CRUD shape as budget lines, plus participantIds (#265), a real relation.
+// Omitted or empty means the whole team; the self-service page (publicTrips.js) filters on it, the
+// admin view never does.
 const flightSegmentSchema = z.object({
   participantIds: z.array(z.string()).optional(),
   airline: z.string().optional().nullable(),
@@ -891,8 +813,7 @@ router.put(
         where: { id: req.params.id },
         data: {
           ...data,
-          // `set` replaces the whole relation outright -- the admin UI
-          // always sends the complete selected list, never a delta.
+          // `set` replaces the whole relation: the admin UI always sends the complete list.
           participants:
             participantIds !== undefined ? { set: participantIds.map((id) => ({ id })) } : undefined,
         },
@@ -919,8 +840,7 @@ router.delete(
   }
 );
 
-// ---- Documents (file storage -- see tripParticipants.js for the
-// separate "request documents from a participant" email route) ----
+// Documents (file storage); the "request documents" email route is in tripParticipants.js.
 
 router.post(
   "/:id/documents",
@@ -946,18 +866,11 @@ router.post(
         contentType: req.file.mimetype || "application/octet-stream",
         fileSize: req.file.size,
       };
-      // Upsert, not a plain create, when both fields are set -- the
-      // public self-service upload route (publicTrips.js) relies on the
-      // same @@unique([requirementId, participantId]) constraint to make
-      // a reupload replace rather than duplicate, and an admin
-      // re-uploading a corrected file for the same requirement+
-      // participant pair gets the identical "replace" behavior rather
-      // than hitting that constraint as an error. Either participantId
-      // or requirementId null (a trip-wide document, or one with no
-      // tracked requirement) always creates a new row -- the constraint
-      // only applies once both are non-null. The bytes themselves live in
-      // their own table (bytesRow) now -- a nested upsert on the update
-      // branch replaces them in place on a reupload, same as before.
+      // Upsert when both fields are set: the public self-service upload relies on the same
+      // @@unique([requirementId, participantId]) so a re-upload replaces rather than duplicates, and an
+      // admin re-uploading gets the same behavior. A null participantId or requirementId (trip-wide or
+      // untracked) always creates a new row. Bytes live in their own table (bytesRow); the nested upsert
+      // on update replaces them in place.
       const created =
         participantId && requirementId
           ? await prisma.tripDocument.upsert({
@@ -973,12 +886,8 @@ router.post(
   }
 );
 
-// GET /documents/:id/download -- streams the file straight from the
-// database, same shared helper/convention as PartnerFile's own
-// GET /:id/download (partnerFiles.js). Genuinely missing until now: a
-// TripDocument could be uploaded, filed from an inbound email, or logged
-// manually, but nothing anywhere could ever read it back -- only
-// title/fileName metadata, never the actual bytes.
+// GET /documents/:id/download -- streams the file from the database, same helper as PartnerFile's
+// GET /:id/download (partnerFiles.js).
 router.get("/documents/:id/download", requireTripScope(tripIdOfDocument), async (req, res, next) => {
   try {
     const record = await prisma.tripDocument.findUnique({
@@ -1008,8 +917,6 @@ router.delete(
     }
   }
 );
-
-// ---- Contributions ----
 
 const contributionSchema = z.object({
   participantId: z.string().optional().nullable(),

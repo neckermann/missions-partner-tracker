@@ -11,22 +11,16 @@ const { notifySupportNeedCreated, notifySupportNeedDecided } = require("../utils
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 const { getSeenAt, touchSeen, markCategorySeen } = require("../notifications/categories");
 
-// Same reasoning as prayerRequests.js's own LIST_VIEW_SEEN_KEY -- distinct
-// from the bell's "newOneTimeNeeds" row, since opening the bell already
-// advances that one before this list ever renders.
+// Distinct from the bell's "newOneTimeNeeds" row, which opening the bell already advances (see
+// LIST_VIEW_SEEN_KEY in prayerRequests.js).
 const LIST_VIEW_SEEN_KEY = "newOneTimeNeeds:listView";
 
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
-// Gates the whole resource. The partner record's own PUT no longer accepts
-// a needRequests array, so this router is the only way in -- turning the
-// feature off now actually turns it off.
+router.use(requireAuth);
+// Gates the whole resource.
 router.use(requireFeature("oneTimeNeeds"));
 
-// The only writer for SupportNeed. Backs both the consolidated "One-Time
-// Needs" admin page and the needs section on a single partner's page —
-// creating a request against any partner without loading and resubmitting
-// their whole record, and recording a decision on one later.
+// The only writer for SupportNeed. Backs the One-Time Needs admin page and a partner's needs section.
 const supportNeedSchema = z.object({
   partnerId: z.string(),
   description: z.string().min(1),
@@ -35,28 +29,19 @@ const supportNeedSchema = z.object({
   approvedAmount: z.coerce.number().int().nonnegative().optional().nullable(),
   approvedDate: z.coerce.date().optional().nullable(),
   decisionNote: z.string().optional().nullable(),
-  // Admin/editor-set at creation -- see dispatchRecording.js's
-  // maybeBroadcastUrgent for what this actually triggers.
+  // Admin/editor-set at creation; see maybeBroadcastUrgent in dispatchRecording.js.
   isUrgent: z.boolean().optional(),
-  // Not a SupportNeed column -- stripped out below before the Prisma
-  // create. Same inline "approve now" path as prayerRequests.js's own
-  // approveNow -- see that file's comment.
+  // Not a SupportNeed column (stripped before create). Inline "approve now", as in prayerRequests.js.
   approveNow: z.boolean().optional(),
   notes: z.string().optional().nullable(),
-  // Set only by ExtractionReviewModal.jsx's scan flow -- see the comment
-  // on this column in schema.prisma.
+  // Set only by ExtractionReviewModal.jsx's scan flow (see schema.prisma).
   sourceFileId: z.string().optional().nullable(),
 });
 
-// Checks presence in *this request*, not null-ness -- PUT uses .partial(),
-// where an omitted key means "leave whatever's already stored," not
-// "clear it." A request touching neither field (editing something else
-// entirely) is fine; one touching only one of the pair is the actual bug
-// this guards against: reports/oneTimeNeeds.js reads `approvedDate` as
-// its "has this been decided" signal and nulls `approvedAmount` out when
-// it's missing, so a request that set the amount but not the date would
-// silently lose the recorded amount on the report, with no error telling
-// anyone why.
+// Checks presence in *this request*, not null-ness: PUT uses .partial(), where an omitted key means
+// "leave what is stored". Touching only one of the pair is the bug guarded against:
+// reports/oneTimeNeeds.js reads `approvedDate` as "decided" and nulls `approvedAmount` without it, so
+// an amount without a date would silently vanish from the report.
 function approvedPairGiven(data) {
   return "approvedAmount" in data === "approvedDate" in data;
 }
@@ -66,28 +51,20 @@ const APPROVED_PAIR_ISSUE = {
 };
 
 const supportNeedInclude = {
-  // Extends partnerRefSelect's own fields with `archived` -- same reasoning
-  // as prayerRequests.js's own supportNeedInclude/prayerRequestInclude.
+  // Extends partnerRefSelect with `archived` (as in prayerRequests.js).
   partner: { select: { ...partnerRefSelect.select, archived: true } },
-  // Just enough for the "From: <title>, <date>" admin card link -- never
-  // the file bytes themselves, same omit discipline as every other
-  // PartnerFile list query. `kind` is what tells SourceLink.jsx (and the
-  // notification payload, see utils/notifications.js) whether to build a
-  // /api/partner-files download link.
+  // Just enough for the "From: <title>, <date>" link (never file bytes); `kind` tells SourceLink.jsx
+  // and the notification payload whether to build a /api/partner-files download link.
   sourceFile: { select: { id: true, kind: true, title: true, fileName: true, receivedDate: true } },
 };
 
 // GET /api/support-needs?partnerId=&status=&from=&to=  (all partners combined, newest request first)
-// status/from/to mirror reports/oneTimeNeeds.js's own filtering exactly
-// (status derived from approvedAmount being null/not-null, same as there --
-// SupportNeed has no separate status column).
+// status/from/to mirror reports/oneTimeNeeds.js (status is derived from approvedAmount being
+// null/not-null; there is no status column).
 //
-// A Trip Leader has no access here at all, even for their own linked
-// Partner -- same reasoning as supportEntries.js's identical block: this
-// is financial-support detail, not the ministry content (Prayer Requests/
-// Newsletters & Docs) this role is meant to read. An outright role block,
-// not requirePartnerQueryScope (which would have let a matching partnerId
-// through).
+// A Trip Leader gets no access: this is financial detail, not ministry content. An outright role
+// block, not requirePartnerQueryScope (which would let a matching partnerId through), as in
+// supportEntries.js.
 router.get("/", requireRole("admin", "editor", "viewer", "guest"), async (req, res, next) => {
   try {
     const where = {};
@@ -114,12 +91,10 @@ router.get("/", requireRole("admin", "editor", "viewer", "guest"), async (req, r
     const records = await prisma.supportNeed.findMany({
       where,
       include: supportNeedInclude,
-      // createdAt as a tiebreaker -- see the same comment in prayerRequests.js.
       orderBy: [{ requestDate: "desc" }, { createdAt: "desc" }],
     });
 
-    // Only the consolidated list view counts as "visiting the list" --
-    // see prayerRequests.js's identical comment on its own GET /.
+    // Only the consolidated list view counts as visiting the list (see prayerRequests.js).
     if (req.query.partnerId) return res.json(records);
     const seenAt = await getSeenAt(req.user.id, LIST_VIEW_SEEN_KEY);
     const annotated = records.map((r) => ({
@@ -127,10 +102,8 @@ router.get("/", requireRole("admin", "editor", "viewer", "guest"), async (req, r
       isNew: !seenAt || new Date(r.createdAt) > seenAt,
     }));
     await touchSeen(req.user.id, LIST_VIEW_SEEN_KEY);
-    // Visiting the real list is also "having seen" the bell/nav-badge
-    // category itself -- without this, the badge only clears by opening
-    // the bell first, not by navigating here directly (e.g. via the
-    // sidebar nav link), which is the whole point of a nav badge.
+    // Visiting the list also clears the nav-badge category, so the badge clears without opening the
+    // bell first.
     await markCategorySeen(req.user.id, "newOneTimeNeeds");
     res.json(annotated);
   } catch (err) {
@@ -174,10 +147,8 @@ router.post("/", requireRole("admin", "editor", "viewer", "guest"), async (req, 
     }
     const created = await prisma.supportNeed.create({ data, include: supportNeedInclude });
 
-    // Best-effort: notifySupportNeedCreated (utils/dispatchRecording.js)
-    // never throws -- see the same comment in routes/prayerRequests.js. A
-    // care team member's is always held for staff review and can never be
-    // urgent or pre-approved.
+    // Best-effort: notifySupportNeedCreated (utils/dispatchRecording.js) never throws. A care team
+    // member's is held for staff review and can never be urgent or pre-approved.
     await notifySupportNeedCreated(created, approveNow ? { reviewerId: req.user.id } : null, {
       requireReview: !staff,
     });
@@ -189,10 +160,7 @@ router.post("/", requireRole("admin", "editor", "viewer", "guest"), async (req, 
 });
 
 // PUT /api/support-needs/:id  (update — editor or admin)
-// Mainly for recording a decision (approvedAmount/approvedDate) on a
-// previously-pending request, but allows editing any field — including
-// moving it to a different partner, which is now just a plain column and
-// so needs no special handling.
+// Mainly for recording a decision; any field is editable, including moving to another partner.
 router.put("/:id", requireRole("admin", "editor", "viewer", "guest"), async (req, res, next) => {
   try {
     const staff = isStaff(req.user);
@@ -218,14 +186,10 @@ router.put("/:id", requireRole("admin", "editor", "viewer", "guest"), async (req
         : careTeamNeedUpdateSchema
     ).parse(req.body);
 
-    // Only notify on a genuine transition into having a decision recorded
-    // (see #127) -- approvedPairGiven already guarantees approvedDate is
-    // only ever sent alongside approvedAmount, so checking approvedDate
-    // here covers both. A PUT that doesn't touch the pair never fetches
-    // `before`; one that resends the same decision (before.approvedDate
-    // already set) is caught by the before?.approvedDate check rather
-    // than re-notifying; one that clears a decision (both sent as null)
-    // is excluded by data.approvedDate != null.
+    // Notify only on a genuine transition into a recorded decision: approvedPairGiven guarantees
+    // approvedDate only arrives with approvedAmount, so checking it covers both. A PUT not touching the
+    // pair never fetches `before`; a resent decision is caught by before?.approvedDate; clearing (both
+    // null) is excluded by data.approvedDate != null.
     const before =
       "approvedDate" in data
         ? await prisma.supportNeed.findUnique({

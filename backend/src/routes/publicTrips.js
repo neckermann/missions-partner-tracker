@@ -1,17 +1,10 @@
-// Public, unauthenticated discovery surface for Trips (#252): the plain
-// listing and the two id/token-addressed single-trip views an applicant
-// sees before applying. Application submission (publicTripApplications.js)
-// and participant self-service (publicTripParticipants.js) split out of
-// this same file (#271 Finding) -- all three mount at the same
-// /api/public/trips (or /api/public/trip-participants) prefix from
-// server.js.
+// Public, unauthenticated discovery surface for Trips (#252): the listing and the two
+// id/token-addressed single-trip views an applicant sees before applying. Mounted at
+// /api/public/trips from server.js.
 //
-// Restricted-partner handling is NOT uniform across these three routes --
-// see each route's own comment. The discovery list and GET /:id EXCLUDE a
-// restricted-partner trip outright (404, same as not found at all); the
-// token-addressed GET /by-token/:token MASKS it instead (toInitials-style
-// generic label, not the real partner) since reaching it already requires
-// a secret only staff chose to share.
+// Restricted-partner handling is NOT uniform: the discovery list and GET /:id EXCLUDE a
+// restricted-partner trip (404, as if not found); GET /by-token/:token MASKS it instead, since
+// reaching it requires a secret only staff chose to share.
 const express = require("express");
 const prisma = require("../prismaClient");
 const { requireFeature } = require("../middleware/requireFeature");
@@ -35,25 +28,18 @@ function shapeTripForApplicant(trip, settings, questions) {
     fieldDisplayName: partnerFieldLabel(trip.partner, settings),
     isRestricted: !!trip.partner?.isRestricted,
     applicationQuestions: questions,
-    // Tells the public form whether to render the structured mailing-
-    // address block at all -- see ChurchSettings.collectApplicantAddress's
-    // own schema comment.
+    // Whether the public form renders the structured mailing-address block (ChurchSettings.collectApplicantAddress).
     collectApplicantAddress: settings?.collectApplicantAddress !== false,
-    // Same, for the structured emergency-contact block -- see
-    // ChurchSettings.collectEmergencyContact's own schema comment.
+    // Same, for the emergency-contact block (ChurchSettings.collectEmergencyContact).
     collectEmergencyContact: settings?.collectEmergencyContact !== false,
-    // Date of birth is always collected/required now -- no settings flag
-    // needed here; the wizard shows that step unconditionally and decides
-    // whether to show the parent/guardian step itself, client-side, via
-    // the shared isMinorForTrip(dateOfBirth, startDate) check (also
-    // enforced server-side on submission -- see publicTripApplications.js).
+    // Date of birth is always collected; the wizard decides client-side whether to show the
+    // parent/guardian step via isMinorForTrip, which is also enforced on submission
+    // (publicTripApplications.js).
   };
 }
 
-// GET /api/public/trips -- discovery listing. Gated by trips AND
-// publicTripDiscovery (both required -- see requireFeature's any-of
-// semantics for an array, which is why these are two separate calls,
-// not one array call).
+// GET /api/public/trips -- discovery listing. Gated by trips AND publicTripDiscovery, as two
+// separate requireFeature calls since an array means any-of.
 router.get("/", requireFeature("trips"), requireFeature("publicTripDiscovery"), async (req, res, next) => {
   try {
     const [trips, settings] = await Promise.all([
@@ -79,14 +65,9 @@ router.get("/", requireFeature("trips"), requireFeature("publicTripDiscovery"), 
       }),
       getSettings(),
     ]);
-    // Belt-and-suspenders: a Trip with no partnerId has no `partner` row
-    // to filter on above (the `where` only excludes a *restricted*
-    // linked partner -- a null partnerId already passes that clause).
-    // onlineGivingUrl is church-wide, not per-trip, but repeated on
-    // every card here -- a trip-level "Donate" button next to Apply,
-    // same ManagedMissions-inferred pattern (competitor backlog item),
-    // reusing the giving link §13 already built rather than adding a
-    // second one scoped to discovery specifically.
+    // Belt-and-suspenders: a Trip with no partnerId has no `partner` row to filter on (the `where`
+    // only excludes a *restricted* linked partner). onlineGivingUrl is church-wide but repeated on
+    // every card for a trip-level "Donate" button.
     res.json(
       trips.map((t) => ({
         id: t.id,
