@@ -521,16 +521,6 @@ function ExistingTripsTab() {
         ]}
         renderActions={(trip) => (
           <>
-            <button
-              type="button"
-              className="btn secondary small"
-              onClick={(e) => {
-                e.stopPropagation();
-                trip.status === "completed" ? openTripDetail(trip) : navigate(`/admin/trips/${trip.id}`);
-              }}
-            >
-              View
-            </button>
             {isAdmin && (
               <button
                 type="button"

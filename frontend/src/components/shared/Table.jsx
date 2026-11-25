@@ -151,8 +151,22 @@ export default function Table({
             return (
               <React.Fragment key={key}>
                 <tr
+                  className={clickable ? "row-clickable" : undefined}
                   onClick={clickable ? () => onRowClick(row) : undefined}
-                  style={clickable ? { cursor: "pointer" } : undefined}
+                  // Reachable and openable from the keyboard, like a link. Only when the row
+                  // itself has focus, so a button or link inside it keeps its own Enter and Space.
+                  tabIndex={clickable ? 0 : undefined}
+                  onKeyDown={
+                    clickable
+                      ? (e) => {
+                          if (e.target !== e.currentTarget) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onRowClick(row);
+                          }
+                        }
+                      : undefined
+                  }
                   {...(rowAttrs ? rowAttrs(row) : null)}
                 >
                   {columns.map((c) => (
