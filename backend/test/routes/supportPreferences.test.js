@@ -340,4 +340,40 @@ describe("support preferences: keeping the menu", () => {
     );
     assert.equal(await prisma.supportOption.count(), before);
   });
+
+  test("a staff-only option is hidden from a care team guest, who can't answer it either", async () => {
+    const secret = (
+      await addOption({ group: GROUP, label: "Staff only matter", kind: "text", staffOnly: true })
+    ).body;
+    assert.equal(secret.staffOnly, true);
+    assert.equal(
+      (await save(editor, partnerA.id, [{ optionId: secret.id, text: "Private detail" }])).status,
+      200
+    );
+
+    const asStaff = await read(editor, partnerA.id);
+    assert.ok(asStaff.body.options.some((o) => o.id === secret.id));
+    assert.equal(asStaff.body.preferences.find((p) => p.optionId === secret.id)?.text, "Private detail");
+
+    const guest = await member.login();
+    const asGuest = await read(guest, partnerA.id);
+    assert.equal(asGuest.status, 200);
+    assert.ok(!asGuest.body.options.some((o) => o.id === secret.id));
+    assert.ok(!asGuest.body.preferences.some((p) => p.optionId === secret.id));
+    assert.equal((await save(guest, partnerA.id, [{ optionId: secret.id, text: "x" }])).status, 403);
+    assert.equal(
+      (await prisma.partnerSupportPreference.findFirst({ where: { optionId: secret.id } })).text,
+      "Private detail",
+      "the guest's attempt changed nothing"
+    );
+
+    const open = (
+      await admin(`/api/support-preferences/options/${secret.id}`, {
+        method: "PUT",
+        body: { staffOnly: false },
+      })
+    ).body;
+    assert.equal(open.staffOnly, false);
+    assert.ok((await read(guest, partnerA.id)).body.options.some((o) => o.id === secret.id));
+  });
 });

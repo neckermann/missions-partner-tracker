@@ -327,6 +327,27 @@ describe("survey templates and updates", () => {
     assert.equal(await prisma.surveyUpload.count({ where: { partnerId: partner.id } }), 0);
   });
 
+  test("the bell: review items only for people who can approve; new answers for everyone who can see the partner", async () => {
+    const keys = async (who) => (await who("/api/notifications/summary")).body.categories.map((c) => c.key);
+    assert.ok((await keys(editor)).includes("surveyUpdatesPending"));
+    assert.ok((await keys(admin)).includes("surveyUpdatesPending"));
+    assert.ok(!(await keys(viewer)).includes("surveyUpdatesPending"), "a viewer can't act on it");
+    const answers = (await viewer("/api/notifications/summary")).body.categories.find(
+      (c) => c.key === "newSurveyResponses"
+    );
+    assert.ok(answers && answers.count >= 1, "a submitted survey counts as new");
+    assert.equal(answers.isNew, true);
+    await editor("/api/notifications/seen", { method: "POST", body: { category: "newSurveyResponses" } });
+    const after = (await editor("/api/notifications/summary")).body.categories.find(
+      (c) => c.key === "newSurveyResponses"
+    );
+    assert.equal(after.count, 0, "looking clears it for that person only");
+    const still = (await viewer("/api/notifications/summary")).body.categories.find(
+      (c) => c.key === "newSurveyResponses"
+    );
+    assert.ok(still.count >= 1);
+  });
+
   test("the whole thing is 404 while the feature is off", async () => {
     await setFeatures({ surveys: false });
     assert.equal((await editor("/api/survey-updates")).status, 404);

@@ -182,6 +182,8 @@ const partnerSchema = z.object({
   overviewShort: z.string().optional().nullable(),
   focusArea: z.string().optional().nullable(),
   supportingSince: z.coerce.date().optional().nullable(),
+  adoptedAt: z.coerce.date().optional().nullable(),
+  commissionedAt: z.coerce.date().optional().nullable(),
   lastPrayedWithCongregationAt: z.coerce.date().optional().nullable(),
   tripTeamSizeMin: z.coerce.number().int().optional().nullable(),
   tripTeamSizeMax: z.coerce.number().int().optional().nullable(),

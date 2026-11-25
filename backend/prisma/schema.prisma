@@ -33,6 +33,10 @@ model Partner {
   overviewShort   String?
   focusArea       String?   @db.Text
   supportingSince DateTime? @db.Date // year-only values are stored as Jan 1 of that year
+  // When our church adopted them and when they were commissioned: annual key dates (#422). Year-only
+  // values are stored as Jan 1, like supportingSince.
+  adoptedAt       DateTime? @db.Date
+  commissionedAt  DateTime? @db.Date
 
   // When the whole congregation last prayed for this partner together (a manual record).
   // Separate from PrayerRequest.status and from any dispatch timestamp. A calendar date, not
@@ -688,32 +692,36 @@ model ChurchVisit {
 // or dispatch channel. Fixed-choice fields are validated Strings (SPEC §3); allowed values live
 // in utils/contactLog.js.
 model ContactLog {
-  id              String    @id @default(uuid())
-  partnerId       String
-  partner         Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  id                 String    @id @default(uuid())
+  partnerId          String
+  partner            Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   // call | text | email | visit | card | video | prayed | other
-  contactType     String
+  contactType        String
   // outbound (we reached out) | inbound (they reached out)
-  direction       String
+  direction          String
   // Optional topic chips (utils/contactLog.js), e.g. "prayer", "need".
-  topics          String[]
+  topics             String[]
   // Who made the contact. SetNull so a deleted login keeps the history.
-  contactedById   String?
-  contactedBy     User?     @relation("ContactLogContactedBy", fields: [contactedById], references: [id], onDelete: SetNull)
+  contactedById      String?
+  contactedBy        User?     @relation("ContactLogContactedBy", fields: [contactedById], references: [id], onDelete: SetNull)
   // Who typed it in (differs from contactedBy when logging for a teammate).
-  createdById     String?
-  createdBy       User?     @relation("ContactLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById        String?
+  createdBy          User?     @relation("ContactLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   // A calendar date, like ChurchVisit.visitDate -- not an instant.
-  contactDate     DateTime  @db.Date
-  notes           String?   @db.Text
+  contactDate        DateTime  @db.Date
+  notes              String?   @db.Text
   // Optional "reach out again by"; not a task system.
-  followUpDate    DateTime? @db.Date
+  followUpDate       DateTime? @db.Date
   // Plain ids with no FK on purpose: deleting the prayer request or need must not delete the
   // history.
-  prayerRequestId String?
-  supportNeedId   String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  prayerRequestId    String?
+  supportNeedId      String?
+  // The support option this contact was about (#424): a plain id and a snapshot of its label, so
+  // retiring or deleting the option never changes the history.
+  supportOptionId    String?
+  supportOptionLabel String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   lastEditedById   String?
   lastEditedByName String?
@@ -1611,6 +1619,8 @@ model SupportOption {
   allowOther Boolean  @default(false)
   sortOrder  Int      @default(0)
   active     Boolean  @default(true)
+  // Answers are hidden from care team guests and shown only to staff (admin, editor, viewer).
+  staffOnly  Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
