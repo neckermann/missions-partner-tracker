@@ -5,6 +5,7 @@
 // its scheduled hour; the requirement reminder needs no window (see below).
 const cron = require("node-cron");
 const prisma = require("../prismaClient");
+const { isDemoInstance } = require("./demoMode");
 const { isFeatureEnabled } = require("./features");
 const { sendParticipantEmail, buildMeetingIcs, buildMeetingEmailContent } = require("./tripEmails");
 const { isMinorForTrip } = require("./tripParticipantSchema");
@@ -18,6 +19,7 @@ async function checkAndSendTripMeetingReminders() {
   });
   if (!isFeatureEnabled(settings?.enabledFeatures, "trips")) return;
   if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) return;
+  if (await isDemoInstance()) return;
 
   const now = new Date();
   const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
@@ -71,6 +73,7 @@ async function checkAndSendRequirementReminders() {
   });
   if (!isFeatureEnabled(settings?.enabledFeatures, "trips")) return;
   if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) return;
+  if (await isDemoInstance()) return;
 
   const now = new Date();
   const requirements = await prisma.tripRequirement.findMany({
