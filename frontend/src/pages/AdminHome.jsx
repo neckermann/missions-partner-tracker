@@ -7,9 +7,8 @@ import CardGrid from "../components/admin/CardGrid.jsx";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import useNotifications from "../hooks/useNotifications.js";
 
-// key -> a short group label for the card grid, since the registry
-// (backend/src/notifications/categories.js) doesn't carry one itself --
-// purely cosmetic grouping for this page's display.
+// key -> short group label for the card grid; the registry
+// (backend/src/notifications/categories.js) doesn't carry one.
 const CATEGORY_GROUP = {
   dispatchesNeedingApproval: "Communications",
   unmatchedEmails: "Communications",
@@ -28,10 +27,8 @@ const CATEGORY_GROUP = {
   whatsappConnectionDrop: "System",
 };
 
-// The admin landing page -- search, recently-viewed, and needs-attention
-// cards. Home points at destinations worth jumping to directly (a search
-// result, something recent, something waiting on you) rather than
-// re-listing what the sidebar already lists.
+// Admin landing page: search, recently viewed, and needs-attention cards. Links to
+// destinations worth jumping to, not a re-list of the sidebar.
 const SEARCH_DEBOUNCE_MS = 250;
 
 function useDebouncedValue(value, delayMs) {
@@ -98,8 +95,7 @@ function RecentlyViewed() {
   );
 }
 
-// ⌘ on Mac, Ctrl elsewhere -- matches the convention every desktop app's
-// own command-palette/search shortcut already uses on each platform.
+// ⌘ on Mac, Ctrl elsewhere.
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPod|iPad/.test(navigator.platform || "");
 const SEARCH_SHORTCUT_HINT = isMac ? "⌘K" : "Ctrl+K";
 
@@ -174,14 +170,9 @@ export default function AdminHome() {
   const [search, setSearch] = useState("");
   const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const { categories } = useNotifications();
-  // Hidden entirely (not shown as "Nothing waiting") when a category's
-  // count is zero -- a needs-attention card with nothing to report isn't
-  // worth the space it takes, and clutters the page on every visit
-  // instead of just the ones that matter. Reads the same registry the
-  // bell does (/api/notifications/summary) -- this page no longer fetches
-  // dispatches/emails/trips itself (see the in-app notifications plan for
-  // why keeping both a page-level fetch and the shared registry running
-  // in parallel was the actual bug behind "this card never goes away").
+  // Categories with a zero count are hidden. Reads the shared registry the bell uses
+  // (/api/notifications/summary); don't add a page-level fetch alongside it, the two
+  // drifted apart before and a card never cleared.
   const needsAttention = categories
     .filter((c) => c.count > 0)
     .map((c) => ({
@@ -192,9 +183,7 @@ export default function AdminHome() {
     }));
   const searchInputRef = useRef(null);
 
-  // Cmd/Ctrl+K focuses the Home search box from anywhere on the page --
-  // the shortcut hint shown next to it would be misleading if it didn't
-  // actually do anything.
+  // Cmd/Ctrl+K focuses search; the visible hint would mislead otherwise.
   useEffect(() => {
     function onKeyDown(e) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {

@@ -94,8 +94,8 @@ import usePartnerRecordCrud from "../hooks/usePartnerRecordCrud.jsx";
 import useLoadMore from "../hooks/useLoadMore.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 
-// A cleared <input type="date"> is "", which `z.coerce.date()` turns into an
-// Invalid Date and rejects -- "no date" has to travel as null.
+// A cleared <input type="date"> is "", which `z.coerce.date()` rejects as Invalid Date;
+// "no date" must travel as null.
 const dateOrNull = (value) => value || null;
 
 const emptyAddress = {
@@ -107,9 +107,8 @@ const emptyAddress = {
   country: "",
 };
 
-// An address the user never filled in shouldn't be persisted as a row of
-// empty strings -- the API treats a present `physical`/`mailing` key as
-// "this address exists", so an untouched one is sent as undefined instead.
+// An address the user never filled in isn't persisted as empty strings: the API treats a
+// present `physical`/`mailing` key as "this address exists", so an untouched one is undefined.
 function hasAnyAddressValue(address) {
   return (
     Object.keys(emptyAddress).some((key) => Boolean(address[key] && String(address[key]).trim())) ||
@@ -120,8 +119,7 @@ function hasAnyAddressValue(address) {
   );
 }
 
-// GPS comes back from a number input as a string; the API wants a number
-// or null.
+// GPS comes back from a number input as a string; the API wants a number or null.
 function cleanAddress(address) {
   const num = (v) => (v === "" || v == null ? null : Number(v));
   const cleaned = { ...address, gpsLat: num(address.gpsLat), gpsLng: num(address.gpsLng) };
@@ -157,9 +155,8 @@ export function AddressSummary({ address }) {
   );
 }
 
-// The partner page *is* the record: every section saves only its own fields
-// through the partial PUT, rather than routing everything through one
-// whole-record form. See EditableSection for the reasoning.
+// The partner page is the record: every section saves only its own fields through the
+// partial PUT (see EditableSection).
 export default function AdminPartnerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -240,32 +237,20 @@ export default function AdminPartnerDetail() {
   const [supportEntryForm, setSupportEntryForm] = useState(null);
   const [fileForm, setFileForm] = useState(null);
   const [fileBlob, setFileBlob] = useState(null);
-  // Click-to-view/edit popups for an *existing* Prayer Request/One-Time
-  // Need/Newsletter & Doc item (see the summary cards below) -- `{ id,
-  // form }`, distinct from the above add-forms. Each one's `form` key
-  // only holds what that resource's own FormFields component edits.
+  // Click-to-view/edit popups for an existing Prayer Request/One-Time Need/Newsletter & Doc
+  // item: `{ id, form }`, separate from the add-forms.
   const [prayerDetail, setPrayerDetail] = useState(null);
   const [needDetail, setNeedDetail] = useState(null);
   const [fileDetail, setFileDetail] = useState(null);
-  // Which specific record "Mark Answered"/"Record Decision" targets --
-  // previously these actions were hardcoded to prayerRequests[0]/
-  // needRequests[0] (the single most recent item), which silently acted on
-  // the wrong record whenever more than one item was still undecided. Set
-  // from the item that was actually clicked (either the summary card's own
-  // list, or the view popup's own "Record Decision"/"Mark Answered"
-  // button), same as AdminOneTimeNeeds.jsx/AdminPrayerRequests.jsx already
-  // do it correctly.
+  // Which record "Mark Answered"/"Record Decision" targets: the item actually clicked, not
+  // the most recent one.
   const [answeringPrayer, setAnsweringPrayer] = useState(null);
   const [decidingNeed, setDecidingNeed] = useState(null);
 
-  // React Router keeps this same component instance mounted across a
-  // /partners/:id param change -- it doesn't remount. reload() is passed
-  // as onSaved/onChange to nearly every section on this page, so a save on
-  // partner A that's still in flight when the admin navigates to partner B
-  // would otherwise land A's data on B's screen once it resolves. idRef is
-  // kept current every render (not just via reload's own closure) so a
-  // reload() call can tell, when it finally resolves, whether the id it
-  // was fetching for is still the one being viewed.
+  // React Router keeps this component mounted across a /partners/:id change. reload() is the
+  // onSaved/onChange of nearly every section, so a slow response for partner A must not land on
+  // partner B's screen: idRef is current every render so reload() can check, when it resolves,
+  // that its id is still the one viewed.
   const idRef = useRef(id);
   idRef.current = id;
 
@@ -278,11 +263,11 @@ export default function AdminPartnerDetail() {
       Promise.all([
         fetchPrayerRequests({ partnerId: id }),
         fetchPartnerFiles({ partnerId: id }),
-        // Monthly support is never shown to a guest (#289) -- and its route
-        // 403s for them -- so don't ask. One-time needs they do read.
+        // Monthly support is never shown to a guest, and its route 403s for them. One-time
+        // needs they do read.
         isGuest ? Promise.resolve([]) : fetchSupportEntries({ partnerId: id }),
-        // One-time needs are a care team view (#289): a guest who reaches this
-        // partner only through a trip never sees them, and their route 403s.
+        // One-time needs are a care team view: a guest reaching this partner only through a
+        // trip never sees them, and their route 403s.
         isGuest && !isOnCareTeamFor(id) ? Promise.resolve([]) : fetchSupportNeeds({ partnerId: id }),
         enabledFeatures.trips ? fetchTrips({ partnerId: id }) : Promise.resolve([]),
         fetchAdults({ partnerId: id }),
@@ -330,9 +315,8 @@ export default function AdminPartnerDetail() {
 
   const { user, canWrite, isAdmin, isGuest, isOnCareTeamFor, loading: userLoading } = useCurrentUser();
 
-  // Contact log (#288): shared by the contact card up top and the log
-  // section below. Anyone who can see the partner may use it, except a trip
-  // leader (a guest without a seat here), whose scope is smaller.
+  // Contact log: shared by the contact card and the log section. Anyone who can see the
+  // partner may use it, except a trip leader (a guest without a seat here).
   const [contactEntries, setContactEntries] = useState([]);
   const [teammates, setTeammates] = useState([]);
   const contactLogShown = !!enabledFeatures.contactLog && (!isGuest || isOnCareTeamFor(id));
@@ -357,9 +341,8 @@ export default function AdminPartnerDetail() {
   }, [id, userLoading, contactLogShown]);
 
   useEffect(() => {
-    // Wait for the role before loading: what to fetch depends on it (a guest
-    // skips support amounts, whose routes 403 for them -- and one rejected
-    // request would reject the whole Promise.all in reload()).
+    // Wait for the role: what to fetch depends on it (a guest skips support amounts, whose
+    // routes 403), and one rejected request would reject the whole Promise.all in reload().
     if (userLoading) return;
     setLoadError(null);
     reload().catch((err) => {
@@ -371,15 +354,10 @@ export default function AdminPartnerDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isGuest, userLoading]);
 
-  // Called unconditionally, before the loading guard below, so the number
-  // of hooks this component calls doesn't change between the "still
-  // loading" render (p is null) and every render after -- see Rules of
-  // Hooks.
+  // Called before the loading guard so the hook count doesn't change between renders.
   useRecordRecentlyViewed(p && { to: `/admin/partners/${p.id}`, label: p.displayName, kind: "Partner" });
 
-  // Shows a couple of entries right here instead of only linking out to
-  // the consolidated Monthly Support page, which may not stick around --
-  // see PartnerSummaryCard's own hasMore/remaining/onShowMore props.
+  // Show a couple of entries here (see PartnerSummaryCard's hasMore/remaining/onShowMore).
   const supportEntriesLoadMore = useLoadMore(collections.supportEntries, { initialCount: 2, step: 100 });
   const churchVisitsLoadMore = useLoadMore(collections.churchVisits, { initialCount: 2, step: 100 });
   const furloughsLoadMore = useLoadMore(collections.furloughs, { initialCount: 2, step: 100 });
@@ -405,32 +383,21 @@ export default function AdminPartnerDetail() {
   const isOrg = p.kind === "organization";
   const save = (patch) => updatePartner(id, patch);
 
-  // Same precondition "Mark as urgent"/"Review and approve now" gate as
-  // AdminPrayerRequests.jsx/AdminOneTimeNeeds.jsx -- these quick-add modals
-  // reuse the exact same create flow (useUrgentApprovalGate), just with a
-  // fixed partner instead of a picker.
+  // Same precondition as "Mark as urgent"/"Review and approve now" in AdminPrayerRequests.jsx
+  // and AdminOneTimeNeeds.jsx (useUrgentApprovalGate), with a fixed partner instead of a picker.
   const hasEnabledChannel =
     enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
   const usedLinkTypes = new Set(collections.links.map((l) => l.type));
   const allowRestrictedPartnerDispatch = churchSettings?.allowRestrictedPartnerDispatch !== false;
   const canApproveNow = !!p.isRestricted && hasEnabledChannel && allowRestrictedPartnerDispatch;
-  // Gates whether clicking a Prayer Request/One-Time Need/Newsletter &
-  // Doc summary-card item opens an editable form or a read-only view --
-  // matches the roles these resources' own PUT routes already require
-  // (requireRole("admin", "editor")), so a viewer never sees a Save
-  // button for something the server would reject anyway. Also gates every
-  // EditableSection/RecordList/PhotoHistorySection/PartnerSummaryCard
-  // mutate action on this page -- `canDelete` (admin-only) is separate
-  // since delete permission is admin-only for every one of this page's
-  // child collections (adults/children/furloughs/church visits/languages/
-  // links/trip types) and photos, confirmed against each resource's own
-  // DELETE route.
-  // A care team member who isn't staff (#289) has what an editor has on this
-  // partner -- every section here -- except: they never see monthly support
-  // (hidden for guests above), never record a decision on a one-time need
-  // (the committee's -- `canWrite` below gates it), never delete, and no "send
-  // right away": whatever they enter is saved at once but its dispatch is held
-  // for staff review. `limited` hides those send-right-away controls.
+  // Whether a summary-card item opens an editable form or a read-only view. Matches the roles
+  // of those resources' PUT routes (requireRole("admin", "editor")), so a viewer never sees a
+  // Save button the server would reject. Also gates every mutate action on this page.
+  // `canDelete` (admin-only) is separate: delete is admin-only for every child collection.
+  // A care team member who isn't staff has editor rights here except: no monthly support
+  // (hidden for guests above), no recording a decision on a one-time need (the committee's;
+  // `canWrite` gates it), no delete, and no "send right away" (their dispatch is held for
+  // staff review). `limited` hides those controls.
   const onTeam = isOnCareTeamFor(id);
   const canEdit = canWrite || onTeam;
   const canDelete = isAdmin;
@@ -439,13 +406,8 @@ export default function AdminPartnerDetail() {
   const canEditPrayer = () => canEdit;
   const canEditNeed = () => canEdit;
 
-  // One-click shortcut for the common case (praying for a partner during
-  // today's service and recording it right after) -- same today's-date
-  // convenience as every "Mark ___" quick action on this page
-  // (submitMarkAnswered etc.), just without its own confirmation modal
-  // since there's nothing to fill in. Catching up on a date in the past
-  // still goes through the EditableSection's own edit popup below, same
-  // as every other date field on this page.
+  // One-click shortcut for praying during today's service: records today's date with no
+  // confirmation modal. Past dates still go through the EditableSection's edit popup.
   async function markPrayedWithCongregationToday() {
     await save({ lastPrayedWithCongregationAt: todayInputValue() });
     await reload();
@@ -511,11 +473,9 @@ export default function AdminPartnerDetail() {
     await reload();
   }
 
-  // Opens any prayer request from the summary card's list, not just the
-  // most recent -- `setPrayerDetail`'s updater wraps whatever
-  // PrayerRequestFormFields passes it (a plain object or a `(prev) =>
-  // next` function, same contract every other form here uses) so it
-  // still only ever touches this item's own `form` key.
+  // Opens any prayer request from the summary list, not just the most recent. The
+  // `setPrayerDetail` updater wraps whatever PrayerRequestFormFields passes it so it only
+  // touches this item's own `form` key.
   function openPrayerDetail(item) {
     setPrayerDetail({
       id: item.id,
@@ -728,9 +688,8 @@ export default function AdminPartnerDetail() {
     });
   };
 
-  // The user's calendar date, not UTC's: comparing against the UTC date made
-  // a furlough starting tomorrow read as already active for the last hours
-  // of the day west of UTC.
+  // The user's calendar date, not UTC's: UTC made a furlough starting tomorrow read as
+  // active late in the day west of UTC.
   const today = todayInputValue();
   const activeFurlough = (p.furloughs || []).find((f) => {
     const start = String(f.startDate).slice(0, 10);
@@ -740,8 +699,7 @@ export default function AdminPartnerDetail() {
 
   return (
     <div className="admin-shell">
-      {/* A guest has no Partners directory to go back to (same trimming as the
-          trip pages' breadcrumbs). */}
+      {/* A guest has no Partners directory to go back to. */}
       <Breadcrumb
         items={
           isGuest
@@ -759,9 +717,7 @@ export default function AdminPartnerDetail() {
         )}
       </div>
 
-      {/* Only what is out of the ordinary: the usual state (safe to contact, shown
-          on the public site, not sent by us) is in the Status & Visibility card
-          below, and repeating it here made every page look the same. */}
+      {/* Only what is out of the ordinary; the usual state is in the Status & Visibility card. */}
       {(() => {
         const pills = [
           !isOrg && contactLevelOf(p) !== "normal" && (
@@ -1129,13 +1085,10 @@ export default function AdminPartnerDetail() {
                       value={d.fieldDisplayName}
                       onChange={(e) => set("fieldDisplayName", e.target.value)}
                     />
-                    {/* This field is published even for a restricted partner --
-                        see toPublicPartner in backend/src/utils/maskData.js. The
-                        masking hides the name and coarsens the map pin to a
-                        country centroid, so a sub-national region typed here
-                        gives back most of what the masking just removed.
-                        isRestricted itself now lives in Status & Visibility,
-                        so this reads the partner record directly. */}
+                    {/* Published even for a restricted partner (see toPublicPartner in
+                        backend/src/utils/maskData.js). Masking hides the name and coarsens
+                        the pin to a country centroid, so a sub-national region typed here
+                        would give back what the masking removed. */}
                     {p.isRestricted && (
                       <span className="field-warning">
                         Shown publicly, even though this partner is restricted. Their name is masked to
@@ -1159,10 +1112,9 @@ export default function AdminPartnerDetail() {
                   value={d.address}
                   onChange={(addr) => {
                     set("address", addr);
-                    // Fill the FIPS code from a recognized country name, but
-                    // never overwrite one that's already there -- FIPS and ISO
-                    // disagree for many countries and the existing value may
-                    // be a deliberate choice.
+                    // Fill the FIPS code from a recognized country name, but never
+                    // overwrite an existing one: FIPS and ISO disagree for many countries
+                    // and the value may be deliberate.
                     if (!d.fipsCountryCode && addr.country !== d.address.country) {
                       const fips = getFipsCode(addr.country);
                       if (fips) set("fipsCountryCode", fips);
@@ -1174,12 +1126,9 @@ export default function AdminPartnerDetail() {
             )}
           />
 
-          {/* Its own plain (non-clickable) card, not nested inside Serving
-              Location's EditableSection above -- it used to be, and the
-              "Show Country Statistics" button's click bubbled up into that
-              card's own onClick, silently opening the edit popup instead of
-              expanding the stats. See CountryStats.jsx's own comment for why
-              it now loads by default rather than behind that button. */}
+          {/* Its own plain card, not nested in Serving Location's EditableSection: the
+              "Show Country Statistics" click would bubble into that card's onClick and
+              open the edit popup. See CountryStats.jsx. */}
           {enabledFeatures.joshuaProject && p.fipsCountryCode && (
             <div className="admin-section">
               <h3>Joshua Project Statistics</h3>
@@ -1508,8 +1457,7 @@ export default function AdminPartnerDetail() {
               onShowMore={tripsLoadMore.showMore}
               viewAllTo={`/admin/trips?partnerId=${p.id}`}
               actions={
-                // Starting a trip is staff's: a care team member can see this
-                // partner's trips but not create one (#289).
+                // Starting a trip is staff's: a care team member can see trips but not create one.
                 canWrite
                   ? [
                       {
@@ -2180,8 +2128,7 @@ export default function AdminPartnerDetail() {
                 placeholder="Start typing a language..."
                 required
               />
-              {/* A datalist, not a hard <select> -- same reasoning as
-                  AddressFields.jsx's Country field. */}
+              {/* A datalist, not a hard <select>, as with AddressFields.jsx's Country field. */}
               <datalist id="partner-language-names">
                 {LANGUAGE_NAMES.map((name) => (
                   <option key={name} value={name} />

@@ -2,13 +2,9 @@ import React, { useEffect, useState } from "react";
 import { listReports } from "../api/client.js";
 import CardGrid from "../components/admin/CardGrid.jsx";
 
-// The Reports hub. Organized by the question a person is trying to answer
-// ("Who is still missing a requirement?"), not by table name, and built
-// from the same page shell as Admin Home: admin-shell + admin-section +
-// CardGrid. Everything shown comes from the server's report catalog
-// (backend/src/reporting/registry.js), so adding a report never means
-// editing this file. Reports are read-only; the resource pages still do
-// the editing.
+// The Reports hub, organized by the question a person is trying to answer, not by table.
+// Everything shown comes from the server's report catalog (backend/src/reporting/registry.js),
+// so adding a report never means editing this file. Reports are read-only.
 export default function AdminReports() {
   const [catalog, setCatalog] = useState(null);
   const [error, setError] = useState("");

@@ -31,14 +31,9 @@ function hourSummary(value) {
   return value == null ? "Not set" : hourLabel(value);
 }
 
-// Settings governing the admin+public email dispatch's own schedule,
-// the chat channels' own independent daily schedule and content-type
-// mutes, the one cross-channel restricted-partner safety gate, and email
-// dispatch appearance. Each concern is its own EditableSection card. The
-// subscriber-count block has no fields to edit at all, so it stays plain,
-// non-card content -- the actual review queue (what's waiting to send)
-// is its own top-level "Pending Dispatches" page, same "content, not
-// settings" split Unmatched Emails already has from Email's own page.
+// Email dispatch schedule, chat-channel schedule and content mutes, the cross-channel
+// restricted-partner safety gate, and email appearance, each its own EditableSection card.
+// The review queue lives on the separate "Pending Dispatches" page.
 export default function AdminDispatchSettings() {
   const { enabledFeatures } = useSettings();
   const chatNames = [enabledFeatures.groupme && "GroupMe", enabledFeatures.whatsapp && "WhatsApp"].filter(

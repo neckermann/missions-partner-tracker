@@ -9,26 +9,13 @@ import Wizard from "../components/shared/Wizard.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 
 const COUNTRY_NAMES = Object.keys(COUNTRY_CONTINENTS).sort();
-// Same presets as the detail page's own Preferred Contact Method field
-// (see AdminPartnerDetail.jsx) -- an editable combo, not a closed list,
-// so nothing here forces that field to only ever offer these four.
+// Same presets as the detail page's Preferred Contact Method field (AdminPartnerDetail.jsx);
+// an editable combo, not a closed list.
 
-// Creating a partner asks for the few things you can't fill in later from
-// the record itself: which kind it is, what to call it, and where it is.
-// Everything else -- family, addresses, sending church, trips, support,
-// links -- is edited in place on the partner's own page, section by
-// section, rather than through one form holding the whole record at once.
-// See components/admin/EditableSection.jsx.
-//
-// Phase 6 of the UX-rebuild plan: this is the one creation flow in the
-// app with a genuine case for the Wizard shell -- ~10 real fields across
-// three distinct conceptual groups (who/where, descriptive details,
-// visibility/status), past the plan's own "wizard only worth it past
-// ~5-6 fields" guidance. Every other "+Add X" flow surveyed for this
-// phase (Prayer Requests, One-Time Needs, Support entries, Partner
-// Files, Trips) has 3-6 fields and stays a short single-step form --
-// see this phase's commit message for the full field-count survey and
-// why those are deliberately NOT converted to wizards.
+// Creating a partner asks only for what can't be filled in later: kind, name and location.
+// Everything else is edited in place on the partner's own page (components/admin/EditableSection.jsx).
+// This is the one creation flow that is a Wizard (~10 fields in three groups); the other
+// "+Add X" flows have 3-6 fields and stay single-step.
 export default function AdminPartnerForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

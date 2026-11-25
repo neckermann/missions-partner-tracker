@@ -14,26 +14,13 @@ import {
   templateWrapperMarkup,
 } from "../booklet/templates.js";
 
-// Every page-producing template below ends with this exact placeholder.
-// buildBookletHtml does one pass over the fully-assembled document at the
-// very end, replacing each occurrence in document order with that page's
-// real number (see the comment there). A literal, unlikely-to-collide
-// token rather than a template parameter threaded through every builder
-// function and every call site -- the old pagedjs-based version tracked a
-// hand-maintained `pageCount` integer in parallel with the actual HTML
-// being built, across several branches (missionaries / local orgs /
-// national orgs / notes on or off), which is exactly the kind of
-// bookkeeping that's easy to get subtly wrong. Numbering driven by what
-// literally ends up in the final HTML can't drift from it.
+// Every page-producing template ends with this placeholder. buildBookletHtml makes one pass
+// over the finished document and replaces each occurrence, in order, with that page's number,
+// so numbering can't drift from what is actually in the HTML (no parallel page counter).
 const PAGE_NUM = "@@BOOKLET_PAGE_NUM@@";
 function pageNumberMarkup() {
   return `<div class="booklet-page-number">${PAGE_NUM}</div>`;
 }
-
-// Accent color resolution (ChurchSettings.primaryColor as the default,
-// falling back to a fixed rotation only when no brand color is set) now
-// lives in booklet/templates.js's resolveAccent() -- see its own comment
-// for why, and for the fallback list itself (#322).
 
 function escapeHtml(value) {
   return String(value ?? "").replace(
@@ -42,9 +29,8 @@ function escapeHtml(value) {
   );
 }
 
-// Date-only fields are UTC-midnight ISO strings — build the Date from raw
-// Y/M/D components (not new Date(isoString)) to avoid a timezone-shift
-// off-by-one-day bug, matching AdminMissionaryDetail.jsx's formatDate.
+// Date-only fields are UTC-midnight ISO strings: build the Date from Y/M/D components, not
+// new Date(isoString), to avoid a timezone off-by-one-day.
 
 function renderAddressBlock(label, address) {
   if (!address) return "";
@@ -60,10 +46,8 @@ function renderAddressBlock(label, address) {
     </div>`;
 }
 
-// Adults and children are still separate DB tables (different fields —
-// phone/email only make sense for adults), but display them as one "Family"
-// unit here. `fields.showAdults`/`fields.showChildren` independently gate
-// each half of the same block, so children can still be hidden on their own.
+// Adults and children are separate DB tables but display as one "Family" unit.
+// `fields.showAdults`/`fields.showChildren` gate each half independently.
 function renderFamilyBlock(m, fields) {
   const rows = [];
   if (fields.showAdults) {
@@ -71,10 +55,9 @@ function renderFamilyBlock(m, fields) {
       rows.push(
         `<p><strong>Anniversary:</strong> ${escapeHtml(formatDateLong(m.anniversary, { fallback: "" }))}</p>`
       );
-    // #288: a partner marked NOT safe to contact must not have their phone,
-    // email or preferred method printed in a booklet that's handed out. Names
-    // still print; the details don't, and the staff-only special
-    // instructions (which may say why) are never printed either.
+    // A partner NOT safe to contact must not have their phone, email or preferred method
+    // printed in a handed-out booklet. Names still print; staff-only special instructions
+    // (which may say why) never do.
     const withhold = m.contactLevel === "no_direct";
     const primary = (m.adults || []).find((a) => a.isPrimaryContact) || (m.adults || [])[0];
     if (withhold) {
@@ -102,17 +85,10 @@ function renderFamilyBlock(m, fields) {
   return `<div class="booklet-block"><h3>Family</h3>${rows.join("")}</div>`;
 }
 
-// The booklet is meant to be printed and handed out, same audience as
-// the public site -- so this starts from the identical visibility rule
-// (strategic + explicitly marked public) rather than trusting the admin
-// data source's full list, which includes situational/private ones too.
-// includeInBooklet narrows further (a request can be public-site-only),
-// and maxPerPartner caps how many actually print -- a partner could have
-// a dozen public strategic requests on file over time, and a full printed
-// page of them would crowd out everything else, so this takes the most
-// recent maxPerPartner (already the API's own ordering, see
-// routes/prayerRequests.js). No "ongoing"/"untracked" callout here either,
-// same reasoning as PublicPartnerDetail.jsx and PrayerRequestSection.jsx.
+// The booklet is printed and handed out, so this starts from the public site's visibility rule
+// (strategic + explicitly public), not the admin list, which includes private requests.
+// includeInBooklet narrows further; maxPerPartner caps how many print (most recent, the API's
+// own ordering). No "ongoing"/"untracked" callout, as in PublicPartnerDetail.jsx.
 function renderPrayerRequestsBlock(entity, maxPerPartner) {
   const requests = (entity.prayerRequests || [])
     .filter((p) => p.category === "strategic" && p.isPublic && p.includeInBooklet)
@@ -130,14 +106,12 @@ function renderPrayerRequestsBlock(entity, maxPerPartner) {
   return `<div class="booklet-block"><h3>Prayer Requests</h3>${items}</div>`;
 }
 
-// #257/#271 Finding 4: contactFirstName/contactLastName replace the old
-// single contactName field -- composed back into one display string
-// only here, at render time.
+// contactFirstName/contactLastName are composed into one display string here, at render time.
 function contactFullName(entity) {
   return [entity?.contactFirstName, entity?.contactLastName].filter(Boolean).join(" ");
 }
 
-// `withhold` (a partner not safe to contact, #411): the church or organization's name still prints,
+// `withhold` (partner not safe to contact): the church or organization's name still prints,
 // but not its contact person or phone, which would be a way to reach the partner.
 function renderSendingPartyBlock(m, withhold = false) {
   const parts = [];
@@ -173,14 +147,8 @@ function renderOrgContactBlock(o) {
   return `<div class="booklet-block"><h3>Contact Info</h3>${rows.join("")}</div>`;
 }
 
-// A dedicated facing page: the entry's current prayer requests up top (the
-// same block that used to sit on the detail page itself -- see
-// buildBookletHtml, which now only ever calls renderPrayerRequestsBlock
-// from here), then ruled, spaced lines for handwriting notes and any
-// further requests that come up during prayer. Inserted immediately after
-// an entry's detail page rather than squeezed alongside it, so the detail
-// page's own layout never changes and, once printed/bound, each entry gets
-// its own facing page for this.
+// A facing page for the entry's prayer requests, then ruled lines for handwritten notes.
+// Inserted right after the entry's detail page so the detail layout never changes.
 function buildNotesPageHtml(entity, accent, showPrayerRequests, maxPrayerRequests) {
   return `
     <section class="booklet-page booklet-notes-page" style="--accent:${accent}">
@@ -194,10 +162,8 @@ function buildNotesPageHtml(entity, accent, showPrayerRequests, maxPrayerRequest
     </section>`;
 }
 
-// A genuinely blank page used only to fix booklet-print page alignment (see
-// the pageCount/pad() logic in buildBookletHtml) — labeled rather than
-// silently empty, matching standard print convention for intentional blanks
-// so it doesn't look like a printing error.
+// A blank page used only to fix print alignment (see pad() in buildBookletHtml); labeled so it
+// doesn't look like a printing error.
 function buildBlankPageHtml() {
   return `
     <section class="booklet-page booklet-blank-page">
@@ -206,9 +172,7 @@ function buildBlankPageHtml() {
     </section>`;
 }
 
-// One page per organization — leaner than a missionary page (no family/trip
-// capacity), just the fields explicitly asked for: type/region, supporting
-// since, contact info, overview, and focus.
+// One page per organization: type/region, supporting since, contact info, overview, focus.
 function buildOrganizationPageHtml(o, accent) {
   const eyebrow = [o.orgType, o.fieldDisplayName].filter(Boolean).join(" · ");
 
@@ -227,8 +191,7 @@ function buildOrganizationPageHtml(o, accent) {
     </section>`;
 }
 
-// A lightweight divider page (reuses the cover's styling) marking the start
-// of the Local or National organizations section.
+// A divider page (cover styling) starting the Local or National organizations section.
 function buildSectionDivider(title, accent) {
   return `
     <section class="booklet-cover" style="--accent:${accent}">
@@ -239,10 +202,8 @@ function buildSectionDivider(title, accent) {
     </section>`;
 }
 
-// Lines of a postal address, formatted the same way renderAddressBlock does
-// for a partner's own addresses -- street line(s), then city/state/zip,
-// then country -- but as plain strings rather than that function's
-// labelled <div>, since the back cover has no section heading to attach to.
+// Address lines formatted like renderAddressBlock, but as plain strings (the back cover has
+// no section heading).
 function formatAddressLines(address) {
   if (!address) return [];
   const lines = [address.addressLine1, address.addressLine2].filter(Boolean);
@@ -252,16 +213,9 @@ function formatAddressLines(address) {
   return lines;
 }
 
-// Closing page, always last — simpler than the front cover by design (every
-// reference booklet layout this template set drew from treats the back
-// cover as a plain sign-off, never a repeat of the front cover): the
-// church's logo, name, mailing address, phone and website -- contact
-// information for whoever wants to get in touch after reading, not a
-// restatement of the church's public tagline/about text (that's cover-page
-// or website material, and repeating it here read as filler). A church
-// with none of these configured gets a plain closing page with only the
-// decorative shapes, which is honest about there being nothing to put
-// there rather than inventing text.
+// Closing page, always last: the church's logo, name, mailing address, phone and website,
+// deliberately not a repeat of the tagline/about text. With none configured it is just the
+// decorative shapes.
 function buildBackCoverHtml({ churchName, logo, address, phone, websiteLink, accent }) {
   const addressLines = formatAddressLines(address);
   return `
@@ -284,7 +238,7 @@ function buildMissionaryPageHtml(m, accent, fields) {
   const physical = addressByType(m.addresses, "physical");
   const mailing = addressByType(m.addresses, "mailing");
   // A partner not safe to contact prints no address either, nor their sending party's contact
-  // details (#288, #411): the name and the family's names still print.
+  // details; the name and the family's names still print.
   const unsafe = m.contactLevel === "no_direct";
 
   return `
@@ -351,25 +305,14 @@ function buildBookletHtml({
       ${pageNumberMarkup()}
     </section>`;
 
-  // Booklet/duplex printing folds sheets in half, so opened flat, only
-  // pages (2, 3), (4, 5), (6, 7)... ever actually face each other as a
-  // spread — never (3, 4). For a detail page to always land facing its own
-  // notes page, the pair must start on an even page number. pageCount
-  // tracks the running logical page count as we build; pad() inserts a
-  // blank page (a completely normal thing in real booklet layout) whenever
-  // the count is currently even, right before a run of pairs begins, so
-  // that run starts on the next (even) page. This assumes every page below
-  // renders as exactly one physical page — a missionary/org with an
-  // unusually large amount of content could still spill onto a second
-  // physical page and shift everything after it out of alignment; there's
-  // no way to guarantee fixed page heights in HTML/CSS without truncating
-  // real data, so that's a residual edge case, not something padding fixes.
+  // Duplex booklet printing folds sheets, so only pages (2,3), (4,5)... face each other.
+  // For a detail page to face its notes page, the pair must start on an even page number:
+  // pageCount tracks the logical count and pad() inserts a blank page when it is even,
+  // right before a run of pairs. Assumes each page renders as one physical page; overflowing
+  // content would shift later pages, and HTML/CSS can't fix page heights without truncating data.
   let pageCount = 0;
-  // Prayer requests only ever render on the notes page now (see
-  // buildNotesPageHtml) -- the UI forces showNotesPage on whenever
-  // showPrayerRequests is, but this guards the invariant here too, so a
-  // caller that only sets showPrayerRequests doesn't silently lose that
-  // content.
+  // Prayer requests only render on the notes page. The UI forces showNotesPage whenever
+  // showPrayerRequests is on; this guards the invariant for other callers too.
   const withNotes = !!(fields.showNotesPage || fields.showPrayerRequests);
   function pad() {
     if (withNotes && pageCount % 2 === 0) {
@@ -459,16 +402,12 @@ function buildBookletHtml({
     accent: resolveAccent(templateObj, primaryColor, 0),
   });
 
-  // The template catalog's token set (booklet/templates.js) drives this
-  // wrapper's data-* attributes and --tpl-* custom properties; booklet.css
-  // reads those on every page/section beneath it instead of a per-template
-  // tpl-${template} CSS block (see that file's own header comment).
+  // The template catalog's token set (booklet/templates.js) drives this wrapper's data-*
+  // attributes and --tpl-* properties, which booklet.css reads.
   const { attrString, styleString } = templateWrapperMarkup(templateObj);
   const assembled = `<div class="booklet-doc" ${attrString} style="${styleString}">${cover}${index}${pages}${orgSection}${backCover}</div>`;
 
-  // One pass, numbering every PAGE_NUM placeholder in the order it
-  // actually appears in the document -- see the constant's own comment for
-  // why this replaces a hand-maintained running counter.
+  // Number every PAGE_NUM placeholder in document order (see the constant).
   let pageNumber = 0;
   return assembled.replaceAll(PAGE_NUM, () => String(++pageNumber));
 }
@@ -517,15 +456,12 @@ export default function AdminBooklet() {
     logo,
     primaryColor,
   } = useSettings();
-  // address/phone/websiteLink are withheld from the shared public-settings
-  // payload on purpose (SettingsContext is read even by logged-out
-  // visitors) -- fetched here specifically for the back cover, which is
-  // only ever rendered on this admin-only page.
+  // address/phone/websiteLink are withheld from the public-settings payload on purpose
+  // (SettingsContext is read by logged-out visitors); fetched here for the back cover,
+  // which only renders on this admin-only page.
   const [churchContact, setChurchContact] = useState({});
 
-  // The booklet lays out each partner's family, addresses, sending party
-  // and prayer requests, so this is the one page that asks for the full
-  // record set rather than summary rows.
+  // The booklet needs family, addresses, sending party and prayer requests: the full record set.
   useEffect(() => {
     fetchPartners({ include: "full" }).then(setPartners).catch(console.error);
   }, []);
@@ -533,10 +469,8 @@ export default function AdminBooklet() {
   useEffect(() => {
     if (churchSettings) {
       setChurchContact({
-        // #271 Finding 3: ChurchSettings' address fields are flat columns
-        // now -- reassembled into the nested shape formatAddressLines/
-        // buildBackCoverHtml below already expect, rather than changing
-        // either of those.
+        // ChurchSettings address fields are flat columns; rebuild the nested shape
+        // formatAddressLines/buildBackCoverHtml expect.
         address: {
           addressLine1: churchSettings.addressLine1,
           addressLine2: churchSettings.addressLine2,
@@ -554,9 +488,8 @@ export default function AdminBooklet() {
   const missionaries = useMemo(() => partners.filter((p) => p.kind === "missionary"), [partners]);
   const organizations = useMemo(() => partners.filter((p) => p.kind === "organization"), [partners]);
 
-  // Settings load asynchronously, after this component's initial state is
-  // already set — swap in the custom term as soon as it's ready, but only
-  // if the title is still untouched (don't clobber someone's own edit).
+  // Settings load asynchronously: swap in the custom term once ready, but only if the title
+  // is still untouched.
   useEffect(() => {
     if (!settingsLoading && usePartnerTermInAdmin) {
       setTitle((current) => (current === "Missionary Partners" ? partnerTermPlural : current));
@@ -566,22 +499,15 @@ export default function AdminBooklet() {
   function toggleField(key) {
     setFields((f) => {
       const next = { ...f, [key]: !f[key] };
-      // Prayer requests only ever print on the Notes & Prayer page now (see
-      // buildNotesPageHtml) -- there's nowhere else left for them to show
-      // up, so turning this on has to bring that page with it. The
-      // checkbox below is disabled while this is on, so there's no way
-      // back into the inconsistent state from that side either.
+      // Prayer requests only print on the Notes & Prayer page, so turning them on brings that
+      // page with it (the checkbox is disabled while on, so the states can't diverge).
       if (key === "showPrayerRequests" && next.showPrayerRequests) next.showNotesPage = true;
       return next;
     });
   }
 
-  // Synchronous now that paged.js is gone -- building the HTML string is
-  // just string concatenation, so there's no reason to gate it behind a
-  // button the way the old async pagedjs render was. Depends on
-  // churchContact (an object, replaced wholesale by its own effect above)
-  // rather than its individual fields, which is fine: it's never mutated
-  // in place, only ever replaced.
+  // Depends on churchContact (replaced wholesale by its effect, never mutated) rather than
+  // its individual fields.
   const previewHtml = useMemo(() => {
     const filtered = missionaries.filter((m) => {
       const archivedOk = !m.archived || includeArchived;
@@ -624,29 +550,15 @@ export default function AdminBooklet() {
     churchContact,
   ]);
 
-  // `.booklet-preview` below renders previewHtml directly -- same origin,
-  // same document, ordinary root-relative image URLs that resolve
-  // normally, native @page/break-after pagination instead of a polyfill.
-  // Printing it is an ordinary window.print() with nothing else on the
-  // page: index.css already hides everything but .booklet-preview on
-  // print (the same rule Reports relies on), so there's no second render
-  // pass and no third-party script in the loop at all.
+  // `.booklet-preview` renders previewHtml directly; printing is a plain window.print().
+  // index.css hides everything but .booklet-preview on print (same rule Reports uses).
   function handlePrint() {
     window.print();
   }
 
-  // Two-pane layout (.booklet-layout, index.css): controls on the left,
-  // the live preview pinned on the right so it's visible without
-  // scrolling past every control first -- see AdminReport.jsx/
-  // backend/src/reporting/ for the "configure, see a live result"
-  // precedent this follows, adapted into a side-by-side pane since a
-  // print preview (fixed 8.5in page width) doesn't fit FilterBar's
-  // horizontal-row shape the way a report's filters do. Only
-  // .booklet-controls carries `no-print` -- the preview itself must stay
-  // outside that wrapper (it's what the Print Booklet button actually
-  // prints, via the .booklet-preview reveal rule in index.css), which is
-  // why this isn't nested inside a single "admin-shell no-print" div the
-  // way a plain settings page would be.
+  // Two-pane layout (.booklet-layout, index.css): controls left, live preview pinned right.
+  // Only .booklet-controls carries `no-print`; the preview must stay outside that wrapper
+  // because it is what Print Booklet prints.
   return (
     <div className="admin-shell booklet-admin-shell">
       <div className="booklet-layout">
@@ -662,15 +574,9 @@ export default function AdminBooklet() {
               <h3>Look &amp; Feel</h3>
               <div className="booklet-template-picker">
                 {TEMPLATE_OPTIONS.map((t) => {
-                  // A lightweight visual hint, not a live render of the real
-                  // template -- plain CSS shapes driven by the same token
-                  // object templates.js/booklet.css already use
-                  // (shapeStyle/photoShape/frameStyle), so a future
-                  // template's swatch is correct for free rather than
-                  // needing its own hand-drawn entry here. accent reuses
-                  // resolveAccent() (ChurchSettings.primaryColor, same as
-                  // the real booklet) so the swatch reflects the church's
-                  // actual brand color, not a hardcoded hex.
+                  // A visual hint driven by the same tokens as templates.js/booklet.css
+                  // (shapeStyle/photoShape/frameStyle); accent uses resolveAccent() so it
+                  // reflects the church's brand color.
                   const tpl = getTemplate(t.value);
                   const accent = resolveAccent(tpl, primaryColor, 0);
                   const selected = template === t.value;
@@ -743,10 +649,8 @@ export default function AdminBooklet() {
               <h3>What Shows on Each Page</h3>
               <div className="booklet-field-grid">
                 {FIELD_OPTIONS.map(([key, label, tooltip]) => {
-                  // Prayer requests now print at the top of the Notes &
-                  // Prayer page itself, so that page can't be turned off
-                  // while they're showing -- there'd be nowhere left to
-                  // print them.
+                  // Prayer requests print on the Notes & Prayer page, so it can't be turned
+                  // off while they show.
                   const lockedOn = key === "showNotesPage" && fields.showPrayerRequests;
                   const on = fields[key];
                   return (

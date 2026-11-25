@@ -5,11 +5,8 @@ import useChurchSettings from "../hooks/useChurchSettings.js";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 
-// A plain div, not <label> -- .admin-shell label forces flex-direction:
-// column (stacked, for the usual label-above-input fields elsewhere in
-// this app), which isn't what a toggle row wants. The checkbox itself
-// renders as a pill switch via CSS alone (see index.css) -- same
-// input[type="checkbox"] every other form in this app uses.
+// A plain div, not <label>: `.admin-shell label` forces flex-direction: column, which a toggle
+// row doesn't want. The checkbox renders as a pill switch via CSS alone (see index.css).
 function FeatureToggleRow({ feature, checked, onToggle, disabled = false, nested = false, disabledNote }) {
   return (
     <div
@@ -55,10 +52,9 @@ function GroupFeatureList({ features, enabledFeatures }) {
   );
 }
 
-// Each card edits only its own group's keys, but `enabledFeatures` is one
-// JSON column server-side -- onSave merges the card's edited subset into
-// the full, current object before saving, so one group's save can never
-// wipe out another group's already-saved toggles.
+// Each card edits only its own group's keys, but `enabledFeatures` is one JSON column
+// server-side: onSave merges the edited subset into the full current object so one group's
+// save can't wipe another's toggles.
 function FeatureGroupCard({ title, features, enabledFeatures, onSaveGroup, onSaved, nestedToggle }) {
   return (
     <EditableSection
@@ -123,15 +119,10 @@ export default function AdminSettingsFeatures() {
     refreshSettings();
   }
 
-  // Merge this card's edited subset into the full enabledFeatures object,
-  // then save the whole thing -- enabledFeatures is one JSON column, so a
-  // partial PUT of just this group's keys would otherwise overwrite every
-  // other group's toggles with nothing.
+  // Merge this card's subset into the full enabledFeatures object before saving (one JSON column).
   async function saveGroup(draft) {
     let merged = { ...enabledFeatures, ...draft };
-    // publicPrayerDigest does nothing without outboundEmail actually
-    // sending mail -- force it back off the moment its one real
-    // prerequisite goes off, same as before this was split into cards.
+    // publicPrayerDigest does nothing without outboundEmail, so force it off with its prerequisite.
     if (!merged.outboundEmail && merged.publicPrayerDigest) {
       merged = { ...merged, publicPrayerDigest: false };
     }
