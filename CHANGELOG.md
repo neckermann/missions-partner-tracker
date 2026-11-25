@@ -16,6 +16,8 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+## [0.1.0-beta.1] - 2026-11-25
+
 ### Added
 
 - **One church-wide two-factor requirement ([#385](https://github.com/neckermann/missions-partner-tracker/issues/385)).** Manage Users has a **Two-factor sign-in** panel: **Require it for everyone** makes every account, whatever its role, set up two-factor. It shows how many active accounts haven't yet. While it's on, an account that hasn't set it up is sent to enrolment at sign-in and gets no session until it does; a session open when you turn it on stops working at the next request (the person is taken back to sign-in, where they enrol); and nobody can switch it off for themselves. Turning it on needs the admin doing it to have enrolled first (so it can't lock them out) and is refused on the public demo, and a demo ignores it entirely (its reset switches it off, so a first-run `/setup` can't leave visitors locked out). A fresh install (first-run `/setup`) starts with it **on**: the first admin creates the account, signs in once and sets up an authenticator app. It is off on an install that predates it, and `createAdmin.js` leaves it off. Changes are in the Audit log. A 401 on an admin page now sends the person to sign in (their place remembered) instead of leaving the page showing errors, which also covers an expired session.
