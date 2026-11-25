@@ -258,7 +258,7 @@ not just what topic they fall under:
     child (Name, Birthday).
   - **Languages Spoken** — a free-text tag list.
   - **Emergency Contact** — Name, Phone, Email.
-- **Location & Contact**:
+- **Contact & Care**:
   - **Serving Location** — Field/Region Display Name (shown publicly
     even for a restricted partner, so keep it broad — "East Africa," not
     a city, or it undoes the restriction above), a full address (country
@@ -986,7 +986,7 @@ The app never contacts a partner on its own — a person always does. If you're 
 
 ### Support preferences
 
-With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), each partner's page gets a **Support preferences** card, under its own **Caring for them** heading (there is a button for it in the jump bar): the ways your church and their care team can support them, and which of them this partner has asked for.
+With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), each partner's page gets a **Support preferences** card, at the top of the **Contact & Care** section (jump bar): the ways your church and their care team can support them, and which of them this partner has asked for.
 
 - **The menu is your church's.** An admin edits it under **Settings → Support Preferences**: options are put in groups (rename a group any time), and each is something you **offer** (tick it if wanted), a **pick one** or **pick any** question (with an optional "something else" box), or a **free-text** question. From an empty menu, **Add an example set** gives a starting list (housing, transportation, speaking about the partner, prayer, care packages, how to send gifts and so on) to edit or delete. **Retire** an option to stop offering it while keeping the answers already given, or **Delete** it to remove it and those answers.
 - **Record a partner's choices** with **+ Record preferences** (or **Edit preferences**) on their page, after a conversation: tick what they want, pick their answers, add a note. One set per partner, so a couple or family shares it. Admins, editors and a guest on that partner's care team can record it; a viewer can read it. A trip leader never sees it.

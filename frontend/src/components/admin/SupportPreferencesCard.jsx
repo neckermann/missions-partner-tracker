@@ -38,7 +38,7 @@ const rowLabel = {
   fontSize: "0.95rem",
 };
 
-export default function SupportPreferencesCard({ partnerId, isAdmin = false, inGroup = false }) {
+export default function SupportPreferencesCard({ partnerId, isAdmin = false }) {
   const [data, setData] = useState(null);
   const [hidden, setHidden] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -139,15 +139,7 @@ export default function SupportPreferencesCard({ partnerId, isAdmin = false, inG
       )}
     </div>
   );
-  // On the partner page it sits under its own "Caring for them" heading, which only shows when
-  // the card does (it renders nothing for someone who can't reach it).
-  if (!inGroup) return card;
-  return (
-    <div className="admin-section-group" id="section-caring">
-      <h2 className="admin-group-heading">Caring for them</h2>
-      {card}
-    </div>
-  );
+  return card;
 }
 
 // "Last updated by Dana on 11/24/2026" from the most recent edit across the responses.

@@ -765,9 +765,7 @@ export default function AdminPartnerDetail() {
         {[
           { label: "Overview", href: "#section-overview" },
           !isOrg && { label: "Family & Personal", href: "#section-family" },
-          enabledFeatures.supportPreferences &&
-            enabledFeatures.careTeam && { label: "Caring for them", href: "#section-caring" },
-          { label: "Location & Contact", href: "#section-location" },
+          { label: "Contact & Care", href: "#section-location" },
           ((!isGuest && enabledFeatures.monthlySupport) ||
             (enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)))) && {
             label: isGuest ? "One-Time Needs" : "Financial",
@@ -1049,12 +1047,12 @@ export default function AdminPartnerDetail() {
           )}
         </div>
 
-        {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
-          <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} inGroup />
-        )}
-
         <div className="admin-section-group" id="section-location">
-          <h2 className="admin-group-heading">Location &amp; Contact</h2>
+          <h2 className="admin-group-heading">Contact &amp; Care</h2>
+
+          {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
+            <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
+          )}
 
           <EditableSection
             title="Serving Location"
