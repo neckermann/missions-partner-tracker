@@ -23,4 +23,10 @@ const DEMO_DISABLED_FEATURES = [];
 // { feature: false } for each, to spread over a feature object.
 const demoDisabledFeatureFlags = () => Object.fromEntries(DEMO_DISABLED_FEATURES.map((k) => [k, false]));
 
-module.exports = { isDemoDeployment, DEMO_DISABLED_FEATURES, demoDisabledFeatureFlags };
+// Adding or removing a sign-in factor normally ends the account's other sessions. On a demo the
+// logins are shared, so that would sign every other visitor out: leave the sessions alone there.
+function endOtherSessions() {
+  return isDemoDeployment() ? {} : { sessionVersion: { increment: 1 } };
+}
+
+module.exports = { isDemoDeployment, endOtherSessions, DEMO_DISABLED_FEATURES, demoDisabledFeatureFlags };

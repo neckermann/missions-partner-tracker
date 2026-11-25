@@ -16,6 +16,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Changed
+
+- **A public demo lets visitors try passkeys and an authenticator app ([#386](https://github.com/neckermann/missions-partner-tracker/issues/386)).** Adding or removing one works, but the demo never asks for a second factor at sign-in and doesn't end other visitors' sessions, so the shared logins keep working.
+
 ### Added
 
 - **Visitors can choose Light or Dark on the public site** with a small switch in the header; it follows their device unless they pick one.
