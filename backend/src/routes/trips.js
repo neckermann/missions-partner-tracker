@@ -833,6 +833,21 @@ const flightSegmentSchema = z.object({
   arrivalAt: z.coerce.date().optional().nullable(),
 });
 
+// Every id must belong to this trip (#412). Without it, a guest on one trip who knew another trip's
+// participant or requirement ids could attach, overwrite or read that trip's records.
+async function idsOutsideTrip(tripId, { participantIds = [], requirementId } = {}) {
+  const participants = [...new Set(participantIds.filter(Boolean))];
+  if (participants.length) {
+    const found = await prisma.tripParticipant.count({ where: { tripId, id: { in: participants } } });
+    if (found !== participants.length) return "One or more people aren't on this trip";
+  }
+  if (requirementId) {
+    const found = await prisma.tripRequirement.count({ where: { tripId, id: requirementId } });
+    if (!found) return "That requirement isn't on this trip";
+  }
+  return null;
+}
+
 router.post(
   "/:id/flight-segments",
   requireRole("admin", "editor", "guest"),
@@ -840,6 +855,8 @@ router.post(
   async (req, res, next) => {
     try {
       const { participantIds, ...data } = flightSegmentSchema.parse(req.body);
+      const outside = await idsOutsideTrip(req.params.id, { participantIds });
+      if (outside) return res.status(400).json({ error: outside });
       const created = await prisma.tripFlightSegment.create({
         data: {
           tripId: req.params.id,
@@ -864,6 +881,12 @@ router.put(
   async (req, res, next) => {
     try {
       const { participantIds, ...data } = flightSegmentSchema.partial().parse(req.body);
+      const segment = await prisma.tripFlightSegment.findUnique({
+        where: { id: req.params.id },
+        select: { tripId: true },
+      });
+      const outside = await idsOutsideTrip(segment?.tripId, { participantIds });
+      if (outside) return res.status(400).json({ error: outside });
       const updated = await prisma.tripFlightSegment.update({
         where: { id: req.params.id },
         data: {
@@ -908,6 +931,11 @@ router.post(
     try {
       if (!req.file) return res.status(400).json({ error: "No file provided" });
       const { participantId, requirementId, title } = req.body;
+      const outside = await idsOutsideTrip(req.params.id, {
+        participantIds: participantId ? [participantId] : [],
+        requirementId,
+      });
+      if (outside) return res.status(400).json({ error: outside });
       const bytes = req.file.buffer;
       const meta = {
         tripId: req.params.id,
@@ -1001,6 +1029,10 @@ router.post(
   async (req, res, next) => {
     try {
       const data = contributionSchema.parse(req.body);
+      const outside = await idsOutsideTrip(req.params.id, {
+        participantIds: data.participantId ? [data.participantId] : [],
+      });
+      if (outside) return res.status(400).json({ error: outside });
       const created = await prisma.tripContribution.create({ data: { ...data, tripId: req.params.id } });
       res.status(201).json(created);
     } catch (err) {

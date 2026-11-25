@@ -133,6 +133,8 @@ const EXCLUDED_MODELS = new Set([
   // socket -- see schema.prisma's own comment on this model, and MODELS'
   // comment above.
   "WhatsAppAuthEntry",
+  // Used passkey challenges (#412): seconds-lived security state, deleted as it expires.
+  "SpentPasskeyChallenge",
 ]);
 
 // Prisma's generated client exposes each model under the camelCase of

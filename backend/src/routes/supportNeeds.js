@@ -3,6 +3,7 @@ const { withSendingChurch } = require("../utils/sendingChurch");
 
 const { z } = require("zod");
 const prisma = require("../prismaClient");
+const { sourceFileProblem } = require("../utils/sourceFile");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { readableNeedPartnerIds, isOnCareTeamFor } = require("../utils/guestAccess");
 const { requireFeature } = require("../middleware/requireFeature");
@@ -167,6 +168,10 @@ router.post("/", requireRole("admin", "editor", "viewer", "guest"), async (req, 
     if (!staff && !(await isOnCareTeamFor(req.user, data.partnerId))) {
       return res.status(403).json(FORBIDDEN);
     }
+    {
+      const problem = await sourceFileProblem(data.sourceFileId, data.partnerId);
+      if (problem) return res.status(400).json({ error: problem });
+    }
     const created = await prisma.supportNeed.create({ data, include: supportNeedInclude });
 
     // Best-effort: notifySupportNeedCreated (utils/dispatchRecording.js)
@@ -229,6 +234,14 @@ router.put("/:id", requireRole("admin", "editor", "viewer", "guest"), async (req
           })
         : null;
 
+    if (data.sourceFileId) {
+      const current = await prisma.supportNeed.findUnique({
+        where: { id: req.params.id },
+        select: { partnerId: true },
+      });
+      const problem = await sourceFileProblem(data.sourceFileId, data.partnerId ?? current?.partnerId);
+      if (problem) return res.status(400).json({ error: problem });
+    }
     const updated = await prisma.supportNeed.update({
       where: { id: req.params.id },
       data,
