@@ -952,8 +952,26 @@ a trip leader none; a viewer reads). Nothing here is public, in the booklet or a
 are in `backup.js`'s `MODELS`. The _Survey responses_ report lists who is waiting, who answered and who has
 not been sent a survey.
 
-Deferred: profile refresh (a survey proposing changes to partner data), bell alerts for new answers, scheduled
-reminders, per-adult responses, and offering the support-preferences menu as a survey.
+**Templates.** `utils/surveyTemplates.js` holds a few built-in starting points (Care check-in, Annual update,
+Furlough planning); `POST /api/surveys/from-template` copies one into ordinary `Survey`/`SurveyQuestion` rows, so
+nothing stays linked to the file and no church's list lives in code.
+
+**Updating the record from answers.** A `SurveyQuestion.field` links a question to a key in
+`utils/surveyFields.js` (a deliberately short list: primary contact's phone, email and preferred method,
+emergency contact, a one-line overview, and `photo`; never visibility, restricted status, location, contact level or
+names). When a response is submitted, `proposeFromResponse` (`utils/surveyProposals.js`) replaces the response's pending
+`SurveyProposal` rows with one per linked answer that differs from the record (a photo always proposes). It writes
+nothing to the record. `routes/surveyUpdates.js` (admin/editor, behind `surveys` + `careTeam`) lists them; **approve**
+validates the value (or an edited one) and writes it through the same columns the partner page edits, inside the
+approver's request so last-edited-by and the audit log (`survey.update_approved`) credit them; **reject** leaves the
+record alone. A decided value for the same question and response is not proposed again. A partner's photo arrives at
+`POST /api/public/survey-uploads/:token/:questionId` (own 7 MB body limit and a tighter rate limit; JPEG, PNG, WebP or
+HEIC, signature-checked, HEIC stored as JPEG, 5 MB cap), is held in `SurveyUpload`, and becomes a `Photo` only on approval;
+a rejected one is deleted. The review route serves a held photo with `nosniff` and a sandboxing CSP. Both new tables are in
+`backup.js`'s `MODELS`. The _Survey updates_ bell category counts pending proposals.
+
+Deferred: bell alerts for new answers, scheduled reminders, per-adult responses, offering the support-preferences menu
+as a survey, and linking a question to a mailing address or other multi-column fields.
 
 ### 5.8 Wrapping up a trip (#358)
 
