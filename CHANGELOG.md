@@ -18,6 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Changed
 
+- **A survey's page follows what you are doing.** A draft shows Details, Questions, then Send. Once it is open it leads with Send and the Answers, with the long question list and details below; a closed survey leads with its Answers.
 - **A public demo lets visitors try passkeys and an authenticator app ([#386](https://github.com/neckermann/missions-partner-tracker/issues/386)).** Adding or removing one works, but the demo never asks for a second factor at sign-in and doesn't end other visitors' sessions, so the shared logins keep working.
 
 ### Added
@@ -50,6 +51,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- **A demo no longer emails its seeded accounts on a schedule.** The daily key-date email (and any other scheduled email) was still going out from the demo, because the worker that runs the schedules never had the variable that marks a demo, so it bounced and spent the email plan. The demo reset now records that it is a demo in the database, every process reads it, and sending email is skipped on a demo as a whole.
 - **A partner page no longer fails when a feature is switched off.** With Prayer Requests, Newsletters & Docs, Monthly support or One-time needs off, every partner page showed "This partner wasn't found", because it still asked for those lists. It now asks only for what is on. The Contact Log's "Updates to pass on" and newsletter lines also respect those switches, and a survey's Send section says so up front (and points to **Get link**) when Email (Sending) is off. A new test runs the app with every optional feature off.
 - **A row that opens a record is clickable on its own, and looks it.** The duplicate Open (Partners), View (Trips) and View details (trip team) buttons are gone; clickable rows show a pointer, a link-coloured first cell, and a focus ring, and open with Enter or Space.
 - **Dark mode is readable on every page ([#418](https://github.com/neckermann/missions-partner-tracker/issues/418)).** Many pages used hardcoded greys and whites that ignored the theme, so headings, help text, table cells and tabs were nearly invisible in dark mode. They now use the theme colours, and a new check (`frontend/e2e/contrast.spec.js`) fails the build if text on a public or admin page drops below a readable contrast in either theme.

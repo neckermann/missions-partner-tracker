@@ -800,8 +800,12 @@ special instructions on their page, never the instructions themselves.
 email would only bounce and spend the email plan. `utils/demoMode.js` lists the
 features a demo keeps off (`keyDates`); the reset script and the seed (which
 rewrites the feature list after the reset script does) both apply it, and
-`checkAndSendKeyDateReminders` returns immediately when `DEMO_RESET_TOKEN` is
-set, as a backstop for the published admin login switching the flag on.
+`checkAndSendKeyDateReminders` returns immediately on a demo, as a backstop for the
+published admin login switching the flag on. A demo is known two ways: the
+`DEMO_RESET_TOKEN` variable (web service only) or `ChurchSettings.demoMode`, which the
+demo reset writes so the separate worker process (which does not get the variable)
+agrees. `sendEmail` and `sendEmailBatch` skip every send on a demo, so no scheduled
+or triggered email can reach a seeded account.
 
 ### 5.5 What flows to the care team (#292 Phase 1)
 

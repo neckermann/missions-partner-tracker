@@ -1,5 +1,6 @@
 // The shared admin+public send loop.
 const prisma = require("../prismaClient");
+const { isDemoInstance } = require("./demoMode");
 const { DIGEST_ROLES } = require("./digestRoles");
 const { isFeatureEnabled } = require("./features");
 const { sendEmailBatch } = require("./email");
@@ -128,6 +129,7 @@ async function sendToRecipients(rows, partnerById, recipients, settings) {
 // tier's column; empty, touching nothing, if outboundEmail is off or nothing to send.
 async function sendDigestTier(tier, settings) {
   if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) return { consideredIds: [] };
+  if (await isDemoInstance()) return { consideredIds: [] };
 
   const rows = await prisma.dispatchRecord.findMany({ orderBy: { createdAt: "asc" } });
   if (rows.length === 0) return { consideredIds: [] };
