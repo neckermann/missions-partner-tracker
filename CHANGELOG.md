@@ -18,6 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Changed
 
+- **Close works on the Care team popup (and any popup opened from a clickable row).** Clicking Close reopened it, because the click reached the row behind it; only clicking outside worked. Fixed once in the shared popup, so it holds everywhere.
 - **A survey's page follows what you are doing.** A draft shows Details, Questions, then Send. Once it is open it leads with Send and the Answers, with the long question list and details below; a closed survey leads with its Answers.
 - **A public demo lets visitors try passkeys and an authenticator app ([#386](https://github.com/neckermann/missions-partner-tracker/issues/386)).** Adding or removing one works, but the demo never asks for a second factor at sign-in and doesn't end other visitors' sessions, so the shared logins keep working.
 
