@@ -8,6 +8,8 @@ const { appBaseUrl } = require("./dispatchBlurbs");
 const { hashToken, generateToken } = require("./passwordSetup");
 
 const LINK_TTL_MINUTES = 15;
+// At most one emailed link per account in this window (#412).
+const LINK_COOLDOWN_MS = 60 * 1000;
 
 // Never on a public demo (shared logins, no email), whatever a leftover value says.
 async function isPasswordlessOn(db = prisma) {
@@ -113,6 +115,7 @@ async function sendSignInLinkEmail(user) {
 
 module.exports = {
   LINK_TTL_MINUTES,
+  LINK_COOLDOWN_MS,
   isPasswordlessOn,
   isEmailReady,
   passwordlessBlocker,

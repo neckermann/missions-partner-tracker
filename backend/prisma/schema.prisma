@@ -2606,6 +2606,17 @@ model SignInLinkToken {
   @@index([expiresAt])
 }
 
+// #412: a passkey challenge that has been used. A challenge travels to the browser and back inside a
+// short-lived signed token, and is accepted once: its id is recorded here until it would have
+// expired anyway, so "once" holds across restarts and across more than one instance. Rows are
+// deleted as they expire; nothing here is worth backing up.
+model SpentPasskeyChallenge {
+  id        String   @id
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
 // #386: a passkey (WebAuthn credential) a person has added as a second sign-in factor, next to or
 // instead of an authenticator app. Only public material is stored: the credential id and the public
 // key (both base64url text), the signature counter, and the transports the browser reported. A
