@@ -1010,6 +1010,14 @@ With **Partner surveys** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-
 - **See the answers** on the survey's page under **Answers**, or on the partner's card. **Reopen** lets a partner change a submitted response. **Reports → Survey responses** lists who is waiting, who answered, and who has not been sent a survey.
 - **Who can see it:** staff and the partner's care team only. It never appears on the public site, in the booklet, or in dispatches.
 
+![A survey's page in Settings: progress, details and questions](docs/assets/screenshots/surveys-detail.png)
+
+![Choosing who to send a personal link to](docs/assets/screenshots/surveys-send.png)
+
+![Filling a survey in for a partner from their page](docs/assets/screenshots/surveys-card-fill.png)
+
+![What a partner sees on their phone](docs/assets/screenshots/surveys-partner-page.png)
+
 It records preferences; it doesn't schedule or assign anything, and the app never contacts a partner for you.
 
 ## Settings
