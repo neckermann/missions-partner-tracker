@@ -85,6 +85,11 @@ const MODELS = [
   "keyDateReminder", // -> partner, user
   "supportOption", // standalone: the church's menu
   "partnerSupportPreference", // -> partner, supportOption
+  "survey", // standalone: the church's surveys
+  "surveyQuestion", // -> survey
+  "surveyInvite", // -> survey, partner (token hash only)
+  "surveyResponse", // -> survey, partner
+  "surveyAnswer", // -> surveyResponse, surveyQuestion
   "auditLog", // standalone: ids and snapshots, no FKs
   "savedReport", // savedReport.ownerId -> user
   "reportSchedule", // reportSchedule.savedReportId -> savedReport

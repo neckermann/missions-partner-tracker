@@ -22,6 +22,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Added
 
+- **Partner surveys** (#419, off by default; needs Care teams). Build short surveys under Settings → Surveys, send each partner a personal link (a person starts every send, and the app never emails a restricted partner or one marked not to be contacted directly), or fill one in for them from their page. Answers show on the partner's page for staff and the care team only. Adds a Survey responses report. Profile refresh, bell alerts and scheduled reminders are not part of this first release.
 - **Admin list pages open the same way.** Partners, Prayer Requests, One-Time Needs, Monthly Support, Newsletters & Docs, Pending Dispatches, Unmatched Emails and Trips now share one heading block (title, count line, main buttons on the right, short description); Monthly Support's total uses the same stat tile as Trips; the Users page spacing was fixed; and " -- " in page copy became a dash.
 - **Support preferences take less room.** The card on a partner's page is one line (how many are recorded, and which groups) with **View all →** opening everything in a popup; it now looks and works like the Monthly Support and One-Time Needs cards.
 - **No more silent key-date reminders.** Care Team Settings warns when no default lead is set, and a partner's care team line tells every staff member where reminders go until a team is set.

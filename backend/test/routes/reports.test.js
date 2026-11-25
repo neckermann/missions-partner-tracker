@@ -58,6 +58,7 @@ before(async () => {
     trips: true,
     careTeam: true, // the care-team-coverage report only exists while this is on
     supportPreferences: true, // likewise the support-preferences report
+    surveys: true, // and the survey-responses report
   });
 });
 
@@ -74,7 +75,7 @@ describe("GET /api/reports (catalog)", () => {
     assert.equal(res.status, 200);
     const ids = res.body.reports.map((r) => r.id);
     assert.ok(ids.includes("users-access"), "admin sees the admin-only report");
-    assert.equal(ids.length, 18, "every report in the registry is listed for an admin");
+    assert.equal(ids.length, 19, "every report in the registry is listed for an admin");
   });
 
   test("a viewer does not see the admin-only report", async () => {

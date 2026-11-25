@@ -2508,3 +2508,19 @@ button.report-summary-item[aria-pressed="true"] {
     display: none !important;
   }
 }
+
+/* Partner surveys: one builder question and the recipient pick list. */
+.survey-question-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.survey-recipients {
+  max-height: 22rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+}

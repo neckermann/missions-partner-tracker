@@ -8,6 +8,7 @@ import PublicTripOpportunities from "./pages/PublicTripOpportunities.jsx";
 import PublicTripApplication from "./pages/PublicTripApplication.jsx";
 import PublicTripParticipant from "./pages/PublicTripParticipant.jsx";
 import PublicTripAccessRecovery from "./pages/PublicTripAccessRecovery.jsx";
+import PublicSurvey from "./pages/PublicSurvey.jsx";
 import Login from "./pages/Login.jsx";
 import SignInLink from "./pages/SignInLink.jsx";
 import Setup from "./pages/Setup.jsx";
@@ -64,6 +65,8 @@ const AdminSettingsTrips = lazy(() => import("./pages/AdminSettingsTrips.jsx"));
 const AdminSettingsCareTeam = lazy(() => import("./pages/AdminSettingsCareTeam.jsx"));
 const AdminTripWrapUp = lazy(() => import("./pages/AdminTripWrapUp.jsx"));
 const AdminSettingsSupportPreferences = lazy(() => import("./pages/AdminSettingsSupportPreferences.jsx"));
+const AdminSettingsSurveys = lazy(() => import("./pages/AdminSettingsSurveys.jsx"));
+const AdminSettingsSurveyDetail = lazy(() => import("./pages/AdminSettingsSurveyDetail.jsx"));
 const AdminSettingsAudit = lazy(() => import("./pages/AdminSettingsAudit.jsx"));
 const AdminPartnerFiles = lazy(() => import("./pages/AdminPartnerFiles.jsx"));
 
@@ -129,6 +132,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               <Route path="/trip-support-raising/:shareToken" element={<PublicTripParticipant />} />
               <Route path="/my-trip" element={<PublicTripParticipant />} />
               <Route path="/trip-access-recovery" element={<PublicTripAccessRecovery />} />
+              <Route path="/survey/:token" element={<PublicSurvey />} />
               <Route path="/login" element={<Login />} />
               <Route path="/login/link" element={<SignInLink />} />
               <Route path="/setup" element={<Setup />} />
@@ -324,6 +328,22 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     element={
                       <RequireAdminFeature feature="supportPreferences">
                         <AdminSettingsSupportPreferences />
+                      </RequireAdminFeature>
+                    }
+                  />
+                  <Route
+                    path="surveys"
+                    element={
+                      <RequireAdminFeature feature="surveys">
+                        <AdminSettingsSurveys />
+                      </RequireAdminFeature>
+                    }
+                  />
+                  <Route
+                    path="surveys/:id"
+                    element={
+                      <RequireAdminFeature feature="surveys">
+                        <AdminSettingsSurveyDetail />
                       </RequireAdminFeature>
                     }
                   />

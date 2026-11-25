@@ -1125,6 +1125,69 @@ export async function savePartnerSupportPreferences(partnerId, preferences) {
   return data;
 }
 
+// Partner surveys (gated by surveys + careTeam; 404 when off).
+export async function fetchSurveys() {
+  const { data } = await api.get("/surveys");
+  return data.surveys;
+}
+export async function createSurvey(body) {
+  const { data } = await api.post("/surveys", body);
+  return data;
+}
+export async function fetchSurvey(id) {
+  const { data } = await api.get(`/surveys/${id}`);
+  return data;
+}
+export async function updateSurvey(id, patch) {
+  const { data } = await api.put(`/surveys/${id}`, patch);
+  return data;
+}
+export async function deleteSurvey(id) {
+  await api.delete(`/surveys/${id}`);
+}
+export async function saveSurveyQuestions(id, questions) {
+  const { data } = await api.put(`/surveys/${id}/questions`, { questions });
+  return data.questions;
+}
+export async function fetchSurveyRecipients(id) {
+  const { data } = await api.get(`/surveys/${id}/recipients`);
+  return data.recipients;
+}
+// -> { sent, skipped: [{ partnerId, name, reason }] }
+export async function sendSurvey(id, partnerIds, reminder = false) {
+  const { data } = await api.post(`/surveys/${id}/send`, { partnerIds, reminder });
+  return data;
+}
+export async function fetchSurveyResponses(id) {
+  const { data } = await api.get(`/surveys/${id}/responses`);
+  return data;
+}
+// { canEdit, surveys: [{ id, title, intro, status, questions, response, invite }] }
+export async function fetchPartnerSurveys(partnerId) {
+  const { data } = await api.get(`/surveys/partner/${partnerId}`);
+  return data;
+}
+export async function savePartnerSurvey(surveyId, partnerId, answers, submit) {
+  const { data } = await api.put(`/surveys/${surveyId}/partner/${partnerId}`, { answers, submit });
+  return data;
+}
+export async function reopenSurveyResponse(surveyId, partnerId) {
+  await api.post(`/surveys/${surveyId}/partner/${partnerId}/reopen`);
+}
+// The partner's own page, reached by the link in their email (no login).
+export async function fetchPublicSurvey(token) {
+  const { data } = await api.get(`/public/surveys/${encodeURIComponent(token)}`);
+  return data;
+}
+export async function savePublicSurvey(token, answers) {
+  const { data } = await api.put(`/public/surveys/${encodeURIComponent(token)}`, { answers });
+  return data;
+}
+export async function submitPublicSurvey(token, answers) {
+  const { data } = await api.post(`/public/surveys/${encodeURIComponent(token)}/submit`, { answers });
+  return data;
+}
+
 // The partners this login may read, as { id, kind, displayName, archived }: all of them for a
 // full role, only grant-reachable ones for a guest. For pickers when a guest can't list the directory.
 export async function fetchReachablePartners() {

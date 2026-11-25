@@ -382,3 +382,43 @@ test("last heard from counts a church visit, and defaults to the church's quiet 
   const explicit = run("last-heard-from", { staleDays: "10" }, data(30));
   assert.deepStrictEqual(explicit.rows.map((r) => r.partnerName).sort(), ["Never", "Visited"]);
 });
+
+test("survey responses lists who is waiting, who answered and who has not been sent", () => {
+  const data = {
+    surveys: [
+      { id: "s1", title: "Check-in", status: "open" },
+      { id: "s2", title: "Old poll", status: "closed" },
+    ],
+    partners: [
+      {
+        id: "a",
+        displayName: "Ann",
+        surveyInvites: [{ surveyId: "s1", sentAt: day("2026-11-10") }],
+        surveyResponses: [{ surveyId: "s1", submittedAt: day("2026-11-12") }],
+      },
+      {
+        id: "b",
+        displayName: "Bob",
+        surveyInvites: [{ surveyId: "s1", sentAt: day("2026-11-10") }],
+        surveyResponses: [],
+      },
+      { id: "c", displayName: "Cy", surveyInvites: [], surveyResponses: [] },
+    ],
+  };
+  const waiting = run("survey-progress", {}, data);
+  assert.deepEqual(
+    waiting.rows.map((r) => [r.partnerName, r.survey]),
+    [["Bob", "Check-in"]]
+  );
+  const answered = run("survey-progress", { show: "answered" }, data);
+  assert.deepEqual(
+    answered.rows.map((r) => r.partnerName),
+    ["Ann"]
+  );
+  const notSent = run("survey-progress", { show: "not-sent" }, data);
+  assert.deepEqual(
+    notSent.rows.map((r) => r.partnerName),
+    ["Cy"],
+    "a closed survey isn't offered for sending"
+  );
+});
