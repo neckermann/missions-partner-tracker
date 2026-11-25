@@ -434,6 +434,12 @@ export async function fetchContactLog(params = {}) {
   const { data } = await api.get("/contact-log", { params });
   return data;
 }
+// Every entry this login may read, newest first, with optional partnerId/contactType/direction/topic
+// filters, paged (limit/offset): { rows, total, hasMore }.
+export async function fetchContactLogAll(params = {}) {
+  const { data } = await api.get("/contact-log/all", { params });
+  return data;
+}
 // Church visits and newsletters filed, read-only, shown alongside the log's own entries.
 export async function fetchContactTimeline(partnerId) {
   const { data } = await api.get("/contact-log/timeline", { params: { partnerId } });

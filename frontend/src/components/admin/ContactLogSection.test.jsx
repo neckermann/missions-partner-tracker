@@ -1,6 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import ContactLogSection from "./ContactLogSection.jsx";
 import {
   fetchContactLogOptions,
@@ -187,5 +188,26 @@ describe("ContactLogSection (#288)", () => {
     renderIt();
     await screen.findByText("Phone call");
     expect(screen.queryByText("Updates to pass on")).not.toBeInTheDocument();
+  });
+
+  it("shows only the latest few entries, and links to the filtered Contact Log page for the rest", () => {
+    const many = Array.from({ length: 5 }, (_, n) => ({
+      ...entry,
+      id: `e${n}`,
+      contactDate: `2026-03-0${n + 1}T00:00:00.000Z`,
+      notes: `Note ${n + 1}`,
+    }));
+    render(
+      <MemoryRouter>
+        <ContactLogSection partnerId="p9" entries={many} onChanged={() => {}} canFix currentUserId="u1" />
+      </MemoryRouter>
+    );
+    expect(screen.getByText("Note 5")).toBeInTheDocument();
+    expect(screen.getByText("Note 3")).toBeInTheDocument();
+    expect(screen.queryByText("Note 2")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /View all 5 logged contacts/ })).toHaveAttribute(
+      "href",
+      "/admin/contact-log?partnerId=p9"
+    );
   });
 });

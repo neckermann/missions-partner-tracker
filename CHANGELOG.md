@@ -22,6 +22,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Added
 
+- **The Contact Log no longer grows down a partner's page.** The card shows the latest three entries with **View all N logged contacts →**, which opens a new **Contact Log** page filtered to that partner (and filterable by type, direction and topic, paged). Guests only see partners on their care team.
 - **Template packs: import and export instead of built-in defaults.** Starting points are now plain JSON files a church imports (and exports to share): survey questions, the support menu, trip requirement documents, trip application questions and email update wording. Examples live in `examples/template-packs/` (the app ships no church wording in code); import is additive and previews first. **A new install starts empty** in these areas with a prompt to import (existing installs keep what they have), and the demo imports the examples on reset. This replaces the built-in survey templates, the "Add an example set" button, and the default trip requirement documents applied at first-run setup.
 - **Staff-only support options.** An option can be marked **Staff only**: its answers are hidden from care team guests and can't be recorded by them (the example "what can and cannot be shared" starts this way).
 - **Contacts can name a support option.** A logged contact can say which option it was about; the label is kept if the option is later retired or deleted.

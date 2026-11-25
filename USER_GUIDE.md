@@ -949,6 +949,8 @@ With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-togg
 
 ![A partner's Contact Log, newest first](docs/assets/screenshots/contact-log.png)
 
+- **Only the latest few show on the partner's page.** The three newest entries (and filed visits or newsletters) appear in the card, so it doesn't grow with every contact. **View all N logged contacts →** opens the **Contact Log** page already filtered to that partner, where you can also filter by type, direction or topic, or clear the partner to see everyone's. Add or fix an entry from the partner's page.
+
 - **A prayer request a care team member enters** also logs the contact, so it isn't typed twice.
 - **Church visits and newsletters filed** for the partner also appear in the Contact Log, among the entries and newest first, as read-only rows (a visit, "Newsletter filed"). They are read from their own records when you open the page, not copied, so editing or deleting a visit or newsletter updates the log at once. Only a logged contact can be edited or deleted here.
 - **Updates to pass on.** When a one-time need has been decided or a prayer answered and nobody has passed it on yet, the Contact Log shows an **Updates to pass on** box with a **Log a thank-you** (or **Log passing it on**) button. It opens **+ Log contact** already set to "We reached out" with the right topic ticked, so saving it clears the bell's "Updates to pass on to partners". You still choose how you got in touch.

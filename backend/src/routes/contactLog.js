@@ -187,6 +187,52 @@ router.get("/updates", async (req, res, next) => {
   }
 });
 
+// GET /api/contact-log/all -- every entry this login may read, newest first, for the Contact Log
+// page: optional partnerId, contactType, direction, topic and from/to dates, paged with limit (max
+// 200) and offset. A guest only sees partners they hold a care team seat on, like the rest of the log.
+router.get("/all", async (req, res, next) => {
+  try {
+    const q = z
+      .object({
+        partnerId: z.string().min(1).optional(),
+        contactType: z.enum(CONTACT_TYPE_VALUES).optional(),
+        direction: z.enum(DIRECTION_VALUES).optional(),
+        topic: z.enum(TOPIC_VALUES).optional(),
+        from: z.coerce.date().optional(),
+        to: z.coerce.date().optional(),
+        limit: z.coerce.number().int().min(1).max(200).optional().default(50),
+        offset: z.coerce.number().int().min(0).optional().default(0),
+      })
+      .parse(req.query);
+    const reach = readableNeedPartnerIds(req.user);
+    if (q.partnerId && !canUse(req.user, q.partnerId)) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+    const where = {
+      ...(q.partnerId ? { partnerId: q.partnerId } : reach ? { partnerId: { in: reach } } : {}),
+      ...(q.contactType ? { contactType: q.contactType } : {}),
+      ...(q.direction ? { direction: q.direction } : {}),
+      ...(q.topic ? { topics: { has: q.topic } } : {}),
+      ...(q.from || q.to
+        ? { contactDate: { ...(q.from ? { gte: q.from } : {}), ...(q.to ? { lte: q.to } : {}) } }
+        : {}),
+    };
+    const [total, rows] = await Promise.all([
+      prisma.contactLog.count({ where }),
+      prisma.contactLog.findMany({
+        where,
+        include: { ...include, partner: { select: { id: true, displayName: true } } },
+        orderBy: [{ contactDate: "desc" }, { createdAt: "desc" }],
+        take: q.limit,
+        skip: q.offset,
+      }),
+    ]);
+    res.json({ rows, total, hasMore: q.offset + rows.length < total });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/contact-log?partnerId= -- newest first.
 router.get("/", async (req, res, next) => {
   try {
