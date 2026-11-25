@@ -3,9 +3,8 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import ExtractionReviewModal from "./ExtractionReviewModal.jsx";
 
-// createPrayerRequest/createSupportNeed are never called by either test
-// below (no "Add" click happens) -- mocked only so the module import
-// itself doesn't reach for a real api client.
+// createPrayerRequest/createSupportNeed are never called here (no "Add" click); they are
+// mocked only so the module import doesn't reach for a real api client.
 vi.mock("../../api/client.js", () => ({
   createPrayerRequest: vi.fn(),
   createSupportNeed: vi.fn(),
@@ -27,9 +26,8 @@ function renderModal(scanResult) {
   );
 }
 
-// #323: the already-scanned banner is informational only -- it must never
-// block or hide the suggestions themselves, so each case below also checks
-// those still render normally alongside it.
+// The already-scanned banner is informational only: it must never block or hide the
+// suggestions, so each case also checks those still render.
 describe("ExtractionReviewModal -- #323 already-scanned banner", () => {
   it("shows the banner with the right count when the file was already scanned", async () => {
     renderModal({

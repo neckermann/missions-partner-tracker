@@ -1,8 +1,8 @@
-// #364 and #365: the care follow-ups. Covers the two church timing settings (their bounds, and that
-// the key-date window and the contact log's "quiet" threshold follow them), a person's own opt-out
-// of the daily key-date email (the bell stays), the default lead as the fallback for "Partners to
-// reach out to" (staff only), the read-time timeline of church visits and newsletters, and the
-// open "updates to pass on" for a partner.
+// The care follow-ups. Covers the two church timing settings (their bounds, and that the
+// key-date window and the contact log's "quiet" threshold follow them), a person's own opt-out
+// of the daily key-date email (the bell stays), the default lead as the fallback for "Partners
+// to reach out to" (staff only), the read-time timeline of church visits and newsletters, and
+// the open "updates to pass on" for a partner.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

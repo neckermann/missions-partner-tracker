@@ -20,13 +20,10 @@ after(async () => {
 });
 
 describe("POST /api/users", () => {
-  // Regression: sendWelcomeEmail defaults to true, so any caller that
-  // supplies a password without also sending sendWelcomeEmail: false (every
-  // caller that predates this field, e.g. the e2e suite's own user-creation
-  // helper) used to get a silently passwordless account -- the password was
-  // discarded with no error, and the account could never sign in. An
-  // explicitly-given password must always be used, regardless of
-  // sendWelcomeEmail's default.
+  // Regression: sendWelcomeEmail defaults to true, so a caller that supplied a password without
+  // sendWelcomeEmail: false (e.g. the e2e suite's user-creation helper) got a silently
+  // passwordless account: the password was discarded and the account could never sign in. An
+  // explicitly-given password must always be used.
   test("a password is used even when sendWelcomeEmail isn't explicitly set to false", async () => {
     const email = `created-${Date.now()}@example.test`;
     const password = "CreatedUserPassword123!";

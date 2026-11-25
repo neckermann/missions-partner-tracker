@@ -10,12 +10,10 @@ const path = require("node:path");
 // all -- no error, no failed request in the app's logs, just a blank map
 // with the pins floating on it.
 //
-// That has now happened twice: once in be3edd6 ("fix CSP blocking the
-// public map"), and again when the tile provider changed and this
-// allowlist didn't. A missing entry is worse now that there is a fallback
-// list, because it would silently disable the fallback that exists
-// precisely for when the primary refuses someone -- and only for the
-// visitors already having a bad time. Hence a test.
+// That has happened twice: once when the CSP blocked the public map, and again when the tile
+// provider changed and this allowlist didn't. A missing entry is worse with a fallback list,
+// because it silently disables the fallback that exists for when the primary refuses someone,
+// and only for visitors already having a bad time. Hence a test.
 //
 // Reading the files as text is deliberate. The frontend is ESM/JSX and the
 // backend is CommonJS, so neither can import the other, and standing up an
@@ -96,14 +94,10 @@ describe("map tile hosts and CSP img-src", () => {
   });
 
   test("no tile URL uses rotating {s} subdomains", () => {
-    // This is the part that actually breaks OpenStreetMap's tile usage
-    // policy, and it is what this app used to do. The a/b/c subdomains are
-    // deprecated, and they exist to open more parallel connections than a
-    // single host allows -- which the policy names directly.
-    //
-    // The policy does not ban a site of this size from using OSM at all;
-    // it bans heavy use of donated infrastructure. So the rule worth
-    // enforcing is this one, not "never OSM".
+    // This is the part that breaks OpenStreetMap's tile usage policy. The a/b/c subdomains are
+    // deprecated, and exist to open more parallel connections than a single host allows, which the
+    // policy names directly. The policy doesn't ban a site of this size from using OSM; it bans
+    // heavy use of donated infrastructure, so this is the rule worth enforcing, not "never OSM".
     for (const url of tileUrls()) {
       assert.equal(
         /\{s\}/.test(url),
@@ -114,13 +108,10 @@ describe("map tile hosts and CSP img-src", () => {
   });
 
   test("the Referrer-Policy lets tile servers see who we are", () => {
-    // OpenStreetMap's tile usage policy forbids restrictive
-    // Referrer-Policy headers that stop the Referer reaching them, and a
-    // browser will not let a page set its own User-Agent -- so for a
-    // website the Referer is the only identification their servers get.
-    // helmet's default is `no-referrer`, which makes every tile request
-    // anonymous and is the likeliest reason this app started getting 403s
-    // from code that had worked for months.
+    // OpenStreetMap's tile usage policy forbids restrictive Referrer-Policy headers that stop the
+    // Referer reaching them, and a browser won't let a page set its own User-Agent, so for a
+    // website the Referer is the only identification their servers get. helmet's default is
+    // `no-referrer`, which makes every tile request anonymous (and gets 403s).
     const policy = serverSource.match(/referrerPolicy:\s*\{\s*policy:\s*["']([^"']+)["']/);
     assert.ok(
       policy,
@@ -134,9 +125,9 @@ describe("map tile hosts and CSP img-src", () => {
   });
 
   test("marker icons are bundled, not fetched from a CDN", () => {
-    // They were loaded from unpkg, which put the pins -- the actual data on
-    // the page -- behind a third party's availability, and needed its own
-    // CSP entry. Vite inlines them as data: URIs now.
+    // The marker images must not come from unpkg: that put the pins, the actual data on the page,
+    // behind a third party's availability and needed its own CSP entry. Vite inlines them as data:
+    // URIs.
     const hit = mapCode.match(/unpkg\.com|cdn\.jsdelivr\.net/);
     assert.equal(
       hit,

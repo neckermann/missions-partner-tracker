@@ -1,10 +1,6 @@
-// New reporting system (#296/#297) -- rebuilt from scratch, replacing the
-// old per-report routes/tests this file used to cover. The PR that built
-// this flagged its own queries as unverified ("no Prisma client in the
-// cloud workspace, so the database queries have not been run") -- this is
-// that verification: every report's actual query against a real Postgres,
-// not just the unit-level compute logic (see reportingDefinitions.test.js/
-// reportingReports.test.js for that).
+// The reporting system's real queries: every report's actual query against a real Postgres,
+// not just the unit-level compute logic (see
+// reportingDefinitions.test.js/reportingReports.test.js).
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -60,8 +56,8 @@ before(async () => {
     oneTimeNeeds: true,
     monthlySupport: true,
     trips: true,
-    careTeam: true, // the care-team-coverage report only exists while this is on (#289)
-    supportPreferences: true, // likewise the support-preferences report (#374)
+    careTeam: true, // the care-team-coverage report only exists while this is on
+    supportPreferences: true, // likewise the support-preferences report
   });
 });
 
@@ -102,13 +98,10 @@ describe("GET /api/reports (catalog)", () => {
 });
 
 describe("GET /api/reports/:id -- every report runs against real data without crashing", () => {
-  // The core thing this PR's own description flagged as unverified: each
-  // report's real Prisma query, not just its compute logic against
-  // hand-built fixtures (that's reportingReports.test.js's job). This
-  // doesn't assert every report's specific numbers -- it asserts the
-  // query itself is valid and returns the documented shape against a
-  // real, mostly-empty-of-that-domain database, which is exactly the
-  // condition a freshly-deployed fork is in.
+  // Each report's real Prisma query, not just its compute logic against hand-built fixtures.
+  // This doesn't assert every report's numbers; it asserts the query is valid and returns the
+  // documented shape against a mostly-empty database, the condition a freshly-deployed fork is
+  // in.
   for (const { id } of listReports({ role: "admin", isEnabled: () => true }).reports) {
     test(`${id} returns 200 with the documented shape`, async () => {
       const res = await admin(`/api/reports/${id}`);
@@ -198,12 +191,9 @@ describe("Role and feature gating", () => {
     }
   });
 
-  // Nothing in DEFAULT_ROLES (registry.js) includes "tripLeader", so no
-  // report is ever reachable for that role -- but the route's own
-  // requireRole("admin", "editor", "viewer") already rejects a tripLeader
-  // with a 403 before the registry is even consulted, same as every other
-  // role-gated route in this app. Nothing new to verify at the route
-  // level beyond that existing, already-tested middleware.
+  // Nothing in DEFAULT_ROLES (registry.js) includes "tripLeader", and the route's
+  // requireRole("admin", "editor", "viewer") rejects it with a 403 before the registry is
+  // consulted, like every other role-gated route.
   test("a viewer can still reach a trips report (not admin-only)", async () => {
     const res = await viewer("/api/reports/trip-fundraising");
     assert.equal(res.status, 200);

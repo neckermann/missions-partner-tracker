@@ -1,8 +1,7 @@
-// #292 Phase 1: what flows to a partner's care team. The app never contacts a
-// partner -- a person does -- so the team is told (bell), and an "update to pass
-// on" (a need decision, an answered prayer) clears only when they log an
-// OUTBOUND contact. Covers: a care team guest's new-need/prayer notifications
-// scoped to their own partners, updatesToPassOn, and the auto-log when a care
+// What flows to a partner's care team. The app never contacts a partner (a person does), so
+// the team is told (bell), and an "update to pass on" (a need decision, an answered prayer)
+// clears only when they log an OUTBOUND contact. Covers: a care team guest's new-need/prayer
+// notifications scoped to their own partners, updatesToPassOn, and the auto-log when a care
 // team member marks a prayer answered.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");

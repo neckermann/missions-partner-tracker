@@ -1,24 +1,12 @@
-// Enforces the recurring gap §19/§20 of the Trips plan doc named as its
-// top UX finding: a column gets added to TripParticipant/TripApplication
-// and nothing ever shows it, discovered only by accident, repeatedly.
-// A one-time manual audit fixes today's gaps; it does nothing about the
-// next one. This test reads every scalar column Prisma's own schema
-// metadata reports for both models and fails if a column's name isn't
-// referenced anywhere in AdminTripParticipantDetail.jsx's source -- the
-// one page this plan designates as that model's canonical complete-
-// record view. A plain string match, not a rendering assertion: this
-// exists to make the absence loud, not to verify correctness of what's
-// already there.
+// Guards a recurring gap: a column gets added to TripParticipant/TripApplication and nothing
+// ever shows it. This reads every scalar column Prisma's schema metadata reports for both
+// models and fails if a column's name isn't referenced anywhere in
+// AdminTripParticipantDetail.jsx, the canonical complete-record view. A plain string match,
+// not a rendering assertion: it makes the absence loud.
 //
-// A column genuinely meant to have no UI home (internal bookkeeping,
-// always-the-same-value-in-this-context, etc.) opts out with an explicit
-// `// tripFieldVisibility: intentionally admin-invisible` trailing
-// comment on its own declaration line in schema.prisma -- a deliberate,
-// visible decision, not a silent gap this test can't tell apart from a
-// real one.
-//
-// No live database needed -- Prisma.dmmf is static schema metadata from
-// the generated client package, not a connection.
+// A column genuinely meant to have no UI home opts out with an explicit `//
+// tripFieldVisibility: intentionally admin-invisible` trailing comment on its declaration line
+// in schema.prisma. No live database needed: Prisma.dmmf is static schema metadata.
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -37,14 +25,10 @@ function fieldsNeedingVisibility(modelName, schemaLines) {
   return model.fields.filter((f) => {
     if (f.kind !== "scalar") return false; // relations have no column of their own to "show"
     if (f.name === "id" || /Id$/.test(f.name)) return false; // the id itself, plus FKs -- tripId, applicationId, reviewedById
-    // Timestamps only, by this codebase's own documented naming
-    // convention (schema.prisma's own comment: "*At" = DateTime with a
-    // time component, "*Date" = date-only) -- NOT every DateTime-typed
-    // field. Prisma's DMMF reports the same generic "DateTime" type for
-    // both @db.Timestamp and @db.Date columns, so filtering on f.type
-    // here would silently also exempt a genuinely meaningful date field
-    // like dateOfBirth, which is exactly the kind of gap this test
-    // exists to catch, not create.
+    // Timestamps only, by this codebase's naming convention (schema.prisma: "*At" = DateTime with
+    // a time component, "*Date" = date-only), NOT every DateTime-typed field. DMMF reports the
+    // same "DateTime" type for @db.Timestamp and @db.Date, so filtering on f.type would also
+    // exempt a meaningful date field like dateOfBirth.
     if (/At$/.test(f.name)) return false; // createdAt, reviewedAt
     const declarationLine = schemaLines.find((line) => new RegExp(`^\\s*${f.name}\\s`).test(line));
     if (declarationLine && declarationLine.includes(OPT_OUT_MARKER)) return false;

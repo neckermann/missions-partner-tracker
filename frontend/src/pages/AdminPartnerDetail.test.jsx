@@ -5,12 +5,10 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import AdminPartnerDetail from "./AdminPartnerDetail.jsx";
 import { updatePartner } from "../api/client.js";
 
-// AdminPartnerDetail fetches the partner record plus every one of its
-// own small collections on mount (see its own reload()), and reads the
-// logged-in user's role via useCurrentUser -- none of which this test
-// cares about beyond "resolve to something harmless." Only
-// fetchPartner/updatePartner/fetchCurrentUser carry data these tests
-// actually check.
+// AdminPartnerDetail fetches the partner record plus each of its small collections on mount
+// (see its reload()), and reads the user's role via useCurrentUser. Only
+// fetchPartner/updatePartner/fetchCurrentUser carry data these tests check; the rest just
+// resolve to something harmless.
 vi.mock("../api/client.js", () => ({
   fetchPartner: vi.fn(),
   updatePartner: vi.fn().mockResolvedValue({}),
@@ -182,9 +180,8 @@ describe("AdminPartnerDetail: Last Prayed For in a Service (#228)", () => {
       expect(screen.getByRole("heading", { name: "Test Organization" })).toBeInTheDocument()
     );
 
-    // The whole card (title + current view content) is the click target
-    // to open the edit popup -- same convention as every other
-    // EditableSection on this page.
+    // The whole card is the click target that opens the edit popup, like every EditableSection on
+    // this page.
     fireEvent.click(screen.getByRole("button", { name: /Last Prayed For in a Service/ }));
 
     // getByLabelText is ambiguous here -- the Modal's own aria-labelledby

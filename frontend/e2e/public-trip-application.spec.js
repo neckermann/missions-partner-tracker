@@ -1,16 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
-// Phase 3b of the UX-rebuild plan: PublicTripApplication.jsx had zero prior
-// e2e coverage, and this phase restructured it onto the Wizard shell's 3
-// steps -- real regression test, not thrown away. publicTripDiscovery
-// defaults off and the id-addressed route 404s without it (see
-// backend/src/routes/publicTrips.js's own GET /:id), so it's turned on
-// for this file only, through setFeatures/restoreFeatures (helpers.js), which merge
-// into the stored flags (a blind partial PUT wipes other specs' toggles, since the backend
-// route replaces the whole column) and put back what they changed. This is one of the six
-// specs that change flags; they run together in their own serial Playwright project
-// (playwright.config.js).
+// publicTripDiscovery defaults off and the id-addressed route 404s without it
+// (backend/src/routes/publicTrips.js, GET /:id), so it is turned on for this file only,
+// through setFeatures/restoreFeatures (helpers.js), which merge into the stored flags (a blind
+// partial PUT wipes other specs' toggles, since the backend replaces the whole column) and put
+// back what they changed. This is one of the six specs that change flags; they run together in
+// their own serial Playwright project (playwright.config.js).
 let previousFeatures;
 
 test.describe.configure({ mode: "serial" });
@@ -27,13 +23,11 @@ test.describe("Public trip application wizard", () => {
       publicDirectory: true,
     });
 
-    // restricted=false&archived=false -- a restricted partner's trip is
-    // never publicly discoverable regardless of isPublic (see
-    // AdminTrips.jsx's own "Restricted partner" note), and an archived
-    // partner's own trip fares no better publicly, so an unfiltered
-    // partners[0] landing on either makes every step of this wizard
-    // unreachable -- same class of fixture fragility helpers.js's own
-    // firstSelectablePartner already guards against.
+    // restricted=false&archived=false: a restricted partner's trip is never publicly discoverable
+    // regardless of isPublic (see AdminTrips.jsx's "Restricted partner" note), and an archived
+    // partner's trip fares no better, so an unfiltered partners[0] landing on either makes every
+    // wizard step unreachable (the same fixture fragility helpers.js's firstSelectablePartner
+    // guards against).
     const partnersRes = await page.request.get("/api/partners?restricted=false&archived=false");
     const partners = await partnersRes.json();
     const partnerId = (partners.partners || partners)[0]?.id;
@@ -69,10 +63,8 @@ test.describe("Public trip application wizard", () => {
   test("walks all 3 steps, validates the required custom question, and submits", async ({ page }) => {
     await page.goto(`/apply/${tripId}`);
 
-    // Step 1: Your info. Date of birth is always collected and always
-    // required now (no settings gate it) -- Next is correctly blocked
-    // without it, same as the required-custom-question check on step 3
-    // below.
+    // Step 1: Your info. Date of birth is always collected and required, so Next is blocked
+    // without it, like the required-custom-question check on step 3.
     await expect(page.getByText("1. Your info")).toBeVisible();
     await page.getByLabel("First name").fill("Jordan");
     await page.getByLabel("Last name").fill("Rivera");

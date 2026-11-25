@@ -1,12 +1,9 @@
 import { test, expect } from "@playwright/test";
 import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
-// Zero prior coverage of this page (flagged in Phase 5 of the UX-rebuild
-// plan). Every prayer request/one-time need/newsletter creation always
-// records a DispatchRecord (see dispatchRecording.js's own comment --
-// recording doesn't depend on any channel being enabled, only delivery
-// does), so creating one here is a reliable, deterministic way to get a
-// real row onto this page without seeding or mocking anything.
+// Every prayer request/one-time need/newsletter creation records a DispatchRecord, whether or
+// not a channel is enabled (see dispatchRecording.js), so creating one here is a deterministic
+// way to get a real row onto this page without seeding or mocking.
 let previousFeatures;
 
 test.describe("Pending Dispatches", () => {
@@ -23,18 +20,14 @@ test.describe("Pending Dispatches", () => {
   }) => {
     await login(page);
 
-    // The page itself (RequireAdminFeature in main.jsx) needs at least one
-    // of groupme/whatsapp/outboundEmail on, even though recording a
-    // dispatch never depends on any channel being enabled. setFeatures (helpers.js)
-    // merges into the stored flags instead of replacing them.
+    // The page (RequireAdminFeature in main.jsx) needs at least one of
+    // groupme/whatsapp/outboundEmail on, even though recording never depends on a channel.
+    // setFeatures (helpers.js) merges into the stored flags.
     previousFeatures = await setFeatures(page.request, { outboundEmail: true });
 
-    // restricted=false, same reasoning as helpers.js's own
-    // firstSelectablePartner -- a restricted partner's real name never
-    // reaches this (or any) dispatch-facing view (maskData.js), so
-    // asserting target.displayName against a row built from a restricted
-    // missionaries[0] fails on exactly the data this test never meant to
-    // exercise.
+    // restricted=false, as in helpers.js's firstSelectablePartner: a restricted partner's real
+    // name never reaches a dispatch-facing view (maskData.js), so asserting target.displayName
+    // against a restricted missionaries[0] would fail.
     const missionariesRes = await page.request.get("/api/partners?kind=missionary&restricted=false");
     const missionaries = await missionariesRes.json();
     const target = missionaries[0];
@@ -55,10 +48,9 @@ test.describe("Pending Dispatches", () => {
     await page.goto("/admin/pending-dispatches");
     await page.waitForSelector("h2:has-text('Pending Dispatches')");
 
-    // Confirms the real request text reached the queue (not a placeholder)
-    // and that its row shows the right partner -- the consolidated page is
-    // a shared <Table>, one row per blurb, grouped together by partner via
-    // row ordering (flattenRows) rather than a visual group container.
+    // Confirms the real request text reached the queue (not a placeholder) and that its row shows
+    // the right partner; the page is a shared <Table>, grouped by partner via row ordering
+    // (flattenRows).
     const row = page.locator("tr", { hasText: uniqueText });
     await expect(row).toBeVisible();
     await expect(row).toContainText(target.displayName);

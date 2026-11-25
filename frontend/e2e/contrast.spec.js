@@ -2,10 +2,10 @@ import { test, expect } from "@playwright/test";
 import { login } from "./helpers.js";
 import { lowContrastText } from "./helpers-contrast.js";
 
-// Text a person can't read, in either theme (#418). Every visible piece of text is checked
-// against the background it actually sits on (WCAG AA: 4.5:1, or 3:1 for large text), in the
-// browser, with the theme the page really renders. Hardcoded greys and whites that bypass the
-// theme tokens are what broke dark mode, so this fails the build when one comes back.
+// Text a person can't read, in either theme. Every visible piece of text is checked against
+// the background it actually sits on (WCAG AA: 4.5:1, or 3:1 for large text), in the browser,
+// with the theme the page really renders. Hardcoded greys and whites that bypass the theme
+// tokens are what broke dark mode, so this fails the build when one comes back.
 
 const PUBLIC_ROUTES = ["/", "/partners", "/map", "/subscribe", "/prayer"];
 const ADMIN_ROUTES = [
@@ -58,8 +58,9 @@ for (const scheme of ["dark", "light"]) {
   });
 }
 
-// The booklet page's stylesheet used to set a dark text colour on the whole page and stay loaded
-// after you left it, so the next admin page turned unreadable in dark mode until a refresh.
+// Guards a real bug: the booklet page's stylesheet set a dark text colour on the whole page
+// and stayed loaded after you left it, so the next admin page was unreadable in dark mode
+// until a refresh.
 test.describe("Dark mode survives visiting the booklet", () => {
   test.use({ colorScheme: "dark" });
 

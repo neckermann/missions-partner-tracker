@@ -4,12 +4,10 @@ import { render, screen } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import AdminLayout from "./AdminLayout.jsx";
 
-// AdminLayout's own route guard for a guest (role: "guest", #356): the
-// subtree of each trip they were granted, those trips' partners, and their
-// own "My account" page -- nothing else. The backend 403s in
-// backend/test/routes/guestScope.test.js are the real boundary; this pins
-// that the UI doesn't flash a page they can't use. #329 Finding 2 used to
-// bounce /admin/account too; #356 reverses that on purpose.
+// AdminLayout's route guard for a guest (role: "guest"): the subtree of each trip they were
+// granted, those trips' partners, and their own "My account" page, nothing else. The backend
+// 403s in backend/test/routes/guestScope.test.js are the real boundary; this pins that the UI
+// doesn't flash a page they can't use.
 vi.mock("./AdminSidebar.jsx", () => ({ default: () => <div>Sidebar</div> }));
 vi.mock("./UpdateBanner.jsx", () => ({ default: () => null }));
 vi.mock("./BackupReminder.jsx", () => ({ default: () => null }));

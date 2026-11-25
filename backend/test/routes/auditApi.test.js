@@ -1,6 +1,5 @@
-// The Audit log page's API (#341): admin-only and flag-gated, filters and
-// paging, deleted accounts flagged, the CSV export (formula-safe, same filters),
-// and the retention setting.
+// The Audit log page's API: admin-only and flag-gated, filters and paging, deleted accounts
+// flagged, the CSV export (formula-safe, same filters), and the retention setting.
 const { test, describe, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -90,8 +89,8 @@ describe("audit log API", () => {
     assert.deepEqual(await get("action=backup.downloaded"), ["backup.downloaded"]);
     assert.deepEqual((await get("q=dana")).sort(), ["auth.login_success", "backup.downloaded"]);
     assert.deepEqual(await get("q=203.0.113"), ["auth.login_failed"]);
-    // The route reads a date as a day in the process timezone, so build it in local time too:
-    // the UTC date is a different day for part of every day (#401).
+    // The route reads a date as a day in the process timezone, so build it in local time too: the
+    // UTC date is a different day for part of every day.
     const iso = (n) => {
       const d = new Date(Date.now() - n * day);
       const pad = (x) => String(x).padStart(2, "0");

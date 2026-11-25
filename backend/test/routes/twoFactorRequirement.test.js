@@ -1,9 +1,10 @@
-// The church-wide two-factor requirement (#385): one switch, ChurchSettings.requireTwoFactor,
-// for every account whatever its role. Off: sign-in is as it always was. On: an account that has
-// not enrolled is sent to enrolment at sign-in and gets no session, a session it opened before
-// the switch stops working, and nobody can switch two-factor off for themselves. Turning it on
-// needs the person doing it to be enrolled (so it can't lock them out) and is refused on the
-// public demo. No rule is specific to one kind of account: a guest is treated like an editor.
+// The church-wide two-factor requirement: one switch, ChurchSettings.requireTwoFactor, for
+// every account whatever its role. Off: sign-in needs no second factor. On: an account that
+// has not enrolled is sent to enrolment at sign-in and gets no session, a session it opened
+// before the switch stops working, and nobody can switch two-factor off for themselves.
+// Turning it on needs the person doing it to be enrolled (so it can't lock them out) and is
+// refused on the public demo. No rule is specific to one kind of account: a guest is treated
+// like an editor.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

@@ -1,11 +1,8 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-// emailDispatchScheduler.js transitively requires prismaClient.js (for the
-// DB-touching parts of checkAndMaybeFlushEmailDispatch, not exercised by this
-// file), which reads DATABASE_URL eagerly at require time -- same
-// reason requireAuth.test.js needs this. The should* functions
-// themselves are pure, no DB touched by anything this file actually
-// calls.
+// emailDispatchScheduler.js transitively requires prismaClient.js (for the DB-touching parts
+// of checkAndMaybeFlushEmailDispatch, not exercised here), which reads DATABASE_URL eagerly at
+// require time, as in requireAuth.test.js. The should* functions themselves are pure.
 require("dotenv").config({ quiet: true });
 const {
   shouldFlushBiweeklyEmailDispatch,
@@ -17,12 +14,10 @@ const { shouldFlushGroupMe } = require("../src/utils/groupmeChannel");
 // Wednesday, Jan 7 2026, 9:00:00 AM local time -- day 3, date 7, hour 9.
 const WED_9AM = new Date(2026, 0, 7, 9, 0, 0);
 
-// The email digest's three cadence tiers -- weekly was retired along
-// with the old church-wide batch mechanism; quarterly replaced it.
-// Biweekly and monthly/quarterly each share one day field
-// (emailDispatchDayOfWeek / emailDispatchDayOfMonth), told apart purely
-// by each tier's own minimum-gap check against its own lastSentAt
-// cursor.
+// The email digest's three cadence tiers: biweekly, monthly and quarterly. Biweekly and
+// monthly/quarterly each share one day field (emailDispatchDayOfWeek /
+// emailDispatchDayOfMonth), told apart by each tier's own minimum-gap check against its own
+// lastSentAt cursor.
 
 describe("shouldFlushBiweeklyEmailDispatch", () => {
   const base = { emailDispatchDayOfWeek: 3, emailDispatchHour: 9, lastBiweeklyEmailDispatchSentAt: null };
@@ -142,11 +137,8 @@ describe("shouldFlushQuarterlyEmailDispatch (shares emailDispatchDayOfMonth, muc
   });
 });
 
-// GroupMe's own schedule (see groupmeChannel.js) -- a single daily
-// batch hour, independent of the email tiers above entirely. Never had
-// its own schedule before this (it silently rode the old church-wide
-// digest's now-retired schedule); verified here against its own
-// dedicated fields.
+// GroupMe's own schedule (see groupmeChannel.js): a single daily batch hour, independent of
+// the email tiers above, with its own dedicated fields.
 describe("shouldFlushGroupMe", () => {
   const base = { chatDispatchHour: 9, lastGroupmeChatDispatchSentAt: null };
 

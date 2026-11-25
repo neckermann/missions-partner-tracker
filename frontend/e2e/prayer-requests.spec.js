@@ -33,10 +33,9 @@ test.describe("Prayer requests", () => {
     const cardText = await card.innerText();
     expect(cardText).not.toMatch(/unanswered|pending/i);
 
-    // Record an answer via the item's own popup -- the card itself only
-    // ever offers "+ Add" now (a card-level "Mark Answered" used to act on
-    // whichever request happened to be prayerRequests[0], silently wrong
-    // whenever more than one request was still unanswered).
+    // Record an answer via the item's own popup; the card only offers "+ Add" (a card-level "Mark
+    // Answered" would act on prayerRequests[0], wrong whenever more than one request is
+    // unanswered).
     await card.locator("button.summary-item-link", { hasText: uniqueText }).click();
     await expect(page.locator(".modal-panel")).toContainText("Prayer Request");
     await page.locator(".modal-panel button", { hasText: "Mark Answered" }).click();

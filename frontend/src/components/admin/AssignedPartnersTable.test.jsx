@@ -76,7 +76,7 @@ describe("AssignedPartnersTable (#288)", () => {
   });
 });
 
-// #291: a key date inside the reminder window is flagged, only with the feature on.
+// A key date inside the reminder window is flagged, only with the feature on.
 describe("AssignedPartnersTable: key-date flag (#291)", () => {
   const soon = (daysUntil) => [{ ...rows[0], nextKeyDate: { ...rows[0].nextKeyDate, daysUntil } }];
 

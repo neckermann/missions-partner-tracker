@@ -1,7 +1,6 @@
-// #291: the daily key-date email run -- gated by the three features, one
-// grouped message per person, never the same occurrence twice, a failed send
-// retried, and a logged "key date" contact suppressing it. `send` is injected,
-// so nothing reaches Postmark.
+// The daily key-date email run: gated by the three features, one grouped message per person,
+// never the same occurrence twice, a failed send retried, and a logged "key date" contact
+// suppressing it. `send` is injected, so nothing reaches Postmark.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

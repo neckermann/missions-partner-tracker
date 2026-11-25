@@ -118,12 +118,9 @@ describe("POST /api/public/subscribe", () => {
     assert.equal(postmarkCalls.length, 1, "confirmation should be re-sent while unconfirmed");
   });
 
-  // #327 Finding 11: re-scoping an already-confirmed subscriber used to
-  // apply immediately with no proof the caller owns that email address.
-  // Now nothing is written until a confirm-change link (sent to the
-  // address itself) is clicked -- the opposite of the old assertions
-  // below, which checked the no-longer-correct "applies immediately,
-  // never emails" behavior.
+  // Re-scoping an already-confirmed subscriber must not apply immediately: nothing is written
+  // until a confirm-change link (sent to the address itself) is clicked, since the caller has
+  // shown no proof of owning the email.
   test("re-subscribing an already-confirmed email sends a confirm-change email and does not apply yet", async () => {
     const email = "route-test-sub-confirmed@example.test";
     await anon("/api/public/subscribe", { method: "POST", body: { email } });
@@ -281,9 +278,8 @@ describe("GET /api/public/subscribe/confirm", () => {
 });
 
 describe("GET/POST /api/public/unsubscribe", () => {
-  // #327 Finding 6: GET only verifies the token and renders a confirm
-  // page now -- it must not mutate anything by itself (a mail security
-  // scanner pre-fetching the link should never unsubscribe anyone).
+  // GET only verifies the token and renders a confirm page; it must not mutate anything by
+  // itself (a mail security scanner pre-fetching the link must never unsubscribe anyone).
   test("GET with a valid token renders a confirm page, without deleting the subscriber yet", async () => {
     const partner = await createPublicPartner({});
     const row = await prisma.publicSubscriber.create({

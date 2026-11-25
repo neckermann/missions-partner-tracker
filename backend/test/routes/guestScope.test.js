@@ -1,10 +1,9 @@
-// Guest (role: "guest", #356; was "tripLeader") -- a scoped login whose
-// reach is exactly its active grants (TripAccess), not one of the 3 full
-// roles. Covers the actual security boundary (requireTripScope /
-// requirePartnerQueryScope / guestAccess.js, requireAuth.js): read/write on
-// granted trips, read-only on those trips' partners, 403 on everything
-// else, derived and overridden grant expiry, and users.js's grant
-// management (create/update/revoke, orphan deactivation, inactive filter).
+// Guest (role: "guest"): a scoped login whose reach is exactly its active grants (TripAccess),
+// not one of the 3 full roles. Covers the security boundary (requireTripScope /
+// requirePartnerQueryScope / guestAccess.js, requireAuth.js): read/write on granted trips,
+// read-only on those trips' partners, 403 on everything else, derived and overridden grant
+// expiry, and users.js's grant management (create/update/revoke, orphan deactivation, inactive
+// filter).
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -203,10 +202,8 @@ describe("Guest: trip scope", () => {
     assert.equal(wrongScope.status, 403);
   });
 
-  // #327 Finding 2: partnerA having a second trip used to mean a Trip
-  // Leader's own partner-scoped ?partnerId= query returned every one of
-  // that partner's trips, full participant rosters included, not just
-  // their own one.
+  // A second trip on partnerA must not make a guest's partner-scoped ?partnerId= query return
+  // all of that partner's trips (full participant rosters included), only their own.
   test("a second trip for their own partner is NOT included in their partner-scoped query", async () => {
     const secondTripForPartnerA = await admin("/api/trips", {
       method: "POST",
@@ -225,11 +222,10 @@ describe("Guest: trip scope", () => {
     }
   });
 
-  // #327 Finding 2: tripSchema's full field set (including partnerId) was
-  // written straight through on PUT /trips/:id with no per-role filtering
-  // -- a guest could re-point their own trip at any partner id, then
-  // use that attacker-controlled partnerId to pass requirePartnerQueryScope
-  // and read a partner they were never meant to see.
+  // tripSchema's full field set (including partnerId) must not be written straight through on
+  // PUT /trips/:id with no per-role filtering: a guest could re-point their own trip at any
+  // partner id, then use it to pass requirePartnerQueryScope and read a partner they were never
+  // meant to see.
   test("403s re-pointing their own trip at a different partner", async () => {
     const guest = await guestClient();
     const res = await guest(`/api/trips/${tripA.id}`, {
@@ -251,9 +247,8 @@ describe("Guest: partner scope", () => {
     assert.equal(blocked.status, 403);
   });
 
-  // #289: the same directory as everyone, limited by the server to the
-  // partners they reach, with the one thing a guest never sees -- money --
-  // left out. The booklet's full dump stays closed.
+  // The same directory as everyone, limited by the server to the partners they reach, with the
+  // one thing a guest never sees (money) left out. The booklet's full dump stays closed.
   test("the partner directory lists only their partners, with no monthly support", async () => {
     await prisma.supportEntry.create({
       data: { partnerId: partnerA.id, amount: 4242, effectiveDate: new Date("2026-01-01") },
@@ -286,8 +281,8 @@ describe("Guest: partner scope", () => {
     assert.equal(ok.status, 200);
   });
 
-  // #289: the consolidated list is open to a guest, limited by the server to
-  // the partners they reach -- never everyone's.
+  // The consolidated list is open to a guest, limited by the server to the partners they reach,
+  // never everyone's.
   test("an unfiltered prayer request list holds only their partners' rows", async () => {
     const mk = (partnerId, text) =>
       prisma.prayerRequest.create({
@@ -309,11 +304,9 @@ describe("Guest: partner scope", () => {
   });
 });
 
-// #329 Finding 1: the unmatched-inbound-email queue isn't attached to any
-// partner or trip (that's the whole point -- it's mail nobody could match
-// yet), so there's no sensible scoped version of it for a guest to
-// see. Excluded entirely rather than scoped, same as GET /api/partners
-// above.
+// The unmatched-inbound-email queue isn't attached to any partner or trip (it's mail nobody
+// could match yet), so there's no sensible scoped version for a guest. Excluded entirely
+// rather than scoped, like GET /api/partners above.
 describe("Guest: inbound email queue blocked entirely", () => {
   let queued;
 
@@ -350,12 +343,9 @@ describe("Guest: inbound email queue blocked entirely", () => {
   });
 });
 
-// #327 Finding 3: a guest scoped to tripA could mark ANY
-// participant id complete against one of tripA's own requirements --
-// requireTripScope confirmed the caller's own trip matched the
-// requirement's trip, but :participantId itself was never checked against
-// that same trip, so a participant belonging to a completely different
-// trip (tripB here) worked too.
+// A guest scoped to tripA must not be able to mark ANY participant id complete against one of
+// tripA's requirements: requireTripScope confirmed the trip matched the requirement's trip,
+// but :participantId itself must also belong to that trip.
 describe("Guest: cross-trip IDOR on requirement completion", () => {
   let requirement;
   let tripBParticipant;
@@ -404,9 +394,8 @@ describe("Guest: cross-trip IDOR on requirement completion", () => {
   });
 });
 
-// #327 Finding 2 (lower-value gaps): neither route has a legitimate Trip
-// Leader use case -- church-wide trip settings config and a cross-church
-// subscriber-count summary, neither scoped to any one trip.
+// Neither route has a legitimate Trip Leader use case: church-wide trip settings config and a
+// cross-church subscriber-count summary, neither scoped to one trip.
 describe("Guest: settings/digest-summary reads blocked", () => {
   test("403s GET /api/settings/trips", async () => {
     const guest = await guestClient();
@@ -452,10 +441,9 @@ describe("Guest: settings/digest-summary reads blocked", () => {
   });
 });
 
-// #350: same exclusion pattern as #329's inbound-email fix above -- this
-// queue holds the exact text about to go out churchwide, unfiltered and
-// not attached to any one trip, so there's no sensible trip-scoped
-// version of it.
+// Same exclusion pattern as the inbound-email queue above: this queue holds the exact text
+// about to go out churchwide, unfiltered and not attached to any one trip, so there's no
+// sensible trip-scoped version.
 describe("Guest: Pending Dispatches queue blocked entirely", () => {
   test("403s the pending queue", async () => {
     const guest = await guestClient();
@@ -469,11 +457,8 @@ describe("Guest: Pending Dispatches queue blocked entirely", () => {
   });
 });
 
-// #356: reverses #329 Finding 2. A guest used to be fully admin-managed
-// (no self-service password or MFA, on the frontend or the backend); they
-// now get a "My account" page, so change-password and MFA enrolment work
-// for them. MFA is required for the role, so unlike every other role they
-// can enrol but never switch it off.
+// A guest has a "My account" page, so change-password and MFA enrolment work for them. MFA is
+// required for the role, so unlike every other role they can enrol but never switch it off.
 describe("Guest: password/MFA self-service", () => {
   const SELF_EMAIL = "route-test-guest-selfservice@example.test";
   const SELF_PASSWORD = "RouteTestGuestSelf123!";
@@ -522,9 +507,9 @@ describe("Guest: password/MFA self-service", () => {
     assert.ok(res.body.qrCode);
   });
 
-  // No rule is specific to a guest (#385): switching two-factor off is blocked for everyone
-  // only while the church requires it, and a reset sends the account back through enrolment
-  // because login sends every unenrolled account there. Both are in twoFactorRequirement.test.js.
+  // No rule is specific to a guest: switching two-factor off is blocked for everyone only while
+  // the church requires it, and a reset sends the account back through enrolment because login
+  // sends every unenrolled account there. Both are in twoFactorRequirement.test.js.
   test("an admin MFA reset clears the guest's authenticator", async () => {
     await prisma.user.update({
       where: { id: selfUser.id },
@@ -538,12 +523,9 @@ describe("Guest: password/MFA self-service", () => {
   });
 
   test("a full admin/editor/viewer session is unaffected", async () => {
-    // mfa/setup only generates a secret/QR code (mfaEnabled stays false
-    // until /mfa/verify-setup confirms a real code), so this doesn't
-    // disturb the admin fixture's own login for any other test in this
-    // file -- still, clear the leftover mfaSecret afterward so this
-    // fixture's row is exactly as ensureTestUsers() left it for whatever
-    // runs next.
+    // mfa/setup only generates a secret/QR code (mfaEnabled stays false until /mfa/verify-setup
+    // confirms a code), so it doesn't disturb the admin fixture's login for other tests; still,
+    // clear the leftover mfaSecret afterward so the fixture's row is as ensureTestUsers() left it.
     const res = await admin("/api/auth/mfa/setup", { method: "POST" });
     assert.equal(res.status, 200);
     assert.ok(res.body.secret);
@@ -607,10 +589,9 @@ describe("Guest (trip grant): Monthly Support and One-Time Needs blocked, Newsle
     assert.equal(unfiltered.status, 403);
   });
 
-  // #289: one-time needs are a care team view -- read in full, notes included,
-  // only for partners whose team the person is on (see careTeam.test.js). A
-  // trip leader's smaller scope (a trip grant) never includes them, and
-  // Monthly Support, above, stays closed entirely.
+  // One-time needs are a care team view: read in full, notes included, only for partners whose
+  // team the person is on (see careTeam.test.js). A trip leader's smaller scope (a trip grant)
+  // never includes them, and Monthly Support, above, stays closed entirely.
   test("a trip leader can't read One-Time Needs, even for their own trip's partner", async () => {
     const guest = await guestClient();
     assert.equal((await guest(`/api/support-needs?partnerId=${partnerA.id}`)).status, 403);
@@ -662,11 +643,8 @@ describe("Guest (trip grant): Monthly Support and One-Time Needs blocked, Newsle
   });
 });
 
-// ---------------------------------------------------------------------
-// #356: grants. Effective expiry is derived at check time from the trip's
-// end date + 30 days; an admin-set expiresAt on the grant overrides it
-// either way.
-// ---------------------------------------------------------------------
+// Grants: effective expiry is derived at check time from the trip's end date + 30 days; an
+// admin-set expiresAt on the grant overrides it either way.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 function utcDateDaysAgo(days) {

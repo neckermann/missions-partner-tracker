@@ -1,16 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { login } from "./helpers.js";
 
-// Missionaries and organizations are one Partner record distinguished by
-// `kind`, so both go through the same flow here.
-//
-// There is no separate edit form: creating asks for the few things you can't
-// fill in later, and the partner page edits itself section by section.
+// Missionaries and organizations are one Partner record distinguished by `kind`, so both go
+// through the same flow. There is no separate edit form: creating asks for what can't be
+// filled in later, and the partner page edits itself section by section.
 
-// Every section on the partner page is itself the click target (the CRUD-
-// unification pass retired the old per-section Edit/Save pair in favor of
-// one shared click-the-card-opens-a-popup interaction, see EditableSection.jsx) --
-// so a section is located by its heading, not by an Edit button inside it.
+// Every section on the partner page is itself the click target (EditableSection.jsx), so a
+// section is located by its heading, not by an Edit button inside it.
 function section(page, title) {
   return page
     .locator(".admin-section")
@@ -27,14 +23,12 @@ test.describe("Admin partner CRUD", () => {
     const uniqueName = `E2E Test Missionary ${Date.now()}`;
     await page.getByLabel("Display Name", { exact: true }).fill(uniqueName);
 
-    // Country datalist + FIPS auto-fill (see frontend/src/utils/countryFipsCodes.js) --
-    // the create form derives the code from a recognized country name rather
-    // than asking for it.
+    // Country datalist + FIPS auto-fill (utils/countryFipsCodes.js): the create form derives the
+    // code from a recognized country name.
     await page.locator('input[list="new-partner-country-list"]').fill("Philippines");
 
-    // New Partner is a 3-step Wizard (Phase 6 of the UX-rebuild plan) --
-    // Basics / Details / Visibility & status. Neither later step has
-    // anything required to fill in for this test.
+    // New Partner is a 3-step Wizard (Basics / Details / Visibility & status); neither later step
+    // has anything required here.
     await page.click('button:has-text("Next")');
     await page.click('button:has-text("Next")');
     await page.click('button:has-text("Finish")');
@@ -43,21 +37,17 @@ test.describe("Admin partner CRUD", () => {
 
     const partnerId = page.url().split("/").pop();
 
-    // The FIPS field itself only shows when Joshua Project is on (off by
-    // default here), so the auto-fill is checked via the API rather than
-    // the UI -- it still runs in the background regardless of visibility.
+    // The FIPS field only shows when Joshua Project is on (off by default here), so the auto-fill
+    // is checked via the API.
     const afterCreate = await (await page.request.get(`/api/partners/${partnerId}`)).json();
     expect(afterCreate.fipsCountryCode).toBe("RP");
 
     const location = section(page, "Serving Location");
     await expect(location).toContainText("Philippines");
 
-    // Edit in place: change the name from the Status & Visibility section
-    // (Display Name lives there now, prominent alongside the other
-    // across-the-site-visible fields) and confirm it round-trips without
-    // leaving the page. The whole card is the click target now (see the
-    // comment on `section()` above) -- clicking it opens the same popup
-    // every editable section uses.
+    // Edit in place: change the name from the Status & Visibility section and confirm it
+    // round-trips without leaving the page. The whole card is the click target (see `section()`
+    // above).
     const status = section(page, "Status & Visibility");
     await status.click();
     const updatedName = `${uniqueName} (edited)`;
@@ -73,10 +63,8 @@ test.describe("Admin partner CRUD", () => {
     const afterEdit = await (await page.request.get(`/api/partners/${partnerId}`)).json();
     expect(afterEdit.fipsCountryCode).toBe("RP");
 
-    // Cleanup via the API directly (same authenticated browser context --
-    // Playwright's page.request shares cookies with the page) rather than
-    // the UI's native confirm() prompt. Deleting requires archiving first --
-    // a deliberate safety rule (see backend/src/routes/partners.js).
+    // Clean up via the API (page.request shares the page's cookies), not the native confirm()
+    // prompt. Deleting requires archiving first, a deliberate safety rule (routes/partners.js).
     const archived = await page.request.post(`/api/partners/${partnerId}/archive`);
     expect(archived.ok()).toBeTruthy();
     const del = await page.request.delete(`/api/partners/${partnerId}`);
@@ -99,15 +87,13 @@ test.describe("Admin partner CRUD", () => {
     await expect(section(page, "Serving Location")).toContainText("Bolivia");
 
     const partnerId = page.url().split("/").pop();
-    // The FIPS field itself only shows when Joshua Project is on (off by
-    // default here), so the auto-fill is checked via the API rather than
-    // the UI -- it still runs in the background regardless of visibility.
+    // The FIPS field only shows when Joshua Project is on (off by default here), so the auto-fill
+    // is checked via the API.
     const created = await (await page.request.get(`/api/partners/${partnerId}`)).json();
     expect(created.fipsCountryCode).toBe("BL");
 
-    // The org has no Wedding Anniversary/Adults/Children/Languages sections
-    // -- those are missionary-only, and the merged page hides them by kind
-    // rather than rendering empty boxes.
+    // The org has no Wedding Anniversary/Adults/Children/Languages sections: those are
+    // missionary-only and hidden by kind.
     for (const heading of ["Wedding Anniversary", "Adults", "Children", "Languages Spoken"]) {
       await expect(page.getByRole("heading", { name: heading, exact: true })).toHaveCount(0);
     }

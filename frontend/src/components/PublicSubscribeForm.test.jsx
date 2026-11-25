@@ -4,13 +4,10 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 import PublicSubscribeForm from "./PublicSubscribeForm.jsx";
 import { fetchPublicPartners, subscribeToDigest } from "../api/client.js";
 
-// The cadence picker on both forms this component backs -- the dedicated
-// Subscribe page (picker=true) and a partner's own "follow this partner"
-// form (picker=false) -- filtered to only the admin-enabled tiers (#209),
-// with monthly preferred as the default pre-selected option. Unlike
-// AccountSettings.jsx's own picker, there's no "already subscribed"
-// exception to test here: every use of this form is a brand-new
-// subscription.
+// The cadence picker on both forms this component backs (the Subscribe page, picker=true, and
+// a partner's "follow this partner" form, picker=false), filtered to the admin-enabled tiers,
+// with monthly preferred as the default. Unlike AccountSettings.jsx's picker there is no
+// "already subscribed" exception: every use here is a new subscription.
 vi.mock("../api/client.js", () => ({
   fetchPublicPartners: vi.fn(),
   subscribeToDigest: vi.fn(),

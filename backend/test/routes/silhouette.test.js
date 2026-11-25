@@ -28,8 +28,7 @@ describe("GET /api/silhouette/:category.svg -- public, no session required", () 
   });
 
   test("Cross-Origin-Resource-Policy allows cross-origin embedding", async () => {
-    // Regression test for #246 -- see photos.test.js's identical check for
-    // the full reasoning.
+    // Regression test (see photos.test.js's identical check for the reasoning).
     const res = await unauthenticated("/api/silhouette/couple.svg");
     assert.equal(res.headers.get("cross-origin-resource-policy"), "cross-origin");
   });

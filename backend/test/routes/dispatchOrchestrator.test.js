@@ -5,19 +5,13 @@ const prisma = require("../../src/prismaClient");
 const { encryptField } = require("../../src/utils/crypto");
 const { clearDispatchRecords, sendUrgentDispatch } = require("../../src/utils/dispatchOrchestrator");
 
-// clearDispatchRecords and sendUrgentDispatch have no direct test coverage
-// anywhere else -- dispatches.test.js exercises sendUrgentDispatch only
-// indirectly (through GET /api/dispatches/urgent-recipient-count, which
-// never actually sends anything), and emailDispatchDelivery.test.js covers
-// sendDigestTier, a different function entirely. This file is the one
-// place both get called directly (#276).
-//
-// Same mock-the-whole-domain technique emailDispatchDelivery.test.js uses
-// for Postmark, extended to also catch GroupMe's API -- both are plain
-// HTTP, so one global.fetch override handles both. WhatsApp's own send
-// path goes over a socket (whatsappClient.js), not HTTP, and is
-// deliberately not exercised here -- see the "WhatsApp" describe block
-// below for why that's a documented scope cut, not an oversight.
+// clearDispatchRecords and sendUrgentDispatch have no direct coverage elsewhere:
+// dispatches.test.js exercises sendUrgentDispatch only indirectly (GET
+// /api/dispatches/urgent-recipient-count never sends) and emailDispatchDelivery.test.js covers
+// sendDigestTier. Same mock-the-whole-domain technique as emailDispatchDelivery.test.js for
+// Postmark, extended to GroupMe's API: both are plain HTTP, so one global.fetch override
+// handles both. WhatsApp's send goes over a socket (whatsappClient.js), not HTTP, and is
+// deliberately not exercised here; see the "WhatsApp" describe below.
 const realFetch = global.fetch;
 let postmarkMessages = [];
 let groupmeRequests = [];
@@ -424,20 +418,13 @@ describe("sendUrgentDispatch", () => {
     }
   });
 
-  // WhatsApp's own urgent path (sendWhatsAppUrgent) is gated identically to
-  // GroupMe's (same feature-flag check, same isEligibleForChannel call, same
-  // hasWhatsAppTarget check) -- the one thing genuinely specific to it is
-  // that it also requires a live socket connection
-  // (whatsappClient.getStatus().status === "connected"), which nothing in
-  // this test process ever establishes. That's exercised here precisely
-  // because it's the realistic state for most sendUrgentDispatch calls in
-  // production too (a momentary disconnect, or WhatsApp simply not paired)
-  // -- confirming the short-circuit behaves safely (no throw, posted:
-  // false) rather than assuming it. The actual posting/masking logic once
-  // connected is already covered by whatsappChannel.test.js's own
-  // postToWhatsApp suite; reproducing a live socket here just to exercise
-  // that same code a second time would be exactly the kind of redundant
-  // coverage #276 is also asking to watch for.
+  // WhatsApp's urgent path (sendWhatsAppUrgent) is gated like GroupMe's (feature flag,
+  // isEligibleForChannel, hasWhatsAppTarget); what is specific to it is that it also requires a
+  // live socket (whatsappClient.getStatus().status === "connected"), which nothing in this
+  // process establishes. That is the realistic state for many sendUrgentDispatch calls in
+  // production (a disconnect, or WhatsApp not paired), so this confirms the short-circuit is
+  // safe (no throw, posted: false). The posting/masking logic once connected is covered by
+  // whatsappChannel.test.js.
   test("WhatsApp short-circuits safely (posted: false, no throw) when not actually connected, even though its target/eligibility checks pass", async () => {
     await prisma.churchSettings.update({
       where: { id: "singleton" },

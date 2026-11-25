@@ -4,13 +4,12 @@ require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
 const { client, stopServer, ensureTestUsers, removeTestUsers } = require("./helpers");
 
-// Admin-configurable cadence tiers (#209): the three ChurchSettings
-// booleans gating which email-digest cadence tiers are offered at all,
-// their exposure on the public unauthenticated settings endpoint, the
-// settings PUT's all-three-disabled rejection, and the migration that
-// bulk-reassigns anyone already on a tier that just got disabled. The
-// frontend-side filtering of the two cadence pickers (PublicSubscribeForm.jsx/
-// AccountSettings.jsx) is covered by their own vitest suites, not here.
+// Admin-configurable cadence tiers: the three ChurchSettings booleans gating which
+// email-digest cadence tiers are offered, their exposure on the public unauthenticated
+// settings endpoint, the settings PUT's all-three-disabled rejection, and the migration that
+// bulk-reassigns anyone on a tier that just got disabled. The frontend filtering of the two
+// cadence pickers (PublicSubscribeForm.jsx/AccountSettings.jsx) is covered by their own vitest
+// suites.
 
 let admin;
 let anon;

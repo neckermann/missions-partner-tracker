@@ -1,7 +1,7 @@
-// "Last edited by" (#341): the Prisma client extension stamps who changed a
-// record, centrally, from the signed-in user of the request. Current-state, kept
-// for good, and a snapshot of the name so it still reads after that account is
-// deleted. Background writes (no signed-in person) leave it alone.
+// "Last edited by": the Prisma client extension stamps who changed a record, centrally, from
+// the signed-in user of the request. Current-state, kept for good, and a snapshot of the name
+// so it still reads after that account is deleted. Background writes (no signed-in person)
+// leave it alone.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

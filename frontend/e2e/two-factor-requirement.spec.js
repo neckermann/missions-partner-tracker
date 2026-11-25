@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { login, createAccount, createAccountUnsignedIn, totpCode } from "./helpers.js";
 
-// The church-wide two-factor requirement (#385), as people meet it: an admin who hasn't enrolled
-// can't turn it on, and is told why; with it on, an account that hasn't enrolled (an editor, a
-// guest: no role is special) is sent through enrolment at sign-in and then lets in; and a session
-// open when it is turned on ends at the next click. It changes a church setting, so it is one of
-// the specs that run serially (FEATURE_SPECS in playwright.config.js).
+// The church-wide two-factor requirement as people meet it: an admin who hasn't enrolled can't
+// turn it on, and is told why; with it on, an account that hasn't enrolled (an editor, a
+// guest: no role is special) is sent through enrolment at sign-in and then let in; and a
+// session open when it is turned on ends at the next click. It changes a church setting, so it
+// is one of the specs that run serially (FEATURE_SPECS in playwright.config.js).
 //
 // Only an enrolled admin may turn it on, and while it is on the shared e2e admin (which has not
 // enrolled, and must not: every other spec signs in with its password alone) is refused. So the
@@ -83,7 +83,7 @@ test.describe("Two-factor requirement", () => {
     const editor = await createAccountUnsignedIn(admin, { role: "editor", suffix: "must-enrol" });
     accountIds.push(editor.user.id);
 
-    // Off: a password alone signs them in, as it always did.
+    // Off: a password alone signs them in.
     await signInThroughTheScreen(page, editor);
     await page.waitForURL(/\/admin/);
     await page.context().clearCookies();

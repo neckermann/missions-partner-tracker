@@ -1,8 +1,5 @@
-// Saved report views + scheduled emails (#298) -- the PR that built this
-// never ran it against a real Postgres either (same "no Prisma client in
-// the cloud workspace" gap as #297's own reports.js, see that PR's own
-// description). This is that verification for the view/schedule routes
-// specifically (reports.test.js covers the report queries themselves).
+// Saved report views + scheduled emails: the view/schedule routes against a real Postgres
+// (reports.test.js covers the report queries themselves).
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

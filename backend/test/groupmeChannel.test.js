@@ -33,11 +33,9 @@ describe("postMessage", () => {
     assert.equal(MAX_MESSAGE_LENGTH, 1000);
   });
 
-  // #244: this used to silently truncate to 999 chars + "…" instead of
-  // refusing -- packMessages (messagePacking.js) is what's actually
-  // responsible for keeping every message under the limit now, so a
-  // message arriving here over-length means that guarantee broke
-  // upstream, not something to paper over by cutting it again.
+  // Refuses rather than truncating: packMessages (messagePacking.js) keeps every message under
+  // the limit, so an over-length message here means that guarantee broke upstream, not something
+  // to paper over by cutting it again.
   test("rejects text over the limit instead of truncating it", async () => {
     await assert.rejects(
       () => postMessage("token", "g1", "x".repeat(MAX_MESSAGE_LENGTH + 1)),
@@ -134,8 +132,8 @@ describe("postToGroupMe", () => {
     assert.deepEqual(calls[0].where.id.in, ["c"]);
   });
 
-  // #244's core acceptance criterion: a single blurb over 1,000 chars is
-  // delivered in full, across multiple messages, not cut short.
+  // A single blurb over 1,000 chars is delivered in full, across multiple messages, not cut
+  // short.
   test("a blurb longer than the limit is split across messages, with no text lost", async () => {
     const sent = [];
     global.fetch = async (url, options) => {
@@ -151,8 +149,8 @@ describe("postToGroupMe", () => {
     assert.equal(sent.join(" ").replace(/\s+/g, " ").includes("end"), true, "no text should be dropped");
   });
 
-  // #244's other acceptance criterion: a failed piece must not stamp the
-  // row sent, and must not let a later piece post out of order.
+  // A failed piece must not stamp the row sent, and must not let a later piece post out of
+  // order.
   test("a failed piece of a split request leaves that request unsent and skips its later pieces", async () => {
     let calls = 0;
     global.fetch = async (url, options) => {
@@ -189,8 +187,7 @@ describe("postToGroupMe", () => {
     assert.doesNotMatch(sent[0], /Jane Doe/);
   });
 
-  // #327 Finding 10 -- proves the setting actually threads through to this
-  // channel, not just maskData.js's own unit tests.
+  // Proves the setting threads through to this channel, not just maskData.js's own unit tests.
   test("a restricted partner's masked name respects restrictedPartnerInitialsEnabled: false", async () => {
     const sent = [];
     global.fetch = async (url, options) => {

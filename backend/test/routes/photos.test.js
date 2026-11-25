@@ -37,10 +37,9 @@ describe("GET /api/photos/:id/raw -- content-type allowlist", () => {
   });
 
   test("a webp photo is served as itself, not downgraded to octet-stream", async () => {
-    // Regression test: VERIFIED_INLINE_TYPES didn't include image/webp even
-    // though partners.js accepts and signature-verifies webp uploads --
-    // every webp partner/org photo rendered as a broken image until this
-    // was added.
+    // Regression test: VERIFIED_INLINE_TYPES didn't include image/webp even though partners.js
+    // accepts and signature-verifies webp uploads, so every webp partner/org photo rendered as a
+    // broken image.
     const photo = await prisma.photo.create({
       data: {
         partnerId,
@@ -77,10 +76,9 @@ describe("GET /api/photos/:id/raw -- content-type allowlist", () => {
   });
 
   test("Cross-Origin-Resource-Policy allows cross-origin embedding", async () => {
-    // Regression test for #246: helmet()'s global default
-    // (Cross-Origin-Resource-Policy: same-origin) silently blocked a
-    // webmail client from embedding this image inline in a digest email,
-    // since that's a cross-origin <img> embed, not a same-origin request.
+    // Regression test: helmet()'s global default (Cross-Origin-Resource-Policy: same-origin)
+    // blocked a webmail client from embedding this image inline in a digest email, since that is a
+    // cross-origin <img> embed, not a same-origin request.
     const photo = await prisma.photo.create({
       data: {
         partnerId,

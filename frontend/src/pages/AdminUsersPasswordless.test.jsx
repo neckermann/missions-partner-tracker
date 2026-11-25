@@ -5,8 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import AdminUsers from "./AdminUsers.jsx";
 import { fetchUsers, fetchCurrentUser, fetchTrips, updateChurchSettings } from "../api/client.js";
 
-// #386 Layer 2: the Passwordless sign-in switch on Manage Users: when it is usable, why it isn't,
-// who will sign in by emailed link, and turning it on and off.
+// The Passwordless sign-in switch on Manage Users: when it is usable, why it isn't, who will
+// sign in by emailed link, and turning it on and off.
 vi.mock("../api/client.js", () => ({
   fetchUsers: vi.fn(),
   fetchUser: vi.fn(),

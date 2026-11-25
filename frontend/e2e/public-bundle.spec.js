@@ -1,16 +1,12 @@
 import { test, expect } from "@playwright/test";
 
-// The admin app is split out of the entry bundle, so a visitor who only
-// looks at the public directory never downloads the admin pages -- the
-// printed-booklet templates, the settings screens, none of it. That isn't
-// a data boundary (admin endpoints are behind requireAuth and the public
-// API runs through the masking serializer); it's about not handing an
-// anonymous visitor a readable map of the admin app, or making them pay to
-// download code they can't reach.
-//
-// These assert on what the browser actually downloads, not on the build
-// output, so they'd catch a regression from any cause -- a stray top-level
-// import into main.jsx being the likely one.
+// The admin app is split out of the entry bundle, so a visitor who only looks at the public
+// directory never downloads the admin pages (printed-booklet templates, settings screens).
+// That isn't a data boundary (admin endpoints are behind requireAuth and the public API runs
+// through the masking serializer); it's about not handing an anonymous visitor a readable map
+// of the admin app. These assert on what the browser actually downloads, not on the build
+// output, so they catch a regression from any cause, such as a stray top-level import into
+// main.jsx.
 
 // Markers that only appear in admin-only code paths. Deliberately these
 // are capabilities (endpoints, libraries) rather than UI copy: the route
@@ -18,13 +14,6 @@ import { test, expect } from "@playwright/test";
 // Features" for their turn-it-back-on message, which is a nav hint, not a
 // leak of how the admin app works.
 const ADMIN_ONLY_MARKERS = [
-  // The booklet used to pull its pagination library from a CDN at
-  // runtime, which doubled as a marker here: a URL string that could only
-  // ever appear in admin code. It's gone now -- the booklet builds its own
-  // HTML string and prints it natively via window.print() (see
-  // AdminBooklet.jsx), no pagination library, bundled or CDN, at all -- so
-  // there's no longer a URL to check for. The class name below still marks
-  // the feature just as well.
   "booklet-page", // the booklet's print stylesheet class
   "/api/support-entries", // admin-only endpoints
   "/api/prayer-requests",

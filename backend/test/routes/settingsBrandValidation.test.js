@@ -1,12 +1,9 @@
-// #327 Finding 11.4 -- primaryColor/headerColor/highlightColor/brandFont
-// used to accept any string, stored verbatim and later dropped straight
-// into a style="..." attribute in every rendered email and confirm page
-// (emailDispatchShell.js, subscriberPage.js, auth.js). Now validated:
-// hex colors against a #rrggbb pattern (matching the native color-picker
-// inputs that are the only legitimate source), brandFont against an
-// explicit allowlist (frontend/src/pages/AdminSettingsAbout.jsx's
-// FONT_OPTIONS -- there's no native input to constrain free text the way
-// the color pickers do).
+// primaryColor/headerColor/highlightColor/brandFont are dropped straight into a style="..."
+// attribute in every rendered email and confirm page (emailDispatchShell.js,
+// subscriberPage.js, auth.js), so they are validated: hex colors against a #rrggbb pattern
+// (matching the native color-picker inputs that are the only legitimate source), brandFont
+// against an explicit allowlist (AdminSettingsAbout.jsx's FONT_OPTIONS; there's no native
+// input to constrain free text).
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

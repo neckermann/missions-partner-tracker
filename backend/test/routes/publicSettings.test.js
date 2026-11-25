@@ -149,9 +149,9 @@ describe("GET /api/public/settings/logo/raw -- embeddable by third parties", () 
   });
 
   test("Cross-Origin-Resource-Policy allows cross-origin embedding", async () => {
-    // Regression test for #246 -- see photos.test.js's identical check for
-    // the full reasoning. The logo rides along in the same digest emails
-    // as partner photos, so it needs the same relaxation.
+    // Regression test (see photos.test.js's identical check): the logo rides along in the same
+    // digest emails as partner photos, so it needs the same Cross-Origin-Resource-Policy
+    // relaxation.
     const res = await anon("/api/public/settings/logo/raw");
     assert.equal(res.status, 200);
     assert.equal(res.headers.get("cross-origin-resource-policy"), "cross-origin");

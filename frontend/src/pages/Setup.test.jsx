@@ -5,8 +5,8 @@ import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import Setup from "./Setup.jsx";
 import { fetchSetupStatus, completeSetup } from "../api/client.js";
 
-// First-run setup creates the first admin. A fresh install requires two-factor from the start
-// (#385), so no session is handed out: the page sends them to sign in, with a note saying that
+// First-run setup creates the first admin. A fresh install requires two-factor from the start,
+// so no session is handed out: the page sends them to sign in, with a note saying that
 // two-factor setup is next.
 vi.mock("../api/client.js", () => ({
   fetchSetupStatus: vi.fn(),

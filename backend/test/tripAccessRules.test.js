@@ -1,6 +1,6 @@
-// The pure grant rules (#356): derived expiry = trip end date + 30 days
-// (through the end of that day), an explicit override wins in both
-// directions, and a guest's inactive reason. No database needed.
+// The pure grant rules: derived expiry = trip end date + 30 days (through the end of that
+// day), an explicit override wins in both directions, and a guest's inactive reason. No
+// database needed.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const {

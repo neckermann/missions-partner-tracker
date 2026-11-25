@@ -1,17 +1,13 @@
-// #327 Finding 1 -- end-to-end regression, through the real Express app and
-// a real database, for the critical auth bypass: utils/emailDispatchShell.js
-// signs a digest email's unsubscribe link as { id, unsubscribe: true } with
-// the exact same SESSION_SECRET as a real session cookie. Before the fix,
-// that token had a valid signature and a real user id, and requireAuth only
-// refused mfaPending/mfaSetup -- so presenting it as the session cookie
-// granted a full, fully-privileged session for that user, permanently,
-// bypassing password and MFA entirely.
+// End-to-end regression, through the real Express app and a real database, for a critical auth
+// bypass: utils/emailDispatchShell.js signs a digest email's unsubscribe link as { id,
+// unsubscribe: true } with the same SESSION_SECRET as a real session cookie, so unless
+// requireAuth rejects it, presenting it as the session cookie grants a full session for that
+// user, permanently, bypassing password and MFA.
 //
-// This file covers both sides: the forged-session path must now be
-// rejected (middleware/requireAuth.js), and the legitimate
-// unsubscribe-consuming route (routes/auth.js's own GET /unsubscribe,
-// which verifies the token itself and is NOT gated by requireAuth) must
-// still work for a real, unexpired link, and must reject an expired one.
+// This covers both sides: the forged-session path must be rejected
+// (middleware/requireAuth.js), and the legitimate unsubscribe route (routes/auth.js's GET
+// /unsubscribe, which verifies the token itself and is NOT gated by requireAuth) must still
+// work for a real, unexpired link and reject an expired one.
 require("dotenv").config({ quiet: true });
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");

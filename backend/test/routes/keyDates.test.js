@@ -1,6 +1,6 @@
-// #291: key-date reminders -- the bell category, who a reminder goes to (the
-// whole care team, else the default lead), what clears one, the feature gates,
-// and the default-lead endpoints. The daily email is keyDateEmail.test.js.
+// Key-date reminders: the bell category, who a reminder goes to (the whole care team, else the
+// default lead), what clears one, the feature gates, and the default-lead endpoints. The daily
+// email is keyDateEmail.test.js.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

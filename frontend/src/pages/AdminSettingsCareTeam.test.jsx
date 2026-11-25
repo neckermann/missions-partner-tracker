@@ -11,8 +11,8 @@ import {
   updateChurchSettings,
 } from "../api/client.js";
 
-// #291: the default lead -- who key-date reminders go to for a partner with
-// no care team. Admin only (the route is admin-gated).
+// The default lead: who key-date reminders go to for a partner with no care team. Admin only
+// (the route is admin-gated).
 vi.mock("../api/client.js", () => ({
   fetchDefaultCareLead: vi.fn(),
   setDefaultCareLead: vi.fn(),

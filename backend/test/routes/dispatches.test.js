@@ -121,9 +121,8 @@ describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
         chatDispatchOneTimeNeeds: true,
         chatDispatchNewsletters: true,
         allowRestrictedPartnerDispatch: true,
-        // #327 Finding 10 -- same "pin every field explicitly" reasoning
-        // as the rest of this block, since the deepEqual below checks
-        // the response's entire shape.
+        // Pin every field explicitly, as in the rest of this block: the deepEqual below checks the
+        // response's entire shape.
         restrictedPartnerInitialsEnabled: true,
         emailDispatchSubjectTemplate: null,
         emailDispatchSignature: null,
@@ -132,10 +131,8 @@ describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
         emailDispatchDayOfMonth: null,
         emailDispatchHour: null,
         chatDispatchHour: null,
-        // #209's own defaults -- not this file's concern (see
-        // cadenceTiers.test.js), but this test's deepEqual below checks
-        // the response's *entire* shape, so these have to be pinned to
-        // something explicit too.
+        // The cadence-tier defaults are not this file's concern (see cadenceTiers.test.js), but the
+        // deepEqual below checks the entire response shape, so they are pinned too.
         cadenceBiweeklyEnabled: false,
         cadenceMonthlyEnabled: true,
         cadenceQuarterlyEnabled: true,
@@ -263,9 +260,8 @@ describe("GET /api/dispatches/pending -- any logged-in role", () => {
     }
   });
 
-  // #327 Finding 10 -- the setting is read fresh on every request (not
-  // cached), so turning it off should immediately change what the
-  // Pending Dispatches queue shows for a restricted partner's rows.
+  // The setting is read fresh on every request (not cached), so turning it off immediately
+  // changes what the Pending Dispatches queue shows for a restricted partner's rows.
   test("with restrictedPartnerInitialsEnabled off, shows the field label instead of initials", async () => {
     const restrictedPartner = await admin("/api/partners", {
       method: "POST",

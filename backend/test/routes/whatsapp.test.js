@@ -397,17 +397,12 @@ describe("keeping the socket in step with the settings", () => {
   });
 
   test("a QR-paired session resumes on restart even though registered is still false", async () => {
-    // Baileys sets creds.registered = true in exactly one place in the
-    // whole library (messages-recv.js), gated to the phone-number
-    // pairing-code completion path -- QR pairing (this app's only method)
-    // never sets it, ever, even for a real, successfully-linked session.
-    // Confirmed live against a production dev-test deploy: a freshly
-    // QR-paired, currently-connected session's persisted row had
-    // registered: false the whole time. me.id is what's actually
-    // reliable -- real Baileys populates it for both pairing methods via
-    // socket.js's own `Object.assign(creds, update)` on every
-    // creds.update, and initAuthCreds() leaves it unset for a genuinely
-    // fresh, never-paired session.
+    // Baileys sets creds.registered = true in exactly one place (messages-recv.js), gated to the
+    // phone-number pairing-code path: QR pairing (this app's only method) never sets it, even for
+    // a linked session (confirmed live: a QR-paired, connected session had registered: false).
+    // me.id is what's reliable: real Baileys populates it for both pairing methods via socket.js's
+    // `Object.assign(creds, update)` on every creds.update, and initAuthCreds() leaves it unset
+    // for a fresh session.
     await whatsappClient.shutdown();
     const { encryptField } = require("../../src/utils/crypto");
     const creds = {

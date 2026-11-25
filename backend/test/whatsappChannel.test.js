@@ -1,11 +1,9 @@
 const { test, describe, mock, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
-// whatsappChannel.js transitively requires prismaClient.js, which reads
-// DATABASE_URL eagerly at require time -- same reason
-// emailDispatchScheduler.test.js needs this. Everything exercised here is pure or
-// mocks the WhatsApp client (and, on the failure path, the dispatchRecord
-// write that records the error -- see the in-app notifications plan's
-// "Dispatch send failures"); no DB is touched.
+// whatsappChannel.js transitively requires prismaClient.js, which reads DATABASE_URL eagerly
+// at require time, as in emailDispatchScheduler.test.js. Everything exercised here is pure or
+// mocks the WhatsApp client (and, on the failure path, the dispatchRecord write that records
+// the error); no DB is touched.
 require("dotenv").config({ quiet: true });
 const whatsappClient = require("../src/utils/whatsappClient");
 const prisma = require("../src/prismaClient");
@@ -278,13 +276,11 @@ describe("postToWhatsApp", () => {
   test("a type with no group picked routes to the Announcements fallback instead", async () => {
     const sent = [];
     mock.method(whatsappClient, "sendText", async (jid, text) => sent.push({ jid, text }));
-    // A prayer request, not the newsletter used above -- newsletterCreated's
-    // own groupmeText is independently null without APP_BASE_URL set (no
-    // link, nothing worth sending -- see dispatchBlurbs.js), which
-    // would filter this row out before ever reaching the fallback logic
-    // this test is actually about, passing locally (APP_BASE_URL set in
-    // backend/.env) but not in CI (unset there). prayerRequestCreated's
-    // groupmeText has no such external dependency.
+    // A prayer request, not the newsletter used above: newsletterCreated's groupmeText is null
+    // without APP_BASE_URL set (no link, nothing worth sending; see dispatchBlurbs.js), which
+    // would filter this row out before the fallback logic under test, passing locally
+    // (APP_BASE_URL in backend/.env) but failing in CI. prayerRequestCreated's groupmeText has no
+    // such dependency.
     const noPrayerGroup = { whatsappPairedAt: new Date(), whatsappAnnouncementGroupId: "announce@g.us" };
     const ids = await postToWhatsApp([prayer("a", "Pray for safety")], partnerById, noPrayerGroup);
     assert.equal(ids.size, 1);
@@ -340,8 +336,7 @@ describe("postToWhatsApp", () => {
     assert.doesNotMatch(sent[0], /Jane Doe/);
   });
 
-  // #327 Finding 10 -- proves the setting actually threads through to this
-  // channel, not just maskData.js's own unit tests.
+  // Proves the setting threads through to this channel, not just maskData.js's own unit tests.
   test("a restricted partner's masked name respects restrictedPartnerInitialsEnabled: false", async () => {
     const sent = [];
     mock.method(whatsappClient, "sendText", async (jid, text) => sent.push(text));

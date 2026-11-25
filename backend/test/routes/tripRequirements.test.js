@@ -1,19 +1,9 @@
-// Trip requirements (#252) -- split out of trips.test.js to mirror
-// #271's route split (routes/tripRequirements.js). A requirement is a
-// document, a plain task, or an esignature, optionally with a due date
-// and a reminder lead time; fulfillment and cloning each have to treat
-// the kinds differently. Also covers the public self-service upload
-// route (same token mechanism as meeting RSVP) and the notice sent to
-// every existing participant when a new document/esignature
-// requirement is added to a trip that already has a team.
-//
-// What's deliberately NOT here: the late-joiner catch-up tests for
-// "adding/approving a participant into a trip that already has
-// requirements" live in tripParticipants.test.js instead -- the
-// endpoint under test there is tripParticipants.js's own add/approve
-// routes, not this file's, even though the email body they trigger is
-// about an existing requirement. See that file's own header comment
-// for the full reasoning.
+// Trip requirements: a document, a plain task, or an esignature, optionally with a due date
+// and reminder lead time; fulfillment and cloning treat the kinds differently. Also covers the
+// public self-service upload route (same token mechanism as meeting RSVP) and the notice sent
+// to every existing participant when a document/esignature requirement is added to a trip that
+// already has a team. The late-joiner catch-up tests live in tripParticipants.test.js: the
+// endpoint under test there is tripParticipants.js's add/approve routes.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -28,10 +18,9 @@ const {
   FIXTURE_TAG,
 } = require("./helpers");
 
-// Same mock-the-whole-domain technique publicSubscribe.test.js/
-// dispatches.test.js already use for Postmark -- monkey-patch
-// global.fetch, matching only the Postmark host, so no real email ever
-// sends in this suite.
+// Same mock-the-whole-domain technique as publicSubscribe.test.js/dispatches.test.js for
+// Postmark: patch global.fetch, matching only the Postmark host, so no real email ever sends
+// in this suite.
 const realFetch = global.fetch;
 global.fetch = (url, options) => {
   if (String(url).startsWith("https://api.postmarkapp.com")) {
@@ -105,9 +94,8 @@ async function createPartner(overrides = {}) {
   return res.body;
 }
 
-// TripRequirement generalization -- a requirement is a document or a
-// plain task, optionally with a due date and a reminder lead time;
-// fulfillment and cloning both have to treat the two kinds differently.
+// A requirement is a document or a plain task, optionally with a due date and a reminder lead
+// time; fulfillment and cloning treat the two kinds differently.
 describe("Trips: requirements (document or task)", () => {
   test("rejects a reminder lead time with no due date", async () => {
     const partner = await createPartner();
@@ -236,10 +224,8 @@ describe("Trips: requirements (document or task)", () => {
   });
 });
 
-// Public self-service document upload (requirement self-serve round) --
-// same token mechanism as meeting RSVP/esignature, and the same shared
-// multer config (backend/src/utils/upload.js) the admin upload route
-// now also uses.
+// Public self-service document upload: same token mechanism as meeting RSVP/esignature, and
+// the same shared multer config (backend/src/utils/upload.js) as the admin upload route.
 describe("Trips: public document-requirement upload", () => {
   const { buildTripParticipantAccessToken } = require("../../src/utils/tripAccessToken");
 
@@ -258,10 +244,9 @@ describe("Trips: public document-requirement upload", () => {
     return { trip: trip.body, participant, requirement };
   }
 
-  // #327 Finding 4: token moved to the query string (same convention every
-  // other public trip-participant route already uses) so it can be
-  // verified before multer ever buffers the file -- no longer a form
-  // field, so this helper only builds the file part now.
+  // The token is in the query string (like every other public trip-participant route) so it can
+  // be verified before multer buffers the file; it is not a form field, so this helper only
+  // builds the file part.
   function uploadForm(buffer, filename, mimeType) {
     const form = new FormData();
     form.set("file", new Blob([buffer], { type: mimeType }), filename);
@@ -336,11 +321,9 @@ describe("Trips: public document-requirement upload", () => {
     assert.equal(res.status, 400);
   });
 
-  // #327 Finding 8: this route used to store req.file.mimetype unverified
-  // -- a file declared application/pdf but containing arbitrary bytes
-  // (not multer's own extension-based filter, which only checks the
-  // declared Content-Type and would let this straight through) was
-  // accepted and later served inline as PDF.
+  // The route must verify the file's signature, not store req.file.mimetype as declared: a file
+  // declared application/pdf but containing arbitrary bytes (multer's extension-based filter
+  // only checks the declared Content-Type) would otherwise be accepted and served inline as PDF.
   test("a file declaring a real type but containing arbitrary bytes is rejected (#327 Finding 8)", async () => {
     const { participant, requirement } = await createTripWithParticipantAndRequirement();
     const token = buildTripParticipantAccessToken(participant);
@@ -497,10 +480,8 @@ describe("Trips: creating a requirement notifies existing participants", () => {
     }
   });
 
-  // esignature-kind requirements are self-serve (the existing "Sign now"
-  // flow) the same way document-kind is -- they get the identical notice,
-  // not a second wording, since the email's "checklist item" phrasing was
-  // already kind-neutral.
+  // esignature-kind requirements are self-serve (the "Sign now" flow) like document-kind, so
+  // they get the identical notice, not a second wording.
   test("creating an esignature-kind requirement emails every current participant a link to their own trip page", async () => {
     const partner = await createPartner();
     const trip = await admin("/api/trips", {
@@ -548,11 +529,9 @@ describe("Trips: creating a requirement notifies existing participants", () => {
   });
 });
 
-// #278 -- a requirement can be scoped to only a trip's minor
-// participants (e.g. a minor travel release form). Filtered at every
-// read/reminder point, never by creating or withholding a
-// TripRequirementStatus row (those are already lazily created on first
-// completion/upload, never eagerly for every participant).
+// A requirement can be scoped to only a trip's minor participants (e.g. a minor travel release
+// form). Filtered at every read/reminder point, never by creating or withholding a
+// TripRequirementStatus row (those are created lazily on first completion/upload).
 describe("Trips: minors-only requirements (#278)", () => {
   const { buildTripParticipantAccessToken } = require("../../src/utils/tripAccessToken");
 

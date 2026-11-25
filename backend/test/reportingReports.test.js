@@ -240,8 +240,8 @@ test("summary tiles can carry a click-through filter that the report honours", (
   assert.strictEqual(filtered.rows.length, 1);
 });
 
-// #288: a logged contact counts as hearing from a partner, alongside a
-// newsletter, but only while the contact log is on.
+// A logged contact counts as hearing from a partner, alongside a newsletter, but only while
+// the contact log is on.
 test("last heard from counts a logged contact as hearing from them, when the contact log is on", () => {
   const p = (name, newsletterDates, contactDates) => ({
     displayName: name,
@@ -268,7 +268,7 @@ test("last heard from counts a logged contact as hearing from them, when the con
   assert.strictEqual(on.rows.find((r) => r.partnerName === "Old both").contact, "2026-01-15");
   assert.match(on.notes[0], /logged contact/);
 
-  // off: contact data is ignored even if rows carry it, exactly as before
+  // off: contact data is ignored even if rows carry it
   const off = run("last-heard-from", {}, { partners, contactLogOn: false });
   assert.deepStrictEqual(
     off.rows.map((r) => r.partnerName),

@@ -5,8 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import SetPassword from "./SetPassword.jsx";
 import { validatePasswordSetup, requestPasswordSetupLink } from "../api/client.js";
 
-// The expired-link page offers a new link by email. While the site can't send email it must say
-// so (and point to an administrator), not promise a link that will never arrive (#345).
+// The expired-link page offers a new link by email. While the site can't send email it must
+// say so (and point to an administrator), not promise a link that will never arrive.
 vi.mock("../api/client.js", () => ({
   validatePasswordSetup: vi.fn(),
   completePasswordSetup: vi.fn(),

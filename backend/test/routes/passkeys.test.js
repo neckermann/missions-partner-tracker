@@ -1,8 +1,8 @@
-// #386: passkeys as a second sign-in factor. A software authenticator (softAuthenticator.js)
+// Passkeys as a second sign-in factor. A software authenticator (softAuthenticator.js)
 // produces real WebAuthn messages, so registration and sign-in run the real verification:
-// adding one, signing in with it, a replayed or wrongly-signed assertion, a response for another
-// site, the limit of five, removing one (and not the last while two-factor is required), the admin
-// reset, and forced enrolment finishing with a passkey instead of a code.
+// adding one, signing in with it, a replayed or wrongly-signed assertion, a response for
+// another site, the limit of five, removing one (and not the last while two-factor is
+// required), the admin reset, and forced enrolment finishing with a passkey instead of a code.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -26,7 +26,7 @@ const cookieOf = (res) =>
     .map((c) => c.split(";")[0])
     .join("; ");
 // Like a browser: keeps the latest session cookie a response sets (enrolling the first passkey
-// re-issues it, #408).
+// re-issues it).
 const as = (cookie) => {
   let current = cookie;
   return async (path, options = {}) => {
@@ -240,7 +240,7 @@ describe("signing in with a passkey", () => {
     const user = await makeUser("purpose");
     const a = newAuthenticator();
     const { cookie } = await login(user.email);
-    const who = as(cookie); // keeps the cookie the enrolment re-issues (#408)
+    const who = as(cookie); // keeps the cookie the enrolment re-issues
     await addPasskey(who, a);
     const reg = await who("/api/auth/passkeys/register/options", { method: "POST" });
     const pending = (await login(user.email)).body.pendingToken;

@@ -15,14 +15,10 @@ test.describe("Trip History", () => {
     await page.waitForSelector("h2:has-text('Trips')");
 
     const uniqueDescription = `E2E trip ${Date.now()}`;
-    // The consolidated table has no Description column (#252's redesign
-    // dropped it -- Description only ever shows up in the Add/Edit forms),
-    // so a row can't be located by this text. 1901 is the same "a year
-    // nothing real uses" convention backend/test/routes/trips.test.js
-    // already relies on for its own "year with nothing in it" case --
-    // tagging this trip with it, and filtering the Year select down to
-    // it, is what actually makes the row unique and findable, regardless
-    // of how much other Trips demo/seed data exists.
+    // The table has no Description column (it only shows in the Add/Edit forms), so a row can't be
+    // located by it. 1901 is the same "a year nothing real uses" convention
+    // backend/test/routes/trips.test.js relies on; tagging this trip with it and filtering the
+    // Year select to it makes the row unique regardless of other seed data.
     const uniqueStartDate = "1901-06-15";
 
     // Scoped to the Add form -- the Filters section above it has its own
@@ -37,8 +33,7 @@ test.describe("Trip History", () => {
     await addForm.getByLabel("Trip Type").selectOption("Construction");
     await addForm.getByLabel("Description (what the team did)").fill(uniqueDescription);
     await addForm.getByRole("button", { name: "+ Add Participant" }).click();
-    // Participants have separate First/Last Name fields now (#252) -- a
-    // bare "Name" label no longer exists, and lastName is required.
+    // Participants have separate First/Last Name fields; lastName is required.
     await addForm.getByLabel("First Name").fill("E2E");
     await addForm.getByLabel("Last Name").fill("Participant");
     await page.click('button[type="submit"]:has-text("Save Trip")');
@@ -60,17 +55,12 @@ test.describe("Trip History", () => {
     await page.locator(".filter-chip", { hasText: "Year:" }).locator("select").selectOption("1901");
 
     const row = page.locator("tbody tr", { hasText: target.displayName });
-    // The list no longer has a Trip Type column (the partner name identifies the
-    // row, and filtering covers the rest); the type is confirmed on the saved
-    // record below instead.
+    // The list has no Trip Type column; the type is confirmed on the saved record below.
     await expect(row).toContainText("1"); // team size
 
-    // Edit: a completed trip's row is itself the click target now (the
-    // popup pattern, not a separate Edit button) -- click a cell that
-    // isn't the Partner column (stopRowClick, since it's its own link).
-    // The table never displays description (see above), so the round-trip
-    // is confirmed against the API, the same way the cleanup step below
-    // already looks this trip up.
+    // Edit: a completed trip's row is itself the click target; click a cell outside the Partner
+    // column (stopRowClick: it's its own link). The table never displays description, so the
+    // round-trip is confirmed against the API.
     const updatedDescription = `${uniqueDescription} (edited)`;
     await row.locator("td").nth(4).click();
     await page.getByLabel("Description (what the team did)").fill(updatedDescription);
@@ -90,20 +80,15 @@ test.describe("Trip History", () => {
       .toBeTruthy();
     expect(created.type).toBe("Construction");
 
-    // Cleanup via the API directly (same authenticated browser context --
-    // Playwright's page.request shares cookies with the page), matching
-    // admin-missionary-crud.spec.js's approach rather than driving the
-    // native confirm() delete prompt through the UI.
+    // Clean up via the API (page.request shares the page's cookies), not the native confirm()
+    // delete prompt.
     const del = await page.request.delete(`/api/trips/${created.id}`);
     expect(del.ok()).toBeTruthy();
   });
 
-  // #130: a Google Photos/iCloud/Other link to an album the admin already
-  // maintains elsewhere -- never in-app file storage. Covers both the
-  // happy path and the invalid-link rejection, the latter specifically
-  // because the rejection hint used to shift the Save button's position
-  // right as a click landed on it (fixed by reserving its space), so this
-  // guards against that regressing rather than just checking a 400 fires.
+  // A Google Photos/iCloud/Other link to an album the admin maintains elsewhere, never in-app
+  // file storage. Covers the happy path and the invalid-link rejection, the latter because the
+  // rejection hint once shifted the Save button just as a click landed on it.
   test("photo/video album link: a valid link round-trips, an invalid one is rejected without saving", async ({
     page,
   }) => {
@@ -127,11 +112,8 @@ test.describe("Trip History", () => {
     await albumField.locator("input").fill("https://photos.app.goo.gl/e2eTestAlbum");
     await addForm.getByRole("button", { name: "Save Trip" }).click();
 
-    // The table's own "View" link now always points to the trip's detail
-    // page (AdminTrips.jsx), not the raw album URL -- there's no on-screen
-    // rendering of that link once saved, so the round-trip is confirmed
-    // the same way the cleanup step below already looks up this row:
-    // directly against the API.
+    // The table's "View" link points to the trip's detail page, not the album URL, so the
+    // round-trip is confirmed directly against the API.
     let created;
     await expect
       .poll(async () => {

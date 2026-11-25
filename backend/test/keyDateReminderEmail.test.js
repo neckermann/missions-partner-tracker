@@ -1,5 +1,4 @@
-// #291: the wording and masking of the daily key-date email. Pure -- no
-// database, no network.
+// The wording and masking of the daily key-date email. Pure: no database, no network.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { buildKeyDateEmail, describe: describeItem, when } = require("../src/utils/keyDateReminderEmail");

@@ -5,8 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import AdminUsers from "./AdminUsers.jsx";
 import { fetchUsers, fetchCurrentUser, fetchTrips, updateChurchSettings } from "../api/client.js";
 
-// The church-wide two-factor requirement (#385), as an admin sees and changes it at the top of
-// Manage Users: whether it is on, how many active accounts still have to enrol, and the toggle.
+// The church-wide two-factor requirement as an admin sees and changes it at the top of Manage
+// Users: whether it is on, how many active accounts still have to enrol, and the toggle.
 vi.mock("../api/client.js", () => ({
   fetchUsers: vi.fn(),
   fetchUser: vi.fn(),

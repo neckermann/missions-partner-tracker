@@ -4,10 +4,8 @@ const multer = require("multer");
 const { z } = require("zod");
 const { classify, formatZodIssues, errorHandler } = require("../src/middleware/errors");
 
-// Produce a real ZodError rather than a hand-built fake, so these tests keep
-// working across Zod versions instead of asserting against a shape we made up.
-// (Zod 4 renamed ZodError.errors to .issues -- exactly the kind of drift that
-// broke this once already.)
+// Produce a real ZodError rather than a hand-built fake, so these tests track Zod's actual
+// shape (Zod 4 renamed ZodError.errors to .issues).
 function zodErrorFrom(schema, value) {
   try {
     schema.parse(value);

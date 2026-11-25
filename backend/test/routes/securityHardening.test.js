@@ -1,7 +1,7 @@
-// The #368 review's fixes (#407, #408): a guest never subscribes to, or receives, the church-wide
-// email digests; a passkey setup token isn't good for an account that has since enrolled; the
-// first passkey ends older sessions but not the tab that enrolled it; and removing a passkey (which
-// checks the password) is rate limited.
+// A guest never subscribes to, or receives, the church-wide email digests; a passkey setup
+// token isn't good for an account that has since enrolled; the first passkey ends older
+// sessions but not the tab that enrolled it; and removing a passkey (which checks the
+// password) is rate limited.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
