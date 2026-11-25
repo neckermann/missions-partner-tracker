@@ -257,6 +257,52 @@ describe("surveys", () => {
     assert.equal(row.blockedReason, "no email on file");
   });
 
+  test("a staff-made link opens the survey with no email, replaces the old one, and a viewer can't make one", async () => {
+    const before = process.env.APP_BASE_URL;
+    process.env.APP_BASE_URL = "https://church.example.org";
+    try {
+      const other = (
+        await admin("/api/partners", {
+          method: "POST",
+          body: { kind: "missionary", displayName: `${FIXTURE_TAG} linkP` },
+        })
+      ).body;
+      assert.equal(
+        (await viewer(`/api/surveys/${survey.id}/link`, { method: "POST", body: { partnerId: other.id } }))
+          .status,
+        403
+      );
+      const first = await editor(`/api/surveys/${survey.id}/link`, {
+        method: "POST",
+        body: { partnerId: other.id },
+      });
+      assert.equal(first.status, 200);
+      assert.match(first.body.url, /^https:\/\/church\.example\.org\/survey\//);
+      const token1 = decodeURIComponent(first.body.url.split("/survey/")[1]);
+      assert.equal((await anon(`/api/public/surveys/${token1}`)).status, 200);
+
+      const second = await editor(`/api/surveys/${survey.id}/link`, {
+        method: "POST",
+        body: { partnerId: other.id },
+      });
+      const token2 = decodeURIComponent(second.body.url.split("/survey/")[1]);
+      assert.equal(
+        (await anon(`/api/public/surveys/${token1}`)).status,
+        404,
+        "the earlier link stops working"
+      );
+      assert.equal((await anon(`/api/public/surveys/${token2}`)).status, 200);
+
+      const rec = await editor(`/api/surveys/${survey.id}/recipients`);
+      const row = rec.body.recipients.find((r) => r.partnerId === other.id);
+      assert.equal(row.canLink, true);
+      assert.equal(row.state, "invited");
+    } finally {
+      if (before === undefined) delete process.env.APP_BASE_URL;
+      else process.env.APP_BASE_URL = before;
+    }
+  });
+
   test("only an admin deletes a survey", async () => {
     assert.equal((await editor(`/api/surveys/${survey.id}`, { method: "DELETE" })).status, 403);
     assert.equal((await admin(`/api/surveys/${survey.id}`, { method: "DELETE" })).status, 200);

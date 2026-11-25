@@ -7,6 +7,7 @@ import {
   saveSurveyQuestions,
   fetchSurveyRecipients,
   sendSurvey,
+  createSurveyLink,
   fetchSurveyFields,
   fetchSurveyResponses,
   reopenSurveyResponse,
@@ -58,6 +59,7 @@ export default function AdminSettingsSurveyDetail() {
   const [recipients, setRecipients] = useState([]);
   const [fields, setFields] = useState([]);
   const [chosen, setChosen] = useState(new Set());
+  const [linkInfo, setLinkInfo] = useState(null); // { name, url, expiresAt } of the last link made
   const [search, setSearch] = useState("");
   const [results, setResults] = useState({ responses: [] });
   const [message, setMessage] = useState("");
@@ -155,6 +157,27 @@ export default function AdminSettingsSurveyDetail() {
       await deleteSurvey(id);
       navigate("/admin/settings/surveys");
     });
+  }
+
+  async function getLink(r) {
+    setError("");
+    setMessage("");
+    try {
+      const l = await createSurveyLink(id, r.partnerId);
+      setLinkInfo({ name: r.name, url: l.url, expiresAt: l.expiresAt });
+      await reload();
+    } catch (err) {
+      setError(err.response?.data?.error || "Something went wrong");
+    }
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(linkInfo.url);
+      setMessage("Link copied.");
+    } catch {
+      setMessage("Couldn't copy. Select the link and copy it by hand.");
+    }
   }
 
   async function send(reminder) {
@@ -500,25 +523,58 @@ export default function AdminSettingsSurveyDetail() {
               <div className="survey-recipients">
                 {shown.length === 0 && <p style={{ color: "var(--muted)", margin: 0 }}>No partners match.</p>}
                 {shown.map((r) => (
-                  <label key={r.partnerId} style={choiceRowStyle}>
-                    <input
-                      style={choiceInputStyle}
-                      type="checkbox"
-                      disabled={!r.canEmail || r.state === "answered"}
-                      checked={chosen.has(r.partnerId)}
-                      onChange={() => toggle(r.partnerId)}
-                    />
-                    <span>
-                      {r.name}{" "}
-                      <span style={{ color: "var(--muted)" }}>
-                        · {r.state}
-                        {r.sentAt ? ` ${formatDate(r.sentAt)}` : ""}
-                        {!r.canEmail ? ` · can't email (${r.blockedReason})` : ""}
+                  <div
+                    key={r.partnerId}
+                    style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}
+                  >
+                    <label style={{ ...choiceRowStyle, flex: 1, minWidth: "12rem" }}>
+                      <input
+                        style={choiceInputStyle}
+                        type="checkbox"
+                        disabled={!r.canEmail || r.state === "answered"}
+                        checked={chosen.has(r.partnerId)}
+                        onChange={() => toggle(r.partnerId)}
+                      />
+                      <span>
+                        {r.name}{" "}
+                        <span style={{ color: "var(--muted)" }}>
+                          · {r.state}
+                          {r.sentAt ? ` ${formatDate(r.sentAt)}` : ""}
+                          {!r.canEmail ? ` · can't email (${r.blockedReason})` : ""}
+                        </span>
                       </span>
-                    </span>
-                  </label>
+                    </label>
+                    {r.canLink && r.state !== "answered" && (
+                      <button type="button" className="btn secondary small" onClick={() => getLink(r)}>
+                        Get link
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
+              {linkInfo && (
+                <div className="admin-section" style={{ marginTop: "0.75rem" }}>
+                  <strong>Link for {linkInfo.name}</strong>
+                  <p style={{ color: "var(--muted)", margin: "0.25rem 0" }}>
+                    Nothing was emailed. Open it to try the survey as them, or send it to them yourself. It
+                    works until {formatDate(linkInfo.expiresAt)}, and an earlier link for them stops working.
+                  </p>
+                  <input
+                    readOnly
+                    value={linkInfo.url}
+                    aria-label="Survey link"
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                    <button type="button" className="btn small" onClick={copyLink}>
+                      Copy link
+                    </button>
+                    <a className="btn secondary small" href={linkInfo.url} target="_blank" rel="noreferrer">
+                      Open it
+                    </a>
+                  </div>
+                </div>
+              )}
               <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
                 <button
                   type="button"

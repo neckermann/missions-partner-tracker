@@ -1156,6 +1156,11 @@ export async function fetchSurveyRecipients(id) {
   return data.recipients;
 }
 // -> { sent, skipped: [{ partnerId, name, reason }] }
+export async function createSurveyLink(id, partnerId) {
+  const { data } = await api.post(`/surveys/${id}/link`, { partnerId });
+  return data;
+}
+
 export async function sendSurvey(id, partnerIds, reminder = false) {
   const { data } = await api.post(`/surveys/${id}/send`, { partnerIds, reminder });
   return data;
