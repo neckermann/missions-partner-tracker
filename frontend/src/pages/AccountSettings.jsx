@@ -446,11 +446,13 @@ function PasskeysSection({ onChange }) {
         </ul>
       )}
 
-      {list.demo ? (
+      {list.demo && (
         <p style={{ color: "var(--muted)" }}>
-          Passkeys are turned off on the public demo, because its logins are shared.
+          This is the public demo: try adding and removing a passkey. The login is shared, so it never changes
+          how anyone signs in here.
         </p>
-      ) : !supported ? (
+      )}
+      {!supported ? (
         <p style={{ color: "var(--muted)" }}>This browser can't create passkeys.</p>
       ) : full ? (
         <p style={{ color: "var(--muted)" }}>You have the most passkeys allowed ({list.max}).</p>
