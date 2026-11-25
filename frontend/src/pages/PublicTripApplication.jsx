@@ -44,10 +44,7 @@ const initialValues = {
   parentGuardianPhone: "",
   parentGuardianEmail: "",
   responses: {},
-  // #327 Finding 4: honeypot -- hidden off-screen, no real applicant ever
-  // fills this in. A scripted submitter that fills every input it finds
-  // does, and the backend (publicTripApplications.js) treats a non-empty
-  // value here as spam.
+  // Honeypot: hidden off-screen; no real applicant fills it, and the backend (publicTripApplications.js) treats a value as spam.
   website: "",
 };
 
@@ -55,23 +52,12 @@ function setResponse(values, setValue, questionId, next) {
   setValue("responses", { ...(values.responses || {}), [questionId]: next });
 }
 
-// New (#252) -- the public application form. Serves two addressing
-// modes: plain id-addressed (only for a listed, accepting_applications,
-// isPublic trip) and applicationShareToken-addressed (the private link,
-// works regardless of isPublic/publicTripDiscovery, and for a restricted
-// partner renders a masked destination instead of 404ing). Renders
-// exactly whatever questions that specific trip's applicationQuestions
-// defines, nothing hardcoded.
-//
-// Phase 3b of the UX-rebuild plan: restructured onto the Wizard shell's
-// 3 steps -- same fields/validation/conditional sections as before (no
-// new scope), just regrouped so a long form doesn't dump every section
-// at once: 1) applicant info, 2) address/emergency/guardian (whichever
-// this trip actually collects), 3) the trip's own custom questions plus
-// submit. A trip collecting none of step 2's optional sections still
-// gets a (now-empty-bodied) step rather than a dynamically-vanishing
-// step count -- simpler for an applicant to reason about ("3 of 3")
-// than a wizard whose length changes per trip.
+// The public application form. Two addressing modes: id-addressed (only a listed, accepting_applications,
+// isPublic trip) and applicationShareToken-addressed (the private link; works regardless of
+// isPublic/publicTripDiscovery, and a restricted partner renders a masked destination, not a 404).
+// Renders exactly the questions the trip's applicationQuestions defines. Three Wizard steps: applicant
+// info; address/emergency/guardian (whichever the trip collects); custom questions plus submit. Step 2
+// renders empty rather than vanishing so the step count stays fixed.
 export default function PublicTripApplication() {
   const { id, token } = useParams();
   const [trip, setTrip] = useState(null);
@@ -105,10 +91,7 @@ export default function PublicTripApplication() {
       const submit = token ? submitTripApplicationByToken : submitTripApplication;
       await submit(token || id, values);
       setSubmitted(true);
-      // This is a multi-step form -- the submit button sits well below
-      // the fold on the last step, so without this the success message
-      // renders off-screen above wherever the applicant happened to be
-      // scrolled, easy to miss entirely.
+      // The submit button is well below the fold on the last step; scroll up so the success message is seen.
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       setError(err.response?.data?.error || "Couldn't submit -- please try again.");
@@ -173,11 +156,7 @@ export default function PublicTripApplication() {
               <input value={values.phone} onChange={(e) => setValue("phone", e.target.value)} />
             </label>
           </div>
-          {/* A real field, not a custom question -- see
-          TripParticipant.dateOfBirth's own schema comment. Always
-          collected and always required: the minor determination that
-          decides whether the Parent/guardian section on the next step
-          appears depends on it. */}
+          {/* A real field, always required: the minor determination that shows the Parent/guardian step depends on it. */}
           <div className="form-grid" style={{ marginTop: "0.75rem" }}>
             <label>
               Date of birth
@@ -195,13 +174,8 @@ export default function PublicTripApplication() {
     {
       key: "address-contacts",
       label: "Address & contacts",
-      // Address/emergency contact are never required at the field level.
-      // Parent/guardian is the one exception: it appears, and is
-      // required, exactly when isMinorForTrip computes true for the date
-      // of birth entered on the previous step -- not gated by any
-      // per-trip or church-wide setting. A trip/applicant triggering none
-      // of these three sections just renders an empty step, not a
-      // missing one, so step numbering ("2 of 3") stays predictable.
+      // Address/emergency contact are never required at the field level. Parent/guardian is required exactly
+      // when isMinorForTrip is true for the date of birth entered on the previous step.
       validate: (values) => {
         if (!isMinorForTrip(values.dateOfBirth, trip.startDate)) return null;
         const missing =
@@ -256,11 +230,7 @@ export default function PublicTripApplication() {
             )}
             {trip.collectEmergencyContact && (
               <div className="form-grid" style={{ marginTop: trip.collectApplicantAddress ? "0.75rem" : 0 }}>
-                {/* Not a form label -- a plain section heading, no control
-              of its own to associate with (the three fields below each
-              have their own). A <label> with nothing inside it fails
-              jsx-a11y/label-has-associated-control for exactly that
-              reason. */}
+                {/* A plain heading, not a <label> (no control to associate; jsx-a11y/label-has-associated-control). */}
                 <div style={{ gridColumn: "1 / -1", fontWeight: 600 }}>Emergency contact</div>
                 <label>
                   First Name

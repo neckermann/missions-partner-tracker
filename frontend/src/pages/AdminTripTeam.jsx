@@ -12,15 +12,8 @@ import { TripGuestsPanel } from "../components/admin/GuestAccessPanels.jsx";
 import CareTeamPanel from "../components/admin/CareTeamPanel.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
 
-// Confirmed Team + the recruiting pipeline that feeds it (Applications,
-// the private link, and this trip's own application questions) --
-// grouped together since an application becomes a team member and the
-// link/questions only exist to produce more applications. Every table
-// here is the shared Table component; row click opens either the
-// participant's own detail page (Confirmed Team -- same destination its
-// "View details" action already goes to) or the application's own detail
-// page (Applications/Declined -- AdminTripApplicationDetail.jsx, a
-// sibling route, not a Modal: see that page's own header comment for why).
+// Confirmed Team plus the recruiting pipeline that feeds it (Applications, the private link,
+// this trip's application questions). Application rows open AdminTripApplicationDetail.jsx.
 export default function AdminTripTeam() {
   const { trip, setTrip, applications, reload, questionLibrary, confirmDialog, navigate, id, canWrite } =
     useOutletContext();
@@ -206,10 +199,7 @@ export default function AdminTripTeam() {
         )}
       </div>
 
-      {/* The same care team the partner's own page shows, here because the
-          people who keep in touch with this trip's partner are usually the
-          ones planning the trip (#289). Anyone who can see the trip sees it;
-          admin/editor can assign it. */}
+      {/* The partner's care team: the people who keep in touch with the partner usually plan the trip. */}
       {enabledFeatures.careTeam && trip.partner?.id && (
         <CareTeamPanel partnerId={trip.partner.id} canEdit={canWrite && !isGuest} canInviteGuest={isAdmin} />
       )}
@@ -238,10 +228,7 @@ export default function AdminTripTeam() {
         ) : (
           <p style={{ color: "var(--muted)" }}>No link generated yet.</p>
         )}
-        {/* Backend blocks this action for a Trip Leader (requireRole on the
-        generate-application-link route excludes guest) -- hiding it
-        here instead of letting them hit the button and get a misleading
-        "check Trip settings" error when the real reason is their role. */}
+        {/* The backend blocks this for a Trip Leader (requireRole excludes guest); hide it rather than show a misleading error. */}
         {canWrite && !isGuest && (
           <button type="button" className="btn secondary small" onClick={handleGenerateLink}>
             {trip.applicationShareToken ? "Regenerate link" : "Generate private application link"}

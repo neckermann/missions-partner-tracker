@@ -3,10 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { fetchSetupStatus, completeSetup } from "../api/client.js";
 import { passwordsMatch } from "../utils/password.js";
 
-// First-run account creation — only ever reachable (and only ever
-// succeeds) before this instance has its first admin account. Once one
-// exists, GET /auth/setup-status reports needed: false and this page
-// redirects straight to /login, same as visiting it a second time.
+// First-run account creation: only succeeds before the first admin exists; after that
+// GET /auth/setup-status reports needed: false and this page redirects to /login.
 export default function Setup() {
   const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState("");

@@ -26,12 +26,7 @@ const emptyRequirementForm = {
   minorsOnly: false,
 };
 
-// Converted from onBlur-autosave onto click-row-opens-popup, same as
-// AdminTripMeetings.jsx -- label/kind are fixed at creation (never were
-// editable after the fact in the old inline form either), so the edit
-// popup shows them as plain read-only context and only the fields that
-// were genuinely editable (due date, reminder lead time, minors-only,
-// the e-signature agreement text) become form inputs.
+// Label/kind are fixed at creation, so the edit popup shows them read-only.
 export default function AdminTripRequirements() {
   const { trip, reload, requirementLibrary, confirmDialog, canWrite } = useOutletContext();
   const [error, setError] = useState("");
@@ -91,10 +86,7 @@ export default function AdminTripRequirements() {
     }
     reload();
     setManualEmailRecipients(manual);
-    // Stay open with the link in view instead of auto-closing behind it --
-    // same reasoning as AdminUserForm.jsx's wizard. QuickActionModal's own
-    // "Saved" state/auto-close only fires when onSubmit doesn't return
-    // false, so this is the one case that opts out of it.
+    // Stay open with the link in view. QuickActionModal's "Saved" auto-close fires unless onSubmit returns false.
     if (manual?.length > 0) return false;
   }
 
@@ -211,10 +203,7 @@ export default function AdminTripRequirements() {
             </button>
           </div>
         )}
-        {/* Only the library quick-add's own notice renders here -- the
-            reqModal's version of this same state renders inside that
-            modal instead (below), right next to the action that produced
-            it, not up here disconnected from either one. */}
+        {/* The reqModal's version of this notice renders inside that modal. */}
         {!reqModal && manualEmailRecipients?.length > 0 && (
           <ManualSendNotice recipients={manualEmailRecipients} />
         )}

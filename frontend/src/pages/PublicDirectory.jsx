@@ -8,10 +8,7 @@ import { getContinent } from "../utils/countryContinents.js";
 import { matchesSearch } from "../utils/search.js";
 import PhotoTile from "../components/shared/PhotoTile.jsx";
 
-// Separate from the interactive map — this is the "quick details" browse/
-// search view; the map stays focused on location, this page on scanning
-// and comparing partners. Both link into the same PublicPartnerDetail page
-// for the full write-up.
+// The "quick details" browse/search view; the map is for location. Both link to PublicPartnerDetail.
 export default function PublicDirectory() {
   const [records, setRecords] = useState([]);
   const [typeFilter, setTypeFilter] = useState("all"); // all | missionary | organization
@@ -24,9 +21,7 @@ export default function PublicDirectory() {
     fetchPublicPartners().then(setRecords).catch(console.error);
   }, []);
 
-  // One list now — the public API returns both kinds from a single
-  // endpoint, distinguished by `kind`, so this just reshapes for display
-  // rather than merging two separately-fetched lists.
+  // The public API returns both kinds from one endpoint, distinguished by `kind`; reshaped for display.
   const partners = useMemo(
     () =>
       records
@@ -54,10 +49,7 @@ export default function PublicDirectory() {
 
   const loaded = records.length > 0;
 
-  // Both lists are built from whatever's actually represented in the data
-  // right now, not the full world list — a church's partners are typically
-  // in a handful of countries, so showing all ~250 options would just be
-  // noise. The country list narrows to the selected continent, if any.
+  // Options come from the data actually present, not the full world list; countries narrow to the selected continent.
   const availableContinents = useMemo(
     () => [...new Set(partners.map((p) => p.continent).filter(Boolean))].sort(),
     [partners]
@@ -77,8 +69,7 @@ export default function PublicDirectory() {
 
   function handleContinentChange(value) {
     setContinentFilter(value);
-    // Drop a country selection that no longer applies to the newly chosen
-    // continent, rather than silently filtering to nothing.
+    // Drop a country selection that no longer applies to the new continent.
     if (value !== "all" && countryFilter !== "all" && getContinent(countryFilter) !== value) {
       setCountryFilter("all");
     }

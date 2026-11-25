@@ -7,7 +7,7 @@ import Wizard from "../components/shared/Wizard.jsx";
 import { toDateInputValue } from "../utils/format.js";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 
-// The Wrap up trip wizard (#358): finishes a trip in one pass -- confirm what happened, a short
+// The Wrap up trip wizard: finishes a trip in one pass -- confirm what happened, a short
 // debrief, a contact for the partner, the loose ends, the photo album, and when the trip leaders'
 // access ends. Calling it "Wrap up" keeps it apart from the status "closed" (applications are
 // closed, the team is committed), which is not the trip being over. Run again later, it just

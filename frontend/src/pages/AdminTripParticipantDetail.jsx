@@ -33,19 +33,7 @@ function readFileAsDataUrl(file) {
   });
 }
 
-// One participant's full picture, split out of the Trips Team page's
-// Confirmed Team table (#252 follow-on). That table used to cram
-// document upload, a requirement picker, task checkboxes, and access-
-// link controls into one action column per row -- everything here is
-// that same functionality, just given the room a person's full record
-// actually needs. The Team page's Confirmed Team table still covers
-// "who's on the team and what's outstanding across everyone, at a
-// glance"; this page is the canonical complete record for one person.
-//
-// Every editable section on this page is EditableSection -- Contact &
-// access, Support-raising goal, and Their Public Page (photo + story,
-// the last onBlur/fire-on-select fields left on this page) all share
-// the same explicit edit -> save/cancel boundary.
+// One participant's full record; the Team page's table is the at-a-glance view across everyone.
 export default function AdminTripParticipantDetail() {
   const { tripId, participantId } = useParams();
   const {
@@ -55,9 +43,7 @@ export default function AdminTripParticipantDetail() {
     canAccessTrip,
     loading: userLoading,
   } = useCurrentUser();
-  // Mirrors TripDetailLayout.jsx's own canWrite -- this page is a sibling
-  // route, not nested under that layout's Outlet, so it can't inherit its
-  // context and has to repeat the same scope check here.
+  // Sibling route, so it can't inherit TripDetailLayout's context; repeats its scope check.
   const canWrite = globalCanWrite || canAccessTrip(tripId);
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [trip, setTrip] = useState(null);
@@ -241,9 +227,7 @@ export default function AdminTripParticipantDetail() {
   return (
     <div className="admin-shell">
       <Breadcrumb
-        // A guest has no access to the Partners directory or a
-        // cross-trip "Trips" list -- same reasoning as TripDetailLayout.jsx's
-        // identically-trimmed breadcrumb.
+        // A guest has no access to the Partners directory or cross-trip Trips list.
         items={
           isGuest
             ? [
@@ -283,9 +267,7 @@ export default function AdminTripParticipantDetail() {
         <p style={{ color: "var(--warn)", fontSize: "0.85rem" }}>Missing: {missingFields.join(", ")}</p>
       )}
 
-      {/* Right above "Contact & access", not up by the page title -- that's
-          where "Resend access link" (below) actually lives, so the link
-          this produces shows up next to the action that asked for it. */}
+      {/* Next to "Resend access link", the action that produces this link. */}
       {manualAccessLink && <ManualSendNotice recipients={manualAccessLink} />}
       <EditableSection
         title="Contact & access"

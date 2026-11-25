@@ -55,24 +55,8 @@ const INACTIVE_LABELS = {
   no_access: "No trips left",
 };
 
-// A user record list, same shape as every other consolidated list page
-// (Table, onRowClick -> a QuickActionModal with the edit form) -- not
-// EditableSection, which is for sections *within* one record, not a
-// collection of many.
-//
-// Create is the one exception, and lives on its own page
-// (AdminUserForm.jsx, "/admin/settings/users/new") rather than a modal
-// here: once the welcome-email/password/MFA options (#285) were added on
-// top of the basic who-is-this fields, Add User crossed the same "~6
-// fields, 2+ conceptual groups" bar Wizard exists for (see
-// STYLE-GUIDE.md -- Multi-step creation, and AdminPartnerForm.jsx's own
-// field-count survey comment), and a Wizard reads as its own page --
-// breadcrumb, title, Cancel/Next pinned to the viewport bottom -- not a
-// dialog floating over this list (a popup-modal version shipped briefly
-// and was corrected in review for exactly that mismatch with "New
-// Partner"). Edit stays the plain QuickActionModal here: it never had the
-// welcome-email step, and resetting a password or changing a role is a
-// single-topic action.
+// A user list like the other consolidated list pages (Table, row opens a QuickActionModal edit form).
+// Create lives on its own Wizard page (AdminUserForm.jsx); edit stays a modal since it has no welcome-email step.
 export default function AdminUsers() {
   const location = useLocation();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
@@ -87,9 +71,7 @@ export default function AdminUsers() {
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState(location.state?.notice || "");
   const [manualSetupLink, setManualSetupLink] = useState(null); // { name, email, url } | null
-  // Guests whose access has lapsed or been removed, so an admin can reach
-  // out and clean up (#356). Filtered here from the list's own
-  // `inactiveReason` rather than refetching.
+  // Guests whose access has lapsed or been removed, filtered from the list's own `inactiveReason`.
   const [inactiveOnly, setInactiveOnly] = useState(false);
 
   function reportError(err, fallback) {
@@ -124,9 +106,8 @@ export default function AdminUsers() {
     }
   }
 
-  // The church-wide two-factor requirement (#385). Turning it on signs out everyone who has not
-  // enrolled (they set it up at their next sign-in), so it asks first; the server refuses unless
-  // the admin doing it has enrolled themselves, and says why.
+  // The church-wide two-factor requirement. Turning it on signs out everyone who has not enrolled,
+  // so it asks first; the server refuses unless the admin has enrolled themselves.
   async function handleToggleTwoFactor(notEnrolled) {
     setError("");
     const turningOn = !currentUser?.twoFactorRequired;
@@ -155,9 +136,8 @@ export default function AdminUsers() {
     }
   }
 
-  // Passwordless sign-in (#386 Layer 2). Turning it on ends password sign-in for everyone, so it
-  // says who will sign in by emailed link first; the server refuses, with the reason, unless
-  // email works and the admin turning it on has a passkey.
+  // Passwordless sign-in. Turning it on ends password sign-in for everyone, so it says who will sign
+  // in by emailed link first; the server refuses unless email works and the admin has a passkey.
   async function handleTogglePasswordless(withoutPasskey) {
     setError("");
     const turningOn = !currentUser?.passwordlessRequired;
@@ -224,18 +204,8 @@ export default function AdminUsers() {
 
   async function openEdit(u) {
     setFormError("");
-    // `loaded: false` keeps the modal's real, interactive form from
-    // rendering at all until fetchUser resolves -- this used to render
-    // the form immediately against `emptyForm` as a loading stand-in, but
-    // emptyForm is a real, editable form, not an inert placeholder: a
-    // change made in that window (role, name, ...) was silently
-    // overwritten the moment the fetch below landed and replaced the
-    // whole form with the server's own data, discarding whatever was just
-    // typed/selected with no error or indication anything was lost. Confirmed
-    // as the actual cause of this suite's own "edit sticks" test going
-    // flaky in CI (never locally, where the fetch resolves long before a
-    // person or Playwright could react) -- not a timing issue to paper
-    // over in the test, a real bug any slow connection could hit.
+    // `loaded: false` keeps the form from rendering until fetchUser resolves: edits made against
+    // `emptyForm` in that window would be silently overwritten when the server data landed.
     setEditingUser({ id: u.id, form: emptyForm, loaded: false });
     try {
       const full = await fetchUser(u.id);

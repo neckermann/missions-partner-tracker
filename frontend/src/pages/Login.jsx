@@ -14,14 +14,9 @@ import {
 } from "../api/client.js";
 import MfaAppGuide from "../components/MfaAppGuide.jsx";
 
-// #124: where to land after a successful login, instead of always /admin.
-// `next` is set by requireAuth's own redirect (a cold click on a direct
-// link to a file, e.g. from a GroupMe notification) and is always a
-// same-origin /api path server-side -- but it round-trips through the URL
-// bar, so it's treated as untrusted here anyway. `from` is set by
-// RequireAdminAuth (a session that expired mid-visit) and is always an SPA
-// route. Both are validated before use to rule out an open redirect via a
-// crafted /login?next=https://evil.com link.
+// Where to land after login. `next` (from requireAuth's redirect, an /api path) and `from` (from
+// RequireAdminAuth, an SPA route) round-trip through the URL/state, so both are validated here
+// to rule out an open redirect via a crafted /login?next=https://evil.com link.
 function resolveDestination(location) {
   const next = new URLSearchParams(location.search).get("next");
   if (next && next.startsWith("/api/") && !next.includes("://") && !next.startsWith("//")) {
@@ -43,7 +38,7 @@ export default function Login() {
   const [setupToken, setSetupToken] = useState(null);
   const [setupData, setSetupData] = useState(null); // { secret, qrCode }
   const [error, setError] = useState("");
-  // #386 Layer 2: the church signs in without passwords.
+  // The church signs in without passwords.
   const [passwordless, setPasswordless] = useState(false);
   // "Forgot your password?" is offered when the site can email a link (never on a demo).
   const [canReset, setCanReset] = useState(false);
@@ -140,7 +135,7 @@ export default function Login() {
     }
   }
 
-  // #386: the second step with a passkey, or finishing forced enrolment with one.
+  // The second step with a passkey, or finishing forced enrolment with one.
   async function handlePasskeySignIn() {
     setError("");
     try {

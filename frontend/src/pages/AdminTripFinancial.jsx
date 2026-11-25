@@ -15,10 +15,7 @@ import Field from "../components/admin/Field.jsx";
 
 const emptyBudgetLineForm = { label: "", estimatedAmount: "" };
 
-// Budget lines converted from onBlur-autosave onto click-row-opens-popup,
-// same as AdminTripMeetings.jsx/AdminTripRequirements.jsx. Contributions
-// stay a plain add-only list (no edit/delete ever existed for these, same
-// shape as Trip-wide documents on the Requirements page) -- just gated.
+// Contributions are an add-only list; there is no edit/delete for them.
 export default function AdminTripFinancial() {
   const { trip, reload, confirmDialog, canWrite } = useOutletContext();
   const [error, setError] = useState("");

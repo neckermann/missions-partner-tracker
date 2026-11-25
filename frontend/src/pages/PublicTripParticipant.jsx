@@ -29,16 +29,12 @@ function readFileAsDataUrl(file) {
   });
 }
 
-// New (#252) -- serves both the plain public support-raising view (by
-// shareToken, route /trip-support-raising/:shareToken) and the participant's
-// own self-service view (by signed access token, route /my-trip?token=...)
-// -- one page, two render modes. The public view never shows
-// flightSegments or donor contact info; the self-service view shows both.
+// Serves the public support-raising view (by shareToken, /trip-support-raising/:shareToken) and the
+// participant's self-service view (by signed access token, /my-trip?token=...). The public view never
+// shows flightSegments or donor contact info; the self-service view shows both.
 
-// Per-meeting "add to calendar" links: direct web links for Google /
-// Outlook / Yahoo (work even on a phone with no app registered for .ics
-// files) plus the .ics download, which Apple Calendar and most other apps
-// still need.
+// Per-meeting "add to calendar" links: web links for Google/Outlook/Yahoo (work on a phone with no .ics
+// handler) plus the .ics download for Apple Calendar and others.
 function AddToCalendar({ meeting, accessToken }) {
   const links = buildCalendarLinks({
     title: meeting.title,
@@ -82,9 +78,7 @@ export default function PublicTripParticipant() {
   const [submittingSignature, setSubmittingSignature] = useState(false);
   const [uploadingRequirementId, setUploadingRequirementId] = useState(null);
   const [uploadError, setUploadError] = useState("");
-  // Explicit edit -> save/cancel for the story/photo section below --
-  // nothing saves until Save is clicked, matching every other editable
-  // section in this app (no onBlur/fire-on-select autosave).
+  // Nothing saves until Save is clicked (no autosave).
   const [editingPage, setEditingPage] = useState(false);
   const [pageDraftStory, setPageDraftStory] = useState("");
   const [pageDraftPhotoDataUrl, setPageDraftPhotoDataUrl] = useState(null);
@@ -97,9 +91,7 @@ export default function PublicTripParticipant() {
     const fetcher = selfService
       ? fetchTripParticipantSelfService(accessToken)
       : fetchPublicTripParticipantByToken(shareToken);
-    // Returned (not fire-and-forget) so handlePhotoChange can wait for the
-    // server-confirmed photo before dropping its own object-URL preview --
-    // otherwise there'd be a flash back to "no photo" in between.
+    // Returned so handlePhotoChange can wait for the server-confirmed photo before dropping its preview.
     return fetcher.then(setData).catch(() => setNotFound(true));
   }, [shareToken, accessToken, selfService]);
 
@@ -126,9 +118,7 @@ export default function PublicTripParticipant() {
     }
   }
 
-  // Document-kind requirement counterpart to handleSign below -- same
-  // "fulfilled by the server, reload to pick up the new state" shape,
-  // just a file instead of a signature.
+  // Document-kind counterpart to handleSign: a file instead of a signature.
   async function handleUploadRequirementDocument(requirementId, file) {
     if (!file) return;
     setUploadingRequirementId(requirementId);
@@ -143,9 +133,7 @@ export default function PublicTripParticipant() {
     }
   }
 
-  // Self-service only -- no review step, same trust level as the
-  // address/emergency-contact/application answers a participant already
-  // self-reports elsewhere with no review.
+  // Self-service only; no review step, same trust level as other self-reported participant data.
   function startEditingPage() {
     setPageDraftStory(data.story || "");
     setPageDraftPhotoDataUrl(null);
@@ -209,9 +197,7 @@ export default function PublicTripParticipant() {
       <PublicSiteHeader title={`${data.firstName} ${data.lastName || ""}`} />
       <DemoBanner />
       <div className="admin-shell" style={{ maxWidth: 680 }}>
-        {/* Same card in both render modes -- no evidence self-service
-        should look different from what a donor sees, and one shared
-        header avoids a second layout to maintain. */}
+        {/* Same card in both render modes: one header, one layout to maintain. */}
         <div
           style={{
             display: "flex",
@@ -279,10 +265,7 @@ export default function PublicTripParticipant() {
           </div>
         </div>
 
-        {/* Self-service only; gated on data.shareToken existing (null when
-        allowPublicSupportRaisingLinks is off, or this participant hasn't
-        been given one yet -- same "doesn't exist" treatment as the rest
-        of this feature's own toggles, not a disabled state). */}
+        {/* Self-service only; data.shareToken is null when allowPublicSupportRaisingLinks is off or none was issued yet. */}
         {selfService && data.shareToken && (
           <div className="admin-section">
             <h3>Your support-raising page</h3>
@@ -385,11 +368,7 @@ export default function PublicTripParticipant() {
           </div>
         )}
 
-        {/* Replaces the former flightDetails free-text paragraph (#252
-        follow-on, per the approved mockup) -- a clean itinerary instead
-        of a blob of text. Server-side filtered to this participant's own
-        segments (issue #265) -- every segment shown here already applies
-        to them, so there's nothing left to label. */}
+        {/* Server-side filtered to this participant's own segments, so there is nothing to label. */}
         {selfService && data.trip.flightSegments?.length > 0 && (
           <div className="admin-section">
             <h3>Flight itinerary</h3>
@@ -543,14 +522,8 @@ export default function PublicTripParticipant() {
           </div>
         )}
 
-        {/* Shared files from the admin's own "Trip-wide documents" section
-        (AdminTripRequirements.jsx) -- an itinerary, packing list, etc.
-        Previously fetched by this page's own data route but never exposed in
-        the response or rendered anywhere, so no participant could ever see
-        one despite the admin page's own copy calling them "shared with the
-        whole team." Labeled for this audience ("Documents for this trip"),
-        not copied verbatim from the admin-internal "Trip-wide" label, which
-        only means something to an admin managing many trips' files at once. */}
+        {/* Shared files from the admin's "Trip-wide documents" section (AdminTripRequirements.jsx). Labeled
+        "Documents for this trip" because "Trip-wide" only means something to an admin. */}
         {selfService && data.tripWideDocuments?.length > 0 && (
           <div className="admin-section">
             <h3>Documents for this trip</h3>
