@@ -785,13 +785,13 @@ export default function AdminPartnerDetail() {
           !isOrg && { label: "Family & Personal", href: "#section-family" },
           { label: "Location & Contact", href: "#section-location" },
           { label: "Care", href: "#section-care" },
+          { label: "Communication", href: "#section-communication" },
           ((!isGuest && enabledFeatures.monthlySupport) ||
             (enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)))) && {
             label: isGuest ? "One-Time Needs" : "Financial",
             href: "#section-financial",
           },
           { label: "Mission Trips", href: "#section-trips" },
-          { label: "Communication", href: "#section-communication" },
         ]
           .filter(Boolean)
           .map((item) => (
@@ -1484,6 +1484,96 @@ export default function AdminPartnerDetail() {
           )}
         </div>
 
+        <div className="admin-section-group" id="section-communication">
+          <h2 className="admin-group-heading">Communication</h2>
+
+          {enabledFeatures.prayerRequests && (
+            <PartnerSummaryCard
+              icon="🙏"
+              title="Prayer Requests"
+              count={collections.prayerRequests.length}
+              items={prayerRequestsLoadMore.visible.map((r) => ({
+                text: `${truncate(r.requestText, 60)} · ${r.category === "strategic" ? "Strategic" : "Situational"}`,
+                onClick: () => openPrayerDetail(r),
+              }))}
+              hasMore={prayerRequestsLoadMore.hasMore}
+              remaining={prayerRequestsLoadMore.remaining}
+              onShowMore={prayerRequestsLoadMore.showMore}
+              viewAllTo={`/admin/prayer-requests?partnerId=${p.id}`}
+              actions={canSubmit ? [{ label: "+ Add", onClick: openAddPrayerRequest }] : []}
+            />
+          )}
+
+          {enabledFeatures.partnerFiles && (
+            <PartnerSummaryCard
+              icon="📰"
+              title="Newsletters & Docs"
+              count={collections.files.length}
+              items={filesLoadMore.visible.map((f) => ({
+                text: `${f.title || f.fileName} · ${fileKindLabel(f)} · ${formatDate(f.receivedDate)}`,
+                onClick: () => openFileDetail(f),
+              }))}
+              hasMore={filesLoadMore.hasMore}
+              remaining={filesLoadMore.remaining}
+              onShowMore={filesLoadMore.showMore}
+              viewAllTo={isGuest ? undefined : `/admin/partner-files?partnerId=${p.id}`}
+              actions={canEdit ? [{ label: "+ Upload", onClick: openUploadFile }] : []}
+            />
+          )}
+
+          {enabledFeatures.prayerRequests && (
+            <EditableSection
+              title="Last Prayed For in a Service"
+              canEdit={canEdit}
+              onSaved={reload}
+              onSave={(d) =>
+                save({ lastPrayedWithCongregationAt: dateOrNull(d.lastPrayedWithCongregationAt) })
+              }
+              value={{ lastPrayedWithCongregationAt: toDateInputValue(p.lastPrayedWithCongregationAt) }}
+              view={(v) => (
+                <>
+                  <Field
+                    label="Last Prayed For in a Service"
+                    value={formatDateLong(v.lastPrayedWithCongregationAt, { fallback: "Never" })}
+                    showEmpty
+                  />
+                  <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
+                    Corporate prayer during a worship service or special church event — not an individual
+                    prayer request (see Prayer Requests above).
+                  </p>
+                </>
+              )}
+              edit={(d, set) => (
+                <>
+                  <label>
+                    Last Prayed For in a Service
+                    <input
+                      type="date"
+                      value={d.lastPrayedWithCongregationAt}
+                      onChange={(e) => set("lastPrayedWithCongregationAt", e.target.value)}
+                    />
+                  </label>
+                  <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
+                    Corporate prayer during a worship service or special church event — not an individual
+                    prayer request.
+                  </p>
+                </>
+              )}
+              actions={
+                canEdit ? (
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    onClick={markPrayedWithCongregationToday}
+                  >
+                    Mark Prayed Today
+                  </button>
+                ) : null
+              }
+            />
+          )}
+        </div>
+
         {((!isGuest && enabledFeatures.monthlySupport) ||
           (enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)))) && (
           <div className="admin-section-group" id="section-financial">
@@ -1663,96 +1753,6 @@ export default function AdminPartnerDetail() {
               </>
             )}
           />
-        </div>
-
-        <div className="admin-section-group" id="section-communication">
-          <h2 className="admin-group-heading">Communication</h2>
-
-          {enabledFeatures.prayerRequests && (
-            <PartnerSummaryCard
-              icon="🙏"
-              title="Prayer Requests"
-              count={collections.prayerRequests.length}
-              items={prayerRequestsLoadMore.visible.map((r) => ({
-                text: `${truncate(r.requestText, 60)} · ${r.category === "strategic" ? "Strategic" : "Situational"}`,
-                onClick: () => openPrayerDetail(r),
-              }))}
-              hasMore={prayerRequestsLoadMore.hasMore}
-              remaining={prayerRequestsLoadMore.remaining}
-              onShowMore={prayerRequestsLoadMore.showMore}
-              viewAllTo={`/admin/prayer-requests?partnerId=${p.id}`}
-              actions={canSubmit ? [{ label: "+ Add", onClick: openAddPrayerRequest }] : []}
-            />
-          )}
-
-          {enabledFeatures.partnerFiles && (
-            <PartnerSummaryCard
-              icon="📰"
-              title="Newsletters & Docs"
-              count={collections.files.length}
-              items={filesLoadMore.visible.map((f) => ({
-                text: `${f.title || f.fileName} · ${fileKindLabel(f)} · ${formatDate(f.receivedDate)}`,
-                onClick: () => openFileDetail(f),
-              }))}
-              hasMore={filesLoadMore.hasMore}
-              remaining={filesLoadMore.remaining}
-              onShowMore={filesLoadMore.showMore}
-              viewAllTo={isGuest ? undefined : `/admin/partner-files?partnerId=${p.id}`}
-              actions={canEdit ? [{ label: "+ Upload", onClick: openUploadFile }] : []}
-            />
-          )}
-
-          {enabledFeatures.prayerRequests && (
-            <EditableSection
-              title="Last Prayed For in a Service"
-              canEdit={canEdit}
-              onSaved={reload}
-              onSave={(d) =>
-                save({ lastPrayedWithCongregationAt: dateOrNull(d.lastPrayedWithCongregationAt) })
-              }
-              value={{ lastPrayedWithCongregationAt: toDateInputValue(p.lastPrayedWithCongregationAt) }}
-              view={(v) => (
-                <>
-                  <Field
-                    label="Last Prayed For in a Service"
-                    value={formatDateLong(v.lastPrayedWithCongregationAt, { fallback: "Never" })}
-                    showEmpty
-                  />
-                  <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
-                    Corporate prayer during a worship service or special church event — not an individual
-                    prayer request (see Prayer Requests above).
-                  </p>
-                </>
-              )}
-              edit={(d, set) => (
-                <>
-                  <label>
-                    Last Prayed For in a Service
-                    <input
-                      type="date"
-                      value={d.lastPrayedWithCongregationAt}
-                      onChange={(e) => set("lastPrayedWithCongregationAt", e.target.value)}
-                    />
-                  </label>
-                  <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
-                    Corporate prayer during a worship service or special church event — not an individual
-                    prayer request.
-                  </p>
-                </>
-              )}
-              actions={
-                canEdit ? (
-                  <button
-                    type="button"
-                    className="btn secondary small"
-                    onClick={markPrayedWithCongregationToday}
-                  >
-                    Mark Prayed Today
-                  </button>
-                ) : null
-              }
-            />
-          )}
         </div>
       </div>
 

@@ -350,4 +350,65 @@ describe("survey packs and updates", () => {
     assert.equal((await admin("/api/template-packs/export/survey")).status, 404);
     await setFeatures({ surveys: true });
   });
+
+  test("a mailing address answer becomes a proposal and, once approved, the partner's mailing address", async () => {
+    const made = await editor("/api/surveys", { method: "POST", body: { title: `${FIXTURE_TAG} Address` } });
+    const addrSurvey = made.body;
+    const saved = await editor(`/api/surveys/${addrSurvey.id}/questions`, {
+      method: "PUT",
+      body: { questions: [{ kind: "address", label: "Where do you get mail?", field: "mailingAddress" }] },
+    });
+    assert.equal(saved.status, 200);
+    assert.equal(
+      (await editor(`/api/surveys/${addrSurvey.id}`, { method: "PUT", body: { status: "open" } })).status,
+      200
+    );
+    const q = (await editor(`/api/surveys/${addrSurvey.id}`)).body.questions[0];
+    const path = `/api/surveys/${addrSurvey.id}/partner/${partner.id}`;
+    const answer = (value) => ({ submit: true, answers: [{ questionId: q.id, value }] });
+
+    const bad = await editor(path, { method: "PUT", body: answer("not json") });
+    assert.equal(bad.status, 400);
+
+    const mine = async () =>
+      (await editor("/api/survey-updates")).body.updates.filter(
+        (u) => u.partnerId === partner.id && u.field === "mailingAddress"
+      );
+    const given = JSON.stringify({ line2: " ", city: "Lafayette ", line1: "12 Main St", region: "LA" });
+    assert.equal((await editor(path, { method: "PUT", body: answer(given) })).status, 200);
+    const [proposal] = await mine();
+    assert.deepEqual(JSON.parse(proposal.proposedValue), {
+      line1: "12 Main St",
+      city: "Lafayette",
+      region: "LA",
+    });
+    assert.equal(
+      await prisma.address.count({ where: { partnerId: partner.id, type: "mailing" } }),
+      0,
+      "nothing is applied until someone approves"
+    );
+
+    const needsStreet = await editor(`/api/survey-updates/${proposal.id}/approve`, {
+      method: "POST",
+      body: { value: JSON.stringify({ city: "Lafayette" }) },
+    });
+    assert.equal(needsStreet.status, 400);
+    const approved = await editor(`/api/survey-updates/${proposal.id}/approve`, {
+      method: "POST",
+      body: {
+        value: JSON.stringify({ line1: "12 Main St", city: "Lafayette", region: "LA", postal: "70501" }),
+      },
+    });
+    assert.equal(approved.status, 200);
+    const mailing = await prisma.address.findUnique({
+      where: { partnerId_type: { partnerId: partner.id, type: "mailing" } },
+    });
+    assert.equal(mailing.addressLine1, "12 Main St");
+    assert.equal(mailing.postalCode, "70501");
+
+    // The same address again matches what is on file, so nothing more is proposed.
+    const same = JSON.stringify({ postal: "70501", region: "LA", city: "Lafayette", line1: "12 Main St" });
+    await editor(path, { method: "PUT", body: answer(same) });
+    assert.equal((await mine()).length, 0);
+  });
 });

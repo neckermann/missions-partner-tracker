@@ -4,7 +4,7 @@
 const { generateToken, hashToken } = require("./passwordSetup");
 const { appBaseUrl } = require("./dispatchBlurbs");
 const { emailBlockReason, surveyEmailFor } = require("./contactReach");
-const { fieldFitsKind, PHOTO } = require("./surveyFields");
+const { fieldFitsKind, PHOTO, normalizeAddress } = require("./surveyFields");
 
 const KINDS = [
   { value: "single", label: "Pick one" },
@@ -12,6 +12,7 @@ const KINDS = [
   { value: "text", label: "Free text" },
   { value: "yesno", label: "Yes / No" },
   { value: "photo", label: "Photo" },
+  { value: "address", label: "Mailing address" },
 ];
 const KIND_VALUES = KINDS.map((k) => k.value);
 const CHOICE_KINDS = ["single", "multiple"];
@@ -30,6 +31,13 @@ function normalizeAnswer(question, raw) {
   if (question.kind === "text") {
     const value = clean(raw?.value).slice(0, MAX_TEXT) || null;
     return value ? { ...blank, value } : { empty: true };
+  }
+  if (question.kind === "address") {
+    // Stored as one canonical JSON line in `value` (see normalizeAddress), so it compares and moves
+    // through the proposal flow like any other text answer.
+    const result = normalizeAddress(raw?.value);
+    if (result.error) return { error: `${result.error} ("${question.label}")` };
+    return result.value ? { ...blank, value: result.value } : { empty: true };
   }
   if (question.kind === "yesno") {
     const value = clean(raw?.value);
