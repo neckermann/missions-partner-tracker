@@ -5,6 +5,7 @@ const prisma = require("../prismaClient");
 const { requireFeature } = require("../middleware/requireFeature");
 const { hashToken, isAcceptingAnswers, MAX_CHOICES } = require("../utils/surveys");
 const { saveSurveyAnswers, saveSurveyPhoto } = require("../utils/surveyResponses");
+const { loadMenuForPartner } = require("../utils/surveySupport");
 
 // #419: a partner answers a survey through their personal link, with no account. The link's token
 // is the only credential: it is stored as a hash, expires, is bound to one survey and one partner,
@@ -49,8 +50,10 @@ router.get("/:token", async (req, res, next) => {
       where: { id: "singleton" },
       select: { churchName: true },
     });
+    const hasSupport = invite.survey.questions.some((q) => q.kind === "support");
     res.json({
       churchName: church?.churchName || null,
+      supportMenu: hasSupport ? await loadMenuForPartner() : [],
       title: invite.survey.title,
       intro: invite.survey.intro,
       submitted: Boolean(response?.submittedAt),

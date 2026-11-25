@@ -10,6 +10,7 @@ const { isDemoDeployment } = require("../utils/demoMode");
 const { sendEmail } = require("../utils/email");
 const { buildSurveyEmail } = require("../utils/surveyEmails");
 const { saveSurveyAnswers } = require("../utils/surveyResponses");
+const { loadMenuForPartner } = require("../utils/surveySupport");
 
 const {
   KINDS,
@@ -144,7 +145,9 @@ router.get("/partner/:partnerId", async (req, res, next) => {
       select: { surveyId: true, sentAt: true, openedAt: true },
     });
     const inviteBy = new Map(invites.map((i) => [i.surveyId, i]));
+    const hasSupport = surveys.some((s) => s.questions.some((q) => q.kind === "support"));
     res.json({
+      supportMenu: hasSupport ? await loadMenuForPartner() : [],
       canEdit: canWrite(req.user) || req.user.role === "guest",
       surveys: surveys.map((s) => ({
         id: s.id,
@@ -282,6 +285,17 @@ router.put("/:id/questions", manage, async (req, res, next) => {
       select: { id: true },
     });
     const known = new Set(existing.map((q) => q.id));
+    if (questions.some((q) => q.kind === "support")) {
+      const settings = await prisma.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: { enabledFeatures: true },
+      });
+      if (!isFeatureEnabled(settings?.enabledFeatures, "supportPreferences")) {
+        return res
+          .status(400)
+          .json({ error: "Turn on Support preferences before asking about it in a survey" });
+      }
+    }
     const shaped = [];
     for (const [position, q] of questions.entries()) {
       const s = shapeQuestion(q);
@@ -519,7 +533,8 @@ router.get("/:id/responses", manage, async (req, res, next) => {
       },
       orderBy: { updatedAt: "desc" },
     });
-    res.json({ survey, responses });
+    const hasSupport = survey.questions.some((q) => q.kind === "support");
+    res.json({ survey, responses, supportMenu: hasSupport ? await loadMenuForPartner() : [] });
   } catch (err) {
     next(err);
   }

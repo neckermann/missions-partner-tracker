@@ -11,7 +11,19 @@ import { ADDRESS_PARTS, addressToValue, parseAddressValue, formatAddressValue } 
 
 const MAILING = "mailingAddress";
 // A stored address is one JSON line; everything else is plain text.
-const showValue = (u, v) => (u.field === MAILING ? formatAddressValue(v) : v);
+const SUPPORT = "supportPreferences";
+const showNow = (u) =>
+  u.field === SUPPORT
+    ? u.currentDisplay
+    : u.field === MAILING
+      ? formatAddressValue(u.currentValue)
+      : u.currentValue;
+const showSuggested = (u) =>
+  u.field === SUPPORT
+    ? u.proposedDisplay
+    : u.field === MAILING
+      ? formatAddressValue(u.proposedValue)
+      : u.proposedValue;
 
 // What partners' survey answers suggest changing on their record. Nothing here has been applied:
 // a person approves it (optionally editing the value first), or rejects it and the record stays
@@ -158,12 +170,11 @@ export default function AdminSurveyUpdates() {
                     ) : (
                       <>
                         <span>
-                          <span className="survey-change-label">Now</span>{" "}
-                          {showValue(u, u.currentValue) || "—"}
+                          <span className="survey-change-label">Now</span> {showNow(u) || "—"}
                         </span>
                         <span>
                           <span className="survey-change-label">Suggested</span>{" "}
-                          <strong>{showValue(u, u.proposedValue)}</strong>
+                          <strong>{showSuggested(u)}</strong>
                         </span>
                       </>
                     )}
@@ -176,7 +187,7 @@ export default function AdminSurveyUpdates() {
                     >
                       Approve
                     </button>
-                    {!u.photoUploadId && u.field !== "photo" && (
+                    {!u.photoUploadId && u.field !== "photo" && u.field !== SUPPORT && (
                       <button
                         type="button"
                         className="btn secondary small"
@@ -236,8 +247,7 @@ export default function AdminSurveyUpdates() {
           submitDisabled={!value.trim()}
         >
           <p style={{ color: "var(--muted)", marginTop: 0 }}>
-            On file now: {showValue(editing, editing.currentValue) || "nothing"}. They answered:{" "}
-            {showValue(editing, editing.proposedValue)}.
+            On file now: {showNow(editing) || "nothing"}. They answered: {showSuggested(editing)}.
           </p>
           {editing.field === MAILING ? (
             <fieldset style={{ border: "none", padding: 0, margin: 0 }}>

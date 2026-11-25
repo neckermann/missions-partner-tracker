@@ -60,6 +60,7 @@ neutral ("we", "your church") rather than naming one church, so a pack works for
 | `survey-annual-update.json` | Contact details, emergency contact, a photo and a short update (linked to the record) |
 | `survey-getting-to-know-you.json` | A fuller partnership survey for restarting a relationship |
 | `survey-furlough-planning.json` | Plan a time home and visits |
+| `survey-support-menu.json` | Partners pick from your support menu themselves (needs Support preferences on) |
 | `support-menu-example.json` | Ways a church and care team can support a partner |
 | `trip-requirements-starter.json` | A liability release and a minor travel release (not legal advice: have your counsel review) |
 | `trip-application-questions-starter.json` | Questions every trip application asks, plus a library |

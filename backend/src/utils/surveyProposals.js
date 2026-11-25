@@ -3,6 +3,7 @@
 // reject it (see routes/surveyUpdates.js and utils/surveyFields.js).
 const prisma = require("../prismaClient");
 const { FIELDS, PHOTO, loadContext, currentText, sameValue } = require("./surveyFields");
+const { diffAgainstRecord } = require("./surveySupport");
 
 const clean = (v) => (typeof v === "string" ? v.trim() : "");
 
@@ -48,9 +49,16 @@ async function proposeFromResponse(responseId) {
       created += 1;
       continue;
     }
-    const proposed = answerText(response.answers.find((a) => a.questionId === q.id));
+    let proposed = answerText(response.answers.find((a) => a.questionId === q.id));
     if (!proposed) continue;
-    const current = currentText(ctx, q.field);
+    let current = currentText(ctx, q.field);
+    if (FIELDS[q.field].support) {
+      // Only the options whose answer differs from what is on file, so approving changes just those.
+      const diff = await diffAgainstRecord(prisma, response.partnerId, proposed);
+      proposed = diff.proposed;
+      current = diff.current;
+      if (!proposed) continue;
+    }
     if (sameValue(current, proposed)) continue;
     if (decided.some((d) => d.questionId === q.id && sameValue(d.proposedValue, proposed))) continue;
     await prisma.surveyProposal.create({

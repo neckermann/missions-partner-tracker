@@ -5,6 +5,7 @@ const { generateToken, hashToken } = require("./passwordSetup");
 const { appBaseUrl } = require("./dispatchBlurbs");
 const { emailBlockReason, surveyEmailFor } = require("./contactReach");
 const { fieldFitsKind, PHOTO, normalizeAddress } = require("./surveyFields");
+const { normalizeSupportAnswer, FIELD: SUPPORT_FIELD, KIND: SUPPORT_KIND } = require("./surveySupport");
 
 const KINDS = [
   { value: "single", label: "Pick one" },
@@ -13,6 +14,7 @@ const KINDS = [
   { value: "yesno", label: "Yes / No" },
   { value: "photo", label: "Photo" },
   { value: "address", label: "Mailing address" },
+  { value: "support", label: "Support preferences (the church's menu)" },
 ];
 const KIND_VALUES = KINDS.map((k) => k.value);
 const CHOICE_KINDS = ["single", "multiple"];
@@ -31,6 +33,12 @@ function normalizeAnswer(question, raw) {
   if (question.kind === "text") {
     const value = clean(raw?.value).slice(0, MAX_TEXT) || null;
     return value ? { ...blank, value } : { empty: true };
+  }
+  if (question.kind === SUPPORT_KIND) {
+    // `question.supportMenu` is the church's menu, loaded by the caller (utils/surveyResponses.js).
+    const result = normalizeSupportAnswer(question.supportMenu, raw?.value);
+    if (result.error) return { error: `${result.error} ("${question.label}")` };
+    return result.value ? { ...blank, value: result.value } : { empty: true };
   }
   if (question.kind === "address") {
     // Stored as one canonical JSON line in `value` (see normalizeAddress), so it compares and moves
@@ -94,7 +102,7 @@ function shapeQuestion(q) {
   if (isChoice && choices.length === 0 && !allowOther) {
     return { error: `"${q.label}" needs at least one choice, or an “other” box` };
   }
-  const field = q.kind === "photo" ? PHOTO : q.field || null;
+  const field = q.kind === "photo" ? PHOTO : q.kind === SUPPORT_KIND ? SUPPORT_FIELD : q.field || null;
   if (field && !fieldFitsKind(field, q.kind)) {
     return { error: `"${q.label}" can't be linked to that part of the record` };
   }

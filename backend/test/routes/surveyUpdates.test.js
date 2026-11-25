@@ -412,4 +412,109 @@ describe("survey packs and updates", () => {
     await editor(path, { method: "PUT", body: answer(same) });
     assert.equal((await mine()).length, 0);
   });
+
+  test("a support-preferences question shows the menu, proposes only what differs, and approving fills the record", async () => {
+    const made = (body) => admin("/api/support-preferences/options", { method: "POST", body });
+    await prisma.supportOption.deleteMany({ where: { group: `${FIXTURE_TAG} menu` } });
+    const group = `${FIXTURE_TAG} menu`;
+    const visit = (await made({ group, label: "A visit", kind: "offer" })).body;
+    const days = (
+      await made({
+        group,
+        label: "Best days",
+        kind: "multiple",
+        choices: ["Mon", "Tue", "Wed"],
+        allowOther: false,
+      })
+    ).body;
+    const staff = (await made({ group, label: "Staff note", kind: "text", staffOnly: true })).body;
+    const retired = (await made({ group, label: "Old option", kind: "offer", active: false })).body;
+
+    await setFeatures({ supportPreferences: false });
+    const survey2 = (
+      await editor("/api/surveys", { method: "POST", body: { title: `${FIXTURE_TAG} Support` } })
+    ).body;
+    const body = { questions: [{ kind: "support", label: "How can we support you?" }] };
+    assert.equal(
+      (await editor(`/api/surveys/${survey2.id}/questions`, { method: "PUT", body })).status,
+      400,
+      "needs Support preferences on"
+    );
+    await setFeatures({ supportPreferences: true });
+    const saved = await editor(`/api/surveys/${survey2.id}/questions`, { method: "PUT", body });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.questions[0].field, "supportPreferences", "linked automatically");
+    await editor(`/api/surveys/${survey2.id}`, { method: "PUT", body: { status: "open" } });
+    const q = saved.body.questions[0];
+
+    // The menu a partner sees leaves out a staff-only and a retired option.
+    const { token, tokenHash, expiresAt } = newInviteToken();
+    await prisma.surveyInvite.create({
+      data: { surveyId: survey2.id, partnerId: partner.id, tokenHash, expiresAt, sentAt: new Date() },
+    });
+    const view = await anon(`/api/public/surveys/${token}`);
+    const shown = view.body.supportMenu.map((o) => o.id);
+    assert.ok(shown.includes(visit.id) && shown.includes(days.id));
+    assert.ok(!shown.includes(staff.id) && !shown.includes(retired.id));
+
+    const path = `/api/surveys/${survey2.id}/partner/${partner.id}`;
+    const answer = (map) => ({ submit: true, answers: [{ questionId: q.id, value: JSON.stringify(map) }] });
+    assert.equal(
+      (await editor(path, { method: "PUT", body: answer({ [staff.id]: { text: "x" } }) })).status,
+      400,
+      "a staff-only option can't be answered"
+    );
+    assert.equal(
+      (await editor(path, { method: "PUT", body: answer({ [days.id]: { choices: ["Fri"] } }) })).status,
+      400,
+      "a choice that isn't offered is refused"
+    );
+
+    // A staff note already on the record is kept when an answer is applied.
+    await prisma.partnerSupportPreference.create({
+      data: {
+        partnerId: partner.id,
+        optionId: days.id,
+        selected: true,
+        choices: ["Mon"],
+        note: "Call first",
+      },
+    });
+    const mine = async () =>
+      (await editor("/api/survey-updates")).body.updates.filter(
+        (u) => u.partnerId === partner.id && u.field === "supportPreferences"
+      );
+    const given = { [visit.id]: { selected: true }, [days.id]: { choices: ["Tue", "Mon"] } };
+    assert.equal((await editor(path, { method: "PUT", body: answer(given) })).status, 200);
+    const [proposal] = await mine();
+    assert.match(proposal.proposedDisplay, /A visit/);
+    assert.match(proposal.proposedDisplay, /Best days: Mon, Tue/);
+    assert.match(proposal.currentDisplay, /Best days: Mon/);
+    assert.equal(
+      await prisma.partnerSupportPreference.count({ where: { partnerId: partner.id, optionId: visit.id } }),
+      0,
+      "nothing is applied until someone approves"
+    );
+
+    assert.equal(
+      (await editor(`/api/survey-updates/${proposal.id}/approve`, { method: "POST", body: {} })).status,
+      200
+    );
+    const prefs = await prisma.partnerSupportPreference.findMany({ where: { partnerId: partner.id } });
+    assert.equal(prefs.find((p) => p.optionId === visit.id).selected, true);
+    const dayRow = prefs.find((p) => p.optionId === days.id);
+    assert.deepEqual([...dayRow.choices].sort(), ["Mon", "Tue"]);
+    assert.equal(dayRow.note, "Call first", "the staff note is kept");
+
+    // The same answers again match the record, so nothing more is proposed.
+    await editor(path, { method: "PUT", body: answer(given) });
+    assert.equal((await mine()).length, 0);
+    // A change to one option proposes only that option.
+    await editor(path, { method: "PUT", body: answer({ ...given, [days.id]: { choices: ["Wed"] } }) });
+    const [again] = await mine();
+    assert.doesNotMatch(again.proposedDisplay, /A visit/);
+    assert.match(again.proposedDisplay, /Wed/);
+
+    await prisma.supportOption.deleteMany({ where: { group } });
+  });
 });

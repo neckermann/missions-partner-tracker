@@ -1,0 +1,23 @@
+{
+  "format": "missions-partner-tracker-pack",
+  "version": 1,
+  "kind": "survey",
+  "title": "How can we support you?",
+  "description": "Ask partners to pick from the church's support menu themselves. Their picks wait for approval before they change the partner's support preferences. Needs Support preferences turned on and a menu in Settings.",
+  "data": {
+    "survey": {
+      "title": "How can we support you?",
+      "intro": "We want to care for you in the ways that help most. Tick whatever would be a blessing; leave the rest blank. Nothing changes until someone on our team has looked it over.",
+      "questions": [
+        {
+          "kind": "support",
+          "label": "How can we support you?"
+        },
+        {
+          "kind": "text",
+          "label": "Is there anything else you would like us to know?"
+        }
+      ]
+    }
+  }
+}

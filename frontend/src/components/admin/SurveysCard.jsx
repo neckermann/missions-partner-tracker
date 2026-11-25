@@ -65,7 +65,7 @@ export default function SurveysCard({ partnerId }) {
               {viewing.response.answers.map((a) => (
                 <div key={a.id} style={{ marginBottom: "0.5rem" }}>
                   <dt style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{a.label}</dt>
-                  <dd style={{ margin: 0 }}>{describeSavedAnswer(a) || "—"}</dd>
+                  <dd style={{ margin: 0 }}>{describeSavedAnswer(a, data.supportMenu) || "—"}</dd>
                 </div>
               ))}
             </dl>
@@ -90,6 +90,7 @@ export default function SurveysCard({ partnerId }) {
         <FillInModal
           survey={filling}
           partnerId={partnerId}
+          supportMenu={data.supportMenu}
           onClose={() => setFilling(null)}
           onSaved={reload}
         />
@@ -98,7 +99,7 @@ export default function SurveysCard({ partnerId }) {
   );
 }
 
-function FillInModal({ survey, partnerId, onClose, onSaved }) {
+function FillInModal({ survey, partnerId, supportMenu, onClose, onSaved }) {
   const [answers, setAnswers] = useState(() => answersFromSaved(survey.response?.answers));
   const change = (id, patch) => setAnswers((a) => ({ ...a, [id]: { ...a[id], ...patch } }));
   const payload = () => answersToPayload(survey.questions, answers);
@@ -117,7 +118,12 @@ function FillInModal({ survey, partnerId, onClose, onSaved }) {
       <p style={{ marginTop: 0, color: "var(--muted)", fontSize: "0.9rem" }}>
         Filling this in for them. It shows who entered it.
       </p>
-      <SurveyQuestions questions={survey.questions} answers={answers} onChange={change} />
+      <SurveyQuestions
+        questions={survey.questions}
+        answers={answers}
+        onChange={change}
+        supportMenu={supportMenu}
+      />
       {!survey.response?.submittedAt && (
         <button
           type="button"
