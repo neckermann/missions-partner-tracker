@@ -1,5 +1,6 @@
 const express = require("express");
 const { z } = require("zod");
+const { CONTACT_METHODS } = require("../utils/contactMethods");
 const prisma = require("../prismaClient");
 const {
   requireAuth,
@@ -28,6 +29,9 @@ const adultSchema = z.object({
   // #288: the adult to reach first -- at most one per partner. Setting it
   // here clears it from the others in the same write (below).
   isPrimaryContact: z.boolean().optional(),
+  // How this person likes to be reached (a note says how, for "other").
+  contactMethod: z.enum(CONTACT_METHODS).optional().nullable(),
+  contactMethodNote: z.string().trim().max(200).optional().nullable(),
 });
 
 const adultInclude = { partner: partnerRefSelect };

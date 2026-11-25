@@ -33,15 +33,15 @@ database guarantee.
 
 Key fields beyond the obvious:
 
-| Field | Purpose |
-|---|---|
-| `isPublic` | Shows on the public site at all. |
-| `isRestricted` | When combined with `isPublic`: masked to a generic, anonymized view on the public site and in every dispatch (see §7). |
-| `archived` / `archivedAt` | Soft delete — hides from admin lists, forces `isPublic` off, zeros monthly support via a new `$0` `SupportEntry` (history is never edited). Hard delete is only permitted once archived. |
-| `sentByOurChurch` | Missionary-only: true when *this* church (`ChurchSettings`) is the sending church. Distinct from the `SendingParty` relation, which records whichever church actually sends them. |
-| `contactSafe` | Missionary-only: whether it's OK to contact them directly. |
-| `overview` vs `overviewShort` | Long-form narrative vs. a one/two-line summary for list/card contexts. |
-| `fieldDisplayName` | A public-safe location label ("Northern Uganda") independent of the precise address — safe to show even when restricted. |
+| Field                         | Purpose                                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `isPublic`                    | Shows on the public site at all.                                                                                                                                                                                                                                                                                                                                      |
+| `isRestricted`                | When combined with `isPublic`: masked to a generic, anonymized view on the public site and in every dispatch (see §7).                                                                                                                                                                                                                                                |
+| `archived` / `archivedAt`     | Soft delete — hides from admin lists, forces `isPublic` off, zeros monthly support via a new `$0` `SupportEntry` (history is never edited). Hard delete is only permitted once archived.                                                                                                                                                                              |
+| `sentByOurChurch`             | Missionary-only: true when _this_ church (`ChurchSettings`) is the sending church. Distinct from the `SendingParty` relation, which records whichever church actually sends them.                                                                                                                                                                                     |
+| `contactLevel`                | Missionary-only: how careful to be when reaching them. `normal`; `caution` (reachable, follow `contactInstructions`, and only the `contactChannels` ticked when any are); `no_direct` (their number, email and actions are hidden, replaced by who to go through, `contactViaName`/`Role`/`Phone`/`Email`, and the instructions). An organization is always `normal`. |
+| `overview` vs `overviewShort` | Long-form narrative vs. a one/two-line summary for list/card contexts.                                                                                                                                                                                                                                                                                                |
+| `fieldDisplayName`            | A public-safe location label ("Northern Uganda") independent of the precise address — safe to show even when restricted.                                                                                                                                                                                                                                              |
 
 Collections are independent resources with their own CRUD endpoints, never
 written as a nested array on a `Partner` update — doing so would delete
@@ -173,45 +173,45 @@ in-process cron scheduler (§6) is written with that assumption explicit.
 
 ### 2.2 Route inventory
 
-| Mount | File | Gating | Owns |
-|---|---|---|---|
-| `/api/auth` | `auth.js` | mixed (see §5) | setup, login, MFA, password change, digest-email self-service, unsubscribe link, logout |
-| `/api/partners` | `partners.js` | session (any role) | Partner CRUD, photo upload, archive/unarchive/delete, sync-sending-church |
-| `/api/public/partners` | `publicPartners.js` | open | masked public partner list/detail |
-| `/api/users` | `users.js` | admin only | user management, plus a guest's trip access grants (`/:id/trip-access`, `/by-trip/:tripId`) and the `?inactive=true` filter (§5.1) |
-| `/api/public/country-info` | `countryInfo.js` | `joshuaProject` feature | Joshua Project proxy |
-| `/api/support-needs` | `supportNeeds.js` | session | one-time need CRUD |
-| `/api/support-entries` | `supportEntries.js` | session | monthly-support ledger |
-| `/api/prayer-requests` | `prayerRequests.js` | session | prayer request CRUD |
-| `/api/adults` | `adults.js` | session | missionary household adult CRUD |
-| `/api/children` | `children.js` | session | missionary household child CRUD |
-| `/api/furloughs` | `furloughs.js` | session | furlough CRUD |
-| `/api/church-visits` | `churchVisits.js` | session | church-visit CRUD |
-| `/api/partner-links` | `partnerLinks.js` | session | partner external-link CRUD |
-| `/api/partner-languages` | `partnerLanguages.js` | session | partner language CRUD |
-| `/api/trip-types` | `tripTypes.js` | session | per-church trip category CRUD |
-| `/api/trips` | `trips.js`, `tripMeetings.js`, `tripRequirements.js`, `tripParticipants.js` | session, `requireTripScope`/`requirePartnerQueryScope` for `guest` (§5.1) | trip CRUD + lifecycle, roster/participants, meeting invites + RSVPs, document requirements, budget lines, flight segments, contribution ledger |
-| `/api/public/trips` | `publicTrips.js`, `publicTripApplications.js`, `publicTripParticipants.js` | open, gated by `trips` + per-church `allowPrivateApplicationLinks`/`allowPublicSupportRaisingLinks`/public discovery toggles | public Trip Opportunities listing, public application form, participant support-raising/self-service pages |
-| `/api/care-team` | `careTeams.js` | session; `careTeam` feature (404 off); set = admin/editor | a partner's care team: get, replace (lead + members), candidates (§5.1); `default-lead` get (admin/editor) / set (admin) (§5.4) |
-| `/api/contact-log` | `contactLog.js` | session; `contactLog` feature (404 off); fix/delete = admin/editor; guest only via a care team seat | a partner's contact log: list, add, fix, delete; the fixed type/direction/topic lists; `/assigned` (the caller's care team partners with care columns) (§5.3) |
-| `/api/notifications` | `notifications.js` | session | `NotificationSeen` read/unread state for in-app notices |
-| `/api/reports` | `reports.js` | session, `reports` feature (admin-only for users-&-access and schedule management) | report hub catalog (`GET /`), run a report (JSON/CSV), saved views (`GET/POST /views`, `DELETE /views/:id`), scheduled report emails (`POST /views/:id/schedule`, `DELETE /schedules/:id`, admin only) — see `backend/src/reporting/` |
-| `/api/partner-files` | `partnerFiles.js` | session, `partnerFiles` feature | newsletter/document CRUD, download, AI scan |
-| `/api/photos` | `photos.js` | open | raw photo bytes |
-| `/api/silhouette` | `silhouette.js` | open | generic SVG placeholder photos |
-| `/api/settings` | `settings.js`, `settingsGroupMe.js`, `settingsWhatsApp.js`, `settingsEmail.js`, `settingsTrips.js`, `settingsDispatches.js` (six files, one mount) | session (read) / admin (write) | church profile, branding, GroupMe/WhatsApp pairing + group targeting, email, Trips settings, dispatch config, Joshua Project/AI Extraction keys |
-| `/api/public/settings` | `publicSettings.js` | open | public-safe settings + logo bytes |
-| `/api/version-check` | `version.js` | admin | upstream version comparison |
-| `/api/system-info` | `systemInfo.js` | admin | runtime/DB diagnostics |
-| `/api/backup-check` | `backupCheck.js` | admin | backup-reminder state |
-| `/api/backups` | `backups.js` | admin | full DB export (NDJSON.gz) |
-| `/api/inbound-email` | `inboundEmail.js` | mixed (see below) | Postmark webhook + review queue |
-| `/api/dispatches` | `dispatches.js` | session (read) / admin+editor (write) | pending-dispatch review queue |
-| `/api/public/subscribe` | `publicSubscribe.js` | open, `publicPrayerDigest` feature | public digest signup + confirm |
-| `/api/public/unsubscribe` | `publicUnsubscribe.js` | open | public digest unsubscribe |
-| `/api/scoped-digest` | `adminScopedDigest.js` | session | subscriber counts |
-| `/api/demo` | `demo.js` | token (only mounted if `DEMO_RESET_TOKEN` set) | demo DB reset |
-| `/api/health` | inline in `server.js` | open | liveness |
+| Mount                      | File                                                                                                                                               | Gating                                                                                                                       | Owns                                                                                                                                                                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/auth`                | `auth.js`                                                                                                                                          | mixed (see §5)                                                                                                               | setup, login, MFA, password change, digest-email self-service, unsubscribe link, logout                                                                                                                                               |
+| `/api/partners`            | `partners.js`                                                                                                                                      | session (any role)                                                                                                           | Partner CRUD, photo upload, archive/unarchive/delete, sync-sending-church                                                                                                                                                             |
+| `/api/public/partners`     | `publicPartners.js`                                                                                                                                | open                                                                                                                         | masked public partner list/detail                                                                                                                                                                                                     |
+| `/api/users`               | `users.js`                                                                                                                                         | admin only                                                                                                                   | user management, plus a guest's trip access grants (`/:id/trip-access`, `/by-trip/:tripId`) and the `?inactive=true` filter (§5.1)                                                                                                    |
+| `/api/public/country-info` | `countryInfo.js`                                                                                                                                   | `joshuaProject` feature                                                                                                      | Joshua Project proxy                                                                                                                                                                                                                  |
+| `/api/support-needs`       | `supportNeeds.js`                                                                                                                                  | session                                                                                                                      | one-time need CRUD                                                                                                                                                                                                                    |
+| `/api/support-entries`     | `supportEntries.js`                                                                                                                                | session                                                                                                                      | monthly-support ledger                                                                                                                                                                                                                |
+| `/api/prayer-requests`     | `prayerRequests.js`                                                                                                                                | session                                                                                                                      | prayer request CRUD                                                                                                                                                                                                                   |
+| `/api/adults`              | `adults.js`                                                                                                                                        | session                                                                                                                      | missionary household adult CRUD                                                                                                                                                                                                       |
+| `/api/children`            | `children.js`                                                                                                                                      | session                                                                                                                      | missionary household child CRUD                                                                                                                                                                                                       |
+| `/api/furloughs`           | `furloughs.js`                                                                                                                                     | session                                                                                                                      | furlough CRUD                                                                                                                                                                                                                         |
+| `/api/church-visits`       | `churchVisits.js`                                                                                                                                  | session                                                                                                                      | church-visit CRUD                                                                                                                                                                                                                     |
+| `/api/partner-links`       | `partnerLinks.js`                                                                                                                                  | session                                                                                                                      | partner external-link CRUD                                                                                                                                                                                                            |
+| `/api/partner-languages`   | `partnerLanguages.js`                                                                                                                              | session                                                                                                                      | partner language CRUD                                                                                                                                                                                                                 |
+| `/api/trip-types`          | `tripTypes.js`                                                                                                                                     | session                                                                                                                      | per-church trip category CRUD                                                                                                                                                                                                         |
+| `/api/trips`               | `trips.js`, `tripMeetings.js`, `tripRequirements.js`, `tripParticipants.js`                                                                        | session, `requireTripScope`/`requirePartnerQueryScope` for `guest` (§5.1)                                                    | trip CRUD + lifecycle, roster/participants, meeting invites + RSVPs, document requirements, budget lines, flight segments, contribution ledger                                                                                        |
+| `/api/public/trips`        | `publicTrips.js`, `publicTripApplications.js`, `publicTripParticipants.js`                                                                         | open, gated by `trips` + per-church `allowPrivateApplicationLinks`/`allowPublicSupportRaisingLinks`/public discovery toggles | public Trip Opportunities listing, public application form, participant support-raising/self-service pages                                                                                                                            |
+| `/api/care-team`           | `careTeams.js`                                                                                                                                     | session; `careTeam` feature (404 off); set = admin/editor                                                                    | a partner's care team: get, replace (lead + members), candidates (§5.1); `default-lead` get (admin/editor) / set (admin) (§5.4)                                                                                                       |
+| `/api/contact-log`         | `contactLog.js`                                                                                                                                    | session; `contactLog` feature (404 off); fix/delete = admin/editor; guest only via a care team seat                          | a partner's contact log: list, add, fix, delete; the fixed type/direction/topic lists; `/assigned` (the caller's care team partners with care columns) (§5.3)                                                                         |
+| `/api/notifications`       | `notifications.js`                                                                                                                                 | session                                                                                                                      | `NotificationSeen` read/unread state for in-app notices                                                                                                                                                                               |
+| `/api/reports`             | `reports.js`                                                                                                                                       | session, `reports` feature (admin-only for users-&-access and schedule management)                                           | report hub catalog (`GET /`), run a report (JSON/CSV), saved views (`GET/POST /views`, `DELETE /views/:id`), scheduled report emails (`POST /views/:id/schedule`, `DELETE /schedules/:id`, admin only) — see `backend/src/reporting/` |
+| `/api/partner-files`       | `partnerFiles.js`                                                                                                                                  | session, `partnerFiles` feature                                                                                              | newsletter/document CRUD, download, AI scan                                                                                                                                                                                           |
+| `/api/photos`              | `photos.js`                                                                                                                                        | open                                                                                                                         | raw photo bytes                                                                                                                                                                                                                       |
+| `/api/silhouette`          | `silhouette.js`                                                                                                                                    | open                                                                                                                         | generic SVG placeholder photos                                                                                                                                                                                                        |
+| `/api/settings`            | `settings.js`, `settingsGroupMe.js`, `settingsWhatsApp.js`, `settingsEmail.js`, `settingsTrips.js`, `settingsDispatches.js` (six files, one mount) | session (read) / admin (write)                                                                                               | church profile, branding, GroupMe/WhatsApp pairing + group targeting, email, Trips settings, dispatch config, Joshua Project/AI Extraction keys                                                                                       |
+| `/api/public/settings`     | `publicSettings.js`                                                                                                                                | open                                                                                                                         | public-safe settings + logo bytes                                                                                                                                                                                                     |
+| `/api/version-check`       | `version.js`                                                                                                                                       | admin                                                                                                                        | upstream version comparison                                                                                                                                                                                                           |
+| `/api/system-info`         | `systemInfo.js`                                                                                                                                    | admin                                                                                                                        | runtime/DB diagnostics                                                                                                                                                                                                                |
+| `/api/backup-check`        | `backupCheck.js`                                                                                                                                   | admin                                                                                                                        | backup-reminder state                                                                                                                                                                                                                 |
+| `/api/backups`             | `backups.js`                                                                                                                                       | admin                                                                                                                        | full DB export (NDJSON.gz)                                                                                                                                                                                                            |
+| `/api/inbound-email`       | `inboundEmail.js`                                                                                                                                  | mixed (see below)                                                                                                            | Postmark webhook + review queue                                                                                                                                                                                                       |
+| `/api/dispatches`          | `dispatches.js`                                                                                                                                    | session (read) / admin+editor (write)                                                                                        | pending-dispatch review queue                                                                                                                                                                                                         |
+| `/api/public/subscribe`    | `publicSubscribe.js`                                                                                                                               | open, `publicPrayerDigest` feature                                                                                           | public digest signup + confirm                                                                                                                                                                                                        |
+| `/api/public/unsubscribe`  | `publicUnsubscribe.js`                                                                                                                             | open                                                                                                                         | public digest unsubscribe                                                                                                                                                                                                             |
+| `/api/scoped-digest`       | `adminScopedDigest.js`                                                                                                                             | session                                                                                                                      | subscriber counts                                                                                                                                                                                                                     |
+| `/api/demo`                | `demo.js`                                                                                                                                          | token (only mounted if `DEMO_RESET_TOKEN` set)                                                                               | demo DB reset                                                                                                                                                                                                                         |
+| `/api/health`              | inline in `server.js`                                                                                                                              | open                                                                                                                         | liveness                                                                                                                                                                                                                              |
 
 `inboundEmail.js` is genuinely mixed: `POST /postmark` is Postmark's own
 webhook, authenticated by HTTP Basic Auth (constant-time compare) because
@@ -222,37 +222,37 @@ route in the file is the normal admin review queue behind a session.
 
 Each file owns one narrow responsibility:
 
-| File | Responsibility |
-|---|---|
-| `features.js` | Canonical feature registry — single source of truth (§4). |
-| `maskData.js` | `toPublicPartner()` — the public/restricted masking authority for the partner API (§7). |
-| `crypto.js` | AES-256-GCM field-level encryption for reversible secrets (TOTP, integration tokens). |
-| `jwt.js` | Session cookie signing/verification (httpOnly + Secure + SameSite=Lax). |
-| `extraction.js` | Claude-based extraction of prayer requests/one-time needs from an uploaded newsletter/document. |
-| `joshuaProject.js` | Server-side proxy for Joshua Project's country-stats API. |
-| `backup.js` | Builds the full-database NDJSON.gz export. |
-| `backupCheck.js` | Guesses the Postgres provider from `DATABASE_URL`'s hostname, for a tailored reminder message. |
-| `today.js` | Resolves report "today" as church-timezone-aware UTC midnight (`process.env.TZ`, set from `ChurchSettings.timezone` at startup), preferring a browser-supplied query param when present. |
-| `csv.js` | Hand-written RFC 4180 CSV serialization (no dependency). |
-| `fileResponse.js` | Serves a DB-stored file back to the browser; decides `inline` vs. attachment based on whether its signature was verified on upload. |
-| `fileSignature.js` | Magic-number verification of uploaded file content vs. declared type. |
-| `geocode.js` | OpenStreetMap Nominatim forward-geocoding (city/state/country granularity only). |
-| `photoUrls.js` | Turns a `Photo` row's id into its servable URL. |
-| `prismaIncludes.js` | The shared `{id, kind, displayName}` partner-reference select. |
-| `sendingParty.js` | Reshapes the `SendingParty` relation into `sendingChurch`/`sendingOrg`. |
-| `silhouette.js` | Generates the generic SVG placeholder photos (never a real human photo). |
-| `subscriberPage.js` | Shared branded HTML shell for confirm/unsubscribe landing pages. |
-| `upload.js` | Shared multer config: extension resolution + rejection. |
-| `versionCheck.js` | Compares the running version against upstream's latest tag. |
-| `email.js` | `sendEmail`/`sendEmailBatch` over Postmark. |
-| `emailTemplate.js` | Shared branded HTML shell reused by welcome emails and trip participant emails (meeting invites, reminders, checklist/date-change notices, team welcome). |
-| `tripAccessRules.js` | Pure grant rules: a trip grant's effective expiry (override, else trip end date + 30 days), what a grant looks like to the UI, and why a guest is inactive. No Prisma import, so the reporting registry can use it. |
-| `guestAccess.js` | What a guest may reach: loads active grants for `requireAuth`, and the single `readablePartnerIds`/`canReadPartner`/`readableTripIds`/`canReadTrip` helpers every scoped route asks (so none re-derives it from a trip). |
-| `welcomeEmails.js` | Sends the new-user "choose your password" welcome email (`PasswordSetupToken`); owns the hardcoded docs-site links used in it (see CONTRIBUTING.md's "Hardcoded links into the docs site" table). |
-| `tripEmails.js` | Trip meeting/requirement participant emails, including `manualFallback()` — the `{ sent: false, manual: [{ name, email, url }] }` shape every manual-send-link notice in the UI renders from when `outboundEmail` is off (§4). |
-| `publicSubscribeEmails.js` | Double opt-in confirm/unsubscribe emails for the public prayer-request Subscribe flow. |
+| File                                            | Responsibility                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `features.js`                                   | Canonical feature registry — single source of truth (§4).                                                                                                                                                                                                                                                                                                                                                                                          |
+| `maskData.js`                                   | `toPublicPartner()` — the public/restricted masking authority for the partner API (§7).                                                                                                                                                                                                                                                                                                                                                            |
+| `crypto.js`                                     | AES-256-GCM field-level encryption for reversible secrets (TOTP, integration tokens).                                                                                                                                                                                                                                                                                                                                                              |
+| `jwt.js`                                        | Session cookie signing/verification (httpOnly + Secure + SameSite=Lax).                                                                                                                                                                                                                                                                                                                                                                            |
+| `extraction.js`                                 | Claude-based extraction of prayer requests/one-time needs from an uploaded newsletter/document.                                                                                                                                                                                                                                                                                                                                                    |
+| `joshuaProject.js`                              | Server-side proxy for Joshua Project's country-stats API.                                                                                                                                                                                                                                                                                                                                                                                          |
+| `backup.js`                                     | Builds the full-database NDJSON.gz export.                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `backupCheck.js`                                | Guesses the Postgres provider from `DATABASE_URL`'s hostname, for a tailored reminder message.                                                                                                                                                                                                                                                                                                                                                     |
+| `today.js`                                      | Resolves report "today" as church-timezone-aware UTC midnight (`process.env.TZ`, set from `ChurchSettings.timezone` at startup), preferring a browser-supplied query param when present.                                                                                                                                                                                                                                                           |
+| `csv.js`                                        | Hand-written RFC 4180 CSV serialization (no dependency).                                                                                                                                                                                                                                                                                                                                                                                           |
+| `fileResponse.js`                               | Serves a DB-stored file back to the browser; decides `inline` vs. attachment based on whether its signature was verified on upload.                                                                                                                                                                                                                                                                                                                |
+| `fileSignature.js`                              | Magic-number verification of uploaded file content vs. declared type.                                                                                                                                                                                                                                                                                                                                                                              |
+| `geocode.js`                                    | OpenStreetMap Nominatim forward-geocoding (city/state/country granularity only).                                                                                                                                                                                                                                                                                                                                                                   |
+| `photoUrls.js`                                  | Turns a `Photo` row's id into its servable URL.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `prismaIncludes.js`                             | The shared `{id, kind, displayName}` partner-reference select.                                                                                                                                                                                                                                                                                                                                                                                     |
+| `sendingParty.js`                               | Reshapes the `SendingParty` relation into `sendingChurch`/`sendingOrg`.                                                                                                                                                                                                                                                                                                                                                                            |
+| `silhouette.js`                                 | Generates the generic SVG placeholder photos (never a real human photo).                                                                                                                                                                                                                                                                                                                                                                           |
+| `subscriberPage.js`                             | Shared branded HTML shell for confirm/unsubscribe landing pages.                                                                                                                                                                                                                                                                                                                                                                                   |
+| `upload.js`                                     | Shared multer config: extension resolution + rejection.                                                                                                                                                                                                                                                                                                                                                                                            |
+| `versionCheck.js`                               | Compares the running version against upstream's latest tag.                                                                                                                                                                                                                                                                                                                                                                                        |
+| `email.js`                                      | `sendEmail`/`sendEmailBatch` over Postmark.                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `emailTemplate.js`                              | Shared branded HTML shell reused by welcome emails and trip participant emails (meeting invites, reminders, checklist/date-change notices, team welcome).                                                                                                                                                                                                                                                                                          |
+| `tripAccessRules.js`                            | Pure grant rules: a trip grant's effective expiry (override, else trip end date + 30 days), what a grant looks like to the UI, and why a guest is inactive. No Prisma import, so the reporting registry can use it.                                                                                                                                                                                                                                |
+| `guestAccess.js`                                | What a guest may reach: loads active grants for `requireAuth`, and the single `readablePartnerIds`/`canReadPartner`/`readableTripIds`/`canReadTrip` helpers every scoped route asks (so none re-derives it from a trip).                                                                                                                                                                                                                           |
+| `welcomeEmails.js`                              | Sends the new-user "choose your password" welcome email (`PasswordSetupToken`); owns the hardcoded docs-site links used in it (see CONTRIBUTING.md's "Hardcoded links into the docs site" table).                                                                                                                                                                                                                                                  |
+| `tripEmails.js`                                 | Trip meeting/requirement participant emails, including `manualFallback()` — the `{ sent: false, manual: [{ name, email, url }] }` shape every manual-send-link notice in the UI renders from when `outboundEmail` is off (§4).                                                                                                                                                                                                                     |
+| `publicSubscribeEmails.js`                      | Double opt-in confirm/unsubscribe emails for the public prayer-request Subscribe flow.                                                                                                                                                                                                                                                                                                                                                             |
 | **Reporting system (`backend/src/reporting/`)** | `registry.js` (hub catalog: `listReports`/`getReport`/`runReport`), `definitions.js` (the nine report definitions, grouped by question — Money, Partner care, Trips, Contacts, System), `masking.js` (centralized restricted-partner masking for report output), `params.js` (shared URL-backed filter-param parsing), `reports/{care,communication,partners,people,support,trips}.js` (per-report query logic). Backs `routes/reports.js` (§2.2). |
-| **Dispatch system (9 files)** | See §6. |
+| **Dispatch system (9 files)**                   | See §6.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ### 2.4 Error handling
 
@@ -267,15 +267,15 @@ from an async handler here automatically.
 
 ### 2.5 External integrations
 
-| Integration | Used for | Key storage | Feature flag |
-|---|---|---|---|
-| Postmark (outbound) | Admin/public digest email, test-email | `ChurchSettings.postmarkServerToken` (encrypted) | `outboundEmail` |
-| Postmark (inbound) | Auto-filing incoming newsletters/documents | same token; webhook creds separate | `inboundEmail` |
-| GroupMe | Posting prayer requests/needs/newsletters to church Topics | `ChurchSettings.groupmeAccessToken` (encrypted) | `groupme` |
-| Joshua Project | Country-level unreached-people-group stats | `ChurchSettings.joshuaProjectApiKey` (encrypted) | `joshuaProject` |
-| Anthropic (Claude) | AI extraction of requests/needs from uploaded documents | `ChurchSettings.anthropicApiKey` (encrypted) | `aiExtraction` |
-| OpenStreetMap Nominatim | Forward geocoding on address save | none (free, no key) | always on |
-| OpenStreetMap / ArcGIS tiles | Public map basemap | none | `publicMap` |
+| Integration                  | Used for                                                   | Key storage                                      | Feature flag    |
+| ---------------------------- | ---------------------------------------------------------- | ------------------------------------------------ | --------------- |
+| Postmark (outbound)          | Admin/public digest email, test-email                      | `ChurchSettings.postmarkServerToken` (encrypted) | `outboundEmail` |
+| Postmark (inbound)           | Auto-filing incoming newsletters/documents                 | same token; webhook creds separate               | `inboundEmail`  |
+| GroupMe                      | Posting prayer requests/needs/newsletters to church Topics | `ChurchSettings.groupmeAccessToken` (encrypted)  | `groupme`       |
+| Joshua Project               | Country-level unreached-people-group stats                 | `ChurchSettings.joshuaProjectApiKey` (encrypted) | `joshuaProject` |
+| Anthropic (Claude)           | AI extraction of requests/needs from uploaded documents    | `ChurchSettings.anthropicApiKey` (encrypted)     | `aiExtraction`  |
+| OpenStreetMap Nominatim      | Forward geocoding on address save                          | none (free, no key)                              | always on       |
+| OpenStreetMap / ArcGIS tiles | Public map basemap                                         | none                                             | `publicMap`     |
 
 Every encrypted `ChurchSettings` secret is explicitly `omit`ted from every
 query outside its own dedicated settings sub-route — enforced by
@@ -298,12 +298,13 @@ styles/booklet.css`) are too heavy to make every visitor pay for.
 `RequirePublicSite`, gated on the relevant feature flag(s), not auth.
 
 **Admin** (`/admin/*`): one shared layout (`AdminLayout` → `AdminSidebar`
-+ `Outlet`) behind `RequireAdminAuth` (any logged-in role). Sub-routes are
-further gated by `RequireAdminFeature` (feature flag) and, for
-`/admin/settings/*`, a second `RequireAdminAuth requiredRole="admin"`.
-`/admin/settings` has no shared layout wrapper — each settings page owns
-its own heading, since it's reached via the sidebar's expandable group,
-not a same-page tab bar.
+
+- `Outlet`) behind `RequireAdminAuth` (any logged-in role). Sub-routes are
+  further gated by `RequireAdminFeature` (feature flag) and, for
+  `/admin/settings/*`, a second `RequireAdminAuth requiredRole="admin"`.
+  `/admin/settings` has no shared layout wrapper — each settings page owns
+  its own heading, since it's reached via the sidebar's expandable group,
+  not a same-page tab bar.
 
 ### 3.2 Page inventory
 
@@ -394,25 +395,25 @@ object. A church's choices live in `ChurchSettings.enabledFeatures`
 `defaultEnabled`. Enforced server-side (`requireFeature` middleware → 404
 when off) independent of the frontend hiding the corresponding nav entry.
 
-| Key | Label | Default | Group | Depends on |
-|---|---|---|---|---|
-| `publicDirectory` | Public directory | on | public | — |
-| `publicMap` | Public map | on | public | — |
-| `partnerFiles` | Newsletters & Docs | on | admin | — |
-| `prayerRequests` | Prayer requests | on | admin | — |
-| `oneTimeNeeds` | One-time needs | on | admin | — |
-| `monthlySupport` | Monthly support | on | admin | — |
-| `trips` | Mission trips | **off** | admin | — |
-| `publicTripDiscovery` | Public trip discovery | **off** | public | `trips` |
-| `booklet` | Print booklet | on | admin | — |
-| `reports` | Reports | on | admin | — |
-| `outboundEmail` | Email (Sending) | **off** | admin/communications | — |
-| `inboundEmail` | Email (Receiving) | **off** | admin/communications | — |
-| `groupme` | GroupMe dispatch | **off** | admin/communications | — |
-| `whatsapp` | WhatsApp dispatch | **off** | admin/communications | — |
-| `publicPrayerDigest` | Public prayer digest | **off** | admin/communications | `publicDirectory` + `outboundEmail` |
-| `aiExtraction` | AI Features | **off** | admin/integrations | — |
-| `joshuaProject` | Joshua Project stats | **off** | admin/integrations | — |
+| Key                   | Label                 | Default | Group                | Depends on                          |
+| --------------------- | --------------------- | ------- | -------------------- | ----------------------------------- |
+| `publicDirectory`     | Public directory      | on      | public               | —                                   |
+| `publicMap`           | Public map            | on      | public               | —                                   |
+| `partnerFiles`        | Newsletters & Docs    | on      | admin                | —                                   |
+| `prayerRequests`      | Prayer requests       | on      | admin                | —                                   |
+| `oneTimeNeeds`        | One-time needs        | on      | admin                | —                                   |
+| `monthlySupport`      | Monthly support       | on      | admin                | —                                   |
+| `trips`               | Mission trips         | **off** | admin                | —                                   |
+| `publicTripDiscovery` | Public trip discovery | **off** | public               | `trips`                             |
+| `booklet`             | Print booklet         | on      | admin                | —                                   |
+| `reports`             | Reports               | on      | admin                | —                                   |
+| `outboundEmail`       | Email (Sending)       | **off** | admin/communications | —                                   |
+| `inboundEmail`        | Email (Receiving)     | **off** | admin/communications | —                                   |
+| `groupme`             | GroupMe dispatch      | **off** | admin/communications | —                                   |
+| `whatsapp`            | WhatsApp dispatch     | **off** | admin/communications | —                                   |
+| `publicPrayerDigest`  | Public prayer digest  | **off** | admin/communications | `publicDirectory` + `outboundEmail` |
+| `aiExtraction`        | AI Features           | **off** | admin/integrations   | —                                   |
+| `joshuaProject`       | Joshua Project stats  | **off** | admin/integrations   | —                                   |
 
 `isAnyFeatureEnabled` supports "reachable if at least one of N is on" —
 used for the public partner data routes (back both directory and map) and
@@ -420,7 +421,7 @@ the shared Email settings page (reachable if either direction is on).
 
 **A rule worth not rediscovering per feature: `outboundEmail` and
 `inboundEmail` both default to off.** A brand-new fork with neither
-configured yet is the *default* state a church lands in, not a rare
+configured yet is the _default_ state a church lands in, not a rare
 opt-out -- so any feature that sends or depends on email has to be
 designed against that from the start, not patched in after the fact.
 Confirmed as a real, shipped gap (2026-11-22, found during a PR review
@@ -432,7 +433,7 @@ for any church that hadn't gone through Email setup yet.
 Two things every email-sending feature needs, not just one:
 
 1. **Gate it.** Check `isFeatureEnabled(settings?.enabledFeatures,
-   "outboundEmail")` (or `"inboundEmail"` for receiving) before
+"outboundEmail")` (or `"inboundEmail"` for receiving) before
    attempting anything -- server-side, same as every other feature
    flag, not just a frontend default.
 2. **Give it a working fallback**, not just a disabled button. When
@@ -449,7 +450,7 @@ Two things every email-sending feature needs, not just one:
    `backend/src/routes/users.js`'s `manualSetupUrl` (same idea, one
    recipient, one link, for the account-setup flow specifically). Not
    every email needs this -- a request that structurally depends on a
-   full round trip (send *and* receive a reply, e.g. the document-
+   full round trip (send _and_ receive a reply, e.g. the document-
    request flow in `tripParticipants.js`) has no equivalent manual
    substitute and is correctly just gated off outright; and a few
    secondary/FYI-only notifications (a late-joining participant's
@@ -462,15 +463,15 @@ Two things every email-sending feature needs, not just one:
 **"Auth is the boundary."** Any logged-in account holding one of the 3
 full roles (`admin`/`editor`/`viewer`) reads every partner's full,
 unmasked record, including restricted ones (see `reports.js`'s own
-comment: gating a read to admin-only would be the *first* read in the
+comment: gating a read to admin-only would be the _first_ read in the
 app gated by role, "contradicting a decision made deliberately rather
 than by omission"). Roles exist to gate **writes**, not visibility:
 
-| Role | Can read | Can write |
-|---|---|---|
-| `viewer` | everything | nothing |
-| `editor` | everything | partner content (create/update, not delete), prayer requests, one-time needs, trips, files, archive/unarchive |
-| `admin` | everything | everything editor can, plus: delete, user management, church settings, GroupMe/email/integration config, backups, system info |
+| Role     | Can read   | Can write                                                                                                                     |
+| -------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `viewer` | everything | nothing                                                                                                                       |
+| `editor` | everything | partner content (create/update, not delete), prayer requests, one-time needs, trips, files, archive/unarchive                 |
+| `admin`  | everything | everything editor can, plus: delete, user management, church settings, GroupMe/email/integration config, backups, system info |
 
 - **Session**: httpOnly + Secure + SameSite=Lax JWT cookie, 8h TTL. Every
   request re-reads the user row from the DB (not just the JWT claims) so
@@ -562,8 +563,8 @@ had made them fully admin-managed), and can switch it off only while the
 church doesn't require it of everyone. "My account" shows a guest password and
 MFA only — never the admin digest subscription.
 
-| Can read | Can write |
-|---|---|
+| Can read                                                                        | Can write                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Each granted trip's own content; the `Partner` of each granted trip (read-only) | Editor-equivalent create/update/delete on a granted trip's meetings/requirements/budget lines/flight segments/documents/contributions/participants/applications, matching the editor-delete exceptions above. Never the Trip entity's own delete/clone/generate-application-link (those stay admin-only or admin+editor-only even on a granted trip), never anything on the Partner |
 
 Everything else in the app — the Partner directory, every other trip,
@@ -596,7 +597,7 @@ passes it down via `useOutletContext()` to every route nested under its
 Outlet (`AdminTripTeam.jsx`, `AdminTripOverview.jsx`,
 `AdminTripFinancial.jsx`, etc.) — none of those call `useCurrentUser()`
 for `canWrite` themselves, they just read the context. A route that
-lives *outside* that Outlet but still operates on one trip's data (e.g.
+lives _outside_ that Outlet but still operates on one trip's data (e.g.
 `AdminTripParticipantDetail.jsx`, routed as a standalone sibling at
 `trips/:tripId/participants/:participantId`, not nested under
 `trips/:id`) has no context to inherit and must repeat the exact same
@@ -633,37 +634,37 @@ scope (below).
 
 **Two sizes of guest.** A seat and a trip grant are different scopes:
 
-- *Trip leader* (a `TripAccess` grant): their granted trips (read and write)
+- _Trip leader_ (a `TripAccess` grant): their granted trips (read and write)
   and those trips' partners, read-only, with prayer requests and Newsletters &
   Docs for that partner (read). Nav: Trips and Partners. Never one-time needs,
   never monthly support, never the care-team list pages.
-- *Care team member* (a seat): everything below, for that partner.
+- _Care team member_ (a seat): everything below, for that partner.
 
 **What each can do on a partner** (a care team member is an editor on their own
 partner, with three exceptions: their dispatches are held, they can't decide a
 one-time need, and they never see monthly funding):
 
-| | Editor | Care team member (that partner) | Trip leader (trip grant) |
-|---|---|---|---|
-| Which partners | All | Those whose team they're on | Their trips' partners (read) |
-| See the partner page | Everything | Everything **except monthly funding** | Read-only, no needs, no money |
-| Edit profile, family, location, furlough, visits, links, languages, trip hosting info, photos | Yes | Yes | No |
-| Public / restricted / safe-to-contact flags | Yes | Yes | No |
-| Archive / unarchive | Yes | Yes | No |
-| Create a partner | Yes | **No** | No |
-| Delete anything | Admin only | **No** | No |
-| Prayer requests: add, edit, answer, public/booklet | Yes | Yes | Read only |
-| Mark urgent / "approve now" | Yes | **No** (their dispatch is held) | No |
-| One-time needs: add, edit | Yes | Yes | **No access** |
-| Record a decision on a need | Yes | **No** (committee/board) | No |
-| Monthly support (amounts, entries) | Yes | **Never shown or writable** | Never |
-| "Supporting since" date (and the $0 entry archiving a partner writes) | Yes | **Yes: shown and editable on their own partner** (decided in #410; the key-date "N years of our support" reaches them) | Never |
-| Newsletters & Docs: view, upload, edit, AI scan | Yes | Yes (scan only if the feature is on) | View / download |
-| Dispatches from the above | Sent on schedule | **Saved at once, held for staff approval** | n/a |
-| Approve in Pending Dispatches | Yes | No | No |
-| Assign the care team | Yes | No (can view) | No |
-| Trips of the partner | Manage all | **View only** | Manage their granted trips |
-| Trip participants' personal details (contact info, notes) on those trips | Yes | **No** (#409): a seat sees the trip's name, type, status, dates and who is on the team, and nothing else: no contact details, dates of birth, applications, documents, contributions, budget, flights, requirements, meetings or private-link tokens (`utils/seatTripView.js`) | Yes, on their granted trips |
+|                                                                                               | Editor           | Care team member (that partner)                                                                                                                                                                                                                                                | Trip leader (trip grant)      |
+| --------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| Which partners                                                                                | All              | Those whose team they're on                                                                                                                                                                                                                                                    | Their trips' partners (read)  |
+| See the partner page                                                                          | Everything       | Everything **except monthly funding**                                                                                                                                                                                                                                          | Read-only, no needs, no money |
+| Edit profile, family, location, furlough, visits, links, languages, trip hosting info, photos | Yes              | Yes                                                                                                                                                                                                                                                                            | No                            |
+| Public / restricted / safe-to-contact flags                                                   | Yes              | Yes                                                                                                                                                                                                                                                                            | No                            |
+| Archive / unarchive                                                                           | Yes              | Yes                                                                                                                                                                                                                                                                            | No                            |
+| Create a partner                                                                              | Yes              | **No**                                                                                                                                                                                                                                                                         | No                            |
+| Delete anything                                                                               | Admin only       | **No**                                                                                                                                                                                                                                                                         | No                            |
+| Prayer requests: add, edit, answer, public/booklet                                            | Yes              | Yes                                                                                                                                                                                                                                                                            | Read only                     |
+| Mark urgent / "approve now"                                                                   | Yes              | **No** (their dispatch is held)                                                                                                                                                                                                                                                | No                            |
+| One-time needs: add, edit                                                                     | Yes              | Yes                                                                                                                                                                                                                                                                            | **No access**                 |
+| Record a decision on a need                                                                   | Yes              | **No** (committee/board)                                                                                                                                                                                                                                                       | No                            |
+| Monthly support (amounts, entries)                                                            | Yes              | **Never shown or writable**                                                                                                                                                                                                                                                    | Never                         |
+| "Supporting since" date (and the $0 entry archiving a partner writes)                         | Yes              | **Yes: shown and editable on their own partner** (decided in #410; the key-date "N years of our support" reaches them)                                                                                                                                                         | Never                         |
+| Newsletters & Docs: view, upload, edit, AI scan                                               | Yes              | Yes (scan only if the feature is on)                                                                                                                                                                                                                                           | View / download               |
+| Dispatches from the above                                                                     | Sent on schedule | **Saved at once, held for staff approval**                                                                                                                                                                                                                                     | n/a                           |
+| Approve in Pending Dispatches                                                                 | Yes              | No                                                                                                                                                                                                                                                                             | No                            |
+| Assign the care team                                                                          | Yes              | No (can view)                                                                                                                                                                                                                                                                  | No                            |
+| Trips of the partner                                                                          | Manage all       | **View only**                                                                                                                                                                                                                                                                  | Manage their granted trips    |
+| Trip participants' personal details (contact info, notes) on those trips                      | Yes              | **No** (#409): a seat sees the trip's name, type, status, dates and who is on the team, and nothing else: no contact details, dates of birth, applications, documents, contributions, budget, flights, requirements, meetings or private-link tokens (`utils/seatTripView.js`) | Yes, on their granted trips   |
 
 Everything a non-staff login does is a request to the same routes an editor
 uses; `requirePartnerWriter` (staff, or on **that partner's** care team) gates
@@ -672,19 +673,19 @@ another partner needs a seat on both.
 
 **A seat is a grant.** For a guest a seat reaches that partner, like a trip
 grant reaches a trip's partner, and unlike a trip grant it never expires — an
-admin removes the member when they step down. A guest with no trip grant *and*
+admin removes the member when they step down. A guest with no trip grant _and_
 no seat is inactive; removing their last seat deactivates them, like removing
 their last trip.
 
 **Their entries are saved at once but their dispatches are held.**
 `DispatchRecord.reviewRequired` is set on the record created from a care team
 member's prayer request, answer, need or uploaded newsletter. `needsReview()`
-treats it like a restricted partner's content, but for *any* type:
+treats it like a restricted partner's content, but for _any_ type:
 `isEligibleForChannel`'s Rule 1 blocks it on **every** channel (admin email,
 public email, GroupMe, WhatsApp, the urgent path) until an admin/editor reviews
 it in Pending Dispatches, whether or not the partner is restricted. Staff-made
 records are unaffected; a restricted partner's staff-made newsletter stays
-exempt as before. (Before #289 the review hold applied *only* to restricted
+exempt as before. (Before #289 the review hold applied _only_ to restricted
 partners; every other record sent on schedule with no approval.)
 
 **Server-scoped lists.** A guest may list partners, trips, prayer requests,
@@ -719,16 +720,16 @@ review (it isn't dispatched anywhere).
 
 **Quiet and follow-ups.** `ChurchSettings.contactStaleDays` (default 90, 7 to 365,
 set under Settings → Care Teams; `utils/careSettings.js` `careTimings` reads it)
-is the one number for "quiet" (the *Last heard from* report defaults to it too,
+is the one number for "quiet" (the _Last heard from_ report defaults to it too,
 and counts a church visit as hearing from a partner): no logged contact for that long, or never. A
 follow-up date is answered by any later-entered contact dated on or after the
-one that set it; unanswered and past, it is *due*. `utils/contactLogQueries.js`
+one that set it; unanswered and past, it is _due_. `utils/contactLogQueries.js`
 `loadAssignedPartners` is the single read model behind the **My partners**
 tab (`GET /api/contact-log/assigned`, needs the care team feature too) and the
 `partnersNeedingContact` notification (guest-visible, counts the caller's seats
 that are quiet or due, 0 while either feature is off), so they can't disagree.
 
-**Wiring.** *Last heard from* reads the log: with the feature on, a partner is
+**Wiring.** _Last heard from_ reads the log: with the feature on, a partner is
 quiet only when **both** the latest newsletter and the latest logged contact are
 old (off: unchanged, newsletter only). A care team member's new prayer request
 also creates a log entry (`inbound`, topic `prayer`, linked by
@@ -736,15 +737,18 @@ also creates a log entry (`inbound`, topic `prayer`, linked by
 `supportNeedId` are plain ids with no foreign key, so deleting the request or
 need keeps the history.
 
-**The contact card.** Everyone who can see a partner gets it: the primary
-contact (`Adult.isPrimaryContact`, at most one per partner — a hand-added
-partial unique index plus the route clearing the old one; an organization uses
-its named contact), preferred method, tap-to-call/text/email/WhatsApp, and last
-contact. With `contactSafe` off, `Partner.contactInstructions` ("special
-communication instructions", staff-facing text) replaces the actions and the
-numbers. The **printed booklet** withholds phone, email and preferred method for
-a partner who isn't safe to contact (it previously ignored the flag) and never
-prints the instructions. The public site never exposes adults' details at all.
+**The contact card.** Everyone who can see a partner gets it, whether or not the contact
+log is on, and it is the one place this is shown and edited: the primary contact
+(`Adult.isPrimaryContact`, at most one per partner — a hand-added partial unique
+index plus the route clearing the old one; picked from a list on the card; an
+organization uses its named contact), how each person likes to be reached
+(`Adult.contactMethod` and `contactMethodNote`; for an organization,
+`Partner.contactMethod` beside its contact fields), tap-to-call/text/email/WhatsApp,
+and last contact. `Partner.contactLevel` sets how careful to be (above); under `caution`
+only the ticked `contactChannels` keep their buttons, and under `no_direct` the card shows
+the go-between with their own call and email buttons instead of the family's. The
+**printed booklet** withholds phone, email, addresses and preferred method for `no_direct`
+and never prints the instructions. The public site never exposes adults' details at all.
 
 ### 5.4 Key-date reminders (#291)
 
@@ -755,20 +759,20 @@ raised for a birthday (adults and children), the wedding anniversary, and a
 start dates are stored as Jan 1, so a yearly nudge would only ever say Jan 1)
 coming up within `ChurchSettings.keyDateLeadDays` (default 7, 1 to 60, read through
 `careTimings`, so the bell and the email always agree). `utils/keyDates.js` is the pure rule and
-reuses `reporting/definitions.js` `nextAnnual` (the *Families & key dates*
+reuses `reporting/definitions.js` `nextAnnual` (the _Families & key dates_
 report's date math: Feb 29 lands on Feb 28, and the age or years turning come
 with it).
 
 **Who.** The partner's whole care team (lead + members, active logins); if it
 has none, the church's **default lead** (`ChurchSettings.defaultCareLeadUserId`,
 set at `PUT /api/care-team/default-lead`, admin only, cleared if that login is
-deleted); if neither, nobody. The default lead is also the fallback for *Partners to
-reach out to* (`loadAssignedPartners` adds partners with no care team, marked
+deleted); if neither, nobody. The default lead is also the fallback for _Partners to
+reach out to_ (`loadAssignedPartners` adds partners with no care team, marked
 `viaDefaultLead`), for a staff default lead only: a guest's reach never widens. A
 person can opt out of the daily email alone (`User.keyDateEmailOptOut`,
 `PUT /api/auth/key-date-email`); the bell is unaffected. `utils/keyDateQueries.js` `loadOpenKeyDates` is
 the one read model: it counts nothing while `keyDates` or `careTeam` is off,
-skips archived partners, and drops anything *handled*.
+skips archived partners, and drops anything _handled_.
 
 **What clears one.** A contact log entry for that partner with the topic
 **Key date**, dated within the lead window either side of the occurrence — the
@@ -804,7 +808,7 @@ set, as a backstop for the published admin login switching the flag on.
 **The app never contacts a partner; a person does.** That settles the missionary
 contact-address gap: the contact card (§5.3) says who and how, and "special
 communication instructions" replace it when a partner isn't safe to contact.
-Prayer updates (new or answered) come *from* the partner: they tell a care team
+Prayer updates (new or answered) come _from_ the partner: they tell a care team
 member, who enters it (held for staff approval, §5.2), and the church hears it
 through the existing dispatch channels.
 
@@ -813,7 +817,7 @@ through the existing dispatch channels.
   `prayer`, linked by `prayerRequestId`). Marking it answered fires only on the
   transition, so a typo fix doesn't log twice; a staff entry logs nothing.
 - **The team is told about new needs and prayers.** `newOneTimeNeeds` and
-  `newPrayerRequests` are now guest-visible, scoped to the guest's *care team*
+  `newPrayerRequests` are now guest-visible, scoped to the guest's _care team_
   partners (`careTeamPartnerIds` via the summary route's `scopePartnerIds`; a
   trip leader has none, so counts zero). Full roles are unchanged.
 - **Updates to pass on.** The guest-visible `updatesToPassOn` category counts, on
@@ -848,18 +852,18 @@ entries are written in the **same transaction** as the change (`recordAudit(tx)`
 so an access change that cannot be recorded does not happen; sign-in events use
 `recordAuditSafe`, which never blocks a login.
 
-- *Settings* are written by eight route files, so one middleware
+- _Settings_ are written by eight route files, so one middleware
   (`middleware/auditSettings.js`) mounted on `/api/settings` snapshots the
   `ChurchSettings` row before a write and diffs it after, logging each feature
   toggled separately and everything else as one entry per request. It ignores the
   stamp columns. Turning the log off records the switch-off (`force`), then it is
   quiet.
-- *Restricted-partner views* are logged once per (viewer, partner, church-local
+- _Restricted-partner views_ are logged once per (viewer, partner, church-local
   day) — `recordRestrictedView`.
-- *Sign-in* records failures with the reason (`unknown_email`, `inactive`,
+- _Sign-in_ records failures with the reason (`unknown_email`, `inactive`,
   `wrong_password`, `wrong_two_factor_code`, …) and the IP (`trust proxy` is set
   to 1). The caller still gets the one generic answer.
-- *Read side:* `routes/audit.js`, admin-only and flag-gated (`GET /api/audit`
+- _Read side:_ `routes/audit.js`, admin-only and flag-gated (`GET /api/audit`
   with `q`/`category`/`action`/`from`/`to`, cursor paging; `/export` CSV through
   the formula-safe `toCsv`; `/meta`; `PUT /retention`). Reading it is not logged.
   The page is Settings → Audit log.
@@ -887,7 +891,7 @@ partner sent by us is counted under ours, not under its own name. Staff only.
 **Master records read across their sections** (`utils/lastUpdated.js`): the
 partner and trip pages, the Partners and Trips list columns ("Last updated",
 sortable) and the Data completeness report show the latest change to the record
-*or any section on its page* (a partner's adults, children, addresses, furloughs,
+_or any section on its page_ (a partner's adults, children, addresses, furloughs,
 visits, links, languages, sending parties, support entries and photos; a trip's
 participants, applications, meetings, requirements and their statuses, documents,
 contributions, budget lines and flights). Done at read time with one `UNION` query
@@ -919,7 +923,7 @@ option is still shown to a partner that answered it and can't be newly answered.
 change once answered. Deleting an option cascades to its answers. Access is the contact log's:
 `readableNeedPartnerIds` (staff everywhere; a guest only on partners they hold a care team seat
 on; a trip leader none), and a viewer reads but doesn't write. Nothing here is public, in the
-booklet or in a dispatch. Both tables are in `backup.js`'s `MODELS`; the *Support preferences*
+booklet or in a dispatch. Both tables are in `backup.js`'s `MODELS`; the _Support preferences_
 report (`reporting/reports/partners.js`) lists responses per partner and option, or the
 partners with none recorded, masking a restricted partner's answers like its other sensitive fields.
 
@@ -957,7 +961,7 @@ restricted partner's event is only recorded at all if
 at `createDispatchRecord()`, re-fetching `isRestricted` fresh by id rather than
 trusting the caller's own partner shape). Every other setting — the chat
 channels' content-type mutes, cadence tiers, review state — only ever
-affects *delivery*, never recording.
+affects _delivery_, never recording.
 
 Once recorded (`DispatchRecord`), four channels each independently
 decide, at send time, whether a given row belongs in their send, via one
@@ -985,19 +989,19 @@ that was off when evaluated — also permanent, not retried if re-enabled
 later) or actually sent (that channel's own stamp column is set).
 `clearDispatchRecords()` (`dispatchOrchestrator.js`) is also where
 a WhatsApp-specific wrinkle lives: a row only counts as WhatsApp-
-applicable once its content type resolves to *some* WhatsApp group (its
+applicable once its content type resolves to _some_ WhatsApp group (its
 own pick or the community's Announcements fallback — see 6.2a); a type
 with nowhere to go would otherwise wait in the queue forever for a
 channel that can never take it.
 
 ### 6.2 The four channels
 
-| Channel | Schedule | Content | Recipients |
-|---|---|---|---|
-| **GroupMe** | Shared daily chat hour (`chatDispatchHour`) | All 5 event types, each content-type independently mutable | One church-wide group, split across up to 3 Topics (prayer/needs/newsletters) |
-| **WhatsApp** | Same shared daily chat hour, own cursor (`lastWhatsappChatDispatchSentAt`) | Same 5 types, same mutes (shared with GroupMe — see 6.2a) | One WhatsApp community, split across up to 3 groups (prayer/needs/newsletters) |
-| **Admin email** | 3 cadence tiers: biweekly/monthly/quarterly (`emailDispatchHour` + day fields) | Every type, no content-type toggle | Each `User` with `cadence` set, scoped to `allPartners` or `followedPartners` |
-| **Public email** | Same 3 tiers, shared schedule with admin | Structurally prayer-requests-only (`prayerRequestCreated`/`Answered`), never a source link | Each confirmed `PublicSubscriber`, scoped to `allPartners` or `scopedPartners` |
+| Channel          | Schedule                                                                       | Content                                                                                    | Recipients                                                                     |
+| ---------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| **GroupMe**      | Shared daily chat hour (`chatDispatchHour`)                                    | All 5 event types, each content-type independently mutable                                 | One church-wide group, split across up to 3 Topics (prayer/needs/newsletters)  |
+| **WhatsApp**     | Same shared daily chat hour, own cursor (`lastWhatsappChatDispatchSentAt`)     | Same 5 types, same mutes (shared with GroupMe — see 6.2a)                                  | One WhatsApp community, split across up to 3 groups (prayer/needs/newsletters) |
+| **Admin email**  | 3 cadence tiers: biweekly/monthly/quarterly (`emailDispatchHour` + day fields) | Every type, no content-type toggle                                                         | Each `User` with `cadence` set, scoped to `allPartners` or `followedPartners`  |
+| **Public email** | Same 3 tiers, shared schedule with admin                                       | Structurally prayer-requests-only (`prayerRequestCreated`/`Answered`), never a source link | Each confirmed `PublicSubscriber`, scoped to `allPartners` or `scopedPartners` |
 
 Admin and public recipients are normalized into one shape and run through
 one shared send loop (`emailDispatchDelivery.js`'s `sendToRecipients`), chunked
@@ -1008,7 +1012,7 @@ is the group/community itself).
 ### 6.2a GroupMe and WhatsApp are siblings, not one feeding the other
 
 WhatsApp was added after the original three-channel design, as the same
-*kind* of channel as GroupMe rather than a new category — both are
+_kind_ of channel as GroupMe rather than a new category — both are
 chat-style and close to real-time, so both earned the daily-hour model
 email's weekly/monthly tiers were never a fit for. The two channels are
 fully independent features (separately toggled, separately configured,
@@ -1029,7 +1033,7 @@ plus one thing by coincidence of naming:
 - **The three content-type mutes**: `chatDispatchPrayerRequests`/
   `OneTimeNeeds`/`Newsletters` gate both GroupMe and WhatsApp identically
   (`dispatchEligibility.js`'s Rule 2 checks `channel === GROUPME ||
-  channel === WHATSAPP` against the same three columns).
+channel === WHATSAPP` against the same three columns).
 - **Coincidence, not sharing**: the text each channel posts both come
   from `buildBlurb()`'s `groupmeText` field (see 6.3) — a historical
   name for what's actually channel-neutral chat content, reused by
@@ -1046,7 +1050,7 @@ auto-resolved when the community is picked — `whatsappClient.js`'s
 `findAnnouncementGroup`) when a specific group isn't set. Resolving
 "does this row have anywhere to go" (`hasWhatsAppTarget()`) deliberately
 checks only whether a group resolves, never whether the number is
-*currently* connected — a live-pairing check was tried and reverted: it
+_currently_ connected — a live-pairing check was tried and reverted: it
 treated a normal brief reconnect window on every deploy the same as a
 deliberate, permanent unlink, which isn't what a transient disconnect
 means.
@@ -1102,14 +1106,14 @@ unmasked record — the boundary is the session, not the role (§5). The
 **public** site is the only place real masking happens, applied once, in
 `maskData.js`'s `toPublicPartner()`:
 
-| | Public, not restricted | Public + restricted |
-|---|---|---|
-| Name | real | initials only (`toInitials`) |
-| Photo | real, current upload | generic silhouette (household-shape or building icon — never a real photo, even anonymized) |
-| Map pin | precise `gpsLat`/`gpsLng` | country-level centroid only (`COUNTRY_CENTROIDS`) |
-| Overview | real `overview`/`overviewShort` | fixed generic "serving in a restricted-access location" text |
-| Links, languages, sending party | included | omitted entirely |
-| Contact info, internal notes, user ids | never included either way | never included either way |
+|                                        | Public, not restricted          | Public + restricted                                                                         |
+| -------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------- |
+| Name                                   | real                            | initials only (`toInitials`)                                                                |
+| Photo                                  | real, current upload            | generic silhouette (household-shape or building icon — never a real photo, even anonymized) |
+| Map pin                                | precise `gpsLat`/`gpsLng`       | country-level centroid only (`COUNTRY_CENTROIDS`)                                           |
+| Overview                               | real `overview`/`overviewShort` | fixed generic "serving in a restricted-access location" text                                |
+| Links, languages, sending party        | included                        | omitted entirely                                                                            |
+| Contact info, internal notes, user ids | never included either way       | never included either way                                                                   |
 
 A non-public partner (`isPublic: false`) never reaches the public API at
 all — `toPublicPartner` returns `null` for it, and the route filters
@@ -1135,10 +1139,10 @@ All work happens in this one repo (`missions-partner-tracker`): `dev` →
 PR → `main`, CI-gated. Two Render services watch it directly, no second
 repo in between:
 
-| Service | Branch | Purpose |
-|---|---|---|
-| `dev-missions-partner-tracker` | `dev` | Pre-prod test site — every push deploys, for fast live-site checks before a release PR. |
-| `missions-partner-tracker` (production demo) | `main` | The live public demo. Deploys on every PR merge to `main`. |
+| Service                                      | Branch | Purpose                                                                                 |
+| -------------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
+| `dev-missions-partner-tracker`               | `dev`  | Pre-prod test site — every push deploys, for fast live-site checks before a release PR. |
+| `missions-partner-tracker` (production demo) | `main` | The live public demo. Deploys on every PR merge to `main`.                              |
 
 An earlier setup ran the production demo from a second repo
 (`missions-partner-tracker-demo`) that merged `upstream/main` in on its

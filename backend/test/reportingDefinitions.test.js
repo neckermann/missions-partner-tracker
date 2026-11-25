@@ -144,7 +144,7 @@ test("completeness lists what's missing", () => {
   const full = {
     overviewShort: "x",
     contactEmail: "a@b.c",
-    preferredContactMethod: "Email",
+    contactMethod: "email",
     addresses: [{}],
     emergencyContactName: "N",
     emergencyContactPhone: "1",

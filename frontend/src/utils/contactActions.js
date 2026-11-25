@@ -46,7 +46,14 @@ export function primaryContactOf(partner, adults = []) {
   if (partner?.kind === "organization") {
     const name = [partner.contactFirstName, partner.contactLastName].filter(Boolean).join(" ");
     if (!name && !partner.contactPhone && !partner.contactEmail) return null;
-    return { name, phone: partner.contactPhone, email: partner.contactEmail, isPrimary: true };
+    return {
+      name,
+      phone: partner.contactPhone,
+      email: partner.contactEmail,
+      isPrimary: true,
+      method: partner.contactMethod || null,
+      methodNote: partner.contactMethodNote || null,
+    };
   }
   const adult = adults.find((a) => a.isPrimaryContact) || adults[0];
   if (!adult) return null;
@@ -55,5 +62,8 @@ export function primaryContactOf(partner, adults = []) {
     phone: adult.phone1 || adult.phone2,
     email: adult.email,
     isPrimary: !!adult.isPrimaryContact,
+    adultId: adult.id,
+    method: adult.contactMethod || null,
+    methodNote: adult.contactMethodNote || null,
   };
 }

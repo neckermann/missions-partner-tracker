@@ -1,10 +1,10 @@
+import { CONTACT_LEVELS } from "../utils/contactMethods.js";
 import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createPartner } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
 import { COUNTRY_CONTINENTS } from "../utils/countryContinents.js";
-import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import Wizard from "../components/shared/Wizard.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 
@@ -12,7 +12,6 @@ const COUNTRY_NAMES = Object.keys(COUNTRY_CONTINENTS).sort();
 // Same presets as the detail page's own Preferred Contact Method field
 // (see AdminPartnerDetail.jsx) -- an editable combo, not a closed list,
 // so nothing here forces that field to only ever offer these four.
-const CONTACT_METHOD_PRESETS = ["Email", "Phone", "WhatsApp", "Signal"];
 
 // Creating a partner asks for the few things you can't fill in later from
 // the record itself: which kind it is, what to call it, and where it is.
@@ -44,9 +43,8 @@ export default function AdminPartnerForm() {
     orgType: "Local",
     isPublic: true,
     isRestricted: false,
-    contactSafe: true,
+    contactLevel: "normal",
     sentByOurChurch: false,
-    preferredContactMethod: "",
     supportingSince: "",
   };
   const [saving, setSaving] = useState(false);
@@ -65,13 +63,12 @@ export default function AdminPartnerForm() {
         overviewShort: values.overviewShort.trim() || null,
         isPublic: values.isPublic,
         isRestricted: values.isRestricted,
-        preferredContactMethod: values.preferredContactMethod.trim() || null,
         supportingSince: values.supportingSince || null,
         fipsCountryCode: getFipsCode(country) || null,
         addresses: country ? { physical: { country } } : undefined,
         ...(isOrg
           ? { orgType: values.orgType }
-          : { contactSafe: values.contactSafe, sentByOurChurch: values.sentByOurChurch }),
+          : { contactLevel: values.contactLevel, sentByOurChurch: values.sentByOurChurch }),
       });
       navigate(`/admin/partners/${record.id}`);
     } catch (err) {
@@ -148,15 +145,6 @@ export default function AdminPartnerForm() {
                 placeholder="e.g. West Africa"
               />
             </label>
-            <label title="How this partner prefers to be reached. Shown on their page; doesn't affect anything else.">
-              Preferred Contact Method
-              <PresetOrCustomSelect
-                value={values.preferredContactMethod}
-                onChange={(v) => setValue("preferredContactMethod", v)}
-                presets={CONTACT_METHOD_PRESETS}
-                placeholder="e.g. Telegram"
-              />
-            </label>
             <label title="When this partner's support began. Leave it blank if you're not sure yet -- it's easy to set later.">
               Supporting Since
               <input
@@ -185,13 +173,18 @@ export default function AdminPartnerForm() {
         return (
           <div className="admin-checkbox-row">
             {!isOrg && (
-              <label title="A reminder for staff, not a public setting -- whether reaching out to this missionary directly is safe (e.g. in a sensitive location). Shown as a status pill on their page.">
-                <input
-                  type="checkbox"
-                  checked={values.contactSafe}
-                  onChange={(e) => setValue("contactSafe", e.target.checked)}
-                />
-                Safe to contact
+              <label title="How careful to be when reaching this missionary. 'Use caution' keeps their details but shows your guidelines; 'Don't contact directly' hides their number and email. You can add the guidelines and who to go through on their Contact card.">
+                Contacting them
+                <select
+                  value={values.contactLevel}
+                  onChange={(e) => setValue("contactLevel", e.target.value)}
+                >
+                  {CONTACT_LEVELS.map((l) => (
+                    <option key={l.value} value={l.value}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
               </label>
             )}
             <label title="Whether this partner appears in the public directory and map at all. Leave off for a partner you're not ready to list yet.">

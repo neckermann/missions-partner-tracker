@@ -210,9 +210,10 @@ const COMPLETENESS_CHECKS = [
   { key: "overview", label: "Overview", test: (p) => !!(p.overviewShort || p.overview) },
   { key: "contact", label: "Contact (email or phone)", test: (p) => !!(p.contactEmail || p.contactPhone) },
   {
-    key: "preferredContactMethod",
+    key: "contactMethod",
     label: "Preferred contact method",
-    test: (p) => !!p.preferredContactMethod,
+    // An organization's contact, or any adult in the family.
+    test: (p) => !!(p.contactMethod || (p.adults || []).some((a) => a.contactMethod)),
   },
   { key: "address", label: "Address", test: (p) => (p.addresses || []).length > 0 },
   {

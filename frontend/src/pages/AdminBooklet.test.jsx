@@ -96,30 +96,36 @@ describe("AdminBooklet restricted-access filtering", () => {
   });
 });
 
-// #288: contactSafe was never honored by the booklet -- a partner marked not
-// safe to contact still had their phone and email printed.
-describe("AdminBooklet contact details and contactSafe (#288)", () => {
+// #288: a partner we are not to contact directly must not have their phone and email printed.
+describe("AdminBooklet contact details and the contact level (#288)", () => {
   const withAdult = (over) => ({
     ...OPEN_MISSIONARY,
-    preferredContactMethod: "Phone Call",
     adults: [
-      { id: "a", firstName: "Dana", lastName: "Reed", phone1: "555-111-2222", email: "dana@example.org" },
+      {
+        id: "a",
+        firstName: "Dana",
+        lastName: "Reed",
+        phone1: "555-111-2222",
+        email: "dana@example.org",
+        isPrimaryContact: true,
+        contactMethod: "call",
+      },
     ],
     contactInstructions: "Secret staff reason",
     ...over,
   });
 
   it("prints phone, email and preferred method for a partner who is safe to contact", async () => {
-    fetchPartners.mockResolvedValue([withAdult({ contactSafe: true })]);
+    fetchPartners.mockResolvedValue([withAdult({ contactLevel: "normal" })]);
     render(<AdminBooklet />);
     await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
     expect(getPreviewHtml()).toContain("555-111-2222");
     expect(getPreviewHtml()).toContain("dana@example.org");
-    expect(getPreviewHtml()).toContain("Phone Call");
+    expect(getPreviewHtml()).toContain("Phone call");
   });
 
   it("withholds all of it, and the staff instructions, when not safe to contact", async () => {
-    fetchPartners.mockResolvedValue([withAdult({ contactSafe: false })]);
+    fetchPartners.mockResolvedValue([withAdult({ contactLevel: "no_direct" })]);
     render(<AdminBooklet />);
     await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
     const html = getPreviewHtml();
@@ -127,7 +133,7 @@ describe("AdminBooklet contact details and contactSafe (#288)", () => {
     expect(html).toContain("Details withheld");
     expect(html).not.toContain("555-111-2222");
     expect(html).not.toContain("dana@example.org");
-    expect(html).not.toContain("Phone Call");
+    expect(html).not.toContain("Phone call");
     expect(html).not.toContain("Secret staff reason");
   });
 
@@ -148,7 +154,7 @@ describe("AdminBooklet contact details and contactSafe (#288)", () => {
     });
 
   it("withholds the addresses and the sending party's contact person and phone when not safe to contact", async () => {
-    fetchPartners.mockResolvedValue([withAddresses({ contactSafe: false })]);
+    fetchPartners.mockResolvedValue([withAddresses({ contactLevel: "no_direct" })]);
     render(<AdminBooklet />);
     await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
     const html = getPreviewHtml();
@@ -160,7 +166,7 @@ describe("AdminBooklet contact details and contactSafe (#288)", () => {
   });
 
   it("still prints them for a partner who is safe to contact", async () => {
-    fetchPartners.mockResolvedValue([withAddresses({ contactSafe: true })]);
+    fetchPartners.mockResolvedValue([withAddresses({ contactLevel: "normal" })]);
     render(<AdminBooklet />);
     await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
     const html = getPreviewHtml();

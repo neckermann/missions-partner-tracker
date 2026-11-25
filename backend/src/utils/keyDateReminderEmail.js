@@ -40,7 +40,9 @@ function describe(item, settings) {
     what = item.turning ? `${who} (turning ${item.turning})` : who;
   }
   const care =
-    partner.contactSafe === false ? " — special communication instructions apply, see their page" : "";
+    partner.contactLevel && partner.contactLevel !== "normal"
+      ? " — special communication instructions apply, see their page"
+      : "";
   return `${name}: ${what}${care}`;
 }
 

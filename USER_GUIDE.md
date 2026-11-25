@@ -198,9 +198,10 @@ partner, with how many, matched without regard to capitalisation. Guests don't s
 filled in later from the record itself, plus a couple of fields that are
 usually already known the moment you're adding someone and don't need
 their own detail-page trip: Display Name (required), Country,
-Field/Region Display Name, a Short Overview, **Preferred Contact
-Method**, **Supporting Since**, and four checkboxes — **Safe to
-contact**, **Show on public site** (`isPublic`), **Restricted-access
+Field/Region Display Name, a Short Overview, **Supporting Since**, a
+**Contacting them** choice (Normal, Use caution, or Don't contact directly;
+the details go on their Contact card), and three checkboxes — **Show on
+public site** (`isPublic`), **Restricted-access
 location** (`isRestricted` — see
 [Understanding restricted-access partners](#understanding-restricted-access-partners)
 below before checking this), and **Sent by {your church}**. **Create
@@ -210,13 +211,13 @@ location, family, trip history, and the rest — gets filled in section by
 section. See [Editing a partner](#editing-a-partner) below. Hover any
 field's label for a tip on what it means and how it's used.
 
-![The New Partner form, with Preferred Contact Method and Supporting Since alongside the basics](docs/assets/screenshots/new-partner-form.png)
+![The New Partner form, with Supporting Since and Contacting them alongside the basics](docs/assets/screenshots/new-partner-form.png)
 
 #### Creating an organization
 
 **+ Add Organization** is the same short form, with **Organization
 Name** and an **Organization Type** dropdown (Local/National) in place
-of Display Name, and no "Safe to contact" or "Sent by" checkboxes —
+of Display Name, and no "Contacting them" or "Sent by" choices —
 those are person-specific.
 
 #### Editing a partner
@@ -246,7 +247,8 @@ not just what topic they fall under:
   content section: **Show on public site** (`isPublic`), **Restricted-
   access location** (`isRestricted`, masks the name to initials and
   coarsens the map pin to a country centroid publicly), and, missionary
-  only, **Safe to contact** (`contactSafe`).
+  only, nothing about contacting them: that lives on the **Contact card**,
+  which is shown and edited in one place.
 - **Ministry Overview** (missionary) / **Focus Area** (organization) —
   Short Overview (used on directory cards), Full Overview, and Ministry
   Focus.
@@ -283,9 +285,9 @@ not just what topic they fall under:
     re-enter it to trigger the auto-lookup.
   - **Mailing & Contact Address** — Display Name (missionary) or
     Organization Name/Type (organization) — this is the public display
-    name shown on the directory, map, and booklet — Preferred Contact
-    Method, missionary-only **Safe to contact**, organization-only
-    Contact Name/Phone/Email, and a separate mailing address with
+    name shown on the directory, map, and booklet — organization-only
+    Contact Name/Phone/Email (how they like to be reached is on the
+    Contact card), and a separate mailing address with
     "Receives mail here" / "Receives packages here" checkboxes.
   - **Sending Church** (missionary only) — name, contact, phone,
     website, mailing address, plus a **"Sent by {your church}"**
@@ -928,11 +930,14 @@ It works with the [Contact log](#contact-log): logging a contact is what resets 
 
 With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles), every partner page gets a **Contact** card and a **Contact Log**.
 
-- **The contact card** shows who to reach first (the adult marked **Primary contact**, or an organization's named contact), how they prefer to be reached, and one-tap **Call**, **Text**, **Email** and **WhatsApp** buttons, plus when anyone last was in touch.
+- **The contact card** is where who to reach, how they like to be reached and how careful to be are shown and **edited** (**Edit** on the card): who to reach first (the adult marked **Primary contact**, picked from a list, or an organization's named contact), **how each person likes to be reached** (a phone call, text, email, WhatsApp, Signal, Messenger or another way), highlighted as "Prefers Email", one-tap **Call**, **Text**, **Email** and **WhatsApp** buttons, and when anyone last was in touch. Anyone else in the family who has their own preference is listed under it. The card is there even when the contact log is off; only the "last contact" line needs the log.
 
 ![A partner's Contact card, and the special communication instructions that replace the buttons when a partner isn't safe to contact](docs/assets/screenshots/contact-card-instructions.png)
 
-- **If a partner isn't safe to contact**, the buttons and numbers are replaced by the **special communication instructions** staff wrote (edit them under Status & Visibility). The printed booklet also leaves out their phone, email and preferred method.
+- **How careful to be** is one of three settings, chosen by staff on the card:
+  - **Normal:** reach them as usual.
+  - **Use caution:** their details and buttons stay, under a warning that carries your **guidelines** (for example "email only, and don't use the word mission in a subject line"). You can limit the ways it is ok to reach them, and then only those buttons show, so nobody texts someone who is email-only.
+  - **Don't contact directly:** their phone, email, buttons and preferred way are hidden, replaced by **who to go through** (a name, role, phone and email, with their own **Call** and **Email** buttons) and the guidelines. The printed booklet also leaves out their phone, email, address and preferred way.
 - **Log a contact** with **+ Log contact**: pick what happened (call, text, email, visit, card, video, prayed for them), who reached out, optional topics, the date, who made the contact (you, by default), an optional note and an optional **follow up by** date. Anyone who can see the partner can log one. Only an admin or editor can edit or delete an entry.
 
 ![The Log a contact dialog](docs/assets/screenshots/log-a-contact.png)
@@ -963,7 +968,7 @@ With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the 
 ![Settings → Care Teams, where an admin picks the default lead](docs/assets/screenshots/care-teams-settings.png)
 
 - **To clear a reminder**, send the card or make the call and **log it as a contact with the topic "Key date"**. That stops the reminders for that occasion, and it counts as being in touch.
-- The app never sends the card for you, and a restricted partner appears in the email by initials only. A partner who isn't safe to contact is marked in the email so a reminder to "send a card" isn't read as "call them".
+- The app never sends the card for you, and a restricted partner appears in the email by initials only. A partner you are asked to be careful with (Use caution, or Don't contact directly) is marked in the email so a reminder to "send a card" isn't read as "call them".
 
 ### Passing updates on to partners
 

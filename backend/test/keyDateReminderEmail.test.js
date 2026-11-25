@@ -20,7 +20,7 @@ const open = (over = {}) => ({
     displayName: "The Reeds",
     fieldDisplayName: "Uganda",
     isRestricted: false,
-    contactSafe: true,
+    contactLevel: "normal",
   },
   ...over,
 });
@@ -54,7 +54,7 @@ test("a restricted partner is masked and its family's names are left out", () =>
       displayName: "Mary Lou Green",
       fieldDisplayName: "Northern Uganda",
       isRestricted: true,
-      contactSafe: true,
+      contactLevel: "normal",
     },
   });
   const line = describeItem(restricted, settings);
@@ -73,7 +73,7 @@ test("a not-safe-to-contact partner gets a pointer, never the instructions", () 
       id: "p1",
       displayName: "The Reeds",
       isRestricted: false,
-      contactSafe: false,
+      contactLevel: "no_direct",
       contactInstructions: "SECRET: go through the sending org",
     },
   });
@@ -93,7 +93,7 @@ test("one grouped email, singular or plural, with a link and how to clear it", (
       open(),
       open({
         partnerId: "p2",
-        partner: { id: "p2", displayName: "The Okafors", isRestricted: false, contactSafe: true },
+        partner: { id: "p2", displayName: "The Okafors", isRestricted: false, contactLevel: "normal" },
       }),
     ],
     settings,
