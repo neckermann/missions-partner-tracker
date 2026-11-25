@@ -201,6 +201,10 @@ router.get("/", async (req, res, next) => {
           primaryColor: true,
           logoContentType: true,
           enabledFeatures: true,
+          // Church policy booleans, already visible to everyone as `twoFactorRequired` on
+          // /api/auth/me (#402).
+          requireTwoFactor: true,
+          requirePasswordless: true,
           keyDateLeadDays: true,
           contactStaleDays: true,
           extractionModel: true,
