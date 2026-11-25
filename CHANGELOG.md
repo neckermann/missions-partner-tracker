@@ -23,6 +23,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 ### Added
 
 - **Visitors can choose Light or Dark on the public site** with a small switch in the header; it follows their device unless they pick one.
+- **More records carry a created date ([#383](https://github.com/neckermann/missions-partner-tracker/issues/383)).** A partner's addresses and sending party, a trip's budget lines and flight segments, and application questions now record when they were added (trips and applications already did).
 
 ### Fixed
 
@@ -36,6 +37,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 - **Enabled Features lists what is in each group**, with each feature's on or off state, instead of only "All on".
 - **Log Contributions is a popup**, like other forms, with **Save** and **Save and add another** (which keeps the trip, team member, method and date for the next check).
 - **Support Preferences:** Delete is red, and every group's table lines up. **WhatsApp's warning is a proper box.**
+
+### Upgrading
+
+- **A database that ran `0.1.0-beta.2` must be reset again (pre-1.0).** The single baseline migration (`20261122092854_init`) gained a `createdAt` column on `Address`, `SendingParty`, `TripBudgetLine`, `TripFlightSegment` and `ApplicationQuestion`, so `npx prisma migrate deploy` against a database that already ran it will not apply it. Reset the database (`npx prisma migrate reset`), or reset a demo through its reset job.
 
 ## [0.1.0-beta.2] - 2026-11-25
 

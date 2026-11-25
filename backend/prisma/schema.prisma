@@ -279,6 +279,7 @@ model Address {
   // signed-in user of the request; left alone by background jobs, the seed and
   // public submissions, which have no signed-in person. The name is a snapshot
   // so it still reads after that account is deleted.
+  createdAt DateTime @default(now())
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -944,6 +945,7 @@ model TripBudgetLine {
   // signed-in user of the request; left alone by background jobs, the seed and
   // public submissions, which have no signed-in person. The name is a snapshot
   // so it still reads after that account is deleted.
+  createdAt DateTime @default(now())
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -983,6 +985,7 @@ model TripFlightSegment {
   // signed-in user of the request; left alone by background jobs, the seed and
   // public submissions, which have no signed-in person. The name is a snapshot
   // so it still reads after that account is deleted.
+  createdAt DateTime @default(now())
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1270,6 +1273,7 @@ model SendingParty {
   // signed-in user of the request; left alone by background jobs, the seed and
   // public submissions, which have no signed-in person. The name is a snapshot
   // so it still reads after that account is deleted.
+  createdAt DateTime @default(now())
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -2552,6 +2556,7 @@ model ApplicationQuestion {
 
   answers TripApplicationAnswer[]
 
+  createdAt DateTime @default(now())
   @@index([tripId])
   @@index([scope, position])
 }
