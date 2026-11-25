@@ -23,6 +23,7 @@ const AUDIT_ACTIONS = {
   "auth.login_failed": { label: "Failed sign-in", category: "Sign-in" },
   "auth.password_changed": { label: "Changed their password", category: "Sign-in" },
   "auth.password_set": { label: "Set a password from a setup link", category: "Sign-in" },
+  "auth.password_reset": { label: "Reset the password from an emailed link", category: "Sign-in" },
   "auth.password_reset_requested": { label: "Requested a password reset", category: "Sign-in" },
   "auth.mfa_enabled": { label: "Turned on two-factor authentication", category: "Sign-in" },
   "auth.mfa_disabled": { label: "Turned off two-factor authentication", category: "Sign-in" },

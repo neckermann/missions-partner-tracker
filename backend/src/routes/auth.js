@@ -10,8 +10,8 @@ const { setSessionCookie, clearSessionCookie } = require("../utils/jwt");
 const { encryptField, decryptField } = require("../utils/crypto");
 const { appBaseUrl } = require("../utils/dispatchBlurbs");
 const { escapeHtml } = require("../utils/emailDispatchShell");
-const { findValidSetupToken, hashToken } = require("../utils/passwordSetup");
-const { sendWelcomeEmail } = require("../utils/welcomeEmails");
+const { findValidSetupToken, hashToken, RESET_COOLDOWN_MS } = require("../utils/passwordSetup");
+const { sendWelcomeEmail, sendPasswordResetEmail } = require("../utils/welcomeEmails");
 const { isFeatureEnabled } = require("../utils/features");
 const { DEFAULT_TRIP_REQUIREMENT_TEMPLATE } = require("../utils/defaultTripRequirementTemplate");
 const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
@@ -101,7 +101,14 @@ router.get("/setup-status", async (req, res, next) => {
   try {
     const count = await prisma.user.count();
     // `passwordless` (#386): the sign-in page offers a passkey and an emailed link, not a password.
-    res.json({ needed: count === 0, passwordless: await isPasswordlessOn() });
+    // `passwordReset`: the sign-in page offers "Forgot your password?", which needs working email,
+    // a password to reset (not passwordless), and a real church (never a shared demo login).
+    const passwordless = await isPasswordlessOn();
+    res.json({
+      needed: count === 0,
+      passwordless,
+      passwordReset: !passwordless && !isDemoDeployment() && (await isEmailReady()),
+    });
   } catch (err) {
     next(err);
   }
@@ -413,6 +420,8 @@ router.post("/password-setup/validate", async (req, res, next) => {
     res.json({
       email: row.user.email,
       firstName: row.user.firstName || null,
+      // A reset (the account already has a password) reads differently from a first-time setup.
+      reset: Boolean(row.user.passwordHash),
       mfaRequired: row.user.mfaSetupRequired || (await isTwoFactorRequired()),
     });
   } catch (err) {
@@ -434,16 +443,27 @@ router.post("/password-setup/complete", async (req, res, next) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
+    // A reset (the account already had a password) also ends every session the account has open,
+    // like changing it does, so whoever was using the old password is signed out. Not on a demo,
+    // whose logins are shared.
+    const isReset = Boolean(row.user.passwordHash);
     // One transaction: set the password, burn this link, and drop any other
     // outstanding links for the account so none can be replayed.
     await prisma.$transaction([
-      prisma.user.update({ where: { id: row.userId }, data: { passwordHash } }),
+      prisma.user.update({
+        where: { id: row.userId },
+        data: { passwordHash, ...(isReset ? endOtherSessions() : {}) },
+      }),
       prisma.passwordSetupToken.deleteMany({
         where: { userId: row.userId, tokenHash: { not: hashToken(String(token)) } },
       }),
       prisma.passwordSetupToken.update({ where: { id: row.id }, data: { usedAt: new Date() } }),
     ]);
-    await recordAuditSafe(null, { action: "auth.password_set", actor: row.user, req });
+    await recordAuditSafe(null, {
+      action: isReset ? "auth.password_reset" : "auth.password_set",
+      actor: row.user,
+      req,
+    });
     // Not signed in here on purpose: they sign in normally next, which also
     // runs the forced two-factor enrollment when it's required.
     res.json({ ok: true, mfaRequired: row.user.mfaSetupRequired || (await isTwoFactorRequired()) });
@@ -452,9 +472,10 @@ router.post("/password-setup/complete", async (req, res, next) => {
   }
 });
 
-// "Send me a new link." The same reply for every email address (one message while email
-// works, another while it is off), and the email goes out after responding, so neither the
-// message nor the response time reveals whether an account exists.
+// "Send me a link": both the first-time setup link (an account still waiting to choose a
+// password) and "I forgot my password" (an account that has one). The same reply for every email
+// address (one message while email works, another while it is off), and the email goes out after
+// responding, so neither the message nor the response time reveals whether an account exists.
 router.post("/password-setup/request", async (req, res) => {
   // Whether this site can send email at all is a church-wide fact, the same for every
   // request, so saying so reveals nothing about any account: with email off, nobody gets a
@@ -474,13 +495,13 @@ router.post("/password-setup/request", async (req, res) => {
     emailOn
       ? {
           ok: true,
-          message: "If that email has an account waiting to be set up, a new link is on its way.",
+          message: "If that email has an account, a link to choose a password is on its way.",
         }
       : {
           ok: true,
           emailOff: true,
           message:
-            "This site can't send email, so we can't send a new link. Please ask your church administrator for a new setup link.",
+            "This site can't send email, so we can't send a link. Please ask your church administrator for a new setup link.",
         }
   );
   try {
@@ -495,11 +516,25 @@ router.post("/password-setup/request", async (req, res) => {
       req,
     });
     // No send when email is off (nothing could go out, and an admin hands over a link instead,
-    // as users.js does). sendWelcomeEmail throws when outboundEmail is off; skipping it here is
-    // deliberate, not left to the catch below.
-    if (emailOn && user && user.active && user.authProvider === "local" && !user.passwordHash) {
+    // as users.js does), and never on a public demo (its addresses are fake and its logins are
+    // shared). sendWelcomeEmail throws when outboundEmail is off; skipping it here is deliberate,
+    // not left to the catch below.
+    if (!emailOn || isDemoDeployment()) return;
+    if (!user || !user.active || user.authProvider !== "local") return;
+    if (!user.passwordHash) {
       await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired });
+      return;
     }
+    // An account that has a password: a reset link. Not while passwordless sign-in is on (there is
+    // no password to reset; they sign in with a passkey or an emailed link), and at most one a
+    // minute per account.
+    if (await isPasswordlessOn()) return;
+    const recent = await prisma.passwordSetupToken.findFirst({
+      where: { userId: user.id, usedAt: null, createdAt: { gt: new Date(Date.now() - RESET_COOLDOWN_MS) } },
+      select: { id: true },
+    });
+    if (recent) return;
+    await sendPasswordResetEmail(user);
   } catch {
     // Deliberately swallowed: this endpoint must never signal a difference.
   }

@@ -14,7 +14,7 @@
 // branding, so there's no "keep forks upgradable" reason to make them an
 // env var or a ChurchSettings field (see issue #303).
 const { renderEmail, blocks } = require("./emailTemplate");
-const { buildSetupUrl, setupTtlHours } = require("./passwordSetup");
+const { buildSetupUrl, setupTtlHours, RESET_TTL_HOURS } = require("./passwordSetup");
 
 const DOCS_BASE = "https://missionspartnertracker.com";
 const USER_GUIDE_URL = `${DOCS_BASE}/user-guide.html`;
@@ -111,4 +111,55 @@ async function sendWelcomeEmail(user, { requireMfa = false } = {}) {
   await sendEmail({ to: user.email, ...message });
 }
 
-module.exports = { buildWelcomeEmail, guideLinks, sendWelcomeEmail };
+// Pure. The email for "I forgot my password": a one-hour link that lets the person choose a new
+// one. Signing in afterwards still asks for their second factor, if they have one.
+function buildPasswordResetEmail({ user, resetUrl, expiresInHours, settings }) {
+  const church = settings?.churchName || "the missions tracker";
+  return renderEmail({
+    settings,
+    subject: `Reset your ${settings?.churchName ? `${settings.churchName} ` : ""}missions tracker password`,
+    eyebrow: "Password reset",
+    greetingName: user.firstName,
+    blocks: [
+      blocks.paragraph(
+        `Someone asked to reset the password for your account on ${church}'s missions tracker.`
+      ),
+      blocks.button(resetUrl, "Choose a new password"),
+      blocks.note(
+        `This link works once and expires in ${describeExpiry(expiresInHours)}. Other devices signed in to your account will be signed out when you choose a new password.`
+      ),
+    ],
+    footerNote:
+      "Didn't ask for this? You can safely ignore it -- your password has not changed and nobody can sign in with this email alone.",
+  });
+}
+
+// Issues a one-hour reset link and emails it. Throws if email isn't configured or APP_BASE_URL is
+// unset; the route that calls it swallows that so the reply never reveals whether an account exists.
+async function sendPasswordResetEmail(user) {
+  const prisma = require("../prismaClient");
+  const { sendEmail } = require("./email");
+  const { issueSetupToken } = require("./passwordSetup");
+  if (!buildSetupUrl("probe")) {
+    const err = new Error("APP_BASE_URL isn't set, so a reset link can't be built");
+    err.status = 400;
+    throw err;
+  }
+  const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
+  const { token } = await issueSetupToken(user, new Date(), { ttlHours: RESET_TTL_HOURS });
+  const message = buildPasswordResetEmail({
+    user,
+    resetUrl: buildSetupUrl(token),
+    expiresInHours: RESET_TTL_HOURS,
+    settings,
+  });
+  await sendEmail({ to: user.email, ...message });
+}
+
+module.exports = {
+  buildWelcomeEmail,
+  buildPasswordResetEmail,
+  guideLinks,
+  sendWelcomeEmail,
+  sendPasswordResetEmail,
+};

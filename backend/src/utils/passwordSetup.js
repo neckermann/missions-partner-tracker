@@ -23,6 +23,12 @@ function setupTtlHours(role) {
   return role === "guest" ? DEFAULT_GUEST_TTL_HOURS : DEFAULT_TTL_HOURS;
 }
 
+// A link to choose a new password for an account that already has one ("forgot password") is
+// short-lived: the person is at their inbox right now, and a stale one is only a risk.
+const RESET_TTL_HOURS = 1;
+// At most one reset email per account in this window, so nobody can use the form to flood an inbox.
+const RESET_COOLDOWN_MS = 60 * 1000;
+
 function generateToken() {
   return crypto.randomBytes(32).toString("base64url");
 }
@@ -40,10 +46,10 @@ function buildSetupUrl(token) {
 // Creates a fresh link for the user and returns { token, expiresAt }. The
 // raw token exists only in this return value -- hand it straight to the
 // email builder, never store or log it.
-async function issueSetupToken(user, now = new Date()) {
+async function issueSetupToken(user, now = new Date(), { ttlHours } = {}) {
   const prisma = require("../prismaClient"); // lazy: pure helpers stay testable without a DB
   const token = generateToken();
-  const expiresAt = new Date(now.getTime() + setupTtlHours(user.role) * HOUR_MS);
+  const expiresAt = new Date(now.getTime() + (ttlHours ?? setupTtlHours(user.role)) * HOUR_MS);
   await prisma.$transaction([
     prisma.passwordSetupToken.deleteMany({ where: { userId: user.id, usedAt: null } }),
     prisma.passwordSetupToken.create({
@@ -69,6 +75,8 @@ async function findValidSetupToken(token, now = new Date()) {
 }
 
 module.exports = {
+  RESET_TTL_HOURS,
+  RESET_COOLDOWN_MS,
   setupTtlHours,
   generateToken,
   hashToken,
