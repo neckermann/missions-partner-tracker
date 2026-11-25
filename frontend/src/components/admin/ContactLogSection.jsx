@@ -8,6 +8,7 @@ import {
   updateContactLogEntry,
   deleteContactLogEntry,
 } from "../../api/client.js";
+import { Link } from "react-router-dom";
 import QuickActionModal from "../shared/QuickActionModal.jsx";
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../ConfirmMessageBody.jsx";
@@ -19,6 +20,9 @@ import { formatDateLong, toDateInputValue, todayInputValue } from "../../utils/f
 // admin/editor can fix or delete one (`canFix`). The type/direction/topic lists come from the
 // server. `entries` is owned by the page; `onChanged` reloads it. `teammates` ([{ userId, name }])
 // feeds the "Who" picker when care teams are on ("Me" is the default).
+
+// How many of the newest log entries and filed events the partner page shows.
+const RECENT_COUNT = 3;
 
 const nameOf = (u) => [u?.firstName, u?.lastName].filter(Boolean).join(" ") || "Someone";
 
@@ -83,7 +87,7 @@ export default function ContactLogSection({
   }, [partnerId]);
 
   // A decided need or answered prayer still waiting to be passed on; refreshed when the log changes
-  // since logging the thank-you clears it.
+  // since logging that you told them clears it.
   const [updates, setUpdates] = useState([]);
   useEffect(() => {
     fetchContactUpdates(partnerId)
@@ -228,6 +232,10 @@ export default function ContactLogSection({
     ...entries.map((entry) => ({ entry, date: String(entry.contactDate).slice(0, 10) })),
     ...events.map((event) => ({ event, date: event.date })),
   ].sort((a, b) => b.date.localeCompare(a.date));
+  // Only the latest few show here, so the partner page doesn't grow with every contact; the rest
+  // are on the Contact Log page, already filtered to this partner.
+  const recent = timeline.slice(0, RECENT_COUNT);
+  const hiddenEntries = entries.length - recent.filter((i) => i.entry).length;
 
   return (
     <div className="admin-section" id="contact-log">
@@ -259,7 +267,9 @@ export default function ContactLogSection({
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  gap: "0.75rem",
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                  gap: "0.5rem 0.75rem",
                   padding: "0.2rem 0",
                 }}
               >
@@ -268,8 +278,13 @@ export default function ContactLogSection({
                   {formatDateLong(u.date)}
                   ): {u.label}
                 </span>
-                <button type="button" className="btn secondary small" onClick={() => openThankYou(u)}>
-                  {u.kind === "need" ? "Log passing it on" : "Log a thank-you"}
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  style={{ whiteSpace: "nowrap" }}
+                  onClick={() => openThankYou(u)}
+                >
+                  Log that I told them
                 </button>
               </li>
             ))}
@@ -280,7 +295,7 @@ export default function ContactLogSection({
       {timeline.length === 0 ? (
         <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>No contact logged yet.</p>
       ) : (
-        timeline.map((item) =>
+        recent.map((item) =>
           item.event ? (
             <div key={item.event.id} className="repeatable-row" style={{ marginTop: "0.75rem" }}>
               <strong>{item.event.title}</strong>
@@ -294,6 +309,14 @@ export default function ContactLogSection({
             renderEntry(item.entry)
           )
         )
+      )}
+
+      {hiddenEntries > 0 && (
+        <p style={{ margin: "0.75rem 0 0" }}>
+          <Link to={`/admin/contact-log?partnerId=${partnerId}`}>
+            View all {entries.length} logged contacts →
+          </Link>
+        </p>
       )}
 
       {form && options && (

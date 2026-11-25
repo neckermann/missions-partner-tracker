@@ -1,8 +1,7 @@
 // Support preferences: the rules around the church's menu of options and a
 // partner's answers. The menu is church-edited data (SupportOption rows); fixed
-// here are the kinds of question, how each kind's answer is validated and shaped,
-// and an example set a church can add and then edit or delete.
-const prisma = require("../prismaClient");
+// here are the kinds of question and how each kind's answer is validated and shaped.
+// (A starting list is an importable template pack: examples/template-packs/.)
 
 const KINDS = [
   { value: "offer", label: "Something we offer (tick it if wanted)" },
@@ -72,71 +71,11 @@ function describeAnswer(option, pref) {
   return [...(pref.choices || []), ...(pref.other ? [pref.other] : [])].join(", ");
 }
 
-// An example set a church can add from an empty catalog, then edit, reorder or delete.
-const EXAMPLE_OPTIONS = [
-  { group: "Logistics", label: "Help finding a place to stay while you are home" },
-  { group: "Logistics", label: "Help with transportation while you are home" },
-  { group: "Logistics", label: "Travel arrangements" },
-  { group: "Logistics", label: "Airport pick-up" },
-
-  { group: "Representing you", label: "Speak about you at a church gathering from time to time" },
-  { group: "Representing you", label: "Host a prayer or information evening while you are home" },
-  { group: "Representing you", label: "A display table with photos and what you are doing" },
-  { group: "Representing you", label: "People here who know your journey well" },
-
-  { group: "Communication and encouragement", label: "A safe, confidential person to be honest with" },
-  { group: "Communication and encouragement", label: "Personal letters, cards or mail" },
-  { group: "Communication and encouragement", label: "Visits from teams" },
-  {
-    group: "Communication and encouragement",
-    label: "What can and cannot be shared with others?",
-    kind: "text",
-    staffOnly: true,
-  },
-
-  { group: "Prayer", label: "Individual prayer" },
-  { group: "Prayer", label: "Group prayer" },
-  { group: "Prayer", label: "Prayer by video call from time to time" },
-
-  { group: "Gifts", label: "Care packages" },
-  { group: "Gifts", label: "Money for special occasions such as birthdays and holidays" },
-  {
-    group: "Gifts",
-    label: "How should special financial gifts be sent?",
-    kind: "single",
-    choices: ["Bank transfer", "A transfer app", "Through an organization"],
-    allowOther: true,
-  },
-];
-
-// Adds the example set when the catalog is empty; returns how many (0 if the church has options, so it never overwrites).
-async function addExampleOptions(db = prisma) {
-  if ((await db.supportOption.count()) > 0) return 0;
-  const orderIn = new Map();
-  const rows = EXAMPLE_OPTIONS.map((o) => {
-    const n = (orderIn.get(o.group) || 0) + 1;
-    orderIn.set(o.group, n);
-    return {
-      group: o.group,
-      label: o.label,
-      kind: o.kind || "offer",
-      choices: o.choices || [],
-      allowOther: o.allowOther || false,
-      staffOnly: o.staffOnly === true,
-      sortOrder: n,
-    };
-  });
-  await db.supportOption.createMany({ data: rows });
-  return rows.length;
-}
-
 module.exports = {
   KINDS,
   KIND_VALUES,
   CHOICE_KINDS,
   MAX_CHOICES,
-  EXAMPLE_OPTIONS,
   normalizeResponse,
   describeAnswer,
-  addExampleOptions,
 };

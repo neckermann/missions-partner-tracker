@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { test, expect } from "@playwright/test";
 import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
@@ -44,12 +45,25 @@ test.describe("Support preferences", () => {
     await adminContext.close();
   });
 
-  test("an empty menu offers an example set, which can then be edited", async () => {
-    test.skip(!startedEmpty, "the menu already had options, so there is no empty state to see");
+  test("an example menu pack can be imported (pasted) and then edited", async () => {
+    test.skip(
+      !startedEmpty,
+      "the menu already had options, so importing would add to a menu the spec doesn't own"
+    );
+    const pack = fs.readFileSync(
+      new URL("../../examples/template-packs/support-menu-example.json", import.meta.url),
+      "utf8"
+    );
     await admin.goto("/admin/settings/support-preferences");
-    await admin.getByRole("button", { name: "Add an example set" }).click();
+    await expect(admin.getByText(/Import an example menu/)).toBeVisible();
+    await admin.getByRole("button", { name: "Import a menu…" }).click();
+    await admin.getByLabel(/paste it here/).fill(pack);
+    await admin.getByRole("button", { name: "Check this pack" }).click();
+    await expect(admin.getByText(/support options, in \d+ groups/)).toBeVisible();
+    await admin.getByRole("button", { name: "Import", exact: true }).click();
+    await expect(admin.getByText(/Added \d+ support options/)).toBeVisible();
+    await admin.getByRole("button", { name: "Done" }).click();
     await expect(admin.getByText("Airport pick-up")).toBeVisible();
-    await expect(admin.getByRole("button", { name: "Add an example set" })).toHaveCount(0);
   });
 
   test("an admin adds an option of their own to the menu", async () => {

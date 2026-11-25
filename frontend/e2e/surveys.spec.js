@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { test, expect } from "@playwright/test";
 import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
@@ -76,10 +77,21 @@ test.describe("Partner surveys", () => {
     const annual = `E2E annual ${stamp}`;
 
     await admin.goto("/admin/settings/surveys");
-    await admin.getByRole("button", { name: "+ New survey" }).click();
-    await admin.getByLabel("Start from").selectOption("annual-update");
-    await admin.getByLabel(/^Title/).fill(annual);
-    await admin.getByRole("button", { name: "Create" }).click();
+    const pack = JSON.parse(
+      fs.readFileSync(
+        new URL("../../examples/template-packs/survey-annual-update.json", import.meta.url),
+        "utf8"
+      )
+    );
+    pack.data.survey.title = annual;
+    await admin.getByRole("button", { name: "Import a survey…" }).click();
+    await admin.getByLabel(/paste it here/).fill(JSON.stringify(pack));
+    await admin.getByRole("button", { name: "Check this pack" }).click();
+    await expect(admin.getByText(/A draft survey/)).toBeVisible();
+    await admin.getByRole("button", { name: "Import", exact: true }).click();
+    await expect(admin.getByText(/Added the draft survey/)).toBeVisible();
+    await admin.getByRole("button", { name: "Done" }).click();
+    await admin.getByRole("cell", { name: annual }).click();
     await expect(admin.getByRole("heading", { name: annual })).toBeVisible();
     await expect(admin.getByLabel("Question 1", { exact: true })).toHaveValue(
       "Best phone number to reach you"
@@ -101,7 +113,7 @@ test.describe("Partner surveys", () => {
 
     await admin.goto("/admin/survey-updates");
     const block = admin.locator(".admin-section").filter({ hasText: `E2E survey partner ${stamp}` });
-    const row = block.getByRole("row", { name: /Primary contact's phone/ });
+    const row = block.locator("li", { hasText: "Primary contact's phone" });
     await expect(row.getByText("(337) 555-0100")).toBeVisible();
     await expect(row.getByText("(111) 111-1111")).toBeVisible();
     await row.getByRole("button", { name: "Approve" }).click();

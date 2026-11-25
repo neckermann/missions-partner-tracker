@@ -68,6 +68,7 @@ const AdminSettingsSupportPreferences = lazy(() => import("./pages/AdminSettings
 const AdminSettingsSupportPreferencesPrint = lazy(
   () => import("./pages/AdminSettingsSupportPreferencesPrint.jsx")
 );
+const AdminContactLog = lazy(() => import("./pages/AdminContactLog.jsx"));
 const AdminSurveyUpdates = lazy(() => import("./pages/AdminSurveyUpdates.jsx"));
 const AdminSettingsSurveys = lazy(() => import("./pages/AdminSettingsSurveys.jsx"));
 const AdminSettingsSurveyDetail = lazy(() => import("./pages/AdminSettingsSurveyDetail.jsx"));
@@ -275,6 +276,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   element={
                     <RequireAdminFeature feature="inboundEmail">
                       <AdminInboundEmailQueue />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
+                  path="contact-log"
+                  element={
+                    <RequireAdminFeature feature="contactLog">
+                      <AdminContactLog />
                     </RequireAdminFeature>
                   }
                 />

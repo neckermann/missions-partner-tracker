@@ -4,6 +4,7 @@
 const { generateToken, hashToken } = require("./passwordSetup");
 const { appBaseUrl } = require("./dispatchBlurbs");
 const { emailBlockReason, surveyEmailFor } = require("./contactReach");
+const { fieldFitsKind, PHOTO } = require("./surveyFields");
 
 const KINDS = [
   { value: "single", label: "Pick one" },
@@ -76,7 +77,24 @@ function buildSurveyUrl(token) {
   return base ? `${base}/survey/${encodeURIComponent(token)}` : null;
 }
 
+// Checks a question's choices and its link to the partner's record, and returns the columns to
+// store ({ choices, allowOther, field }) or { error }. Shared by the builder and pack import.
+function shapeQuestion(q) {
+  const isChoice = CHOICE_KINDS.includes(q.kind);
+  const choices = isChoice ? [...new Set(q.choices || [])] : [];
+  const allowOther = isChoice ? q.allowOther === true : false;
+  if (isChoice && choices.length === 0 && !allowOther) {
+    return { error: `"${q.label}" needs at least one choice, or an “other” box` };
+  }
+  const field = q.kind === "photo" ? PHOTO : q.field || null;
+  if (field && !fieldFitsKind(field, q.kind)) {
+    return { error: `"${q.label}" can't be linked to that part of the record` };
+  }
+  return { choices, allowOther, field };
+}
+
 module.exports = {
+  shapeQuestion,
   KINDS,
   KIND_VALUES,
   CHOICE_KINDS,

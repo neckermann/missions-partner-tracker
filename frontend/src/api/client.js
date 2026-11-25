@@ -434,6 +434,12 @@ export async function fetchContactLog(params = {}) {
   const { data } = await api.get("/contact-log", { params });
   return data;
 }
+// Every entry this login may read, newest first, with optional partnerId/contactType/direction/topic
+// filters, paged (limit/offset): { rows, total, hasMore }.
+export async function fetchContactLogAll(params = {}) {
+  const { data } = await api.get("/contact-log/all", { params });
+  return data;
+}
 // Church visits and newsletters filed, read-only, shown alongside the log's own entries.
 export async function fetchContactTimeline(partnerId) {
   const { data } = await api.get("/contact-log/timeline", { params: { partnerId } });
@@ -1107,10 +1113,6 @@ export async function renameSupportGroup(from, to) {
   const { data } = await api.post("/support-preferences/options/rename-group", { from, to });
   return data;
 }
-export async function addSupportExampleSet() {
-  const { data } = await api.post("/support-preferences/options/example-set");
-  return data;
-}
 export async function fetchSupportKinds() {
   const { data } = await api.get("/support-preferences/kinds");
   return data.kinds;
@@ -1188,14 +1190,6 @@ export async function submitPublicSurvey(token, answers) {
   return data;
 }
 
-export async function fetchSurveyTemplates() {
-  const { data } = await api.get("/surveys/templates");
-  return data.templates;
-}
-export async function createSurveyFromTemplate(templateId, title) {
-  const { data } = await api.post("/surveys/from-template", { templateId, title });
-  return data;
-}
 // The parts of a partner's record a question can propose a change to: [{ key, label, kinds }].
 export async function fetchSurveyFields() {
   const { data } = await api.get("/surveys/fields");
@@ -1221,6 +1215,21 @@ export async function uploadPublicSurveyPhoto(token, questionId, contentType, ba
   );
   return data;
 }
+
+// Template packs (admin): a church's starting points as plain JSON. Preview says what an import
+// would do; import only ever adds. Export is a download link (the session cookie rides along).
+export async function previewTemplatePack(pack) {
+  const { data } = await api.post("/template-packs/preview", { pack });
+  return data;
+}
+export async function importTemplatePack(pack) {
+  const { data } = await api.post("/template-packs/import", { pack });
+  return data;
+}
+export const templatePackExportUrl = (kind, params = {}) => {
+  const q = new URLSearchParams(params).toString();
+  return `/api/template-packs/export/${kind}${q ? `?${q}` : ""}`;
+};
 
 // The partners this login may read, as { id, kind, displayName, archived }: all of them for a
 // full role, only grant-reachable ones for a guest. For pickers when a guest can't list the directory.

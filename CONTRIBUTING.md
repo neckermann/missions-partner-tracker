@@ -32,6 +32,11 @@ customize, add a field to Church Settings for it rather than hardcoding a
 value, even if you're only trying to fix it for your own church today.
 That's what keeps everyone's fork able to pull in your fix later.
 
+The same goes for starter content: don't ship example questions, menus, documents or wording as
+defaults in code. Put them in an importable **template pack** under
+[`examples/template-packs`](examples/template-packs/README.md) (a new install starts empty and imports
+what it wants), so a fork never has to edit or merge around one church's words.
+
 This extends to per-instance secrets, not just branding. Anything a church
 configures for itself belongs in the database (encrypted at rest where it's
 a secret — see `backend/src/utils/crypto.js`), not in an env var. Setting

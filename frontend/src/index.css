@@ -2578,6 +2578,44 @@ button.report-summary-item[aria-pressed="true"] {
   }
 }
 
+/* Survey Updates: one change per card row that wraps, so nothing is wider than a phone screen. */
+.survey-change-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+.survey-change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--border);
+}
+.survey-change-field {
+  flex: 1 1 100%;
+  font-weight: 600;
+}
+.survey-change-values {
+  flex: 1 1 14rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.survey-change-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  margin-right: 0.25rem;
+}
+.survey-change-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
 /* SuggestInput: the suggestion list under a text field (a datalist replacement that works on phones). */
 .suggest-list {
   position: absolute;

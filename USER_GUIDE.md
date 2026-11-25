@@ -694,9 +694,9 @@ other way.
 application questions every trip shares plus a reusable saved-question
 library, whether to collect an applicant's mailing address/emergency
 contact/date of birth (date of birth has its own "require it" toggle
-too), the default requirement checklist new trips start with plus a
-reusable saved-requirements library (ships with a Minor Travel Release
-&amp; Consent Form ready to use), and the two private-link toggles
+too), the requirement checklist new trips start with plus a
+reusable saved-requirements library (both can be filled by importing an
+example [template pack](#template-packs)), and the two private-link toggles
 above.
 
 ![Trips Settings](docs/assets/screenshots/trips-settings.png)
@@ -953,9 +953,11 @@ With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-togg
 
 ![A partner's Contact Log, newest first](docs/assets/screenshots/contact-log.png)
 
+- **Only the latest few show on the partner's page.** The three newest entries (and filed visits or newsletters) appear in the card, so it doesn't grow with every contact. **View all N logged contacts →** opens the **Contact Log** page already filtered to that partner, where you can also filter by type, direction or topic, or clear the partner to see everyone's. Add or fix an entry from the partner's page.
+
 - **A prayer request a care team member enters** also logs the contact, so it isn't typed twice.
 - **Church visits and newsletters filed** for the partner also appear in the Contact Log, among the entries and newest first, as read-only rows (a visit, "Newsletter filed"). They are read from their own records when you open the page, not copied, so editing or deleting a visit or newsletter updates the log at once. Only a logged contact can be edited or deleted here.
-- **Updates to pass on.** When a one-time need has been decided or a prayer answered and nobody has passed it on yet, the Contact Log shows an **Updates to pass on** box with a **Log a thank-you** (or **Log passing it on**) button. It opens **+ Log contact** already set to "We reached out" with the right topic ticked, so saving it clears the bell's "Updates to pass on to partners". You still choose how you got in touch.
+- **Updates to pass on.** When a one-time need has been decided or a prayer answered and nobody has passed it on yet, the Contact Log shows an **Updates to pass on** box with a **Log that I told them** button: the update is news for the partner (their prayer was answered, or their request was decided), and this is how you record that you passed it on. It opens **+ Log contact** already set to "We reached out" with the right topic ticked, so saving it clears the bell's "Updates to pass on to partners". You still choose how you got in touch.
 - **My partners** and **Partners to reach out to** (for anyone on a care team) are described under [My partners](#my-partners).
 
 The **Last heard from** report counts a logged contact, a newsletter, a prayer request they sent and a church visit as hearing from a partner: a partner is only "quiet" when all of them are old. How long is "quiet" is a church setting (default 90 days; Settings → Care Teams → Timing), and the report uses it unless you type another number for a run. Trip leaders don't get the contact log.
@@ -994,7 +996,7 @@ The app never contacts a partner on its own — a person always does. If you're 
 
 With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), each partner's page gets a **Support preferences** card, in the **Care & Follow-up** section (jump bar: **Care**): the ways your church and their care team can support them, and which of them this partner has asked for. The card stays compact (how many are recorded, and which groups); click that line to open everything, with their notes.
 
-- **The menu is your church's.** An admin edits it under **Settings → Support Preferences**: options are put in groups (rename a group any time), and each is something you **offer** (tick it if wanted), a **pick one** or **pick any** question (with an optional "something else" box), or a **free-text** question. From an empty menu, **Add an example set** gives a starting list (housing, transportation, speaking about the partner, prayer, care packages, how to send gifts and so on) to edit or delete. **Retire** an option to stop offering it while keeping the answers already given, or **Delete** it to remove it and those answers. **Print menu** (top right of that page) opens a clean copy with the church's name and logo, boxes to tick and lines to write on, for a conversation with a partner; retired options are left out, and it stores nothing.
+- **The menu is your church's.** An admin edits it under **Settings → Support Preferences**: options are put in groups (rename a group any time), and each is something you **offer** (tick it if wanted), a **pick one** or **pick any** question (with an optional "something else" box), or a **free-text** question. From an empty menu, **Import a menu…** takes an example [template pack](#template-packs) (housing, transportation, speaking about the partner, prayer, care packages, how to send gifts and so on) to edit or delete. **Retire** an option to stop offering it while keeping the answers already given, or **Delete** it to remove it and those answers. **Print menu** (top right of that page) opens a clean copy with the church's name and logo, boxes to tick and lines to write on, for a conversation with a partner; retired options are left out, and it stores nothing.
 - **Record a partner's choices** with **+ Record** (or **Edit**) on their page, after a conversation: tick what they want, pick their answers, add a note. One set per partner, so a couple or family shares it. Admins, editors and a guest on that partner's care team can record it; a viewer can read it. A trip leader never sees it.
 - **Staff-only options.** An admin can tick **Staff only** on an option (Settings → Support Preferences) so its answers are hidden from care team members and shown only to staff; the example "What can and cannot be shared with others?" starts that way.
 - **Tag a contact with an option.** When you log a contact, **Which support option was this about?** links it to an option, and the log shows "re: Airport pick-up". The label is kept even if the option is later retired or deleted.
@@ -1028,11 +1030,9 @@ With **Partner surveys** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-
 
 ![What a partner sees on their phone](docs/assets/screenshots/surveys-partner-page.png)
 
-#### Start from a template
+#### Start from an example
 
-**+ New survey** can start from a template instead of a blank survey: **Care check-in**, **Annual update** (contact details, emergency contact, a photo and a short update), **Getting to know you** (a fuller partnership survey: their story and work, how they keep in touch, challenges, highlights, hopes and how we can help) and **Furlough and visit planning**. A template just fills in questions you then edit freely; nothing stays linked to it.
-
-![Starting a survey from a template](docs/assets/screenshots/surveys-template.png)
+Rather than build every survey from scratch, **Import a survey…** (top of **Settings → Surveys**) takes a [template pack](#template-packs): the examples include a **Care check-in**, an **Annual update** (contact details, emergency contact, a photo and a short update), **Getting to know you** (a fuller partnership survey) and **Furlough and visit planning**. An imported survey arrives as an ordinary **draft** you can change freely. **Export** on a survey's page saves it as a pack to share.
 
 #### Updating a partner's record from their answers
 
@@ -1859,3 +1859,12 @@ lobby kiosk) as well as regular visitors:
 
 Nothing on the public site is editable — it's a read-only mirror of
 whatever's marked public in the admin dashboard.
+
+## Template packs
+
+The app ships no church-specific content in its code. Starting points (survey questions, a support menu, trip requirement documents, trip application questions, email update wording) are **template packs**: small JSON files you import from the page where that content lives. Example packs are in the project's [`examples/template-packs`](https://github.com/neckermann/missions-partner-tracker/tree/main/examples/template-packs) folder, and the public demo imports them so it shows everything.
+
+- **Import** (admins): open the page, press **Import…**, choose the file or paste its text, **Check this pack** to see what it would do, then **Import**. Importing only adds: nothing you have is deleted, a duplicate (same name) is skipped, and importing the same pack twice does nothing the second time. A survey arrives as a draft. Email update wording is the one exception: it replaces the subject line, sign-off and layout the pack contains, and the preview says so.
+- **Where:** surveys under **Settings → Surveys**, the support menu under **Settings → Support Preferences**, trip requirements and application questions under **Settings → Trips**, wording under **Settings → Dispatch Settings**.
+- **Export:** each of those pages has an **Export** button that saves what you have as a pack, so a church can share its own.
+- **A new install starts empty** in each of these areas, with a prompt to import an example or start blank. Existing installs keep everything they have.

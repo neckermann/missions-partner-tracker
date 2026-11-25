@@ -2,7 +2,7 @@
 // who reads and writes a partner's choices (staff; a guest only through a care team seat,
 // never through a trip grant alone; a viewer reads only), that the menu is admin-only, how
 // each kind of answer is validated and stored in real columns, retiring versus deleting an
-// option, and the example set.
+// option.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -329,16 +329,6 @@ describe("support preferences: keeping the menu", () => {
     });
     assert.equal(res.body.renamed, 2);
     assert.equal(await prisma.supportOption.count({ where: { group: to } }), 2);
-  });
-
-  test("the example set is added only to an empty menu", async () => {
-    // The menu isn't empty (these fixtures), so it refuses and changes nothing.
-    const before = await prisma.supportOption.count();
-    assert.equal(
-      (await admin("/api/support-preferences/options/example-set", { method: "POST" })).status,
-      409
-    );
-    assert.equal(await prisma.supportOption.count(), before);
   });
 
   test("a staff-only option is hidden from a care team guest, who can't answer it either", async () => {

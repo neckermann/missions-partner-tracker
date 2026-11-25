@@ -238,6 +238,43 @@ describe("contact log: logging and reading", () => {
   });
 });
 
+describe("contact log: the all-entries listing", () => {
+  test("pages newest first, filters, and a guest only sees their own partners", async () => {
+    for (let i = 0; i < 3; i++) {
+      assert.equal(
+        (
+          await log(
+            admin,
+            entry(partnerA.id, { contactType: i === 0 ? "visit" : "call", contactDate: `2026-03-0${i + 1}` })
+          )
+        ).status,
+        201
+      );
+    }
+    await log(admin, entry(partnerB.id, { contactType: "card", contactDate: "2026-03-10" }));
+
+    const mine = await admin(`/api/contact-log/all?partnerId=${partnerA.id}&limit=2`);
+    assert.equal(mine.status, 200);
+    assert.equal(mine.body.rows.length, 2);
+    assert.ok(mine.body.total >= 3 && mine.body.hasMore);
+    assert.equal(mine.body.rows[0].partner.id, partnerA.id);
+    const page2 = await admin(`/api/contact-log/all?partnerId=${partnerA.id}&limit=2&offset=2`);
+    assert.ok(page2.body.rows.length >= 1);
+    assert.ok(mine.body.rows[0].contactDate >= mine.body.rows[1].contactDate, "newest first");
+
+    const visits = await admin(`/api/contact-log/all?partnerId=${partnerA.id}&contactType=visit`);
+    assert.ok(visits.body.rows.length >= 1 && visits.body.rows.every((r) => r.contactType === "visit"));
+    assert.equal((await admin("/api/contact-log/all?limit=999")).status, 400);
+
+    const guest = await member.login();
+    const asGuest = await guest("/api/contact-log/all");
+    assert.equal(asGuest.status, 200);
+    assert.ok(asGuest.body.rows.length > 0 && asGuest.body.rows.every((r) => r.partner.id === partnerA.id));
+    assert.equal((await guest(`/api/contact-log/all?partnerId=${partnerB.id}`)).status, 403);
+    assert.equal((await viewer("/api/contact-log/all")).status, 200);
+  });
+});
+
 describe("contact log: fixing and deleting", () => {
   test("admin and editor can fix and delete; a viewer can only add", async () => {
     const made = (await log(viewer, entry(partnerA.id, { notes: "typo" }))).body;

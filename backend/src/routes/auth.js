@@ -13,13 +13,11 @@ const { escapeHtml } = require("../utils/emailDispatchShell");
 const { findValidSetupToken, hashToken, RESET_COOLDOWN_MS } = require("../utils/passwordSetup");
 const { sendWelcomeEmail, sendPasswordResetEmail } = require("../utils/welcomeEmails");
 const { isFeatureEnabled } = require("../utils/features");
-const { DEFAULT_TRIP_REQUIREMENT_TEMPLATE } = require("../utils/defaultTripRequirementTemplate");
 const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
 const { isDemoDeployment, endOtherSessions } = require("../utils/demoMode");
-const { replaceRequirementItems } = require("../utils/tripTemplates");
 const {
   isPasswordlessOn,
   isEmailReady,
@@ -143,11 +141,6 @@ router.post("/setup", async (req, res, next) => {
       update: { requireTwoFactor: true },
       create: { id: "singleton", requireTwoFactor: true },
     });
-    // Seed the starting requirement checklist only when none exists.
-    if ((await prisma.requirementTemplateItem.count({ where: { scope: "template" } })) === 0) {
-      await replaceRequirementItems(prisma, "template", DEFAULT_TRIP_REQUIREMENT_TEMPLATE);
-    }
-
     // No session yet: with the requirement on, an unenrolled account can't use
     // one. The first admin signs in (POST /login) and is taken through enrolment.
     res.status(201).json({ ok: true, mfaSetupRequired: true });

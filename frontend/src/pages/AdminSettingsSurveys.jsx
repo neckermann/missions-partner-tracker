@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchSurveys, createSurvey, fetchSurveyTemplates, createSurveyFromTemplate } from "../api/client.js";
+import { fetchSurveys, createSurvey } from "../api/client.js";
+import TemplatePackButtons from "../components/admin/TemplatePackButtons.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import Table from "../components/shared/Table.jsx";
@@ -14,8 +15,7 @@ export default function AdminSettingsSurveys() {
   const [surveys, setSurveys] = useState(null);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ title: "", intro: "", templateId: "" });
-  const [templates, setTemplates] = useState([]);
+  const [form, setForm] = useState({ title: "", intro: "" });
 
   const reload = useCallback(
     () =>
@@ -29,15 +29,10 @@ export default function AdminSettingsSurveys() {
   );
   useEffect(() => {
     reload();
-    fetchSurveyTemplates()
-      .then(setTemplates)
-      .catch(() => setTemplates([]));
   }, [reload]);
 
   async function submitNew() {
-    const created = form.templateId
-      ? await createSurveyFromTemplate(form.templateId, form.title.trim() || undefined)
-      : await createSurvey({ title: form.title, intro: form.intro || null });
+    const created = await createSurvey({ title: form.title, intro: form.intro || null });
     navigate(`/admin/settings/surveys/${created.id}`);
   }
 
@@ -46,16 +41,19 @@ export default function AdminSettingsSurveys() {
       <SettingsPageHeader
         title="Surveys"
         actions={
-          <button
-            type="button"
-            className="btn"
-            onClick={() => {
-              setForm({ title: "", intro: "", templateId: "" });
-              setCreating(true);
-            }}
-          >
-            + New survey
-          </button>
+          <>
+            <TemplatePackButtons importLabel="Import a survey…" onImported={reload} />
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                setForm({ title: "", intro: "" });
+                setCreating(true);
+              }}
+            >
+              + New survey
+            </button>
+          </>
         }
       />
       <p style={{ color: "var(--muted)" }}>
@@ -88,42 +86,20 @@ export default function AdminSettingsSurveys() {
           onClose={() => setCreating(false)}
           onSubmit={submitNew}
           submitLabel="Create"
-          submitDisabled={!form.templateId && !form.title.trim()}
+          submitDisabled={!form.title.trim()}
         >
           <label>
-            Start from
-            <select
-              value={form.templateId}
-              onChange={(e) => setForm({ ...form, templateId: e.target.value })}
-            >
-              <option value="">A blank survey</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.title} ({t.questionCount} questions)
-                </option>
-              ))}
-            </select>
-          </label>
-          {form.templateId && (
-            <p style={{ color: "var(--muted)", marginTop: 0 }}>
-              {templates.find((t) => t.id === form.templateId)?.description} You can change every question
-              afterwards.
-            </p>
-          )}
-          <label>
-            Title{form.templateId ? " (optional: the template's name is used if blank)" : ""}
+            Title
             <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </label>
-          {!form.templateId && (
-            <label>
-              Introduction (shown to the partner)
-              <textarea
-                rows={3}
-                value={form.intro}
-                onChange={(e) => setForm({ ...form, intro: e.target.value })}
-              />
-            </label>
-          )}
+          <label>
+            Introduction (shown to the partner)
+            <textarea
+              rows={3}
+              value={form.intro}
+              onChange={(e) => setForm({ ...form, intro: e.target.value })}
+            />
+          </label>
         </QuickActionModal>
       )}
     </div>

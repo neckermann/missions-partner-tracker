@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { fetchTripsSettings, updateTripsSettings } from "../api/client.js";
 import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestionsEditor.jsx";
+import TemplatePackButtons from "../components/admin/TemplatePackButtons.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 
@@ -322,6 +323,13 @@ export default function AdminSettingsTrips() {
         style={{ marginTop: "2rem", scrollMarginTop: "1rem" }}
       >
         <h2 className="admin-group-heading">Application Form</h2>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", margin: "-0.25rem 0 0.75rem" }}>
+          <TemplatePackButtons
+            importLabel="Import questions…"
+            exportKind="applicationQuestions"
+            onImported={reload}
+          />
+        </div>
         <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "-0.5rem 0 1rem" }}>
           Everything below is part of what a person fills out when applying — before they're ever a confirmed
           participant.
@@ -468,6 +476,13 @@ export default function AdminSettingsTrips() {
         style={{ marginTop: "2rem", scrollMarginTop: "1rem" }}
       >
         <h2 className="admin-group-heading">Trip Requirements</h2>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", margin: "-0.25rem 0 0.75rem" }}>
+          <TemplatePackButtons
+            importLabel="Import requirements…"
+            exportKind="tripRequirements"
+            onImported={reload}
+          />
+        </div>
         <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "-0.5rem 0 1rem" }}>
           What's needed <strong>after</strong> someone is accepted onto the team — a different phase from the
           application form above.

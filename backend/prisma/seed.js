@@ -395,11 +395,10 @@ const SHORT_TEMPLATES = [
 
 // Default e-signature requirement text, shared with the first-run setup path (routes/auth.js) so
 // dev-demo gets the same starting point as a new fork.
-const {
-  LIABILITY_RELEASE_TEXT,
-  MINOR_RELEASE_TEXT,
-  DEFAULT_TRIP_REQUIREMENT_TEMPLATE,
-} = require("../src/utils/defaultTripRequirementTemplate");
+const { readPackFile, importPackFile } = require("../src/utils/packFiles");
+const STARTER_REQUIREMENTS = readPackFile("trip-requirements-starter").data.tripRequirementTemplate;
+const LIABILITY_RELEASE_TEXT = STARTER_REQUIREMENTS[0].bodyText;
+const MINOR_RELEASE_TEXT = STARTER_REQUIREMENTS[1].bodyText;
 
 const PASSPORT_OPTIONS = [
   "Yes, I have a passport that will be valid for at least 6 months from the time the trip starts",
@@ -1332,8 +1331,9 @@ async function seedTripsDemo() {
 
   const templateSet = await seedQuestionList("template", null, SEED_TEMPLATE_QUESTIONS);
   await seedQuestionList("library", null, SEED_LIBRARY_QUESTIONS);
-  // Same default checklist as a brand-new fork (DEFAULT_TRIP_REQUIREMENT_TEMPLATE).
-  await replaceRequirementItems(prisma, "template", DEFAULT_TRIP_REQUIREMENT_TEMPLATE);
+  // The demo imports the example requirement pack, like a church importing it from Settings.
+  await replaceRequirementItems(prisma, "template", []);
+  await importPackFile("trip-requirements-starter");
   await replaceRequirementItems(prisma, "library", []);
 
   const openTrip = await prisma.trip.create({
@@ -2950,8 +2950,7 @@ async function seedLastEditedDemo() {
 // report has rows too. Demo extras only; runs after the care teams.
 async function seedSupportPreferencesDemo() {
   console.log("Seeding support preferences...");
-  const { addExampleOptions } = require("../src/utils/supportOptions");
-  await addExampleOptions(prisma);
+  await importPackFile("support-menu-example");
   const options = await prisma.supportOption.findMany({
     where: { active: true },
     orderBy: [{ group: "asc" }, { sortOrder: "asc" }],
@@ -3138,24 +3137,10 @@ async function seedSurveysDemo() {
 
   // An annual update (built from the template) with answers that differ from the record, so the
   // Survey updates page has changes waiting, one of them a photo.
-  const template = require("../src/utils/surveyTemplates").byId("annual-update");
-  const annual = await prisma.survey.create({
-    data: {
-      title: template.title,
-      intro: template.intro,
-      status: "open",
-      questions: {
-        create: template.questions.map((q, position) => ({
-          position,
-          kind: q.kind,
-          label: q.label,
-          choices: q.choices || [],
-          allowOther: q.allowOther === true,
-          required: q.required === true,
-          field: q.field || null,
-        })),
-      },
-    },
+  const imported = await importPackFile("survey-annual-update");
+  const annual = await prisma.survey.update({
+    where: { id: imported.surveyId },
+    data: { status: "open" },
     include: { questions: { orderBy: { position: "asc" } } },
   });
   const qBy = (label) => annual.questions.find((q) => q.label === label);
