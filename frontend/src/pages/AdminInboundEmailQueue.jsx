@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PageHeader from "../components/shared/PageHeader.jsx";
 import {
   fetchPendingInboundEmails,
   assignInboundEmail,
@@ -159,15 +160,10 @@ export default function AdminInboundEmailQueue() {
 
   return (
     <div className="admin-shell">
-      <h2>Unmatched Emails</h2>
-      <p style={{ color: "var(--muted)" }}>
-        Inbound emails that couldn't be automatically filed -- either no partner's contact or household-adult
-        email matched the sender, more than one did, or exactly one matched but the sender's address couldn't
-        be verified (SPF/DKIM) and the sending address is easy to forge, so it's held for a human to confirm
-        rather than auto-filed and broadcast. Assign each to the right partner, picking what kind of file it
-        actually is -- or, if trips are on, to a trip participant instead, optionally marking which document
-        requirement it fulfills -- or discard it.
-      </p>
+      <PageHeader
+        title="Unmatched Emails"
+        description="Inbound emails that couldn't be filed automatically: no partner's contact or household adult matched the sender, more than one did, or the sender couldn't be verified (SPF/DKIM). Assign each to the right partner (or a trip participant, if trips are on) and pick what kind of file it is, or discard it."
+      />
 
       {error && !assigning && (
         <p className="form-error" role="alert">

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PageHeader from "../components/shared/PageHeader.jsx";
 import { Link } from "react-router-dom";
 import {
   fetchPartnerFiles,
@@ -247,18 +248,17 @@ export default function AdminPartnerFiles() {
           ]}
         />
       )}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>Newsletters &amp; Docs</h2>
-        {canEdit && (
-          <button className="btn" onClick={() => setActiveModal("add-file")}>
-            + Upload File
-          </button>
-        )}
-      </div>
-      <p style={{ color: "var(--muted)" }}>
-        Newsletters, survey responses, signed policies, other office documents, and long-term email records
-        from missionary and organization partners. Admin-only — never shown on the public site.
-      </p>
+      <PageHeader
+        title="Newsletters & Docs"
+        description="Newsletters, survey responses, signed policies, other office documents, and long-term email records from missionary and organization partners. Admin-only — never shown on the public site."
+        actions={
+          canEdit && (
+            <button className="btn" onClick={() => setActiveModal("add-file")}>
+              + Upload File
+            </button>
+          )
+        }
+      />
 
       <FilterBar
         fields={fields}

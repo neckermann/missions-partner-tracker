@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PageHeader from "../components/shared/PageHeader.jsx";
 import { Link } from "react-router-dom";
 import {
   fetchSupportNeeds,
@@ -265,21 +266,23 @@ export default function AdminOneTimeNeeds() {
           ]}
         />
       )}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>One-Time Needs</h2>
-        {canAdd && (
-          <button
-            className="btn"
-            onClick={() => {
-              setNewNeed(emptyNewNeed);
-              loadSourceFiles(null);
-              setActiveModal("add");
-            }}
-          >
-            + Add Need
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="One-Time Needs"
+        actions={
+          canAdd && (
+            <button
+              className="btn"
+              onClick={() => {
+                setNewNeed(emptyNewNeed);
+                loadSourceFiles(null);
+                setActiveModal("add");
+              }}
+            >
+              + Add Need
+            </button>
+          )
+        }
+      />
 
       <FilterBar
         fields={fields}

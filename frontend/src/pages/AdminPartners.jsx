@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PageHeader from "../components/shared/PageHeader.jsx";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { fetchPartners, archivePartner, unarchivePartner, deletePartner } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
@@ -309,33 +310,24 @@ export default function AdminPartners() {
 
   return (
     <div className="admin-shell">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "0.5rem",
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0 }}>{sectionTitle}</h2>
-          <p style={{ margin: "0.2rem 0 0", color: "var(--muted)" }}>
-            {visible.length} active{" "}
-            {visible.length === 1 ? sectionTitle.toLowerCase().replace(/s$/, "") : sectionTitle.toLowerCase()}
-          </p>
-        </div>
-        {canWrite && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-            <Link to="/admin/partners/new?kind=missionary" className="btn">
-              + Add Missionary
-            </Link>
-            <Link to="/admin/partners/new?kind=organization" className="btn">
-              + Add Organization
-            </Link>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title={sectionTitle}
+        subtitle={`${visible.length} active ${
+          visible.length === 1 ? sectionTitle.toLowerCase().replace(/s$/, "") : sectionTitle.toLowerCase()
+        }`}
+        actions={
+          canWrite && (
+            <>
+              <Link to="/admin/partners/new?kind=missionary" className="btn">
+                + Add Missionary
+              </Link>
+              <Link to="/admin/partners/new?kind=organization" className="btn">
+                + Add Organization
+              </Link>
+            </>
+          )
+        }
+      />
 
       {showTabs && (
         <TabBar

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PageHeader from "../components/shared/PageHeader.jsx";
 import { fetchPendingDispatches, deletePendingDispatch, updatePendingDispatch } from "../api/client.js";
 import DispatchReviewModal from "../components/admin/DispatchReviewModal.jsx";
 import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
@@ -200,17 +201,14 @@ export default function AdminPendingDispatches() {
 
   return (
     <div className="admin-shell">
-      <h2>Pending Dispatches</h2>
-      <p style={{ color: "var(--muted)" }}>
-        New prayer requests, one-time needs, and newsletters queue here instead of posting immediately -- each
-        one clears once every channel it's relevant to (GroupMe, WhatsApp, the admin email, the public email)
-        has handled it, on its own schedule. For schedules, the chat channels' content-type mutes, and email
-        dispatch appearance, see Settings → Dispatch Settings.
-      </p>
+      <PageHeader
+        title="Pending Dispatches"
+        description="New prayer requests, one-time needs, and newsletters wait here instead of posting immediately. Each clears once every channel it applies to (GroupMe, WhatsApp, the admin email, the public email) has handled it, on its own schedule. Schedules, chat mutes and email appearance are under Settings → Dispatch Settings."
+      />
 
       {heldCount > 0 && (
         <p style={{ color: "var(--warn)", fontSize: "0.9rem" }}>
-          {heldCount} awaiting review -- excluded from every channel's send, including an urgent one, until
+          {heldCount} awaiting review — excluded from every channel's send, including an urgent one, until
           reviewed.
         </p>
       )}
