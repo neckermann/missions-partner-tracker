@@ -2371,6 +2371,9 @@ async function seedTripsDemo() {
         // Support preferences, with an example menu and recorded choices
         // (seedSupportPreferencesDemo).
         supportPreferences: true,
+        // Partner surveys, with one open survey and some answers (seedSurveysDemo). The links
+        // are never emailed on a demo: sending refuses there (routes/surveys.js).
+        surveys: true,
         // The audit log is on for a demo, with example entries (seedAuditLogDemo).
         auditTrail: true,
         // Off on a demo: it would email the fake seeded accounts. See utils/demoMode.js
@@ -3017,6 +3020,121 @@ async function seedSupportPreferencesDemo() {
     recorded += 1;
   }
   console.log(`  recorded support preferences for ${recorded} partners`);
+}
+
+// Partner surveys demo: one open check-in with four questions, a link sent to some partners,
+// and answers from about half of them (some entered by staff). Deterministic; demo extras only;
+// runs after the care teams.
+async function seedSurveysDemo() {
+  console.log("Seeding surveys...");
+  if ((await prisma.survey.count()) > 0) return;
+  const { newInviteToken } = require("../src/utils/surveys");
+  const editor = await prisma.user.findFirst({
+    where: { active: true, role: { in: ["admin", "editor"] } },
+    orderBy: { createdAt: "asc" },
+  });
+  const editorName = editor
+    ? [editor.firstName, editor.lastName].filter(Boolean).join(" ") || editor.email
+    : null;
+  const survey = await prisma.survey.create({
+    data: {
+      title: "Autumn check-in",
+      intro: "We would love to hear how you are doing and how we can support you this season.",
+      status: "open",
+      questions: {
+        create: [
+          { position: 0, kind: "text", label: "How are you and your family doing?", required: true },
+          { position: 1, kind: "yesno", label: "Are you planning to be home in the next year?" },
+          {
+            position: 2,
+            kind: "single",
+            label: "What is the best way for us to stay in touch?",
+            choices: ["Email", "WhatsApp", "Video call"],
+            allowOther: true,
+          },
+          {
+            position: 3,
+            kind: "multiple",
+            label: "How can we help right now?",
+            choices: ["Prayer", "A visit from a team", "Care package", "Help with a project"],
+          },
+        ],
+      },
+    },
+    include: { questions: { orderBy: { position: "asc" } } },
+  });
+  const [qHow, qHome, qTouch, qHelp] = survey.questions;
+  const partners = await prisma.partner.findMany({
+    where: { archived: false, careTeam: { some: {} } },
+    orderBy: [{ displayName: "asc" }, { id: "asc" }],
+    select: { id: true },
+    take: 14,
+  });
+  const hows = [
+    "Doing well, the school term has started and the kids are settling in.",
+    "A busy season, but we are encouraged by the new believers meeting each week.",
+    "Tired after a long trip, but grateful.",
+  ];
+  for (const [i, partner] of partners.entries()) {
+    const sentAt = new Date(Date.now() - (3 + (i % 9)) * 86400000);
+    const { tokenHash, expiresAt } = newInviteToken(sentAt);
+    const byStaff = i % 4 === 1;
+    if (!byStaff) {
+      await prisma.surveyInvite.create({
+        data: {
+          surveyId: survey.id,
+          partnerId: partner.id,
+          tokenHash,
+          expiresAt,
+          sentAt,
+          sentByName: editorName,
+        },
+      });
+    }
+    if (i % 2 === 1) continue; // still waiting
+    await prisma.surveyResponse.create({
+      data: {
+        surveyId: survey.id,
+        partnerId: partner.id,
+        submittedAt: new Date(sentAt.getTime() + 86400000),
+        enteredById: byStaff ? editor?.id || null : null,
+        enteredByName: byStaff ? editorName : null,
+        answers: {
+          create: [
+            {
+              questionId: qHow.id,
+              position: 0,
+              label: qHow.label,
+              kind: "text",
+              value: hows[i % hows.length],
+            },
+            {
+              questionId: qHome.id,
+              position: 1,
+              label: qHome.label,
+              kind: "yesno",
+              value: i % 3 === 0 ? "yes" : "no",
+            },
+            {
+              questionId: qTouch.id,
+              position: 2,
+              label: qTouch.label,
+              kind: "single",
+              value: qTouch.choices[i % 3],
+            },
+            {
+              questionId: qHelp.id,
+              position: 3,
+              label: qHelp.label,
+              kind: "multiple",
+              values: qHelp.choices.slice(0, 1 + (i % 3)),
+            },
+          ],
+        },
+      },
+    });
+  }
+  console.log(`  seeded a survey for ${partners.length} partners`);
 }
 
 // Trip debriefs demo: a few completed trips with a wrap-up debrief, the most recent
@@ -3713,6 +3831,7 @@ async function main() {
     await seedContactLogDemo();
     await seedKeyDatesDemo();
     await seedSupportPreferencesDemo();
+    await seedSurveysDemo();
     await seedTripDebriefsDemo();
     await seedPartnerUpdatesDemo();
     await seedAuditLogDemo();

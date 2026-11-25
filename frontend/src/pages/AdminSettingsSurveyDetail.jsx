@@ -14,7 +14,7 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import PageHeader from "../components/shared/PageHeader.jsx";
 import StatTiles from "../components/shared/StatTiles.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
-import { describeSavedAnswer } from "../components/SurveyQuestions.jsx";
+import { describeSavedAnswer, choiceRowStyle, choiceInputStyle } from "../components/SurveyQuestions.jsx";
 import { formatDate } from "../utils/format.js";
 
 const KINDS = [
@@ -322,8 +322,9 @@ export default function AdminSettingsSurveyDetail() {
                     value={q.choicesText}
                     onChange={(e) => patchQ(q.key, { choicesText: e.target.value })}
                   />
-                  <label className="survey-choice">
+                  <label style={choiceRowStyle}>
                     <input
+                      style={choiceInputStyle}
                       type="checkbox"
                       checked={q.allowOther}
                       onChange={(e) => patchQ(q.key, { allowOther: e.target.checked })}
@@ -333,8 +334,9 @@ export default function AdminSettingsSurveyDetail() {
                 </>
               )}
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-                <label className="survey-choice">
+                <label style={choiceRowStyle}>
                   <input
+                    style={choiceInputStyle}
                     type="checkbox"
                     checked={q.required}
                     onChange={(e) => patchQ(q.key, { required: e.target.checked })}
@@ -436,8 +438,9 @@ export default function AdminSettingsSurveyDetail() {
               </div>
               <div className="survey-recipients">
                 {recipients.map((r) => (
-                  <label key={r.partnerId} className="survey-choice">
+                  <label key={r.partnerId} style={choiceRowStyle}>
                     <input
+                      style={choiceInputStyle}
                       type="checkbox"
                       disabled={!r.canEmail || r.state === "answered"}
                       checked={chosen.has(r.partnerId)}

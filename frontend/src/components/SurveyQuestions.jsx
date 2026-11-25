@@ -1,5 +1,18 @@
 import React from "react";
 
+// A checkbox or radio next to its label. Inline: the global label and input rules would otherwise
+// stack and centre it.
+export const choiceRowStyle = {
+  display: "flex",
+  flexDirection: "row",
+  gap: "0.6rem",
+  alignItems: "center",
+  padding: "0.2rem 0",
+  fontWeight: "normal",
+  textAlign: "left",
+};
+export const choiceInputStyle = { width: "auto", flexShrink: 0 };
+
 // The questions of a survey as a form, used on the partner's own page and when staff fill one in
 // for them. `answers` is { [questionId]: { value, values, other } }; `onChange(questionId, patch)`.
 export default function SurveyQuestions({ questions, answers, onChange, disabled = false }) {
@@ -32,8 +45,9 @@ export default function SurveyQuestions({ questions, answers, onChange, disabled
           <fieldset key={q.id} style={{ border: "none", padding: 0, margin: "0 0 1rem" }}>
             <legend style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{label}</legend>
             {choices.map((c) => (
-              <label key={c} className="survey-choice">
+              <label key={c} style={choiceRowStyle}>
                 <input
+                  style={choiceInputStyle}
                   type={q.kind === "multiple" ? "checkbox" : "radio"}
                   name={`q-${q.id}`}
                   disabled={disabled}

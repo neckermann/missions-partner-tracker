@@ -927,6 +927,34 @@ booklet or in a dispatch. Both tables are in `backup.js`'s `MODELS`; the _Suppor
 report (`reporting/reports/partners.js`) lists responses per partner and option, or the
 partners with none recorded, masking a restricted partner's answers like its other sensitive fields.
 
+### 5.9 Partner surveys (#419)
+
+Behind the `surveys` feature (off by default; needs `careTeam`; sending links also needs outbound
+email). A church builds surveys as **data**: `Survey` (title, intro, `status` draft | open | closed,
+optional `closesAt`) with ordered `SurveyQuestion` rows (`kind` single | multiple | text | yesno,
+`choices`, `allowOther`, `required`). A person sends each chosen partner a personal link
+(`SurveyInvite`, a random token stored only as a SHA-256 hash, 30-day expiry, one per survey and
+partner; sending again issues a new token and the old link stops working). The app never emails
+a partner on its own: every send, and every reminder, is started by a person who reviews the
+recipient list first. It never emails a restricted partner, one marked "don't contact directly",
+or one whose ticked ways exclude email (`emailBlockReason`), and never on a demo.
+
+Answers are one `SurveyResponse` per survey and partner with `SurveyAnswer` rows in **real
+columns** (`value`, `values`, `other`) plus the question's `label` and `kind` as worded when
+answered, so an edited or deleted question leaves answers readable; `questionId` is cleared on delete.
+The partner answers at `/survey/:token` (`routes/publicSurveys.js`): no login, rate limited, and every
+failure (unknown, expired, survey not open) answers identically; the page carries only the survey's
+own questions and the partner's own saved answers. They can save and finish later, and change answers
+through the same link until the survey closes. Staff or a guest on the partner's care team can fill one in
+on their behalf (`PUT /api/surveys/:id/partner/:partnerId`, `entered by` recorded); an admin or editor can
+reopen a submitted response. Access to a partner's answers is the contact log's (`readableNeedPartnerIds`;
+a trip leader none; a viewer reads). Nothing here is public, in the booklet or a dispatch. All five tables
+are in `backup.js`'s `MODELS`. The _Survey responses_ report lists who is waiting, who answered and who has
+not been sent a survey.
+
+Deferred: profile refresh (a survey proposing changes to partner data), bell alerts for new answers, scheduled
+reminders, per-adult responses, and offering the support-preferences menu as a survey.
+
 ### 5.8 Wrapping up a trip (#358)
 
 `POST /api/trips/:id/wrap-up` (admin, editor, or a guest for a trip they hold a grant on:

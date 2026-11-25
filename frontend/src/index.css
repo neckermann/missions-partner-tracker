@@ -2509,19 +2509,7 @@ button.report-summary-item[aria-pressed="true"] {
   }
 }
 
-/* Partner surveys: a choice row, one builder question, and the recipient pick list. */
-.survey-choice {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.2rem 0;
-  font-weight: normal;
-}
-.survey-choice input {
-  width: auto;
-  flex-shrink: 0;
-}
+/* Partner surveys: one builder question and the recipient pick list. */
 .survey-question-row {
   display: flex;
   flex-direction: column;

@@ -567,6 +567,88 @@ const supportPreferences = {
   },
 };
 
+// Who has been sent each open or closed survey and who has answered (#419). One row per partner
+// and survey: "waiting" is invited but not answered, the follow-up list for a reminder.
+const surveyProgress = {
+  id: "survey-progress",
+  group: "people",
+  label: "Survey responses",
+  question: "Who has answered each survey, and who is still waiting?",
+  requiresFeature: "surveys",
+  params: z.object({
+    show: oneOf(["waiting", "answered", "not-sent"], "waiting"),
+    kind: oneOf(KIND_VALUES, "all"),
+    sendingChurch: sendingChurchParam,
+    includeArchived: flag(false),
+  }),
+  fields: [
+    {
+      name: "show",
+      label: "Show",
+      type: "select",
+      options: [
+        { value: "waiting", label: "Sent, not answered yet" },
+        { value: "answered", label: "Answered" },
+        { value: "not-sent", label: "Not sent yet" },
+      ],
+    },
+    kindField,
+    archivedField,
+  ],
+  columns: [
+    { key: "partnerName", label: "Partner" },
+    { key: "survey", label: "Survey" },
+    { key: "status", label: "Status" },
+    { key: "sentOn", label: "Link sent", type: "date" },
+    { key: "answeredOn", label: "Answered", type: "date" },
+  ],
+  fetch: async (params, { prisma }) => {
+    const [partners, surveys] = await Promise.all([
+      prisma.partner.findMany({
+        where: baseWhere(params),
+        select: {
+          id: true,
+          displayName: true,
+          surveyInvites: { select: { surveyId: true, sentAt: true } },
+          surveyResponses: { select: { surveyId: true, submittedAt: true } },
+        },
+      }),
+      prisma.survey.findMany({
+        where: { status: { in: ["open", "closed"] } },
+        select: { id: true, title: true, status: true },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+    return { partners, surveys };
+  },
+  compute({ partners, surveys }, params) {
+    const rows = [];
+    for (const survey of surveys) {
+      for (const p of partners) {
+        const invite = p.surveyInvites.find((i) => i.surveyId === survey.id);
+        const response = p.surveyResponses.find((r) => r.surveyId === survey.id);
+        const answered = Boolean(response?.submittedAt);
+        const state = answered ? "answered" : invite?.sentAt ? "waiting" : "not-sent";
+        if (state !== params.show) continue;
+        if (state === "not-sent" && survey.status !== "open") continue;
+        rows.push({
+          partnerName: p.displayName,
+          survey: survey.title,
+          status: { answered: "Answered", waiting: "Sent, waiting", "not-sent": "Not sent" }[state],
+          sentOn: invite?.sentAt || null,
+          answeredOn: response?.submittedAt || null,
+        });
+      }
+    }
+    rows.sort((a, b) => a.survey.localeCompare(b.survey) || a.partnerName.localeCompare(b.partnerName));
+    return {
+      rows,
+      summary: [{ label: "Partners listed", value: new Set(rows.map((r) => r.partnerName)).size }],
+      notes: ["Draft surveys are not listed. Not-sent counts only open surveys."],
+    };
+  },
+};
+
 module.exports = {
   reports: [
     keyDates,
@@ -576,5 +658,6 @@ module.exports = {
     lastHeardFrom,
     careTeamCoverage,
     supportPreferences,
+    surveyProgress,
   ],
 };

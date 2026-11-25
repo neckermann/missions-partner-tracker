@@ -999,6 +999,17 @@ With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feat
 
 ![Settings → Support Preferences, the church's own menu](docs/assets/screenshots/support-preferences-settings.png)
 
+### Partner surveys
+
+With **Partner surveys** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), admins and editors can ask partners a few questions and keep the answers with the partner.
+
+- **Build a survey** under **Settings → Surveys → + New survey**: a title, an introduction, and questions (free text, yes/no, pick one, pick any; mark any as required). **Open survey** when it is ready; **Close survey** when you are done.
+- **Send it.** On the survey's page, **Send** lists every active partner. Tick who should get a personal link (or **Select everyone not yet sent**), then **Send to N**. A person always starts the send, and **Send as a reminder** follows up the ones still waiting. Partners the app may not email (restricted, marked not to be contacted directly, or no address on file) can't be ticked: fill the survey in for them instead. Sending a link again replaces the earlier one.
+- **The partner's side.** The email has one button. Their page needs no login, works on a phone, lets them save and finish later, and lets them change their answers until the survey closes.
+- **Fill it in for them.** On the partner's page, the **Surveys** card (in **Contact & Care**) lists each open survey and where it stands. Click one to **Fill in** after a conversation; it records who entered it. Staff and the partner's care team can do this, and a viewer can read.
+- **See the answers** on the survey's page under **Answers**, or on the partner's card. **Reopen** lets a partner change a submitted response. **Reports → Survey responses** lists who is waiting, who answered, and who has not been sent a survey.
+- **Who can see it:** staff and the partner's care team only. It never appears on the public site, in the booklet, or in dispatches.
+
 It records preferences; it doesn't schedule or assign anything, and the app never contacts a partner for you.
 
 ## Settings
