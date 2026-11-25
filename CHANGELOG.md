@@ -22,6 +22,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Added
 
+- **Support preferences take less room.** The card on a partner's page is one line (how many are recorded, and which groups) with **See full details** opening everything in a popup.
 - **No more silent key-date reminders.** Care Team Settings warns when no default lead is set, and a partner's care team line tells every staff member where reminders go until a team is set.
 - **The top of a partner's page is shorter.** The care team is now one line on the Contact card ("Care team: Pat (lead), Casey", with Edit team or + Assign team), and Support preferences now sits at the top of the **Contact & Care** section (formerly Location & Contact), which has its own jump-bar button.
 - **Visitors can choose Light or Dark on the public site** with a small switch in the header; it follows their device unless they pick one.

@@ -82,7 +82,11 @@ describe("SupportPreferencesCard", () => {
     });
     renderCard();
     expect(await screen.findByText("Support preferences")).toBeInTheDocument();
-    expect(screen.getByText("Logistics")).toBeInTheDocument();
+    expect(screen.getByText(/2 preferences recorded/)).toBeInTheDocument();
+    expect(screen.queryByText("Early flights")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "See full details" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Logistics", { selector: "div" })).toBeInTheDocument();
     expect(screen.getByText(/Airport pick-up/)).toBeInTheDocument();
     expect(screen.getByText("Early flights")).toBeInTheDocument();
     expect(screen.getByText("Bank transfer")).toBeInTheDocument();

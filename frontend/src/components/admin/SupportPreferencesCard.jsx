@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchPartnerSupportPreferences, savePartnerSupportPreferences } from "../../api/client.js";
 import { formatDate } from "../../utils/format.js";
+import Modal from "../Modal.jsx";
 import QuickActionModal from "../shared/QuickActionModal.jsx";
 
 // A partner's support preferences: which of the church's menu of ways to support a partner they
@@ -43,6 +44,7 @@ export default function SupportPreferencesCard({ partnerId, isAdmin = false }) {
   const [hidden, setHidden] = useState(false);
   const [failed, setFailed] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [viewing, setViewing] = useState(false);
 
   const reload = useCallback(
     () =>
@@ -99,34 +101,62 @@ export default function SupportPreferencesCard({ partnerId, isAdmin = false }) {
           Nothing recorded yet. After a conversation, record how this partner would like to be supported.
         </p>
       )}
-      {groups.map((g) => (
-        <div key={g.name} style={{ marginTop: "0.75rem" }}>
-          <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--muted)" }}>{g.name}</div>
-          <ul style={{ listStyle: "none", padding: 0, margin: "0.25rem 0 0" }}>
-            {g.options.map((o) => {
-              const pref = byOption.get(o.id);
-              const text = describeResponse(o, pref);
-              return (
-                <li key={o.id} style={{ padding: "0.2rem 0" }}>
-                  {o.kind === "offer" ? (
-                    <span>✓ {o.label}</span>
-                  ) : (
-                    <span>
-                      {o.label}: <strong>{text || "—"}</strong>
-                    </span>
-                  )}
-                  {!o.active && <span style={{ color: "var(--muted)" }}> · no longer offered</span>}
-                  {pref?.note && <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{pref.note}</div>}
-                </li>
-              );
-            })}
-          </ul>
+      {answered.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "0.75rem",
+            marginTop: "0.5rem",
+          }}
+        >
+          <span style={{ color: "var(--muted)" }}>
+            {answered.length} {answered.length === 1 ? "preference" : "preferences"} recorded
+            {` · ${groups.map((g) => g.name).join(", ")}`}
+          </span>
+          <button type="button" className="btn secondary small" onClick={() => setViewing(true)}>
+            See full details
+          </button>
         </div>
-      ))}
+      )}
       {data && answered.length > 0 && (
         <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0.75rem 0 0" }}>
           {lastEditedLine(data.preferences)}
         </p>
+      )}
+      {viewing && (
+        <Modal title="Support preferences" onClose={() => setViewing(false)} maxWidth="640px">
+          {groups.map((g) => (
+            <div key={g.name} style={{ marginTop: "0.75rem" }}>
+              <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--muted)" }}>{g.name}</div>
+              <ul style={{ listStyle: "none", padding: 0, margin: "0.25rem 0 0" }}>
+                {g.options.map((o) => {
+                  const pref = byOption.get(o.id);
+                  const text = describeResponse(o, pref);
+                  return (
+                    <li key={o.id} style={{ padding: "0.2rem 0" }}>
+                      {o.kind === "offer" ? (
+                        <span>✓ {o.label}</span>
+                      ) : (
+                        <span>
+                          {o.label}: <strong>{text || "—"}</strong>
+                        </span>
+                      )}
+                      {!o.active && <span style={{ color: "var(--muted)" }}> · no longer offered</span>}
+                      {pref?.note && (
+                        <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{pref.note}</div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+          {data && (
+            <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>{lastEditedLine(data.preferences)}</p>
+          )}
+        </Modal>
       )}
       {editing && data && (
         <EditSupportPreferencesModal
