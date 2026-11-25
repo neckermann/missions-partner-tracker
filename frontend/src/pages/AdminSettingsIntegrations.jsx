@@ -12,7 +12,7 @@ export default function AdminSettingsIntegrations() {
   return (
     <div className="admin-shell">
       <SettingsPageHeader title="Integrations" />
-      <p style={{ color: "#555" }}>External services this app can connect to.</p>
+      <p style={{ color: "var(--muted)" }}>External services this app can connect to.</p>
 
       <ApiKeySettingsPage
         title="AI Features"

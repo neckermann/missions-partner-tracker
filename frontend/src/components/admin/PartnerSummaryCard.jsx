@@ -51,10 +51,10 @@ export default function PartnerSummaryCard({
           )}
         </div>
       </div>
-      {count === 0 && <p style={{ margin: "0.5rem 0 0", color: "#555" }}>None on file.</p>}
-      {count > 0 && summary && <p style={{ margin: "0.5rem 0 0", color: "#555" }}>{summary}</p>}
+      {count === 0 && <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>None on file.</p>}
+      {count > 0 && summary && <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>{summary}</p>}
       {count > 0 && items?.length > 0 && (
-        <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.25rem", color: "#555" }}>
+        <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.25rem", color: "var(--muted)" }}>
           {items.map((item, i) => {
             const isClickable = item && typeof item === "object";
             return (

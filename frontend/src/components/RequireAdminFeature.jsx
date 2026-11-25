@@ -22,7 +22,7 @@ export default function RequireAdminFeature({ feature, children }) {
     return (
       <div className="admin-shell">
         <h2>This feature is turned off</h2>
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           Turn it back on at <Link to="/admin/settings/features">Church Settings &rsaquo; Features</Link> to
           use this page again.
         </p>

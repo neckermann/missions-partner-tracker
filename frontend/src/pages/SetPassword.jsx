@@ -78,7 +78,7 @@ export default function SetPassword() {
       {state === "form" && (
         <>
           <h2>{info?.firstName ? `Welcome, ${info.firstName}` : "Welcome"}</h2>
-          <p style={{ color: "#555" }}>
+          <p style={{ color: "var(--muted)" }}>
             Choose a password for <strong>{info?.email}</strong>. Use at least 8 characters -- a few random
             words makes a strong, easy-to-remember password.
           </p>
@@ -123,7 +123,7 @@ export default function SetPassword() {
       {state === "done" && (
         <>
           <h2>Password set</h2>
-          <p style={{ color: "#555" }}>
+          <p style={{ color: "var(--muted)" }}>
             You're all set.
             {done.mfaRequired
               ? " Next, sign in -- you'll be guided through setting up two-factor authentication with an authenticator app on your phone."
@@ -138,7 +138,7 @@ export default function SetPassword() {
       {state === "invalid" && (
         <>
           <h2>This link has expired</h2>
-          <p style={{ color: "#555" }}>
+          <p style={{ color: "var(--muted)" }}>
             This link is invalid or has expired. Enter your email and we'll send you a new one.
           </p>
           {requestMessage ? (

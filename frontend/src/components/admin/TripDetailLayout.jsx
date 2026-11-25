@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useParams, Link, useNavigate, useLocation, NavLink, Outlet } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation, Outlet } from "react-router-dom";
 import { fetchTrip, fetchTripApplications, fetchTripsSettings } from "../../api/client.js";
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import TripStatusBadge from "./TripStatusBadge.jsx";
@@ -8,6 +8,7 @@ import LastEdited from "../shared/LastEdited.jsx";
 import RecordUnavailable, { loadErrorStatus } from "../shared/RecordUnavailable.jsx";
 import { useRecordRecentlyViewed } from "../../hooks/useRecentlyViewed.js";
 import useCurrentUser from "../../hooks/useCurrentUser.js";
+import TabBar from "../shared/TabBar.jsx";
 
 // Phase 3 (UX rebuild) split of the former single 2,100-line
 // AdminTripDetail.jsx into real sub-pages -- team / meetings /
@@ -147,8 +148,8 @@ export default function TripDetailLayout() {
             style={{
               fontSize: "0.7rem",
               fontWeight: 700,
-              color: "#a6540f",
-              background: "#fbeee033",
+              color: "var(--warn)",
+              background: "var(--warn-soft)",
               padding: "2px 8px",
               borderRadius: 999,
             }}
@@ -157,7 +158,7 @@ export default function TripDetailLayout() {
           </span>
         )}
       </div>
-      <p style={{ margin: "0.2rem 0 0", color: "#6b6f76", fontSize: "0.85rem" }}>
+      <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
         {trip.partner ? (
           <Link to={`/admin/partners/${trip.partner.id}`}>
             {trip.partner.fieldDisplayName || trip.partner.displayName}
@@ -175,34 +176,7 @@ export default function TripDetailLayout() {
         />
       )}
 
-      <div
-        style={{
-          display: "flex",
-          gap: "0.3rem",
-          marginTop: "0.9rem",
-          borderBottom: "1px solid #e1dfdb",
-          flexWrap: "wrap",
-        }}
-        role="tablist"
-      >
-        {tabs.map((t) => (
-          <NavLink
-            key={t.to || "overview"}
-            to={t.to}
-            end={t.end}
-            style={({ isActive }) => ({
-              padding: "0.5rem 0.8rem",
-              fontSize: "0.85rem",
-              fontWeight: isActive ? 700 : 400,
-              color: isActive ? "#1f2a37" : "#555",
-              borderBottom: isActive ? "2px solid #1f2a37" : "2px solid transparent",
-              textDecoration: "none",
-            })}
-          >
-            {t.label}
-          </NavLink>
-        ))}
-      </div>
+      <TabBar ariaLabel="Trip pages" tabs={tabs} />
 
       <div style={{ marginTop: "1rem" }}>
         <Outlet

@@ -85,7 +85,7 @@ export default function SupportPreferencesCard({ partnerId, isAdmin = false }) {
       </div>
       {failed && <p style={{ color: "var(--danger)" }}>Couldn&apos;t load the support preferences.</p>}
       {data && !hasMenu && (
-        <p style={{ margin: "0.5rem 0 0", color: "#555" }}>
+        <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>
           No support options have been set up yet.
           {isAdmin && (
             <>
@@ -96,7 +96,7 @@ export default function SupportPreferencesCard({ partnerId, isAdmin = false }) {
         </p>
       )}
       {data && hasMenu && answered.length === 0 && (
-        <p style={{ margin: "0.5rem 0 0", color: "#555" }}>
+        <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>
           Nothing recorded yet. After a conversation, record how this partner would like to be supported.
         </p>
       )}

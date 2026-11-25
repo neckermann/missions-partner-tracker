@@ -37,6 +37,7 @@ import useSendingChurchField from "../hooks/useSendingChurchField.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import LastUpdatedCell, { lastUpdatedSortKey } from "../components/shared/LastUpdatedCell.jsx";
 import AdminTripContributions from "./AdminTripContributions.jsx";
+import TabBar from "../components/shared/TabBar.jsx";
 
 // Merged (design review, post-#252) from two previously separate pages/
 // nav items -- AdminTrips.jsx ("Trips": every real Trip row, a
@@ -402,7 +403,7 @@ function ExistingTripsTab() {
                   />
                 </label>
               </div>
-              <p style={{ color: "#888", fontSize: "0.85rem", marginTop: "0.5rem" }}>
+              <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: "0.5rem" }}>
                 Creates the trip and takes you to its own page to set dates, team size, and start recruiting.
               </p>
             </>
@@ -446,11 +447,13 @@ function ExistingTripsTab() {
       <div className="admin-section">
         <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>Trips</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--muted)", textTransform: "uppercase" }}>
+              Trips
+            </div>
             <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>
               {filteredTrips.length}
               {filteredTrips.length !== allTimeTripCount && (
-                <span style={{ fontSize: "0.9rem", fontWeight: 400, color: "#888" }}>
+                <span style={{ fontSize: "0.9rem", fontWeight: 400, color: "var(--muted)" }}>
                   {" "}
                   of {allTimeTripCount} total
                 </span>
@@ -458,13 +461,13 @@ function ExistingTripsTab() {
             </div>
           </div>
           <div>
-            <div style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase" }}>
+            <div style={{ fontSize: "0.75rem", color: "var(--muted)", textTransform: "uppercase" }}>
               Total Participants
             </div>
             <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>
               {totalParticipants}
               {totalParticipants !== allTimeParticipants && (
-                <span style={{ fontSize: "0.9rem", fontWeight: 400, color: "#888" }}>
+                <span style={{ fontSize: "0.9rem", fontWeight: 400, color: "var(--muted)" }}>
                   {" "}
                   of {allTimeParticipants} total
                 </span>
@@ -494,7 +497,7 @@ function ExistingTripsTab() {
                   {trip.entityName}
                 </Link>
                 {trip.partner?.isRestricted && (
-                  <div style={{ fontSize: "0.7rem", color: "#a6540f", fontWeight: 700 }}>
+                  <div style={{ fontSize: "0.7rem", color: "var(--warn)", fontWeight: 700 }}>
                     Restricted partner
                   </div>
                 )}
@@ -515,7 +518,9 @@ function ExistingTripsTab() {
                 {(trip.hasPendingApplications ||
                   trip.hasOverdueRequirement ||
                   trip.departingSoonIncomplete) && (
-                  <div style={{ fontSize: "0.7rem", color: "#a6540f", fontWeight: 600, marginTop: "0.2rem" }}>
+                  <div
+                    style={{ fontSize: "0.7rem", color: "var(--warn)", fontWeight: 600, marginTop: "0.2rem" }}
+                  >
                     {trip.hasPendingApplications && <div>📝 Pending application</div>}
                     {trip.hasOverdueRequirement && <div>⏰ Overdue requirement</div>}
                     {trip.departingSoonIncomplete && <div>⏳ Departing soon, incomplete</div>}
@@ -533,7 +538,7 @@ function ExistingTripsTab() {
                   ? `${formatDate(trip.startDate) || "?"} – ${formatDate(trip.endDate) || "?"}`
                   : "—"}
                 {trip.daysUntilDeparture != null && (
-                  <div style={{ fontSize: "0.75rem", color: "#888" }}>
+                  <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
                     {trip.daysUntilDeparture} days until departure
                   </div>
                 )}
@@ -809,7 +814,7 @@ function PlanATripTab() {
                     {row.displayName}
                   </Link>
                   {row.isRestricted && (
-                    <div style={{ fontSize: "0.7rem", color: "#a6540f", fontWeight: 700 }}>
+                    <div style={{ fontSize: "0.7rem", color: "var(--warn)", fontWeight: 700 }}>
                       Restricted partner — won't be publicly discoverable regardless of any trip setting
                     </div>
                   )}
@@ -855,7 +860,7 @@ function PlanATripTab() {
                 <>
                   {row.pastTripCount} trip{row.pastTripCount === 1 ? "" : "s"}
                   {row.mostRecentPastTripDate && (
-                    <div style={{ fontSize: "0.75rem", color: "#888" }}>
+                    <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
                       last {formatDate(row.mostRecentPastTripDate)}
                     </div>
                   )}
@@ -949,39 +954,12 @@ export default function AdminTrips() {
   return (
     <div className="admin-shell">
       <h2>Trips</h2>
-      <div
-        style={{
-          display: "flex",
-          gap: "0.3rem",
-          marginTop: "0.5rem",
-          borderBottom: "1px solid #e1dfdb",
-          flexWrap: "wrap",
-        }}
-        role="tablist"
-      >
-        {visibleTabs.map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.value}
-            onClick={() => selectTab(t.value)}
-            style={{
-              padding: "0.5rem 0.8rem",
-              fontSize: "0.85rem",
-              fontWeight: tab === t.value ? 700 : 400,
-              color: tab === t.value ? "#1f2a37" : "#555",
-              background: "none",
-              border: "none",
-              borderBottom: tab === t.value ? "2px solid #1f2a37" : "2px solid transparent",
-              cursor: "pointer",
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <p style={{ color: "#555", marginTop: "0.5rem" }}>{activeTab.description}</p>
+      <TabBar
+        ariaLabel="Trips views"
+        activeKey={tab}
+        tabs={visibleTabs.map((t) => ({ key: t.value, label: t.label, onClick: () => selectTab(t.value) }))}
+      />
+      <p style={{ color: "var(--muted)", marginTop: 0 }}>{activeTab.description}</p>
 
       {tab === "existing" && <ExistingTripsTab />}
       {tab === "plan" && <PlanATripTab />}

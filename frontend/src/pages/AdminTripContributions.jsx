@@ -112,7 +112,7 @@ export default function AdminTripContributions() {
   if (userLoading) return <p>Loading…</p>;
 
   if (!canWrite) {
-    return <p style={{ color: "#555" }}>You don't have permission to log contributions.</p>;
+    return <p style={{ color: "var(--muted)" }}>You don't have permission to log contributions.</p>;
   }
 
   const raised = (selectedTrip?.contributions || []).reduce((sum, c) => sum + c.amount, 0);
@@ -125,7 +125,7 @@ export default function AdminTripContributions() {
         </p>
       )}
       {success && !error && (
-        <p style={{ color: "#2a5d3c" }} role="status">
+        <p style={{ color: "var(--accent)" }} role="status">
           {success} ✓
         </p>
       )}
@@ -204,7 +204,7 @@ export default function AdminTripContributions() {
       <div className="admin-section">
         <h3>Logged this session ({sessionLog.length})</h3>
         {sessionLog.length === 0 ? (
-          <p style={{ color: "#888" }}>Nothing logged yet -- what you save above shows up here.</p>
+          <p style={{ color: "var(--muted)" }}>Nothing logged yet -- what you save above shows up here.</p>
         ) : (
           <table className="admin-table">
             <thead>

@@ -26,7 +26,7 @@ export default function PublicTripOpportunities() {
       <PublicSiteHeader title="Trip Opportunities" />
       <DemoBanner />
       <div className="admin-shell">
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           Short-term mission trips currently open for applications, plus a look ahead at what's coming.
         </p>
 
@@ -56,7 +56,7 @@ export default function PublicTripOpportunities() {
                   {t.status === "accepting_applications" ? "Accepting applications" : "Coming soon"}
                 </span>
                 <h3 style={{ margin: "0.5rem 0 0.25rem" }}>{t.name || t.type || "Trip"}</h3>
-                <p style={{ margin: 0, color: "#6b6f76", fontSize: "0.85rem" }}>
+                <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.85rem" }}>
                   {t.fieldDisplayName || "Field location to be announced"}
                   {t.startDate ? ` · ${formatDate(t.startDate)}` : ""}
                 </p>
@@ -79,7 +79,7 @@ export default function PublicTripOpportunities() {
               </div>
             ))}
             {trips.length === 0 && (
-              <p style={{ color: "#888" }}>No open trips right now — check back soon.</p>
+              <p style={{ color: "var(--muted)" }}>No open trips right now — check back soon.</p>
             )}
           </div>
         )}
@@ -87,7 +87,7 @@ export default function PublicTripOpportunities() {
         carry this link (same for every participant email's footer, see
         tripEmails.js), but neither ever did. Only reachable by typing the
         exact path until now. */}
-        <p style={{ marginTop: "1.5rem", fontSize: "0.85rem", color: "#888" }}>
+        <p style={{ marginTop: "1.5rem", fontSize: "0.85rem", color: "var(--muted)" }}>
           Already on a team but lost your link? <Link to="/trip-access-recovery">Request a new one</Link>
         </p>
       </div>

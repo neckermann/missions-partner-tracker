@@ -19,7 +19,7 @@ export default function PhotoTile({
     width: fluidWidth ? "100%" : size,
     height: size,
     objectFit: "cover",
-    background: "#eee",
+    background: "var(--surface-2)",
     display: "block",
     flexShrink: 0,
     ...(shape === "circle" ? { borderRadius: "50%" } : {}),

@@ -123,7 +123,7 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
           style={{ top: coords.top, left: coords.left }}
         >
           {withCount.length === 0 ? (
-            <p style={{ margin: 0, color: "#888", fontSize: "0.85rem" }}>Nothing waiting.</p>
+            <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.85rem" }}>Nothing waiting.</p>
           ) : (
             withCount.map((c) => (
               <Link

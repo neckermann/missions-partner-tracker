@@ -248,7 +248,7 @@ export default function AdminTripMeetings() {
             {modalMeeting.id != null && (
               <div className="table-actions" style={{ marginTop: "0.75rem" }}>
                 {modalMeeting.cancelledAt ? (
-                  <span style={{ fontSize: "0.8rem", color: "#888" }}>Cancelled</span>
+                  <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Cancelled</span>
                 ) : (
                   <button
                     type="button"

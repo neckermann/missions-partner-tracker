@@ -69,7 +69,7 @@ export default function ApiKeySettingsPage({
       onSave={save}
       view={() => (
         <>
-          <p style={{ color: "#555" }}>{description}</p>
+          <p style={{ color: "var(--muted)" }}>{description}</p>
           <p>{configured ? "Configured" : "Not configured"}</p>
           {textField && (
             <p>
@@ -80,8 +80,8 @@ export default function ApiKeySettingsPage({
       )}
       edit={(d, set) => (
         <>
-          <p style={{ color: "#555" }}>{description}</p>
-          <p style={{ color: "#555", fontSize: "0.9rem" }}>{instructions}</p>
+          <p style={{ color: "var(--muted)" }}>{description}</p>
+          <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{instructions}</p>
           <label>
             API Key
             <input
@@ -102,7 +102,7 @@ export default function ApiKeySettingsPage({
                 placeholder={textField.placeholder}
               />
               {textField.helpText && (
-                <p style={{ color: "#555", fontSize: "0.85rem", fontWeight: "normal" }}>
+                <p style={{ color: "var(--muted)", fontSize: "0.85rem", fontWeight: "normal" }}>
                   {textField.helpText}
                 </p>
               )}

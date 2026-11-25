@@ -171,7 +171,7 @@ export default function AdminInboundEmailQueue() {
   return (
     <div className="admin-shell">
       <h2>Unmatched Emails</h2>
-      <p style={{ color: "#555" }}>
+      <p style={{ color: "var(--muted)" }}>
         Inbound emails that couldn't be automatically filed -- either no partner's contact or household-adult
         email matched the sender, more than one did, or exactly one matched but the sender's address couldn't
         be verified (SPF/DKIM) and the sending address is easy to forge, so it's held for a human to confirm
@@ -207,7 +207,7 @@ export default function AdminInboundEmailQueue() {
 
       {assigning && (
         <Modal title={`Assign email from ${assigning.email.fromAddress}`} onClose={() => setAssigning(null)}>
-          <p style={{ color: "#555", fontSize: "0.85rem" }}>
+          <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
             Subject: {assigning.email.subject || "—"} · Received{" "}
             {new Date(assigning.email.receivedAt).toLocaleString()}
           </p>

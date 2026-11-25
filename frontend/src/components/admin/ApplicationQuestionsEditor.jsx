@@ -72,7 +72,7 @@ function OptionsField({ defaultValue, value, onChange, onBlur }) {
         onBlur={onBlur}
         placeholder={"One per line, e.g.\nYes\nNo"}
       />
-      <span style={{ display: "block", color: "#888", fontSize: "0.78rem", marginTop: "0.15rem" }}>
+      <span style={{ display: "block", color: "var(--muted)", fontSize: "0.78rem", marginTop: "0.15rem" }}>
         One choice per line -- a choice can safely contain its own comma this way.
       </span>
     </label>
@@ -128,14 +128,21 @@ export default function ApplicationQuestionsEditor({
             <li
               key={q.id}
               style={{
-                border: "1px solid #e1dfdb",
+                border: "1px solid var(--border)",
                 borderRadius: 6,
                 padding: "0.7rem 0.8rem",
                 marginBottom: "0.6rem",
               }}
             >
               <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
-                <span style={{ color: "#888", fontSize: "0.85rem", fontWeight: 600, paddingTop: "1.6rem" }}>
+                <span
+                  style={{
+                    color: "var(--muted)",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    paddingTop: "1.6rem",
+                  }}
+                >
                   {index + 1}.
                 </span>
                 <label style={{ flex: 1, fontWeight: 400, fontSize: "0.85rem" }}>
@@ -244,19 +251,28 @@ export default function ApplicationQuestionsEditor({
                 </div>
               )}
 
-              <p style={{ margin: "0.5rem 0 0", paddingLeft: "1.4rem", color: "#888", fontSize: "0.78rem" }}>
+              <p
+                style={{
+                  margin: "0.5rem 0 0",
+                  paddingLeft: "1.4rem",
+                  color: "var(--muted)",
+                  fontSize: "0.78rem",
+                }}
+              >
                 Shown as a "{typeLabel}" question{q.required ? ", required" : ", optional"}.
               </p>
             </li>
           );
         })}
-        {questions.length === 0 && <p style={{ color: "#888" }}>No questions yet -- add one below.</p>}
+        {questions.length === 0 && (
+          <p style={{ color: "var(--muted)" }}>No questions yet -- add one below.</p>
+        )}
       </ul>
 
       {library && library.length > 0 && (
         <div className="admin-section" style={{ marginBottom: "0.75rem" }}>
           <h4 style={{ margin: "0 0 0.3rem" }}>Add from your saved questions</h4>
-          <p style={{ margin: "0 0 0.5rem", color: "#888", fontSize: "0.8rem" }}>
+          <p style={{ margin: "0 0 0.5rem", color: "var(--muted)", fontSize: "0.8rem" }}>
             Reuse a question you've already saved instead of retyping it.
           </p>
           <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>

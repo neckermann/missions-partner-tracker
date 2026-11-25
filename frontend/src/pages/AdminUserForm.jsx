@@ -144,7 +144,7 @@ export default function AdminUserForm() {
                 value={values.tripAccess}
                 onChange={(next) => setValue("tripAccess", next)}
               />
-              <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
+              <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.5rem" }}>
                 A guest can work on the trips you choose and see those trips' partners, nothing else in the
                 app. They sign in with a password and two-factor authentication.
               </p>
@@ -165,7 +165,7 @@ export default function AdminUserForm() {
             show: (values) => values.role === "guest",
             render: ({ values, setValue }) => (
               <>
-                <p style={{ marginTop: 0, color: "#555" }}>
+                <p style={{ marginTop: 0, color: "var(--muted)" }}>
                   Optional: which partners will this person keep in touch with? They'll join each partner's
                   care team.
                 </p>
@@ -216,7 +216,7 @@ export default function AdminUserForm() {
               Require two-factor authentication at first sign-in
             </label>
           </div>
-          <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
+          <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.5rem" }}>
             {values.sendWelcomeEmail
               ? "They'll get a one-time link to choose their own password. Nobody else ever sees it."
               : 'No email is sent. Set a password below, or leave it blank and use "Send setup link" on their row later. Until a password is set they can\'t sign in.'}
@@ -247,7 +247,7 @@ export default function AdminUserForm() {
         ]}
       />
       <h2>Add User</h2>
-      <p style={{ color: "#666", marginTop: "-0.5rem" }}>
+      <p style={{ color: "var(--muted)", marginTop: "-0.5rem" }}>
         Just enough to create the account — they can fill in the rest later.
       </p>
 
@@ -275,7 +275,7 @@ export default function AdminUserForm() {
           />
         )}
         {submitError && (
-          <p style={{ color: "#b91c1c" }} role="alert">
+          <p style={{ color: "var(--danger)" }} role="alert">
             {submitError}
           </p>
         )}

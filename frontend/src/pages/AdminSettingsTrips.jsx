@@ -313,7 +313,7 @@ export default function AdminSettingsTrips() {
                 onChange={(v) => set("collectDonorContactInfo", v)}
                 label="Collect donor email/phone when logging a contribution"
               />
-              <p style={{ color: "#888", fontSize: "0.85rem" }}>
+              <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                 Never shown on the public support-raising page regardless of this setting — only on the
                 participant's own self-service page and to admins.
               </p>
@@ -324,7 +324,7 @@ export default function AdminSettingsTrips() {
                 onChange={(v) => set("enableTripBudgeting", v)}
                 label="Track a planned budget per trip"
               />
-              <p style={{ color: "#888", fontSize: "0.85rem" }}>
+              <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                 Adds a Financial section to each trip's own page for logging estimated costs (flights,
                 lodging, etc.) and seeing how much is still needed against what's been raised. Turned off, the
                 budget half of that section doesn't appear at all.
@@ -340,7 +340,7 @@ export default function AdminSettingsTrips() {
         style={{ marginTop: "2rem", scrollMarginTop: "1rem" }}
       >
         <h2 className="admin-group-heading">Application Form</h2>
-        <p style={{ color: "#888", fontSize: "0.85rem", margin: "-0.5rem 0 1rem" }}>
+        <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "-0.5rem 0 1rem" }}>
           Everything below is part of what a person fills out when applying — before they're ever a confirmed
           participant.
         </p>
@@ -459,7 +459,7 @@ export default function AdminSettingsTrips() {
                   onChange={(v) => set("collectApplicantAddress", v)}
                   label="Collect applicant mailing address"
                 />
-                <p style={{ color: "#888", fontSize: "0.85rem" }}>
+                <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                   Shown as a real structured address block on the public application form — street, city,
                   state, postal code, country. Turned off, the block doesn't appear on the form at all.
                 </p>
@@ -470,7 +470,7 @@ export default function AdminSettingsTrips() {
                   onChange={(v) => set("collectEmergencyContact", v)}
                   label="Collect applicant emergency contact info"
                 />
-                <p style={{ color: "#888", fontSize: "0.85rem" }}>
+                <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                   Shown as a real structured name/phone/email block on the public application form. Turned
                   off, the block doesn't appear on the form at all.
                 </p>
@@ -486,7 +486,7 @@ export default function AdminSettingsTrips() {
         style={{ marginTop: "2rem", scrollMarginTop: "1rem" }}
       >
         <h2 className="admin-group-heading">Trip Requirements</h2>
-        <p style={{ color: "#888", fontSize: "0.85rem", margin: "-0.5rem 0 1rem" }}>
+        <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "-0.5rem 0 1rem" }}>
           What's needed <strong>after</strong> someone is accepted onto the team — a different phase from the
           application form above.
         </p>
@@ -505,7 +505,7 @@ export default function AdminSettingsTrips() {
           )}
           edit={(d, set) => (
             <>
-              <p style={{ color: "#888", fontSize: "0.85rem" }}>
+              <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                 Editing this later only affects trips created afterward; it never changes an already-created
                 trip's own copy.
               </p>

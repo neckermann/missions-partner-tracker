@@ -39,13 +39,16 @@
   --surface: #ffffff;
   --surface-2: #f4f5f7;
   --text: #222222;
-  --muted: #677080;
+  --muted: #5c6575;
   --border: #dde1e7;
   --accent: #2a5d3c;
   --accent-soft: #e4f0ec;
   --warn: #b45309;
   --warn-soft: #fffbeb;
   --danger: #b91c1c;
+  /* A solid fill that carries white text (buttons, pills) must stay dark in both themes. */
+  --danger-solid: #b91c1c;
+  --warn-solid: #b45309;
   --shadow: 0 1px 2px rgba(20, 25, 30, 0.06), 0 8px 24px rgba(20, 25, 30, 0.05);
   color-scheme: light;
 
@@ -94,6 +97,8 @@
     --warn: #d7ab5e;
     --warn-soft: #2e2717;
     --danger: #e08080;
+    --danger-solid: #b4262a;
+    --warn-solid: #9a4a08;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
     color-scheme: dark;
     --brand-color-safe: color-mix(in srgb, var(--brand-color, #2a5d3c) 55%, white);
@@ -117,6 +122,8 @@
   --warn: #d7ab5e;
   --warn-soft: #2e2717;
   --danger: #e08080;
+  --danger-solid: #b4262a;
+  --warn-solid: #9a4a08;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
   color-scheme: dark;
   --brand-color-safe: color-mix(in srgb, var(--brand-color, #2a5d3c) 55%, white);
@@ -570,8 +577,8 @@ a {
 
 .missionary-list {
   overflow-y: auto;
-  border-right: 1px solid #ddd;
-  background: white;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
 }
 /* A real <button>: selecting a partner is an action, and a div with an
    onClick is unreachable by keyboard. These resets keep it looking exactly
@@ -584,7 +591,7 @@ a {
   color: inherit;
   background: none;
   border: none;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
   padding: 0.9rem 1.1rem;
   cursor: pointer;
 }
@@ -593,7 +600,7 @@ a {
   outline-offset: -2px;
 }
 .missionary-card:hover {
-  background: #f0f6f1;
+  background: var(--accent-soft);
 }
 .missionary-card.active {
   background: #e3efe6;
@@ -606,12 +613,12 @@ a {
 .missionary-card p {
   margin: 0;
   font-size: 0.85rem;
-  color: #555;
+  color: var(--muted);
 }
 .badge-restricted {
   display: inline-block;
   font-size: 0.7rem;
-  background: #b45309;
+  background: var(--warn-solid);
   color: white;
   padding: 0.1rem 0.4rem;
   border-radius: 3px;
@@ -667,11 +674,11 @@ a {
   max-width: calc(100% - 1.5rem);
   padding: 0.5rem 0.9rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid #d8d4cc;
+  background: var(--surface);
+  border: 1px solid var(--border);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
   font-size: 0.85rem;
-  color: #444;
+  color: var(--text);
   text-align: center;
 }
 
@@ -758,7 +765,7 @@ a {
 .popup-meta {
   margin: 0;
   font-size: 0.8rem;
-  color: #666;
+  color: var(--muted);
 }
 .popup-summary {
   margin: 0.3rem 0 0;
@@ -768,7 +775,7 @@ a {
 /* Public partner directory (/partners) and detail page (/partners/:type/:id) */
 .public-about-text {
   margin: 1.25rem 1.5rem 0;
-  color: #444;
+  color: var(--text);
   max-width: 70ch;
 }
 .demo-banner {
@@ -807,7 +814,7 @@ a {
 .partner-filter-bar input {
   padding: 0.5rem 0.6rem;
   font-size: 0.9rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border);
   border-radius: 4px;
 }
 .partner-filter-bar input {
@@ -823,8 +830,8 @@ a {
 }
 .partner-card {
   display: block;
-  background: white;
-  border: 1px solid #e2e2e2;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
   text-decoration: none;
@@ -849,12 +856,12 @@ a {
 .partner-card-meta {
   margin: 0 0 0.5rem;
   font-size: 0.8rem;
-  color: #666;
+  color: var(--muted);
 }
 .partner-card-summary {
   margin: 0;
   font-size: 0.85rem;
-  color: #444;
+  color: var(--text);
 }
 
 .partner-detail-header {
@@ -873,8 +880,8 @@ a {
 }
 
 .public-subscribe-form {
-  background: #f7f5f0;
-  border: 1px solid #e2e2e2;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 1.25rem 1.5rem;
   margin: 1.5rem 0;
@@ -884,7 +891,7 @@ a {
 }
 .public-subscribe-description {
   margin: 0 0 0.75rem;
-  color: #555;
+  color: var(--muted);
   font-size: 0.9rem;
 }
 .public-subscribe-row {
@@ -896,7 +903,7 @@ a {
 .public-subscribe-row select {
   padding: 0.5rem 0.6rem;
   font-size: 0.9rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border);
   border-radius: 4px;
 }
 .public-subscribe-row input {
@@ -906,11 +913,11 @@ a {
 .public-subscribe-privacy {
   margin: 0.6rem 0 0;
   font-size: 0.8rem;
-  color: #777;
+  color: var(--muted);
 }
 .public-subscribe-success {
   margin: 0;
-  color: #2a5d3c;
+  color: var(--accent);
 }
 
 .scripture-quote {
@@ -919,7 +926,7 @@ a {
   border-left: 4px solid var(--brand-color, #2a5d3c);
   background: rgba(0, 0, 0, 0.02);
   font-style: italic;
-  color: #333;
+  color: var(--text);
 }
 .scripture-quote p {
   margin: 0 0 0.5rem;
@@ -929,7 +936,7 @@ a {
   display: block;
   font-style: normal;
   font-size: 0.85rem;
-  color: #666;
+  color: var(--muted);
   letter-spacing: 0.02em;
 }
 
@@ -959,7 +966,7 @@ a {
 }
 .breadcrumb-sep {
   margin: 0 0.35rem;
-  color: var(--border);
+  color: var(--muted);
 }
 .breadcrumb-current {
   color: var(--text);
@@ -1079,7 +1086,7 @@ a {
   background: #666;
 }
 .btn.danger {
-  background: var(--danger);
+  background: var(--danger-solid);
 }
 .btn.small {
   padding: 0.25rem 0.6rem;
@@ -1378,6 +1385,13 @@ a {
   gap: 1rem;
   scroll-margin-top: 1rem;
 }
+/* Cards and groups placed straight in a page (not inside .admin-form, which spaces its own
+   children) get the same breathing room between them. Without it they stack edge to edge. */
+.admin-shell
+  > :is(.admin-section, .admin-section-group)
+  + :is(.admin-section, .admin-section-group, .admin-form, .partner-jump-rail) {
+  margin-top: 1.25rem;
+}
 .partner-jump-rail {
   position: sticky;
   top: 2rem;
@@ -1410,33 +1424,39 @@ a {
   color: var(--muted);
 }
 
-/* Settings sub-nav (Church Settings > Theme/Features/Users/...) -- an
-   underline-tab row, not the dark sidebar's pill style, since this sits on
-   the light content area as a second-level nav within one already-selected
-   top-level section. Room to grow: more tabs just add to the row (wraps if
-   it ever gets crowded) rather than needing a second full sidebar. */
-.admin-settings-tabs {
+/* The shared underline tab row (components/shared/TabBar.jsx): Trips, a trip's own pages and
+   Partners. Muted until active, then the full text colour with a brand underline; only theme
+   tokens, so it reads in light and dark. */
+.tab-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 1.5rem;
   border-bottom: 1px solid var(--border);
-  margin: 0.5rem 0 1.5rem;
+  margin: 0.75rem 0 1.25rem;
 }
-.admin-settings-tabs a {
+.tab-bar .tab {
   padding: 0.6rem 0.1rem;
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 0.9rem;
-  font-weight: 600;
+  background: none;
+  border: none;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
 }
-.admin-settings-tabs a:hover {
+.tab-bar .tab:hover {
   color: var(--text);
 }
-.admin-settings-tabs a.active {
-  color: var(--brand-highlight-color-safe, #a6540f);
+.tab-bar .tab.active {
+  color: var(--text);
   border-bottom-color: var(--brand-highlight-color-safe, #a6540f);
+}
+.tab-bar .tab:focus-visible {
+  outline: 2px solid var(--brand-highlight-color-safe, #a6540f);
+  outline-offset: 2px;
 }
 
 .admin-checkbox-row {
@@ -1581,7 +1601,7 @@ a {
   display: flex;
   justify-content: space-between;
   font-size: 0.65rem;
-  color: #888;
+  color: var(--muted);
   margin-bottom: 0.2rem;
 }
 .jp-scale-gauge-track {
@@ -1629,7 +1649,7 @@ a {
   color: var(--text);
 }
 .status-pill.warn {
-  background: var(--warn);
+  background: var(--warn-solid);
   color: white;
 }
 .status-pill.good {
@@ -1765,7 +1785,7 @@ a {
   max-width: 1600px;
 }
 .booklet-admin-intro {
-  color: #666;
+  color: var(--muted);
   margin: -0.5rem 0 0;
 }
 .booklet-controls {
@@ -2111,7 +2131,7 @@ a {
 }
 .report-meta {
   margin: 0.25rem 0 0;
-  color: #555;
+  color: var(--muted);
   font-size: 0.9rem;
 }
 .report-actions {
@@ -2525,5 +2545,19 @@ button.report-summary-item[aria-pressed="true"] {
   height: 1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* The map's popup is Leaflet's own white sheet; text inside it uses theme colours, so the sheet
+   follows the theme too (otherwise light text lands on white in dark mode). */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* A row action never wraps onto two lines: a longer label ("Scan for requests", "Record Answer")
+   otherwise squeezes into a tall button next to a one-line "Delete". The column grows instead. */
+.table-actions .btn {
   white-space: nowrap;
 }

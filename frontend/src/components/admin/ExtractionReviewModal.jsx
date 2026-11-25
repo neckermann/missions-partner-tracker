@@ -169,12 +169,12 @@ export default function ExtractionReviewModal({
             that can take a minute finally finishes, rather than leaving the
             user to poll it. */}
       {status === "loading" && (
-        <p style={{ color: "#555" }} role="status">
+        <p style={{ color: "var(--muted)" }} role="status">
           Reading the file with Claude — this can take up to a minute...
         </p>
       )}
       {status === "error" && (
-        <p style={{ color: "#b91c1c" }} role="alert">
+        <p style={{ color: "var(--danger)" }} role="alert">
           {error}
         </p>
       )}
@@ -182,8 +182,8 @@ export default function ExtractionReviewModal({
         <p
           role="status"
           style={{
-            background: "#fff8e6",
-            border: "1px solid #f0d999",
+            background: "var(--warn-soft)",
+            border: "1px solid var(--warn)",
             borderRadius: "4px",
             padding: "0.5rem 0.75rem",
           }}
@@ -192,7 +192,7 @@ export default function ExtractionReviewModal({
         </p>
       )}
       {nothingFound && (
-        <p style={{ color: "#888" }}>No prayer requests or one-time needs found in this file.</p>
+        <p style={{ color: "var(--muted)" }}>No prayer requests or one-time needs found in this file.</p>
       )}
 
       {prayerRequests.length > 0 && (
@@ -218,7 +218,7 @@ export default function ExtractionReviewModal({
               />
               <div className="table-actions" style={{ marginTop: "0.5rem" }}>
                 {r.state === "added" ? (
-                  <span style={{ color: "#2a5d3c" }}>Added ✓</span>
+                  <span style={{ color: "var(--accent)" }}>Added ✓</span>
                 ) : (
                   <button
                     type="button"
@@ -231,7 +231,7 @@ export default function ExtractionReviewModal({
                 )}
               </div>
               {r.cardError && (
-                <p style={{ color: "#b91c1c", marginTop: "0.25rem" }} role="alert">
+                <p style={{ color: "var(--danger)", marginTop: "0.25rem" }} role="alert">
                   {r.cardError}
                 </p>
               )}
@@ -268,7 +268,7 @@ export default function ExtractionReviewModal({
               </label>
               <div className="table-actions" style={{ marginTop: "0.5rem" }}>
                 {n.state === "added" ? (
-                  <span style={{ color: "#2a5d3c" }}>Added ✓</span>
+                  <span style={{ color: "var(--accent)" }}>Added ✓</span>
                 ) : (
                   <button
                     type="button"
@@ -281,7 +281,7 @@ export default function ExtractionReviewModal({
                 )}
               </div>
               {n.cardError && (
-                <p style={{ color: "#b91c1c", marginTop: "0.25rem" }} role="alert">
+                <p style={{ color: "var(--danger)", marginTop: "0.25rem" }} role="alert">
                   {n.cardError}
                 </p>
               )}

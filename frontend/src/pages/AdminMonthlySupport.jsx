@@ -234,7 +234,9 @@ export default function AdminMonthlySupport() {
 
       <div className="admin-section" style={{ marginTop: "1rem" }}>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "baseline" }}>
-          <span style={{ fontSize: "0.85rem", color: "#555" }}>Total monthly support ({rows.length}):</span>
+          <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
+            Total monthly support ({rows.length}):
+          </span>
           <span style={{ fontSize: "1.3rem", fontWeight: 700 }}>{formatCurrency(total)}</span>
         </div>
       </div>

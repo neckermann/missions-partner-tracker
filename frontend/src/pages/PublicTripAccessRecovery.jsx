@@ -29,12 +29,12 @@ export default function PublicTripAccessRecovery() {
       <PublicSiteHeader title="Lost your trip link?" />
       <DemoBanner />
       <div className="admin-shell" style={{ maxWidth: 480 }}>
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           Enter the email address you used when you applied or were added to a trip's team, and we'll send a
           fresh link.
         </p>
         {message ? (
-          <p style={{ color: "#1f6b4f" }}>{message}</p>
+          <p style={{ color: "var(--accent)" }}>{message}</p>
         ) : (
           <form onSubmit={handleSubmit} className="public-subscribe-row">
             <input

@@ -106,7 +106,7 @@ export default function AdminTripFinancial() {
 
       <div className="admin-section">
         <h3>Financial</h3>
-        <p style={{ color: "#888", fontSize: "0.85rem" }}>
+        <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
           Totals for the <strong>whole team</strong>, not per person — e.g. "Round-trip flights: $650" means
           $650 for every traveler's flights combined, not $650 each.
         </p>
