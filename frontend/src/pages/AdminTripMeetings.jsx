@@ -64,11 +64,7 @@ function MeetingFields({ form, setForm }) {
   );
 }
 
-// Converted from onBlur-autosave (no explicit boundary, no visible
-// confirmation) onto the same click-row-opens-popup RecordList pattern
-// used everywhere else -- Schedule/Edit both go through one explicit
-// Save, and Resend/Cancel live inside the edit popup since they're
-// meeting-specific actions, not generic Add/Edit/Delete.
+// Resend/Cancel live inside the edit popup since they are meeting-specific actions.
 export default function AdminTripMeetings() {
   const { trip, reload, confirmDialog, id, canWrite } = useOutletContext();
   const [error, setError] = useState("");
@@ -121,8 +117,7 @@ export default function AdminTripMeetings() {
     reload();
     const manual = result?.manualEmail || null;
     setManualEmailRecipients(manual);
-    // Stay open with the link in view instead of auto-closing behind it --
-    // same reasoning as AdminUserForm.jsx's wizard.
+    // Stay open with the link in view instead of auto-closing behind it.
     if (manual?.length > 0) return false;
   }
 
@@ -152,9 +147,7 @@ export default function AdminTripMeetings() {
       const result = await cancelTripMeeting(meetingId);
       reload();
       setError("");
-      // Stays open (reflecting the now-cancelled state in place, same as
-      // Resend) instead of closing behind the manual-cancellation-notice
-      // link -- see submitModal's own comment.
+      // Stays open (showing the cancelled state) so the manual-cancellation-notice link stays in view.
       setModalMeeting((d) => (d ? { ...d, cancelledAt: true } : d));
       setManualEmailRecipients(result?.manualEmail || null);
     } catch (err) {

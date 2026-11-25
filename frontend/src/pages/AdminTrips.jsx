@@ -40,35 +40,15 @@ import AdminTripContributions from "./AdminTripContributions.jsx";
 import TabBar from "../components/shared/TabBar.jsx";
 import StatTiles from "../components/shared/StatTiles.jsx";
 
-// Merged (design review, post-#252) from two previously separate pages/
-// nav items -- AdminTrips.jsx ("Trips": every real Trip row, a
-// searchable record) and AdminTripPlanning.jsx ("Plan a Trip":
-// partner-centric, blends an already-scheduled open/committed trip with
-// a partner's own general capacity so a partner is never dropped from
-// the list just because nothing concrete is on the calendar). Both
-// questions are still genuinely different queries -- that didn't
-// change -- but presenting them as two separate pages with two
-// different filter-bar idioms, two different badge components, and a
-// one-line cross-reference each made the real distinction look like an
-// accidental one. One page, one nav item, two tabs: same filter-bar
-// shell, same status-pill rendering, same table shell -- only the
-// query/columns/row-actions differ per tab.
-//
-// A third tab, "Log Contributions" (#272), joined later -- it was
-// originally its own top-level sidebar item, moved here on the same
-// reasoning: it's still "the Trips area," not a separate concern, and a
-// standalone nav entry per trip-related task doesn't scale.
+// Two tabs plus Log Contributions share one filter-bar/table shell: "Existing Trips" (every real
+// Trip row) and "Plan a Trip" (partner-centric: blends a scheduled trip with the partner's general
+// capacity so a partner isn't dropped just because nothing is on the calendar).
 function yearOf(value) {
   return value ? String(value).slice(0, 4) : null;
 }
 
-// "active" is its own filter value, not one of Trip.status's real four --
-// it means "every status except completed" (planning, accepting_applications,
-// and closed all still count as upcoming; closed just means the team's set,
-// not that the trip happened yet). Default on page load: a demo-scale church
-// can easily have 100+ completed trips on file, and "what's currently going
-// on" is almost always the more useful first view than scrolling past all of
-// those. "All statuses" stays one pill away, not a separate reset action.
+// "active" is its own filter value: every status except completed. It is the default because a
+// church can have 100+ completed trips and "what's currently going on" is the more useful first view.
 const STATUS_QUICK_FILTERS = [
   { value: "active", label: "Active (not completed)" },
   { value: "all", label: "All statuses" },
@@ -92,18 +72,12 @@ function ExistingTripsTab() {
   const [records, setRecords] = useState([]);
   const [partners, setPartners] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
-  // Which of the two add-flows the revealed form is on -- "planning"
-  // (start a new recruiting trip) is the default; "completed" (today's
-  // historical-backfill form) is the alternative, not a second button --
-  // one form, one explicit choice.
+  // Which add-flow the revealed form is on: "planning" (new recruiting trip, default) or "completed" (historical backfill).
   const [addKind, setAddKind] = useState("planning");
   const [newTripPartnerId, setNewTripPartnerId] = useState("");
   const [newTripType, setNewTripType] = useState("");
   const [newTrip, setNewTrip] = useState(emptyTripForm);
-  // The click-row-opens-popup target for a completed trip (the only kind
-  // editable from this list -- an active trip's real multi-page detail
-  // view is a richer destination than a popup, so its row still
-  // navigates there instead). { id, form, entityName }.
+  // Click-row popup target for a completed trip; an active trip's row navigates to its detail page. { id, form, entityName }.
   const [tripDetail, setTripDetail] = useState(null);
 
   function reload() {
@@ -125,10 +99,7 @@ function ExistingTripsTab() {
         entityLink: t.partner ? `/admin/partners/${t.partner.id}` : null,
         size: (t.participants || []).length,
         raised: (t.contributions || []).reduce((sum, c) => sum + c.amount, 0),
-        // Folded in from the now-removed AdminTripDashboard.jsx (issue
-        // #259) -- null for a trip with no startDate, or one already
-        // underway/past (a negative days-until figure reads as "overdue,"
-        // not useful here).
+        // null for a trip with no startDate or one already underway/past (negative days-until isn't useful).
         daysUntilDeparture:
           t.startDate && new Date(t.startDate) > new Date()
             ? Math.ceil((new Date(t.startDate) - new Date()) / (1000 * 60 * 60 * 24))
@@ -149,8 +120,7 @@ function ExistingTripsTab() {
   const sendingChurchField = useSendingChurchField();
   const fields = useMemo(
     () => [
-      // Rendered via `pills` below, not the field grid -- present here so
-      // useFilterState knows about it for URL-sync/reset purposes.
+      // Rendered via `pills`, not the field grid; listed so useFilterState handles URL-sync/reset.
       { name: "status" },
       PARTNER_TYPE_FILTER_FIELD,
       ...(sendingChurchField ? [sendingChurchField] : []),
@@ -180,8 +150,7 @@ function ExistingTripsTab() {
     reset: resetFilters,
   } = useFilterState(fields, emptyFilters);
 
-  // Reload when the sending church changes (it narrows the request itself, unlike
-  // the filters the page applies to what it already has).
+  // Reload when the sending church changes (it narrows the request itself).
   useEffect(reload, [filters.sendingChurch]);
   const {
     partnerId: filterPartnerId,
@@ -190,12 +159,8 @@ function ExistingTripsTab() {
     setPartnerFilter,
   } = usePartnerUrlFilter();
 
-  // Partner Detail's Mission Trips "+ Add" links here with both
-  // ?partnerId= (the existing filter) and ?newTrip=1, to open straight
-  // into "start a new trip" pre-selected to that partner instead of
-  // landing on the filtered list and making someone find the button
-  // themselves. Strips ?newTrip= right after so refreshing/revisiting
-  // this URL later doesn't keep reopening the form.
+  // Partner Detail's "+ Add" links here with ?partnerId= and ?newTrip=1 to open the new-trip form for
+  // that partner; ?newTrip= is stripped afterwards so a refresh doesn't reopen it.
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
     if (searchParams.get("newTrip") === "1" && filterPartnerId) {
@@ -227,10 +192,7 @@ function ExistingTripsTab() {
   });
 
   const totalParticipants = filteredTrips.reduce((sum, t) => sum + t.size, 0);
-  // All-time counts, ignoring every filter -- shown alongside the
-  // (possibly filtered) tiles below so neither number reads as an
-  // all-time total when it secretly isn't. Computed off `trips`, not
-  // `filteredTrips`.
+  // All-time counts, ignoring filters, so the (possibly filtered) tiles aren't mistaken for totals.
   const allTimeTripCount = trips.length;
   const allTimeParticipants = trips.reduce((sum, t) => sum + t.size, 0);
   const {
@@ -258,12 +220,7 @@ function ExistingTripsTab() {
     reload();
   }
 
-  // Reuses the exact createTrip({status: "planning", ...}) shape the
-  // Plan a Trip tab's own "Start a new trip" button makes (same
-  // team-size auto-fill from the partner's own tripTeamSizeMin/Max) --
-  // lands on the trip's own detail page immediately, same as that tab
-  // does, since there's nothing useful left to do on this list once the
-  // trip exists.
+  // Same createTrip({status: "planning"}) shape (with team-size auto-fill) as the Plan a Trip tab; lands on the new trip.
   async function submitStartNewTrip() {
     if (!newTripPartnerId) throw new Error("Choose a partner");
     const partner = partners.find((p) => p.id === newTripPartnerId);
@@ -277,10 +234,7 @@ function ExistingTripsTab() {
     navigate(`/admin/trips/${created.id}`);
   }
 
-  // Only reachable for a completed trip -- see the Table's onRowClick
-  // below. An active trip's own multi-page detail view (team/meetings/
-  // requirements/budget/flights) is a richer destination than a popup
-  // could hold, so it keeps navigating there instead.
+  // Only reachable for a completed trip; an active trip's row navigates to its detail page.
   function openTripDetail(trip) {
     setTripDetail({
       id: trip.id,
@@ -494,11 +448,7 @@ function ExistingTripsTab() {
             render: (trip) => (
               <>
                 <TripStatusBadge status={trip.status} />
-                {/* Same conditions the in-app notification bell surfaces for
-                    this trip -- a per-row indicator here is the fallback for
-                    when a category can't link straight to one specific trip
-                    (several are responsible at once), so this list is still
-                    where someone can visually find the right one. */}
+                {/* Same conditions as the notification bell; a per-row indicator for categories that can't link to one trip. */}
                 {(trip.hasPendingApplications ||
                   trip.hasOverdueRequirement ||
                   trip.departingSoonIncomplete) && (
@@ -691,10 +641,7 @@ function PlanATripTab() {
       },
       { name: "minSize", label: "Min Team Size", type: "number" },
       { name: "maxSize", label: "Max Team Size", type: "number" },
-      // Team-size range filter -- effective size is the open/committed
-      // trip's own teamSizeMin/Max when one exists, else the partner's
-      // general capacity. "Matches" means the two ranges overlap, not
-      // that the row's range sits entirely inside the filter's.
+      // Team-size filter: effective size is the trip's own min/max, else the partner's capacity; ranges match on overlap.
       { name: "neverBeenOnly", label: "Never been (no past trips)", type: "checkbox" },
     ],
     [tripTypes]
@@ -733,10 +680,6 @@ function PlanATripTab() {
     showMore,
   } = useLoadMore(visibleRows, { initialCount: 25, step: 25 });
 
-  // Real gap this tab closes: before it existed, starting a trip for a
-  // partner with no prior one had no UI path at all -- the Existing
-  // Trips tab's own add-flow only ever created a status: "completed"
-  // (historical) trip.
   async function handleStartTrip(row) {
     setStartingId(row.partnerId);
     try {
@@ -907,16 +850,11 @@ const TABS = [
 export default function AdminTrips() {
   const location = useLocation();
   const navigate = useNavigate();
-  // A guest (#289) sees the same Trips page as everyone, with just the one tab
+  // A guest sees the same Trips page as everyone, with just the one tab
   // they can use: their own trips. Planning and logging gifts are staff's.
   const { isGuest } = useCurrentUser();
   const visibleTabs = isGuest ? TABS.filter((t) => t.value === "existing") : TABS;
-  // /admin/trips, /admin/trips/planning, and /admin/trips/contributions
-  // all render this same component -- real tabs (URL-backed, not just
-  // local state), same tab-bar treatment TripDetailLayout.jsx already
-  // uses for its own real sub-nav, so refreshing/bookmarking/sharing a
-  // link to any tab lands back on that same tab instead of always
-  // defaulting to Existing Trips.
+  // All three paths render this component; URL-backed tabs so a refresh/bookmark lands on the same tab.
   const requestedTab = location.pathname.endsWith("/planning")
     ? "plan"
     : location.pathname.endsWith("/contributions")

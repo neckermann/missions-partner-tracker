@@ -79,10 +79,6 @@ function FlightFields({ form, setForm, participants }) {
   );
 }
 
-// Converted from onBlur-autosave onto click-row-opens-popup, same as
-// every other Trip sub-page this phase touched. Flight Segments already
-// existed as a real feature (TripFlightSegment model + routes) -- this is
-// the interaction-pattern/safety-fix pass, not new design.
 export default function AdminTripFlights() {
   const { trip, reload, confirmDialog, canWrite } = useOutletContext();
   const [error, setError] = useState("");

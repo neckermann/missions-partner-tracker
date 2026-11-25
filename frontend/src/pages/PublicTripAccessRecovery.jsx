@@ -3,9 +3,8 @@ import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import DemoBanner from "../components/DemoBanner.jsx";
 import { requestTripParticipantAccessLink } from "../api/client.js";
 
-// New (#252), §4a -- "lost your link" form. One email field, one generic
-// confirmation message regardless of what matched server-side (the
-// enumeration-prevention guarantee lives in the backend route).
+// "Lost your link" form: one email field and one generic confirmation regardless of what matched
+// (the enumeration-prevention guarantee lives in the backend route).
 export default function PublicTripAccessRecovery() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");

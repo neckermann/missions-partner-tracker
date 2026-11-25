@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { redeemSignInLink } from "../api/client.js";
 
-// #386 Layer 2: where the emailed sign-in link lands. It spends the link, then hands the result
+// Where the emailed sign-in link lands. It spends the link, then hands the result
 // (a second step, enrolment to finish, or an open session) to the sign-in page, which already
 // knows what to do with each.
 export default function SignInLink() {

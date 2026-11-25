@@ -24,25 +24,14 @@ const initialValues = {
   careTeam: [],
 };
 
-// Create only -- a dedicated page, same shape as AdminPartnerForm.jsx's
-// "New Partner" (its own field-count survey comment explains why that one
-// earned the Wizard shell; the welcome-email/password/MFA options added in
-// #285/#286 put Add User past that same bar). A popup-modal version of
-// this previously shipped and was corrected in review: the Wizard shell is
-// meant to read as its own page -- breadcrumb, page title, Cancel/Next
-// pinned to the viewport bottom -- not a dialog floating over the list,
-// which is what every other "+Add X" quick-action already looks like and
-// this is deliberately not. Edit stays on AdminUsers.jsx's own list page
-// (a plain QuickActionModal) -- it never had the welcome-email step, and
-// resetting a password or changing a role is a single-topic action.
+// Create only; a dedicated Wizard page (breadcrumb, title, pinned Cancel/Next), not a popup.
+// Edit stays a QuickActionModal on AdminUsers.jsx: it has no welcome-email step.
 export default function AdminUserForm() {
   const navigate = useNavigate();
-  // The trip page's "Invite a new guest" link lands here with ?tripId= so
-  // the wizard opens as a guest already given that trip (#356).
+  // The trip page's "Invite a new guest" link lands here with ?tripId=, opening as a guest on that trip.
   const [searchParams] = useSearchParams();
   const presetTripId = searchParams.get("tripId");
-  // ...and a partner's Care team panel links here with ?partnerId= so the
-  // wizard opens as a guest already on that partner's care team (#289).
+  // ...and a partner's Care team panel links here with ?partnerId=.
   const presetPartnerId = searchParams.get("partnerId");
   const { enabledFeatures } = useSettings();
   const careEnabled = !!enabledFeatures.careTeam;
@@ -55,9 +44,7 @@ export default function AdminUserForm() {
   const [trips, setTrips] = useState([]);
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  // Set only when the account just created needs a manual setup link
-  // (outbound email is off) -- shown in place of the wizard, not after
-  // navigating away, so the link is never on a screen nobody's looking at.
+  // Set when outbound email is off; shown in place of the wizard so the link is never on an unseen screen.
   const [manualLink, setManualLink] = useState(null); // { email, url } | null
 
   useEffect(() => {
@@ -183,8 +170,7 @@ export default function AdminUserForm() {
       key: "access",
       label: "Account Setup",
       validate: (values) => {
-        // Checked on the last step so it sees everything: a guest reaches
-        // something only through a trip or a care team seat (#289).
+        // Checked on the last step so it sees everything: a guest reaches something only through a trip or care team seat.
         const seats = careEnabled && values.role === "guest" ? values.careTeam.length : 0;
         if (values.role === "guest" && values.tripAccess.length === 0 && seats === 0) {
           return careEnabled
