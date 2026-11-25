@@ -143,6 +143,12 @@ per page) — those are gone, not alternatives.
   round-tripped to the server (confirmed, not assumed — e.g. `GET
   /groupme/groups` 400s with "Save a GroupMe access token first" until
   the token is actually persisted).
+  **Opening things from the partner page**: a scalar section
+  (`EditableSection`) is click-to-edit; a record in a collection card
+  (`PartnerSummaryCard`) is click-to-open; the card's **title** is the
+  link to the full, partner-filtered page when one exists (no separate
+  "View all" button); "+ Add" is the only button. Don't add a button
+  to open something the user can click.
   **Section-level editing**: `EditableSection`
   (`frontend/src/components/admin/EditableSection.jsx`) is the save
   standard for grouped scalar fields on a detail page — explicit Edit

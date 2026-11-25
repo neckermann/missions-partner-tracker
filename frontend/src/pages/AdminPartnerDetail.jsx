@@ -885,33 +885,58 @@ export default function AdminPartnerDetail() {
           canEdit={canEdit}
           onSaved={reload}
           onSave={(d) =>
-            save({ adoptedAt: dateOrNull(d.adoptedAt), commissionedAt: dateOrNull(d.commissionedAt) })
+            save({
+              commissionedAt: dateOrNull(d.commissionedAt),
+              adoptedAt: dateOrNull(d.adoptedAt),
+              // Supporting since is financial history: a guest never sees (or sends) it.
+              ...(isGuest ? {} : { supportingSince: dateOrNull(d.supportingSince) }),
+            })
           }
           value={{
-            adoptedAt: toDateInputValue(p.adoptedAt),
             commissionedAt: toDateInputValue(p.commissionedAt),
+            adoptedAt: toDateInputValue(p.adoptedAt),
+            supportingSince: toDateInputValue(p.supportingSince),
           }}
           view={(v) => (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem" }}>
-              <Field label="Adopted by our church" value={formatDateLong(v.adoptedAt)} showEmpty />
               <Field label="Commissioned" value={formatDateLong(v.commissionedAt)} showEmpty />
+              <Field label="Adopted by our church" value={formatDateLong(v.adoptedAt)} showEmpty />
+              {!isGuest && (
+                <Field label="Supporting since" value={formatDateLong(v.supportingSince)} showEmpty />
+              )}
             </div>
           )}
           edit={(d, set) => (
-            <div className="form-grid">
-              <label title="When our church adopted them. The anniversary is a key date for their care team.">
-                Adopted by our church
-                <input type="date" value={d.adoptedAt} onChange={(e) => set("adoptedAt", e.target.value)} />
-              </label>
-              <label title="When they were commissioned. The anniversary is a key date for their care team.">
-                Commissioned
-                <input
-                  type="date"
-                  value={d.commissionedAt}
-                  onChange={(e) => set("commissionedAt", e.target.value)}
-                />
-              </label>
-            </div>
+            <>
+              <p style={{ color: "var(--muted)", marginTop: 0 }}>
+                They may have been commissioned long before our church began to walk with them, so these are
+                three separate dates. Each anniversary is a key date for their care team.
+              </p>
+              <div className="form-grid">
+                <label title="When they were commissioned: possibly before we knew them.">
+                  Commissioned
+                  <input
+                    type="date"
+                    value={d.commissionedAt}
+                    onChange={(e) => set("commissionedAt", e.target.value)}
+                  />
+                </label>
+                <label title="When our church adopted them as a partner.">
+                  Adopted by our church
+                  <input type="date" value={d.adoptedAt} onChange={(e) => set("adoptedAt", e.target.value)} />
+                </label>
+                {!isGuest && (
+                  <label title="When our church began supporting them financially. Only the year is shown publicly.">
+                    Supporting since
+                    <input
+                      type="date"
+                      value={d.supportingSince}
+                      onChange={(e) => set("supportingSince", e.target.value)}
+                    />
+                  </label>
+                )}
+              </div>
+            </>
           )}
         />
 
@@ -1494,30 +1519,6 @@ export default function AdminPartnerDetail() {
           (enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)))) && (
           <div className="admin-section-group" id="section-financial">
             <h2 className="admin-group-heading">{isGuest ? "One-Time Needs" : "Financial"}</h2>
-
-            {/* Monthly support, and how long we've given it, are never shown to a guest. */}
-            {!isGuest && (
-              <EditableSection
-                title="Supporting Since"
-                canEdit={canEdit}
-                onSaved={reload}
-                onSave={(d) => save({ supportingSince: dateOrNull(d.supportingSince) })}
-                value={{ supportingSince: toDateInputValue(p.supportingSince) }}
-                view={(v) => (
-                  <Field label="Supporting Since" value={formatDateLong(v.supportingSince)} showEmpty />
-                )}
-                edit={(d, set) => (
-                  <label>
-                    Supporting Since
-                    <input
-                      type="date"
-                      value={d.supportingSince}
-                      onChange={(e) => set("supportingSince", e.target.value)}
-                    />
-                  </label>
-                )}
-              />
-            )}
 
             {enabledFeatures.monthlySupport && !isGuest && (
               <PartnerSummaryCard
