@@ -78,8 +78,71 @@ const FIELDS = {
     check: (v) => (isEmail(v) ? null : "That doesn't look like an email address"),
   },
   overviewShort: simplePartnerText("Short overview (one line)", "overviewShort", 300),
+  mailingAddress: {
+    label: "Mailing address",
+    kinds: ["address"],
+    read: ({ addresses }) => addressToValue((addresses || []).find((a) => a.type === "mailing")),
+    check: (v) => normalizeAddress(v).error || (JSON.parse(v).line1 ? null : "Add a street address"),
+    write: async (tx, { partner }, v) => {
+      const a = JSON.parse(v);
+      const data = {
+        addressLine1: a.line1 || null,
+        addressLine2: a.line2 || null,
+        city: a.city || null,
+        stateProvinceRegion: a.region || null,
+        postalCode: a.postal || null,
+        country: a.country || null,
+      };
+      await tx.address.upsert({
+        where: { partnerId_type: { partnerId: partner.id, type: "mailing" } },
+        create: { partnerId: partner.id, type: "mailing", ...data },
+        update: data,
+      });
+    },
+  },
   [PHOTO]: { label: "Photo", kinds: ["photo"], photo: true },
 };
+
+// A mailing address as one canonical line of JSON: the parts the partner gave, trimmed and in a
+// fixed order, blanks left out. Canonical so two spellings of the same answer compare equal.
+const ADDRESS_PARTS = ["line1", "line2", "city", "region", "postal", "country"];
+function normalizeAddress(raw) {
+  const text = typeof raw === "string" ? raw.trim() : "";
+  if (!text) return { value: null };
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { error: "That address isn't in a form we can read" };
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { error: "That address isn't in a form we can read" };
+  }
+  const out = {};
+  for (const key of ADDRESS_PARTS) {
+    const part = typeof parsed[key] === "string" ? parsed[key].trim() : "";
+    if (part.length > 200) return { error: "An address line is too long" };
+    if (part) out[key] = part;
+  }
+  return Object.keys(out).length ? { value: JSON.stringify(out) } : { value: null };
+}
+
+// The mailing address on file in the same canonical form ("" when none).
+function addressToValue(a) {
+  if (!a) return "";
+  return (
+    normalizeAddress(
+      JSON.stringify({
+        line1: a.addressLine1,
+        line2: a.addressLine2,
+        city: a.city,
+        region: a.stateProvinceRegion,
+        postal: a.postalCode,
+        country: a.country,
+      })
+    ).value || ""
+  );
+}
 
 function simplePartnerText(label, column, max) {
   return {
@@ -108,7 +171,8 @@ async function loadContext(db, partnerId) {
   const partner = await db.partner.findUnique({ where: { id: partnerId } });
   if (!partner) return null;
   const adults = await db.adult.findMany({ where: { partnerId }, orderBy: { createdAt: "asc" } });
-  return { partner, adults };
+  const addresses = await db.address.findMany({ where: { partnerId } });
+  return { partner, adults, addresses };
 }
 
 const clean = (v) => (typeof v === "string" ? v.trim() : "");
@@ -143,4 +207,5 @@ module.exports = {
   currentText,
   sameValue,
   applyField,
+  normalizeAddress,
 };
