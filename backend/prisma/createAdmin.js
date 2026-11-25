@@ -1,11 +1,8 @@
-// Creates (or updates) an admin user so you can log in before
-// is configured. Run with:
+// Creates (or updates) an admin user so you can log in. Run with:
 //   node prisma/createAdmin.js you@yourchurch.org "YourStrongPassword!"
 
-// Prisma 7 stopped auto-loading .env (previously implicit whenever
-// PrismaClient was constructed) -- this script is normally run standalone
-// via `node prisma/createAdmin.js ...`, not through server.js, so it
-// needs its own explicit load now (seed.js already had this).
+// Prisma 7 doesn't auto-load .env, and this script runs standalone (not through server.js),
+// so it loads it explicitly.
 require("dotenv").config({ quiet: true });
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");

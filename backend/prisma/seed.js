@@ -1,10 +1,6 @@
-// Demo/example data generator — fills an empty database with realistic,
-// varied missionary and organization partners so the site's features (map
-// pins, restricted masking, archiving, furlough, church visits, support
-// history, trip capacity, etc.) all have something to show. Every field is
-// randomly generated from curated pools below, not hand-written per record,
-// so re-running produces a fresh (larger) set rather than editing this file
-// per record. Run with `npm run seed` from backend/.
+// Demo/example data generator: fills an empty database with varied missionary and organization
+// partners, all randomly generated from the pools below, so every feature has something to show.
+// Run with `npm run seed` from backend/.
 require("dotenv").config({ quiet: true });
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
@@ -20,25 +16,17 @@ const { replaceQuestions, replaceRequirementItems, answerRows } = require("../sr
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-// Overridable via env for deployments that want a different amount of
-// seed data (e.g. a public demo) without forking this file. `||` would
-// treat an explicit 0 as "unset" and silently fall back to the default,
-// so this checks presence first.
+// Overridable via env. Checks presence rather than using `||`, which would treat an explicit 0
+// as unset.
 const MISSIONARY_COUNT = process.env.SEED_MISSIONARY_COUNT ? Number(process.env.SEED_MISSIONARY_COUNT) : 35;
 const ORGANIZATION_COUNT = process.env.SEED_ORGANIZATION_COUNT
   ? Number(process.env.SEED_ORGANIZATION_COUNT)
   : 12;
-// On by default (local `npm run seed`, the live demo reset) -- unmatched
-// inbound emails, extra admin/editor/viewer users, and a sample pending-
-// dispatches queue, all of which a fresh route-test/CI database must
-// NOT have: those suites assert on InboundEmail/DispatchRecord/User
-// tables assuming nothing but their own fixtures touched them (see
-// CONTRIBUTING.md § Local development data for this exact hazard).
-// CI's e2e job and scripts/test-db.js both set this to "false" before
-// calling this script for that reason -- see each one's own comment.
+// Off for route-test/CI databases: those suites assert on InboundEmail/DispatchRecord/User
+// tables assuming only their own fixtures exist (CONTRIBUTING.md § Local development data). CI's
+// e2e job and scripts/test-db.js set it to "false".
 const SEED_DEMO_EXTRAS = process.env.SEED_DEMO_EXTRAS !== "false";
 
-// --- tiny random helpers ---
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -56,38 +44,19 @@ function randInt(min, max) {
 function chance(p) {
   return Math.random() < p;
 }
-// A date `years` ago, give or take a few months, on a random day of that
-// month.
-//
-// Two bugs lived in the old version, and both showed up the moment the
-// Upcoming Birthdays report started grouping by day:
-//
-//   d.setDate(1)  pinned EVERY seeded date -- birthdays, trip and furlough
-//                 dates, newsletter received dates, support effective dates,
-//                 prayer request dates -- to the first of the month. Demo
-//                 data had thirty-five missionaries all born on the 1st.
-//
-//   local time    these columns are @db.Date, so Prisma stores the UTC
-//                 calendar date. Building the date in local time and keeping
-//                 the current time of day meant that whenever the seed ran
-//                 after ~7pm US Eastern, the 1st was already the 2nd in UTC
-//                 and every date shifted together. Hence a demo where every
-//                 birthday read "October 2".
-//
-// Built in UTC throughout, so what goes in is what comes back out.
+// A date `years` ago, give or take a few months, on a random day of that month. Built in UTC:
+// these columns are @db.Date, so Prisma stores the UTC calendar date, and building it in local
+// time shifted every date a day after about 7pm US Eastern.
 function dateYearsAgo(years, monthsJitter = 6) {
   const now = new Date();
   const year = now.getUTCFullYear() - years;
-  // Date.UTC normalises a negative month by rolling the year back, so no
-  // wrap-around arithmetic is needed here.
+  // Date.UTC rolls a negative month back a year, so no wrap-around arithmetic is needed.
   const month = now.getUTCMonth() - randInt(0, monthsJitter);
-  // Day 0 of the following month is the last day of this one -- keeps
-  // February and the thirty-day months honest without a lookup table.
+  // Day 0 of the following month is the last day of this one.
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   return new Date(Date.UTC(year, month, randInt(1, daysInMonth)));
 }
 
-// `days` after `start`, same UTC-only discipline.
 function daysAfter(start, days) {
   return new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
 }
@@ -98,9 +67,6 @@ function fakePhone() {
   return `(${randInt(200, 999)}) 555-${String(randInt(0, 9999)).padStart(4, "0")}`;
 }
 
-// A handful of real US city/state/zip triples -- enough variety that a
-// list of enriched historical participants doesn't all live in the same
-// town, without the overhead of a real geocoded address pool.
 const US_CITY_POOL = [
   { city: "Rock Island", state: "IL", zip: "61201" },
   { city: "Davenport", state: "IA", zip: "52801" },
@@ -140,11 +106,8 @@ function fakeUsAddress() {
     country: "USA",
   };
 }
-// A plausible adult (not the participant's own) emergency contact --
-// never a real name pulled from the same FIRST/LAST pools in a way that
-// could coincide with the participant's own, but close enough in shape
-// (a family member sharing the participant's last name is the common
-// real-world case for this field).
+// A plausible emergency contact who is not the participant: a family member sharing their last
+// name.
 function fakeEmergencyContact(participantLastName) {
   const firstName = pick(FIRST_M.concat(FIRST_F));
   const lastName = participantLastName || pick(LAST);
@@ -160,11 +123,7 @@ function slugify(s) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
-// --- name pools ---
-// Deliberately generic/fictional-sounding — none of these should coincide
-// with real partner families' names. If you notice an overlap with an
-// actual partner, swap it out; the point of demo data is that it's
-// obviously not anyone real.
+// Deliberately fictional names; none should coincide with a real partner family.
 const FIRST_M = [
   "Aaron",
   "Bill",
@@ -316,7 +275,6 @@ const LAST = [
   "Holloway",
 ];
 
-// --- mission fields (city/country/coords/FIPS) ---
 const FIELDS = [
   { field: "Northern Uganda", city: "Koboko", country: "Uganda", fips: "UG", lat: 3.4, lng: 30.97 },
   { field: "Central Kenya", city: "Nairobi", country: "Kenya", fips: "KE", lat: -1.286, lng: 36.817 },
@@ -409,16 +367,11 @@ const CLOSING_SENTENCES = [
   "Their days are a mix of language learning, relationship building, and ministry planning.",
 ];
 
-// Several differently-worded paragraph shapes, not just one fill-in-the-
-// blank sentence, so the generated bios don't all read identically.
 function joinFocus(list) {
   if (list.length === 1) return list[0];
   if (list.length === 2) return `${list[0]} and ${list[1]}`;
   return `${list.slice(0, -1).join(", ")}, and ${list[list.length - 1]}`;
 }
-// `fam` (isFamily) picks the verb form — a couple gets "have"/"spend", a
-// solo missionary gets "has"/"spends", so the bios read grammatically
-// correct either way.
 const OVERVIEW_TEMPLATES = [
   (name, f, focusList, year, fam) =>
     `${name} ${fam ? "have" : "has"} served in ${f.field} since ${year}, focusing on ${joinFocus(focusList)}. ${pick(CLOSING_SENTENCES)}`,
@@ -440,30 +393,22 @@ const SHORT_TEMPLATES = [
   (f, focusList, year) => `Based in ${f.city} since ${year}, focused on ${focusList[0]}.`,
 ];
 
-// Default e-signature requirement text, generalized from what the user's
-// own church currently asks applicants to agree to -- a real, usable
-// starting point every fork can edit or delete, not hardcoded app logic
-// (CONTRIBUTING.md's "keep forks upgradable" rule). Shared with the real
-// first-run setup path (routes/auth.js) so dev-demo isn't special-cased
-// relative to what a brand-new fork actually gets -- see that module's
-// own comment for the full reasoning.
+// Default e-signature requirement text, shared with the first-run setup path (routes/auth.js) so
+// dev-demo gets the same starting point as a new fork.
 const {
   LIABILITY_RELEASE_TEXT,
   MINOR_RELEASE_TEXT,
   DEFAULT_TRIP_REQUIREMENT_TEMPLATE,
 } = require("../src/utils/defaultTripRequirementTemplate");
 
-// Shared across every seeded passport question (two trip-level
-// applicationQuestions + the church-wide tripQuestionLibrary entry below) --
-// one wording, not three near-duplicates that could drift out of sync.
 const PASSPORT_OPTIONS = [
   "Yes, I have a passport that will be valid for at least 6 months from the time the trip starts",
   "No, I do not have a passport, but there is enough time to get one before the deadline",
   "No, and there is not enough time to get one before the deadline",
 ];
 
-// #394: application questions are real rows. The seed writes them as lists (the same shape the
-// API takes) and answers as { questionId: answer }, then these helpers turn both into rows.
+// Application questions are real rows. The seed writes them as lists (the shape the API takes)
+// and answers as { questionId: answer }, which these helpers turn into rows.
 const SEED_TEMPLATE_QUESTIONS = [
   {
     id: "tmpl2",
@@ -480,13 +425,6 @@ const SEED_TEMPLATE_QUESTIONS = [
     required: true,
     options: ["Yes", "No"],
   },
-  // tmpl6/7/8 promoted from the library (were lib1/2/3) -- the user
-  // asked for these three specifically to be live on every
-  // application by default for the demo, not just available as an
-  // opt-in pick. Moved, not duplicated: a question that's already
-  // live in the template has no remaining reason to also sit in the
-  // picker-only library (same reasoning that already applies to
-  // every other template question -- nothing lives in both lists).
   {
     id: "tmpl6",
     type: "textarea",
@@ -539,9 +477,6 @@ const SEED_OPEN_TRIP_QUESTIONS = [
     required: true,
     options: PASSPORT_OPTIONS,
   },
-  // checkboxes (multi-select, array response) wasn't exercised
-  // anywhere in this seed otherwise -- every other question here or
-  // in the template/library is text/textarea/select/date.
   {
     id: "q4",
     type: "checkboxes",
@@ -640,9 +575,6 @@ const LANGUAGES_POOL = [
   "Romanian",
   "Mongolian",
 ];
-// ILR scale -- see backend/src/routes/proficiencyLevels.js for the full
-// reasoning. Not every seeded language gets one, same as real data: a
-// freshly-added language often has no assessed level yet.
 const PROFICIENCY_LEVELS = ["0", "0+", "1", "1+", "2", "2+", "3", "3+", "4", "4+", "5"];
 function buildLanguages() {
   return pickN(LANGUAGES_POOL, randInt(0, 2)).map((language) => ({
@@ -651,14 +583,6 @@ function buildLanguages() {
   }));
 }
 
-// Replaces the old fixed websiteLink/supportLink/newsletterSignup/
-// facebook/twitter/instagram/linkedin columns -- see
-// backend/src/routes/linkTypes.js for the full reasoning. `slug` is
-// whatever each caller already uses for its own example.com URLs (the
-// missionary's last name lowercased, or the org's slugified name) --
-// these fake URLs never render anywhere real, so one shared shape for
-// both kinds is fine even though the original inline values varied
-// slightly between them.
 function buildLinks(slug) {
   const candidates = [
     chance(0.4) ? { type: "website", url: `https://${slug}.example.com` } : null,
@@ -682,9 +606,8 @@ const SENDING_ORGS = [
   "OMF International",
   "Wycliffe Bible Translators",
 ];
-// Fallback for SendingChurch when Church Settings hasn't been configured
-// yet — per the README's setup order (migrate -> seed -> createAdmin),
-// that's the common case, so this can't rely on churchSettings existing.
+// Fallback for SendingChurch: Church Settings is usually not configured yet when the seed runs
+// (migrate -> seed -> createAdmin).
 const FALLBACK_CHURCH_NAMES = [
   "Grace Community Church",
   "First Baptist Church",
@@ -739,12 +662,8 @@ const NEWSLETTER_OPENERS = [
   "As always, we're thankful for this church family standing behind us",
 ];
 
-// A fraction of generated newsletters/documents get a prayer request
-// and/or one-time need woven in, so a fresh seed/demo reset always has
-// something real for the AI request-scanning feature (see
-// backend/src/utils/extraction.js) to actually find -- otherwise every
-// newsletter is generic "thanks for your support" filler with nothing to
-// extract, and the feature looks broken on a brand-new instance.
+// Some newsletters/documents get a prayer request and/or one-time need so the AI request scanner
+// (utils/extraction.js) has something to find on a fresh instance.
 const PRAYER_REQUEST_LINES = [
   "Please pray for safety as I travel to the field next month.",
   "Please continue praying for wisdom as we plan next steps for the ministry here.",
@@ -770,23 +689,19 @@ const ONE_TIME_NEED_LINES = [
     `We're trusting God for provision to cover an unexpected need this month -- if you feel led to help, please reach out.`,
 ];
 
-// Independent odds -- most newsletters get neither (realistic; most updates
-// are just updates), some get one, a few get both.
 function scannableExtras() {
   const parts = [];
   if (chance(0.4)) parts.push(`Prayer requests:\n${pick(PRAYER_REQUEST_LINES)}`);
   if (chance(0.2)) {
     const line = pick(ONE_TIME_NEED_LINES);
-    const amount = randInt(2, 20) * 100; // round hundreds, like a real ask
+    const amount = randInt(2, 20) * 100;
     parts.push(`One-time need:\n${line(amount)}`);
   }
   return parts.join("\n\n");
 }
 
-// Uploaded as .eml (a plain-text "saved email") rather than a generated
-// PDF — trivially valid with no binary structure to get wrong, and matches
-// one of the file types the Newsletters & Docs feature already explicitly
-// supports (see routes/partnerFiles.js's resolveExt).
+// Uploaded as .eml: trivially valid, and a file type Newsletters & Docs already supports
+// (routes/partnerFiles.js resolveExt).
 function buildFakeEml(fromName, fromSlug, subject, field) {
   const extras = scannableExtras();
   const body = `${pick(NEWSLETTER_OPENERS)} as we serve in ${field}. This season has brought both challenges and encouragement, and we're excited to share a bit of both with you.${extras ? `\n\n${extras}` : ""}\n\nThank you for partnering with us.\n\nIn Him,\n${fromName}`;
@@ -821,9 +736,7 @@ async function maybeAddNewsletter({ partnerId, name, slug, field }) {
   });
 }
 
-// Titles per document kind — see backend/src/routes/fileKinds.js's
-// FILE_KINDS for what these keys mean. "other" pairs a title with its own
-// free-typed customKind, same as a real admin would fill in.
+// Titles per document kind; keys are routes/fileKinds.js's FILE_KINDS.
 const DOCUMENT_TITLES = {
   survey_response: [
     "Annual Field Survey Response",
@@ -847,9 +760,8 @@ const DOCUMENT_NOTES = [
   "Received during the fall check-in cycle.",
 ];
 
-// ~90 chars fits comfortably at 11pt Helvetica within a 612pt-wide page's
-// margins -- rough estimate (no real text-metrics), fine for seed-data
-// placeholder text rather than production typesetting.
+// ~90 chars fits within the page margins at 11pt Helvetica (a rough estimate, fine for
+// placeholder text).
 function wrapText(text, maxChars = 90) {
   const words = text.split(/\s+/);
   const lines = [];
@@ -866,14 +778,9 @@ function wrapText(text, maxChars = 90) {
   return lines;
 }
 
-// A real, structurally-valid single-page PDF (byte-accurate xref table and
-// all) with the title (and, for a fraction of documents, a prayer request
-// and/or one-time need -- see scannableExtras) rendered as text, not just
-// the "%PDF-" magic bytes. An earlier version of this only wrote the magic
-// bytes, which passed routes/documents.js's upload-time signature check but
-// produced a file that opened to nothing. Built by hand rather than pulling
-// in a PDF library, since it's a handful of fixed lines of Helvetica text
-// on one page.
+// A structurally valid single-page PDF (byte-accurate xref table) with the title and any
+// scannable extras rendered as text, so it passes routes/documents.js's signature check and
+// opens to something. Built by hand to avoid a PDF library.
 function buildFakePdf(title, extraText) {
   const escape = (s) => s.replace(/([()\\])/g, "\\$1");
   const bodyLines = extraText
@@ -928,9 +835,6 @@ async function maybeAddDocument({ partnerId, name, slug, field }) {
     fileName = "email.eml";
     contentType = "message/rfc822";
   } else {
-    // Only for kinds where a prayer request/need mention is plausible
-    // content -- a signed policy or background-check result wouldn't
-    // realistically contain one.
     const extraText = kind === "office_document" || kind === "survey_response" ? scannableExtras() : "";
     buffer = buildFakePdf(title, extraText);
     fileName = "document.pdf";
@@ -979,16 +883,11 @@ function personName() {
   return { displayName: `${solo} ${last}`, last, isFamily: false };
 }
 
-// Shape builders live in src/utils/silhouette.js (shared with maskData.js,
-// which uses them with a fixed neutral color for restricted-partner public
-// photos) — here they're used with a randomly-picked color per record,
-// purely for demo-data variety when Pexels isn't configured.
+// Shape builders live in src/utils/silhouette.js (shared with maskData.js); here a random color
+// per record gives variety when Pexels isn't configured.
 const SILHOUETTE_COLORS = ["2a5d3c", "1d4e89", "8a3324", "6b4c9a", "b45309", "0f766e", "7c2d12", "4338ca"];
 
-// Returns { bytes, contentType } -- same shape as downloadAndUploadPhoto's
-// real-photo path below, so resolveMissionaryPhoto/resolveOrgLogo can
-// treat "got a real Pexels photo" and "fell back to a silhouette" the
-// same way.
+// Returns { bytes, contentType }, the same shape as downloadAndUploadPhoto's real-photo path.
 function missionaryPhoto(isFamily, childCount) {
   const bg = pick(SILHOUETTE_COLORS);
   const svg = childCount > 0 ? familySilhouette(bg) : isFamily ? coupleSilhouette(bg) : personSilhouette(bg);
@@ -1001,43 +900,27 @@ function orgLogo() {
   };
 }
 
-// --- Real stock photos via Pexels (optional) ---
-// Entirely optional: if PEXELS_API_KEY isn't set, or a request fails, every
-// function below falls back to the generated SVG silhouettes above, so
-// seeding never hard-fails over a third-party API being unavailable.
+// Real stock photos via Pexels (optional): without PEXELS_API_KEY, or on a failed request,
+// everything falls back to the silhouettes above, so seeding never fails over a third-party
+// outage.
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 
-// Keys match missionaryPhotoCategory()'s return values below. The
-// couple/family queries use specific relationship terms rather than
-// generic ones like "couple" or "parents" -- stock photo libraries tag
-// these terms more consistently with a matching two-adult portrait, which
-// lines up with how personName() above builds a paired household. Pexels
-// has no content-matching guarantee beyond its own tagging, so this is a
-// best effort, not a hard guarantee.
+// Keys match missionaryPhotoCategory()'s return values. Pexels has no content-matching guarantee
+// beyond its own tagging, so results are best effort.
 const PEXELS_MISSIONARY_QUERIES = {
   single_adult: ["portrait of adult smiling", "young professional headshot"],
   couple: ["husband and wife portrait smiling", "man and woman couple portrait outdoor"],
   family_with_kids: ["mother father and children portrait", "mom dad kids family outdoor portrait"],
   large_family: ["mom dad grandparents family group portrait", "parents children large family portrait"],
 };
-// Deliberately NOT "logo"/"brand" terms -- stock libraries tag essentially
-// any designed product photography (packaging, merchandise, ads, across
-// every industry with zero regard for appropriateness) under those same
-// generic branding keywords, and a real reseed against a real Pexels
-// account surfaced exactly that kind of unrelated, inappropriate product
-// photo for a missions app showing a church's partners. These queries ask
-// for photographic content specific to a church/missions context instead
-// of a generic "org" concept, so results land in the same narrow, fitting
-// neighborhood this app actually depicts.
+// Deliberately not "logo"/"brand" terms: stock libraries tag unrelated, sometimes inappropriate
+// product photography with them. These ask for church/missions photography instead.
 const PEXELS_ORG_QUERIES = [
   "church building exterior",
   "mission trip volunteers serving community",
   "world map globe",
 ];
 
-// Mirrors exactly how `adults`/`children` are built above: one adult with
-// no children is "single_adult", two adults with no children is "couple",
-// and from there it's just how many kids.
 function missionaryPhotoCategory(isFamily, childCount) {
   if (!isFamily) return "single_adult";
   if (childCount === 0) return "couple";
@@ -1054,9 +937,7 @@ async function fetchPexelsPhotos(query, perPage = 15) {
       return [];
     }
     const data = await res.json();
-    // .large (~940px) rather than .medium (~350px) -- still a small JPEG,
-    // but holds up on the partner detail page's larger hero photo, not
-    // just card-sized thumbnails.
+    // .large (~940px), not .medium, so it holds up on the partner detail hero photo.
     return (data.photos || []).map((p) => p.src.large);
   } catch (err) {
     console.warn(`  Pexels search errored for "${query}":`, err.message);
@@ -1064,10 +945,8 @@ async function fetchPexelsPhotos(query, perPage = 15) {
   }
 }
 
-// Fisher-Yates shuffle, once per pool -- photos are then handed out in this
-// fixed (but randomized) order, wrapping around if a category runs out, so
-// a run of 50 missionaries doesn't just repeat the same handful of photos
-// in the same order every time.
+// Fisher-Yates shuffle once per pool; photos are handed out in that order, wrapping around, so a
+// run of 50 missionaries doesn't repeat the same few photos.
 function shuffled(arr) {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -1077,10 +956,8 @@ function shuffled(arr) {
   return copy;
 }
 
-// Called once at the start of a seed run -- a handful of Pexels search
-// calls total (one per query above), not per-missionary/organization, so a
-// full reseed stays comfortably under Pexels' free-tier rate limit even
-// run several times in the same hour during local testing.
+// Called once per seed run: one search per query, not per partner, to stay under Pexels'
+// free-tier rate limit.
 async function buildPhotoPools() {
   if (!PEXELS_API_KEY) {
     console.log("PEXELS_API_KEY not set -- using generated silhouette avatars instead of stock photos.");
@@ -1108,11 +985,8 @@ function nextFromPool(pool) {
   return url;
 }
 
-// Downloads the actual image bytes from Pexels' own CDN (not rate-limited
-// the way the search API above is), exactly like a real admin's upload
-// would end up stored -- never a hotlink to an external URL that could
-// change, disappear, or fail CSP. Returns the same { bytes, contentType }
-// shape as the silhouette fallbacks above.
+// Downloads the image bytes from Pexels' CDN and stores them like a real upload (never a hotlink
+// that could change or fail CSP).
 async function downloadAndUploadPhoto(url) {
   try {
     const res = await fetch(url);
@@ -1145,9 +1019,6 @@ function buildOverview(name, fieldInfo, focusList, year, isFamily = true) {
 
 const ALBUM_PROVIDERS = ["google_photos", "icloud", "other"];
 
-// 0-3 rather than 0-2 -- a seeded partner with a longer relationship
-// history should sometimes show three or more past trips, not cap out
-// at two, so Trip History has real variety to scroll through.
 function buildTrips(participantNamePool) {
   const count = randInt(0, 3);
   const trips = [];
@@ -1162,10 +1033,6 @@ function buildTrips(participantNamePool) {
         firstName,
         lastName,
         role: pick(TRIP_ROLES),
-        // Always populated now, not a coin flip -- a historical,
-        // already-completed trip's team is exactly the kind of record
-        // a real admin would have on file in full; "sometimes missing"
-        // only makes sense for a trip still in progress.
         phone: fakePhone(),
         email: chance(0.5) ? `${name.toLowerCase().replace(/\s+/g, ".")}@example.com` : null,
         dateOfBirth: dateBetween(65, 22),
@@ -1226,22 +1093,14 @@ const ANSWERED_NOTES = [
   "The relationship healed after months of prayer.",
 ];
 
-// Not every missionary/org gets one -- seeing some records with none and
-// some with several better represents real usage than a guaranteed 1-3
-// every time. Mirrors buildNeedRequests()'s shape (an array for a direct
-// `{ create: [...] }`), but status is deliberately NOT weighted toward
-// "answered" -- most real prayer requests are still open at any given
-// moment, and seed data should look like that rather than like a
-// showcase of resolved ones. See the PrayerRequest model comment in
-// schema.prisma for why "ongoing" isn't treated as a lesser outcome here.
+// Not every partner gets one. status is deliberately not weighted toward "answered": most real
+// prayer requests are still open.
 function buildPrayerRequests() {
   const count = chance(0.6) ? randInt(1, 3) : 0;
   return Array.from({ length: count }, () => {
     const category = chance(0.5) ? "strategic" : "situational";
     const isStrategic = category === "strategic";
     const requestText = pick(isStrategic ? STRATEGIC_PRAYER_REQUESTS : SITUATIONAL_PRAYER_REQUESTS);
-    // Situational requests are rarely worth tracking for a formal answer;
-    // strategic ones are usually still open at any given snapshot in time.
     const status = isStrategic
       ? pick(["ongoing", "ongoing", "ongoing", "answered"])
       : pick(["untracked", "untracked", "ongoing"]);
@@ -1252,10 +1111,6 @@ function buildPrayerRequests() {
       requestText,
       dateReceived: dateBetween(2, 0),
       isPublic,
-      // Booklet space is capped per partner (see AdminBooklet.jsx), so not
-      // every public request needs to be booklet-eligible -- a little over
-      // half of the public ones, so a seeded partner with several has a
-      // realistic mix rather than either all-in or all-out.
       includeInBooklet: isPublic && chance(0.6),
       status,
       dateAnswered: answered ? dateBetween(0, 0) : null,
@@ -1283,12 +1138,6 @@ const NEED_DECISION_NOTES = {
   ],
 };
 
-// Higher chance and sometimes more than one, so a seeded partner's
-// one-time-need history reads like an actual multi-year relationship
-// rather than at most a single isolated ask -- and both the
-// requested-amount view (undecided) and the decision/approved view
-// (decided, every outcome) get real, varied examples to show off,
-// not just whichever one the dice happened to land on.
 function buildNeedRequests() {
   if (!chance(0.55)) return [];
   const count = chance(0.25) ? 2 : 1;
@@ -1303,11 +1152,6 @@ function buildNeedRequests() {
       const outcome = pick(["full", "partial", "declined"]);
       approvedAmount =
         outcome === "full" ? requested : outcome === "partial" ? Math.round(requested * 0.5) : 0;
-      // decisionNote documents *why* the decision came out this way --
-      // separate from the general `notes` field below, same reasoning
-      // as the schema.prisma comment on SupportNeed.decisionNote.
-      // Populated most of the time a decision exists, not every time,
-      // so a seeded instance also shows the "decided, no note" case.
       decisionNote = chance(0.75) ? pick(NEED_DECISION_NOTES[outcome]) : null;
     }
     return {
@@ -1365,12 +1209,8 @@ const UNMATCHED_EMAIL_OPENERS = [
   "Following up on our conversation from a few weeks back.",
 ];
 
-// The Unmatched Emails admin queue (routes/inboundEmail.js) is always
-// empty after a reset/seed otherwise -- nothing else in this file ever
-// creates an InboundEmail row, since every newsletter/document above is
-// created already assigned to a partner. fromAddress is deliberately
-// unrelated to any seeded partner's own contact/adult email, same as a
-// real stranger's message landing in the review queue.
+// Seeds the Unmatched Emails queue (routes/inboundEmail.js), which nothing else fills.
+// fromAddress is deliberately unrelated to any seeded partner.
 async function seedUnmatchedEmails() {
   const count = randInt(3, 5);
   console.log(`Seeding ${count} unmatched inbound emails...`);
@@ -1437,32 +1277,17 @@ const ADDITIONAL_USERS = [
   },
 ];
 
-// Beyond the one env-var-driven demo admin (createAdmin.js), a handful
-// more across roles/active-state/MFA-required -- so Manage Users has
-// real variety to show, not just a single row. mfaSetupRequired (forces
-// enrollment at next login), not mfaEnabled, for the MFA example --
-// mfaEnabled with no real TOTP secret would leave that account
-// permanently unable to complete login. Fixed, obviously-fake password
-// -- these exist to populate the list, not to be logged into for the
-// demo. None are ever given a cadence: every one of these accounts'
-// email is a generated @example.org address nobody reads, and
-// example.org is a reserved, non-deliverable domain (RFC 2606) -- but a
-// scheduled digest actually attempting to send there is still exactly
-// the kind of thing a demo reset must never do by default. The admin
-// cadence picker's own UI is enough to demonstrate the feature; seeded
-// data doesn't need to exercise the send path too.
-// Trips (#252) demo data -- a handful of hand-crafted trips layered on
-// top of whatever partners buildTrips() already gave random historical
-// trips to, so the new recruiting/team/support-raising feature has
-// something real to click through: one actively-recruiting (public)
-// trip with a pending application and a partial team, one
-// team-finalized (closed) trip, and one restricted-partner trip using
-// the private-link mechanism instead of public discovery. shareToken/
-// applicationShareToken are generated here regardless of
-// ChurchSettings.allowPublicSupportRaisingLinks/allowPrivateApplicationLinks
-// (both off by default) -- an admin flips those settings on to actually
-// use the links this seed already created, same as toggling any other
-// feature on against existing data.
+// More users across roles, active state and MFA-required, so Manage Users has variety.
+// mfaSetupRequired, not mfaEnabled: mfaEnabled with no real TOTP secret would lock the account
+// out. Fixed, obviously fake password: these accounts only populate the list. None get a
+// cadence: their @example.org addresses (RFC 2606) are non-deliverable, and a demo reset must
+// never attempt a digest send.
+//
+// Trips demo data: hand-crafted trips layered on the partners buildTrips() already used: one
+// actively recruiting (public) trip with a pending application and partial team, one closed, and
+// one restricted-partner trip using the private-link mechanism. Share tokens are generated
+// regardless of ChurchSettings.allowPublicSupportRaisingLinks/allowPrivateApplicationLinks (both
+// off by default); an admin turns those on to use them.
 async function seedTripsDemo() {
   console.log("Seeding Trips (#252) demo data...");
   const [openPartner, closedPartner, restrictedPartner, planningPartner] = await Promise.all([
@@ -1475,9 +1300,8 @@ async function seedTripsDemo() {
       orderBy: { displayName: "desc" },
     }),
     prisma.partner.findFirst({ where: { archived: false, isRestricted: true } }),
-    // A third, distinct partner for the new "planning"-stage trip below --
-    // skip: 1 so it's neither the alphabetically-first (openPartner) nor
-    // -last (closedPartner) partner.
+    // A third, distinct partner for the planning-stage trip (skip: 1 avoids the first and
+    // last).
     prisma.partner.findFirst({
       where: { archived: false, isRestricted: false },
       orderBy: { displayName: "asc" },
@@ -1486,9 +1310,6 @@ async function seedTripsDemo() {
   ]);
   if (!openPartner || !closedPartner) return;
 
-  // Needed below for the approved application's own reviewedById -- same
-  // "whoever's seeded as an admin" lookup main() already does for its own
-  // createdById/updatedById attribution.
   const admin = await prisma.user.findFirst({ where: { role: "admin" } });
 
   const openStart = dateBetween(-1, -2);
@@ -1498,13 +1319,8 @@ async function seedTripsDemo() {
   const closedEnd = new Date(closedStart);
   closedEnd.setDate(closedEnd.getDate() + randInt(5, 10));
 
-  // Flight segments (#252 follow-on, replaces the former flightDetails
-  // free text) -- a real connection (two segments, one leg) for the
-  // whole team, plus a separate segment labeled for just two people
-  // flying from a different city, same example shape as the approved
-  // mockup. Demonstrates the actual variability this design exists to
-  // handle (connections, mixed group/individual bookings), not just the
-  // simplest one-segment case.
+  // Flight segments: a two-leg connection for the whole team plus a segment for just two
+  // people flying from elsewhere.
   const outboundLeg1Depart = new Date(openStart);
   outboundLeg1Depart.setHours(8, 15, 0, 0);
   const outboundLeg1Arrive = new Date(outboundLeg1Depart.getTime() + 14.5 * 60 * 60 * 1000);
@@ -1516,8 +1332,7 @@ async function seedTripsDemo() {
 
   const templateSet = await seedQuestionList("template", null, SEED_TEMPLATE_QUESTIONS);
   await seedQuestionList("library", null, SEED_LIBRARY_QUESTIONS);
-  // Same default checklist every brand-new fork gets (see DEFAULT_TRIP_REQUIREMENT_TEMPLATE's own
-  // comment) -- dev-demo isn't special-cased relative to a real new install here.
+  // Same default checklist as a brand-new fork (DEFAULT_TRIP_REQUIREMENT_TEMPLATE).
   await replaceRequirementItems(prisma, "template", DEFAULT_TRIP_REQUIREMENT_TEMPLATE);
   await replaceRequirementItems(prisma, "library", []);
 
@@ -1534,10 +1349,8 @@ async function seedTripsDemo() {
       teamSizeMin: 4,
       teamSizeMax: 10,
       supportRaisingGoal: 1200,
-      // Emergency contact deliberately NOT repeated here -- it's covered by
-      // the church-wide tripApplicationTemplate seeded below, which is
-      // exactly the case that layering exists for: a question every trip
-      // asks lives in the template once, not retyped per trip.
+      // Emergency contact is not repeated here: the church-wide tripApplicationTemplate
+      // covers it.
       applications: {
         create: [
           {
@@ -1549,21 +1362,12 @@ async function seedTripsDemo() {
             emergencyContactLastName: "Okonkwo",
             emergencyContactPhone: "555-0142",
             emergencyContactEmail: "grace.okonkwo@example.org",
-            // Structured address (#252 follow-on) -- at least one seeded
-            // application needs these populated to actually demonstrate
-            // the feature, not just leave the columns null.
             addressLine1: "482 Maple Street",
             city: "Rock Island",
             stateProvinceRegion: "IL",
             postalCode: "61201",
             country: "USA",
-            // Real column, not a template question's answer -- always
-            // collected and required now on the public application.
             dateOfBirth: new Date(Date.UTC(1991, 2, 22)),
-            // Every question this trip actually asks answered (template
-            // layer + this trip's own q1/q3) -- a half-answered pending
-            // application doesn't show what the admin review screen looks
-            // like once someone has actually finished the form.
             responses: {
               tmpl2: "Yes",
               tmpl3: "Yes",
@@ -1577,12 +1381,7 @@ async function seedTripsDemo() {
               q4: ["Construction", "Cooking/Hospitality"],
             },
           },
-          // A declined application, with a real declinedReason -- the
-          // only state missing from this trip's application list
-          // otherwise (pending and approved already existed; nothing
-          // showed the declined flow). Filled out just as completely as
-          // the pending one above -- a declined applicant still finished
-          // the whole form before being turned down, not a half-blank one.
+          // A declined application, with a declinedReason.
           {
             firstName: "Derek",
             lastName: "Palmquist",
@@ -1614,9 +1413,8 @@ async function seedTripsDemo() {
           },
         ],
       },
-      // Budget (estimate-only, trip-wide) -- deliberately doesn't sum to
-      // this trip's own supportRaisingGoal (1200) above, so the demo also
-      // shows the "differs from your goal" hint, not just a clean match.
+      // Budget deliberately doesn't sum to supportRaisingGoal (1200), to show the "differs
+      // from your goal" hint.
       budgetLines: {
         create: [
           { label: "Round-trip flights", estimatedAmount: 650 },
@@ -1626,19 +1424,12 @@ async function seedTripsDemo() {
           { label: "Travel insurance", estimatedAmount: 45 },
         ],
       },
-      // Flight segments are created separately, below, once Priya/John
-      // exist -- the "just these two" segment needs their real ids
-      // (issue #265's participants relation, not a free-text label), so
-      // it can't be nested inside this same create.
-      // Same e-signature requirement as the church-wide
-      // tripRequirementTemplate below, added directly here too so there's
-      // something real to sign on this demo trip without first creating
-      // a brand new one -- a normal new trip gets this automatically via
-      // the template; this trip predates that mechanism in seed order.
-      // All three TripRequirement kinds represented, not just esignature
-      // -- document and task both need a real example too, and (below)
-      // at least one participant fulfilling each while another doesn't,
-      // so the "outstanding" state is visible alongside "done".
+      // Flight segments are created below, once Priya/John exist: the per-participant
+      // segment needs their ids.
+      // Same e-signature requirement as tripRequirementTemplate below, added directly
+      // because this trip is seeded before the template applies. All three TripRequirement
+      // kinds are represented, with some participants fulfilling each and others not, so
+      // "outstanding" shows beside "done".
       requirements: {
         create: [
           {
@@ -1663,17 +1454,13 @@ async function seedTripsDemo() {
       supportRaisingGoal: 1200,
       shareToken: generateShareToken(),
       story: "I'm excited to serve this summer and would love your support!",
-      // Two contributions, two different methods -- a single-row list
-      // doesn't actually show it's a list, and "check" was previously the
-      // only TripContribution.method value anywhere in this seed.
       contributions: {
         create: [
           {
             trip: { connect: { id: openTrip.id } },
             donorName: "Family friend",
-            // donorEmail/donorPhone -- only ever shown when
-            // ChurchSettings.collectDonorContactInfo is on (set below);
-            // nothing in this seed populated either column anywhere.
+            // Only shown when ChurchSettings.collectDonorContactInfo is on (set
+            // below).
             donorEmail: "friend.of.priya@example.org",
             donorPhone: "555-0199",
             amount: 200,
@@ -1692,13 +1479,8 @@ async function seedTripsDemo() {
     },
   });
 
-  // John -- the deliberate contrast to Priya above: no shareToken, no
-  // story, none of the three requirements fulfilled yet. Matches the
-  // "Priya & John" flight segment label already seeded. Demonstrates
-  // the "freshly added, nothing done yet" state (missing support-raising
-  // link included) alongside Priya's "fully set up" one -- a reset that
-  // only ever shows the finished state never demonstrates what "still
-  // needed" actually looks like.
+  // John: the contrast to Priya, with no shareToken, story or fulfilled requirements ("freshly
+  // added").
   const john = await prisma.tripParticipant.create({
     data: {
       trip: { connect: { id: openTrip.id } },
@@ -1709,11 +1491,7 @@ async function seedTripsDemo() {
     },
   });
 
-  // John's photo -- the one participant-photo feature needs at least one
-  // real example. Reuses the same Pexels pool/download mechanism already
-  // used for missionary photos elsewhere in this file, rather than a new
-  // image source; silhouette fallback (no PEXELS_API_KEY) just leaves
-  // John photo-less, which is a fine fallback state, not an error.
+  // John's photo, reusing the Pexels pool; with no PEXELS_API_KEY he stays photo-less.
   try {
     const photoPools = await buildPhotoPools();
     const photoUrl = photoPools && nextFromPool(photoPools.single_adult);
@@ -1730,14 +1508,8 @@ async function seedTripsDemo() {
     console.warn("  Skipping John's seed photo:", err.message);
   }
 
-  // David -- this trip's own teamSizeMin is 4; Priya/John/Amara alone left
-  // it one short of its own stated minimum. Also a second photo example
-  // (previously only John had one) and a fourth distinct partial-profile
-  // shape: direct-added like John, but with a shareToken/story/photo/some
-  // support raised -- started their public page, never got their
-  // emergency contact on file. Completes the document requirement only
-  // (a passport upload), leaving the task and e-signature outstanding --
-  // a different partial-completion combination from Amara's (task-only).
+  // David: brings the team to teamSizeMin (4). Direct-added with shareToken, story, photo and
+  // some support raised, but no emergency contact. Completes only the document requirement.
   const david = await prisma.tripParticipant.create({
     data: {
       trip: { connect: { id: openTrip.id } },
@@ -1778,15 +1550,9 @@ async function seedTripsDemo() {
     console.warn("  Skipping David's seed photo:", err.message);
   }
 
-  // Amara -- the one participant on this trip who actually came through
-  // the real application->approval path (Priya/John above were both
-  // added directly, which is realistic but meant nothing ever
-  // demonstrated a participant whose address/emergency contact/role
-  // arrived pre-filled from their own application, or the new read-only
-  // "Application answers" section on their detail page -- both were
-  // real gaps with no seeded example to show them working). Mirrors
-  // exactly what PUT /api/trips/applications/:id's approval branch does
-  // on a real approval, not a shortcut shape.
+  // Amara: the participant who came through the real application-to-approval path, so address,
+  // emergency contact and role arrive pre-filled and the "Application answers" section has
+  // data. Mirrors PUT /api/trips/applications/:id's approval branch.
   const amaraApplication = await prisma.tripApplication.create({
     data: stripResponses({
       tripId: openTrip.id,
@@ -1842,9 +1608,8 @@ async function seedTripsDemo() {
       emergencyContactEmail: amaraApplication.emergencyContactEmail,
       dateOfBirth: amaraApplication.dateOfBirth,
       supportRaisingGoal: 1200,
-      // Some progress, but well short of the goal -- a third distinct
-      // raised/goal state alongside Priya's (well-funded) and John's
-      // ($0, no shareToken at all).
+      // Raised well short of the goal: a third raised/goal state alongside Priya's
+      // (well-funded) and John's ($0).
       contributions: {
         create: [
           {
@@ -1859,14 +1624,9 @@ async function seedTripsDemo() {
     },
   });
 
-  // Flight segments -- a real connection (two legs, the whole team) plus
-  // a separate segment for just Priya and John, flying from a different
-  // city. Demonstrates the actual variability this design exists to
-  // handle (connections, mixed group/individual bookings). The third
-  // segment's `participants` relation (issue #265) needs Priya/John's
-  // real ids, which is why this whole block waits until after they
-  // (and David/Amara) exist, rather than nesting inside openTrip's own
-  // create above.
+  // Flight segments: a two-leg connection for the whole team plus one for just Priya and John
+  // flying from elsewhere. Created after the participants exist because the per-participant
+  // segment needs their ids.
   await prisma.tripFlightSegment.createMany({
     data: [
       {
@@ -1889,8 +1649,7 @@ async function seedTripsDemo() {
       },
     ],
   });
-  // createMany can't set a many-to-many relation -- this one needs its
-  // own create.
+  // createMany can't set a many-to-many relation, so this needs its own create.
   await prisma.tripFlightSegment.create({
     data: {
       tripId: openTrip.id,
@@ -1904,11 +1663,8 @@ async function seedTripsDemo() {
     },
   });
 
-  // Fulfillment split across the three requirement kinds -- Priya
-  // completes/signs/uploads everything, John does none of it, Amara (below)
-  // does exactly one of the three, so "all done," "none done," and
-  // "partially done" are all visible on the same trip instead of only ever
-  // showing the two extremes.
+  // Fulfillment split: Priya completes everything, John nothing, Amara one of the three, so
+  // all/none/partial are visible.
   const [esigReq, docReq, taskReq] = await Promise.all([
     prisma.tripRequirement.findFirst({ where: { tripId: openTrip.id, kind: "esignature" } }),
     prisma.tripRequirement.findFirst({ where: { tripId: openTrip.id, kind: "document" } }),
@@ -1937,8 +1693,6 @@ async function seedTripsDemo() {
         contentType: "application/pdf",
       },
     });
-    // David completes the document requirement only -- a different
-    // partial-completion combination from Amara's (task-only) above.
     const davidPassportPdf = buildFakePdf(
       "Passport Photo Page",
       "Seed placeholder -- not a real passport scan."
@@ -1956,11 +1710,8 @@ async function seedTripsDemo() {
     });
   }
 
-  // A real signature, not a hand-faked row -- same pdfGeneration.js
-  // utility and server-computed SHA-256 hash the actual sign route
-  // uses, so this seed row is byte-identical in shape to what a real
-  // signature produces (confirmed: the generated PDF opens as a real
-  // PDF, same as the real route's own output).
+  // A real signature: the same pdfGeneration.js utility and server-computed SHA-256 hash the
+  // sign route uses.
   if (esigReq && esigReq.bodyText) {
     try {
       const crypto = require("crypto");
@@ -1988,9 +1739,6 @@ async function seedTripsDemo() {
           bytesRow: { create: { bytes: pdfBytes } },
           fileName: "signed-liability-release.pdf",
           contentType: "application/pdf",
-          // Merged from the former, separate TripSignature model (§20.1
-          // of the plan doc) -- it was always a 1:1 side table keyed off
-          // this exact row, never queried independently of it.
           signerName: `${priya.firstName} ${priya.lastName}`,
           attestedAt,
           ip: "203.0.113.42",
@@ -2003,9 +1751,7 @@ async function seedTripsDemo() {
     }
   }
 
-  // A trip-wide document (participantId: null) -- every TripDocument
-  // seeded above was participant-specific; nothing demonstrated the
-  // shared-with-the-whole-team case (itinerary, packing list) at all.
+  // A trip-wide document (participantId: null), e.g. an itinerary or packing list.
   const itineraryPdf = buildFakePdf(
     "Team Itinerary & Packing List",
     "Seed placeholder -- not a real itinerary."
@@ -2021,13 +1767,9 @@ async function seedTripsDemo() {
     },
   });
 
-  // Meetings -- a completely unrepresented model otherwise. One already
-  // past with its day-before reminder stamped (reminderSentAt), one still
-  // upcoming with no reminder sent yet -- both states the reminder cron
-  // actually needs to distinguish between. Plain day-level Date arithmetic
-  // here, not dateBetween (that helper works in years, meant for
-  // long-past historical content -- not what a meeting a few weeks out
-  // needs).
+  // Meetings: one past with its reminder stamped (reminderSentAt), one upcoming without, the
+  // two states the reminder cron distinguishes. Plain day-level Date arithmetic, since
+  // dateBetween works in years.
   const pastMeetingStart = new Date();
   pastMeetingStart.setDate(pastMeetingStart.getDate() - 14);
   pastMeetingStart.setHours(19, 0, 0, 0);
@@ -2058,12 +1800,8 @@ async function seedTripsDemo() {
     },
   });
 
-  // This second trip previously had nothing beyond its two bare
-  // participants -- no flights, budget, meeting, requirements, or
-  // signature anywhere outside the main open trip, which left every one
-  // of those look like a one-off special case rather than a feature that
-  // works on any trip. A different flavor throughout (domestic build trip,
-  // not an international connection), not a duplicate of the open trip.
+  // A second trip with a different flavor (a domestic build trip), so flights, budget,
+  // meetings, requirements and a signature show on more than one trip.
   const closedFlightDepart = new Date(closedStart);
   closedFlightDepart.setHours(7, 0, 0, 0);
   const closedFlightArrive = new Date(closedFlightDepart.getTime() + 2.5 * 60 * 60 * 1000);
@@ -2089,10 +1827,6 @@ async function seedTripsDemo() {
             shareToken: generateShareToken(),
             story: "Excited to lead this build team again this fall -- thank you for considering a gift!",
           },
-          // Sarah -- the same contrast Priya/John already demonstrate on
-          // the open trip, shown again here so it reads as the normal
-          // range of participant states, not something only the open trip
-          // happens to show.
           { firstName: "Sarah", lastName: "Oyelaran", email: "sarah.o@example.org" },
         ],
       },
@@ -2200,8 +1934,6 @@ async function seedTripsDemo() {
     },
   });
 
-  // Marcus's photo -- a third example, on a trip the open trip's own
-  // participants don't otherwise represent.
   try {
     const photoPools = await buildPhotoPools();
     const photoUrl = photoPools && nextFromPool(photoPools.single_adult);
@@ -2218,10 +1950,7 @@ async function seedTripsDemo() {
     console.warn("  Skipping Marcus's seed photo:", err.message);
   }
 
-  // A trip still in "planning" -- not yet accepting applications. Every
-  // other seeded trip here was already either accepting applications,
-  // closed, or completed; nothing demonstrated this earlier lifecycle
-  // stage at all.
+  // A trip still in "planning", not yet accepting applications.
   if (planningPartner && planningPartner.id !== openPartner.id && planningPartner.id !== closedPartner.id) {
     await prisma.trip.create({
       data: {
@@ -2262,11 +1991,9 @@ async function seedTripsDemo() {
     });
     const restrictedSet = await seedQuestionList("trip", restrictedTrip.id, SEED_RESTRICTED_TRIP_QUESTIONS);
 
-    // Zero participants/applications here otherwise -- the masked (not
-    // excluded) private-link/support-raising code paths this trip's
-    // isPublic: false + restricted partner exist to exercise had nothing
-    // real to click through. Approved via a real application, same
-    // field-copy shape as the open trip's Amara.
+    // Participants and applications so the masked private-link and support-raising paths of
+    // this restricted-partner trip have something to click through. Approved via a real
+    // application, like Amara.
     const restrictedApplication = await prisma.tripApplication.create({
       data: stripResponses({
         tripId: restrictedTrip.id,
@@ -2307,22 +2034,14 @@ async function seedTripsDemo() {
     });
   }
 
-  // A trip with minors on it -- demonstrates the automatic minors flow
-  // end to end: a minor's application with real parent/guardian info and
-  // a date of birth (always collected/required now, no per-trip setting),
-  // the Minor Travel Release requirement (minorsOnly: true, same as the
-  // default auto-applied template every trip now gets), and that
-  // requirement signed by the parent, not the minor, via the
-  // signerRelationship field. Reuses closedPartner rather than a
-  // brand-new partner lookup -- a long-term field partner hosting more
-  // than one short-term team over time is realistic, not a shortcut.
+  // A trip with minors: a minor's application with parent/guardian info and date of birth, and
+  // the Minor Travel Release requirement (minorsOnly) signed by the parent via
+  // signerRelationship. Reuses closedPartner.
   const minorsTripStart = dateBetween(-1, -2);
   const minorsTripEnd = new Date(minorsTripStart);
   minorsTripEnd.setDate(minorsTripEnd.getDate() + randInt(5, 7));
-  // dateYearsAgo (not a hand-rolled `setFullYear`) -- the latter leaves
-  // the month/day pinned to whatever day the seed happens to run on,
-  // so every minor's birthday would land on today's calendar date no
-  // matter how many years back. dateYearsAgo's own jitter avoids that.
+  // dateYearsAgo, not setFullYear, which would pin every minor's birthday to the day the seed
+  // runs.
   const minorDob = dateYearsAgo(15, 11);
 
   const minorsTrip = await prisma.trip.create({
@@ -2397,13 +2116,7 @@ async function seedTripsDemo() {
     },
   });
 
-  // An adult co-leader, direct-added like Priya/John on the open trip --
-  // a trip with minors still needs an adult the minor isn't the only
-  // one on. Given a full profile (phone/address/DOB/emergency contact),
-  // unlike Priya/John/David/Sarah's deliberate partial-profile contrast
-  // elsewhere in this file -- this trip's own point is to show the
-  // minors feature working end to end, not to demonstrate a missing-field
-  // state.
+  // An adult co-leader, direct-added, with a full profile.
   await prisma.tripParticipant.create({
     data: {
       tripId: minorsTrip.id,
@@ -2419,14 +2132,9 @@ async function seedTripsDemo() {
     },
   });
 
-  // The general code-of-conduct/liability release every trip needs --
-  // this trip's own point is demonstrating the minors flow, but that's
-  // additive to the standard agreement every participant (minor or not)
-  // still signs, never a replacement for it. This trip was created
-  // directly via prisma.trip.create (not the real POST /api/trips route),
-  // so it doesn't auto-receive ChurchSettings.tripRequirementTemplate the
-  // way a real new trip would -- both requirements are created by hand
-  // here to match what that auto-copy would have produced.
+  // The general code-of-conduct/liability release, in addition to the minor-specific form.
+  // Created by hand: this trip is made with prisma.trip.create, so it doesn't get
+  // ChurchSettings.tripRequirementTemplate automatically.
   await prisma.tripRequirement.create({
     data: {
       tripId: minorsTrip.id,
@@ -2436,9 +2144,7 @@ async function seedTripsDemo() {
     },
   });
 
-  // minorsOnly: true -- same as the default auto-applied template's own
-  // entry, so this stays inert for the trip's adult participants and
-  // only ever actionable for an actual minor.
+  // minorsOnly: inert for adult participants, as in the default template.
   const minorReleaseRequirement = await prisma.tripRequirement.create({
     data: {
       tripId: minorsTrip.id,
@@ -2449,9 +2155,8 @@ async function seedTripsDemo() {
     },
   });
 
-  // Signed by the parent, not the minor -- signerRelationship records
-  // that honestly. Same real pdfGeneration.js mechanism as every other
-  // seeded signature in this file, not a hand-faked row.
+  // Signed by the parent, not the minor (signerRelationship records that), via the real
+  // pdfGeneration.js mechanism.
   try {
     const crypto = require("crypto");
     const { buildSignedDocumentPdf } = require("../src/utils/pdfGeneration");
@@ -2490,18 +2195,12 @@ async function seedTripsDemo() {
     console.warn("  Skipping minor-release seed e-signature (non-fatal):", err.message);
   }
 
-  // A second minors trip, already completed -- the one above is still
-  // accepting_applications, so nothing showed what the minors flow looks
-  // like after the fact (a finished trip whose team already includes a
-  // minor, with her signed release sitting in its normal historical
-  // state). Reuses openPartner rather than a fresh lookup --
-  // same "a field partner hosts more than one short-term team over time"
-  // reasoning minorsTrip's own reuse of closedPartner already established.
+  // A second minors trip, already completed, to show the flow after the fact. Reuses
+  // openPartner.
   const pastMinorsTripStart = dateBetween(2, 1);
   const pastMinorsTripEnd = new Date(pastMinorsTripStart);
   pastMinorsTripEnd.setDate(pastMinorsTripEnd.getDate() + randInt(6, 9));
-  // Same dateYearsAgo fix as minorDob above -- avoids every minor's
-  // birthday landing on today's calendar date regardless of age.
+  // Same dateYearsAgo reasoning as minorDob above.
   const pastMinorDob = dateYearsAgo(16, 11);
 
   const pastMinorsTrip = await prisma.trip.create({
@@ -2572,9 +2271,7 @@ async function seedTripsDemo() {
     },
   });
 
-  // Same general code-of-conduct/liability release added to the other
-  // minors trip above -- additive to the minor-specific form, not a
-  // replacement for it.
+  // Same general release as the other minors trip.
   await prisma.tripRequirement.create({
     data: {
       tripId: pastMinorsTrip.id,
@@ -2632,24 +2329,11 @@ async function seedTripsDemo() {
     console.warn("  Skipping completed minors trip's seed e-signature (non-fatal):", err.message);
   }
 
-  // Realistic starter content for tripApplicationTemplate/tripQuestionLibrary
-  // -- generalized from a real short-term mission trip application a user
-  // shared (not copied verbatim; every church's own wording differs, and
-  // CONTRIBUTING.md's "keep forks upgradable" rule means this belongs in
-  // this demo church's own seed data, not hardcoded into app code).
-  // tripApplicationTemplate is the universal layer every trip asks;
-  // tripQuestionLibrary is a picker-only set an admin could add to any
-  // trip or the template itself, never live on a form by itself.
-  // Whether the 5 integration-backed toggles below are safe to force on
-  // -- scripts/reset-demo-data.js already established this exact
-  // reasoning (its own comment: flipping one of these on with no key
-  // behind it "shows a toggle that does nothing ... or errors on click
-  // ... worse than just leaving it off"). That script runs first in the
-  // real reset flow and upserts these same credential fields before
-  // this seed ever runs, so reading them back here (rather than reading
-  // env vars directly, which a plain `npm run seed` -- no
-  // DEMO_ADMIN_EMAIL/PASSWORD required -- has no reason to know about)
-  // picks up whatever's actually configured either way.
+  // Starter content for tripApplicationTemplate (the universal layer every trip asks) and
+  // tripQuestionLibrary (a picker-only set, never live on a form by itself).
+  // The 5 integration-backed toggles below are forced on only when a real key exists:
+  // reset-demo-data.js upserts those credential fields before this seed runs, so they are read
+  // back here, and a toggle with no key behind it does nothing or errors.
   const integrationSettings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
     select: {
@@ -2666,21 +2350,11 @@ async function seedTripsDemo() {
   await prisma.churchSettings.update({
     where: { id: "singleton" },
     data: {
-      // Every optional feature on, demo-only -- utils/features.js's own
-      // registry defaults several of these (trips, publicTripDiscovery,
-      // outboundEmail, inboundEmail, groupme, whatsapp,
-      // publicPrayerDigest, aiExtraction, joshuaProject) to off, which is
-      // the right production default but means a demo visitor exploring
-      // this app for the first time would find most of its nav hidden
-      // behind a toggle nobody told them to flip. Every key here is
-      // copied from that registry's own key list, not re-derived --
-      // if a new feature is ever added there, it still needs adding
-      // here too, since seed.js intentionally doesn't import
-      // FEATURE_KEYS (keeping this demo-only literal from quietly
-      // reaching into app code it has no other reason to depend on).
-      // groupme/outboundEmail/inboundEmail/aiExtraction/joshuaProject are
-      // the 5 exceptions -- same conditional-on-a-real-key treatment as
-      // reset-demo-data.js, not unconditionally true like the rest.
+      // Every optional feature on, demo only: utils/features.js defaults several to off,
+      // which would hide most of the nav from a first-time visitor. Keys are copied from
+      // that registry; add new features here too (seed.js does not import FEATURE_KEYS on
+      // purpose). groupme/outboundEmail/inboundEmail/aiExtraction/joshuaProject are on
+      // only when a real key is configured, as in reset-demo-data.js.
       enabledFeatures: {
         publicDirectory: true,
         publicMap: true,
@@ -2691,15 +2365,16 @@ async function seedTripsDemo() {
         trips: true,
         careTeam: true,
         contactLog: true,
-        // #365: key-date reminders are on for a demo so the bell shows them; their email is blocked
-        // on any demo by the scheduler (see utils/demoMode.js).
+        // Key-date reminders on so the bell shows them; their email is blocked on any
+        // demo by the scheduler (utils/demoMode.js).
         keyDates: true,
-        // #374: support preferences, with an example menu and some recorded choices (seedSupportPreferencesDemo).
+        // Support preferences, with an example menu and recorded choices
+        // (seedSupportPreferencesDemo).
         supportPreferences: true,
         // The audit log is on for a demo, with example entries (seedAuditLogDemo).
         auditTrail: true,
-        // Off on a demo: it would email the fake seeded accounts. See
-        // utils/demoMode.js (the reset script applies the same list).
+        // Off on a demo: it would email the fake seeded accounts. See utils/demoMode.js
+        // (the reset script applies the same list).
         ...demoDisabledFeatureFlags(),
         publicTripDiscovery: true,
         booklet: true,
@@ -2718,46 +2393,19 @@ async function seedTripsDemo() {
         aiExtraction: Boolean(integrationSettings?.anthropicApiKey),
         joshuaProject: Boolean(integrationSettings?.joshuaProjectApiKey),
       },
-      // Both default off (schema default) -- left off, a demo visitor
-      // would never see a private application link or a participant's
-      // public support-raising page generated anywhere, even though
-      // this file already seeds the data (shareToken, private links)
-      // those two features show off.
+      // On for the demo (the schema default is off) so private application links and
+      // participant support-raising pages appear.
       allowPrivateApplicationLinks: true,
       allowPublicSupportRaisingLinks: true,
-      // On for the demo specifically (schema default is off) -- a
-      // visitor exploring the demo should see the Financial section
-      // working, not have to find and flip the toggle first.
+      // On for the demo so the Financial section shows.
       enableTripBudgeting: true,
-      // Same "on for the demo" reasoning -- without this, Priya's own
-      // seeded donorEmail/donorPhone above would never actually show
-      // anywhere, since the UI gates on this setting, not on whether the
-      // columns happen to be populated.
+      // On for the demo: the UI gates donorEmail/donorPhone on this setting.
       collectDonorContactInfo: true,
-      // Church-wide, not per-trip (see Trip.onlineGivingUrl's own schema
-      // comment) -- without these, every public Trip Opportunities card's
-      // "Donate" button has nothing to point at and never renders at all.
+      // Church-wide (Trip.onlineGivingUrl); without these the public "Donate" button never
+      // renders.
       onlineGivingUrl: "https://give.example.org/missions",
       onlineGivingInstructions:
         'Choose "Missions Trips" as the fund, and include the team member\'s name in the memo/notes field so their support is credited correctly.',
-      // tmpl5 ("Date of birth," a free-text "date" question) existed
-      // briefly and was dropped once a real, always-collected structured
-      // dateOfBirth field shipped on the application form itself -- same
-      // reasoning tmpl4/tmpl1 below were dropped for address/
-      // emergency contact. The "date" question type itself stays in
-      // utils/applicationQuestions.js -- other date-shaped questions
-      // (e.g. "when does your passport expire") still have a real use
-      // for it; only this one specific question moved to a first-class
-      // column. The former tmpl4 ("Mailing address, one free-text line") was dropped
-      // once ChurchSettings.collectApplicantAddress shipped a real
-      // structured address block on the application form itself --
-      // asking for the same thing twice would be a duplicate, not a
-      // second layer of the same precanned-question system this
-      // template/library pair exists for. The former tmpl1 ("Emergency
-      // contact name and phone, one free-text line") was dropped once
-      // ChurchSettings.collectEmergencyContact shipped a real structured
-      // name/phone/email block on the application form itself -- same
-      // reasoning as tmpl4 (mailing address) being dropped just above.
     },
   });
 }
@@ -2786,21 +2434,12 @@ async function seedAdditionalUsers() {
   }
 }
 
-// A curated handful of DispatchRecord rows against partners already
-// seeded above, covering the states Pending Dispatches should show
-// off: an ordinary sendable prayer request, an answered one, a
-// restricted partner's prayer request left deliberately unreviewed
-// (the "awaiting review" badge -- #218, the one state a fresh reset
-// otherwise never demonstrates), an undecided one-time need, a decided
-// one, and a newsletter. Reuses the real notify* functions
-// (dispatchRecording.js) rather than hand-building DispatchRecord
-// payloads here, so a seeded row is byte-identical in shape to what a
-// real create would have produced and can't silently drift out of sync
-// with the real payload shape. None of this risks an actual send:
-// these functions only ever enqueue a row (isUrgent is never set true
-// by anything above), and whether a scheduled pass could later pick one
-// up depends entirely on ChurchSettings' own schedule fields, which the
-// demo reset deliberately leaves unset -- see reset-demo-data.js.
+// A curated handful of DispatchRecord rows covering the states Pending Dispatches should show: a
+// sendable prayer request, an answered one, a restricted partner's request left unreviewed
+// ("awaiting review"), an undecided need, a decided one and a newsletter. Uses the real notify*
+// functions (dispatchRecording.js) so rows match real payloads. Nothing is sent: they only
+// enqueue (isUrgent is never set), and the demo reset leaves ChurchSettings' schedule fields
+// unset (reset-demo-data.js).
 async function seedNotificationQueue() {
   console.log("Seeding a sample pending-dispatches queue...");
   const {
@@ -2853,20 +2492,13 @@ async function seedNotificationQueue() {
   if (newsletter) await notifyNewsletterCreated(newsletter);
 }
 
-// ---------------------------------------------------------------------
-// Care teams and guest accounts (#289, #356) -- so the demo sites show the
-// whole care-team goal, not an empty feature. Demo-extras only (like the other
-// seeders above): the route-test database assumes nothing but its own fixtures
-// touched User/DispatchRecord.
+// Care teams and guest accounts. Demo extras only: the route-test database assumes
+// nothing but its own fixtures touched User/DispatchRecord.
 //
-// Two demo logins are PUBLISHED (demo/README.md), the same way the demo admin's
-// is: a care team member and a trip leader. They are the one exception to
-// "MFA is required for a guest" -- a shared, published account can't enrol an
-// authenticator without locking every other visitor out, so these two are
-// created with mfaSetupRequired off (the API/Add User path always forces it
-// on). Everything else seeded here is a populate-the-list account nobody logs
-// into, with the fixed fake password the other additional users use.
-// ---------------------------------------------------------------------
+// Two demo logins are published (demo/README.md): a care team member and a trip leader. They are
+// the exception to "MFA is required for a guest": a shared, published account can't enrol an
+// authenticator without locking out other visitors, so they are created with mfaSetupRequired
+// off. Everything else is a populate-the-list account with the fixed fake password.
 // Defined once in src/utils/demoLogins.js, which the demo banner also reads.
 const {
   demoCareMemberEmail,
@@ -3029,12 +2661,9 @@ async function seedCareTeamsDemo() {
   }
 }
 
-// ---------------------------------------------------------------------
-// Contact log demo (#288): a believable history so the contact card, the log,
-// "My partners" and the "Partners to reach out to" alert all have something
-// to show. Runs after seedCareTeamsDemo -- it reads the seats that made.
-// Demo extras only, like the other seeders.
-// ---------------------------------------------------------------------
+// Contact log demo: a believable history for the contact card, the log, "My partners" and
+// the "Partners to reach out to" alert. Runs after seedCareTeamsDemo, which creates the seats it
+// reads. Demo extras only.
 async function seedContactLogDemo() {
   console.log("Seeding the contact log...");
   const daysAgo = (n) => new Date(Date.now() - n * DAY_MS);
@@ -3208,13 +2837,9 @@ async function seedContactLogDemo() {
   }
 }
 
-// ---------------------------------------------------------------------
-// Key-date reminders demo (#291): birthdays landing inside the 7-day window so
-// the bell shows something the day a demo is reset, and a default lead so a
-// partner with no care team still has someone to tell. Dates are relative to
-// "now" (a fixed date would be stale by the next reset). Runs after the care
-// teams and contact log. Demo extras only.
-// ---------------------------------------------------------------------
+// Key-date reminders demo: birthdays inside the 7-day window so the bell has something on
+// reset day, and a default lead for a partner with no care team. Relative to now (a fixed date
+// would go stale). Runs after the care teams and contact log. Demo extras only.
 async function seedKeyDatesDemo() {
   console.log("Seeding key-date reminders...");
   const inDays = (n, yearsAgo) => {
@@ -3264,14 +2889,11 @@ async function seedKeyDatesDemo() {
   }
 }
 
-// #341: "Last edited by" for the demo. Nothing in the seed is a signed-in person's edit, so
-// every seeded record has no editor, and the Partners and Trips "Last updated" column and the
-// "Last edited by" lines would all be blank until a visitor changed something. Stamp most
-// partners, trips, prayer requests and needs with one of the demo's staff and a date spread
-// over the last ten weeks, so the column has something to sort and the lines something to
-// show, and leave about one in seven blank, as a real install has ("blank means no signed-in
-// person has changed it"). The care team member is the editor on some prayer requests and
-// needs, since care team members can edit those. Deterministic by creation order.
+// "Last edited by" for the demo: the seed has no signed-in editor, so the Partners/Trips
+// "Last updated" column would be blank. Stamp most partners, trips, prayer requests and needs
+// with a demo staff member and a date spread over ten weeks, leaving about one in seven blank as
+// on a real install. The care team member edits some requests and needs, since care team members
+// can. Deterministic by creation order.
 async function seedLastEditedDemo() {
   console.log("Stamping last-edited-by on the demo records...");
   const staff = await prisma.user.findMany({
@@ -3289,9 +2911,8 @@ async function seedLastEditedDemo() {
     d.setHours(8 + ((i * 3) % 10), (i * 11) % 60, 0, 0);
     return { lastEditedById: u.id, lastEditedByName: nameOf(u), lastEditedAt: d };
   };
-  // Give each trip an "Added" date (#383): some weeks before it starts, never in the future,
-  // in start-date order so the result is stable. (Every trip would otherwise be added "now",
-  // the moment the seed ran.)
+  // Give each trip an "Added" date: some weeks before it starts, never in the future,
+  // in start-date order so the result is stable.
   const trips = await prisma.trip.findMany({
     orderBy: [{ startDate: "asc" }, { id: "asc" }],
     select: { id: true, startDate: true },
@@ -3321,12 +2942,9 @@ async function seedLastEditedDemo() {
   console.log(`  stamped ${stamped} records`);
 }
 
-// ---------------------------------------------------------------------
-// Support preferences demo (#374): the example menu, and a handful of partners that have
-// chosen from it, so the card and the report have something to show. Deterministic (by
-// partner order); roughly a third of the partners with a care team have nothing recorded, so
-// "partners with nothing recorded" has rows too. Demo extras only; runs after the care teams.
-// ---------------------------------------------------------------------
+// Support preferences demo: the example menu and a handful of partners' choices.
+// Deterministic; about a third of partners with a care team have nothing recorded, so that
+// report has rows too. Demo extras only; runs after the care teams.
 async function seedSupportPreferencesDemo() {
   console.log("Seeding support preferences...");
   const { addExampleOptions } = require("../src/utils/supportOptions");
@@ -3401,12 +3019,9 @@ async function seedSupportPreferencesDemo() {
   console.log(`  recorded support preferences for ${recorded} partners`);
 }
 
-// ---------------------------------------------------------------------
-// Trip debriefs demo (#358): a few completed trips with a wrap-up debrief, so the Debrief section
-// on a trip's Overview has something to show. The most recent ones were wrapped up in the last
-// two weeks, so the care team's "Trips wrapped up" bell item has something to say too. Demo
-// extras only; deterministic (by end date, newest first).
-// ---------------------------------------------------------------------
+// Trip debriefs demo: a few completed trips with a wrap-up debrief, the most recent
+// inside the last two weeks so the care team's "Trips wrapped up" bell item has something to
+// say. Demo extras only; deterministic (by end date, newest first).
 async function seedTripDebriefsDemo() {
   console.log("Seeding trip debriefs...");
   const trips = await prisma.trip.findMany({
@@ -3450,7 +3065,7 @@ async function seedTripDebriefsDemo() {
   }
 
   // One trip that has finished but isn't wrapped up, so the "Trips ready to wrap up" bell item has
-  // something to show and a visitor can walk the Wrap up trip wizard themselves (#358).
+  // something to show and a visitor can walk the Wrap up trip wizard themselves.
   const host = await prisma.trip.findFirst({
     where: { partnerId: { not: null }, status: "completed" },
     orderBy: { id: "asc" },
@@ -3473,16 +3088,12 @@ async function seedTripDebriefsDemo() {
   }
 }
 
-// ---------------------------------------------------------------------
-// Care team updates demo (#292): a decided need and an answered prayer on a
-// partner the published care member looks after, so "Updates to pass on to
-// partners" has something to show on the bell. Relative dates, like the other
-// demo seeders. Demo extras only; runs after the care teams and contact log.
-// ---------------------------------------------------------------------
-// #341: example entries for the audit log, so a demo visitor sees what it
-// records. Entries sit inside the default 90-day retention window, are written
-// by the demo's real accounts, and use reserved documentation IP addresses
-// (RFC 5737). Account-deleted examples use ids that match no user.
+// Care team updates demo: a decided need and an answered prayer on a partner the
+// published care member looks after, so "Updates to pass on to partners" has something on the
+// bell. Relative dates. Demo extras only; runs after the care teams and contact log.
+// Example audit log entries, inside the default 90-day retention window, written by the
+// demo's real accounts, with reserved documentation IPs (RFC 5737). Account-deleted examples use
+// ids that match no user.
 async function seedAuditLogDemo() {
   console.log("Seeding the audit log...");
   const { demoEmailDomain } = require("../src/utils/demoLogins");
@@ -3794,14 +3405,9 @@ async function main() {
     const isPublic = chance(0.85);
     const isRestricted = isPublic && chance(0.12);
     const archived = i < 2; // first couple are archived, to demo the feature
-    // Every missionary (unlike an organization, which has no sending
-    // church/org relation at all) always gets both a SendingChurch and a
-    // SendingOrg record — the schema has no constraint making these mutually
-    // exclusive, and every seeded record should demonstrate both parts of
-    // the data model rather than leaving either blank. sentByOurChurch just
-    // decides whether that SendingChurch happens to be us (using our real
-    // Church Settings) or another church (fictional fallback name) — it
-    // doesn't gate whether the record exists at all anymore.
+    // Every missionary gets both a SendingChurch and a SendingOrg record (the schema doesn't
+    // make them exclusive). sentByOurChurch decides whether the SendingChurch is this church
+    // (from Church Settings) or a fictional one.
     const sentByOurChurch = churchSettings && chance(0.3);
     const fallbackChurchName = pick(FALLBACK_CHURCH_NAMES);
     const sendingOrgName = pick(SENDING_ORGS);
@@ -3815,9 +3421,6 @@ async function main() {
       `${pick(FIRST_F)} ${pick(LAST)}`,
     ];
 
-    // Every missionary gets at least one Adult record (themselves) — a solo
-    // missionary isn't just an empty household, and this is the only place
-    // their own phone/email live separate from the top-level contact fields.
     const adults = isFamily
       ? [
           {
@@ -3830,8 +3433,8 @@ async function main() {
             contactMethod: pick(CONTACT_METHODS),
           },
           {
-            // displayName.split(" and ")[1] is "<firstName> <lastName>" --
-            // the second spouse's own first name plus the shared last name.
+            // The second spouse: first name from displayName.split(" and ")[1] plus
+            // the shared last name.
             firstName: displayName.split(" and ")[1].split(" ")[0],
             lastName: last,
             phone1: fakePhone(),
@@ -3868,10 +3471,8 @@ async function main() {
                 notes: "Currently stateside for home assignment.",
               }
             : (() => {
-                // End derived from start, not drawn separately. The two were
-                // independent before and stayed in order only because every
-                // seeded date was the 1st of some month; once days vary, a
-                // start and end in the same month invert about half the time.
+                // End derived from start: drawn independently, a start and end
+                // in the same month would invert about half the time.
                 const startDate = dateBetween(3, 1);
                 return {
                   startDate,
@@ -3901,8 +3502,7 @@ async function main() {
         focusArea: `Primary focus: ${focusList.join(", ")}.`,
         supportingSince: new Date(year, 0, 1),
         anniversary: isFamily ? dateBetween(35, 5) : null,
-        // Not every partner has had this recorded -- leave a meaningful
-        // fraction "Never" rather than always filling it in.
+        // Not every partner has this recorded; leave a fraction "Never".
         lastPrayedWithCongregationAt: chance(0.6) ? dateBetween(1, 0) : null,
         languages: { create: buildLanguages() },
         tripTeamSizeMin: chance(0.7) ? randInt(2, 6) : null,
@@ -3950,9 +3550,6 @@ async function main() {
         supportEntries: { create: buildSupportEntries() },
         needRequests: { create: buildNeedRequests() },
         prayerRequests: { create: buildPrayerRequests() },
-        // #271 Finding 3: ChurchSettings' address fields are flat columns
-        // now, same shape/names as SendingParty's own, so they're just
-        // picked straight across rather than spread from a nested object.
         sendingParties: {
           create: [
             sentByOurChurch
@@ -4047,8 +3644,7 @@ async function main() {
         overviewShort,
         focusArea: `Primary focus: ${focusList.join(", ")}.`,
         supportingSince: new Date(year, 0, 1),
-        // Not every partner has had this recorded -- leave a meaningful
-        // fraction "Never" rather than always filling it in.
+        // Not every partner has this recorded; leave a fraction "Never".
         lastPrayedWithCongregationAt: chance(0.6) ? dateBetween(1, 0) : null,
         contactFirstName: pick(FIRST_M.concat(FIRST_F)),
         contactLastName: pick(LAST),
@@ -4128,10 +3724,8 @@ async function main() {
   console.log(`Done. Missionaries: ${finalMissionaries}, Organizations: ${finalOrgs}.`);
 }
 
-// Guarded so this file can be safely require()'d elsewhere (e.g. to reuse
-// buildFakePdf/buildFakeEml for a quick manual check) without silently
-// re-running the whole seed against whatever DATABASE_URL happens to be
-// active -- found the hard way while verifying this file's own changes.
+// Guarded so this file can be require()'d (e.g. to reuse buildFakePdf/buildFakeEml) without
+// re-running the whole seed against the active DATABASE_URL.
 if (require.main === module) {
   main()
     .catch((err) => {
@@ -4141,11 +3735,8 @@ if (require.main === module) {
     .finally(() => prisma.$disconnect());
 }
 
-// seedTripsDemo exported alongside the existing three -- lets Trips demo
-// data be reset and reseeded on its own (e.g. after cleaning up duplicate
-// rows created by running the full seed repeatedly) without re-running
-// the whole missionary/organization seed, which is additive and would
-// otherwise just keep growing every time.
+// seedTripsDemo is exported so Trips demo data can be reset and reseeded alone; the full seed is
+// additive and would keep growing.
 module.exports = {
   buildFakePdf,
   buildFakeEml,

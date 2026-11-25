@@ -1,10 +1,8 @@
-// Opt-in script: runs a real Claude extraction scan against each fixture
-// letter in test/fixtures/extraction/ and prints the results next to its
-// answer key, for a human to compare. Not part of `npm test` or
-// `npm run test:routes` -- every run spends real money on whichever
-// Anthropic account ANTHROPIC_API_KEY belongs to, and comparing extracted
-// background/requestText against an answer key's expected phrasing is a
-// judgment call, not something worth a brittle string-match assertion.
+// Opt-in script: runs a real Claude extraction scan against each fixture letter in
+// test/fixtures/extraction/ and prints the results next to its answer key, for a human to
+// compare. Not part of `npm test` or `npm run test:routes`: every run spends real money on the
+// Anthropic account ANTHROPIC_API_KEY belongs to, and comparing extracted text against an answer
+// key is a judgment call, not a string-match assertion.
 //
 // Usage:
 //   ANTHROPIC_API_KEY=sk-ant-... npm run check:extraction
@@ -18,21 +16,18 @@ const { extractRequestsFromFile } = require("../src/utils/extraction");
 
 const FIXTURES_DIR = path.join(__dirname, "../test/fixtures/extraction");
 
-// extractRequestsFromFile only reads PDF/JPEG/PNG natively, or .eml via
-// mailparser (see isEml/buildFileBlock) -- wrapping each plain-text
-// fixture as a minimal .eml runs it through the exact same code path a
-// real forwarded letter would take, rather than adding a third, test-only
-// input format to extraction.js itself.
+// extractRequestsFromFile reads PDF/JPEG/PNG natively, or .eml via mailparser (see
+// isEml/buildFileBlock). Each plain-text fixture is wrapped as a minimal .eml so it takes the
+// same path as a real forwarded letter.
 function wrapAsEml(text) {
   return Buffer.from(
     `From: missionary@example.org\r\nTo: missions@example.org\r\nSubject: Update\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${text}`
   );
 }
 
-// Temporarily points ChurchSettings.anthropicApiKey at the real key this
-// script was given, restoring whatever was there before once done --
-// extraction.js always reads the key from the DB (see its own comment on
-// why), never from the environment directly.
+// Temporarily points ChurchSettings.anthropicApiKey at the key this script was given, restoring
+// the previous value afterwards: extraction.js always reads the key from the DB, never the
+// environment.
 async function withTemporaryApiKey(key, fn) {
   const existing = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },

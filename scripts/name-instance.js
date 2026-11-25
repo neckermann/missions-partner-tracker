@@ -1,19 +1,13 @@
 #!/usr/bin/env node
 // Renames the Render services in render.yaml for one church's instance.
 //
-// Render Blueprints cannot prompt for a service name: the spec requires
-// `name` to be a static string, and Render explicitly does not support
-// variable interpolation in Blueprint files. The service name is also what
-// determines the deployed URL (<name>.onrender.com). So the only way to
-// control either is to edit render.yaml before deploying -- which is what
-// this does, as one command rather than four hand-edits that all have to
-// agree with each other.
+// Render Blueprints can't prompt for a service name: `name` must be a static string, with no
+// variable interpolation, and it determines the deployed URL (<name>.onrender.com). So the name
+// is set by editing render.yaml, here as one command rather than four hand-edits that must
+// agree.
 //
-// The same applies to `region`, and more sharply: it's optional, it
-// silently defaults to oregon, and Render's spec says "You can't modify
-// this value after creation." Getting it wrong means destroying and
-// recreating every resource to fix it -- which is exactly how this
-// project's demo ended up with a Blueprint that could never sync.
+// The same applies to `region`: it is optional, silently defaults to oregon, and "can't be
+// modified after creation", so a wrong value means recreating every resource.
 //
 // Usage:  npm run name-instance -- your-church-name oregon
 
@@ -23,8 +17,7 @@ const path = require("path");
 const requested = process.argv[2];
 const requestedRegion = process.argv[3];
 
-// From Render's Blueprint spec. Kept here so a typo fails now rather than
-// at deploy time, when the resource has already been created somewhere.
+// From Render's Blueprint spec. Kept here so a typo fails now rather than at deploy time.
 const REGIONS = ["oregon", "ohio", "virginia", "frankfurt", "singapore"];
 
 if (!requested) {
@@ -53,8 +46,8 @@ if (!requested) {
   process.exit(1);
 }
 
-// Render service names allow letters, numbers and hyphens. Check here
-// rather than let Render reject the blueprint after a deploy attempt.
+// Render service names allow letters, numbers and hyphens. Checked here rather than rejected
+// after a deploy attempt.
 if (!/^[a-z0-9][a-z0-9-]{1,60}[a-z0-9]$/.test(requested)) {
   console.error(
     '"' +
@@ -76,17 +69,14 @@ const dbName = requested.replace(/-/g, "_");
 const file = path.join(__dirname, "..", "render.yaml");
 const raw = fs.readFileSync(file, "utf8");
 
-// Normalise line endings before matching. On Windows, git checks files out
-// with CRLF by default, and every pattern below anchors on a bare newline --
-// so on a fresh clone every match silently fails and this reports that
-// render.yaml has an unrecognised structure. Git re-applies the platform's
-// convention on commit, so writing LF back is correct either way.
+// Normalise line endings before matching: on Windows git checks out CRLF, every pattern below
+// anchors on a bare newline, and every match would silently fail. Git re-applies the platform's
+// convention on commit, so writing LF back is correct.
 const usedCrlf = raw.includes("\r\n");
 const text0 = usedCrlf ? raw.replace(/\r\n/g, "\n") : raw;
 let text = text0;
 
-// Match whatever the names currently are rather than assuming the upstream
-// defaults, so this stays re-runnable.
+// Match whatever the names currently are, not the upstream defaults, so this stays re-runnable.
 const currentService = (text.match(/^ {2}- name: (\S+)\n {4}type: web/m) || [])[1];
 const currentDb = (text.match(/^databases:\n {2}- name: (\S+)/m) || [])[1];
 
@@ -95,8 +85,8 @@ if (!currentService || !currentDb) {
   process.exit(1);
 }
 
-// Whatever the file currently says, so omitting the argument is a no-op
-// rather than a silent reset to Render's oregon default.
+// Whatever the file currently says, so omitting the argument is a no-op rather than a reset to
+// Render's oregon default.
 const currentRegion = (text.match(/^ {4}region: (\S+)$/m) || [])[1] || "oregon (implied default)";
 const region = requestedRegion || currentRegion;
 
